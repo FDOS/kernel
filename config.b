@@ -111,7 +111,6 @@ set XFAT=16
 :- Give extra compiler DEFINE flags here
 :- such as -DDEBUG : extra DEBUG output
 :-         -DDOSEMU : printf output goes to dosemu log
-:-	   -p : use PASCAL calling convention with Turbo C
 :- set ALLCFLAGS=-DDEBUG
 
 
