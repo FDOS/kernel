@@ -481,14 +481,15 @@ void AllocateHMASpace (size_t lowbuffer, size_t highbuffer)
 
   do
   {
-    if (FP_OFF(bp) < highbuffer && FP_OFF(bp+1) >= lowbuffer)
+    /* check if buffer intersects with requested area                  */
+    if (FP_OFF(bp) < highbuffer && FP_OFF(bp+1) > lowbuffer)
     {
       flush1(bp);
       /* unlink bp from buffer chain */
 
       b_prev(bp)->b_next = bp->b_next;
       b_next(bp)->b_prev = bp->b_prev;
-      if (bp == firstbuf)
+      if (FP_OFF(bp) == FP_OFF(firstbuf))
         firstbuf = b_next(bp);
       LoL_nbuffers--;
     }
