@@ -59,13 +59,25 @@ COUNT DosDevIOctl(lregs * r)
   sft FAR *s;
   struct dpb FAR *dpbp;
   COUNT nMode;
+  unsigned char al = r->AL;
+
+  if (al > 0x11)
+    return DE_INVLDFUNC;
 
   /* commonly used, shouldn't harm to do front up */
-
+  if (al == 0x0C || al == 0x0D || al >= 0x10) /* generic or query */
+  {
+    CharReqHdr.r_cat = r->CH;            /* category (major) code */
+    CharReqHdr.r_fun = r->CL;            /* function (minor) code */
+    CharReqHdr.r_io = MK_FP(r->DS, r->DX);    /* parameter block */
+  }
+  else
+  {
+    CharReqHdr.r_count = r->CX;
+    CharReqHdr.r_trans = MK_FP(r->DS, r->DX);
+  }
   CharReqHdr.r_length = sizeof(request);
-  CharReqHdr.r_trans = MK_FP(r->DS, r->DX);
   CharReqHdr.r_status = 0;
-  CharReqHdr.r_count = r->CX;
 
   /* Test that the handle is valid                                */
   switch (r->AL)

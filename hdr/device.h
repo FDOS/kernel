@@ -366,6 +366,19 @@ typedef struct {
     struct {
       unsigned char _r_ndbyte;  /*  Byte Read From Device       */
     } _r_nd;
+    struct {
+      UBYTE _r_cat;             /* Category code */
+      UBYTE _r_fun;             /* Function code */
+      UBYTE unused[4];          /* SI or DI contents or DS:reqhdr */
+      union
+      {
+        struct gblkio FAR *_r_io;
+        struct gblkrw FAR *_r_rw;
+        struct gblkfv FAR *_r_fv;
+        struct Gioc_media FAR *_r_gioc;
+        struct Access_info FAR *_r_ai;
+      } _r_par;                 /* Pointer to param. block from 440C/440D */
+    } _r_gen;
   } _r_x;
 } request;
 
@@ -402,6 +415,15 @@ typedef struct {
 
 /* ndread packet macros                                                 */
 #define r_ndbyte        _r_x._r_nd._r_ndbyte
+
+/* generic IOCTL and IOCTL query macros */
+#define r_cat           _r_x._r_gen._r_cat
+#define r_fun           _r_x._r_gen._r_fun
+#define r_rw            _r_x._r_gen._r_par._r_rw
+#define r_io            _r_x._r_gen._r_par._r_io
+#define r_fv            _r_x._r_gen._r_par._r_fv
+#define r_gioc          _r_x._r_gen._r_par._r_gioc
+#define r_ai            _r_x._r_gen._r_par._r_ai
 
 /*
  *interrupt support (spl & splx) support - IBM style

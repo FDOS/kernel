@@ -472,19 +472,23 @@ STATIC WORD IoctlQueblk(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(pddt);
 
-  switch (rp->r_count)
+#ifdef WITHFAT32
+  if (rp->r_cat == 8 || rp->r_cat == 0x48)
+#else
+  if (rp->r_cat == 8)
+#endif
   {
-    case 0x0846:
-    case 0x0847:
-    case 0x0860:
-    case 0x0866:
-    case 0x0867:
-      break;
-    default:
-      return failure(E_CMD);
+    switch (rp->r_fun)
+    {
+    case 0x46:
+    case 0x47:
+    case 0x60:
+    case 0x66:
+    case 0x67:
+      return S_DONE;
+    }
   }
-  return S_DONE;
-
+  return failure(E_CMD);
 }
 
 STATIC COUNT Genblockio(ddt * pddt, UWORD mode, WORD head, WORD track,
@@ -506,18 +510,18 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
 #ifdef WITHFAT32
   int extended = 0;
 
-  if ((rp->r_count >> 8) == 0x48)
+  if (rp->r_cat == 0x48)
     extended = 1;
   else
 #endif
-  if ((rp->r_count >> 8) != 8)
+  if (rp->r_cat != 8)
     return failure(E_CMD);
 
-  switch (rp->r_count & 0xff)
+  switch (rp->r_fun)
   {
     case 0x40:                 /* set device parameters */
       {
-        struct gblkio FAR *gblp = (struct gblkio FAR *)rp->r_trans;
+        struct gblkio FAR *gblp = rp->r_io;
         bpb *pbpb;
 
         pddt->ddt_type = gblp->gbio_devtype;
@@ -539,7 +543,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       }
     case 0x41:                 /* write track */
       {
-        struct gblkrw FAR *rw = (struct gblkrw FAR *)rp->r_trans;
+        struct gblkrw FAR *rw = rp->r_rw;
         ret = Genblockio(pddt, LBA_WRITE, rw->gbrw_head, rw->gbrw_cyl,
                          rw->gbrw_sector, rw->gbrw_nsecs, rw->gbrw_buffer);
         if (ret != 0)
@@ -548,7 +552,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       break;
     case 0x42:                 /* format/verify track */
       {
-        struct gblkfv FAR *fv = (struct gblkfv FAR *)rp->r_trans;
+        struct gblkfv FAR *fv = rp->r_fv;
         COUNT tracks;
         struct thst {
           UBYTE track, head, sector, type;
@@ -650,7 +654,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
 
     case 0x62:                 /* verify track */
       {
-        struct gblkfv FAR *fv = (struct gblkfv FAR *)rp->r_trans;
+        struct gblkfv FAR *fv = rp->r_fv;
 
         ret = Genblockio(pddt, LBA_VERIFY, fv->gbfv_head, fv->gbfv_cyl, 0,
                          (fv->gbfv_spcfunbit ?
@@ -663,7 +667,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       break;
     case 0x46:                 /* set volume serial number */
       {
-        struct Gioc_media FAR *gioc = (struct Gioc_media FAR *)rp->r_trans;
+        struct Gioc_media FAR *gioc = rp->r_gioc;
         struct FS_info *fs;
 
         ret = getbpb(pddt);
@@ -682,14 +686,14 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       break;
     case 0x47:                 /* set access flag */
       {
-        struct Access_info FAR *ai = (struct Access_info FAR *)rp->r_trans;
+        struct Access_info FAR *ai = rp->r_ai;
         pddt->ddt_descflags = (descflags & ~DF_NOACCESS) |
           (ai->AI_Flag ? 0 : DF_NOACCESS);
       }
       break;
     case 0x60:                 /* get device parameters */
       {
-        struct gblkio FAR *gblp = (struct gblkio FAR *)rp->r_trans;
+        struct gblkio FAR *gblp = rp->r_io;
         bpb *pbpb;
 
         gblp->gbio_devtype = pddt->ddt_type;
@@ -712,7 +716,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       }
     case 0x61:                 /* read track */
       {
-        struct gblkrw FAR *rw = (struct gblkrw FAR *)rp->r_trans;
+        struct gblkrw FAR *rw = rp->r_rw;
         ret = Genblockio(pddt, LBA_READ, rw->gbrw_head, rw->gbrw_cyl,
                          rw->gbrw_sector, rw->gbrw_nsecs, rw->gbrw_buffer);
         if (ret != 0)
@@ -721,7 +725,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       break;
     case 0x66:                 /* get volume serial number */
       {
-        struct Gioc_media FAR *gioc = (struct Gioc_media FAR *)rp->r_trans;
+        struct Gioc_media FAR *gioc = rp->r_gioc;
 
         ret = getbpb(pddt);
         if (ret != 0)
@@ -734,7 +738,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       break;
     case 0x67:                 /* get access flag */
       {
-        struct Access_info FAR *ai = (struct Access_info FAR *)rp->r_trans;
+        struct Access_info FAR *ai = rp->r_ai;
         ai->AI_Flag = descflags & DF_NOACCESS ? 0 : 1;        /* bit 9 */
       }
       break;
