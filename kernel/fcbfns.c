@@ -451,16 +451,13 @@ int FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
   BYTE *pszBuffer = loc_szBuffer;
 
   /* Build a traditional DOS file name                            */
+  *pCurDrive = default_drive + 1;
   if (lpFcb->fcb_drive != 0)
   {
     *pCurDrive = lpFcb->fcb_drive;
     pszBuffer[0] = 'A' + lpFcb->fcb_drive - 1;
     pszBuffer[1] = ':';
     pszBuffer += 2;
-  }
-  else
-  {
-    *pCurDrive = default_drive + 1;
   }
   ConvertName83ToNameSZ(pszBuffer, lpFcb->fcb_fname);
   return truename(loc_szBuffer, szBuffer, CDS_MODE_CHECK_DEV_PATH|CDS_MODE_ALLOW_WILDCARDS);
