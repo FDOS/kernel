@@ -149,13 +149,7 @@ COUNT nUnits BSS_INIT(0);
  * CHS or LBA, strengthening its role as a rescue environment.
  */
 
-/* #define DEBUG */
-
-#if defined(DEBUG)
-#define DebugPrintf(x) printf x
-#else
-#define DebugPrintf(x)
-#endif
+#include "debug.h"
 
 #define LBA_to_CHS   init_LBA_to_CHS
 
@@ -1029,6 +1023,15 @@ BOOL Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
 }
 
 /* Load the Partition Tables and get information on all drives */
+/* If scanType != SCAN_EXTENDED then we return with the
+   lower four bits set (valid partition, drive added) or clear
+   (unhandled or invalid) for each partition entry in the 
+   partition table, or 0 when scanType == SCAN_EXTENDED.
+   If we are unable to obtain the disk parameters for drive,
+   then we return -1 (usually means BIOS returned a count
+   higher than drives that exists; ISOLINUX may do this and
+   from RBIL may occur in some BIOSes).
+ */
 int ProcessDisk(int scanType, unsigned drive, int PartitionsToIgnore)
 {
 
@@ -1047,8 +1050,9 @@ int ProcessDisk(int scanType, unsigned drive, int PartitionsToIgnore)
 
   if (!LBA_Get_Drive_Parameters(drive, &driveParam))
   {
-    printf("can't get drive parameters for drive %02x\n", drive);
-    return PartitionsToIgnore;
+    if (scanType == SCAN_PRIMARYBOOT) /* only display 1st time through */
+      printf("can't get drive parameters for drive %02x\n", drive);
+    return -1;
   }
 
   RelSectorOffset = 0;          /* boot sector */
@@ -1079,7 +1083,10 @@ strange_restart:
     if (++strangeHardwareLoop < 3)
       goto strange_restart;
 
-    printf("illegal partition table - drive %02x sector %lu\n", drive,
+    if (scanType == SCAN_PRIMARYBOOT) /* only display 1st time through */
+      printf("corrupt or unpartitioned drive %02x\n", drive);
+    else if (RelSectorOffset /* && (scanType == SCAN_EXTENDED) */)
+      printf("illegal extended partition table - drive %02x sector %lu\n", drive,
            RelSectorOffset);
     return PartitionsToIgnore;
   }
@@ -1316,6 +1323,9 @@ COUNT dsk_init()
         foundPartitions[HardDrive] =
             ProcessDisk(SCAN_PRIMARY, HardDrive, 0);
     }
+    /* ignore last drive if can't get info about it; can't use anyway */
+    if ((nHardDisk>1) && (foundPartitions[nHardDisk-1]==(UBYTE)-1))
+      nHardDisk--;
 
     /* Process extended partition table                      */
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
@@ -1357,6 +1367,9 @@ COUNT dsk_init()
           foundPartitions[HardDrive] =
             ProcessDisk(SCAN_PRIMARY, HardDrive, 0);
       }
+      /* ignore last drive if can't get info about it; can't use anyway */
+      if ((nHardDisk>1) && (foundPartitions[nHardDisk-1]==(UBYTE)-1))
+        nHardDisk--;
 
       /* Process extended partition table                      */
       ProcessDisk(SCAN_EXTENDED, HardDrive, 0);
