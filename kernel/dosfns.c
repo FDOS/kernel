@@ -33,7 +33,13 @@ static BYTE *dosfnsRcsId = "$Id$";
 #endif
 
 /*
+ *
+ * /// Added SHARE support.  2000/09/04 Ron Cemer
+ *
  * $Log$
+ * Revision 1.9  2000/10/29 23:51:56  jimtabor
+ * Adding Share Support by Ron Cemer
+ *
  * Revision 1.8  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -149,6 +155,61 @@ sft FAR *get_free_sft(WORD FAR *);
 BOOL cmatch(COUNT, COUNT, COUNT);
 
 struct f_node FAR *xlt_fd(COUNT);
+
+
+/* /// Added for SHARE.  - Ron Cemer */
+
+int share_installed = 0;
+
+	/* DOS calls this to see if it's okay to open the file.
+	   Returns a file_table entry number to use (>= 0) if okay
+	   to open.  Otherwise returns < 0 and may generate a critical
+	   error.  If < 0 is returned, it is the negated error return
+	   code, so DOS simply negates this value and returns it in
+	   AX. */
+static int share_open_check
+    (char far *filename,    /* far pointer to fully qualified filename */
+     unsigned short pspseg, /* psp segment address of owner process */
+     int openmode,          /* 0=read-only, 1=write-only, 2=read-write */
+     int sharemode);        /* SHARE_COMPAT, etc... */
+
+	/* DOS calls this to record the fact that it has successfully
+	   closed a file, or the fact that the open for this file failed. */
+static void share_close_file
+    (int fileno);           /* file_table entry number */
+
+	/* DOS calls this to determine whether it can access (read or
+	   write) a specific section of a file.  We call it internally
+	   from lock_unlock (only when locking) to see if any portion
+       of the requested region is already locked.  If pspseg is zero,
+	   then it matches any pspseg in the lock table.  Otherwise, only
+	   locks which DO NOT belong to pspseg will be considered.
+	   Returns zero if okay to access or lock (no portion of the
+	   region is already locked).  Otherwise returns non-zero and
+	   generates a critical error (if allowcriter is non-zero).
+	   If non-zero is returned, it is the negated return value for
+	   the DOS call. */
+static int share_access_check
+    (unsigned short pspseg,/* psp segment address of owner process */
+	 int fileno,		/* file_table entry number */
+	 unsigned long ofs,	/* offset into file */
+     unsigned long len, /* length (in bytes) of region to access */
+     int allowcriter);  /* allow a critical error to be generated */
+
+	/* DOS calls this to lock or unlock a specific section of a file.
+	   Returns zero if successfully locked or unlocked.  Otherwise
+	   returns non-zero.
+	   If the return value is non-zero, it is the negated error
+	   return code for the DOS 0x5c call. */
+static int share_lock_unlock
+    (unsigned short pspseg,/* psp segment address of owner process */
+	 int fileno,		/* file_table entry number */
+	 unsigned long ofs,	/* offset into file */
+     unsigned long len, /* length (in bytes) of region to lock or unlock */
+     int unlock);       /* non-zero to unlock; zero to lock */
+
+/* /// End of additions for SHARE.  - Ron Cemer */
+
 
 static VOID DosGetFile(BYTE FAR * lpszPath, BYTE FAR * lpszDosFileName)
 {
@@ -291,6 +352,23 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
     /* a block read                            */
   {
     COUNT rc;
+
+    /* /// Added for SHARE - Ron Cemer */
+    if (IsShareInstalled()) {
+        if (s->sft_shroff >= 0) {
+            int share_result = share_access_check
+                (cu_psp,
+                 s->sft_shroff,
+                 s->sft_posit,
+                 (unsigned long)n,
+                 1);
+            if (share_result != 0) {
+                *err = share_result;
+                return 0;
+            }
+		}
+    }
+    /* /// End of additions for SHARE - Ron Cemer */
 
     ReadCount = readblock(s->sft_status, bp, n, &rc);
     if (rc != SUCCESS)
@@ -481,6 +559,23 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     /* a block write                           */
   {
     COUNT rc;
+
+    /* /// Added for SHARE - Ron Cemer */
+    if (IsShareInstalled()) {
+        if (s->sft_shroff >= 0) {
+            int share_result = share_access_check
+                (cu_psp,
+                 s->sft_shroff,
+                 s->sft_posit,
+                 (unsigned long)n,
+                 1);
+            if (share_result != 0) {
+                *err = share_result;
+                return 0;
+            }
+		}
+    }
+    /* /// End of additions for SHARE - Ron Cemer */
 
     WriteCount = writeblock(s->sft_status, bp, n, &rc);
     if (rc < SUCCESS)
@@ -674,6 +769,8 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
   if ((sftp = get_free_sft((WORD FAR *) & sft_idx)) == (sft FAR *) - 1)
     return DE_TOOMANY;
 
+  sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
+
     /* check for a device   */
     dhp = IsDevice(fname);
     if ( dhp )
@@ -712,6 +809,17 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
 		return result;
   }
 
+/* /// Added for SHARE.  - Ron Cemer */
+  if (IsShareInstalled()) {
+     if ((sftp->sft_shroff = share_open_check
+        ((char far *)PriPathName,
+         cu_psp,
+         0x02,      /* read-write */
+         0)) < 0)        /* compatibility mode */
+        return sftp->sft_shroff;
+  }
+/* /// End of additions for SHARE.  - Ron Cemer */
+
   sftp->sft_status = dos_creat(fname, attrib);
   if (sftp->sft_status >= 0)
   {
@@ -723,9 +831,15 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
     sftp->sft_psp = cu_psp;
     DosGetFile(fname, sftp->sft_name);
     return hndl;
-  }
-  else
+  } else {
+/* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
+    if (IsShareInstalled()) {
+        share_close_file(sftp->sft_shroff);
+        sftp->sft_shroff = -1;
+    }
+/* /// End of additions for SHARE.  - Ron Cemer */
     return sftp->sft_status;
+  }
 }
 
 COUNT CloneHandle(COUNT hndl)
@@ -841,6 +955,8 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   if ((sftp = get_free_sft((WORD FAR *) & sft_idx)) == (sft FAR *) - 1)
     return DE_TOOMANY;
 
+  sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
+
   /* check for a device                           */
     dhp = IsDevice(fname);
     if ( dhp )
@@ -880,6 +996,18 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
     }
 		return result;
   }
+
+/* /// Added for SHARE.  - Ron Cemer */
+  if (IsShareInstalled()) {
+    if ((sftp->sft_shroff = share_open_check
+        ((char far *)PriPathName,
+         (unsigned short)cu_psp,
+         mode & 0x03,
+         (mode >> 2) & 0x07)) < 0)
+        return sftp->sft_shroff;
+  }
+/* /// End of additions for SHARE.  - Ron Cemer */
+
   sftp->sft_status = dos_open(fname, mode);
 
   if (sftp->sft_status >= 0)
@@ -903,9 +1031,15 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
     sftp->sft_psp = cu_psp;
     DosGetFile(fname, sftp->sft_name);
     return hndl;
-  }
-  else
+  } else {
+/* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
+    if (IsShareInstalled()) {
+        share_close_file(sftp->sft_shroff);
+        sftp->sft_shroff = -1;
+    }
+/* /// End of additions for SHARE.  - Ron Cemer */
     return sftp->sft_status;
+  }
 }
 
 COUNT DosClose(COUNT hndl)
@@ -951,8 +1085,15 @@ COUNT DosClose(COUNT hndl)
     s->sft_count -= 1;
     if (s->sft_count > 0)
       return SUCCESS;
-    else
+    else {
+/* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
+      if (IsShareInstalled()) {
+          if (s->sft_shroff >= 0) share_close_file(s->sft_shroff);
+          s->sft_shroff = -1;
+      }
+/* /// End of additions for SHARE.  - Ron Cemer */
       return dos_close(s->sft_status);
+    }
   }
 }
 
@@ -1382,6 +1523,30 @@ COUNT DosRmdir(BYTE FAR * dir)
 	return result;
 }
 
+/* /// Added for SHARE.  - Ron Cemer */
+
+COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
+{
+  sft FAR *s;
+
+  /* Invalid function unless SHARE is installed. */
+  if (!IsShareInstalled()) return DE_INVLDFUNC;
+
+  /* Test that the handle is valid                */
+  if (hndl < 0) return DE_INVLDHNDL;
+
+  /* Get the SFT block that contains the SFT      */
+  if ((s = get_sft(hndl)) == (sft FAR *) -1) return DE_INVLDHNDL;
+
+  /* Lock violation if this SFT entry does not support locking. */
+  if (s->sft_shroff < 0) return DE_LOCK;
+
+  /* Let SHARE do the work. */
+  return share_lock_unlock(cu_psp, s->sft_shroff, pos, len, unlock);
+}
+
+/* /// End of additions for SHARE.  - Ron Cemer */
+
 /*
  * This seems to work well.
  */
@@ -1426,4 +1591,108 @@ struct dhdr FAR * IsDevice(BYTE FAR * fname)
 
   return (struct dhdr FAR *)0;
 }
+
+
+/* /// Added for SHARE.  - Ron Cemer */
+
+BOOL IsShareInstalled(void) {
+    if (!share_installed) {
+        iregs regs;
+
+        regs.a.x = 0x1000;
+        intr(0x2f, &regs);
+        share_installed = ((regs.a.x & 0xff) == 0xff);
+    }
+    return share_installed;
+}
+
+	/* DOS calls this to see if it's okay to open the file.
+	   Returns a file_table entry number to use (>= 0) if okay
+	   to open.  Otherwise returns < 0 and may generate a critical
+	   error.  If < 0 is returned, it is the negated error return
+	   code, so DOS simply negates this value and returns it in
+	   AX. */
+static int share_open_check
+    (char far *filename,    /* far pointer to fully qualified filename */
+     unsigned short pspseg, /* psp segment address of owner process */
+     int openmode,          /* 0=read-only, 1=write-only, 2=read-write */
+     int sharemode) {       /* SHARE_COMPAT, etc... */
+    iregs regs;
+
+    regs.a.x = 0x10a0;
+    regs.ds = FP_SEG(filename);
+    regs.si = FP_OFF(filename);
+    regs.b.x = pspseg;
+    regs.c.x = openmode;
+    regs.d.x = sharemode;
+    intr(0x2f, &regs);
+    return (int)regs.a.x;
+}
+
+	/* DOS calls this to record the fact that it has successfully
+	   closed a file, or the fact that the open for this file failed. */
+static void share_close_file
+    (int fileno) {          /* file_table entry number */
+    iregs regs;
+
+    regs.a.x = 0x10a1;
+    regs.b.x = fileno;
+    intr(0x2f, &regs);
+}
+
+	/* DOS calls this to determine whether it can access (read or
+	   write) a specific section of a file.  We call it internally
+	   from lock_unlock (only when locking) to see if any portion
+       of the requested region is already locked.  If pspseg is zero,
+	   then it matches any pspseg in the lock table.  Otherwise, only
+	   locks which DO NOT belong to pspseg will be considered.
+	   Returns zero if okay to access or lock (no portion of the
+	   region is already locked).  Otherwise returns non-zero and
+	   generates a critical error (if allowcriter is non-zero).
+	   If non-zero is returned, it is the negated return value for
+	   the DOS call. */
+static int share_access_check
+    (unsigned short pspseg,/* psp segment address of owner process */
+	 int fileno,		/* file_table entry number */
+	 unsigned long ofs,	/* offset into file */
+     unsigned long len, /* length (in bytes) of region to access */
+     int allowcriter) { /* allow a critical error to be generated */
+    iregs regs;
+
+    regs.a.x = 0x10a2 | (allowcriter ? 0x01 : 0x00);
+    regs.b.x = pspseg;
+    regs.c.x = fileno;
+    regs.si = (unsigned short)((ofs >> 16) & 0xffffL);
+    regs.di = (unsigned short)(ofs & 0xffffL);
+    regs.es = (unsigned short)((len >> 16) & 0xffffL);
+    regs.d.x = (unsigned short)(len & 0xffffL);
+    intr(0x2f, &regs);
+    return (int)regs.a.x;
+}
+
+	/* DOS calls this to lock or unlock a specific section of a file.
+	   Returns zero if successfully locked or unlocked.  Otherwise
+	   returns non-zero.
+	   If the return value is non-zero, it is the negated error
+	   return code for the DOS 0x5c call. */
+static int share_lock_unlock
+    (unsigned short pspseg,/* psp segment address of owner process */
+	 int fileno,		/* file_table entry number */
+	 unsigned long ofs,	/* offset into file */
+     unsigned long len, /* length (in bytes) of region to lock or unlock */
+     int unlock) {      /* non-zero to unlock; zero to lock */
+    iregs regs;
+
+    regs.a.x = 0x10a4 | (unlock ? 0x01 : 0x00);
+    regs.b.x = pspseg;
+    regs.c.x = fileno;
+    regs.si = (unsigned short)((ofs >> 16) & 0xffffL);
+    regs.di = (unsigned short)(ofs & 0xffffL);
+    regs.es = (unsigned short)((len >> 16) & 0xffffL);
+    regs.d.x = (unsigned short)(len & 0xffffL);
+    intr(0x2f, &regs);
+    return (int)regs.a.x;
+}
+
+/* /// End of additions for SHARE.  - Ron Cemer */
 

@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2000/10/29 23:51:56  jimtabor
+ * Adding Share Support by Ron Cemer
+ *
  * Revision 1.9  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -1347,6 +1350,21 @@ dispatch:
         }
       }
       break;
+
+/* /// Added for SHARE.  - Ron Cemer */
+      /* Lock/unlock file access */
+    case 0x5c:
+      if ((rc = DosLockUnlock
+        (r->BX,
+         (((unsigned long)r->CX)<<16)|(((unsigned long)r->DX)&0xffffL),
+         (((unsigned long)r->SI)<<16)|(((unsigned long)r->DI)&0xffffL),
+         ((r->AX & 0xff) != 0))) != 0)
+          r->FLAGS |= FLG_CARRY;
+      else
+          r->FLAGS &= ~FLG_CARRY;
+      r->AX = -rc;
+      break;
+/* /// End of additions for SHARE.  - Ron Cemer */
 
       /* UNDOCUMENTED: server, share.exe and sda function             */
     case 0x5d:
