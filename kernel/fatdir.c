@@ -105,28 +105,16 @@ f_node_ptr dir_open(register const char *dirname)
 
     /* Convert the name into an absolute name for           */
     /* comparison...                                        */
-    /* first the file name with trailing spaces...          */
 
     memset(fcbname, ' ', FNAME_SIZE + FEXT_SIZE);
 
-    for (i = 0; i < FNAME_SIZE; i++)
+    for (i = 0; i < FNAME_SIZE + FEXT_SIZE; i++, dirname++)
     {
-      if (*dirname != '\0' && *dirname != '.' && *dirname != '/' &&
-          *dirname != '\\')
-        fcbname[i] = *dirname++;
-      else
-        break;
-    }
-
-    /* and the extension (don't forget to   */
-    /* add trailing spaces)...              */
-    if (*dirname == '.')
-      ++dirname;
-    for (i = 0; i < FEXT_SIZE; i++)
-    {
-      if (*dirname != '\0' && *dirname != '.' && *dirname != '/' &&
-          *dirname != '\\')
-        fcbname[i + FNAME_SIZE] = *dirname++;
+      char c = *dirname;
+      if (c == '.')
+        i = FNAME_SIZE - 1;
+      else if (c != '\0' && c != '\\')
+        fcbname[i] = c;
       else
         break;
     }
@@ -164,10 +152,8 @@ f_node_ptr dir_open(register const char *dirname)
 /* swap internal and external delete flags */
 STATIC void swap_deleted(char *name)
 {
-  if (name[0] == DELETED)
-    name[0] = EXT_DELETED;
-  else if (name[0] == EXT_DELETED)
-    name[0] = DELETED;
+  if (name[0] == DELETED || name[0] == EXT_DELETED)
+    name[0] ^= EXT_DELETED - DELETED; /* 0xe0 */
 }
 
 STATIC struct buffer FAR *getblock_from_off(f_node_ptr fnp, unsigned secsize)
@@ -501,7 +487,7 @@ COUNT dos_findnext(void)
     ++dmp->dm_entry;
     ++fnp->f_diroff;
     if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
-        && (fnp->f_dir.dir_attrib & D_VOLID) != D_VOLID)
+        && !(fnp->f_dir.dir_attrib & D_VOLID))
     {
       if (fcmp_wild(dmp->dm_name_pat, fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
       {

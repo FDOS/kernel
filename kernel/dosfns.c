@@ -336,16 +336,11 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
  *  Lredir via mfs.c from DosEMU works when writing appended files.
  *  Mfs.c looks for these mode bits set, so here is my best guess.;^)
  */
-      if ((s->sft_mode & O_DENYREAD) || (s->sft_mode & O_DENYNONE))
-      {
+      if (s->sft_mode & (O_DENYREAD | O_DENYNONE))
         s->sft_posit = remote_lseek(s, new_pos);
-        return SUCCESS;
-      }
       else
-      {
         s->sft_posit = s->sft_size + new_pos;
-        return SUCCESS;
-      }
+      return SUCCESS;
     }
     if (mode == 0)
     {
@@ -460,8 +455,7 @@ STATIC int DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
   sftp->sft_shroff = -1;      /* /// Added for SHARE - Ron Cemer */
   sftp->sft_count += 1;
   sftp->sft_flags =
-    ((dhp->
-      dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
+    (dhp->dh_attr & ~(SFT_MASK | SFT_FSHARED)) | SFT_FDEVICE | SFT_FEOF;
   fmemcpy(sftp->sft_name, dhp->dh_name, FNAME_SIZE);
 
   /* pad with spaces */
@@ -1096,8 +1090,8 @@ COUNT DosFindNext(void)
   COUNT rc;
   register dmatch FAR *dmp = dta;
 
-  /* /// findnext will always fail on a device name device name or volume id */
-  if (dmp->dm_attr_fnd == D_DEVICE || dmp->dm_attr_fnd & D_VOLID)
+  /* findnext will always fail on a device name device name or volume id */
+  if (dmp->dm_attr_fnd & (D_DEVICE | D_VOLID))
     return DE_NFILES;
 
 /*
@@ -1314,14 +1308,14 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
   if (result < SUCCESS)
     return result;
 
-  if (!(result & IS_NETWORK) && (result & IS_DEVICE))
+  if ((result & (IS_NETWORK | IS_DEVICE)) == IS_DEVICE)
     return DE_FILENOTFND;
 
   result = truename(path1, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
     return result;
 
-  if (!(result & IS_NETWORK) && (result & IS_DEVICE))
+  if ((result & (IS_NETWORK | IS_DEVICE)) == IS_DEVICE)
     return DE_FILENOTFND;
 
   return DosRenameTrue(PriPathName, SecPathName, D_ALL);

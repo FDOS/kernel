@@ -172,7 +172,7 @@ COUNT DosDevIOctl(lregs * r)
               CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
               return DE_DEVICE;
             }
-            
+
             if (r->AL == 0x06 || r->AL == 0x07)
             {
               r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
@@ -280,8 +280,8 @@ COUNT DosDevIOctl(lregs * r)
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
             break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
           }
-          if (((r->AL == 0x04) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
-              || ((r->AL == 0x05) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
+          if (((r->AL == 0x04 || r->AL == 0x05) &&
+               !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
               || ((r->AL == 0x11)
                   && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
               || ((r->AL == 0x0d)

@@ -573,13 +573,8 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       LocalFcb.fcb_drive = FcbDrive;
       FcbNameInit(&LocalFcb, loc_szBuffer, &FcbDrive);
       result = truename(loc_szBuffer, SecPathName, 0);
-      if (result < SUCCESS || (!(result & IS_NETWORK) && (result & IS_DEVICE)))
-      {
-        result = FCB_ERROR;
-        break;
-      }
-
-      if (DosRenameTrue(PriPathName, SecPathName, wAttr) != SUCCESS)
+      if (result < SUCCESS || (result & (IS_NETWORK|IS_DEVICE) == IS_DEVICE)
+        || DosRenameTrue(PriPathName, SecPathName, wAttr) != SUCCESS)
       {
         result = FCB_ERROR;
         break;
