@@ -463,7 +463,7 @@ int FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
     *pCurDrive = default_drive + 1;
   }
   ConvertName83ToNameSZ(pszBuffer, lpFcb->fcb_fname);
-  return truename(loc_szBuffer, szBuffer, CDS_MODE_CHECK_DEV_PATH);
+  return truename(loc_szBuffer, szBuffer, CDS_MODE_CHECK_DEV_PATH|CDS_MODE_ALLOW_WILDCARDS);
 }
 
 UBYTE FcbDelete(xfcb FAR * lpXfcb)
