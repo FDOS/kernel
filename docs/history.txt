@@ -308,11 +308,13 @@
           (the last 2 changes needed to fix bugs discovered by Michael Devore)
         - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
         * autoexec.bat now single-line for FreeCOM compatibility when EOL=LF
+        * break.c: check_handle_break() return was undefined if no Ctrl-break
         * config.sys: all commands removed as they were close to defaults
         * contrib.txt: added Aitor Santamaria, Bernd Blaauw and Eduardo Casino
         * country.asm / country.sys support now replaces hard-coded data
-        * 8 countries added to country.asm: GR, RO, AT, KR, TR, IN, M.East, IL
-        * dyninit.c: unused function DynFree() commented out
+        * 11 countries added to country.asm: GR,RO,AT,MA,SG,KR,CN,TR,IN,M.E,IL
+        * dosnames.c: macro to function conversion, optimisation and clean-up
+        * dyninit.c: excluded unused DynFree(), "what" passed only on DEBUG
         * fatfs.c:
           - zero creation/access stamp on directory entry write as MS-DOS 7.10
           - prevent removal or renaming of the current directory of that drive
@@ -323,6 +325,7 @@
           - if no floppy drives present, don't initialise DDT for drive A:
           - " - Initdisk" no longer shifts text if no FAT partitions found
           - converted cdiv() from macro to function; optimise and clean-up
+        * inithma: InstallVDISK() function inlined, optimised and cleaned up
         * intr.asm: lseek() added (necessary for COUNTRY.SYS processing)
         * ioctl.c:
           - r_si/r_di contents added as documented in PC-DOS Technical Update

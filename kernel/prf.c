@@ -118,7 +118,7 @@ void put_console(int c)
 }
 #endif                          /*  DOSEMU   */
 
-#if defined(DEBUG) || defined(FORSYS) || defined(_INIT)
+#if defined(DEBUG) || defined(FORSYS) || defined(_INIT) || defined(TEST)
 
 #ifndef FORSYS
 /* copied from bcc (Bruce's C compiler) stdarg.h */
@@ -264,6 +264,7 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
         {
           long n;
           ULONG u;
+          BOOL minus = FALSE;
           BYTE *t = s + sizeof(s) - 1;
 
           if (flags & LONGARG)
@@ -280,13 +281,16 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
           {
             base = -base;
             if (n < 0)
+            {
               u = -n;
+              minus++;
+            }
           }
           *t = '\0';                /* terminate the number string */
           do                   /* generate digits in reverse order */
-            *--t = "0123456789ABCDEF"[(UWORD)u % base];
+            *--t = "0123456789ABCDEF"[(UWORD)(u % base)];
           while ((u /= base) > 0);
-          if (n < 0)
+          if (minus)
             *--t = '-';
           p = t;
         }
@@ -380,12 +384,12 @@ void put_string(const char *s)
 	
 	compile like (note -DTEST !)
 
-	c:\tc\tcc -DTEST -DI86 -Ihdr kernel\prf.c
+	c:\tc\tcc -DTEST -Ihdr kernel\prf.c
 	
-	and run. If strings are wrong, the program will wait for ENTER
+	and run. If strings are wrong, the program will wait for a key
 
 */
-#include <stdio.h>
+#include <conio.h>
 #include <string.h>
 
 struct {
@@ -470,8 +474,8 @@ void test(char *should, char *format, unsigned lowint, unsigned highint)
 
   if (strcmp(b, should))
   {
-    printf("\nhit ENTER\n");
-    getchar();
+    printf("\nhit a key\n");
+    getch();
   }
 }
 

@@ -224,55 +224,39 @@ int MoveKernelToHMA()
 
     DosLoadedInHMA = TRUE;
   }
-
   /*
-    on finalize, will install a VDISK
-  */
+      now protect against HIMEM/FDXMS/... by simulating a VDISK
+      FDXMS should detect us and not give HMA access to ohers
+      unfortunately this also disables HIMEM completely
 
-  InstallVDISK();
+      so: we install this after all drivers have been loaded
+  */
+  {
+    static struct {               /* Boot sector of a RAM-Disk */
+      UBYTE dummy1[3];            /* HIMEM.SYS uses 3, but FDXMS uses 2 */
+      char Name[5];
+      BYTE dummy2[3];
+      WORD BpS;
+      BYTE dummy3[6];
+      WORD Sectors;
+      BYTE dummy4;
+    } VDISK_BOOT_SECTOR = {
+      {0xcf,' ',' '},
+      {"VDISK"},
+      {"   "}, 512,
+      {"FDOS  "}, 128, /* 128 * 512 = 64K */
+      ' '
+    };
+    fmemcpy(MK_FP(0xffff, 0x0010), &VDISK_BOOT_SECTOR,
+            sizeof(VDISK_BOOT_SECTOR));
+    *(WORD FAR *) MK_FP(0xffff, 0x002e) = 1024 + 64;
+  }
 
   /* report the fact we are running high through int 21, ax=3306 */
   LoL->version_flags |= 0x10;
 
   return TRUE;
 
-}
-
-/*   
-    now protect against HIMEM/FDXMS/... by simulating a VDISK 
-    FDXMS should detect us and not give HMA access to ohers
-    unfortunately this also disables HIMEM completely
-
-    so: we install this after all drivers have been loaded
-*/
-STATIC void InstallVDISK(void)
-{
-  static struct {               /* Boot-Sektor of a RAM-Disk */
-    UBYTE dummy1[3];            /* HIMEM.SYS uses 3, but FDXMS uses 2 */
-    char Name[5];
-    BYTE dummy2[3];
-    WORD BpS;
-    BYTE dummy3[6];
-    WORD Sektoren;
-    BYTE dummy4;
-  } VDISK_BOOT_SEKTOR = {
-    {
-    0xcf, ' ', ' '},
-    {
-    'V', 'D', 'I', 'S', 'K'},
-    {
-    ' ', ' ', ' '}, 512,
-    {
-    'F', 'D', 'O', 'S', ' ', ' '}, 128, /* 128*512 = 64K */
-  ' '};
-
-  if (!DosLoadedInHMA)
-    return;
-
-  fmemcpy(MK_FP(0xffff, 0x0010), &VDISK_BOOT_SEKTOR,
-          sizeof(VDISK_BOOT_SEKTOR));
-
-  *(WORD FAR *) MK_FP(0xffff, 0x002e) = 1024 + 64;
 }
 
 /*
@@ -368,7 +352,8 @@ void MoveKernel(unsigned NewKernelSegment)
                 FP_OFF(_HMARelocationTableStart)) /
                sizeof(struct RelocationTable));
         int3();
-        goto errorReturn;
+        for (;;)
+          ;
       }
     }
 
@@ -402,9 +387,5 @@ void MoveKernel(unsigned NewKernelSegment)
   }
 
   CurrentKernelSegment = NewKernelSegment;
-  return;
-
-errorReturn:
-  for (;;) ;
 }
 

@@ -53,7 +53,7 @@ unsigned char ctrl_break_pressed(void)
 
 unsigned char check_handle_break(struct dhdr FAR **pdev)
 {
-  unsigned char c;
+  unsigned char c = 0;
   if (ctrl_break_pressed() ||
                          (c = (unsigned char)ndread(&syscon)) == CTL_C ||
       *pdev != syscon && (c = (unsigned char)ndread(pdev))    == CTL_C)
@@ -76,7 +76,7 @@ unsigned char check_handle_break(struct dhdr FAR **pdev)
 
 void handle_break(struct dhdr FAR **pdev, int sft_out)
 {
-  char *buf = "^C\r\n";
+  static char *buf = "^C\r\n";
 
   CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
   con_flush(pdev);

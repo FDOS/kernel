@@ -39,30 +39,10 @@ static BYTE *dosnamesRcsId =
 
 const char _DirWildNameChars[] = "*?./\\\"[]:|<>+=;,";
 
-#define PathSep(c) ((c)=='/'||(c)=='\\')
-#define DriveChar(c) (((c)>='A'&&(c)<='Z')||((c)>='a'&&(c)<='z'))
-#define DirChar(c)  (((unsigned char)(c)) >= ' ' && \
-                     !strchr(_DirWildNameChars+5, (c)))
-#define WildChar(c) (((unsigned char)(c)) >= ' ' && \
-                     !strchr(_DirWildNameChars+2, (c)))
-#define NameChar(c) (((unsigned char)(c)) >= ' ' && \
-                     !strchr(_DirWildNameChars, (c)))
-
-VOID XlateLcase(BYTE * szFname, COUNT nChars);
-VOID DosTrimPath(BYTE * lpszPathNamep);
-
-/* Should be converted to a portable version after v1.0 is released.    */
-#if 0
-VOID XlateLcase(BYTE * szFname, COUNT nChars)
+STATIC BOOL charOK(const char *s, const char c)
 {
-  while (nChars--)
-  {
-    if (*szFname >= 'a' && *szFname <= 'z')
-      *szFname -= ('a' - 'A');
-    ++szFname;
-  }
+  return (UBYTE)c >= ' ' && !strchr(s, c);
 }
-#endif
 
 /*
     MSD durring an FindFirst search string looks like this;
@@ -89,18 +69,15 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
   lpszLclDir = lpszLclFile = filename;
   filename += 2;
   
-  while (DirChar(*filename))
-  {
-    if (*filename == '\\')
-      lpszLclFile = filename + 1;
-    ++filename;
-  }
+  while (charOK(_DirWildNameChars + 5, *filename))
+    if (*filename++ == '\\')
+      lpszLclFile = filename;
   nDirCnt = lpszLclFile - lpszLclDir;
 
   /* Parse out the file name portion.                             */
   filename = lpszLclFile;
-  while (bAllowWildcards ? WildChar(*filename) :
-         NameChar(*filename))
+  while (charOK(bAllowWildcards ? _DirWildNameChars + 2
+                                : _DirWildNameChars, *filename))
   {
     ++nFileCnt;
     ++filename;
@@ -108,12 +85,11 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
 
   if (nFileCnt == 0)
   {
-    int err = DE_PATHNOTFND;
     if (bAllowWildcards && *filename == '\0' &&
         (nDirCnt == 3 || filename[-1] != '\\'))
         /* D:\ or D:\DOS but not D:\DOS\ */
-      err = DE_NFILES;
-    return err;
+      return DE_NFILES;
+    return DE_PATHNOTFND;
   }
 
   /* Now we have pointers set to the directory portion and the    */
@@ -124,8 +100,8 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
     lpszLclExt = ++filename;
     while (*filename)
     {
-      if (bAllowWildcards ? WildChar(*filename) :
-          NameChar(*filename))
+      if (charOK(bAllowWildcards ? _DirWildNameChars + 2
+                                 : _DirWildNameChars, *filename))
       {
         ++nExtCnt;
         ++filename;

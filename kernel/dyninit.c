@@ -54,15 +54,15 @@ extern struct DynS DOSFAR ASM Dyn;
 extern struct DynS FAR ASM Dyn;
 #endif
 
+#ifdef DEBUG
 void far *DynAlloc(char *what, unsigned num, unsigned size)
+#else
+void far *_DynAlloc(unsigned num, unsigned size)
+#endif
 {
   void far *now;
   unsigned total = num * size;
   struct DynS far *Dynp = MK_FP(FP_SEG(LoL), FP_OFF(&Dyn));
-
-#ifndef DEBUG
-  UNREFERENCED_PARAMETER(what);
-#endif
 
   if ((ULONG) total + Dynp->Allocated > 0xffff)
   {
