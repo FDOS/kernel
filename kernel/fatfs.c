@@ -29,6 +29,7 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 BYTE *RcsId = "$Id$";
@@ -142,12 +143,16 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   /* next, split the passed dir into components (i.e. - path to   */
   /* new directory and name of new directory.                     */
   if ((fnp = split_path(path, fcbname)) == NULL)
+  {
+    FatFSDbgPrintf(("dos_open: splitpath(\"%s\", \"%11s\") failed.\n", path, fcbname));
     return DE_PATHNOTFND;
+  }
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, truncate it (O_CREAT).                     */
   if (find_fname(fnp, fcbname, D_ALL | attrib))
   {
+    FatFSDbgPrintf(("dos_open: filename match found\n"));
     if (flags & O_TRUNC)
     {
       /* The only permissable attribute is archive,   */
@@ -189,6 +194,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   else if (flags & O_CREAT)
   {
     int ret = alloc_find_free(fnp, path, fcbname);
+    FatFSDbgPrintf(("dos_open: create\n"));
     if (ret != SUCCESS)
       return ret;
     status = S_CREATED;
@@ -198,6 +204,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
     /* open: If we can't find the file, just return a not    */
     /* found error.                                          */
     dir_close(fnp);
+    FatFSDbgPrintf(("dos_open: file not found\n"));
     return DE_FILENOTFND;
   }
   
@@ -312,6 +319,8 @@ f_node_ptr split_path(char * path, char * fcbname)
 
   /* Start off by parsing out the components.                     */ 
   int dirlength = ParseDosName(path, fcbname, FALSE);
+  FatFSDbgPrintf(("split_path: dirlen=%i, path=\"%s\", fcbname=\"%11s\"\n", \
+                dirlength, path, fcbname));
 
   if (dirlength < SUCCESS)
     return (f_node_ptr) 0;
@@ -330,7 +339,7 @@ f_node_ptr split_path(char * path, char * fcbname)
 #ifdef DEBUG
   if (get_cds(path[0]-'A')->cdsFlags & CDSNETWDRV)
   {
-    printf("split path called for redirected file: `%s'\n",
+    printf("split path called for redirected file: `%11s'\n",
            fcbname);
     return (f_node_ptr) 0;
   }
@@ -349,10 +358,14 @@ f_node_ptr split_path(char * path, char * fcbname)
   /* note: an invalid fd is indicated by a 0 return               */
   if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
   {
+    FatFSDbgPrintf(("split_path: failing, fnp is %sNULL, f_count=%i\n", \
+                 (fnp==(f_node_ptr)0)?"":"NOT", \
+                 (fnp==(f_node_ptr)0)?123:fnp->f_count));
     dir_close(fnp);
     return (f_node_ptr) 0;
   }
 
+  FatFSDbgPrintf(("split_path: success\n"));
   return fnp;
 }
 
@@ -1817,18 +1830,18 @@ int dos_cd(char * PathName)
 
 /* try to allocate a near f_node                            */
 /* (there are just two of them, in the SDA)                 */
-
 f_node_ptr get_near_f_node(void)
 {
   f_node_ptr fnp = fnode;
+  DebugPrintf(("get_near_f_node: fnp is %p\n", fnp));
   if (fnp->f_count && (++fnp)->f_count)
     panic("more than two near fnodes requested at the same time!\n");
   fnp->f_count++;
+  DebugPrintf(("got near fnode, fnp->f_count=%i\n", fnp->f_count));
   return fnp;
 }
 
 /* Try to allocate an f_node from the available files array */
-
 f_node_ptr get_f_node(void)
 {
   REG int i;
@@ -1836,23 +1849,30 @@ f_node_ptr get_f_node(void)
 
   if (fnp != (f_node_ptr)0)
   {
+    FatFSDbgPrintf(("get_f_node: &f_nodes[0]=%p, f_nodes_cnt=%i\n", (void far *)&f_nodes, f_nodes_cnt));
     for (i = 0; i < f_nodes_cnt; i++)
     {
       if (f_nodes[i].f_count == 0)
       {
         ++f_nodes[i].f_count;
         fnode_fd[fnp - fnode] = i;
+        FatFSDbgPrintf(("f_nodes[%i].f_count=%i, fnode_fd[%i]=%i\n", \
+               i, f_nodes[i].f_count, (fnp-fnode), i));
         return fnp;
       }
     }
     release_near_f_node(fnp);
+    FatFSDbgPrintf(("get_f_node: failure finding free entry in f_nodes[]\n"));
   }
+  else FatFSDbgPrintf(("get_f_node: get_near_fnode() failed, returned NULL\n"));
   return (f_node_ptr) 0;
 }
 
 VOID release_f_node(f_node_ptr fnp)
 {
   struct f_node FAR *fp = &f_nodes[xlt_fnp(fnp)];
+
+  FatFSDbgPrintf(("release_f_node: fp->f_count=%i\n", fp->f_count));
 
   if (fp->f_count > 0)
     --fp->f_count;
@@ -2048,28 +2068,37 @@ COUNT media_check(REG struct dpb FAR * dpbp)
   /* First test if anyone has changed the removable media         */
   ret = rqblockio(C_MEDIACHK, dpbp);
   if (ret < SUCCESS)
+  {
+    FatFSDbgPrintf(("media_check: failed\n"));
     return ret;
+  }
 
   switch (MediaReqHdr.r_mcretcode | dpbp->dpb_flags)
   {
     case M_NOT_CHANGED:
       /* It was definitely not changed, so ignore it          */
+      DebugPrintf(("media_check: no change\n"));
       return SUCCESS;
 
       /* If it is forced or the media may have changed,       */
       /* rebuild the bpb                                      */
     case M_DONT_KNOW:
         /* hazard: no error checking! */
+      DebugPrintf(("media_check: unknown\n"));
       flush_buffers(dpbp->dpb_unit);
 
       /* If it definitely changed, don't know (falls through) */
       /* or has been changed, rebuild the bpb.                */
  /* case M_CHANGED: */
     default:
+      DebugPrintf(("media_check: assumming changed\n"));
       setinvld(dpbp->dpb_unit);
       ret = rqblockio(C_BLDBPB, dpbp);
       if (ret < SUCCESS)
+      {
+        DebugPrintf(("media_check: build BPB failed\n"));
         return ret;
+      }
 #ifdef WITHFAT32
       /* extend dpb only for internal or FAT32 devices */
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp,
@@ -2077,6 +2106,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 #else
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp);
 #endif
+      DebugPrintf(("media_check: returning ok\n"));
       return SUCCESS;
   }
 }
@@ -2089,19 +2119,25 @@ f_node_ptr xlt_fd(int fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
+  FatFSDbgPrintf(("xlt_fd: fd(%i) ?< f_nodes_cnt(%i)\n", fd, f_nodes_cnt));
   if (fd < f_nodes_cnt)
   {
     fnp = get_near_f_node();
     if (fnp != (f_node_ptr)0)
     {
       fmemcpy(fnp, &f_nodes[fd], sizeof(*fnp));
+      FatFSDbgPrintf(("xlt_fd: fnp->f_count=%i, fnp-fnode=%i\n", fnp->f_count, (fnp-fnode)));
       if (fnp->f_count <= 0)
       {
         release_near_f_node(fnp);
         fnp = (f_node_ptr) 0;
       } else
+      {
         fnode_fd[fnp - fnode] = fd;
+        FatFSDbgPrintf(("xlt_fd: success\n"));
+      }
     }
+    else FatFSDbgPrintf(("xlt_fd: get_near_f_node failed\n"));
   }
   return fnp;
 }
@@ -2109,6 +2145,7 @@ f_node_ptr xlt_fd(int fd)
 /* copy a near fnode to the corresponding far one and release it */
 STATIC void save_far_f_node(f_node_ptr fnp)
 {
+  FatFSDbgPrintf(("save_far_f_node: copying near fnode to far one\n"));
   fmemcpy(&f_nodes[xlt_fnp(fnp)], fnp, sizeof(*fnp));
   release_near_f_node(fnp);
 }

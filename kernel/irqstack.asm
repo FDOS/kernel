@@ -34,7 +34,8 @@
 
 segment	_LOWTEXT
 
-old_vectors     times 16 dd 0
+global _old_vectors
+_old_vectors     times 16 dd 0
 stack_size      dw      0
 stack_top       dw      0
 stack_offs      dw      0
@@ -129,7 +130,7 @@ general_irq_service:
                 sub     [stack_top], ax
 
                 pushf
-                call    far word [old_vectors+bx]
+                call    far word [_old_vectors+bx]
 
                 cli
                 add     [stack_top], ax
@@ -147,7 +148,7 @@ general_irq_service:
                 iret
 
 dont_switch:    pushf
-                call    far word [old_vectors+bx]
+                call    far word [_old_vectors+bx]
                 pop     ds
                 pop     ax
                 pop     dx
@@ -190,7 +191,7 @@ _init_stacks:
 		mov	ax, _LOWTEXT
 		mov	es, ax
 
-                mov     di, old_vectors
+                mov     di, _old_vectors
                 mov     si, 8 * 4
                 mov     cx, 10h
                 rep     movsw

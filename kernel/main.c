@@ -234,6 +234,23 @@ STATIC void setup_int_vectors(void)
   setvec(0x29, int29_handler);  /* required for printf! */
 }
 
+#ifdef DEBUGIRQ
+extern short old_vectors;
+STATIC void printIRQvectors(void)
+{
+  int i,c=0;
+  short FAR *pv = MK_FP(0x70 /* ??? */, (short)&old_vectors);
+  printf("Original IRQ1-16 Int vectors: %x:%x\n", FP_SEG(pv), FP_OFF(pv));
+  for (i = 0; i < 16; i++, pv+=2)
+  {
+    printf("(%x)%04X:%04X ", i, *pv, *(pv+1));
+    c = (c+1)%6;
+    if (c==0) printf("\n");
+  }
+  printf("\n");
+}
+#endif
+
 STATIC void init_kernel(void)
 {
   COUNT i;
@@ -243,6 +260,8 @@ STATIC void init_kernel(void)
   LoL->rev_number = REVISION_SEQ;
 
   /* move kernel to high conventional RAM, just below the init code */
+  /* Note: kernel.asm actually moves and jumps here, but MoveKernel
+           must still be called to do the necessary segment fixups */
 #ifdef __WATCOMC__
   lpTop = MK_FP(_CS, 0);
 #else
@@ -251,6 +270,10 @@ STATIC void init_kernel(void)
 
   MoveKernel(FP_SEG(lpTop));
   /* lpTop should be para-aligned				*/
+  /* Note: during init time (before our MCB chain established)
+     KernelAlloc returns a para aligned chunk just below last
+     chunk allocated, lpTop. I.e. lpTop is top of free conv memory
+   */
   lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
 
   /* Initialize IO subsystem                                      */
@@ -258,7 +281,7 @@ STATIC void init_kernel(void)
   InitPrinters();
   InitSerialPorts();
 
-  init_PSPSet(DOS_PSP);
+  init_PSPSet(DOS_PSP);  /* LoL->_cu_psp = DOS_PSP; */
   set_DTA(MK_FP(DOS_PSP, 0x80));
   PSPInit();
 
@@ -288,6 +311,11 @@ STATIC void init_kernel(void)
 
   /* and do final buffer allocation. */
   PostConfig();
+
+#ifdef DEBUGIRQ
+  /* displayed stored IRQ vectors, should be original values */
+  printIRQvectors();
+#endif
 
   /* Init the file system one more time     */
   FsConfig();
@@ -423,6 +451,10 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
   int nunits = dhp->dh_name[0];
   struct dpb FAR *dpb = LoL->DPBp;
 
+  /* if we have already chained to at least block driver,
+     then find last DPB in list, reserve some space in
+     unused (top of convential) memory, and link it in.
+   */
   if (LoL->nblkdev)
   {
     while ((LONG) dpb->dpb_next != -1l)

@@ -65,6 +65,7 @@
 
 #include "portab.h"
 #include "init-mod.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -88,12 +89,6 @@ void int3()
 #endif
 #else
 #define int3()
-#endif
-
-#ifdef DEBUG
-#define HMAInitPrintf(x) printf x
-#else
-#define HMAInitPrintf(x)
 #endif
 
 #ifdef DEBUG
@@ -295,9 +290,11 @@ void MoveKernel(unsigned NewKernelSegment)
   unsigned len;
   unsigned jmpseg = CurrentKernelSegment;
  
+  /* on 1st call use original link time (unrelocated) TGROUP segment */
   if (CurrentKernelSegment == 0)
     CurrentKernelSegment = FP_SEG(_HMATextEnd);
 
+  /* if already relocated to HMA, then ignore move request */
   if (CurrentKernelSegment == 0xffff)
     return;
 

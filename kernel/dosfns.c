@@ -27,6 +27,7 @@
 /****************************************************************/
 
 #include "portab.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *dosfnsRcsId =
@@ -504,11 +505,19 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
 
   result = truename(fname, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
+  {
+    DFnsDbgPrintf(("DosOpenSft: truename failed\n"));
     return result;
+  }
+  else DFnsDbgPrintf(("DosOpenSft: truename succeeded\n"));
 
   /* now get a free system file table entry       */
   if ((sftp = get_free_sft(&sft_idx)) == (sft FAR *) - 1)
+  {
+    DFnsDbgPrintf(("DosOpenSft: file table full\n"));
     return DE_TOOMANY;
+  }
+  else DFnsDbgPrintf(("DosOpenSft: obtained sft entry\n"));
 
   fmemset(sftp, 0, sizeof(sft));
 
@@ -519,10 +528,14 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   sftp->sft_shroff = -1;        /* /// Added for SHARE - Ron Cemer */
   sftp->sft_attrib = attrib = attrib | D_ARCHIVE;
 
+  DFnsDbgPrintf(("DosOpenSft: mode=%02X, flags=%02X, attrib=%02X\n", \
+               sftp->sft_mode, OpenMode, attrib));
+
   if (result & IS_NETWORK)
   {
     int status;
     unsigned cmd;
+    DFnsDbgPrintf(("DosOpenSft: IS_NETWORK\n"));
     if ((flags & (O_TRUNC | O_CREAT)) == O_CREAT)
       attrib |= 0x100;
 
@@ -558,6 +571,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
     /* check the status code returned by the
      * driver when we tried to open it
      */
+    DFnsDbgPrintf(("DosOpenSft: IS_DEVICE\n"));
     if (rc < SUCCESS)
       return rc;
     return sft_idx;
@@ -566,6 +580,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
 /* /// Added for SHARE.  - Ron Cemer */
   if (IsShareInstalled())
   {
+    DFnsDbgPrintf(("DosOpenSft: using SHARE\n"));
     if ((sftp->sft_shroff =
          share_open_check(PriPathName, cu_psp,
                           flags & 0x03, (flags >> 4) & 0x07)) < 0)
@@ -578,9 +593,13 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   /* ... though FCB's are weird :) */
   if (!(flags & O_FCB) &&
       (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE | D_VOLID)))
+  {
+    DFnsDbgPrintf(("DosOpenSft: invalid request\n"));
     return DE_ACCESS;
+  }
   
   result = dos_open(PriPathName, flags, attrib);
+  DFnsDbgPrintf(("DosOpenSft: dos_open returned %02X\n", result));
   if (result >= 0)
   {
     int status = (int)(result >> 16);
@@ -591,6 +610,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
          (do not allow to open volume labels/directories) */
       if (sftp->sft_attrib & (D_DIR | D_VOLID))
       {
+        DFnsDbgPrintf(("DosOpenSft: closing, invalid attributes DIR|VOLID\n"));
         dos_close((COUNT)result);
         return DE_ACCESS;
       }
@@ -603,6 +623,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
     dos_getftime(sftp->sft_status,
                  (date FAR *) & sftp->sft_date,
                  (time FAR *) & sftp->sft_time);
+    DFnsDbgPrintf(("DosOpenSft: returning %lu (decimal)\n", (sft_idx | ((long)status << 16))));
     return sft_idx | ((long)status << 16);
   }
   else
@@ -944,7 +965,6 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   return SUCCESS;
 }
 
-#undef CHDIR_DEBUG
 COUNT DosChangeDir(BYTE FAR * s)
 {
   COUNT result;

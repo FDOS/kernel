@@ -29,6 +29,7 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *fatdirRcsId =
@@ -62,9 +63,12 @@ f_node_ptr dir_open(register const char *dirname)
   int i;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
+  FDirDbgPrintf(("dir_open: trying to open %s\n", dirname));
+  
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (f_node_ptr) 0)
   {
+    FDirDbgPrintf(("dir_open: failed to get f_node\n"));
     return (f_node_ptr) 0;
   }
 
@@ -78,6 +82,7 @@ f_node_ptr dir_open(register const char *dirname)
 
   if (media_check(fnp->f_dpb) < 0)
   {
+    FDirDbgPrintf(("dir_open: media_check failed\n"));
     release_f_node(fnp);
     return (f_node_ptr) 0;
   }
@@ -136,6 +141,7 @@ f_node_ptr dir_open(register const char *dirname)
 
     if (!i || !(fnp->f_dir.dir_attrib & D_DIR))
     {
+      FDirDbgPrintf(("dir_open: no match found, returning failure\n"));
       release_f_node(fnp);
       return (f_node_ptr) 0;
     }
@@ -146,6 +152,7 @@ f_node_ptr dir_open(register const char *dirname)
       dir_init_fnode(fnp, getdstart(fnp->f_dpb, &fnp->f_dir));
     }
   }
+  FDirDbgPrintf(("dir_open: returning, ok\n"));
   return fnp;
 }
 
@@ -188,7 +195,10 @@ COUNT dir_read(REG f_node_ptr fnp)
 
   /* can't have more than 65535 directory entries */
   if (fnp->f_diroff >= 65535U)
+  {
+      FDirDbgPrintf(("dir_read: exceed dir entry count\n"));
       return DE_SEEK;
+  }
 
   /* Determine if we hit the end of the directory. If we have,    */
   /* bump the offset back to the end and exit. If not, fill the   */
@@ -198,7 +208,10 @@ COUNT dir_read(REG f_node_ptr fnp)
   if (fnp->f_dirstart == 0)
   {
     if (fnp->f_diroff >= fnp->f_dpb->dpb_dirents)
+    {
+      FDirDbgPrintf(("dir_read: end of dir\n"));
       return DE_SEEK;
+    }
 
     bp = getblock(fnp->f_diroff / (secsize / DIRENT_SIZE)
                            + fnp->f_dpb->dpb_dirstrt, fnp->f_dpb->dpb_unit);
@@ -217,7 +230,10 @@ COUNT dir_read(REG f_node_ptr fnp)
     printf("dir_read: ");
 #endif
     if (map_cluster(fnp, XFR_READ) != SUCCESS)
+    {
+      DebugPrintf(("dir_read: map_cluster failed\n"));
       return DE_SEEK;
+    }
 
     bp = getblock_from_off(fnp, secsize);
 #ifdef DISPLAY_GETBLOCK
@@ -228,7 +244,10 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* Now that we have the block for our entry, get the    */
   /* directory entry.                                     */
   if (bp == NULL)
+  {
+    FDirDbgPrintf(("dir_read: invalid block\n"));
     return DE_BLKINVLD;
+  }
 
   bp->b_flag &= ~(BFR_DATA | BFR_FAT);
   bp->b_flag |= BFR_DIR | BFR_VALID;
@@ -245,6 +264,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* and for efficiency, stop when we hit the first       */
   /* unused entry.                                        */
   /* either returns 1 or 0                                */
+  FDirDbgPrintf(("dir_read: dir_name is %11s\n", fnp->f_dir.dir_name));
   return (fnp->f_dir.dir_name[0] != '\0');
 }
 
@@ -423,9 +443,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
       {
         dmp->dm_dircluster = fnp->f_dirstart;   /* TE */
         memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
-#ifdef DEBUG
-        printf("dos_findfirst: %11s\n", fnp->f_dir.dir_name);
-#endif
+        FDirDbgPrintf(("dos_findfirst: %11s\n", fnp->f_dir.dir_name));
+
         dir_close(fnp);
         return SUCCESS;
       }
@@ -511,9 +530,7 @@ COUNT dos_findnext(void)
       return SUCCESS;
     }
   }
-#ifdef DEBUG
-  printf("dos_findnext: %11s\n", fnp->f_dir.dir_name);
-#endif
+  FDirDbgPrintf(("dos_findnext: %11s\n", fnp->f_dir.dir_name));
   /* return the result                                            */
   release_f_node(fnp);
 

@@ -27,6 +27,7 @@
 /****************************************************************/
 
 #include "portab.h"
+#include "debug.h"
 
 #ifdef FORSYS
 #include <io.h>
@@ -118,7 +119,7 @@ void put_console(int c)
 }
 #endif                          /*  DOSEMU   */
 
-#if defined(DEBUG) || defined(FORSYS) || defined(_INIT) || defined(TEST)
+#if defined(DEBUG_NEED_PRINTF) || defined(FORSYS) || defined(_INIT) || defined(TEST)
 
 #ifndef FORSYS
 /* copied from bcc (Bruce's C compiler) stdarg.h */

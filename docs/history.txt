@@ -1,12 +1,14 @@
-2004 July 8 - UNSTABLE branch
+2005 Jan XX - UNSTABLE (-w) branch
 -------- Jeremy Davis (jeremyd@computer.org)
 + Changes Bart
-      * int2f.asm
-        - bugfix: call_nls: DI register was not preserved
       * exeflat.c
         - new version exploiting better UPX compression for SYS files; calls UPX itself
+      * int2f.asm
+        - bugfix: call_nls: DI register was not preserved
       * inthndlr.c
         - int21/ah=6/dl=ff now calls int28
+      * sys.c
+        - correct fat32readwrite's prototype to explicitly return int
 + Changes Tom
 	* inthndlr.c
 	  - improve handling of case where eg. FindFirst(I:\*.*) fails, causes Int24,
@@ -316,7 +318,7 @@
           (the last 2 changes needed to fix bugs discovered by Michael Devore)
         - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
         - optimised Int 21h/AH=38h Get Country Information, removed cntry hack
-        * autoexec.bat now single-line for FreeCOM compatibility when EOL=LF
+        * autoexec.bat: now single-line for FreeCOM compatibility when EOL=LF
         * break.c: check_handle_break() return was undefined if no Ctrl-break
         * config.sys: all commands removed as they were close to defaults
         * contrib.txt: added Aitor Santamaria, Bernd Blaauw and Eduardo Casino
@@ -330,16 +332,16 @@
           - optimisation and clean-up
         * fattab.c: ISFAT32 function removed (now macro), "wasfree" optimised
         * globals.h: __TIME__ removed - no two kernels released on same day
-        * initdisk.c:
+        * initdisk.c
           - if no floppy drives present, don't initialise DDT for drive A:
           - " - Initdisk" no longer shifts text if no FAT partitions found
           - converted cdiv() from macro to function; optimise and clean-up
         * inithma: InstallVDISK() function inlined, optimised and cleaned up
         * intr.asm: lseek() added (necessary for COUNTRY.SYS processing)
-        * ioctl.c:
+        * ioctl.c
           - r_si/r_di contents added as documented in PC-DOS Technical Update
           - r_unit now set to dpb_subunit (allows ZIP disk serial number)
-        * main.c:
+        * main.c
           - copyright message cleanup, now shows URL for the full GNU GPL text
           - (with Bart) LoL pointer made const (saves some size for Watcom)
           - InitializeAllBPBs() kludge removed (no longer needed - verified)
@@ -353,7 +355,7 @@
  + Changes Eduardo
         * config.c: update hardcoded country and codepage IDs
         * country.asm: added NLS uppercase/collating tables (437,850,857,858)
-        * inthndlr.c:
+        * inthndlr.c
           - added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
           - DOS-63-00 returns DBCS table from the active NLS package, not the
             harcoded one.
@@ -368,27 +370,44 @@
           - DosYesNo(): arg is now UWORD, not unsigned char.
           - nlsYesNo(): Add DBCS support
           - syscall_MUX14(): arg of nlsYesNo() is now CX instead of CL.
-        * nls.h:
+        * nls.h
           - yeschar and nochar are now UWORD instead of UBYTE.
           - NLS_FREEDOS_NLSFUNC_VERSION bumped to 0xFD02.
           - Add a small comment.
         * nls_hc.asm: YesChar and NoChar are now two bytes each.
-        * proto.h:
+        * proto.h
           - DosYesNo(): Argument is now UWORD (dual byte)
           - Add prototype for DosGetDBCS()
  + Changes Jeremy
-        * config.txt
-          - update to include all CONFIG.SYS options (except ANYDOS)
+        * updated build system to use NT OW binaries when building on NT
+          and add some additional options to build.bat command line
+        * added debug.h and changed to more easily allow selective DEBUG output
         * boot.asm
           - use static read buffer to avoid crossing 64KB boundary
+          - drop test for drive==0xFF, use sys to NOP use of BIOS provided #
+        * config.c
+          - always initialize boot time master environment
+          - KernelAlloc always 0's returned memory (fixes potential boot
+            time failure finding/loading CONFIG.SYS)
+        * config.txt
+          - update to include all CONFIG.SYS options (except ANYDOS)
+        * exeflat.c
+          - show usage also when number of arguments incorrect
+        * fatdir.c
+          - be more restrictive in what considered a volume search
+        * initdisk.c
+          - set hidden & huge fields in floppy bpb (bugfix 1789)
         * main.c
           - treat block devices returning 0 units as load failure
         * oemboot.asm - add [optional] PC/MS DOS compatible boot sector
         * sys.c
           - incorporate changes from/for DR-DOS enhancement project
           - rework option handling, add backup & restore boot sector
-        * exeflat.c
-          - show usage also when number of arguments incorrect
+          - change boot time drive selection (BIOS provided or one in
+            boot sector) to be selected as SYS time via NOPing mov [drive],dl
+        * add sys.txt (documentation) and sys.html (htmlhelp file)
+        * task.c
+          - add debug output to see env & cmd line passed to exec'd program
         < many other changes to be added by Jeremy himself :->
 
 *** Sync - Stable Build 2035 ***

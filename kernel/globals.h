@@ -27,6 +27,9 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
+#ifndef __GLOBALS_H
+#define __GLOBALS_H
+
 #ifdef VERSION_STRINGS
 #ifdef MAIN
 static BYTE *Globals_hRcsId =
@@ -422,3 +425,6 @@ GLOBAL BYTE ReturnAnyDosVersionExpected;
 
 GLOBAL struct f_node fnode[2];
 GLOBAL int fnode_fd[2];
+
+#endif /* __GLOBALS_H */
+

@@ -26,7 +26,8 @@
 /* Boston, MA  02111-1307  USA.                                 */
 /****************************************************************/
 
-enum {LOC_CONV=0, LOC_HMA=1};
+#ifndef __LOL_H
+#define __LOL_H
 
 /* note: we start at DOSDS:0, but the "official" list of lists starts a
    little later at DOSDS:26 (this is what is returned by int21/ah=52) */
@@ -84,3 +85,5 @@ struct lol {
   unsigned short f_nodes_cnt;  /* 74 number of allocated f_nodes          */
   char *os_release;            /* 76 near pointer to os_release string    */
 };
+
+#endif /* __LOL_H */

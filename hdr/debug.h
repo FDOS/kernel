@@ -55,6 +55,13 @@
 /* show stored IRQ vectors */
 /* #define DEBUGIRQ */
 
+/* show output related to moving kernel into HMA */
+#ifdef DEBUG
+#define HMAInitPrintf(x) printf x
+#else
+#define HMAInitPrintf(x)
+#endif
+
 /* display output during kernel config processing phase */
 /* #define DEBUGCFG */
 #ifdef DEBUGCFG

@@ -38,12 +38,7 @@ additionally:
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
-
-#if defined(DEBUG)
-#define DebugPrintf(x) printf x
-#else
-#define DebugPrintf(x)
-#endif
+#include "debug.h"
 
 /*extern struct DynS FAR Dyn;*/
 
