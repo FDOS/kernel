@@ -864,7 +864,7 @@ dispatch:
     case 0x39:
       /* Dos Remove Directory                                         */
     case 0x3a:
-      rc = DosMkRmdir(FP_DS_DX, lr.AL);
+      rc = DosMkRmdir(FP_DS_DX, lr.AH);
       goto short_check;
 
       /* Dos Change Directory                                         */
