@@ -154,7 +154,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
 
                                 /* initialize 'extra strings' count */
   *((UWORD FAR *) pDest) = 1;
-  pDest += sizeof(UWORD);
+  pDest += sizeof(UWORD)/sizeof(BYTE);
 
   /* copy complete pathname */
   if ((RetCode = truename(pathname, pDest, TRUE)) != SUCCESS) {

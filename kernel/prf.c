@@ -281,16 +281,15 @@ COUNT
             UWORD w[2];
             static char pointerFormat[] = "%04x:%04x";
             w[1] = *((UWORD *) arg);
-            arg += sizeof(UWORD);
+            arg += sizeof(UWORD)/sizeof(BYTE *);
             w[0] = *((UWORD *) arg);
-            arg += sizeof(UWORD);
+            arg += sizeof(UWORD)/sizeof(BYTE *);
             do_printf(pointerFormat,(BYTE**)&w);
     	    continue;
     	    }
 
       case 's':
-            p = *((BYTE **) arg);
-            arg += sizeof(BYTE *);
+            p = *arg++;
 	    goto do_outputstring;
             
       case 'F':
@@ -298,7 +297,7 @@ COUNT
             /* we assume %Fs here */
       case 'S':
             p = *((BYTE FAR **) arg);
-            arg += sizeof(BYTE FAR *);
+            arg += sizeof(BYTE FAR *)/sizeof(BYTE *);
             goto do_outputstring;
 
       case 'i':
@@ -322,13 +321,20 @@ COUNT
           	if (longarg)
                 {
                     currentArg = *((LONG *) arg);
-                    arg += sizeof(LONG);
+                    arg += sizeof(LONG)/sizeof(BYTE *);
                 }
           	else
                 {
-                    if (base < 0) currentArg = *((int*) arg);	
-                    else          currentArg = *((unsigned int*) arg);
-                    arg += sizeof(int);
+                    if (base < 0)
+                    {
+                        currentArg = *((int*) arg);
+                        arg += sizeof(int)/sizeof(BYTE *);
+                    }
+                    else
+                    {
+                        currentArg = *((unsigned int*) arg);
+                        arg += sizeof(unsigned int)/sizeof(BYTE *);
+                    }   
                 }	
           
             ltob(currentArg, s, base);
