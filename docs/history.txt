@@ -1,3 +1,123 @@
+2003 Sep xx - Build 2032
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Rune Espeseth <re@icd.no> (modified by Bart)
+    * config.txt, config.c: Full screen config.sys menus (use MENUCOLOR=)
++ Changes Michal Bakowski (mb@orad.pl)
+    * initdisk.c, kernel.asm: Change the boot drive to always
+      be C: if DLASortByDriveNo==1
++ Changes Arkady
+    * dsk.c: Use memcpy instead of fmemcpy; avoid downcasting
+      from far to near.
+    * sysclk.c: err if sizeof(struct ClockRecord) != rp->r_count
+      move year init below reading the BIOS
+    * main.c: init_device corrections/cleanups
+    * device.h: Change r_status and dh_name to unsigned quantities.
+    * task.c: Free memory if there is an error in the relocation
+      table.
+    * floppy.asm, getvec.asm, rdatclk.asm, rdpcclk.asm, wrpcclk.asm:
+      driver .asm files optimizations (also from Bart); remove
+      obsolete rdatclk.
+    * build.txt: Fix some typos.
+    * inthndlr.c: Add missing (); small optimization for DosGetdate/time.
++ Changes Lucho
+    * break.c: Fix ctrl-break bug.
+    * ioctl.c: IOCTL 4406 provided reverse AL output on regular
+      files - FF if EOF, 0 if not. It should output 0 if EOF, FF if not.
+    * initclk.c: Initclk changes
+    * config.c, init-mod.h, initoem.c: Support for
+      switches=/e[[:]nnnn] and for moving the EBDA
+    * fatfs.c: Use 0x10000UL (avoids Turbo C warning)
+    * sys.c: Move manually added "RCS" entries to the CVS log.
+    * main.c: Adjustments for MSVC.
+    * ioctl.c: int21/ax=440d lock/unlock logical/physical volume
+      simulate success for MS-DOS 7+ SCANDISK etc. --LG
+    * main.c: && should be || in check for \, / and :
+    * task.c: Adjust registers used when starting programs. Some
+      demos expect undocumented values (with Bart).
+    * mscl8.mak: Forgotten HMA_TEXT for MS compilers.
+    * sys.c: Add lock/unlock drive to SYS
+    * history.txt: Changelog correction.
+    * fatfs.c: Use near bpb on the stack in bpb_to_dpb.  Make
+      sure the number of FAT sectors is actually enough to hold that
+      many clusters. Otherwise back the number of clusters down
+    * procsupt.asm, proto.h, task.c: Don't disable a20 for
+      "exit" int21/ah=4c
++ Changes Lucho, Tom, Eric
+    * boot.asm, boot32.asm, boot32lb.asm, makefiles, sys.c: 
+      * boot.asm modified to support non-512 byte sectors 
+        (e.g. 1.2 MB NEC diskettes)
+      * 512 byte sector size check removed (although Eric's boot32ea.asm 
+        does require 512-byte sectors, all LBA FAT32 volumes have
+        512-byte sectors anyway).
+      * boot.asm cleaned up and modified to support Metakern
+        bsDriveNumber updated by SYS even #ifndef STORE_BOOT_INFO 
+      * (nothing in common)
+      *  SYS Now supports and includes the following new boot sectors:
+        1) the combined CHS+LBA FAT12/FAT16 boot sector by Tom Ehlert(29 July)
+        2) the CHS-only FAT32 boot sector -- as patched by Jon Gentle(08 July)
+        3) the LBA-only FAT32 boot sector by Eric Auer and Jon Gentle (19 July)
+      * The old combined (CHS+LBA), no-CALCPARAMS, no-resizable, non-Ghostable,
+        non-standard FAT32 boot sector and STORE_BOOT_INFO is no longer used.
+      * dump_sector() showed ASCII debug printout for the old sector
+        only - fixed.
+      * Put a boot sector only if sector size= 512 (may it not be so in
+        Japan?!). If non-512 byte sectors encountered, report to the 
+        fd-kernel mailing list.
+      * Now puts boot sector before copying kernel/shell so it works in
+        WinNT now.
+      * check_space() now implemented at last (required significant 
+        modifications)
+      * New (FAT type) detection method according to a MS White Paper.
+      * Now BOOTONLY works even without preceding boot sector image file name.
+      * Some minor code cleanups.
+      * Bart: some cleanups to the above; replaced 386 code for CHS FAT32
+        by 8088 code. Use boot32lb.asm instead of boot32ea.asm
++ Changes Bart
+    * portab.h, process.h, init-mod.h, inithma.c, kernel.asm, main.c, task.c: 
+      * add support for the far jmp at "int 30" (0000:00c0) 
+      * mirror it for the HMA (ffff:00d0)
+      * put all DOS int handler (and the CPM entry jumped to from
+        int30) jumpers in the "CONST" portion of DGROUP (instead of
+	LGROUP)	This helps Turbo C++ 1.01 make with the -S (swap)
+	switch.
+      * adjustments to set the relevant PSP fields in task.c
+    * blockio.c: Always use huge block sectors if the relevant bit is
+      set in the device header. This solves a problem with xmsdsk.
+    * chario.c: Small optimizations
+    * clobber.bat: Remove duplicate clobber.
+    * Flip some slashes for Linux compat and simplifications in makefiles
+    * device.h, portab.h: Use STATIC=static for watcom C (statics
+      are in the mapfile); remove some cruft.
+    * makefile, wlinker.bat: More verbose mapfiles for watcom
+      C; some slash preparations to allow cross-building on Linux
+    * exeflat.c, patchobj.c: Fix warnings reported by Turbo C
+    * break.c, chario.c, dosfns.c, globals.h, inthndlr.c,
+      proto.h, systime.c: (with a little help from Arkady) 
+      Simplifications and cleanups.
+      Pass a near pointer to the far pointer that points to the device 
+      instead of an SFT index (in general).
+      Make cooked_write much faster by only testing for input every 32
+      characters.  No longer test for ctl_s on syscon if writing to
+      the printer: just read from the printer which will return zero
+      characters.  Fix reading/writing zero characters by returning
+      "256" (special code). Adjust interfaces in other files.
+    * portab.h: New UNREFERENCED_PARAMETER macro that appears to
+      work for all compilers.
+    * floppy.asm: Remove unused code.
+    * init-mod.h: Solve compilation problem with Borland C++ 3.1
+    * config.b: "-p" is no longer necessary in config.bat
+    * kernel.asm: Add necessary "BootHardDiskSeconds" for non
+      UPXed kernels.
+    * chario.c, dosfns.c: Add necessary casts to ? : constructions;
+      cleanup read_line_handle a little.
+    * portab.h: Add peek and poke #defines
+    * chario.c: Fix pointer overflow problem for reading line using handle.
+    * makefiles, exeflat.c Clean cleans a bit more; change () to (void)
+    * main.c: Set the PSP before the DTA. This solves an interrupt
+      vector table corruption.
+    * kernel.asm: Use "local" (instead of "global") disable/enable
+      A20. This solves the problems with NIOS.
+    * asmsupt.asm, misc.c, proto.h, strings.c: Remove (unused) strncpy.
 2003 Jul 19 - Build 2031
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Luchezar Georgiev
