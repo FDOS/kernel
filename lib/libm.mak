@@ -5,6 +5,12 @@
 #
 
 # $Log$
+# Revision 1.4  2001/03/19 04:50:56  bartoldeman
+# See history.txt for overview: put kernel 2022beo1 into CVS
+#
+# Revision 1.4  2001/03/08 21:15:00  bartoldeman
+# Fix from Martin Stromberg to make this fully configurable from config.mak
+#
 # Revision 1.3  2000/05/25 20:56:22  jimtabor
 # Fixed project history
 #
@@ -32,13 +38,9 @@
 
 
 libm.lib:       $(CLIB)
-# use these for Turbo 2
-        $(LIBUTIL) $(CLIB) *LDIV *LLSH *LURSH *LXMUL *LRSH *SPUSH *SCOPY
-        $(LIBUTIL) libm +LDIV +LLSH +LURSH +LXMUL +LRSH +SPUSH +SCOPY
-# use these for Turbo 3 or better
-#        $(LIBUTIL) $(CLIB) *H_LDIV *H_LLSH *H_LURSH *N_LXMUL *F_LXMUL *H_LRSH *H_SPUSH *N_SCOPY
-#        $(LIBUTIL) libm +H_LDIV +H_LLSH +H_LURSH +N_LXMUL +F_LXMUL +H_LRSH +H_SPUSH +N_SCOPY
-        del *.OBJ
+	$(LIBUTIL) $(CLIB) $(MATH_EXTRACT)
+	$(LIBUTIL) libm $(MATH_INSERT)
+	$(RM) *.OBJ
 
 
 clobber:        clean

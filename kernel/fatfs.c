@@ -36,6 +36,12 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.9  2001/03/08 21:00:00  bartoldeman
+ * Disabled select_unit() since it's not used
+ *
  * Revision 1.8  2000/10/29 23:51:56  jimtabor
  * Adding Share Support by Ron Cemer
  *
@@ -2300,6 +2306,7 @@ COUNT xlt_fnp(struct f_node FAR * fnp)
   return fnp - f_nodes;
 }
 
+#if 0
 struct dhdr FAR *select_unit(COUNT drive)
 {
   /* Just get the header from the dhdr array                      */
@@ -2308,4 +2315,4 @@ struct dhdr FAR *select_unit(COUNT drive)
     return (struct dhdr FAR *)CDSp->cds_table[drive].cdsDpb;
 
 }
-
+#endif

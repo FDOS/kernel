@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.5  2001/03/19 04:50:56  bartoldeman
+# See history.txt for overview: put kernel 2022beo1 into CVS
+#
 # Revision 1.4  2000/08/06 05:50:17  jimtabor
 # Add new files and update cvs with patches and changes
 #
@@ -209,7 +212,7 @@ clean:
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 kernel.exe: $(EXE_dependencies) $(LIBS)
-    del kernel.lib
+    $(RM) kernel.lib
     $(LIBUTIL) kernel +entry +io +blockio +chario +dosfns +console
     $(LIBUTIL) kernel +printer +serial +dsk +error +fatdir +fatfs
     $(LIBUTIL) kernel +fattab +fcbfns +initoem +inthndlr +ioctl +nls_hc
@@ -218,9 +221,9 @@ kernel.exe: $(EXE_dependencies) $(LIBS)
     $(LIBUTIL) kernel +systime +task +int2f +irqstack +apisupt
     $(LIBUTIL) kernel +asmsupt +execrh +nlssupt +procsupt +break
     $(LIBUTIL) kernel +dosidle
-    del kernel.bak
+    $(RM) kernel.bak
     $(LINK) /m/c/L$(LIBPATH) kernel,kernel,kernel,kernel+$(LIBS);
-    del kernel.lib
+    $(RM) kernel.lib
 
 #               *Individual File Dependencies*
 kernel.obj: kernel.asm segs.inc

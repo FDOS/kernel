@@ -36,6 +36,12 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.10  2001/03/08 21:00:00  bartoldeman
+ * Fix handling of very long path names (Tom Ehlert)
+ *
  * Revision 1.9  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -583,7 +589,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
     local_ext[FEXT_SIZE + 1],
     Tname[65];
 
-  fscopy(name, (BYTE FAR *)&Tname);
+  fsncopy(name, (BYTE FAR *)&Tname, sizeof(Tname));
+  Tname[sizeof(Tname)-1]=0;
+
 /*
   printf("ff %s", Tname);
  */

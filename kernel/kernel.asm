@@ -28,6 +28,12 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/03/19 04:50:56  bartoldeman
+; See history.txt for overview: put kernel 2022beo1 into CVS
+;
+; Revision 1.6  2001/03/08 21:15:00  bartoldeman
+; uppermem_root initialised to 0 (no UMBs).
+;
 ; Revision 1.5  2000/08/06 05:50:17  jimtabor
 ; Add new files and update cvs with patches and changes
 ;
@@ -318,7 +324,7 @@ _uppermem_link  db      0               ; 0063 upper memory link flag
                 global  _UMB_top
 _UMB_top        dw      0               ; 0064 unknown UMB_top will do for now
                 global  _uppermem_root
-_uppermem_root  dw      0FFFFh          ; 0066 dmd_upper_root
+_uppermem_root  dw      0	        ; 0066 dmd_upper_root
                 global  _umb_start
 _umb_start      dw      0               ; 0068 para of last mem search
 SysVarEnd:

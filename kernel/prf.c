@@ -34,6 +34,16 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.4  2001/03/07 10:00:00 tomehlert
+ * recoded for smaller object footprint, added main() for testing+QA
+ *
+ * $Log$
+ * Revision 1.4  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -85,13 +95,11 @@ static BYTE *charp;
 VOID handle_char(COUNT);
 VOID put_console(COUNT);
 BYTE *ltob(LONG, BYTE *, COUNT);
-static BYTE *itob(COUNT, BYTE *, COUNT);
 COUNT do_printf(CONST BYTE *, REG BYTE **);
 #else
 VOID handle_char();
 VOID put_console();
 BYTE *ltob();
-static BYTE *itob();
 COUNT do_printf();
 #endif
 
@@ -122,35 +130,32 @@ static VOID
 }
 
 /* ltob -- convert an long integer to a string in any base (2-16) */
-static BYTE *
+BYTE *
   ltob(LONG n, BYTE * s, COUNT base)
 {
   ULONG u;
-  REG BYTE *p,
-   *q;
-  REG negative,
-    c;
+  BYTE *p, *q;
+  int  c;
 
-  if (n < 0 && base == -10)
-  {
-    negative = 1;
-    u = -n;
-  }
-  else
-  {
-    negative = 0;
     u = n;
-  }
+
   if (base == -10)              /* signals signed conversion */
+  	{
     base = 10;
+	if (n < 0 )
+  		{
+    	u = -n;
+    	*s++ = '-';
+  		}
+  	}
+  	
   p = q = s;
   do
   {                             /* generate digits in reverse order */
     *p++ = "0123456789abcdef"[u % base];
   }
   while ((u /= base) > 0);
-  if (negative)
-    *p++ = '-';
+  
   *p = '\0';                    /* terminate the string */
   while (q < --p)
   {                             /* reverse the digits */
@@ -161,49 +166,9 @@ static BYTE *
   return s;
 }
 
-/* itob -- convert an long integer to a string in any base (2-16) */
-static BYTE *
-  itob(COUNT n, BYTE * s, COUNT base)
-{
-  UWORD u;
-  REG BYTE *p,
-   *q;
-  REG negative,
-    c;
 
-  if (n < 0 && base == -10)
-  {
-    negative = 1;
-    u = -n;
-  }
-  else
-  {
-    negative = 0;
-    u = n;
-  }
-  if (base == -10)              /* signals signed conversion */
-    base = 10;
-  p = q = s;
-  do
-  {                             /* generate digits in reverse order */
-    *p++ = "0123456789abcdef"[u % base];
-  }
-  while ((u /= base) > 0);
-  if (negative)
-    *p++ = '-';
-  *p = '\0';                    /* terminate the string */
-  while (q < --p)
-  {                             /* reverse the digits */
-    c = *q;
-    *q++ = *p;
-    *p = c;
-  }
-  return s;
-}
-
-#define NONE    0
-#define LEFT    1
-#define RIGHT   2
+#define LEFT    0
+#define RIGHT   1
 
 /* printf -- short version of printf to conserve space */
 WORD FAR
@@ -214,7 +179,7 @@ WORD FAR
 }
 
 WORD
-sprintf(BYTE * buff, CONST BYTE * fmt, BYTE * args)
+sprintf(BYTE * buff, CONST BYTE * fmt, BYTE * args,...)
 {
   WORD ret;
 
@@ -224,194 +189,214 @@ sprintf(BYTE * buff, CONST BYTE * fmt, BYTE * args)
   return ret;
 }
 
-static COUNT
-  do_printf(CONST BYTE * fmt, REG BYTE ** arg)
+COUNT
+  do_printf(CONST BYTE * fmt, BYTE ** arg)
 {
-  REG base;
+  int base;
   BYTE s[11],
    *p,
    *ltob();
-  BYTE c,
-    slen,
+  int c,
     flag,
     size,
     fill;
+  int longarg;  
+  long currentArg;
 
-  flag = NONE;
-  size = 0;
   while ((c = *fmt++) != '\0')
   {
-    if (size == 0 && flag == NONE && c != '%')
+    if (c != '%')
     {
       handle_char(c);
       continue;
     }
-    if (flag == NONE && *fmt == '0')
+
+	longarg = FALSE;
+  	size = 0;
+    flag = RIGHT;
+    fill = ' ';
+
+    if ( *fmt == '-')
     {
-      flag = RIGHT;
+      flag = LEFT;
+      fmt++;
+    }
+    
+    if ( *fmt == '0')
+    {
       fill = '0';
+      fmt++;
     }
-    switch (*fmt)
+
+	while (*fmt >= '0' && *fmt <= '9')
+	{
+      size = size * 10 + (*fmt++ - '0');
+	}
+
+    
+
+    if (*fmt == 'l')
     {
-      case '-':
-        flag = RIGHT;
-        fill = *(fmt + 1) == '0' ? '0' : ' ';
-        continue;
-
-      case '0':
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-      case '8':
-      case '9':
-        if (flag == NONE)
-          flag = LEFT;
-        size = *fmt++ - '0';
-        while ((c = *fmt++) != '\0')
-        {
-          switch (c)
-          {
-            case '0':
-            case '1':
-            case '2':
-            case '3':
-            case '4':
-            case '5':
-            case '6':
-            case '7':
-            case '8':
-            case '9':
-              size = size * 10 + (c - '0');
-              continue;
-
-            default:
-              --fmt;
-              break;
-          }
-          break;
-        }
-        break;
+    	longarg = TRUE;
+    	fmt++;
     }
+
+    
     switch (c = *fmt++)
     {
+      case '\0': 
+      		return 0;
+      	
       case 'c':
-        handle_char(*(COUNT *) arg++);
-        continue;
+	        handle_char(*(COUNT *) arg++);
+    	    continue;
+
+      case 's':
+			p = *((BYTE **) arg)++;
+			goto do_outputstring;
 
       case 'd':
-        base = -10;
-        goto prt;
-
-      case 'o':
-        base = 8;
-        goto prt;
-
-      case 'u':
-        base = 10;
-        goto prt;
-
-      case 'x':
-        base = 16;
-
-      prt:
-        itob(*((COUNT *) arg)++, s, base);
-        if (flag == RIGHT || flag == LEFT)
-        {
-          for (slen = 0, p = s; *p != '\0'; p++)
-            ++slen;
-        }
-        if (flag == RIGHT && slen < size)
-        {
-          WORD i;
-
-          for (i = size - slen; i > 0; i--)
-            handle_char(fill);
-        }
-        for (p = s; *p != '\0'; p++)
-          handle_char(*p);
-        if (flag == LEFT)
-        {
-          WORD i;
-          BYTE sp = ' ';
-
-          for (i = size - slen; i > 0; i--)
-            handle_char(sp);
-        }
-        size = 0;
-        flag = NONE;
-        continue;
-
-      case 'l':
-        switch (c = *fmt++)
-        {
-          case 'd':
             base = -10;
             goto lprt;
 
-          case 'o':
+      case 'o':
             base = 8;
             goto lprt;
 
-          case 'u':
+      case 'u':
             base = 10;
             goto lprt;
 
-          case 'x':
+      case 'x':
             base = 16;
 
           lprt:
-            ltob(*((LONG *) arg)++, s, base);
-            if (flag == RIGHT || flag == LEFT)
-            {
-              for (slen = 0, p = s; *p != '\0'; p++)
-                ++slen;
-            }
-            if (flag == RIGHT && slen < size)
-            {
-              WORD i;
+          	if (longarg)
+          		currentArg = *((LONG *) arg)++;
+          	else
+          		if (base < 0) currentArg = *((int*) arg)++;	
+          		else          currentArg = *((unsigned int*) arg)++;	
+          			
+          
+            ltob(currentArg, s, base);
 
-              for (i = size - slen; i > 0; i--)
+            p = s;
+do_outputstring:
+            
+            size  -= strlen(p);
+            
+            if (flag == RIGHT )
+            {
+              for ( ; size > 0; size--)
                 handle_char(fill);
             }
-            for (p = s; *p != '\0'; p++)
+            for (; *p != '\0'; p++)
               handle_char(*p);
-            if (flag == LEFT)
-            {
-              WORD i;
-              BYTE sp = ' ';
 
-              for (i = size - slen; i > 0; i--)
-                handle_char(sp);
-            }
-            size = 0;
-            flag = NONE;
+            for ( ; size > 0; size--)
+                handle_char(fill);
+                
             continue;
 
           default:
             handle_char(c);
-        }
+            break;
 
-      case 's':
-        for (p = *arg; *p != '\0'; p++)
-        {
-          --size;
-          handle_char(*p);
-        }
-        for (; size > 0; size--)
-          handle_char(' ');
-        ++arg;
-        size = 0;
-        flag = NONE;
-        continue;
 
-      default:
-        handle_char(c);
-        continue;
     }
   }
   return 0;
 }
+
+
+#ifdef TEST
+/*
+	this testprogram verifies that the strings are printed correctly
+	( or the way, I expect them to print)
+	
+	compile like (note -DTEST !)
+
+	c:\tc\tcc -DTEST -DI86 -I..\hdr prf.c
+	
+	and run. if strings are wrong, the program will wait for the ANYKEY
+
+*/
+#include <c:\tc\include\conio.h>
+void cso(char c) { putch(c); }
+
+
+struct  {
+	char *should;
+	char *format;
+	unsigned lowint;
+	unsigned highint;
+	
+} testarray[] = 
+	{ 
+		{ "hello world", "%s %s", (unsigned)"hello",(unsigned)"world"},
+		{ "hello", "%3s", (unsigned)"hello",0},
+		{ "  hello", "%7s", (unsigned)"hello",0},
+		{ "hello  ", "%-7s", (unsigned)"hello",0},
+		{ "hello", "%s", (unsigned)"hello",0},
+		
+		
+		
+		{ "1",	"%d", 1, 0},
+		{ "-1", "%d", -1,0},
+		{ "65535", "%u", -1,0},
+		{ "-32768", "%d", 0x8000,0},
+		{ "32767", "%d", 0x7fff,0},
+		{ "-32767", "%d", 0x8001,0},
+		
+		{"8000", "%x", 0x8000, 0},
+		{"   1", "%4x", 1, 0},
+		{"0001", "%04x", 1, 0},
+		{"1   ", "%-4x", 1, 0},
+		{"1000", "%-04x", 1, 0},
+
+		{ "1",	"%ld", 1, 0},
+		{ "-1", "%ld", -1,-1},
+		{ "65535", "%ld", -1,0},
+		{ "65535", "%u", -1,0},
+		{"8000", "%lx", 0x8000, 0},
+		{"80000000", "%lx", 0,0x8000},
+		{"   1", "%4lx", 1, 0},
+		{"0001", "%04lx", 1, 0},
+		{"1   ", "%-4lx", 1, 0},
+		{"1000", "%-04lx", 1, 0},
+		
+		{ "-2147483648", "%ld", 0,0x8000},
+		{  "2147483648", "%lu", 0,0x8000},
+		{  "2147483649", "%lu", 1,0x8000},
+		{ "-2147483647", "%ld", 1,0x8000},
+		{ "32767", "%ld", 0x7fff,0},
+		{ "32769", "%ld", 0x8001,0},
+		
+		
+		
+		0
+	};
+	
+test(char *should, char *format, unsigned lowint, unsigned highint)
+{
+	char b[100];
+	
+	sprintf(b, format, lowint,highint);
+	
+	printf("'%s' = '%s'\n", should, b);
+	
+	if (strcmp(b,should)) { printf("\nhit the ANYKEY\n"); getch(); }
+}	
+
+
+main()
+{
+	int i;
+	printf("hello world\n");
+	
+	for (i = 0; testarray[i].should; i++)
+	{
+		test(testarray[i].should,testarray[i].format, testarray[i].lowint, testarray[i].highint);
+	}
+}
+#endif

@@ -30,7 +30,9 @@ _nlsCountryInfoHardcoded:
 	DB  01ch, 000h, 001h, 000h, 0b5h, 001h, 000h, 000h
 	DB  024h, 000h, 000h, 000h, 000h, 02ch, 000h, 02eh
 	DB  000h, 02dh, 000h, 03ah, 000h, 000h, 002h, 000h
-	DB  0e8h, 058h, 000h, 000h, 02ch, 000h
+extern _CharMapSrvc:wrt TGROUP
+        DW  _CharMapSrvc, SEG _CharMapSrvc
+        DB  02ch, 000h
 	GLOBAL _hcTablesStart
 _hcTablesStart:
 	GLOBAL _nlsFUpcaseHardcoded

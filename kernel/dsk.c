@@ -33,6 +33,12 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.9  2001/03/08 21:15:00  bartoldeman
+ * Space saving fixes from Tom Ehlert
+ *
  * Revision 1.8  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -181,6 +187,10 @@ static struct FS_info fsarray[NDEV];
 static bpb bpbarray[NDEV];      /* BIOS parameter blocks        */
 static bpb *bpbptrs[NDEV];      /* pointers to bpbs             */
 
+/*TE - array access functions */
+struct media_info *getPMiarray(int dev) { return &miarray[dev];}
+       bpb        *getPBpbarray(unsigned dev){ return &bpbarray[dev];}
+
 #define N_PART 4                /* number of partitions per
                                    table partition              */
 
@@ -226,7 +236,7 @@ WORD init(rqptr),
   blk_noerr(rqptr),
   blk_nondr(rqptr),
   blk_error(rqptr);
-COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, LONG, byteptr);
+COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, ULONG, byteptr);
 WORD dskerr(COUNT);
 COUNT processtable(COUNT ptDrive, BYTE ptHead, UWORD ptCylinder, BYTE ptSector, LONG ptAccuOff);
 #else
@@ -311,7 +321,8 @@ COUNT processtable(COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
     LONG peStartSector;
     LONG peSectors;
   }
-  temp_part[N_PART];
+  temp_part[N_PART], 
+  	*ptemp_part;			/*TE*/
 
   REG retry = N_RETRY;
   UBYTE packed_byte,
@@ -363,49 +374,52 @@ COUNT processtable(COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
      array and process extended partitions         */
   for (Part = 0; Part < N_PART && nUnits < NDEV; Part++)
   {
-    if (temp_part[Part].peFileSystem == FAT12 ||
-        temp_part[Part].peFileSystem == FAT16SMALL ||
-        temp_part[Part].peFileSystem == FAT16LARGE)
+/*TE*/  	
+  	ptemp_part = &temp_part[Part];
+  	
+    if (ptemp_part->peFileSystem == FAT12 ||
+	ptemp_part->peFileSystem == FAT16SMALL ||
+	ptemp_part->peFileSystem == FAT16LARGE)
     {
       miarray[nUnits].mi_offset =
-          temp_part[Part].peStartSector + ptAccuOff;
+	  ptemp_part->peStartSector + ptAccuOff;
       miarray[nUnits].mi_drive = ptDrive;
       miarray[nUnits].mi_partidx = nPartitions;
       nUnits++;
 
       dos_partition[nPartitions].peDrive = ptDrive;
       dos_partition[nPartitions].peBootable =
-          temp_part[Part].peBootable;
+	  ptemp_part->peBootable;
       dos_partition[nPartitions].peBeginHead =
-          temp_part[Part].peBeginHead;
+	  ptemp_part->peBeginHead;
       dos_partition[nPartitions].peBeginSector =
-          temp_part[Part].peBeginSector;
+	  ptemp_part->peBeginSector;
       dos_partition[nPartitions].peBeginCylinder =
-          temp_part[Part].peBeginCylinder;
+	  ptemp_part->peBeginCylinder;
       dos_partition[nPartitions].peFileSystem =
-          temp_part[Part].peFileSystem;
+	  ptemp_part->peFileSystem;
       dos_partition[nPartitions].peEndHead =
-          temp_part[Part].peEndHead;
+	  ptemp_part->peEndHead;
       dos_partition[nPartitions].peEndSector =
-          temp_part[Part].peEndSector;
+	  ptemp_part->peEndSector;
       dos_partition[nPartitions].peEndCylinder =
-          temp_part[Part].peEndCylinder;
+	  ptemp_part->peEndCylinder;
       dos_partition[nPartitions].peStartSector =
-          temp_part[Part].peStartSector;
+	  ptemp_part->peStartSector;
       dos_partition[nPartitions].peSectors =
-          temp_part[Part].peSectors;
+	  ptemp_part->peSectors;
       dos_partition[nPartitions].peAbsStart =
-          temp_part[Part].peStartSector + ptAccuOff;
+	  ptemp_part->peStartSector + ptAccuOff;
       nPartitions++;
     }
-    else if (temp_part[Part].peFileSystem == EXTENDED)
+    else if (ptemp_part->peFileSystem == EXTENDED)
     {
       /* call again to process extended part table */
       processtable(ptDrive,
-                   temp_part[Part].peBeginHead,
-                   temp_part[Part].peBeginCylinder,
-                   temp_part[Part].peBeginSector,
-                   temp_part[Part].peStartSector + ptAccuOff);
+		   ptemp_part->peBeginHead,
+		   ptemp_part->peBeginCylinder,
+		   ptemp_part->peBeginSector,
+		   ptemp_part->peStartSector + ptAccuOff);
     };
   };
   return TRUE;
@@ -429,6 +443,9 @@ static WORD init(rqptr rp)
   COUNT HardDrive,
     nHardDisk,
     Unit;
+  struct media_info *pmiarray;
+  bpb *pbpbarray;
+    
 
   /* Reset the drives                                             */
   fl_reset(0x80);
@@ -441,26 +458,31 @@ static WORD init(rqptr rp)
   /* Setup media info and BPBs arrays                             */
   for (Unit = 0; Unit < NDEV; Unit++)
   {
-    miarray[Unit].mi_size = 720l;
-    miarray[Unit].mi_heads = 2;
-    miarray[Unit].mi_cyls = 40;
-    miarray[Unit].mi_sectors = 9;
-    miarray[Unit].mi_offset = 0l;
-    miarray[Unit].mi_drive = Unit;
+  	pmiarray = getPMiarray(Unit);
+  	
+    pmiarray->mi_size = 720l;
+    pmiarray->mi_heads = 2;
+    pmiarray->mi_cyls = 40;
+    pmiarray->mi_sectors = 9;
+    pmiarray->mi_offset = 0l;
+    pmiarray->mi_drive = Unit;
 
     fsarray[Unit].fs_serialno = 0x12345678;
 
+/*TE*/
+	pbpbarray = getPBpbarray(Unit);    
 
-    bpbarray[Unit].bpb_nbyte = SEC_SIZE;
-    bpbarray[Unit].bpb_nsector = 2;
-    bpbarray[Unit].bpb_nreserved = 1;
-    bpbarray[Unit].bpb_nfat = 2;
-    bpbarray[Unit].bpb_ndirent = 112;
-    bpbarray[Unit].bpb_nsize = 720l;
-    bpbarray[Unit].bpb_mdesc = 0xfd;
-    bpbarray[Unit].bpb_nfsect = 2;
 
-    bpbptrs[Unit] = &bpbarray[Unit];
+    pbpbarray->bpb_nbyte = SEC_SIZE;
+    pbpbarray->bpb_nsector = 2;
+    pbpbarray->bpb_nreserved = 1;
+    pbpbarray->bpb_nfat = 2;
+    pbpbarray->bpb_ndirent = 112;
+    pbpbarray->bpb_nsize = 720l;
+    pbpbarray->bpb_mdesc = 0xfd;
+    pbpbarray->bpb_nfsect = 2;
+
+    bpbptrs[Unit] = pbpbarray;
   };
 
   nHardDisk = fl_nrdrives();
@@ -596,25 +618,31 @@ static WORD bldbpb(rqptr rp)
   ULONG count, i;
   byteptr trans;
   WORD local_word;
+/*TE*/  
+  bpb *pbpbarray;
+  struct media_info *pmiarray;
 
   ret = RWzero( rp, 0);
 
   if (ret != 0)
     return (dskerr(ret));
 
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NBYTE]), &bpbarray[rp->r_unit].bpb_nbyte);
-  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSECTOR]), &bpbarray[rp->r_unit].bpb_nsector);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NRESERVED]), &bpbarray[rp->r_unit].bpb_nreserved);
-  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NFAT]), &bpbarray[rp->r_unit].bpb_nfat);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NDIRENT]), &bpbarray[rp->r_unit].bpb_ndirent);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSIZE]), &bpbarray[rp->r_unit].bpb_nsize);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSIZE]), &bpbarray[rp->r_unit].bpb_nsize);
-  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_MDESC]), &bpbarray[rp->r_unit].bpb_mdesc);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NFSECT]), &bpbarray[rp->r_unit].bpb_nfsect);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSECS]), &bpbarray[rp->r_unit].bpb_nsecs);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NHEADS]), &bpbarray[rp->r_unit].bpb_nheads);
-  getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HIDDEN])), &bpbarray[rp->r_unit].bpb_hidden);
-  getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &bpbarray[rp->r_unit].bpb_huge);
+/*TE ~ 200 bytes*/    
+  pbpbarray = getPBpbarray(rp->r_unit);
+
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NBYTE]), &pbpbarray->bpb_nbyte);
+  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSECTOR]), &pbpbarray->bpb_nsector);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NRESERVED]), &pbpbarray->bpb_nreserved);
+  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NFAT]), &pbpbarray->bpb_nfat);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NDIRENT]), &pbpbarray->bpb_ndirent);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
+  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_MDESC]), &pbpbarray->bpb_mdesc);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NFSECT]), &pbpbarray->bpb_nfsect);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSECS]), &pbpbarray->bpb_nsecs);
+  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NHEADS]), &pbpbarray->bpb_nheads);
+  getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HIDDEN])), &pbpbarray->bpb_hidden);
+  getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &pbpbarray->bpb_huge);
 
 /* Needs fat32 offset code */
 
@@ -627,40 +655,43 @@ static WORD bldbpb(rqptr rp)
 
 
 #ifdef DSK_DEBUG
-  printf("BPB_NBYTE     = %04x\n", bpbarray[rp->r_unit].bpb_nbyte);
-  printf("BPB_NSECTOR   = %02x\n", bpbarray[rp->r_unit].bpb_nsector);
-  printf("BPB_NRESERVED = %04x\n", bpbarray[rp->r_unit].bpb_nreserved);
-  printf("BPB_NFAT      = %02x\n", bpbarray[rp->r_unit].bpb_nfat);
-  printf("BPB_NDIRENT   = %04x\n", bpbarray[rp->r_unit].bpb_ndirent);
-  printf("BPB_NSIZE     = %04x\n", bpbarray[rp->r_unit].bpb_nsize);
-  printf("BPB_MDESC     = %02x\n", bpbarray[rp->r_unit].bpb_mdesc);
-  printf("BPB_NFSECT    = %04x\n", bpbarray[rp->r_unit].bpb_nfsect);
+  printf("BPB_NBYTE     = %04x\n", pbpbarray->bpb_nbyte);
+  printf("BPB_NSECTOR   = %02x\n", pbpbarray->bpb_nsector);
+  printf("BPB_NRESERVED = %04x\n", pbpbarray->bpb_nreserved);
+  printf("BPB_NFAT      = %02x\n", pbpbarray->bpb_nfat);
+  printf("BPB_NDIRENT   = %04x\n", pbpbarray->bpb_ndirent);
+  printf("BPB_NSIZE     = %04x\n", pbpbarray->bpb_nsize);
+  printf("BPB_MDESC     = %02x\n", pbpbarray->bpb_mdesc);
+  printf("BPB_NFSECT    = %04x\n", pbpbarray->bpb_nfsect);
 #endif
-  rp->r_bpptr = &bpbarray[rp->r_unit];
-  count = miarray[rp->r_unit].mi_size =
-      bpbarray[rp->r_unit].bpb_nsize == 0 ?
-      bpbarray[rp->r_unit].bpb_huge :
-      bpbarray[rp->r_unit].bpb_nsize;
-  getword((&(((BYTE *) & buffer.bytes[BT_BPB])[BPB_NHEADS])), &miarray[rp->r_unit].mi_heads);
-  head = miarray[rp->r_unit].mi_heads;
-  getword((&(((BYTE *) & buffer.bytes[BT_BPB])[BPB_NSECS])), &miarray[rp->r_unit].mi_sectors);
-  if (miarray[rp->r_unit].mi_size == 0)
-    getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &miarray[rp->r_unit].mi_size);
-  sector = miarray[rp->r_unit].mi_sectors;
+  rp->r_bpptr = pbpbarray;
+
+  pmiarray = getPMiarray(rp->r_unit);
+  
+  count = pmiarray->mi_size =
+      pbpbarray->bpb_nsize == 0 ?
+      pbpbarray->bpb_huge :
+      pbpbarray->bpb_nsize;
+  getword((&(((BYTE *) & buffer.bytes[BT_BPB])[BPB_NHEADS])), &pmiarray->mi_heads);
+  head = pmiarray->mi_heads;
+  getword((&(((BYTE *) & buffer.bytes[BT_BPB])[BPB_NSECS])), &pmiarray->mi_sectors);
+  if (pmiarray->mi_size == 0)
+    getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &pmiarray->mi_size);
+  sector = pmiarray->mi_sectors;
 
   if (head == 0 || sector == 0)
   {
     tmark();
     return failure(E_FAILURE);
   }
-  miarray[rp->r_unit].mi_cyls = count / (head * sector);
+  pmiarray->mi_cyls = count / (head * sector);
   tmark();
 
 #ifdef DSK_DEBUG
   printf("BPB_NSECS     = %04x\n", sector);
   printf("BPB_NHEADS    = %04x\n", head);
-  printf("BPB_HIDDEN    = %08lx\n", bpbarray[rp->r_unit].bpb_hidden);
-  printf("BPB_HUGE      = %08lx\n", bpbarray[rp->r_unit].bpb_huge);
+  printf("BPB_HIDDEN    = %08lx\n", pbpbarray->bpb_hidden);
+  printf("BPB_HUGE      = %08lx\n", pbpbarray->bpb_huge);
 #endif
   return S_DONE;
 }
@@ -893,29 +924,39 @@ static WORD dskerr(COUNT code)
 /*                                                                      */
 /* Do logical block number to physical head/track/sector mapping        */
 /*                                                                      */
-static COUNT ltop(WORD * trackp, WORD * sectorp, WORD * headp, REG COUNT unit, COUNT count, LONG strt_sect, byteptr strt_addr)
+static COUNT ltop(WORD * trackp, WORD * sectorp, WORD * headp, COUNT unit, COUNT count, ULONG strt_sect, byteptr strt_addr)
 {
 #ifdef I86
-  ULONG ltemp;
+  UWORD utemp;
 #endif
-  REG ls,
-    ps;
+	REG struct media_info *pmiarray;
 
 #ifdef I86
+/*TE*/
   /* Adjust for segmented architecture                            */
-  ltemp = (((ULONG) mk_segment(strt_addr) << 4) + mk_offset(strt_addr)) & 0xffff;
+  utemp = (((UWORD) mk_segment(strt_addr) << 4) + mk_offset(strt_addr));
   /* Test for 64K boundary crossing and return count large        */
   /* enough not to exceed the threshold.                          */
-  count = (((ltemp + SEC_SIZE * count) & 0xffff0000l) != 0l)
-      ? (0xffffl - ltemp) / SEC_SIZE
-      : count;
+  
+#define SEC_SHIFT 9	/* = 0x200 = 512 */  
+  
+  utemp >>= SEC_SHIFT;
+  
+  if (count > (0xffff >> SEC_SHIFT) - utemp)
+  	{
+  	count = (0xffff >> SEC_SHIFT) - utemp;
+  	}
+
 #endif
 
-  *trackp = strt_sect / (miarray[unit].mi_heads * miarray[unit].mi_sectors);
-  *sectorp = strt_sect % miarray[unit].mi_sectors + 1;
-  *headp = (strt_sect % (miarray[unit].mi_sectors * miarray[unit].mi_heads))
-      / miarray[unit].mi_sectors;
-  if (*sectorp + count > miarray[unit].mi_sectors + 1)
-    count = miarray[unit].mi_sectors + 1 - *sectorp;
+/*TE*/
+  pmiarray = getPMiarray(unit);
+
+  *trackp = strt_sect / (pmiarray->mi_heads * pmiarray->mi_sectors);
+  *sectorp = strt_sect % pmiarray->mi_sectors + 1;
+  *headp = (strt_sect % (pmiarray->mi_sectors * pmiarray->mi_heads))
+      / pmiarray->mi_sectors;
+  if (*sectorp + count > pmiarray->mi_sectors + 1)
+    count = pmiarray->mi_sectors + 1 - *sectorp;
   return count;
 }

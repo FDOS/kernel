@@ -36,6 +36,12 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.13  2001/03/08 21:00:00  bartoldeman
+ * MCB chain corruption and DosFindNext fix (thanks Martin Stromberg and Tom Ehlert)
+ *
  * Revision 1.12  2000/12/16 01:38:35  jimtabor
  * Added patches from Bart Oldeman
  *
@@ -1199,6 +1205,7 @@ dispatch:
         else
         {
           r->FLAGS &= ~FLG_CARRY;
+          r->AX = -SUCCESS;
         }
       }
       break;
@@ -1305,8 +1312,10 @@ dispatch:
             break;
 
         case 0x03:
-            DosUmbLink(r->BL);
-            break;
+            if (uppermem_root) {
+                DosUmbLink(r->BL);
+                break;
+            } /* else fall through */            
 
         default:
           goto error_invalid;

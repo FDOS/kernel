@@ -35,6 +35,12 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.8  2001/03/08 21:00:00  bartoldeman
+ * UMB and MCB chain corruption (thanks Martin Stromberg) fixes
+ *
  * Revision 1.7  2000/08/07 04:53:54  jimtabor
  * Cleanup code
  *
@@ -191,18 +197,19 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
   REG mcb FAR *p;
   mcb FAR *foundSeg;
   mcb FAR *biggestSeg;
-
   /* Initialize                                           */
+
+searchAgain:
+    
   p = para2far(first_mcb);
 
   biggestSeg = foundSeg = NULL;
 /*
     Hack to the Umb Region direct for now. Save time and program space.
 */
-    if((mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link) {
-        if(uppermem_root)
+  if((mode != LARGEST) && (mode & (FIRST_FIT_UO | FIRST_FIT_U)) &&
+       uppermem_link && uppermem_root)
             p = para2far(uppermem_root);
-     }
 
   /* Search through memory blocks                         */
   FOREVER
@@ -265,6 +272,11 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
 
   if (!foundSeg || !foundSeg->m_size)
   {                             /* no block to fullfill the request */
+    if((mode != LARGEST) && (mode & FIRST_FIT_UO) &&
+       uppermem_link && uppermem_root) {
+      mode &= !FIRST_FIT_UO;
+      goto searchAgain;
+    }      
     if (asize)
       *asize = biggestSeg ? biggestSeg->m_size : 0;
     return DE_NOMEM;
@@ -337,7 +349,9 @@ COUNT DosMemLargest(UWORD FAR * size)
   COUNT found;
 
   /* Initialize                                           */
-  p = para2far(first_mcb);
+  p = ((mem_access_mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link && uppermem_root)
+      ? para2far(uppermem_root)
+      : para2far(first_mcb);
 
   /* Cycle through the whole MCB chain to find the largest unused
      area. Join all unused areas together. */
@@ -611,29 +625,28 @@ VOID DosUmbLink(BYTE n)
 {
     REG mcb FAR *p;
     REG mcb FAR *q;
+    mcb FAR *end_of_conv_mem = para2far(ram_top*64-1);
 
-    if(uppermem_root){
-
-        q = p = para2far(first_mcb);
+    q = p = para2far(first_mcb);
 /* like a xor thing! */
-        if((uppermem_link == 1) && (n == 0))
+    if((uppermem_link == 1) && (n == 0))
+    {
+        while ( p != end_of_conv_mem )
         {
-           while ( p != (mcb FAR *) para2far(0x9fff) )
-            {
-                if (mcbFree(p))
-                    joinMCBs(p);
-                if (!mcbValid(p))
-                    goto DUL_exit;
-                q = p;
-                p = nxtMCB(p);
-            }
-
-            if(q->m_type == MCB_NORMAL)
-                q->m_type = MCB_LAST;
-            uppermem_link = n;
-
+            if (mcbFree(p))
+                joinMCBs(p);
+            if (!mcbValid(p))
+                goto DUL_exit;
+            q = p;
+            p = nxtMCB(p);
         }
-        else
+        
+        if(q->m_type == MCB_NORMAL)
+            q->m_type = MCB_LAST;
+        uppermem_link = n;
+        
+    }
+    else
         if((uppermem_link == 0) && (n == 1))
         {
             while( q->m_type != MCB_LAST)
@@ -647,7 +660,6 @@ VOID DosUmbLink(BYTE n)
                 q->m_type = MCB_NORMAL;
             uppermem_link = n;
         }
-    }
 DUL_exit:
     return;
 }

@@ -36,6 +36,12 @@ static char *portab_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.5  2001/03/08 21:15:00  bartoldeman
+ * Fixes for MK_FP and friends from Tom Ehlert; reduces kernel by 1.5k.
+ *
  * Revision 1.4  2000/08/06 04:18:21  jimtabor
  * See history.txt
  *
@@ -201,8 +207,8 @@ typedef signed long LONG;
 /* General far pointer macros                                           */
 #ifdef I86
 #ifndef MK_FP
-#define MK_FP(seg,ofs)        ((VOID far *)(((LONG)(seg)<<16)|(UWORD)(ofs)))
-#define FP_SEG(fp)            ((UWORD)((LONG)(VOID FAR *)(fp)>>16))
+#define MK_FP(seg,ofs)        ((VOID far *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
+#define FP_SEG(fp)            ((UWORD)((ULONG)(VOID FAR *)(fp)>>16))
 #define FP_OFF(fp)            ((UWORD)(fp))
 #endif
 #endif

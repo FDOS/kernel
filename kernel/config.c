@@ -39,6 +39,12 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.9  2001/03/08 21:15:00  bartoldeman
+ * Fixed handling of "DOS=UMB", use toupper instead of tolower consistently.
+ *
  * Revision 1.8  2000/08/07 22:51:34  jimtabor
  * Remove unused code
  *
@@ -206,23 +212,23 @@ struct table
 
 static struct table commands[] =
 {
-  {"break", 1, Break},
-  {"buffers", 1, Buffers},
-  {"command", 1, InitPgm},
-  {"country", 1, Country},
-  {"device", 2, Device},
-  {"devicehigh", 2, DeviceHigh},
-  {"dos", 2, Dosmem},
-  {"fcbs", 1, Fcbs},
-  {"files", 1, Files},
-  {"lastdrive", 1, Lastdrive},
+  {"BREAK", 1, Break},
+  {"BUFFERS", 1, Buffers},
+  {"COMMAND", 1, InitPgm},
+  {"COUNTRY", 1, Country},
+  {"DEVICE", 2, Device},
+  {"DEVICEHIGH", 2, DeviceHigh},
+  {"DOS", 2, Dosmem},
+  {"FCBS", 1, Fcbs},
+  {"FILES", 1, Files},
+  {"LASTDRIVE", 1, Lastdrive},
         /* rem is never executed by locking out pass                    */
-  {"rem", 0, CfgFailure},
-  {"shell", 1, InitPgm},
-  {"stacks", 1, Stacks},
-  {"switchar", 1, Switchar},
-  {"screen", 1, sysScreenMode}, /* JPP */
-  {"version", 1, sysVersion},   /* JPP */
+  {"REM", 0, CfgFailure},
+  {"SHELL", 1, InitPgm},
+  {"STACKS", 1, Stacks},
+  {"SWITCHAR", 1, Switchar},
+  {"SCREEN", 1, sysScreenMode}, /* JPP */
+  {"VERSION", 1, sysVersion},   /* JPP */
         /* default action                                               */
   {"", -1, CfgFailure}
 };
@@ -403,8 +409,8 @@ INIT VOID configDone(VOID)
     if(UmbState == 1)
     {
 
-    mumcb_init((mcb FAR *) (MK_FP(0x9fff, 0)),
-                               umb_start - 0x9fff - 1);
+    mumcb_init((mcb FAR *) (MK_FP(64*ram_top - 1, 0)),
+                               umb_start - 64*ram_top);
 /* Check if any devices were loaded in umb */
     if(umb_start != FP_SEG(upBase) ){
 /* make last block normal with SC for the devices */
@@ -535,9 +541,9 @@ INIT VOID DoConfig(VOID)
       /* Skip leading white space and get verb.               */
       pLine = scan(pLine, szBuf);
 
-      /* Translate the verb to lower case ...                 */
+      /* Translate the verb to upper case ...                 */
       for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
-        *pTmp = tolower(*pTmp);
+        *pTmp = toupper(*pTmp);
 
       /* If the line was blank, skip it.  Otherwise, look up  */
       /* the verb and execute the appropriate function.       */
@@ -715,11 +721,15 @@ INIT static VOID Lastdrive(BYTE * pLine)
 
 INIT static VOID Dosmem(BYTE * pLine)
 {
+    BYTE *pTmp;
+    
     if(UmbState == 0){
     uppermem_link = 0;
     uppermem_root = 0;
     GetStringArg(pLine, szBuf);
-    UmbState = strcmp(szBuf, "UMB") ? 2 : 0;
+    for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
+        *pTmp = toupper(*pTmp);
+    UmbState = strcmp(szBuf, "UMB") ? 0 : 2;
     }
 }
 
@@ -861,7 +871,7 @@ INIT static VOID DeviceHigh(BYTE * pLine)
     }
     else
     {
-        printf("UMB's unavalable!\n");
+        printf("UMB's unavailable!\n");
         LoadDevice(pLine, ram_top, FALSE);
     }
 }
@@ -1037,6 +1047,7 @@ INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
 }
 
 /* Yet another change for true portability (WDL)                        */
+#if 0
 INIT COUNT tolower(COUNT c)
 {
   if (c >= 'A' && c <= 'Z')
@@ -1044,6 +1055,7 @@ INIT COUNT tolower(COUNT c)
   else
     return c;
 }
+#endif
 
 /* Yet another change for true portability (PJV) */
 INIT COUNT toupper(COUNT c)

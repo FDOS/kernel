@@ -35,6 +35,12 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/03/19 04:50:56  bartoldeman
+ * See history.txt for overview: put kernel 2022beo1 into CVS
+ *
+ * Revision 1.6  2001/03/08 21:00:00  bartoldeman
+ * UMB fixes to DosComLoader
+ *
  * Revision 1.5  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -246,7 +252,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
 
   /* allocate enough space for env + path                 */
   if ((RetCode = DosMemAlloc(long2para(nEnvSize + ENV_KEEPFREE),
-                             FIRST_FIT, (seg FAR *) pChildEnvSeg,
+                             mem_access_mode, (seg FAR *) pChildEnvSeg,
                            NULL /*(UWORD FAR *) MaxEnvSize ska */ )) < 0)
     return RetCode;
   pDest = MK_FP(*pChildEnvSeg + 1, 0);
@@ -457,11 +463,38 @@ static COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     {
       return rc;
     }
-    /* Allocate our memory and pass back any errors         */
-    if ((rc = DosMemAlloc(0, LARGEST, (seg FAR *) & mem, (UWORD FAR *) & asize)) < 0)
+    /* Now find out how many paragraphs are available       */
+    if ((rc = DosMemLargest((seg FAR *) & asize)) != SUCCESS)
     {
-      DosMemFree(env);          /* env may be 0 */
+      DosMemFree(env);
       return rc;
+    }
+    com_size = asize;
+    /* Allocate our memory and pass back any errors         */
+    if ((rc = DosMemAlloc((seg) com_size, mem_access_mode, (seg FAR *) & mem
+                        ,(UWORD FAR *) & asize)) < 0)
+    {
+        if (rc == DE_NOMEM)
+        {
+            if ((rc = DosMemAlloc(0, LARGEST, (seg FAR *) & mem
+                                  ,(UWORD FAR *) & asize)) < 0)
+            {
+                DosMemFree(env);
+                return rc;
+            }
+            /* This should never happen, but ... */
+            if (asize < com_size)
+            {
+                DosMemFree(mem);
+                DosMemFree(env);
+                return rc;
+            }
+        }
+        else
+        {
+            DosMemFree(env);           /* env may be 0 */
+            return rc;
+        }
     }
     ++mem;
   }
@@ -675,7 +708,7 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   /* Allocate our memory and pass back any errors         */
   /* We can still get an error on first fit if the above  */
   /* returned size was a bet fit case                     */
-  if ((rc = DosMemAlloc((seg) exe_size, FIRST_FIT, (seg FAR *) & mem
+  if ((rc = DosMemAlloc((seg) exe_size, mem_access_mode, (seg FAR *) & mem
                         ,(UWORD FAR *) & asize)) < 0)
   {
     if (rc == DE_NOMEM)
@@ -686,7 +719,7 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
         DosMemFree(env);
         return rc;
       }
-      /* This should never happen, but ...    */
+      /* This should never happen, but ... */
       if (asize < exe_size)
       {
         DosMemFree(mem);

@@ -1,3 +1,19 @@
+2001 Mar 08 - Build 2022
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  MCB chain corruption fix (thanks Tom Ehlert and Martin Stromberg)
+         Redirector fixes (CDROMs and DOSEmu lredir'ed drives appear to work fine now)
+         UMB fixes
+         Various recodings (dsk.c, prf.c, portab.h) to make kernel 
+          object footprint 3k smaller (Tom Ehlert)
+         Fix handling of very long path names (Tom Ehlert)
+         FindFirst/FindNext fixes (Tom Ehlert)
+         Configuration for libm.mak is in config.mak (Martin Stromberg)
+         NLS fix to include pointer to CharMapSrvc. Note: these are
+          changes to automatically generated .asm files, but the
+          generator (GRAB_UNF.EXE) is missing. (thanks Tom Ehlert)
+         DosSelectDrv fix (Martin Stromberg)
+         config.c always converts to upper case and handles dos=umb correctly
+
 2000 Dec 15 - Build 2022
 -------- James Tabor (jimtabor@infohwy.com)
 + Fixes	 Added Patches from Bart Oldeman (Bart.Oldeman@bristol.ac.uk)

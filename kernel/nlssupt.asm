@@ -29,6 +29,13 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/03/19 04:50:56  bartoldeman
+; See history.txt for overview: put kernel 2022beo1 into CVS
+;
+;
+; Revision 1.5  2001/03/08 21:15:00  bartoldeman
+; Fixed typo in dosUpChar (Tom Ehlert)
+;        
 ; Revision 1.4  2000/08/06 05:50:17  jimtabor
 ; Add new files and update cvs with patches and changes
 ;
@@ -82,7 +89,7 @@
 
 segment	_TEXT
                 global  _CharMapSrvc
-                extern  _upChar:wrt TGROUP
+                extern  _DosUpChar:wrt TGROUP
 ;
 ; CharMapSrvc:
 ;       User callable character mapping service.
@@ -102,7 +109,7 @@ _CharMapSrvc:
                 mov     ax, DGROUP
                 mov     ds, ax
 
-                call    _upChar
+                call    _DosUpChar
                 ;add     sp, byte 2	// next POP retrieves orig AX
 
                 pop bx
