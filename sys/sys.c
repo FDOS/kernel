@@ -28,7 +28,7 @@
 
 #define DEBUG
 /* #define DDEBUG */
-/* #define WITHOEMCOMPATBS */ /* uncomment for larger sys that support MS/PC DOS */
+#define WITHOEMCOMPATBS /* include support for OEM MS/PC DOS 3.??-6.x */
 
 #define SYS_VERSION "v3.4"
 
