@@ -3,10 +3,16 @@
 :- batch file to build everything
 :- $Id$
 
-:-----------------------------------------------------------------------
-:- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp] [86|186|386] [debug] [lfnapi] [/L #]
-:- option case is significant !!
-:-----------------------------------------------------------------------
+if NOT "%1" == "/?" goto start
+echo ":-----------------------------------------------------------------------"
+echo ":- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp|bc] [86|186|386]    "
+echo ":-               [debug] [lfnapi] [/L #] [/D value]                     "
+echo ":- option case is significant !!                                        "
+echo ":- Note: Open Watcom (wc) is the preferred compiler                     "
+echo ":-----------------------------------------------------------------------"
+goto end
+
+:start
 
 set XERROR=1
 if "%XERROR%" == "" goto noenv
@@ -34,15 +40,18 @@ if "%1" == "msc"   set COMPILER=MSC
 if "%1" == "wc"    set COMPILER=WATCOM
 if "%1" == "tc"    set COMPILER=TC
 if "%1" == "tcpp"  set COMPILER=TCPP
+if "%1" == "bc"    set COMPILER=BC
 
 if "%1" == "86"    set XCPU=86
 if "%1" == "186"   set XCPU=186
 if "%1" == "386"   set XCPU=386
+if "%1" == "x86"   goto setCPU
 
 if "%1" == "debug" set ALLCFLAGS=%ALLCFLAGS% -DDEBUG
 if "%1" == "lfnapi" set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI
 
 if "%1" == "/L"    goto setLoadSeg
+if "%1" == "/D"    goto setDefine
 
 :nextOption
 shift
@@ -92,6 +101,7 @@ echo.
 cd ..\sys
 call %MAKE% all
 if errorlevel 1 goto abort-cd
+if NOT "%XUPX%" == "" %XUPX% ..\bin\sys.com
 
 echo.
 echo Process KERNEL +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -117,8 +127,25 @@ goto end
 :setLoadSeg
 shift
 if "%1" == "" echo you MUST specify load segment eg 0x60 with /L option
-if "%1" == "" goot abort
+if "%1" == "" goto abort
 set LOADSEG=%1
+goto nextOption
+
+:setCPU
+shift
+if "%1" == "" echo you MUST specify compiler's cpu cmd line argument, eg -5
+if "%1" == "" goto abort
+set XCPU_EX=%1
+goto nextOption
+
+:setDefine
+shift
+:- Give extra compiler DEFINE flags here
+if "%1" == "" echo you MUST specify value to define with /D option
+if "%1" == "" echo such as /D DEBUG : extra DEBUG output
+if "%1" == "" echo or      /D DOSEMU : printf output goes to dosemu log
+if "%1" == "" goto abort
+set ALLCFLAGS=%ALLCFLAGS% -D%1
 goto nextOption
 
 :noenv

@@ -1,10 +1,7 @@
 @echo off
 
-:- $Id$
-
 :----------------------------------------------------------
-:- batch file to build _many_ KERNELS, hope build works.
-:- takes 3 minutes on my(TE) Win2K/P700. your milage may vary :-)
+:- batch file to build _many_ KERNELS
 :----------------------------------------------------------
 
 if "%1" == "$SUMMARY" goto summary
@@ -35,6 +32,30 @@ if "%XERROR%" == "" call build.bat -r tc  86 fat32
 
 if not "%XERROR%" == "" goto daswarwohlnix
 :no_tc
+
+:***** TCPP kernels
+
+if "%TCPP_BASE%" == "" goto no_tcpp
+		    call build.bat -r tcpp 186 fat16
+if "%XERROR%" == "" call build.bat -r tcpp  86 fat16
+if "%XERROR%" == "" call build.bat -r tcpp 186 fat32
+if "%XERROR%" == "" call build.bat -r tcpp  86 fat32
+
+if not "%XERROR%" == "" goto daswarwohlnix
+:no_tcpp
+
+:***** BC kernels
+
+if "%BC_BASE%" == "" goto no_bc
+		    call build.bat -r bc 386 fat16
+if "%XERROR%" == "" call build.bat -r bc 186 fat16
+if "%XERROR%" == "" call build.bat -r bc  86 fat16
+if "%XERROR%" == "" call build.bat -r bc 386 fat32
+if "%XERROR%" == "" call build.bat -r bc 186 fat32
+if "%XERROR%" == "" call build.bat -r bc  86 fat32
+
+if not "%XERROR%" == "" goto daswarwohlnix
+:no_bc
 
 :***** (Open) Watcom kernels
 

@@ -12,6 +12,11 @@ CPUOPT=-1
 !if $(XCPU) == 386
 CPUOPT=-3
 !endif
+# extension, if compiler supports it, specify compiler switch in XCPU_EX and set XCPU to 386
+!if $(XCPU_EX)0 != 0
+XCPU=386
+CPUOPT=$(XCPU_EX)
+!endif
 
 !if $(XFAT)0 == 0
 XFAT=32
@@ -23,7 +28,7 @@ NASMFLAGS=-DWITHFAT32 $(NASMFLAGS)
 
 NASMFLAGS=-fobj -i../hdr/ -D$(COMPILER) -DXCPU=$(XCPU) $(NASMFLAGS)
 
-BINPATH=$(BASE)\bin
+#BINPATH=$(BASE)\bin
 INCLUDEPATH=$(BASE)\include
 LIBPATH=$(BASE)\lib
 INITPATCH=@rem

@@ -22,12 +22,13 @@ set LAST=
 :- NASM/DJGPP crashes when using protected mode Borland's make.
 
 set NASM=c:\bin\nasm16
+::set NASM=c:\bin\nasmw.exe
 
 :-----------------------------------------------------------------------
 :- define COMPILER name here, pick one of them.
 
 :- Turbo C 2.01
-set COMPILER=TC
+:: set COMPILER=TC
 :- Turbo C++ 1.01
 ::set COMPILER=TCPP
 :- Turbo C++ 3.0
@@ -37,33 +38,18 @@ set COMPILER=TC
 :- Microsoft C
 ::set COMPILER=MSC
 :- Watcom C
-::set COMPILER=WATCOM
+set COMPILER=WATCOM
 
 :-----------------------------------------------------------------------
 :- define BASE dir of compiler;
 :- may be defined for all installed compilers.
 
-set TC_BASE=c:\tc
+::set TC_BASE=c:\tc
 ::set TCPP_BASE=c:\tcpp
 ::set TCPP3_BASE=c:\tcpp3
 ::set BC_BASE=c:\bc
 ::set MSC_BASE=c:\msc
-::set WATCOM=c:\watcom
-
-:-----------------------------------------------------------------------
-:- When compiling executable, compilers search linker through PATH;
-:- if some linker not in PATH, uncomment OLDPATH and required SETs PATH.
-
-::set OLDPATH=%PATH%
-::set PATH=%TC_BASE%;%PATH%
-::set PATH=%TCPP_BASE%\bin;%PATH%
-::set PATH=%TCPP3_BASE%\bin;%PATH%
-::set PATH=%BC_BASE%\bin;%PATH%
-::set PATH=%MSC_BASE%\bin;%PATH%
-::set PATH=%WATCOM%\binw;%PATH%
-
-:- MSC searches libraries only through LIB variable.
-::set LIB=%MSC_BASE%\lib
+set WATCOM=c:\watcom
 
 :-----------------------------------------------------------------------
 :- define which linker to use OR it will be determined AUTOMATICALLY.

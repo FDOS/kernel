@@ -2,8 +2,6 @@
 # TC.MAK - kernel compiler options for Turbo C 2.01
 #
 
-BINPATH=$(BASE)
-
 !include "..\mkfiles\tcpp.mak"
 
 TARGET=KTC

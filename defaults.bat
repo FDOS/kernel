@@ -17,12 +17,30 @@ if "%BASE%"     == ""       goto clearset
 
 :-----------------------------------------------------------------------
 
+set BINPATH=%BASE%\bin
+if "%COMPILER%" == "TC"     set BINPATH=%BASE%
+if "%COMPILER%" == "WATCOM" set BINPATH=%BASE%\binw
+if "%COMPILER%" == "WATCOM" if "%OS%" == "Windows_NT" set BINPATH=%BASE%\binnt
+
+echo Path to compiler programs (binaries) is %BINPATH%
+
+:-----------------------------------------------------------------------
+:- When compiling executable, compilers may invoke secondary programs
+:- such as preprocessor, compiler component, or linker through PATH;
+
+set OLDPATH=%PATH%
+set PATH=%BINPATH%;%PATH%
+
+:- MSC searches libraries only through LIB variable.
+if "%COMPILER%" == "MSC" set LIB=%MSC_BASE%\lib
+
+:-----------------------------------------------------------------------
+
 if not "%LINK%" == "" goto skip_link
 
-set LINK=%BASE%\bin\tlink /c/m
-if "%COMPILER%" == "TC"     set LINK=%BASE%\tlink /c/m
-if "%COMPILER%" == "WATCOM" set LINK=call ..\utils\wlinker /nologo
-if "%COMPILER%" == "MSC"    set LINK=%BASE%\bin\link /ONERROR:NOEXE /batch
+set LINK=%BINPATH%\tlink /c/m/s/l
+if "%COMPILER%" == "WATCOM" set LINK=..\utils\wlinker /nologo
+if "%COMPILER%" == "MSC"    set LINK=%BINPATH%\link /ONERROR:NOEXE /batch
 
 echo Linker is %LINK%
 
@@ -32,11 +50,10 @@ echo Linker is %LINK%
 
 if not "%LIBUTIL%" == "" goto skip_lib
 
-set LIBUTIL=%BASE%\bin\tlib
+set LIBUTIL=%BINPATH%\tlib
 set LIBTERM=
-if "%COMPILER%" == "TC"     set LIBUTIL=%BASE%\tlib
-if "%COMPILER%" == "WATCOM" set LIBUTIL=%BASE%\binw\wlib -q
-if "%COMPILER%" == "MSC"    set LIBUTIL=%BASE%\bin\lib /nologo
+if "%COMPILER%" == "WATCOM" set LIBUTIL=%BINPATH%\wlib -q
+if "%COMPILER%" == "MSC"    set LIBUTIL=%BINPATH%\lib /nologo
 if "%COMPILER%" == "MSC"    set LIBTERM=;
 
 echo Librarian is %LIBUTIL%
@@ -47,10 +64,9 @@ echo Librarian is %LIBUTIL%
 
 if not "%MAKE%" == "" goto skip_make
 
-set MAKE=%BASE%\bin\make
-if "%COMPILER%" == "TC"     set MAKE=%BASE%\make
-if "%COMPILER%" == "WATCOM" set MAKE=%BASE%\binw\wmake /ms /h
-if "%COMPILER%" == "MSC"    set MAKE=%BASE%\bin\nmake /nologo
+set MAKE=%BINPATH%\make
+if "%COMPILER%" == "WATCOM" set MAKE=%BINPATH%\wmake /ms /h
+if "%COMPILER%" == "MSC"    set MAKE=%BINPATH%\nmake /nologo
 
 echo Make is %MAKE%
 
@@ -68,6 +84,7 @@ if "%LAST%" == "1" goto end
 set NASM=
 set COMPILER=
 set BASE=
+set BINPATH=
 set TC_BASE=
 set TCPP_BASE=
 set TCPP3_BASE=
@@ -79,6 +96,7 @@ set LIBTERM=
 set MAKE=
 set XUPX=
 set XCPU=
+set XCPU_EX=
 set XFAT=
 set ALLCFLAGS=
 set LOADSEG=
