@@ -49,7 +49,7 @@ struct f_node {
 
   struct dirent f_dir;          /* this file's dir entry image  */
 
-  ULONG f_diroff;               /* offset of the dir entry      */
+  UWORD f_diroff;               /* offset/32 of the dir entry   */
   CLUSTER f_dirstart;           /* the starting cluster of dir  */
   /* when dir is not root         */
   struct dpb FAR *f_dpb;        /* the block device for file    */

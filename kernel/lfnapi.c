@@ -100,12 +100,12 @@ COUNT lfn_free_inode(COUNT handle)
 
 /* Description.
  *  Initialize internal fnode, so that it'll point to the directory entry
- *  at "diroff" byte offset from the start of the directory with the "dirstart"
+ *  at "diroff" entry offset from the start of the directory with the "dirstart"
  *  starting cluster.
  * Return value.
  *  SUCCESS, LHE_INVLDHNDL
  */
-COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, ULONG diroff)
+COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, UWORD diroff)
 {
   f_node_ptr fnp = xlt_fd(handle);
   if (fnp == 0 || fnp->f_count <= 0) return LHE_INVLDHNDL;
@@ -131,7 +131,7 @@ COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip)
   COUNT entries_needed, free_entries, i, rc;
   UNICODE FAR *lfn_name = lip->l_name;
   UBYTE id = 1, sfn_checksum = lfn_checksum(lip->l_dir.dir_name);
-  ULONG sfn_offset;
+  unsigned sfn_offset;
   if (fnp == 0 || fnp->f_count <= 0) return LHE_INVLDHNDL;
 
   entries_needed = (ufstrlen(lfn_name) + CHARS_IN_LFN_ENTRY - 1)
@@ -160,7 +160,7 @@ COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip)
           if (extend_dir(fnp) != SUCCESS) return LHE_NOSPACE;
           /* fnp points to the first free dir entry on return from extend_dir,
            * so we go to previous entry to read this free entry on next cycle */
-          fnp->f_diroff -= DIRENT_SIZE;
+          fnp->f_diroff--;
         }
       else free_entries = 0;  /* rc == 1 here => we've read some sfn entry */
     }
@@ -171,7 +171,7 @@ COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip)
   fmemcpy(&fnp->f_dir, &lip->l_dir, sizeof(struct dirent));
   dir_write(fnp);
   
-  fnp->f_diroff -= DIRENT_SIZE;
+  fnp->f_diroff--;
   /* Go in the reverse direction and create LFN entries */
   for (i = 0; i < entries_needed - 1; i++, id++)
     {
@@ -183,7 +183,7 @@ COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip)
       lfn(fnp)->lfn_id = id;
       fnp->f_dir.dir_attrib = D_LFN;
       if (!dir_write(fnp)) return LHE_IOERROR;
-      fnp->f_diroff -= DIRENT_SIZE;
+      fnp->f_diroff--;
     }
   fnp->f_flags.f_dmod = FALSE;
   
@@ -206,7 +206,7 @@ COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip)
   COUNT rc;
   UBYTE id = 1, real_id;
   UNICODE FAR *lfn_name = lip->l_name;
-  ULONG sfn_diroff;
+  UWORD sfn_diroff;
   BOOL name_tail;
   f_node_ptr fnp = xlt_fd(handle);
   if (fnp == 0 || fnp->f_count <= 0) return LHE_INVLDHNDL;
@@ -230,7 +230,7 @@ COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip)
   while (TRUE)
     {
       if (fnp->f_diroff == 0) break;
-      fnp->f_diroff -= 2*DIRENT_SIZE;
+      fnp->f_diroff -= 2;
       rc = dir_read(fnp);
       if (rc == DE_BLKINVLD) return LHE_IOERROR;
       if (fnp->f_dir.dir_name[0] == DELETED

@@ -444,13 +444,13 @@ STATIC BOOL find_fname(f_node_ptr fnp, char *fcbname, int attr)
  */
 COUNT remove_lfn_entries(f_node_ptr fnp)
 {
-  ULONG original_diroff = fnp->f_diroff;
+  unsigned original_diroff = fnp->f_diroff;
 
   while (TRUE)
   {
     if (fnp->f_diroff == 0)
       break;
-    fnp->f_diroff -= 2 * DIRENT_SIZE;
+    fnp->f_diroff -= 2;
     /* it cannot / should not get below 0 because of '.' and '..' */
     if (dir_read(fnp) <= 0) {
       dir_close(fnp);
@@ -462,7 +462,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     fnp->f_flags.f_dmod = TRUE;
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
-  fnp->f_diroff = original_diroff - DIRENT_SIZE;
+  fnp->f_diroff = original_diroff - 1;
   if (dir_read(fnp) <= 0) {
     dir_close(fnp);
     return DE_BLKINVLD;
@@ -1748,7 +1748,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   normal_xfer:
 
 #ifdef DSK_DEBUG
-    printf("r/w %d links; dir offset %ld, cluster %d, mode %x\n",
+    printf("r/w %d links; dir offset %d, cluster %d, mode %x\n",
            fnp->f_count, fnp->f_diroff, fnp->f_cluster, mode);
 #endif
 

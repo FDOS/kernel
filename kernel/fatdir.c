@@ -46,7 +46,8 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_flags.f_droot = FALSE;
   fnp->f_flags.f_ddir = TRUE;
   fnp->f_flags.f_dnew = TRUE;
-  fnp->f_diroff = fnp->f_offset = 0l;
+  fnp->f_diroff = 0;
+  fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
 
   /* root directory */
@@ -209,7 +210,11 @@ COUNT dir_read(REG f_node_ptr fnp)
 {
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
-  ULONG new_diroff = fnp->f_diroff;
+  unsigned new_diroff = fnp->f_diroff;
+
+  /* can't have more than 65535 directory entries */
+  if (new_diroff == 65535)
+    return DE_SEEK;
 
   /* Directories need to point to their current offset, not for   */
   /* next op. Therefore, if it is anything other than the first   */
@@ -217,7 +222,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* than wait until exit. If it was new, clear the special new   */
   /* flag.                                                        */
   if (!fnp->f_flags.f_dnew)
-    new_diroff += DIRENT_SIZE;
+    new_diroff++;
 
   /* Determine if we hit the end of the directory. If we have,    */
   /* bump the offset back to the end and exit. If not, fill the   */
@@ -226,12 +231,11 @@ COUNT dir_read(REG f_node_ptr fnp)
 
   if (fnp->f_flags.f_droot)
   {
-    if (new_diroff >= DIRENT_SIZE * (ULONG) fnp->f_dpb->dpb_dirents)
+    if (new_diroff >= fnp->f_dpb->dpb_dirents)
       return DE_SEEK;
 
-    bp = getblock((ULONG) (new_diroff / secsize
-                           + fnp->f_dpb->dpb_dirstrt),
-                  fnp->f_dpb->dpb_unit);
+    bp = getblock(new_diroff / (secsize / DIRENT_SIZE)
+                           + fnp->f_dpb->dpb_dirstrt, fnp->f_dpb->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
     printf("DIR (dir_read)\n");
 #endif
@@ -239,7 +243,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   else
   {
     /* Do a "seek" to the directory position        */
-    fnp->f_offset = new_diroff;
+    fnp->f_offset = new_diroff * (ULONG)DIRENT_SIZE;
 
     /* Search through the FAT to find the block     */
     /* that this entry is in.                       */
@@ -264,8 +268,8 @@ COUNT dir_read(REG f_node_ptr fnp)
   bp->b_flag |= BFR_DIR | BFR_VALID;
 
   getdirent((BYTE FAR *) & bp->
-            b_buffer[((UWORD) new_diroff) % fnp->f_dpb->dpb_secsize],
-            (struct dirent FAR *)&fnp->f_dir);
+            b_buffer[(new_diroff * DIRENT_SIZE) % fnp->f_dpb->dpb_secsize],
+            &fnp->f_dir);
 
   swap_deleted(fnp->f_dir.dir_name);
 
@@ -308,8 +312,8 @@ BOOL dir_write(REG f_node_ptr fnp)
     /* simple.                                              */
     if (fnp->f_flags.f_droot)
     {
-      bp = getblock((ULONG) ((UWORD) fnp->f_diroff / secsize
-                             + fnp->f_dpb->dpb_dirstrt),
+      bp = getblock(fnp->f_diroff / (secsize / DIRENT_SIZE)
+                             + fnp->f_dpb->dpb_dirstrt,
                     fnp->f_dpb->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_write)\n");
@@ -324,7 +328,7 @@ BOOL dir_write(REG f_node_ptr fnp)
 
       /* Do a "seek" to the directory position        */
       /* and convert the fnode to a directory fnode.  */
-      fnp->f_offset = fnp->f_diroff;
+      fnp->f_offset = fnp->f_diroff * (ULONG)DIRENT_SIZE;
       fnp->f_back = LONG_LAST_CLUSTER;
       fnp->f_cluster = fnp->f_dirstart;
       fnp->f_cluster_offset = 0;
@@ -361,9 +365,8 @@ BOOL dir_write(REG f_node_ptr fnp)
 
     swap_deleted(fnp->f_dir.dir_name);
 
-    putdirent((struct dirent FAR *)&fnp->f_dir,
-              (VOID FAR *) & bp->b_buffer[(UWORD) fnp->f_diroff %
-                                          fnp->f_dpb->dpb_secsize]);
+    putdirent(&fnp->f_dir, &bp->b_buffer[(fnp->f_diroff * DIRENT_SIZE) %
+                                         fnp->f_dpb->dpb_secsize]);
 
     swap_deleted(fnp->f_dir.dir_name);
 
@@ -524,7 +527,7 @@ COUNT dos_findnext(void)
   fnp->f_flags.f_dnew = TRUE;
   if (dmp->dm_entry > 0)
   {
-    fnp->f_diroff = (ULONG) (dmp->dm_entry - 1) * DIRENT_SIZE;
+    fnp->f_diroff = dmp->dm_entry - 1;
     fnp->f_flags.f_dnew = FALSE;
   }
 
