@@ -200,6 +200,17 @@ int int21_fat32(lregs *r)
       
       fmemcpy(&xddp->xdd_dpb, dpb, sizeof(struct dpb));
       xddp->xdd_dpbsize = sizeof(struct dpb);
+
+      /* if it doesn't look like an extended DPB, fill in those fields */
+      if (!ISFAT32(dpb) && dpb->dpb_xsize != dpb->dpb_size)
+      {
+        xddp->xdd_dpb.dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_hi =
+          (dpb->dpb_nfreeclst == 0xFFFF ? 0xFFFF : 0);
+        dpb16to32(&xddp->xdd_dpb);
+        xddp->xdd_dpb.dpb_xfatsize = dpb->dpb_fatsize;
+        xddp->xdd_dpb.dpb_xcluster = (dpb->dpb_cluster == 0xFFFF ?
+                       0xFFFFFFFFuL : dpb->dpb_cluster);
+      }
       break;
     }
     /* Get extended free drive space */
@@ -1214,6 +1225,20 @@ dispatch:
           if (rc != SUCCESS)
             goto error_exit;
           break;
+
+          /* Set Extended Error */
+        case 0x0a:
+          {
+            lregs er;
+            fmemcpy(&er, FP_DS_DX, sizeof(er));
+            CritErrCode        = er.AX;
+            CritErrDev         = MK_FP(er.ES, er.DI);
+            CritErrLocus       = er.CH;
+            CritErrClass       = er.BH;
+            CritErrAction      = er.BL;
+            CLEAR_CARRY_FLAG();
+            break;
+          }
 
         default:
           CritErrCode = SUCCESS;
