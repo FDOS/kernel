@@ -229,13 +229,6 @@ f_node_ptr split_path(BYTE * path, BYTE * fname, BYTE * fext)
   }
   cdsp = &CDSp->cds_table[nDrive];
 
-  /* If the path is null, we to default to the current            */
-  /* directory...                                                 */
-  if (!szDirName[2])
-  {
-    fstrncpy(szDirName, cdsp->cdsCurrentPath, PARSE_MAX);
-  }
-
 /*  11/29/99 jt
    * Networking and Cdroms. You can put in here a return.
    * Maybe a return of 0xDEADBEEF or something for Split or Dir_open.

@@ -47,20 +47,25 @@ segment HMA_TEXT
 ;
 ; currently done:
 ;
+; fmemcpyBack(void FAR *dest, void FAR *src, int count)
 ;  memcpy(void     *dest, void     *src, int count)
 ; fmemcpy(void FAR *dest, void FAR *src, int count)
-; _fmemcpy(void FAR *dest, void FAR *src, int count)
+;  memset(void *dest, int ch, int count);
 ; fmemset(void FAR *dest, int ch, int count);
 ; fstrncpy(void FAR*dest, void FAR *src, int count);
 ;  strcpy (void    *dest, void     *src);
 ; fstrcpy (void FAR*dest, void FAR *src, int count);
 ;  strlen (void    *dest);
 ; fstrlen (void FAR*dest);
-;  strchr (BYTE     *src , BYTE ch);
+; fmemchr (BYTE FAR *src , int ch);
+; fstrchr (BYTE FAR *src , int ch);
+;  strchr (BYTE     *src , int ch);
 ; fstrcmp (BYTE FAR *s1 , BYTE FAR *s2);
 ;  strcmp (BYTE     *s1 , BYTE     *s2);
 ; fstrncmp(BYTE FAR *s1 , BYTE FAR *s2, int count);
 ;  strncmp(BYTE     *s1 , BYTE     *s2, int count);
+; fmemcmp(BYTE FAR *s1 , BYTE FAR *s2, int count);
+;  memcmp(BYTE     *s1 , BYTE     *s2, int count);
 
 ;***********************************************
 ; common_setup - set up the standard calling frame for C-functions
@@ -116,15 +121,17 @@ domemcpy:
                 ; whenever possible.
                 shr     cx,1
                 rep     movsw
-                jnc     common_return
+                jnc     memcpy_return
                 movsb
+memcpy_return:
+                cld
 
 ;
 ; common_return - pop saved registers and do return
 ;
 
 common_return:
-				pop	ds
+		pop	ds
 		pop     es
                 pop     di
                 pop     si
@@ -136,11 +143,15 @@ common_return:
 ;************************************************************
 ;
 ;       VOID fmemcpy(REG BYTE FAR *d, REG BYTE FAR *s,REG COUNT n);
+;       VOID fmemcpyBack(REG BYTE FAR *d, REG BYTE FAR *s,REG COUNT n);
 ;
-                global  __fmemcpy
                 global  _fmemcpy
+%if 0
+                global  _fmemcpyBack
+_fmemcpyBack:
+                std             ; force to copy the string in reverse order
+%endif
 _fmemcpy:
-__fmemcpy:
                 call common_setup
 
                 ; Get the far source pointer, s
@@ -205,7 +216,7 @@ _memset:
                 
                 
 ;***************************************************************
-                
+%if 0                
                 global  _fstrncpy
 _fstrncpy:
                 call common_setup
@@ -233,7 +244,7 @@ store_one_byte: xor al,al
                 stosb
                 
                 jmp  short common_return
-                
+%endif                
 ;*****************************************************************
                 
 
@@ -270,7 +281,7 @@ strcpy_loop:
                 test al,al
                 jne  strcpy_loop
                 
-				jmp  short common_return
+		jmp  short common_return
 
 ;******************************************************************                
                 
@@ -319,14 +330,56 @@ strchr_loop:
                 test al,al
                 jne  strchr_loop
                 
-                mov si,1                ; return NULL if not found
+strchr_retzero:
+                xor ax, ax               ; return NULL if not found
+                mov dx, ax               ; for fstrchr()
+                jmp  common_return
+                
 strchr_found:
-                mov ax,si
+                mov ax, si
+                mov dx, ds               ; for fstrchr()
+strchr_found1:
                 dec ax
 
                 jmp common_return
 
+;******
+%if 0
+                global  _fmemchr
+_fmemchr:
+                call common_setup
+
+                ; Get the source pointer, ss
+                les di, [bp+4]
+
+                ; and the search value
+                mov al, [bp+8]
+
+                ; and the length
+                mov cx, [bp+10]
+                
+                repne scasb
+                jne strchr_retzero
+                mov dx, es
+                mov ax, di
+                dec ax
+                jmp short strchr_found1
+%endif
+
+                global  _fstrchr
+_fstrchr:
+                call common_setup
+
+                ; Get the source pointer, ss
+                lds si, [bp+4]
+
+                ; and the destination pointer, d
+                mov bx, [bp+8]
+                
+                jmp short strchr_loop
+
 ;**********************************************************************
+%if 0
                 global  _fstrcmp
 _fstrcmp:
                 call common_setup
@@ -337,7 +390,7 @@ _fstrcmp:
                 ; and the destination pointer, d
                 les             di,[bp+8]
                 
-                jmp dostrcmp
+                jmp short dostrcmp
 
 ;******
                 global  _strcmp
@@ -395,13 +448,50 @@ strncmp_loop:
                 jne  strncmp_done
                 test al,al
                 loopne   strncmp_loop
+%endif
 strncmp_retzero:
                 xor  ax, ax
                 jmp  short strncmp_done2
 strncmp_done:
-                sbb  ax,ax
-		or   al,1
+                lahf
+		ror  ah,1
 strncmp_done2:  jmp  common_return
+
+
+;**********************************************************************
+                global  _fmemcmp
+_fmemcmp:
+                call common_setup
+
+                ; Get the source pointer, ss
+                lds si,[bp+4]
+
+                ; and the destination pointer, d
+                les di,[bp+8]
+
+                ; the length
+                mov cx, [bp+12]
+                
+                jmp short domemcmp
+
+;******
+                global  _memcmp
+_memcmp:
+                call common_setup
+
+                ; Get the source pointer, ss
+                ;mov             si,[bp+6]
+
+                ; and the destination pointer, d
+                ;mov             di,[bp+4]
+                ;mov             cx,[bp+8]
+                xchg si,di
+
+domemcmp:
+                jcxz strncmp_retzero
+                repe cmpsb
+                jne  strncmp_done
+                jmp short strncmp_retzero
 
 ; Log: asmsupt.asm,v 
 ;

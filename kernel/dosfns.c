@@ -1178,6 +1178,8 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   }
 
   current_ldt = &CDSp->cds_table[drive];
+  /* ensure termination of fstrcpy */
+  cp[MAX_CDSPATH - 1] = '\0';
 
   if ((current_ldt->cdsFlags & CDSNETWDRV) == 0)
   {
@@ -1192,7 +1194,7 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   if (*cp == '\0')
     s[0] = '\0';
   else
-    fstrncpy(s, cp + 1, 64);
+    fstrcpy(s, cp + 1, 64);
 
   return SUCCESS;
 }

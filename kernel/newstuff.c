@@ -249,7 +249,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   current_ldt = &CDSp->cds_table[i];
 
   /* Always give the redirector a chance to rewrite the filename */
-  fstrncpy(bufp - 1, src, sizeof(buf) - (bufp - buf));
+  fmemcpy(bufp - 1, src, sizeof(buf) - (bufp - buf));
   if ((t == FALSE) && (QRemote_Fn(buf, dest) == SUCCESS)
       && (dest[0] != '\0'))
   {
@@ -261,7 +261,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   }
   if (t == FALSE)
   {
-    fstrncpy(buf, current_ldt->cdsCurrentPath, current_ldt->cdsJoinOffset);
+    fmemcpy(buf, current_ldt->cdsCurrentPath, current_ldt->cdsJoinOffset);
     bufp = buf + current_ldt->cdsJoinOffset;
     rootEndPos = current_ldt->cdsJoinOffset;    /* renamed x to rootEndPos - Ron Cemer */
     *bufp++ = '\\';
