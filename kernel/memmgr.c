@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/08/07 04:48:50  jimtabor
+ * Fixed LoadHigh probllem
+ *
  * Revision 1.5  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -192,8 +195,10 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
   biggestSeg = foundSeg = NULL;
 
     if((mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link) {
-        if(uppermem_root)
+        if(uppermem_root) {
+            printf("Upper Mem Allocate\n");
             p = para2far(uppermem_root);
+        }
 
      }
 
@@ -271,8 +276,7 @@ stopIt:                        /* reached from FIRST_FIT on match */
     /* foundSeg := pointer to allocated block
        p := pointer to MCB that will form the rest of the block
      */
-    if (
-    (mode == LAST_FIT)||(mode == LAST_FIT_UO)||(mode == LAST_FIT_U))
+    if ((mode == LAST_FIT)||(mode == LAST_FIT_UO)||(mode == LAST_FIT_U))
     {
       /* allocate the block from the end of the found block */
       p = foundSeg;
@@ -609,24 +613,26 @@ VOID DosUmbLink(BYTE n)
     if(uppermem_root){
 
         q = p = para2far(first_mcb);
-
-        if(uppermem_link){
-
+/* like a xor thing! */
+        if((uppermem_link == 1) && (n == 0))
+        {
            while ( p != (mcb FAR *) para2far(0x9fff) )
             {
-
+                if (mcbFree(p))
+                    joinMCBs(p);
                 if (!mcbValid(p))
                     goto DUL_exit;
                 q = p;
                 p = nxtMCB(p);
             }
 
-            printf("M end at 0x%04x:0x%04x\n", FP_SEG(q), FP_OFF(q));
-
             if(q->m_type == MCB_NORMAL)
                 q->m_type = MCB_LAST;
+            uppermem_link = n;
+
         }
         else
+        if((uppermem_link == 0) && (n == 1))
         {
             while( q->m_type != MCB_LAST)
             {
@@ -635,12 +641,10 @@ VOID DosUmbLink(BYTE n)
                 q = nxtMCB(q);
             }
 
-            printf("Z end at 0x%04x:0x%04x\n", FP_SEG(q), FP_OFF(q));
-
             if(q->m_type == MCB_LAST)
                 q->m_type = MCB_NORMAL;
+            uppermem_link = n;
         }
-        uppermem_link = n;
     }
 DUL_exit:
     return;
