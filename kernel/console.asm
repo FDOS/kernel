@@ -54,7 +54,8 @@ segment	_LOWTEXT
 
 uScanCode	db	0		; Scan code for con: device
 
-kbdType         db      0		; 00 for 84key, 10h for 102key        
+global          _kbdType
+_kbdType        db      0		; 00 for 84key, 10h for 102key        
 
                 global  ConInit
 ConInit:
@@ -62,7 +63,7 @@ ConInit:
 	        mov	ds,ax
 	        mov	al,[96h]
 		and	al,10h
-		mov	byte[cs:kbdType],al ; enhanced keyboard if bit 4 set
+		mov	byte[cs:_kbdType],al ; enhanced keyboard if bit 4 set
                 jmp     _IOExit
 
 ;
@@ -90,7 +91,7 @@ ConRead2:
 
 
 readkey:        
-       		mov     ah,[cs:kbdType]
+       		mov     ah,[cs:_kbdType]
                 int     16h
 checke0:        cmp	al,0xe0                 ; must check for 0xe0 scan code
         	jne	.ret
@@ -152,7 +153,7 @@ CommonNdRdExit:		; *** tell if key waiting and return its ASCII if yes
                 or      al,al                   ; Was it zero ?
                 jnz     ConNdRd2                ; Jump if there's a char waiting
                 mov     ah,1
-		add     ah,[cs:kbdType]
+		add     ah,[cs:_kbdType]
                 int     16h                     ; Get status, if zf=0  al=char
                 jz      ConNdRd4                ; Jump if no char available
 		call	checke0			; check for e0 scancode
@@ -194,7 +195,7 @@ KbdInpChar:	; *** get ??00 or the last waiting key after flushing the queue
                 mov     byte [cs:uScanCode],al
 KbdInpCh1:	
                 mov     ah,1
-		add	ah,[cs:kbdType]
+		add	ah,[cs:_kbdType]
                 int     16h                     ; get status, if zf=0  al=char
                 jz      KbdInpRtnZero           ; Jump if zero
 		; returns 0 or the last key that was waiting in AL

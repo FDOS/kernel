@@ -448,8 +448,10 @@ const char FAR *get_root(const char FAR * fname)
   {
     length--;
     c = *--fname;
-    if (c == '/' || c == '\\' || c == ':')
+    if (c == '/' || c == '\\' || c == ':') {
+      fname++;
       break;
+    }
   }
   return fname;
 }

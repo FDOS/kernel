@@ -11,8 +11,7 @@
 + Changes Eric Auer
     * add sanity check to initdisk.c for (driveParam->chs.Sector == 0)
       + some display tweaks
-    * add ANYDOS, KBDRATE, VIDMODE, MENUCOLOR and EECHO support to the
-      config.sys parser.
+    * add EECHO (echo with $=ESC) support to the config.sys parser.
     * distinguish between the builtin DOS version and the settable
       DOS version.
     * console.asm now accepts extended scancodes (modified by Bart)
@@ -47,6 +46,9 @@
     * Fix problem with attributes with the volume label bit + findnext
     * SYS: avoid copying kernel.sys and command.com if the destination
       is identical to the source.
+    * Fix bug in DeleteBlockInBufferCache: needs to make the block
+      invalid, not flush it, if we're writing.
+    * added switches=/k/n/f support to the config.sys parser.
 2003 Mar 14 - Build 2029
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

@@ -84,7 +84,8 @@ void showUsage(void)
        "      the value set will be the rightmost one.\n");
   printf("  Current Options are: DLASORT=0|1, SHOWDRIVEASSIGNMENT=0|1\n"
          "                       SKIPCONFIGSECONDS=#, FORCELBA=0|1\n"
-         "                       GLOBALENABLELBASUPPORT=0|1\n");
+         "                       GLOBALENABLELBASUPPORT=0|1\n"
+         "                       BootHarddiskSeconds=0|seconds to wait\n");
 }
 
 /* simply reads in current configuration values, exiting program

@@ -654,8 +654,11 @@ EmulatedDriveStatus(int drive,char statusOnly)
 
 void CheckContinueBootFromHarddisk(void)
 {
-  char *bootedFrom = "CD";
+  char *bootedFrom = "Floppy/CD";
   iregs r;
+  int key;
+
+  __int__(3); /* necessary for some strange reasons ?? (TE) */
 
   if (InitKernelConfig.BootHarddiskSeconds == 0)
     return;
@@ -677,12 +680,15 @@ void CheckContinueBootFromHarddisk(void)
          "\n"
          "\n"
          "     Hit any key within %d seconds to continue booot from %s\n"
-         "     else continue to boot from Harddisk\n",
+         "     Hit 'H' or    wait %d seconds to boot from Harddisk\n",
          InitKernelConfig.BootHarddiskSeconds,
-         bootedFrom
+         bootedFrom,
+         InitKernelConfig.BootHarddiskSeconds
     );
 
-  if (GetBiosKey(InitKernelConfig.BootHarddiskSeconds) != (UWORD)-1)
+  key = GetBiosKey(InitKernelConfig.BootHarddiskSeconds);
+  
+  if (key != (UWORD)-1 && (key & 0xff) != 'h' && (key & 0xff) != 'H' )
   {
     /* user has hit a key, continue to boot from floppy/CD */
     printf("\n");
