@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2000/08/06 04:18:21  jimtabor
+; See history.txt
+;
 ; Revision 1.4  2000/05/26 19:46:52  jimtabor
 ; Read History file for Change info
 ;
@@ -102,6 +105,11 @@
 ;       |       ax      |       0
 ;       +---------------+
 ;
+
+;; Note: The order of the pushed registers _must_ match with the definition
+;; of the "iregs" structure within PCB.H, because a pointer to the last
+;; pushed register is used as a pointer to a "iregs" structure within the
+;; called C sources!       -- 2000/03/22 ska
 
 ; Don't use `struc RegFrame' etc. here because it interferes with segment
 ; definitions.

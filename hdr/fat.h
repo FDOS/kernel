@@ -36,8 +36,8 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.4  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
+ * Revision 1.5  2000/08/06 04:18:21  jimtabor
+ * See history.txt
  *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
@@ -95,6 +95,8 @@ static BYTE *fat_hRcsId = "$Id$";
 #define D_VOLID         0x08    /* volume id                    */
 #define D_DIR           0x10    /* subdir                       */
 #define D_ARCHIVE       0x20    /* archive bit                  */
+    /* /// Added D_DEVICE bit.  - Ron Cemer */
+#define D_DEVICE        0x40    /* device bit                   */
 
 /* FAT file name constants                                              */
 #define FNAME_SIZE              8

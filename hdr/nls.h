@@ -5,7 +5,7 @@
 /*                                                              */
 /*    National Language Support data structures                 */
 /*                                                              */
-/*                   Copyright (c) 1995, 1996, 2000             */
+/*                   Copyright (c) 2000                         */
 /*                         Steffen Kaiser                       */
 /*                      All Rights Reserved                     */
 /*                                                              */
@@ -28,17 +28,7 @@
 /****************************************************************/
 
 /* one byte alignment */
-
-#if defined(_MSC_VER)
-#define asm __asm
-#pragma pack(1)
-#elif defined(_QC) || defined(__WATCOM__)
-#pragma pack(1)
-#elif defined(__ZTC__)
-#pragma ZTC align 1
-#elif defined(__TURBOC__) && (__TURBOC__ > 0x202)
-#pragma option -a-
-#endif
+#include <algnbyte.h>
 
 /*
  *	Description of the organization of NLS information -- 2000/02/13 ska
@@ -52,19 +42,19 @@
  *
  *	The code included into the kernel does "only" support NLS packages
  *	structurally compatible with the one of the U.S.A. / CP437.
- *	I guess that most NLS packages has been tweaked to be compatible
+ *	I guess that most NLS packages has been tweaked to be compatible,
  *	so that this is not a real limitation, but for all other packages
  *	the external NLSFUNC can supply every piece of code necessary.
  *	To allow this the interface between the kernel and NLSFUNC has been
- *	extended; at same time the interface has been reduced, because some
+ *	extended; at the same time the interface has been reduced, because some
  *	of the API functions do not seem to offer any functionality required
  *	for now. This, however, may be a misinterpretation because of
  *	lack of understanding.
- *	
+ *
  *	The supported structure consists of the following assumptions:
  *	1) The pkg must contain the tables 2 (Upcase character), 4
  *		(Upcase filename character) and 5 (filename termination
- *		characters); because they are internally used.
+ *		characters); because they are used internally.
  *	2) The tables 2 and 4 must contain exactly 128 (0x80) characters.
  *		The character at index 0 corresponses to character 128 (0x80).
  *		The characters in the range of 0..0x7f are constructed out of
@@ -72,6 +62,12 @@
  *		upcased not through the table, but by the expression:
  *			(ch >= 'a' && ch <= 'z')? ch - 'a' + 'A': ch
  *			with: 'a' == 97; 'z' == 122; 'A' == 65
+ *	3) The data to be returned by DOS-65 is enlisted in the
+ *		nlsPointer[] array of the nlsPackage structure, including
+ *		the DOS-65-01 data, which always must be last entry of the
+ *		array.
+ *	4) DOS-38 returns the 34 bytes beginning with the byte at offset
+ *		4 behind the size field of DOS-65-01.
  *
  *	It seems that pure DOS can internally maintain two NLS pkgs:
  *	NLS#1: The hardcoded pkg of U.S.A. on CP437, and
@@ -79,18 +75,18 @@
  *	I do interprete this behaviour as follows:
  *	CONFIG.SYS is read in more passes; before COUTRY= can be evaluated,
  *	many actions must be performed, e.g. to load kernel at all, open
- *	CONFIG.SYS and begin reading. The kernel requires at least one
- *	NLS information _before_ COUNTRY= has been evaluated - the upcase
- *	table. To not implement the same function multiple times, e.g.
+ *	CONFIG.SYS and begin reading. The kernel requires at least two
+ *	NLS information _before_ COUNTRY= has been evaluated - both upcase
+ *	tables. To not implement the same function multiple times, e.g.
  *	to upcase with and without table, the kernel uses the default
- *	NLS pkg until a more appropriate can be loaded and hopes that
+ *	NLS pkg until a more appropriate one can be loaded and hopes that
  *	the BIOS (and the user) can live with its outcome.
  *	Though, theoretically, the hardcoded NLS pkg could be purged
  *	or overwritten once the COUNTRY= statement has been evaluated.
  *	It would be possible that this NLS pkg internally performs different
  *	purposes, for now this behaviour will be kept.
  *
- *	The current implementation extendeds the above "two maintained
+ *	The current implementation extends the above "two maintained
  *	NLS pkgs" into that the kernel chains all NLS pkgs loaded in
  *	memory into one single linked list. When the user does neither
  *	wants to load other NLS pkgs without executing NLSFUNC and the
@@ -103,20 +99,151 @@
  *	to add any code and residently install the MUX handler for NLSFUNC.
  *	This technique reduces the overhead calling the MUX handler, when
  *	it is not needed.
- *	
- *	The kernel can be instructed to pass any subfunction of DOS-65 to
- *	MUX-14-02, including the character upcase subfunctions 0x20-0x22 and
- *	0xA0-0xA2 as well as 0x23 (yes/no response). That way upcase table can
- *	be supported (by reducing performance) that do not contain exactly 128
- *	characters or where the lower portion is not constructed from the 7-bit
- *	US-ASCII character set.
- *	To do so, each NLS pkg contains some flags specifying if to pass a
- *	set of subfunctions to MUX-14-02, the sets include:
- *		set#1: filename character upcase 0xA0-0xA2
- *		set#2: character upcase 0x20-0x22
- *		set#3: yes/no response 0x23
- *		set#4: Extended Country Information (Includes DOS-38)
- *		set#5: Anything else (usually picks a pointer from an array)
+ *	However, NLSFUNC is always required if the user wants to return
+ *	information about NLS pkgs _not_ loaded into memory.
+ *
+ *=== Attention: Because the nlsInfoBlock structure differs from the
+ *===	the "traditional" (aka MS) implementation, the MUX-14 interface
+ *===	is _not_ MS-compatible, although all the registers etc.
+ *===	do conform. -- 2000/02/26 ska
+ *
+ *	Previous failed attempts to implement NLS handling and a full-
+ *	featured MUX-14 supporting any-structured NLS pkgs suggest
+ *	to keep the implement as simple as possible and keep the
+ *	optimization direction off balance and to tend toward either
+ *	an optimization for speed or size.
+ *
+ *	The most problem is that the MUX interrupt chain is considered
+ *	highly overcrowded, so if the kernels invokes it itself, the
+ *	performance might decrease dramatically; on the other side, the
+ *	more complex the interface between kernel and a _probably_ installed
+ *	external NLSFUNC becomes the more difficult all the stuff is becoming
+ *	and, most importantly, the size grows unnecessarily, because many
+ *	people don't use NLSFUNC at all.
+ *
+ *	The kernel uses the NLS pkg itself for two operations:
+ *	1) DOS-65-2x and DOS-65-Ax: Upcase character, string, memory area, &
+ *	2) whenever a filename is passed into the kernel, its components
+ *		must be identified, invalid characters must be detected
+ *		and, finally, all letters must be uppercased.
+ *	I do not consider operation 1) an action critical for performance,
+ *	because traditional DOS programming praxis says: Do it Yourself; so
+ *	one can consider oneself lucky that a program aquires the upcase
+ *	table once in its life time (I mean: lucky the program calls NLS at all).
+ *	Operation 2), in opposite, might dramatically reduce performance, if
+ *	it lacks proper implementations.
+ *
+ *	Straight forward implementation:
+ *	The basic implementation of the NLS channels all requests of DOS-65,
+ *	DOS-66, and DOS-38 through MUX-14. Hereby, any external program, such
+ *	as NLSFUNC, may (or may not) install a piece of code to filter
+ *	one, few, or all requests in order to perform them itself, by default
+ *	all requests will end within the root of the MUX interrupt, which is
+ *	located within the kernel itself. An access path could look like this:
+ *	1. Call to DOS-65-XX, DOS-66-XX, or DOS-38.
+ *	2. The kernel is enterred through the usual INT-21 API handler.
+ *	3. The request is decoded and one of the NLS.C function is called.
+ *	4. This function packs a new request and calls MUX-14.
+ *	5. Every TSR/driver hooking INT-2F will check, if the request is
+ *		directed for itself;
+ *	5.1. If not, the request is passed on to the next item of the MUX
+ *		interrupt chain;
+ *	5.2. If so, the TSR, e.g. NLSFUNC, tests if the request is to be
+ *		performed internally;
+ *	5.2.1. If so, the request is performed and the MUX-14 call is
+ *		terminated (goto step 8.)
+ *	5.2.2. If not, the request is passed on (see step 5.1.)
+ *	6. If all TSRs had their chance to filter requests, but none decided
+ *		to perform the request itself, the kernel is (re-)enterred
+ *		through its INT-2F (MUX) API handler.
+ *	7. Here the request is decoded again and performed with the kernel-
+ *		internal code; then the MUX-14 call is terminated.
+ *	8. When the MUX-14 call returns, it has setup all return parameters
+ *		already, so the INT-21 call is terminated as well.
+ *
+ *	Note: The traditional MUX-14 is NOT supported to offer functionality
+ *	to the kernel at the first place, but to let the kernel access and
+ *	return any values they must be loaded into memory, but the user may
+ *	request information through the DOS-65 interface of NLS pkgs _not_
+ *	already loaded. Theoretically, NLSFUNC needs not allocate any internal
+ *	buffer to load the data into, because the user already supplied one;
+ *	also if the kernel would instruct NLSFUNC to load the requested
+ *	NLS pkg, more memory than necessary would be allocated. However, all
+ *	except subfunction 1 return a _pointer_ to the data rather than the
+ *	data itself; that means that NLSFUNC must cache the requested data
+ *	somewhere, but how long?
+ *
+ *	Performance tweaks:
+ *	When the system -- This word applies to the combination of kernel and
+ *	any loaded MUX-14 extension   la NLSFUNC here. -- uppercases
+ *	_filenames_, it must perform a DOS-65-A2 internally. In the basic
+ *	implementation this request would be channeled through MUX-14, even
+ *	if there is no external NLSFUNC at all. Also, when a NLS pkg had
+ *	been loaded by the kernel itself, it complies to above mentioned
+ *	rules and it is very unlikely that it is necessary to probe if
+ *	a MUX-14 TSR might want to perform the request itself. Therefore
+ *	each NLS pkg contains some flags that allow the kernel to bypass
+ *	the MUX-14 request and invoke the proper function directly. Both
+ *	default NLS pkgs will have those flags enabled, because they are
+ *	already loaded into memory and must comply to the rules.
+ *
+ *	Note: Those flags do not alter the way the request is actually
+ *	performed, but the MUX-14 call is omitted only (steps 4. through 6.).
+ *
+ *	======= Description of the API
+ *
+ *	There are three APIs to be supported by NLS:
+ *	1) DOS API: DOS-38, DOS-65, DOS-66;
+ *	2) MUX-14, and
+ *	3) internal: upcasing filenames.
+ *
+ *	1) and 2) address the used NLS pkg by the country code / codepage pair.
+ *	3) uses the currently active NLS pkg only; furthermore, these functions
+ *	more or less match DOS-64-A*. Therefore, the NLS system merges the
+ *	interfaces 1) and 3) and offers function suitable for both ones.
+ *
+ *	Both 1) and 3) must channel the request through the MUX chain, if
+ *	appropriate, whereas 2) is the back-end and does natively process the
+ *	request totally on its own.
+ *
+ *	The API of 1) and 3) consists of:
+ *		+ DosUpChar(), DosUpString(), and DosUpMem(): to upcase an object
+ *	(DOS-65-2[0-2]);
+ *		+ DosYesNo(): to check a character, if it is the yes or no prompt
+ *	(DOS-65-23);
+ *		+ DosUpFChar(), DosUpFString(), and DosUpFMem(): to upcase an object
+ *	for filenames (DOS-65-A[0-2]);
+ *		+ DosGetData(): to retreive certain information (DOS-38, all the
+ *	other DOS-65-** subfunctions);
+ *		+ DosSetCountry(): to change the currently active country code
+ *	(DOS-38);
+ *		+ DosSetCodepage(): to change the currently active codepage (DOS-66).
+ *
+ *	The API of 2) consists of:
+ *		+ syscall_MUX14().
+ *	This function is invoked for all MUX-14 requests and recieves the
+ *	registers of the particular INT-2F call, it will then decode the
+ *	registers and pass the request forth to a NLS-internal interface
+ *	consisting of the following "static" functions:
+ *		+ nlsUpMem(): called for DosUp*(),
+ *		+ nlsUpFMem(): called for DosUpF*(),
+ *		+ nlsYesNo(): called for DosYesNo(),
+ *		+ nlsGetData(): called for DosGetData(),&
+ *		+ nlsSetPackage(): called for DosSetCountry() and DosSetCodepage().
+ *	In opposite of the APIs 1) through 3) the NLS-internal functions address
+ *	the NLS pkg to operate upon by a (struct nlsInfoBlock *) pointer.
+ *
+ *	This designs supports to easily implement to bypass the MUX chain to
+ *	speed up especially the internal API to upcase filenames, because
+ *	the Dos*() functions can decide do not pass the request through MUX,
+ *	but directly call the nls*() function instead. This way it is ensured
+ *	that the performed actions are the same in both cases and, with repect
+ *	to the functions that operate with the currently active NLS pkg, the
+ *	performance is rather high, because one can use the globally available
+ *	pointer to the current NLS pkg and need not search for a country code/
+ *	codepage pair.
+ *
+ *	======== Compile-time options
  *
  *	Win9x supports to change the individual portions of a NLS pkg
  *	through DOS-65-00; also there are no references what happens when
@@ -128,29 +255,20 @@
  *	enables the appropriate code.
  *	NLS_MODIFYABLE_DATA is *disabled* by default.
  *
- *	The tables 2 and 4 (upcase tables) are relatively accessed often,
- *	but theoretically these tables could be loacted at any position
+ *	The tables 2 and 4 (upcase tables) are accessed relatively often,
+ *	but theoretically these tables could be located at any position
  *	of the pointer array. If the macro NLS_REORDER_POINTERS is enabled,
  *	both NLSFUNC and the internal loader will reorder the pointers
  *	array so that mandatory tables are located at predictable indexes.
  *	This removes that the kernel must search for the table when
- *	one of the DOS-65-[2A]x function is called or a filename has been
+ *	one of the DOS-65-[2A]x functions is called or a filename has been
  *	passed in (which must be uppercased to be suitable for internal
  *	purpose). However, when some program try to tweak the internal
  *	tables this assumption could be wrong.
+ *	This setting has any effect only, if the kernel tries to access
+ *	information itself; it is ignored when the user calls DOS-65-0x
+ *	to return such pointer.
  *	NLS_REORDER_POINTERS is *enabled* by default.
- *
- *	A second performance boost can be achieved, if the kernel shall
- *	support *only* NLS pkgs that apply to the structure mentioned above,
- *	thus, contain only characters 0x80-0xFF and the range 0x00-0x7F
- *	is upcased as 7-bit US-ASCII. In this case when upcasing the
- *	NLS pkg is bypassed at all, but cached pointers are used, which
- *	point directly to the upcased characters. Because I don't know
- *	existing NLS pkgs, this feature may be not very trustworthy; also
- *	when the NLS pkg is switched bypassing DOS, the cached pointers
- *	won't be updated, also by enabling this macro the MUX-flags are
- *	ignored for the sub-functions DOS-65-[2A][0-2], therefore:
- *	NLS_CACHE_POINTERS is *disabled* by default.
  */
 
 /* Define if some user program possibly modifies the value of the internal
@@ -163,73 +281,65 @@
 	access to often used and mandatoryly present tables. */
 #define NLS_REORDER_POINTERS
 
-/* Define if the kernel is to cache the time-consuming search results.
-	Doing so could lead to imporper functionality, if the active
-	codepage or country ID is changed bypassing the DOS API. */
-/* #define NLS_CACHE_POINTERS */
-
 
 /*
  *	How the kernel and NLSFUNC communicate with each other
  */
  	/* Must be returned by NLSFUNC upon MUX-14-00 */
 #define NLS_FREEDOS_NLSFUNC_ID	0x534b
-	/* MUX-14 subfunction called by the kernel to load a specific
-		NLS package */
-#define NLS_NLSFUNC_LOAD_PKG	0x4b
-	/* MUX-14 subfunction called when to externally upcase */
-#define NLS_NLSFUNC_UP			0x61
-	/* MUX-14 subfunction called when to externally upcase filenames */
-#define NLS_NLSFUNC_FUP			0x69
-	/* Internally used to represent DOS-38 */
-#define NLS_DOS_38				0x7365
-	/* MUX-14 subfunction called when to check yes/nochar */
-#define NLS_NLSFUNC_YESNO		0x72
+	/* Represents a call to DOS-38 within DOS-65 handlers.
+		Current implementation relys on 0x101! */
+#define NLS_DOS_38 0x101
+	/* NLSFUNC may return NLS_REDO to instruct the kernel to
+		try to perform the same action another time. This is most
+		useful if the kernel only loads the NLS pkg into memory so
+		the kernel will find it and will process the request internally
+		now. */
+#define NLS_REDO 353
 
-	/* Flags for the communication with NLSFUNC */
-#define NLS_FLAG_INFO		0x001
-#define NLS_FLAG_POINTERS	0x002
-#define NLS_FLAG_YESNO		0x004
-#define NLS_FLAG_UP			0x008
-#define NLS_FLAG_FUP		0x010
+/* Codes of the subfunctions of external NLSFUNC */
+#define NLSFUNC_INSTALL_CHECK	0
+#define NLSFUNC_DOS38			4
+#define NLSFUNC_GETDATA			2
+#define NLSFUNC_DRDOS_GETDATA	0xfe
+#define NLSFUNC_LOAD_PKG		3
+#define NLSFUNC_LOAD_PKG2		1
+#define NLSFUNC_UPMEM			0x22
+#define NLSFUNC_YESNO			0x23
+#define NLSFUNC_FILE_UPMEM		0xa2
 
-/* To ease the maintainance this header file is included to
-	a) define the "normal" structures, where all the non-fixed size
-		arrays are noted with length "1", and
-	b) define the hardcoded NLS package for U.S.A. -- CP437
-	If the macro NLS_HARDCODED is defined, the structures are modifed
-	to result into structures with the correct length.
+/* The NLS implementation flags encode what feature is in effect;
+	a "1" in the bitfield means that the feature is active.
+	All currently non-defined bits are to be zero to allow future
+	useage. */
+#define NLS_CODE_MODIFYABLE_DATA	0x0001
+#define NLS_CODE_REORDER_POINTERS 	0x0002
 
-	When NLS_NO_VARS is defined, no prototypes of the global
-	variables are included, useful in sources defining the hardcoded
-	information, but require the normal types, too.
-*/
-#ifndef NLS_HARDCODED
-	/* Use the default of length == 1 */
-#define NLS_POINTERS 1
-#define NLS_FNAMSEPS 1
-#define NLS_DBCSENTR 1
-#define __join(a,b) a
-#define mkName(a) a
+/* NLS package useage flags encode what feature is in effect for this
+	particular package:
+	a "1" in the bitfield means that the feature is active/enabled.
+	All currently non-defined bits are to be zero to allow future
+	useage. */
+#define NLS_FLAG_DIRECT_UPCASE		0x0001	/* DOS-65-2[012], */
+#define NLS_FLAG_DIRECT_FUPCASE		0x0002	/* DOS-65-A[012], internal */
+#define NLS_FLAG_DIRECT_YESNO		0x0004	/* DOS-65-23 */
+#define	NLS_FLAG_DIRECT_GETDATA		0x0008	/* DOS-65-XX, DOS-38 */
 
-#else
-
-#define __join(a,b) a##b
-#define mkName(a)	__join(a,NLS_HARDCODED)
-
-#endif
+#define NLS_FLAG_HARDCODED NLS_FLAG_DIRECT_UPCASE		\
+							| NLS_FLAG_DIRECT_FUPCASE	\
+							| NLS_FLAG_DIRECT_YESNO		\
+							| NLS_FLAG_DIRECT_GETDATA
 
 	/* No codepage / country code given */
 #define NLS_DEFAULT ((UWORD)-1)
 
-#ifndef NLS_HARDCODED
 /*
  *	This is the data in the exact order returned by DOS-65-01
  */
-struct nlsExtCtryInfo
+struct nlsExtCntryInfo
 {
 	UBYTE subfct;				/* always 1 */
-	WORD size;					/* size of this structure 
+	WORD size;					/* size of this structure
 									without this WORD itself */
 	WORD countryCode;           /* current country code */
 	WORD codePage;              /* current code page (CP) */
@@ -269,12 +379,12 @@ struct nlsExtCtryInfo
   									0: 12 hours (append AM/PM)
   									1: 24 houres
   								*/
-  VOID(FAR * upCaseFct) (VOID);	/* far call to a function mapping the
+  VOID(FAR * upCaseFct) (VOID);	/* far call to a function upcasing the
   				character in register AL */
   char dataSep[2];              /* ASCIZ of separator in data records */
 };
 
-struct nlsPointerInf {	/* Information of DOS-65-0X is usually addressed
+struct nlsPointer {	/* Information of DOS-65-0X is addressed
 							by a pointer */
 	UBYTE subfct;		/* number of the subfunction */
 	VOID FAR *pointer;	/* the pointer to be returned when the subfunction
@@ -282,43 +392,45 @@ struct nlsPointerInf {	/* Information of DOS-65-0X is usually addressed
 							subfunctions 0, 1, 0x20, 0x21, 0x22, 0x23,
 							0xA0, 0xA1,& 0xA2 */
 };
-#endif
 
-struct mkName(nlsPackage) {	/* the contents of one chain item of the
+
+struct nlsPackage {	/* the contents of one chain item of the
 							list of NLS packages */
 	struct nlsPackage FAR *nxt;	/* next item in chain */
-	unsigned muxCallingFlags;	/* combination of NLS_FLAGS-* */
-	struct nlsExtCtryInfo cntryInfo; 
-	char yeschar, nochar;	/* yes / no character DOS-65-23 */
+	UWORD cntry, cp;		/* country ID / codepage of this NLS pkg */
+	int flags;					/* direct access and other flags */
+			/* Note: Depending on the flags above all remaining
+				portions may be omitted, if the external NLSFUNC-like
+				MUX-14 processor does not require them and performs
+				all actions itself, so that the kernel never tries to
+				fetch this information itself. */
+	UBYTE yeschar;	/* yes / no character DOS-65-23 */
+	UBYTE nochar;
 	unsigned numSubfct;		/* number of supported sub-functions */
-	struct nlsPointerInf nlsPointer[NLS_POINTERS];	/* grows dynamically */
+	struct nlsPointer nlsPointers[1];	/* grows dynamically */
 };
 
-struct mkName(nlsDBCS) {
+struct nlsDBCS {			/* The internal structure is unknown to me */
 	UWORD numEntries;
-	UWORD dbcsTbl[NLS_DBCSENTR];
+	UWORD dbcsTbl[1];
 };
 
-#ifndef NLS_HARDCODED
 struct nlsCharTbl {
 	/* table containing a list of characters */
-	WORD numEntries;			/* number of entries of this table.
+	UWORD numEntries;			/* number of entries of this table.
 									If <= 0x80, the first element of
 									the table corresponse to character 0x80 */
 	unsigned char tbl[1];		/* grows dynamically */
 };
-struct nlsCharTbl128{
-	WORD numEntries;
-	unsigned char tbl[128];
-};
-struct nlsCharTbl256{
-	WORD numEntries;
-	unsigned char tbl[256];
-};
-#endif
+#define nlsChBuf(len)		struct nlsCharTbl##len {		\
+			UWORD numEntries;							\
+			unsigned char tbl[len];						\
+		}
+nlsChBuf(128);
+nlsChBuf(256);
 
 /* in file names permittable characters for DOS-65-05 */
-struct mkName(nlsFnamTerm) {
+struct nlsFnamTerm {
 	WORD size;                /* size of this structure */
 	BYTE dummy1;
 	char firstCh,
@@ -328,43 +440,117 @@ struct mkName(nlsFnamTerm) {
 	  lastExcl;                 /* first, last excluded character */
 	BYTE dummy3;
 	BYTE numSep;                /* number of file name separators */
-	char separators[NLS_FNAMSEPS];		/* grows dynamically */
+	char separators[1];			/* grows dynamically */
 };
 
-#ifndef NLS_NO_VARS
-struct mkName(nlsInfoBlock) {		/* This block contains all information
+struct nlsInfoBlock {		/* This block contains all information
 					shared by the kernel and the external NLSFUNC program */
-	char FAR *fname;	/* filename from COUNTRY= */
+	char FAR *fname;	/* filename from COUNTRY=;
+							maybe tweaked by NLSFUNC */
 	UWORD sysCodePage;	/* system code page */
+	unsigned flags;		/* implementation flags */
 	struct nlsPackage FAR *actPkg;	/* current NLS package */
-#ifdef NLS_CACHE_POINTERS
-	unsigned char FAR *fnamUpTable;	/* upcase table for filenames */
-	unsigned char FAR *upTable;		/* normal upcase table */
-#endif
-	struct mkName(nlsPackage) chain;	/* first item of info chain -- 
-									hardcoded U.S.A. */
+	struct nlsPackage FAR *chain;	/* first item of info chain --
+										hardcoded U.S.A./CP437 */
 };
 
-extern struct mkName(nlsInfoBlock) nlsInfo;
-extern struct mkName(nlsFnamTerm) nlsFnameTermHardcodedTable;
-extern struct mkName(nlsDBCS) nlsDBCSHardcodedTable;
-extern struct __join(nlsCharTbl,128) nlsUpHardcodedTable;
-extern struct __join(nlsCharTbl,128) nlsFnameUpHardcodedTable;
-extern struct __join(nlsCharTbl,256) nlsCollHardcodedTable;
-#endif
+extern struct nlsInfoBlock	nlsInfo;
+extern struct nlsPackage	nlsPackageHardcoded;
+	/* These are the "must have" tables within the hard coded NLS pkg */
+extern struct nlsFnamTerm	nlsFnameTermHardcoded;
+extern struct nlsDBCS		nlsDBCSHardcoded;
+extern struct nlsCharTbl	nlsUpcaseHardcoded;
+extern struct nlsCharTbl	nlsFUpcaseHardcoded;
+extern struct nlsCharTbl	nlsCollHardcoded;
+extern struct nlsExtCntryInfo nlsCntryInfoHardcoded;
+extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
-#undef NLS_POINTERS
-#undef NLS_FNAMSEPS
-#undef NLS_DBCSENTR
-#undef __join(a,b)
-#undef mkName(a)
+/***********************************************************************
+ ***** Definitions & Declarations for COUNTRY.SYS **********************
+ ***********************************************************************/
+
+/* Note: These definitions are shared among all tools accessing the
+	COUNTRY.SYS file as well -- 2000/06/11 ska*/
+
+/* File structure:
+	S0: Base (Primary) structure -- file header
+	Offset	Size	Meaning
+	0		array	ID string "FreeDOS COUNTRY.SYS v1.0\r\n"
+	26		array	Copyright etc. (plain 7bit ASCII text)
+	26+N	2byte	\x1a\0
+	26+N+2	array	padded with \0 upto next offset
+	128		word	number of country/codepage pairs	(N1)
+	130		8byte	country code / codepage entries	(S1)
+	130+8*N1	end of array
+	===
+	S1: structure of country/codepage pair
+	Offset	Size	Meaning
+	0		dword	relative position of table definition	(S2)
+	4		word	codepage ID
+	6		word	country code
+	8		end of structure
+	===
+	S2: table definition of one country/codepage pair
+	Offset	Size	Meaning
+	0		word	number of function entries	(N2)
+	2		8byte	function definition	(S3)
+	2+8*N2	end of array
+	===
+	S3: function definition
+	Offset	Size	Meaning
+	0		dword	relative position of function data (see S4)
+	4		word	number of bytes of data
+	6		byte	function ID (same as passed to DOS-65-XX)
+	7		byte	reserved for future use (currently 0 (zero))
+	8		end of structure
+	===
+	S4: function data
+	In opposite of the structures and arrays, the function data
+	is just a structure-less stream of bytes, which is used as it is.
+	Currently no validation check is performed over this data.
+	That means, for instance, that a definition of function 2 (upcase
+	table) has length 130 and the data consists of a word value with
+	the length (128) and 128 bytes individual information.
+	That way the DBCS is implemented exactly the same way as all the
+	other tables; the only exception is pseudo-table 0x23.
+	===
+	"relative position" means this DWord specifies the amount of bytes
+	between end of the current structure and the data the pointer is
+	referring to. This shall enable future implementations to embed
+	COUNTRY.SYS into other files.
+*/
+
+#define CSYS_FD_IDSTRING "FreeDOS COUNTRY.SYS v1.0\r\n"
+
+struct nlsCSys_function	{		/* S3: function definition */
+	UDWORD csys_rpos;			/* relative position to actual data */
+	UWORD csys_length;
+	UBYTE csys_fctID;			/* As passed to DOS-65-XX */
+	UBYTE csys_reserved1;		/* always 0, reserved for future use */
+};
+
+struct nlsCSys_ccDefinition {	/* S1: country/codepage reference */
+	UDWORD csys_rpos;			/* moving the 4byte value to the front
+									can increase performance */
+	UWORD csys_cp;
+	UWORD csys_cntry;
+};
+
+struct nlsCSys_numEntries {		/* helper structure for "number of entries" */
+	UWORD csys_numEntries;
+};
+
+/* Actually, this structure is never really used */
+struct nlsCSys_fileHeader {		/* S0: primary structure */
+	unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
+			/* decrement by 1 to cut off \0 from IDString -- ska*/
+};
+
+struct nlsCSys_completeFileHeader {		/* as S0, but full 128 bytes */
+	unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
+	unsigned char csys_padbytes[128 - (sizeof(CSYS_FD_IDSTRING) - 1)];
+};
+
 
 /* standard alignment */
-
-#if defined (_MSC_VER) || defined(_QC) || defined(__WATCOMC__)
-#pragma pack()
-#elif defined (__ZTC__)
-#pragma ZTC align
-#elif defined(__TURBOC__) && (__TURBOC__ > 0x202)
-#pragma option -a.
-#endif
+#include <algndflt.h>

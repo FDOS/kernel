@@ -36,6 +36,9 @@ static char *portab_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/08/06 04:18:21  jimtabor
+ * See history.txt
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -173,6 +176,7 @@ typedef long DWORD;
 
 typedef unsigned char UBYTE;
 typedef unsigned short UWORD;
+typedef unsigned long UDWORD;
 
 typedef short SHORT;
 
@@ -196,9 +200,11 @@ typedef signed long LONG;
 
 /* General far pointer macros                                           */
 #ifdef I86
+#ifndef MK_FP
 #define MK_FP(seg,ofs)        ((VOID far *)(((LONG)(seg)<<16)|(UWORD)(ofs)))
 #define FP_SEG(fp)            ((UWORD)((LONG)(VOID FAR *)(fp)>>16))
 #define FP_OFF(fp)            ((UWORD)(fp))
+#endif
 #endif
 
 #ifdef MC68K

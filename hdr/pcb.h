@@ -28,6 +28,27 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
+/***************************************************************
+       2000/03/22 ska
+   There is a newly documented (though used previously) side effect
+   of the definitions and assumptions made herein:
+   The assembly sources may use a macro named "PUSH$ALL" to push
+   all processor registers onto the stack, see example below:
+           PUSH$ALL
+           mov ax, sp
+           ...
+           push ax
+           call _c_function
+           pop cx
+   The stack pointer immediately after the PUSH$ALL macro shall point to
+   a structure used as an "iregs" structure within the C language.
+   Therefore the internal of the structure "iregs" _must_ always
+   match the implementation of the macro "PUSH$ALL".
+*/
+
+#ifndef __PCB_H
+#define __PCB_H
+
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *pcb_hRcsId = "$Id$";
@@ -36,6 +57,9 @@ static BYTE *pcb_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/08/06 04:18:21  jimtabor
+ * See history.txt
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -81,6 +105,8 @@ static BYTE *pcb_hRcsId = "$Id$";
  *      Initial revision.
  */
 
+   /* Force one-byte alignment for all the internal structures, see above */
+#include <algnbyte.h>
 /*                                                                      */
 /* interrupt handler structure definition                               */
 /*                                                                      */
@@ -96,6 +122,11 @@ typedef union
 }
 xreg;
 
+/* The structure assumes that:
+   1) An interrupt was invoked, &
+   2) the PUSH$ALL macro was invoked immediately after that.
+   Furthermore, the PUSH$ALL macro must push ES first and AX last.
+       -- 2000/03/22 ska*/
 /* maps MS-DOS unique stacking order                                    */
 typedef struct
 {
@@ -114,6 +145,16 @@ typedef struct
 }
 iregs;
 
+   /* Registers directly passed to syscall;
+       must be the same order as iregs!
+       Is used to define parameters. */
+#define DIRECT_IREGS   \
+   xreg a, xreg b, xreg c, xreg d, \
+   UWORD si, UWORD di, UWORD bp, UWORD ds, UWORD es,   \
+   UWORD ip, UWORD cs, UWORD flags
+
+
+
 /* Process control block for task switching                             */
 typedef struct
 {
@@ -122,6 +163,9 @@ typedef struct
   iregs pc_regs;
 }
 pcb;
+
+/* Note: The following figure is not made by myself and I assume that
+   the order of "ES" through "AX" are misinterpreted?!  -- 2000/03/22 ska*/
 
 /* For MSC, the following offsets must match the assembly process       */
 /* support offsets                                                      */
@@ -182,3 +226,17 @@ pcb;
 
 #define FLG_ZERO        0x0040
 #define FLG_CARRY       0x0001
+
+   /* Allow default alignment from now on */
+#include <algndflt.h>
+
+/*
+ * Invoke interrupt "intnr" with all registers from *pr loaded
+ * into the processor registers (except: SS, SP,& flags)
+ * On return, all processor registers are stored into *pr (including
+ * flags).
+ */
+void intr(int intnr, iregs * const pr);
+
+#endif
+

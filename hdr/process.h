@@ -36,6 +36,9 @@ static BYTE *process_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/08/06 04:18:21  jimtabor
+ * See history.txt
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -104,8 +107,8 @@ typedef struct
     {
       UWORD env_seg;
       CommandTail FAR *cmd_line;
-      BYTE FAR *fcb_1;
-      BYTE FAR *fcb_2;
+      fcb FAR *fcb_1;
+      fcb FAR *fcb_2;
       BYTE FAR *stack;
       BYTE FAR *start_addr;
     }
