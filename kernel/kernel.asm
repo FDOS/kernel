@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.18  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.17  2001/08/19 12:58:36  bartoldeman
 ; Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
 ;
@@ -171,7 +174,7 @@ beyond_entry:   resb    256-(beyond_entry-entry)
 
 segment	INIT_TEXT
 
-		extern	_main:wrt IGROUP
+		extern	_FreeDOSmain:wrt IGROUP
 
                 ;
                 ; kernel start-up
@@ -255,7 +258,7 @@ floppy:		mov	byte [_BootDrive],bl ; tell where we came from
                 mov     ax,cs
                 mov     ds,ax
                 mov     es,ax
-        jmp _main
+        jmp _FreeDOSmain
 
 segment	INIT_TEXT_END
 
@@ -292,6 +295,8 @@ segment	_FIXED_DATA
 ; use.  A 0 indicates MS-DOS 3.X style, a 1 indicates MS-DOS 4.0-6.X style.
                 global  DATASTART
 DATASTART:
+                global  _DATASTART
+_DATASTART:
 dos_data        db      0
                 dw      kernel_start
                 db      0               ; padding
@@ -326,7 +331,7 @@ _sfthead        dw      _firstsftt      ; 0004 System File Table head
                 global  _clock
 _clock          dd      0               ; 0008 CLOCK$ device
                 global  _syscon
-_syscon         dd      0               ; 000c console device
+_syscon         dw      _con_dev,seg _con_dev   ; 000c console device
                 global  _maxbksize
 _maxbksize      dw      512             ; 0010 maximum bytes/sector of any block device
 		dw	buf_info        ; 0012 pointer to buffers info structure
@@ -654,14 +659,6 @@ intr_dos_stk	resw	1
 intr_dos_seg	resw	1
 
 
-                global  _api_sp
-_api_sp         dw      0               ; api stacks - for context
-                global  _api_ss
-_api_ss         dw      0               ; switching
-                global  _usr_sp
-_usr_sp         dw      0               ; user stacks
-                global  _usr_ss
-_usr_ss         dw      0
                 global  _ram_top
 _ram_top        dw      0
 
@@ -763,10 +760,12 @@ segment	_STACK	class=STACK stack
 
 segment	_TEXT
         ; dummy interrupt return handlers
-        
+
+		global _int22_handler
                 global _int28_handler
                 global _int2a_handler
                 global _empty_handler
+_int22_handler:		
 _int28_handler:
 _int2a_handler:
 _empty_handler:

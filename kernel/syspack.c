@@ -36,6 +36,9 @@ static BYTE *syspackRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -134,7 +137,6 @@ VOID fputbyte(BYTE FAR * bp, VOID FAR * vp)
 {
   *(BYTE FAR *) vp = *bp;
 }
-#endif
 
 VOID getdirent(BYTE FAR * vp, struct dirent FAR * dp)
 {
@@ -162,3 +164,4 @@ VOID putdirent(struct dirent FAR * dp, BYTE FAR * vp)
   for (i = 0, p = (BYTE FAR *) & vp[DIR_RESERVED]; i < 10; i++)
     *p++ = NULL;
 }
+#endif

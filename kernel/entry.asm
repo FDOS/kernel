@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.14  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.13  2001/04/21 22:32:53  bartoldeman
 ; Init DS=Init CS, fixed stack overflow problems and misc bugs.
 ;
@@ -111,10 +114,6 @@ segment	HMA_TEXT
                 extern   _MachineId:wrt DGROUP
                 extern   critical_sp:wrt DGROUP
 
-                extern   _api_sp:wrt DGROUP      ; api stacks - for context
-                extern   _api_ss:wrt DGROUP      ; switching
-                extern   _usr_sp:wrt DGROUP      ; user stacks
-                extern   _usr_ss:wrt DGROUP
                 extern   int21regs_seg:wrt DGROUP
                 extern   int21regs_off:wrt DGROUP
 
@@ -487,33 +486,28 @@ int2526:
                 mov     bx, DGROUP
                 mov     ds, bx
 
-                ; save away foreground process' stack
-                push    word [_usr_ss]
-                push    word [_usr_sp]
-
-                mov     word [_usr_ss],ss
-                mov     word [_usr_sp],sp
-
                 ; setup our local stack
                 cli
                 mov     ss,bx
                 mov     sp,_disk_api_tos
                 sti
 
+		push	dx
+		push	cx			; save user stack
+
                 push    dx                      ; SS:SP -> user stack
                 push    cx
                 push    ax                      ; was set on entry = 25,26
                 call    _int2526_handler
-                add     sp, byte 4
+                add     sp, byte 6
 
+		pop	cx
+		pop	dx			; restore user stack
 
                 ; restore foreground stack here
                 cli
-                mov     ss,word [_usr_ss]
-                mov     sp,word [_usr_sp]
-
-                pop     word [_usr_sp]
-                pop     word [_usr_ss]
+                mov     ss, dx
+                mov     sp, cx
 
                 pop     es
                 pop     ds
@@ -593,10 +587,6 @@ CritErr05:
                 push    word [_MachineId]
                 push    word [int21regs_seg]
                 push    word [int21regs_off]
-                push    word [_api_sp]
-                push    word [_api_ss]
-                push    word [_usr_sp]
-                push    word [_usr_ss]
                 push    word [_user_r+2]
                 push    word [_user_r]
                 mov     [critical_sp],sp
@@ -626,10 +616,6 @@ CritErr05:
                 mov     sp,[critical_sp]
                 pop     word [_user_r]
                 pop     word [_user_r+2]
-                pop     word [_usr_ss]
-                pop     word [_usr_sp]
-                pop     word [_api_ss]
-                pop     word [_api_sp]
                 pop     word [int21regs_off]
                 pop     word [int21regs_seg]
                 pop     word [_MachineId]

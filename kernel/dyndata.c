@@ -10,4 +10,4 @@
 #include "init-mod.h"
 #include "dyndata.h"
 
-struct DynS Dyn;
+struct DynS Dyn = {0};

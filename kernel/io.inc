@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.4  2001/03/21 02:56:26  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -62,6 +65,25 @@
 ;
 
     %include "segs.inc"
+
+;
+;      Error Return Codes
+;
+
+%define E_WRPRT         0       ; Write Protect
+%define E_UNIT          1       ; Unknown Unit
+%define E_NOTRDY        2       ; Device Not Ready
+%define E_CMD           3       ; Unknown Command
+%define E_CRC           4       ; Crc Error
+%define E_LENGTH        5       ; Bad Length
+%define E_SEEK          6       ; Seek Error
+%define E_MEDIA         7       ; Unknown MEDIA
+%define E_NOTFND        8       ; Sector Not Found
+%define E_PAPER         9       ; No Paper
+%define E_WRITE         10      ; Write Fault
+%define E_READ          11      ; Read Fault
+%define E_FAILURE       12      ; General Failure
+
 
 	extern	_IOExit:wrt TGROUP
 	extern	_IOSuccess:wrt TGROUP

@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.4  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -51,6 +54,17 @@
 ;
 
                 %include "io.inc"
+
+		%define PRT_TIMEOUT    01h
+		%define PRT_IOERROR    08h
+		%define PRT_SELECTED   10h
+		%define PRT_OUTOFPAPER 20h
+		%define PRT_ACK	       40h
+		%define PRT_NOTBUSY    80h
+
+		%define PRT_WRITECHAR  00h
+		%define PRT_INITPORT   01h
+		%define PRT_GETSTATUS  02h
 
 segment	_IO_FIXED_DATA
 
@@ -93,18 +107,16 @@ uPrtQuantum     dw      50h
 PrtWrite:
                 jcxz    PrtWr3                  ; Exit if nothing to write
 PrtWr1:
-                mov     bx,2
+                mov     bx,2			; number of retries
 PrtWr2:
-                mov     al,[es:di]
-                inc     di
-                xor     ah,ah                   ; Zero register
-                call    PrtIOCall               ; (0800)
+
+                call    PrintSingleCharacter 
+
                 jnz     PrtWr4                  ; Exit if done
                 loop    PrtWr1                  ; otherwise loop
 PrtWr3:
                 jmp     _IOExit
 PrtWr4:
-                dec     di
                 dec     bx
                 jnz     PrtWr2
 PrtWr5:
@@ -115,32 +127,32 @@ PrtWr5:
 PrtOutStat:
                 call    GetPrtStat
                 jnz     PrtWr5
-                mov     al,9
-                test    ah,20h
+                mov     al, E_PAPER
+                test    ah, PRT_OUTOFPAPER
                 jnz     PrtWr5
-                test    ah,80h
+                test    ah, PRT_NOTBUSY
                 jnz     PrtWr3
                 jmp     _IODone
 
 
 
 GetPrtStat:
-                mov     ah,2
+                mov     ah,PRT_GETSTATUS
 
 PrtIOCall:
                 call    GetUnitNum
                 int     17h                     ; print char al, get status ah
-                test    ah,8
-                jz      PrtIOCal2
-                mov     al,9
-                test    ah,20h
+                test    ah, PRT_TIMEOUT|PRT_IOERROR
+                jnz     PrtIOCal2
+                mov     al, E_PAPER
+                test    ah, PRT_OUTOFPAPER
                 jnz     PrtIOCal1
-                inc     al
+                inc     al			; al<-E_WRITE
 PrtIOCal1:
                 retn
 PrtIOCal2:
-                mov     al,2
-                test    ah,1
+                mov     al, E_NOTRDY
+                test    ah, PRT_TIMEOUT
                 retn
 
 
@@ -161,7 +173,7 @@ PrtOtBsy1:
 PrtOtBsy2:
                 call    GetPrtStat
                 jnz     PrtOtBsy3
-                test    ah,80h
+                test    ah, PRT_NOTBUSY
                 loopz   PrtOtBsy2
                 pop     cx
                 jz      PrtOtBsy4
@@ -206,3 +218,66 @@ PrtGnIoctl3:
                 mov     [cs:uPrtQuantum+bx],cx
                 mov     [es:di],cx
                 jmp     _IOExit
+
+
+
+;
+; original implementation didn't work at all. 
+; this one's not much better either,
+; but should print a little bit
+;
+; the status bits = AH
+; 
+;               1                       0
+; 80 - BUSY  not busy               busy
+; 40 - ACK   transfer finished      not yet finished
+; 20 - PAP   no paper available     paper OK
+; 10 - ONOF  printer online         not online
+; 08 - ERR   some error             no error
+; 01 - TIM   some error when transfer   OK
+;
+; some states
+; 30 - there is no printer at all
+; c8 - there is a printer without power
+; 10 - printer with power, but not initialized
+; 90 - this one is fine
+;
+
+
+; you must not simply print without asking for status
+; as the BIOS has a LARGE timeout before aborting
+;
+
+PrintSingleCharacter:
+
+                mov     ah, PRT_GETSTATUS       ; get status, ah=2
+                call    GetUnitNum
+                int     17h                     ; print char al, get status ah
+
+                test    ah, PRT_OUTOFPAPER|PRT_IOERROR
+                jnz     decode_error                
+
+                test    ah, PRT_NOTBUSY
+                jz      decode_error                
+
+
+                mov     al,[es:di]
+                mov     ah,PRT_WRITECHAR	; print character, ah=0
+                call    GetUnitNum
+                int     17h                     ; print char al, get status ah
+
+                test    ah, PRT_OUTOFPAPER|PRT_IOERROR|PRT_TIMEOUT
+                jnz     decode_error
+                inc     di
+                xor     al,al                   ; set zero flag + clear al
+                ret
+
+
+decode_error:
+                mov     al, E_PAPER
+                test    ah, PRT_OUTOFPAPER	;out_of_paper, 20h
+                jnz     out_of_paper
+                mov     al, E_WRITE
+out_of_paper:
+                or al,al                	; reset zero flag                
+                ret

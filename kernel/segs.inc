@@ -29,6 +29,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.9  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.8  2001/07/09 22:19:33  bartoldeman
 ; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
 ;
@@ -71,9 +74,9 @@
 
 group   PGROUP          PSP
 group	TGROUP		_TEXT _IO_TEXT _IO_FIXED_DATA 
-group	DGROUP		_FIXED_DATA _DATA _BSSSTART _BSS _BSSEND DYN_DATA
+group	DGROUP		_FIXED_DATA _DATA _BSSSTART _BSS _BSSEND DYN_DATA DCONST
 group	HGROUP		HMA_TEXT_START HMA_TEXT HMA_TEXT_END
-group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IB_B IB IB_E
+group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IB_B IB IB_E IC IDATA
 
 segment PSP             class=PSP
 segment	_TEXT		class=CODE
@@ -84,6 +87,8 @@ segment	_DATA		class=DATA align=2
 segment	_BSSSTART       class=BSS align=2
 segment	_BSS		class=BSS align=2
 segment	_BSSEND		class=BSS
+;for MSC
+segment	DCONST      	class=DCONST   align=2     
 segment	DYN_DATA    class=DYN_DATA
 segment	HMA_TEXT_START	class=HMA align=16
 segment	HMA_TEXT	class=HMA
@@ -94,7 +99,9 @@ segment	INIT_TEXT_END	class=INIT
 segment ID_B            class=ID   align=2
 segment ID              class=ID   align=2
 segment ID_E            class=ID   align=2
+segment IDATA           class=ID   align=2
 segment	IB_B      	class=IB   align=2
 segment	IB      	class=IB   align=2     
 segment	IB_E      	class=IB   align=2
+segment	IC      	class=IC   align=2     
 

@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.4  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -90,20 +93,15 @@ static BYTE *RcsId = "$Id$";
  * Initial revision.
  */
 
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-#endif
-
 UWORD init_oem(void)
 {
   UWORD top_k;
 
 #ifndef __TURBOC__
-  _asm
+  asm
   {
-    int 12 h
-      mov top_k,
-      ax
+    int 0x12;
+    mov top_k,ax;
   }
 #else
   __int__(0x12);

@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.13  2001/08/20 20:32:15  bartoldeman
  * Truename, get free space and ctrl-break fixes.
  *
@@ -255,7 +258,7 @@ COUNT get_verify_drive(char FAR *src)
 
 */ 
  
-COUNT truename(char FAR * src, char FAR * dest, COUNT t)
+COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
   char *bufp = buf + 3;
@@ -353,7 +356,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 
   if (*src != '\\' && *src != '/')	/* append current dir */
   {
-    DosGetCuDir(i+1, bufp);
+    DosGetCuDir((UBYTE)(i+1), bufp);
     if (*bufp)
     {
       while (*bufp)

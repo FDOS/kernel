@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.8  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -102,9 +105,9 @@ static BYTE *RcsId = "$Id$";
  */
 
 #ifdef PROTO
-BOOL ReadPCClock(ULONG *);
-VOID WriteATClock(BYTE *, BYTE, BYTE, BYTE);
-VOID WritePCClock(ULONG);
+BOOL ASMCFUNC ReadPCClock(ULONG *);
+VOID ASMCFUNC WriteATClock(BYTE *, BYTE, BYTE, BYTE);
+VOID ASMCFUNC WritePCClock(ULONG);
 COUNT BcdToByte(COUNT);
 COUNT BcdToWord(BYTE *, UWORD *, UWORD *, UWORD *);
 COUNT ByteToBcd(COUNT);
@@ -141,14 +144,14 @@ static ULONG Ticks;
 */
 UWORD DaysSinceEpoch = 0;
 
-BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
+BOOL ASMCFUNC ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
 
 static COUNT BcdToByte(COUNT x)
 {
   return ((((x) >> 4) & 0xf) * 10 + ((x) & 0xf));
 }
 
-WORD FAR clk_driver(rqptr rp)
+WORD FAR ASMCFUNC clk_driver(rqptr rp)
 {
   COUNT 
     c;

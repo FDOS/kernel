@@ -47,6 +47,9 @@ BYTE *RcsId = "$Id$";
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
  *
  * $Log$
+ * Revision 1.24  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.23  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -267,7 +270,7 @@ STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
 date dos_getdate(VOID);
 time dos_gettime(VOID);
 BOOL find_free(f_node_ptr);
-UWORD find_fat_free(f_node_ptr);
+CLUSTER find_fat_free(f_node_ptr);
 VOID wipe_out(f_node_ptr);
 BOOL last_link(f_node_ptr);
 BOOL extend(f_node_ptr);
@@ -318,9 +321,6 @@ COUNT dos_open(BYTE * path, COUNT flag)
   fnp->f_highwater = fnp->f_dir.dir_size;
 
   fnp->f_back = LONG_LAST_CLUSTER;
-/* /// Moved to below.  - Ron Cemer
-  fnp->f_cluster = fnp->f_dir.dir_start;
-  fnp->f_cluster_offset = 0l; */   /*JPP */
 
   fnp->f_flags.f_dmod = FALSE;
   fnp->f_flags.f_dnew = FALSE;
@@ -329,7 +329,7 @@ COUNT dos_open(BYTE * path, COUNT flag)
   merge_file_changes(fnp, TRUE);    /* /// Added - Ron Cemer */
 
     /* /// Moved from above.  - Ron Cemer */
-  fnp->f_cluster = fnp->f_dir.dir_start;
+  fnp->f_cluster = getdstart(fnp->f_dir);
   fnp->f_cluster_offset = 0l;   /*JPP */
 
   return xlt_fnp(fnp);
@@ -488,6 +488,55 @@ STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
   return found;
 }
 
+/* STATIC BOOL find_full_fname(f_node_ptr fnp, f_node_ptr lfnp, BYTE * fname,
+  BYTE * fext)
+{
+  BOOL found = FALSE;
+
+  lfnp->f_cluster = LONG_LAST_CLUSTER;
+  while (dir_read(fnp) == DIRENT_SIZE)
+  {
+    if (fnp->f_dir.dir_name[0] != '\0')
+    {
+      if (fnp->f_dir.dir_name[0] == DELETED)
+        continue;
+	
+      if (fnp->f_dir.dir_attrib != 0xf) lfnp->f_cluster = LONG_LAST_CLUSTER;
+      else if (lfnp->f_cluster == LONG_LAST_CLUSTER)
+        memcpy(lfnp, struct fnp, sizeof(f_node));
+
+      if (fcmp(fname, (BYTE *)fnp->f_dir.dir_name, FNAME_SIZE)
+          && fcmp(fext, (BYTE *)fnp->f_dir.dir_ext, FEXT_SIZE)
+          && ((fnp->f_dir.dir_attrib & D_VOLID) == 0))
+      {
+        found = TRUE;
+        break;
+      }
+    }
+  }
+  return found;
+} */
+
+/* input: fnp with valid non-LFN directory entry, not equal to '..' or
+'.' */
+void remove_lfn_entries(f_node_ptr fnp)
+{
+  ULONG original_diroff = fnp->f_diroff;
+  while (TRUE) {
+    if(fnp->f_diroff == 0) break;
+    fnp->f_diroff -= 2*DIRENT_SIZE;
+    /* it cannot / should not get below 0 because of '.' and '..'
+       but maybe add another check for robustness */
+    dir_read(fnp);
+    if (fnp->f_dir.dir_attrib != D_LFN)
+      break;
+    fnp->f_dir.dir_name[0] = DELETED;
+    fnp->f_flags.f_dmod = TRUE;
+    dir_write(fnp);
+  }
+  fnp->f_diroff = original_diroff - DIRENT_SIZE;
+  dir_read(fnp);
+}
     /* /// Added - Ron Cemer */
     /* If more than one f_node has a file open, and a write
        occurs, this function must be called to propagate the
@@ -551,6 +600,9 @@ STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2) {
 STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst) {
     dst->f_highwater = src->f_highwater;
     dst->f_dir.dir_start = src->f_dir.dir_start;
+#ifdef WITHFAT32
+    dst->f_dir.dir_start_high = src->f_dir.dir_start_high;
+#endif
     dst->f_dir.dir_size = src->f_dir.dir_size;
     dst->f_dir.dir_date = src->f_dir.dir_date;
     dst->f_dir.dir_time = src->f_dir.dir_time;
@@ -631,7 +683,7 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
   fnp->f_mode = RDWR;
 
   fnp->f_dir.dir_size = 0l;
-  fnp->f_dir.dir_start = FREE;
+  setdstart(fnp->f_dir, FREE);
   fnp->f_dir.dir_attrib = attrib | D_ARCHIVE;
   fnp->f_dir.dir_time = dos_gettime();
   fnp->f_dir.dir_date = dos_getdate();
@@ -651,7 +703,8 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
   fnp->f_highwater = 0l;
 
   fnp->f_back = LONG_LAST_CLUSTER;
-  fnp->f_cluster = fnp->f_dir.dir_start = FREE;
+  fnp->f_cluster = FREE;
+  setdstart(fnp->f_dir, FREE);
   fnp->f_cluster_offset = 0l;   /*JPP */
   fnp->f_flags.f_dmod = TRUE;
   fnp->f_flags.f_ddate = FALSE;
@@ -691,6 +744,7 @@ COUNT dos_delete(BYTE * path)
     /* Ok, so we can delete. Start out by           */
     /* clobbering all FAT entries for this file     */
     /* (or, in English, truncate the FAT).          */
+    remove_lfn_entries(fnp);
     wipe_out(fnp);
     fnp->f_dir.dir_size = 0l;
     *(fnp->f_dir.dir_name) = DELETED;
@@ -745,11 +799,11 @@ COUNT dos_rmdir(BYTE * path)
        has many 'archive' directories
        we still don't allow RDONLY directories to be deleted TE*/
     
-    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE|D_SYSTEM))
+/*    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE|D_SYSTEM))
     {
       dir_close(fnp);
       return DE_ACCESS;
-    }
+    } */
 
     /* Check that the directory is empty. Only the  */
     /* "." and ".." are permissable.                */
@@ -776,7 +830,7 @@ COUNT dos_rmdir(BYTE * path)
     {
       if (fnp1->f_dir.dir_name[0] == '\0')
         break;
-      if (fnp1->f_dir.dir_name[0] == DELETED)
+      if (fnp1->f_dir.dir_name[0] == DELETED || fnp1->f_dir.dir_attrib == D_LFN)
         continue;
       else
       {
@@ -796,6 +850,7 @@ COUNT dos_rmdir(BYTE * path)
     /* Ok, so we can delete. Start out by           */
     /* clobbering all FAT entries for this file     */
     /* (or, in English, truncate the FAT).          */
+    remove_lfn_entries(fnp);
     wipe_out(fnp);
     fnp->f_dir.dir_size = 0l;
     *(fnp->f_dir.dir_name) = DELETED;
@@ -880,6 +935,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
       return ret;
     }
   }
+  remove_lfn_entries(fnp1);
 
   /* put the fnode's name into the directory.                     */
   bcopy(szFileName, (BYTE *)fnp2->f_dir.dir_name, FNAME_SIZE);
@@ -888,6 +944,9 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
   /* Set the fnode to the desired mode                            */
   fnp2->f_dir.dir_size = fnp1->f_dir.dir_size;
   fnp2->f_dir.dir_start = fnp1->f_dir.dir_start;
+#ifdef WITHFAT32
+  fnp2->f_dir.dir_start_high = fnp1->f_dir.dir_start_high;
+#endif
   fnp2->f_dir.dir_attrib = fnp1->f_dir.dir_attrib;
   fnp2->f_dir.dir_time = fnp1->f_dir.dir_time;
   fnp2->f_dir.dir_date = fnp1->f_dir.dir_date;
@@ -916,22 +975,18 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
 /*                                                              */
 STATIC VOID wipe_out(f_node_ptr fnp)
 {
-  REG UWORD st,
+  REG CLUSTER st,
     next;
   struct dpb FAR *dpbp = fnp->f_dpb;
-
+  
   /* if already free or not valid file, just exit         */
-  if ((fnp == NULL) || (fnp->f_dir.dir_start == FREE))
-    return;
-
-  /* if there are no FAT entries, just exit               */
-  if (fnp->f_dir.dir_start == FREE)
+  if ((fnp == NULL) || checkdstart(fnp->f_dir, FREE))
     return;
 
   /* Loop from start until either a FREE entry is         */
   /* encountered (due to a fractured file system) of the  */
   /* last cluster is encountered.                         */
-  for (st = fnp->f_dir.dir_start;
+  for (st = getdstart(fnp->f_dir);
        st != LONG_LAST_CLUSTER;)
   {
     /* get the next cluster pointed to              */
@@ -952,6 +1007,9 @@ STATIC VOID wipe_out(f_node_ptr fnp)
     /* and just follow the linked list              */
     st = next;
   }
+#ifdef WITHFAT32
+  if (ISFAT32(dpbp)) write_fsinfo(dpbp);
+#endif
 }
 
 STATIC BOOL find_free(f_node_ptr fnp)
@@ -1139,9 +1197,9 @@ BOOL dos_setfsize(COUNT fd, LONG size)
 /*                                                              */
 /* Find free cluster in disk FAT table                          */
 /*                                                              */
-STATIC UWORD find_fat_free(f_node_ptr fnp)
+STATIC CLUSTER find_fat_free(f_node_ptr fnp)
 {
-  REG UWORD idx;
+  REG CLUSTER idx;
 
 #ifdef DISPLAY_GETBLOCK
   printf("[find_fat_free]\n");
@@ -1151,6 +1209,7 @@ STATIC UWORD find_fat_free(f_node_ptr fnp)
     idx = fnp->f_dpb->dpb_cluster;
   else
     idx = 2;
+
 
   /* Search the FAT table looking for the first free      */
   /* entry.                                               */
@@ -1164,6 +1223,9 @@ STATIC UWORD find_fat_free(f_node_ptr fnp)
   if (idx > fnp->f_dpb->dpb_size)
   {
     fnp->f_dpb->dpb_cluster = UNKNCLUSTER;
+#ifdef WITHFAT32
+    if (ISFAT32(fnp->f_dpb)) write_fsinfo(fnp->f_dpb);
+#endif
     dir_close(fnp);
     return LONG_LAST_CLUSTER;
   }
@@ -1173,6 +1235,9 @@ STATIC UWORD find_fat_free(f_node_ptr fnp)
 
   /* return the free entry                                */
   fnp->f_dpb->dpb_cluster = idx;
+#ifdef WITHFAT32
+  if (ISFAT32(fnp->f_dpb)) write_fsinfo(fnp->f_dpb);
+#endif
   return idx;
 }
 
@@ -1185,8 +1250,7 @@ COUNT dos_mkdir(BYTE * dir)
   REG f_node_ptr fnp;
   REG COUNT idx;
   struct buffer FAR *bp;
-  UWORD free_fat;
-  UWORD parent;
+  CLUSTER free_fat, parent;
   COUNT ret;
 
   /* first split the passed dir into comopnents (i.e. -   */
@@ -1274,7 +1338,6 @@ COUNT dos_mkdir(BYTE * dir)
     fnp->f_back = LONG_LAST_CLUSTER;
 
     fnp->f_dir.dir_size = 0l;
-    fnp->f_dir.dir_start = FREE;
     fnp->f_dir.dir_attrib = D_DIR;
     fnp->f_dir.dir_time = dos_gettime();
     fnp->f_dir.dir_date = dos_getdate();
@@ -1288,8 +1351,9 @@ COUNT dos_mkdir(BYTE * dir)
 
 
   /* Mark the cluster in the FAT as used                  */
-  fnp->f_dir.dir_start = fnp->f_cluster = free_fat;
-  link_fat(fnp->f_dpb, (UCOUNT) free_fat, LONG_LAST_CLUSTER);
+  fnp->f_cluster = free_fat;
+  setdstart(fnp->f_dir, free_fat);
+  link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Craft the new directory. Note that if we're in a new */
   /* directory just under the root, ".." pointer is 0.    */
@@ -1313,7 +1377,7 @@ COUNT dos_mkdir(BYTE * dir)
   DirEntBuffer.dir_attrib = D_DIR;
   DirEntBuffer.dir_time = dos_gettime();
   DirEntBuffer.dir_date = dos_getdate();
-  DirEntBuffer.dir_start = free_fat;
+  setdstart(DirEntBuffer, free_fat);
   DirEntBuffer.dir_size = 0l;
 
   /* And put it out                                       */
@@ -1321,7 +1385,12 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* create the ".." entry                                */
   bcopy("..      ", (BYTE *) DirEntBuffer.dir_name, FNAME_SIZE);
-  DirEntBuffer.dir_start = parent;
+#ifdef WITHFAT32
+  if (ISFAT32(fnp->f_dpb) && parent == fnp->f_dpb->dpb_xrootclst) {
+     parent = 0;
+  }
+#endif
+  setdstart(DirEntBuffer, parent);
 
   /* and put it out                                       */
   putdirent((struct dirent FAR *)&DirEntBuffer, (BYTE FAR *) & bp->b_buffer[DIRENT_SIZE]);
@@ -1337,7 +1406,7 @@ COUNT dos_mkdir(BYTE * dir)
   {
 
   /* as we are overwriting it completely, don't read first */
-    bp = getblockOver((ULONG) clus2phys(fnp->f_dir.dir_start,
+    bp = getblockOver((ULONG) clus2phys(getdstart(fnp->f_dir),
                                     (fnp->f_dpb->dpb_clsmask + 1),
                                     fnp->f_dpb->dpb_data) + idx,
                   fnp->f_dpb->dpb_unit);
@@ -1366,12 +1435,12 @@ COUNT dos_mkdir(BYTE * dir)
 
 BOOL last_link(f_node_ptr fnp)
 {
-  return (((UWORD) fnp->f_cluster == (UWORD) LONG_LAST_CLUSTER));
+  return (fnp->f_cluster == LONG_LAST_CLUSTER);
 }
 
 STATIC BOOL extend(f_node_ptr fnp)
 {
-  UWORD free_fat;
+  CLUSTER free_fat;
 
 #ifdef DISPLAY_GETBLOCK
   printf("extend\n");
@@ -1386,9 +1455,9 @@ STATIC BOOL extend(f_node_ptr fnp)
 
   /* Now that we've found a free FAT entry, mark it as the last   */
   /* entry and save.                                              */
-  link_fat(fnp->f_dpb, (UCOUNT) fnp->f_back, free_fat);
+  link_fat(fnp->f_dpb, fnp->f_back, free_fat);
   fnp->f_cluster = free_fat;
-  link_fat(fnp->f_dpb, (UCOUNT) free_fat, LONG_LAST_CLUSTER);
+  link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Mark the directory so that the entry is updated              */
   fnp->f_flags.f_dmod = TRUE;
@@ -1445,7 +1514,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 /* JPP: finds the next free cluster in the FAT */
 STATIC BOOL first_fat(f_node_ptr fnp)
 {
-  UWORD free_fat;
+  CLUSTER free_fat;
 
   /* get an empty cluster, so that we make it into a file.        */
   free_fat = find_fat_free(fnp);
@@ -1459,9 +1528,9 @@ STATIC BOOL first_fat(f_node_ptr fnp)
   /* entry and save it.                                           */
   /* BUG!! this caused wrong allocation, if file was created, 
      then seeked, then written */
-  fnp->f_cluster = 
-      fnp->f_dir.dir_start = free_fat;
-  link_fat(fnp->f_dpb, (UCOUNT) free_fat, LONG_LAST_CLUSTER);
+  fnp->f_cluster = free_fat;
+  setdstart(fnp->f_dir, free_fat);
+  link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Mark the directory so that the entry is updated              */
   fnp->f_flags.f_dmod = TRUE;
@@ -1485,12 +1554,13 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
          fnp->f_cluster_offset, fnp->f_offset,
          fnp->f_offset - fnp->f_cluster_offset);
 #endif
+
   /* The variable clssize will be used later.             */
   clssize = (ULONG)fnp->f_dpb->dpb_secsize * (fnp->f_dpb->dpb_clsmask + 1);
 
   /* If someone did a seek, but no writes have occured, we will   */
   /* need to initialize the fnode.                                */
-  if ((mode == XFR_WRITE) && (fnp->f_dir.dir_start == FREE))
+  if ((mode == XFR_WRITE) && checkdstart(fnp->f_dir, FREE))
   {
     /* If there are no more free fat entries, then we are full! */
     if (!first_fat(fnp))
@@ -1508,7 +1578,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     idx = fnp->f_offset;
 
     fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
-        fnp->f_dir.dir_start;
+        getdstart(fnp->f_dir);
     fnp->f_cluster_offset = 0;
   }
 
@@ -1532,7 +1602,6 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 /* the last cluster marker.                                     */
     else if ((mode == XFR_WRITE) && last_link(fnp))
     {
-
       if (!extend(fnp))
       {
         dir_close(fnp);
@@ -1545,6 +1614,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     fnp->f_cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
     fnp->f_cluster_offset += clssize;
   }
+
 #ifdef DISPLAY_GETBLOCK
   printf("done.\n");
 #endif
@@ -1627,7 +1697,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
       /* initializing to the starting cluster and     */
       /* setting all offsets to zero.                 */
       fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
-          fnp->f_dir.dir_start;
+          getdstart(fnp->f_dir);
 
       fnp->f_cluster_offset = 0l;
       fnp->f_back = LONG_LAST_CLUSTER;
@@ -1679,7 +1749,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     fnp->f_boff = fnp->f_offset & (secsize - 1);
 
 #ifdef DSK_DEBUG
-    printf("read %d links; dir offset %ld, cluster %d\n",
+    printf("read %d links; dir offset %ld, cluster %lx\n",
            fnp->f_count,
            fnp->f_diroff,
            fnp->f_cluster);
@@ -1853,7 +1923,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
       /* will have a start cluster of FREE. If we're  */
       /* doing a write and this is the first time     */
       /* through, allocate a new cluster to the file. */
-      if (fnp->f_dir.dir_start == FREE)
+      if (checkdstart(fnp->f_dir, FREE))
         if (!first_fat(fnp))    /* get a free cluster */
         {                       /* error means disk full */
           dir_close(fnp);
@@ -1864,7 +1934,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
       /* initializing to the starting cluster and     */
       /* setting all offsets to zero.                 */
       fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
-          fnp->f_dir.dir_start;
+          getdstart(fnp->f_dir);
 
       fnp->f_cluster_offset = 0l;
       fnp->f_back = LONG_LAST_CLUSTER;
@@ -2105,12 +2175,12 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 }
 
 /* returns the number of unused clusters */
-UWORD dos_free(struct dpb FAR *dpbp)
+CLUSTER dos_free(struct dpb FAR *dpbp)
 {
   /* There's an unwritten rule here. All fs       */
   /* cluster start at 2 and run to max_cluster+2  */
-  REG UWORD i;
-  REG UWORD cnt = 0;
+  REG CLUSTER i;
+  REG CLUSTER cnt = 0;
 /*  UWORD max_cluster = ( ((ULONG) dpbp->dpb_size
  *                 * (ULONG) (dpbp->dpb_clsmask + 1) - (dpbp->dpb_data + 1) )
  * / (dpbp->dpb_clsmask + 1) ) + 2;
@@ -2119,7 +2189,7 @@ UWORD dos_free(struct dpb FAR *dpbp)
 /*??  UWORD max_cluster = ( ((ULONG) dpbp->dpb_size * (ULONG) (dpbp->dpb_clsmask + 1))
                         / (dpbp->dpb_clsmask + 1) ) + 1;
 */
-  UWORD max_cluster = dpbp->dpb_size  + 1;
+  CLUSTER max_cluster = dpbp->dpb_size  + 1;
 
   if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
     return dpbp->dpb_nfreeclst;
@@ -2131,6 +2201,9 @@ UWORD dos_free(struct dpb FAR *dpbp)
         ++cnt;
     }
     dpbp->dpb_nfreeclst = cnt;
+#ifdef WITHFAT32
+    if (ISFAT32(dpbp)) write_fsinfo(dpbp);
+#endif
     return cnt;
   }
 }
@@ -2262,46 +2335,82 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 }
 #endif
 
+#ifdef WITHFAT32
+VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp, BOOL extended)
+#else
 VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
+#endif	
 {
   ULONG size;
   REG COUNT i;
 
-      dpbp->dpb_mdb = bpbp->bpb_mdesc;
-      dpbp->dpb_secsize = bpbp->bpb_nbyte;
-      dpbp->dpb_clsmask = bpbp->bpb_nsector - 1;
-      dpbp->dpb_fatstrt = bpbp->bpb_nreserved;
-      dpbp->dpb_fats = bpbp->bpb_nfat;
-      dpbp->dpb_dirents = bpbp->bpb_ndirent;
-      size = bpbp->bpb_nsize == 0 ?
-          bpbp->bpb_huge :
-          (ULONG) bpbp->bpb_nsize;
-/* patch point
-      dpbp->dpb_size = size / ((ULONG) bpbp->bpb_nsector);
-*/
-      dpbp->dpb_fatsize = bpbp->bpb_nfsect;
-      dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
-          + dpbp->dpb_fats * dpbp->dpb_fatsize;
-      dpbp->dpb_data = dpbp->dpb_dirstrt
-          + ((DIRENT_SIZE * dpbp->dpb_dirents
-              + (dpbp->dpb_secsize - 1))
-             / dpbp->dpb_secsize);
-/*
-	Michal Meller <maceman@priv4,onet.pl> patch to jimtabor
-*/
-      dpbp->dpb_size = ((size - dpbp->dpb_data) / ((ULONG) bpbp->bpb_nsector) + 1);
+  dpbp->dpb_mdb = bpbp->bpb_mdesc;
+  dpbp->dpb_secsize = bpbp->bpb_nbyte;
+  dpbp->dpb_clsmask = bpbp->bpb_nsector - 1;
+  dpbp->dpb_fatstrt = bpbp->bpb_nreserved;
+  dpbp->dpb_fats = bpbp->bpb_nfat;
+  dpbp->dpb_dirents = bpbp->bpb_ndirent;
+  size = bpbp->bpb_nsize == 0 ?
+      bpbp->bpb_huge :
+      (ULONG) bpbp->bpb_nsize;
+  dpbp->dpb_wfatsize = bpbp->bpb_nfsect;
+  dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
+      + dpbp->dpb_fats * dpbp->dpb_wfatsize;
+  dpbp->dpb_wdata = dpbp->dpb_dirstrt
+      + ((DIRENT_SIZE * dpbp->dpb_dirents
+          + (dpbp->dpb_secsize - 1))
+         / dpbp->dpb_secsize);
+/* Michal Meller <maceman@priv4,onet.pl> patch to jimtabor */
+  dpbp->dpb_wsize = ((size - dpbp->dpb_wdata)
+                     / ((ULONG) bpbp->bpb_nsector) + 1);
+  dpbp->dpb_flags = 0;
+  dpbp->dpb_wcluster = UNKNCLUSTER;
+  /* number of free clusters */
+  *((UWORD FAR *)(&dpbp->dpb_nfreeclst)) = UNKNCLSTFREE16;
 
-      dpbp->dpb_flags = 0;
-/*      dpbp->dpb_next = (struct dpb FAR *)-1;*/
-      dpbp->dpb_cluster = UNKNCLUSTER;
-      dpbp->dpb_nfreeclst = UNKNCLSTFREE;	/* number of free clusters */
-      for (i = 1, dpbp->dpb_shftcnt = 0;
-           i < (sizeof(dpbp->dpb_shftcnt) * 8);	/* 8 bit bytes in C */
-           dpbp->dpb_shftcnt++, i <<= 1)
-      {
-        if (i >= bpbp->bpb_nsector)
-          break;
-      }
+#ifdef WITHFAT32
+  if (extended)
+  {
+    dpbp->dpb_fatsize = bpbp->bpb_nfsect == 0 ? bpbp->bpb_xnfsect
+      : bpbp->bpb_nfsect;
+    dpbp->dpb_cluster = UNKNCLUSTER;
+    dpbp->dpb_nfreeclst = UNKNCLSTFREE;	/* number of free clusters */
+
+    dpbp->dpb_xflags = 0;
+    dpbp->dpb_xfsinfosec = 0xffff;
+    dpbp->dpb_xbackupsec = 0xffff;
+    dpbp->dpb_xrootclst = 0;
+    dpbp->dpb_size = ((size - (dpbp->dpb_fatstrt + dpbp->dpb_fats 
+				                 * dpbp->dpb_fatsize)) 
+		    / ((ULONG) bpbp->bpb_nsector) + 1);
+
+    if (ISFAT32(dpbp)) 
+    {
+      dpbp->dpb_xflags = bpbp->bpb_xflags;
+      dpbp->dpb_xfsinfosec = bpbp->bpb_xfsinfosec;
+      dpbp->dpb_xbackupsec = bpbp->bpb_xbackupsec;
+      dpbp->dpb_dirents = 0;
+      dpbp->dpb_dirstrt = 0xffff;
+      dpbp->dpb_wsize = 0;
+      dpbp->dpb_data = dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_fatsize;
+      dpbp->dpb_xrootclst = bpbp->bpb_xrootclst;
+      read_fsinfo(dpbp);
+    } 
+    else 
+    {
+      dpbp->dpb_data = dpbp->dpb_wdata;
+      dpbp->dpb_size = dpbp->dpb_wsize;
+    }
+  }  
+#endif
+
+  for (i = 1, dpbp->dpb_shftcnt = 0;
+       i < (sizeof(dpbp->dpb_shftcnt) * 8);	/* 8 bit bytes in C */
+       dpbp->dpb_shftcnt++, i <<= 1)
+  {
+    if (i >= bpbp->bpb_nsector)
+      break;
+  }
 }
 
 COUNT media_check(REG struct dpb FAR * dpbp)
@@ -2384,7 +2493,11 @@ COUNT media_check(REG struct dpb FAR * dpbp)
           }
         }
       }
+#ifdef WITHFAT32
+      bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp, TRUE);
+#else
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp);
+#endif
       return SUCCESS;
   }
 }
@@ -2435,10 +2548,10 @@ STATIC VOID shrink_file(f_node_ptr fnp)
 #else
 
     ULONG lastoffset = fnp->f_offset;    /* has to be saved */
-    UCOUNT next,st;
+    CLUSTER next,st;
     struct dpb FAR *dpbp = fnp->f_dpb;
 
-    if (fnp->f_flags.f_ddir)             /* can't shrink dirs */
+    if (fnp->f_flags.f_ddir || (fnp->f_dir.dir_attrib & D_DIR)) /* can't shrink dirs */
         return;
     
     fnp->f_offset = fnp->f_highwater;     /* end of file */
@@ -2446,17 +2559,17 @@ STATIC VOID shrink_file(f_node_ptr fnp)
     if (fnp->f_offset) fnp->f_offset--;   /* last existing cluster */
     
     if (map_cluster(fnp, XFR_READ) != SUCCESS)  /* error, don't truncate */
-        goto done;
-        
-        
-    st = fnp->f_cluster;    
+        goto done;        
     
-    if (st == FREE || st == LONG_LAST_CLUSTER) /* first cluster is free or EOC, done */
+    st = fnp->f_cluster;
+
+    /* first cluster is free or EOC */
+    if (st == FREE || st == LONG_LAST_CLUSTER)
         goto done;
     
     next = next_cluster(dpbp, st);
 
-    if ( next == LONG_LAST_CLUSTER)         /* last cluster found */
+    if (next == LONG_LAST_CLUSTER)         /* last cluster found */
         goto done;
 
           /* Loop from start until either a FREE entry is         */
@@ -2467,7 +2580,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
           
     if (fnp->f_highwater == 0)
         {
-        fnp->f_dir.dir_start = FREE;
+	setdstart(fnp->f_dir, FREE);
         link_fat(dpbp, st, FREE);
         }    
       else        
@@ -2491,12 +2604,14 @@ STATIC VOID shrink_file(f_node_ptr fnp)
         if ((dpbp->dpb_cluster == UNKNCLUSTER)
             || (dpbp->dpb_cluster > st))
           dpbp->dpb_cluster = st;
-    
       }
                 
 done:
     fnp->f_offset = lastoffset;    /* has to be restored */
     
-    
+#ifdef WITHFAT32
+    if (ISFAT32(dpbp)) write_fsinfo(dpbp);
+#endif
+
 #endif    
 }    

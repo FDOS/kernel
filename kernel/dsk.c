@@ -34,6 +34,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.20  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.19  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -165,16 +168,17 @@ static BYTE *dskRcsId = "$Id$";
 
 
 #ifdef PROTO
-BOOL fl_reset(WORD);
-COUNT fl_readdasd(WORD);
-COUNT fl_diskchanged(WORD);
-COUNT fl_rd_status(WORD);
+BOOL  ASMCFUNC fl_reset(WORD);
+COUNT ASMCFUNC fl_readdasd(WORD);
+COUNT ASMCFUNC fl_diskchanged(WORD);
+COUNT ASMCFUNC fl_rd_status(WORD);
 
-COUNT fl_read(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
-COUNT fl_write(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
-COUNT fl_verify(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
+COUNT ASMCFUNC fl_read(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
+COUNT ASMCFUNC fl_write(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
+COUNT ASMCFUNC fl_verify(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
+VOID ASMCFUNC fl_readkey(VOID);
 
-extern COUNT fl_lba_ReadWrite (BYTE drive, WORD mode, 
+extern COUNT ASMCFUNC fl_lba_ReadWrite (BYTE drive, WORD mode, 
     struct _bios_LBA_address_packet FAR *dap_p);
 
 int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer, 
@@ -187,19 +191,21 @@ COUNT fl_rd_status();
 COUNT fl_read();
 COUNT fl_write();
 COUNT fl_verify();
+VOID fl_readkey();
 #endif
 
 #define NENTRY          26      /* total size of dispatch table */
 
 extern BYTE FAR nblk_rel;
 
+extern int FAR ASMCFUNC Get_nblk_rel(void);
+
+
 
 #define LBA_READ         0x4200
 #define LBA_WRITE        0x4300
 UWORD   LBA_WRITE_VERIFY = 0x4302;
 #define LBA_VERIFY       0x4400
-
-extern void __int__(int);
 
                 /* this buffer must not overlap a 64K boundary
                    due to DMA transfers
@@ -312,7 +318,7 @@ static WORD(*dispatch[NENTRY]) () =
 
 
 
-#define hd(x)   ((x) & 0x80)
+#define hd(x)   ((x) & DF_FIXED)
 
 /* ----------------------------------------------------------------------- */
 /*  F U N C T I O N S  --------------------------------------------------- */
@@ -321,7 +327,7 @@ static WORD(*dispatch[NENTRY]) () =
 
 
 
-COUNT FAR blk_driver(rqptr rp)
+COUNT FAR ASMCFUNC blk_driver(rqptr rp)
 {
   if (rp->r_unit >= nUnits && rp->r_command != C_INIT)
     return failure(E_UNIT);
@@ -342,45 +348,83 @@ WORD _dsk_init(rqptr rp, ddt *pddt)
   return S_DONE; /* to keep the compiler happy */
 }
 
-WORD mediachk(rqptr rp, ddt *pddt)
+STATIC WORD play_dj(ddt*pddt)
 {
-  COUNT drive = pddt->ddt_driveno;
+  /* play the DJ ... */
+  if ((pddt->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) == DF_MULTLOG)
+  {
+      int i;
+      ddt *pddt2 = getddt(0);
+      for (i = 0; i < nUnits; i++, pddt2++)
+      {	      
+	if (pddt->ddt_driveno == pddt2->ddt_driveno &&
+	     (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) == 
+	      	(DF_MULTLOG | DF_CURLOG))
+	  break;
+      }
+      if (i == nUnits) 
+      {
+	  printf("Error in the DJ mechanism!\n"); /* should not happen! */
+	  return M_CHANGED;
+      }	  
+      printf("Remove diskette in drive %c:\n", 'A'+pddt2->ddt_logdriveno);
+      printf("Insert diskette in drive %c:\n", 'A'+pddt->ddt_logdriveno);
+      printf("Press the any key to continue ... \n");
+      fl_readkey();
+      pddt2->ddt_descflags &= ~DF_CURLOG;
+      pddt->ddt_descflags |= DF_CURLOG;
+      return M_CHANGED;
+  }
+  return M_NOT_CHANGED;
+}	
+
+STATIC WORD diskchange(ddt *pddt)
+{
   COUNT result;
 
   /* if it's a hard drive, media never changes */
-  if (hd(drive))
-    rp->r_mcretcode = M_NOT_CHANGED;
-  else
-    /* else, check floppy status */
+  if (hd(pddt->ddt_descflags))
+    return M_NOT_CHANGED;
+
+  if (play_dj(pddt) == M_CHANGED)
+    return M_CHANGED;
+
+  if (pddt->ddt_descflags & DF_CHANGELINE)     /* if we can detect a change ... */
   {
-    if ((result = fl_readdasd(drive)) == 2)     /* if we can detect a change ... */
-    {
-      if ((result = fl_diskchanged(drive)) == 1) /* check if it has changed... */
-        rp->r_mcretcode = M_CHANGED;
-      else if (result == 0)
-        rp->r_mcretcode = M_NOT_CHANGED;
-      else
-        rp->r_mcretcode = tdelay((LONG) 37) ? M_DONT_KNOW : M_NOT_CHANGED;
-    }
-    else if (result == 3)       /* if it's a fixed disk, then no change */
-      rp->r_mcretcode = M_NOT_CHANGED;
-    else                        /* can not detect or error... */
-      rp->r_mcretcode = tdelay((LONG) 37) ? M_DONT_KNOW : M_NOT_CHANGED;
+    if ((result = fl_diskchanged(pddt->ddt_driveno)) == 1)
+      /* check if it has changed... */
+      return M_CHANGED;
+    else if (result == 0)
+      return M_NOT_CHANGED;
   }
 
+  /* can not detect or error... */
+  return tdelay((LONG) 37) ? M_DONT_KNOW : M_NOT_CHANGED;
+}
+
+WORD mediachk(rqptr rp, ddt *pddt)
+{
+  /* check floppy status */
+  if (pddt->ddt_descflags & DF_DISKCHANGE)
+  {
+    pddt->ddt_descflags &= ~DF_DISKCHANGE;
+    rp->r_mcretcode = M_DONT_KNOW;
+  }
+  else
+  {
+    rp->r_mcretcode = diskchange(pddt);
+  }
   return S_DONE;
 }
 
 /*
  *  Read Write Sector Zero or Hard Drive Dos Bpb
  */
-STATIC WORD RWzero(rqptr rp, WORD t)
+STATIC WORD RWzero(ddt *pddt, UWORD mode)
 {
-  ddt *pddt = getddt(rp->r_unit);
   UWORD  done;
 
-  return LBA_Transfer(pddt,
-                      t == 0 ? LBA_READ : LBA_WRITE,
+  return LBA_Transfer(pddt, mode,
                       (UBYTE FAR *)&DiskTransferBuffer, 
                       pddt->ddt_offset,1,&done);
 }
@@ -396,8 +440,8 @@ static WORD Getlogdev(rqptr rp, ddt *pddt)
     UNREFERENCED_PARAMETER(pddt);
     
     x++;
-    if( x > nblk_rel )
-    return failure(E_UNIT);
+    if( x > Get_nblk_rel() )
+        return failure(E_UNIT);
 
     rp->r_unit = x;
     return S_DONE;
@@ -439,22 +483,24 @@ static WORD blk_Media(rqptr rp, ddt *pddt)
 {
   UNREFERENCED_PARAMETER(rp);
 
-  if (hd( pddt->ddt_driveno))
+  if (hd( pddt->ddt_descflags))
     return S_BUSY|S_DONE;       /* Hard Drive */
   else
     return S_DONE;              /* Floppy */
 }
 
-STATIC WORD bldbpb(rqptr rp, ddt *pddt)
+static getbpb(ddt *pddt)
 {
   ULONG count;
   bpb *pbpbarray = &pddt->ddt_bpb;
   WORD head,/*track,*/sector,ret;
 
-  ret = RWzero( rp, 0);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NBYTE]), &pbpbarray->bpb_nbyte);
+  ret = RWzero(pddt, LBA_READ);
+  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[0]), &pbpbarray->bpb_nbyte);
 
-  pddt->ddt_descflags |= 0x200; /* set drive to not accessible */
+  pddt->ddt_descflags |= DF_NOACCESS; /* set drive to not accessible and changed */
+  if (diskchange(pddt) != M_NOT_CHANGED)
+      pddt->ddt_descflags |= DF_DISKCHANGE;
 
   if (ret != 0)
       return (dskerr(ret));
@@ -466,30 +512,41 @@ STATIC WORD bldbpb(rqptr rp, ddt *pddt)
       return S_DONE;
   }
 
-  pddt->ddt_descflags &= ~0x200; /* set drive to accessible */
+  pddt->ddt_descflags &= ~DF_NOACCESS; /* set drive to accessible */
 
-/*TE ~ 200 bytes*/    
+/*TE ~ 200 bytes*/ 
 
-  getbyte(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NSECTOR]), &pbpbarray->bpb_nsector);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NRESERVED]), &pbpbarray->bpb_nreserved);
-  getbyte(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NFAT]), &pbpbarray->bpb_nfat);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NDIRENT]), &pbpbarray->bpb_ndirent);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
-  getbyte(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_MDESC]), &pbpbarray->bpb_mdesc);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NFSECT]), &pbpbarray->bpb_nfsect);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NSECS]), &pbpbarray->bpb_nsecs);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NHEADS]), &pbpbarray->bpb_nheads);
-  getlong(&((((BYTE *) & DiskTransferBuffer[BT_BPB])[BPB_HIDDEN])), &pbpbarray->bpb_hidden);
-  getlong(&((((BYTE *) & DiskTransferBuffer[BT_BPB])[BPB_HUGE])), &pbpbarray->bpb_huge);
+  fmemcpy(pbpbarray, &DiskTransferBuffer[BT_BPB], sizeof(bpb));
 
-
-
-/* Needs fat32 offset code */
-
+#ifdef WITHFAT32
+  /*??*/
+  /*  2b is fat16 volume label. if memcmp, then offset 0x36.
+  if (fstrncmp((BYTE *) & DiskTransferBuffer[0x36], "FAT16",5) == 0  ||
+	  fstrncmp((BYTE *) & DiskTransferBuffer[0x36], "FAT12",5) == 0) {
+    TE: I'm not sure, what the _real_ decision point is, however MSDN
+        'A_BF_BPB_SectorsPerFAT
+        The number of sectors per FAT.
+        Note: This member will always be zero in a FAT32 BPB.
+        Use the values from A_BF_BPB_BigSectorsPerFat...
+  */
+  if (pbpbarray->bpb_nfsect != 0)
+  {
+    /* FAT16/FAT12 boot sector */
+		getlong(&((((BYTE *) & DiskTransferBuffer[0x27])[0])), &pddt->ddt_serialno);
+		memcpy(pddt->ddt_volume,&DiskTransferBuffer[0x2B], 11);
+		memcpy(pddt->ddt_fstype,&DiskTransferBuffer[0x36], 8);
+  } else {
+    /* FAT32 boot sector */    
+		getlong(&((((BYTE *) & DiskTransferBuffer[0x43])[0])), &pddt->ddt_serialno);
+		memcpy(pddt->ddt_volume,&DiskTransferBuffer[0x47], 11);
+		memcpy(pddt->ddt_fstype,&DiskTransferBuffer[0x52], 8);
+    pbpbarray->bpb_ndirent = 512;
+	}
+#else
   getlong(&((((BYTE *) & DiskTransferBuffer[0x27])[0])), &pddt->ddt_serialno);
-
   memcpy(pddt->ddt_volume,&DiskTransferBuffer[0x2B], 11);
   memcpy(pddt->ddt_fstype,&DiskTransferBuffer[0x36], 8);
+#endif
 
 
 
@@ -503,9 +560,7 @@ STATIC WORD bldbpb(rqptr rp, ddt *pddt)
   printf("BPB_MDESC     = %02x\n", pbpbarray->bpb_mdesc);
   printf("BPB_NFSECT    = %04x\n", pbpbarray->bpb_nfsect);
 #endif
-  rp->r_bpptr = pbpbarray;
 
-  
   count =
       pbpbarray->bpb_nsize == 0 ?
       pbpbarray->bpb_huge :
@@ -518,7 +573,7 @@ STATIC WORD bldbpb(rqptr rp, ddt *pddt)
     tmark();
     return failure(E_FAILURE);
   }
-  pddt->ddt_ncyl = count / (head * sector);
+  pddt->ddt_ncyl = (count + head * sector - 1) / (head * sector);
   tmark();
 
 #ifdef DSK_DEBUG
@@ -527,6 +582,19 @@ STATIC WORD bldbpb(rqptr rp, ddt *pddt)
   printf("BPB_HIDDEN    = %08lx\n", pbpbarray->bpb_hidden);
   printf("BPB_HUGE      = %08lx\n", pbpbarray->bpb_huge);
 #endif
+
+  return 0;
+}
+
+
+STATIC WORD bldbpb(rqptr rp, ddt *pddt)
+{
+  WORD result;
+
+  if ((result = getbpb(pddt)) != 0)
+      return result;
+
+  rp->r_bpptr = &pddt->ddt_bpb;
   return S_DONE;
 }
 
@@ -553,14 +621,22 @@ STATIC WORD Genblkdev(rqptr rp,ddt *pddt)
 {
     int ret;
     bpb FAR *pbpb;
+#ifdef WITHFAT32
+    int extended = 0;
     
-    switch(rp->r_count){
-    case 0x0860:            /* get device parameters */
+    if ((rp->r_count >> 8) == 0x48) extended = 1;
+    else
+#endif
+    if ((rp->r_count >> 8) != 8)
+       return failure(E_CMD);
+
+    switch(rp->r_count & 0xff){
+    case 0x60:            /* get device parameters */
     {
     struct gblkio FAR * gblp = (struct gblkio FAR *) rp->r_trans;
     REG COUNT x = 5,y = 1,z = 0;
 
-    if (!hd(pddt->ddt_driveno)){
+    if (!hd(pddt->ddt_descflags)){
         y = 2;
         x = 8;      /* any odd ball drives return this */
         switch(pddt->ddt_bpb.bpb_nsize)
@@ -590,57 +666,57 @@ STATIC WORD Genblkdev(rqptr rp,ddt *pddt)
     gblp->gbio_ncyl = pddt->ddt_ncyl;
     /* use default dpb or current bpb? */
     pbpb = (gblp->gbio_spcfunbit & 0x01) == 0 ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
+#ifdef WITHFAT32
+    if (!extended) fmemcpy(&gblp->gbio_bpb, pbpb, BPB_SIZEOF);
+    else
+#endif
     fmemcpy(&gblp->gbio_bpb, pbpb, sizeof(gblp->gbio_bpb));
-    gblp->gbio_spcfunbit |= 0x04; /* bit 2 set if all sectors in track same size (should be set) */
     gblp->gbio_nsecs = pbpb->bpb_nsector;
     break;
     }
-    case 0x0866:        /* get volume serial number */
+    case 0x66:        /* get volume serial number */
     {
     struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
-    struct FS_info FAR * fs = (struct FS_info FAR *) &DiskTransferBuffer[0x27];
 
-        ret = RWzero( rp, 0);
+        ret = getbpb(pddt);
         if (ret != 0)
-        return (dskerr(ret));
+            return (ret);
 
-        gioc->ioc_serialno = fs->serialno;
-        pddt->ddt_serialno = fs->serialno;
-        
-        fmemcpy(pddt->ddt_volume, fs->volume,11);
-        fmemcpy(pddt->ddt_volume, fs->fstype,8);
+        gioc->ioc_serialno = pddt->ddt_serialno;
         fmemcpy(gioc->ioc_volume, pddt->ddt_volume,11);
         fmemcpy(gioc->ioc_fstype, pddt->ddt_fstype,8);
     }
     break;
-    case 0x0846:        /* set volume serial number */
+    case 0x46:        /* set volume serial number */
     {
     struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
-    struct FS_info FAR * fs = (struct FS_info FAR *) &DiskTransferBuffer[0x27];
-
-        ret = RWzero( rp, 0);
+    struct FS_info FAR * fs;
+    
+        ret = getbpb(pddt);
         if (ret != 0)
-        return (dskerr(ret));
+            return (ret);
 
+        fs = (struct FS_info FAR *) &DiskTransferBuffer
+            [(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x27 : 0x43)];
         fs->serialno =  gioc->ioc_serialno;
         pddt->ddt_serialno = fs->serialno;
 
-        ret = RWzero( rp, 1);
+        ret = RWzero(pddt, LBA_WRITE);
         if (ret != 0)
         return (dskerr(ret));
     }
     break;
-    case 0x0867:        /* get access flag */
+    case 0x67:        /* get access flag */
     {
     struct Access_info FAR * ai = (struct Access_info FAR *) rp->r_trans;
-    ai->AI_Flag = pddt->ddt_descflags & 0x200 ? 0 : 1; /* bit 9 */
+    ai->AI_Flag = pddt->ddt_descflags & DF_NOACCESS ? 0 : 1; /* bit 9 */
     }
     break;
-    case 0x0847:        /* set access flag */
+    case 0x47:        /* set access flag */
     {
     struct Access_info FAR * ai = (struct Access_info FAR *) rp->r_trans;
-    pddt->ddt_descflags &= ~0x200;
-    pddt->ddt_descflags |= (ai->AI_Flag ? 0 : 0x200);
+    pddt->ddt_descflags &= ~DF_NOACCESS;
+    pddt->ddt_descflags |= (ai->AI_Flag ? 0 : DF_NOACCESS);
     }
     break;
     default:
@@ -671,7 +747,7 @@ WORD blockio(rqptr rp, ddt *pddt)
 
     tmark();
     start = (rp->r_start != HUGECOUNT ? rp->r_start : rp->r_huge);
-    pbpb = hd(pddt->ddt_driveno) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
+    pbpb = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
     size = (pbpb->bpb_nsize ? pbpb->bpb_nsize : pbpb->bpb_huge);
     
     if (start               >= size ||
@@ -822,6 +898,9 @@ int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer,
 
     int num_retries;
 
+    /* optionally change from A: to B: or back */
+    play_dj(pddt);
+
     *transferred = 0;
 
 /*    
@@ -908,7 +987,7 @@ int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer,
                 
                 error_code = (mode == LBA_READ ? fl_read : fl_write)(
                         pddt->ddt_driveno,
-                        chs.Head, chs.Cylinder, chs.Sector,
+                        chs.Head, (UWORD)chs.Cylinder, chs.Sector,
                         count, transfer_address);
                 
                 if (error_code == 0 &&
@@ -916,7 +995,7 @@ int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer,
                    {
                    error_code = fl_verify(
                             pddt->ddt_driveno,
-                            chs.Head, chs.Cylinder, chs.Sector,
+                            chs.Head, (UWORD)chs.Cylinder, chs.Sector,
                             count, transfer_address);
                    }    
                 }

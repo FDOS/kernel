@@ -36,6 +36,9 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.7  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -104,6 +107,8 @@ static BYTE *fat_hRcsId = "$Id$";
     /* /// Added D_DEVICE bit.  - Ron Cemer */
 #define D_DEVICE        0x40    /* device bit                   */
 
+#define D_LFN (D_RDONLY | D_HIDDEN | D_SYSTEM | D_VOLID)
+
 /* FAT file name constants                                              */
 #define FNAME_SIZE              8
 #define FEXT_SIZE               3
@@ -122,11 +127,15 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /* Test for 16 bit or 12 bit FAT                                        */
 #define SIZEOF_CLST16   2
+#define SIZEOF_CLST32   4
 #define FAT_MAGIC       4086
 #define FAT_MAGIC16     ((unsigned)65526l)
 #define FAT_MAGIC32     268435456l
 
-#define ISFAT32(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC16 && ((dpbp)->dpb_size)<=FAT_MAGIC32 )
+/* int ISFAT32(struct dpb FAR *dpbp);*/
+#define ISFAT32(x) _ISFAT32(x)
+
+#define _ISFAT32(dpbp)  (((dpbp)->dpb_size)>FAT_MAGIC16 && ((dpbp)->dpb_size)<=FAT_MAGIC32 )
 #define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC   && ((dpbp)->dpb_size)<=FAT_MAGIC16 )
 #define ISFAT12(dpbp)   (((dpbp)->dpb_size)<=FAT_MAGIC)
 
@@ -136,17 +145,40 @@ struct dirent
   UBYTE dir_name[FNAME_SIZE];   /* Filename                     */
   UBYTE dir_ext[FEXT_SIZE];     /* Filename extension           */
   UBYTE dir_attrib;             /* File Attribute               */
-  BYTE dir_reserved[10];        /* reserved                     */
+  UBYTE dir_case;               /* File case                    */
+  UBYTE dir_crtimems;           /* Milliseconds                 */
+  UWORD dir_crtime;             /* Creation time                */
+  UWORD dir_crdate;             /* Creation date                */
+  UWORD dir_accdate;            /* Last access date             */
+  UWORD dir_start_high;         /* High word of the cluster     */
   time dir_time;                /* Time file created/updated    */
-  date dir_date;                /*  Date file created/updated   */
+  date dir_date;                /* Date file created/updated    */
   UWORD dir_start;              /* Starting cluster             */
-  /* 1st available = 2            */
+  				/* 1st available = 2            */
   ULONG dir_size;               /* File size in bytes           */
 };
 
 /*                                                                      */
 /* filesystem sizeof(dirent) - may be different from core               */
 /*                                                                      */
+
+#ifdef WITHFAT32
+#define getdstart(dentry) \
+  (((ULONG)dentry.dir_start_high << 16) | dentry.dir_start)
+#define setdstart(dentry, value) \
+  dentry.dir_start = (UCOUNT)value; \
+  dentry.dir_start_high = (UCOUNT)(value >> 16)
+#define checkdstart(dentry, value) \
+  (dentry.dir_start == (UCOUNT)value && \
+   dentry.dir_start_high == (UCOUNT)(value >> 16))
+#else
+#define getdstart(dentry) \
+  dentry.dir_start
+#define setdstart(dentry, value) \
+  dentry.dir_start = (UCOUNT)value
+#define checkdstart(dentry, value) \
+  (dentry.dir_start == (UCOUNT)value)
+#endif
 
 #define DIR_NAME        0
 #define DIR_EXT         FNAME_SIZE

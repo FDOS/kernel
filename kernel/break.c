@@ -30,7 +30,7 @@
 #include "portab.h"
 #include "globals.h"
 
-extern void spawn_int23(void);
+extern void ASMCFUNC spawn_int23(void);
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -38,6 +38,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.6  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *

@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.7  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.6  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -93,10 +96,6 @@
 
 		%include "segs.inc"
 
-                extern  _api_sp:wrt DGROUP      ; api stacks - for context
-                extern  _api_ss:wrt DGROUP      ; switching
-                extern  _usr_sp:wrt DGROUP      ; user stacks
-                extern  _usr_ss:wrt DGROUP
                 extern  _lpUserStack:wrt DGROUP
 
                 extern  _break_flg:wrt DGROUP   ; break detected flag
@@ -104,14 +103,14 @@
 
                 %include "stacks.inc"
 
-segment _TEXT
+segment HMA_TEXT
 
                 extern   _DGROUP_:wrt TGROUP
 
 ;
 ;       Special call for switching processes
 ;
-;       void interrupt far exec_user(irp)
+;       void exec_user(irp)
 ;       iregs far *irp;
 ;
                 global  _exec_user
@@ -123,10 +122,10 @@ _exec_user:
 ;
 ;
 ;
-                mov     bp,sp
+                pop     ax		      ; return address (unused)
 
-                mov     ax,word [bp+6]        ; irp (user ss:sp)
-                mov     dx,word [bp+8]
+                pop     ax		      ; irp (user ss:sp)
+                pop	dx 
                 cli
                 mov     ss,dx
                 mov     sp,ax                   ; set-up user stack
@@ -135,7 +134,7 @@ _exec_user:
                 POP$ALL
                 iret
 
-
+segment _TEXT
 
 
 ;; Called whenever the BIOS detects a ^Break state
@@ -208,8 +207,6 @@ _spawn_int23:
                 mov     ss, [_lpUserStack+2]
                 mov     sp, [_lpUserStack]
 
-;                mov     ss,[_usr_ss]
-;                mov     sp,[_usr_sp]
                 sti
 
                 ; get all the user registers back

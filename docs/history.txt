@@ -1,3 +1,47 @@
+2001 Sep 24 - Build 2025
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes Victor
+    * More FAT32 fixes
++ Fixes Tom
+    * Printer handling
+    * misc INT2F/AH=12 fixes.
+    * misc clean-ups
++ Fixes Bart
+    * Added drive B: handling if only one floppy drive available
+      (look for play_dj() in dsk.c)
+    * Simplify Victor's FAT32 fixes a bit
+    * More printer clean-ups
+2001 Sep 22 - Build 2025 (test)
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Added Victor
+    * FAT32 support
+    * Delete long file names if short file name given
++ Added Jeremy
+    * modified SYS so it takes optional 2nd parameter (similar to PC DOS)
+      where if only 1 argument is given, assume to be destination drive,
+      but if two arguments given, 1st is source (drive and/or path)
+      and second is destination drive
++ fixes Victor
+    * some small FCB and dsk.c fixes
++ fixes Tom
+    * some FAT32 issues
+    * many compiler portability changes (compiles with Watcom, MSC, ...)
+    * DosMemChange should set the PSP
+    * converted INT2F/AH=12 functions to C and added some - enough to
+      get most of the MS LAN network client working
++ fixes Bart
+    * some FAT32 issues
+    * Dos{Open,Creat}Sft drive letter issues 
+       for CDROMs (thanks Jeremy)
+    * shrink_file should ALWAYS fail for directories, also with 
+      dos_set_fattr (thanks Jeremy)
+    * only give warnings for slightly suspect partitions at boot 
+      time where CHS does not match LBA.  
+    * re-enabled copyright notice.
+    * some dsk.c clean-ups to avoid DIR giving the same contents for
+      a different floppy (get serial number/volume label did reset the
+      changed state).
+    * attribute should be 8-bit fix
 2001 Aug 19 - Build 2024/h
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + fixes Bart

@@ -13,6 +13,9 @@ RM=..\utils\rm -f
 #NASM=nasm
 
 # Give extra Turbo C compiler flags here
+# such as -DDEBUG : extra DEBUG output
+#         -DDOSEMU : printf output goes to dosemu log
+#         -DWITHFAT32 : compile with FAT32 support
 #ALLCFLAGS=-DDEBUG
 
 
@@ -59,6 +62,9 @@ RM=..\utils\rm -f
 # $Id$
 #
 # $Log$
+# Revision 1.8  2001/09/23 20:39:43  bartoldeman
+# FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+#
 # Revision 1.7  2001/04/16 14:36:56  bartoldeman
 # Added ALLCFLAGS for compiler option configuration.
 #

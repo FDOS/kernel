@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.8  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.7  2001/07/09 22:19:33  bartoldeman
 ; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
 ;
@@ -454,4 +457,9 @@ _fl_lba_ReadWrite:
 		pop     ds
 		
 		pop     bp
+		ret
+
+global _fl_readkey
+_fl_readkey:    xor	ah, ah
+		int	16h
 		ret

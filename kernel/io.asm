@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.10  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.9  2001/04/29 17:34:40  bartoldeman
 ; A new SYS.COM/config.sys single stepping/console output/misc fixes.
 ;
@@ -216,6 +219,15 @@ _blk_dev        equ     $
                 global  _nblk_rel
 _nblk_rel       db      4
                 db      0,0,0,0,0,0,0
+
+; quick hack for MSC
+               global  _Get_nblk_rel
+_Get_nblk_rel:
+	mov ah,0
+	mov al,[cs:_nblk_rel]
+	retf
+;end of hack
+
 
 
 ;

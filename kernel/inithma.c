@@ -66,9 +66,9 @@
 
 #include "portab.h"
 #include "init-mod.h"
+#include "init-dat.h"
 
 
-extern BYTE FAR   version_flags;              /* minor version number                 */
 
 extern BYTE
     FAR _HMATextAvailable,        /* first byte of available CODE area    */
@@ -81,6 +81,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.9  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -112,22 +115,28 @@ static BYTE *RcsId = "$Id$";
  * initial creation
  */
  
-void ClaimHMA(VOID);
  
 BYTE DosLoadedInHMA=FALSE;    /* set to TRUE if loaded HIGH          */
 BYTE HMAclaimed=FALSE;        /* set to TRUE if claimed from HIMEM   */
-WORD HMAFree;                 /* first byte in HMA not yet used      */
+WORD HMAFree = 0;             /* first byte in HMA not yet used      */
  
 
-extern BYTE FAR * FAR XMSDriverAddress;
-extern FAR _EnableA20(VOID);
-extern FAR _DisableA20(VOID);
+extern BYTE FAR * DOSTEXTFAR ASMCFUNC XMSDriverAddress;
+extern FAR ASMCFUNC _EnableA20(VOID);
+extern FAR ASMCFUNC _DisableA20(VOID);
 
 
-extern void FAR *DetectXMSDriver(VOID);
- 
+extern void FAR *ASMCFUNC DetectXMSDriver(VOID);
+extern int  ASMCFUNC init_call_XMScall( void FAR * driverAddress, UWORD ax, UWORD dx);
+
 #ifdef DEBUG  
-    #define int3() __int__(3);
+	#ifdef __TURBOC__ 
+    	#define int3() __int__(3);
+	#else    	
+		void int3() 
+		 { __asm int 3;
+		 }
+	#endif		
 #else
     #define int3()
 #endif        
@@ -157,14 +166,6 @@ VOID hdump(BYTE FAR *p)
     #define hdump(ptr)
 #endif    
  
-
-#ifdef __TURBOC__
-    void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-    unsigned char __inportb__(int portid);
-    void	   __outportb__	(int portid, unsigned char value);
-#endif
-
-
 
 #define KeyboardShiftState() (*(BYTE FAR *)(MK_FP(0x40,0x17)))
 
@@ -240,23 +241,13 @@ int MoveKernelToHMA()
         return TRUE;
     }            
 
-    {
-        void FAR *pXMS = DetectXMSDriver();
-        
-        if (pXMS != NULL) 
-        {
-            XMSDriverAddress = pXMS;
-        }
-        else
-            return FALSE;
-    }        
+    if ((XMSDriverAddress = DetectXMSDriver()) == NULL)
+        return FALSE;
     
-
-    
+#ifdef DEBUG
     /* A) for debugging purpose, suppress this, 
           if any shift key is pressed 
     */
-#ifdef DEBUG
     if (KeyboardShiftState() & 0x0f)
     {
         printf("Keyboard state is %0x, NOT moving to HMA\n",KeyboardShiftState()); 
@@ -273,7 +264,15 @@ int MoveKernelToHMA()
         return FALSE;
     }
 
-    ClaimHMA();
+					/*  allocate HMA through XMS driver */
+
+    if (HMAclaimed == 0 && 
+    	(HMAclaimed = init_call_XMScall( XMSDriverAddress, 0x0100, 0xffff)) == 0)
+    	{
+        printf("Can't reserve HMA area ??\n"); 
+        
+        return FALSE;
+    	}
     
     MoveKernel(0xffff);
 
@@ -293,12 +292,8 @@ int MoveKernelToHMA()
     /* report the fact we are running high thorugh int 21, ax=3306 */
     version_flags |= 0x10;    
     
-
     return TRUE;
     
-errorReturn:
-    printf("HMA errors, not doing HMA\n");
-    return FALSE;
 }
 
 
@@ -344,35 +339,6 @@ void InstallVDISK(VOID)
     }
 #endif
 
-
-int  init_call_XMScall( void FAR * driverAddress, UWORD ax, UWORD dx);
-
-
-/*
-  allocate HMA through XMS driver
-*/
-
-void ClaimHMA(VOID)
-{
-    void FAR *pXMS;
-
-    if (!DosLoadedInHMA) return;
-    if (HMAclaimed)      return; 
-    
-    
-    pXMS = DetectXMSDriver();
-    
-    if (pXMS != NULL)
-    {
-        XMSDriverAddress = pXMS;
-            
-        if (init_call_XMScall( pXMS, 0x0100, 0xffff))
-        {
-            printf("HMA area successfully claimed\n");
-            HMAclaimed = TRUE;
-        }
-    }        
-}
 
 /*
     this should be called, after each device driver 
@@ -430,7 +396,7 @@ void MoveKernel(unsigned NewKernelSegment)
     UBYTE FAR *HMASource;
     unsigned len;
 
-    __int__(3);
+    int3();
     if (CurrentKernelSegment == 0)
        CurrentKernelSegment = FP_SEG(_HMATextEnd);
        
@@ -497,12 +463,12 @@ void MoveKernel(unsigned NewKernelSegment)
             UWORD jmpSegment;
         };
         extern struct RelocationTable  
-                    FAR _HMARelocationTableStart[], 
-                    FAR _HMARelocationTableEnd[];
+                    DOSTEXTFAR _HMARelocationTableStart[], 
+                    DOSTEXTFAR _HMARelocationTableEnd[];
 
         struct RelocationTable FAR *rp, rtemp ;
         
-        /* verify, that all entries are valid */  
+        /* verify, that all entries are valid */       
         
         for (rp = _HMARelocationTableStart; rp < _HMARelocationTableEnd; rp++)
         {
@@ -511,7 +477,8 @@ void MoveKernel(unsigned NewKernelSegment)
                 rp->callNear   != 0xe8              || /* call NEAR */
                 0)
             {
-                printf("illegal relocation entry # %d\n",rp - _HMARelocationTableStart);
+                printf("illegal relocation entry # %d\n",(FP_OFF(rp) - FP_OFF(_HMARelocationTableStart))/sizeof(struct RelocationTable));
+                int3();
                 goto errorReturn;
             }            
         }

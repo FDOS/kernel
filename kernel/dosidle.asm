@@ -42,10 +42,6 @@ segment HMA_TEXT
                 extern   critical_sp:wrt DGROUP
                 extern   _lpUserStack:wrt DGROUP
                 extern   _user_r:wrt DGROUP
-                extern   _api_sp:wrt DGROUP      ; api stacks - for context
-                extern   _api_ss:wrt DGROUP      ; switching
-                extern   _usr_sp:wrt DGROUP      ; user stacks
-                extern   _usr_ss:wrt DGROUP
                 extern   _dosidle_flag:wrt DGROUP
 ;
 ;
@@ -71,10 +67,6 @@ Do_DosI:
                 push    word [_user_r+2]
                 push    word [_lpUserStack]
                 push    word [_lpUserStack+2]
-                push    word [_api_sp]
-                push    word [_api_ss]
-                push    word [_usr_sp]
-                push    word [_usr_ss]
                 mov     es,word [_cu_psp]
                 push    word [es:PSP_USERSS]
                 push    word [es:PSP_USERSP]
@@ -84,10 +76,6 @@ Do_DosI:
                 mov     es,word [_cu_psp]
                 pop     word [es:PSP_USERSP]
                 pop     word [es:PSP_USERSS]
-                pop     word [_usr_ss]
-                pop     word [_usr_sp]
-                pop     word [_api_ss]
-                pop     word [_api_sp]
                 pop     word [_lpUserStack+2]
                 pop     word [_lpUserStack]
                 pop     word [_user_r+2]

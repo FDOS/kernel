@@ -36,6 +36,9 @@ static BYTE *fnode_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.8  2001/08/19 12:58:34  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -122,18 +125,33 @@ struct f_node
   struct dirent f_dir;          /* this file's dir entry image  */
 
   ULONG f_diroff;               /* offset of the dir entry      */
-  UWORD f_dirstart;             /* the starting cluster of dir  */
+  CLUSTER f_dirstart;           /* the starting cluster of dir  */
   /* when dir is not root         */
   struct dpb FAR *f_dpb;        /* the block device for file    */
 
   ULONG f_dsize;                /* file size (for directories)  */
   ULONG f_offset;               /* byte offset for next op      */
   ULONG f_highwater;            /* the largest offset ever      */
-  UWORD f_back;                 /* the cluster we were at       */
+  CLUSTER f_back;               /* the cluster we were at       */
   ULONG f_cluster_offset;       /* byte offset that the next 3 point to */
-  UWORD f_cluster;              /* the cluster we are at        */
+  CLUSTER f_cluster;            /* the cluster we are at        */
   UWORD f_sector;               /* the sector in the cluster    */
   UWORD f_boff;                 /* the byte in the cluster      */
 };
+
+#if 0
+struct lfn_inode
+ {
+  UNICODE name[255];
+
+  struct dirent l_dir;          /* this file's dir entry image  */
+
+  ULONG l_diroff;               /* offset of the dir entry      */
+  CLUSTER l_dirstart;           /* the starting cluster of dir  */
+                              	/* when dir is not root         */
+ };
+
+typedef struct lfn_inode FAR * lfn_inode_ptr;
+#endif
 
 typedef struct f_node * f_node_ptr;

@@ -34,6 +34,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.5  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -423,7 +426,7 @@ _fstrncmp:
 
                 ; and the destination pointer, d
                 les             di,[bp+8]
-                mov             cx,[bp+10]
+                mov             cx,[bp+12]
                 
                 jmp short dostrncmp
 

@@ -36,6 +36,9 @@ static BYTE *process_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.4  2000/08/06 04:18:21  jimtabor
  * See history.txt
  *
@@ -128,7 +131,7 @@ typedef struct
   BYTE ps_fill1;                /* single char fill             */
 
   /* CP/M-like entry point                                */
-  BYTE ps_farcall;              /* far call opcode              */
+  UBYTE ps_farcall;              /* far call opcode              */
     VOID(FAR * ps_reentry) ();  /* re-entry point          */
     VOID(interrupt FAR * ps_isv22) (),	/* terminate address */
     (interrupt FAR * ps_isv23) (),	/* break address   */
@@ -142,7 +145,7 @@ typedef struct
   VOID FAR *ps_prevpsp;         /* previous psp pointer         */
   BYTE FAR *ps_dta;             /* process dta address          */
   BYTE ps_fill2[16];
-  BYTE ps_unix[3];              /* unix style call - 0xcd 0x21 0xcb */
+  UBYTE ps_unix[3];              /* unix style call - 0xcd 0x21 0xcb */
   BYTE ps_fill3[9];
   union
   {

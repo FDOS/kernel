@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.14  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -524,6 +527,12 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     for (i = 0; i < 8; i++)
       q->m_name[i] = '\0';
   }
+
+  /* MS network client NET.EXE: DosMemChange sets the PSP              *
+   *               not tested, if always, or only on success         TE*
+   * only on success seems more logical to me - Bart 		       */
+  p->m_psp = cu_psp;
+  
   return SUCCESS;
 }
 

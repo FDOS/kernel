@@ -36,6 +36,9 @@ static BYTE *dirmatch_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.5  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -100,7 +103,12 @@ typedef struct
   BYTE dm_name_pat[FNAME_SIZE + FEXT_SIZE];
   BYTE dm_attr_srch;
   UWORD dm_entry;
-  UWORD dm_cluster;
+#ifdef WITHFAT32  
+  ULONG dm_dircluster;
+#else  
+  UWORD dm_dircluster;
+  UWORD reserved;
+#endif
 
   struct
   {
@@ -118,8 +126,6 @@ typedef struct
     f_filler:11;                /* TC 2.01           */
   }
   dm_flags;                     /* file flags                   */
-
-  UWORD dm_dirstart;
 
   BYTE dm_attr_fnd;             /* found file attribute         */
   time dm_time;                 /* file time                    */

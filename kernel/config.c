@@ -29,8 +29,8 @@
 
 #include "portab.h"
 #include "init-mod.h"
+#include "init-dat.h"
 #include "dyndata.h"
-
 
 
 /*
@@ -41,42 +41,41 @@
 
   -- Bart
  */
-extern struct buffer FAR * FAR lastbuf;/* tail of ditto                        */
-extern f_node_ptr FAR f_nodes; /* pointer to the array                 */
-extern UWORD FAR f_nodes_cnt,           /* number of allocated f_nodes          */
-             FAR first_mcb;             /* Start of user memory                 */
+extern f_node_ptr DOSFAR f_nodes; /* pointer to the array                 */
+extern UWORD DOSFAR f_nodes_cnt,           /* number of allocated f_nodes          */
+             DOSFAR first_mcb;             /* Start of user memory                 */
 
-extern UBYTE FAR lastdrive, FAR nblkdev, FAR mem_access_mode,
-             FAR uppermem_link;
+extern UBYTE DOSFAR lastdrive, DOSFAR nblkdev, DOSFAR mem_access_mode,
+             DOSFAR uppermem_link;
 extern struct dhdr 
-    FAR blk_dev,               /* Block device (Disk) driver           */
-    FAR nul_dev;
-extern struct buffer FAR * FAR firstbuf;          /* head of buffers linked list          */
+    DOSTEXTFAR blk_dev,               /* Block device (Disk) driver           */
+        DOSFAR nul_dev;
+extern struct buffer FAR * DOSFAR firstbuf;          /* head of buffers linked list          */
 
-extern struct dpb FAR * FAR DPBp;
+extern struct dpb FAR * DOSFAR DPBp;
 /* First drive Parameter Block          */
-extern cdstbl FAR * FAR CDSp;
+extern cdstbl FAR * DOSFAR CDSp;
 /* Current Directory Structure          */
-extern sfttbl FAR * FAR sfthead;
+extern sfttbl FAR * DOSFAR sfthead;
 /* System File Table head               */
-extern sfttbl FAR * FAR FCBp;
+extern sfttbl FAR * DOSFAR FCBp;
 
-extern BYTE FAR VgaSet,
-            FAR _HMATextAvailable,        /* first byte of available CODE area    */
+extern BYTE DOSFAR VgaSet,
+            DOSFAR _HMATextAvailable,        /* first byte of available CODE area    */
             FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
             FAR _HMATextEnd[],
-            FAR break_ena,                    /* break enabled flag                   */
-            FAR os_major,                     /* major version number                 */
-            FAR os_minor,                     /* minor version number                 */
-            FAR switchar,
-            FAR _InitTextStart,          /* first available byte of ram          */
-            FAR ReturnAnyDosVersionExpected;
+            DOSFAR break_ena,                    /* break enabled flag                   */
+            DOSFAR os_major,                     /* major version number                 */
+            DOSFAR os_minor,                     /* minor version number                 */
+            DOSFAR switchar,
+            DOSFAR _InitTextStart,          /* first available byte of ram          */
+            DOSFAR ReturnAnyDosVersionExpected;
 
-extern UWORD FAR ram_top,                /* How much ram in Kbytes               */
-    FAR UMB_top,
-    FAR umb_start,
-    FAR uppermem_root,
-    FAR LoL_nbuffers;
+extern UWORD DOSFAR ram_top,                /* How much ram in Kbytes               */
+    DOSFAR UMB_top,
+    DOSFAR umb_start,
+    DOSFAR uppermem_root,
+    DOSFAR LoL_nbuffers;
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -90,6 +89,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.28  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.27  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -276,16 +278,20 @@ struct config Config
      ,0                        /* strategy for command.com is low by default */
  }
 ;
-
-BYTE FAR *lpBase;
-BYTE FAR *upBase;
-BYTE FAR *lpTop;
-BYTE FAR *lpOldTop;
-static COUNT nCfgLine;
-static COUNT nPass;
-       COUNT UmbState;
-static BYTE szLine[256];
-static BYTE szBuf[256];
+               			/* MSC places uninitialized data into COMDEF records,
+               			   that end up in DATA segment. this can't be tolerated 
+               			   in INIT code.
+               			   please make sure, that ALL data in INIT is initialized !! 
+               			*/
+BYTE FAR *lpBase = 0;
+BYTE FAR *upBase = 0;
+BYTE FAR *lpTop  = 0;
+BYTE FAR *lpOldTop = 0;
+STATIC COUNT nCfgLine = 0;
+STATIC COUNT nPass = 0;
+       COUNT UmbState = 0;
+STATIC BYTE szLine[256] = {0};
+STATIC BYTE szBuf[256]  = {0};
 
 int singleStep    = FALSE;
 int SkipAllConfig = FALSE;
@@ -296,18 +302,18 @@ INIT VOID  mumcb_init(UCOUNT seg, UWORD size);
 INIT VOID Config_Buffers(BYTE * pLine);
 INIT VOID sysScreenMode(BYTE * pLine);
 INIT VOID sysVersion(BYTE * pLine);
-INIT VOID Break(BYTE * pLine);
+INIT VOID CfgBreak(BYTE * pLine);
 INIT VOID Device(BYTE * pLine);
 INIT VOID DeviceHigh(BYTE * pLine);
 INIT VOID Files(BYTE * pLine);
 INIT VOID Fcbs(BYTE * pLine);
-INIT VOID Lastdrive(BYTE * pLine);
+INIT VOID CfgLastdrive(BYTE * pLine);
 INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
 INIT VOID Dosmem(BYTE * pLine);
 INIT VOID Country(BYTE * pLine);
 INIT VOID InitPgm(BYTE * pLine);
 INIT VOID InitPgmHigh(BYTE * pLine);
-INIT VOID Switchar(BYTE * pLine);
+INIT VOID CfgSwitchar(BYTE * pLine);
 INIT VOID CfgFailure(BYTE * pLine);
 INIT VOID Stacks(BYTE * pLine);
 INIT VOID SetAnyDos(BYTE * pLine);
@@ -323,7 +329,7 @@ INIT COUNT strcasecmp(REG BYTE *d, REG BYTE *s);
 extern void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers); /* from BLOCKIO.C */
 
-INIT static VOID FAR *AlignParagraph(VOID FAR * lpPtr);
+INIT STATIC VOID FAR *AlignParagraph(VOID FAR * lpPtr);
 #ifndef I86
 #define AlignParagraph(x) (x)
 #endif
@@ -339,9 +345,9 @@ struct table
     VOID(*func) (BYTE * pLine);
 };
 
-static struct table commands[] =
+STATIC struct table commands[] =
 {
-  {"BREAK", 1, Break},
+  {"BREAK", 1, CfgBreak},
   {"BUFFERS", 1, Config_Buffers},
   {"COMMAND", 1, InitPgm},
   {"COUNTRY", 1, Country},
@@ -350,14 +356,14 @@ static struct table commands[] =
   {"DOS", 1, Dosmem},
   {"FCBS", 1, Fcbs},
   {"FILES", 1, Files},
-  {"LASTDRIVE", 1, Lastdrive},
+  {"LASTDRIVE", 1, CfgLastdrive},
   {"NUMLOCK", 1, Numlock},
         /* rem is never executed by locking out pass                    */
   {"REM", 0, CfgFailure},
   {"SHELL", 1, InitPgm},
   {"SHELLHIGH", 1, InitPgmHigh},
   {"STACKS", 1, Stacks},
-  {"SWITCHAR", 1, Switchar},
+  {"SWITCHAR", 1, CfgSwitchar},
   {"SCREEN", 1, sysScreenMode}, /* JPP */
   {"VERSION", 1, sysVersion},   /* JPP */
   {"ANYDOS", 1, SetAnyDos},   /* JPP */
@@ -370,9 +376,9 @@ INIT BYTE FAR *KernelAlloc(WORD nBytes);
 INIT BYTE FAR *KernelAllocDma(WORD);
 #endif
 
-BYTE *pLineStart;
+BYTE *pLineStart = 0;
 
-BYTE HMAState;
+BYTE HMAState = 0;
 #define HMA_NONE 0 /* do nothing */
 #define HMA_REQ 1  /* DOS = HIGH detected */
 #define HMA_DONE 2 /* Moved kernel to HMA */
@@ -548,7 +554,7 @@ INIT void PostConfig(void)
   printf(" sft table 0x%p\n",sfthead->sftt_next);
   printf(" CDS table 0x%p\n",CDSp);
   printf(" DPB table 0x%p\n",DPBp);
-#endif
+#endif      
   if (Config.cfgStacks)
   {
     VOID FAR *stackBase = KernelAlloc(Config.cfgStacks * Config.cfgStackSize);
@@ -707,7 +713,7 @@ INIT VOID DoConfig(VOID)
             {
             bEof = TRUE;
             break;
-            }
+        	}
 
         /* immediately convert to upper case */
         *pLine = toupper(*pLine);
@@ -946,7 +952,7 @@ INIT void Config_Buffers(BYTE * pLine)
   Config.cfgBuffers = max(Config.cfgBuffers, nBuffers);
 }
 
-INIT static VOID sysScreenMode(BYTE * pLine)
+INIT STATIC VOID sysScreenMode(BYTE * pLine)
 {
   COUNT nMode;
 
@@ -962,12 +968,20 @@ INIT static VOID sysScreenMode(BYTE * pLine)
    0x12 (18)   43/50 lines
    0x14 (20)   25 lines
  */
+#if defined(__TURBOC__)   	
   _AX = (0x11 << 8) + nMode;
   _BL = 0;
   __int__(0x10);
+#else
+  asm {
+  	mov al, byte ptr nMode;
+  	mov ah, 0x11;
+  	int 0x10;
+	}
+#endif
 }
 
-INIT static VOID sysVersion(BYTE * pLine)
+INIT STATIC VOID sysVersion(BYTE * pLine)
 {
   COUNT major,
     minor;
@@ -994,7 +1008,7 @@ INIT static VOID sysVersion(BYTE * pLine)
   os_minor = minor;
 }
 
-INIT static VOID Files(BYTE * pLine)
+INIT STATIC VOID Files(BYTE * pLine)
 {
   COUNT nFiles;
 
@@ -1006,7 +1020,7 @@ INIT static VOID Files(BYTE * pLine)
   Config.cfgFiles = max(Config.cfgFiles, nFiles);
 }
 
-INIT static VOID Lastdrive(BYTE * pLine)
+INIT STATIC VOID CfgLastdrive(BYTE * pLine)
 {
   /* Format:   LASTDRIVE = letter         */
   BYTE drv;
@@ -1067,7 +1081,7 @@ INIT STATIC VOID Dosmem(BYTE * pLine)
     }
 }
 
-INIT static VOID Switchar(BYTE * pLine)
+INIT STATIC VOID CfgSwitchar(BYTE * pLine)
 {
   /* Format: SWITCHAR = character         */
 
@@ -1075,7 +1089,7 @@ INIT static VOID Switchar(BYTE * pLine)
   switchar = *szBuf;
 }
 
-INIT static VOID Fcbs(BYTE * pLine)
+INIT STATIC VOID Fcbs(BYTE * pLine)
 {
   /*  Format:     FCBS = totalFcbs [,protectedFcbs]    */
   COUNT fcbs;
@@ -1117,7 +1131,7 @@ INIT BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
 	return FALSE;
 }
 
-INIT static VOID Country(BYTE * pLine)
+INIT STATIC VOID Country(BYTE * pLine)
 {
   /* Format: COUNTRY = countryCode, [codePage], filename  */
   COUNT ctryCode;
@@ -1153,7 +1167,7 @@ INIT static VOID Country(BYTE * pLine)
   CfgFailure(pLine);
 }
 
-INIT static VOID Stacks(BYTE * pLine)
+INIT STATIC VOID Stacks(BYTE * pLine)
 {
   COUNT stacks;
 
@@ -1180,14 +1194,14 @@ INIT static VOID Stacks(BYTE * pLine)
   }
 }
 
-INIT static VOID InitPgmHigh(BYTE * pLine)
+INIT STATIC VOID InitPgmHigh(BYTE * pLine)
 {
   InitPgm(pLine);
   Config.cfgP_0_startmode = 0x80;
 }
 
 
-INIT static VOID InitPgm(BYTE * pLine)
+INIT STATIC VOID InitPgm(BYTE * pLine)
 {
   /* Get the string argument that represents the new init pgm     */
   pLine = GetStringArg(pLine, Config.cfgInit);
@@ -1202,16 +1216,16 @@ INIT static VOID InitPgm(BYTE * pLine)
   Config.cfgP_0_startmode = 0;
 }
 
-INIT static VOID Break(BYTE * pLine)
+INIT STATIC VOID CfgBreak(BYTE * pLine)
 {
   /* Format:      BREAK = (ON | OFF)      */
   GetStringArg(pLine, szBuf);
   break_ena = strcasecmp(szBuf, "OFF") ? 1 : 0;
 }
 
-INIT static VOID Numlock(BYTE * pLine)
+INIT STATIC VOID Numlock(BYTE * pLine)
 {
-  extern VOID keycheck();
+  extern VOID ASMCFUNC keycheck();
     
   /* Format:      NUMLOCK = (ON | OFF)      */
   BYTE FAR *keyflags = (BYTE FAR *)MK_FP(0x40,0x17);
@@ -1223,7 +1237,7 @@ INIT static VOID Numlock(BYTE * pLine)
   keycheck();
 }
 
-INIT static VOID DeviceHigh(BYTE * pLine)
+INIT STATIC VOID DeviceHigh(BYTE * pLine)
 {
     if(UmbState == 1)
     {
@@ -1313,7 +1327,7 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
   return result;
 }
 
-INIT static VOID CfgFailure(BYTE * pLine)
+INIT STATIC VOID CfgFailure(BYTE * pLine)
 {
   BYTE *pTmp = pLineStart;
 
@@ -1581,34 +1595,52 @@ VOID config_init_buffers(COUNT anzBuffers)
   
   pbuffer = firstbuf;  
 
+  DebugPrintf(("init_buffers at"));
+
   for (i = 0; ; ++i)
   {
     if (FP_SEG(pbuffer) == 0xffff) HMAcount++;
     
-    lastbuf = pbuffer;
-
     pbuffer->b_dummy = FP_OFF(pbuffer);
     pbuffer->b_unit = 0;
     pbuffer->b_flag = 0;
     pbuffer->b_blkno = 0;
     pbuffer->b_copies = 0;
-    pbuffer->b_offset_lo = 0;
-    pbuffer->b_offset_hi = 0;
+    pbuffer->b_offset = 0;
     pbuffer->b_next = NULL;
 
-    DebugPrintf(("init_buffers buffer %d at %p\n",i, pbuffer));
-
+    DebugPrintf((" (%d,%p)",i, pbuffer));
+        
+        		/* now, we can have quite some buffers in HMA
+        		   -- up to 37 for KE38616.
+        		   so we fill the HMA with buffers
+        		*/   
+        
     if (i < (anzBuffers - 1))
-        pbuffer->b_next = ConfigAlloc(sizeof (struct buffer));
-
+    {
+        pbuffer->b_next = HMAalloc(sizeof (struct buffer));
+    
+        if (pbuffer->b_next == NULL)
+    	{
+    			/* if more buffer requested then fit into HMA, allocate
+    			   some from low memory as rewuested
+				*/    			   
+    	    pbuffer->b_next = ConfigAlloc(sizeof (struct buffer));
+        }
+    }
+    
     if (pbuffer->b_next == NULL)
         break;  
         
     pbuffer = pbuffer->b_next;        
   }
   
-  DebugPrintf(("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
-                            HMAcount, HMAcount*sizeof (struct buffer)));
+  DebugPrintf((" done\n"));
+  
+  if (HMAcount)
+  	printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
+                            HMAcount, HMAcount*sizeof (struct buffer));
+                            
   if (HMAState == HMA_NONE || HMAState == HMA_REQ)
       lpBase = tmplpBase;
 }

@@ -44,6 +44,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.8  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -482,7 +485,7 @@ VOID DosUpMem(VOID FAR * str, unsigned len)
  * the HiByte of the first argument must remain unchanged.
  *	See NLSSUPT.ASM -- 2000/03/30 ska
  */
-unsigned char DosUpChar(unsigned char ch)
+unsigned char ASMCFUNC DosUpChar(unsigned char ch)
  /* upcase a single character */
 {
 	assertDSeqSS();			/* because "&ch" */
@@ -629,11 +632,10 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
 	Return value: AL register to be returned
 		if AL == 0, Carry must be cleared, otherwise set
 */
-#pragma argsused
-UWORD syscall_MUX14(DIRECT_IREGS)
+UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
 {	struct nlsPackage FAR*nls;	/* addressed NLS package */
 
-	if (flags || cs || ip || ds || es || si);
+	UNREFERENCED_PARAMETER (flags || cs || ip || ds || es || si);
 
 log( ("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n",
 	AL, BX, DX) );

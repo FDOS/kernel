@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.26  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.25  2001/08/20 20:32:15  bartoldeman
  * Truename, get free space and ctrl-break fixes.
  *
@@ -257,6 +260,31 @@ static int share_lock_unlock
 
 /* /// End of additions for SHARE.  - Ron Cemer */
 
+
+#ifdef WITHFAT32
+struct dpb FAR *GetDriveDPB(UBYTE drive, COUNT *rc)
+{
+  struct dpb FAR *dpb;
+  drive = drive == 0 ? default_drive : drive - 1;
+						
+  if (drive >= lastdrive)
+    {
+      *rc = DE_INVLDDRV;
+      return 0;
+    }
+
+  dpb = CDSp->cds_table[drive].cdsDpb;
+  if (dpb == 0 ||
+      CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
+    {
+      *rc = DE_INVLDDRV;
+      return 0;
+    }
+
+  *rc = SUCCESS;
+  return dpb;
+}
+#endif
 
 static VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
 {
@@ -758,7 +786,7 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
   COUNT drive;
 
                                    /* NEVER EVER allow directories to be created */
-  if (attrib & ~(D_RDONLY|D_HIDDEN|D_SYSTEM|D_ARCHIVE))
+  if (attrib & 0xff & ~(D_RDONLY|D_HIDDEN|D_SYSTEM|D_ARCHIVE))
     {
         return DE_ACCESS;
     }
@@ -772,7 +800,7 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
   sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
   sftp->sft_psp = cu_psp;
   sftp->sft_mode = SFT_MRDWR;
-  sftp->sft_attrib = attrib;
+  sftp->sft_attrib = attrib & 0xff;
   sftp->sft_psp = cu_psp;
 
     /* check for a device   */
@@ -787,12 +815,7 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
         return sft_idx;
       }
 
-    drive = get_verify_drive(fname);
-    if(drive < 0) {
-        return drive;
-    }
-
-    if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+    if (current_ldt->cdsFlags & CDSNETWDRV) {
 		lpCurSft = (sfttbl FAR *)sftp;
 		sftp->sft_mode = attrib;
 		result = -int2f_Remote_call(REM_CREATE, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, attrib));
@@ -802,7 +825,12 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
                 }
 		return result;
   }
-
+    
+  drive = get_verify_drive(fname);
+  if (drive < 0) {
+      return drive;
+  }
+    
 /* /// Added for SHARE.  - Ron Cemer */
   if (IsShareInstalled()) {
      if ((sftp->sft_shroff = share_open_check
@@ -975,12 +1003,7 @@ COUNT DosOpenSft(BYTE * fname, COUNT mode)
     return sft_idx;
   }
 
-  drive = get_verify_drive(fname);
-  if (drive < 0) {
-      return drive;
-  }
-
-  if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+  if (current_ldt->cdsFlags & CDSNETWDRV) {
       lpCurSft = (sfttbl FAR *)sftp;
       result = -int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, mode));
       if (result == SUCCESS) {
@@ -989,6 +1012,12 @@ COUNT DosOpenSft(BYTE * fname, COUNT mode)
       }
       return result;
   }
+
+  drive = get_verify_drive(fname);
+  if (drive < 0) {
+      return drive;
+  }
+
   sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
 
   /* /// Added for SHARE.  - Ron Cemer */
@@ -1116,7 +1145,11 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
 {
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
-	     COUNT rg[4];
+	COUNT rg[4];
+#ifdef WITHFAT32
+  UCOUNT shift = 0;
+  ULONG cluster_size, ntotal, nfree;
+#endif
 
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
@@ -1145,8 +1178,28 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
   dpbp = CDSp->cds_table[drive].cdsDpb;
   if (dpbp == NULL || media_check(dpbp) < 0)
       return;
+#ifdef WITHFAT32
+  cluster_size = (dpbp->dpb_clsmask + 1) * dpbp->dpb_secsize;
+  ntotal = dpbp->dpb_size - 1;
+  if (ISFAT32(dpbp)) while (cluster_size <= 0x7fff) {
+    cluster_size <<= 1;
+    ntotal >>= 1;
+    shift++;
+  }
+  /* get the data available from dpb      */
+  *nc = (UCOUNT)ntotal;
+  if (ntotal > 0xfffe)
+    *nc = 0xfffe;
+  *spc = (dpbp->dpb_clsmask + 1) << shift;
+  *bps = dpbp->dpb_secsize;
 
-  /* get the data vailable from dpb       */
+  /* now tell fs to give us free cluster  */
+  /* count                                */
+  nfree = dos_free(dpbp) >> shift;
+  if (nfree > 0xfffe) nfree = 0xfffe;
+  *navc = (UCOUNT)nfree;
+#else
+  /* get the data available from dpb      */
   *nc = dpbp->dpb_size - 1;
   *spc = dpbp->dpb_clsmask + 1;
   *bps = dpbp->dpb_secsize;
@@ -1154,7 +1207,58 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
   /* now tell fs to give us free cluster  */
   /* count                                */
   *navc = dos_free(dpbp);
+#endif
 }
+
+#ifdef WITHFAT32
+/* network names like \\SERVER\C aren't supported yet */
+#define IS_SLASH(ch) (ch == '\\' || ch == '/')
+COUNT DosGetExtFree(BYTE FAR *DriveString, struct xfreespace FAR *xfsp)
+{
+  struct dpb FAR *dpbp;
+  struct cds FAR *cdsp;
+  UBYTE drive;
+	UCOUNT rg[4];
+
+  if (IS_SLASH(DriveString[0]) || !IS_SLASH(DriveString[2])
+			|| DriveString[1] != ':')
+		return DE_INVLDDRV;
+  drive = DosUpFChar(*DriveString) - 'A';
+  if (drive >= lastdrive) return DE_INVLDDRV;
+
+  cdsp = &CDSp->cds_table[drive];
+
+  if (!(cdsp->cdsFlags & CDSVALID))
+      return DE_INVLDDRV;
+                
+  if (cdsp->cdsFlags & CDSNETWDRV)
+  {
+      int2f_Remote_call(REM_GETSPACE, 0, 0, 0, cdsp, 0, &rg);
+		
+      xfsp->xfs_clussize = rg[0];
+      xfsp->xfs_totalclusters = rg[1];
+      xfsp->xfs_secsize = rg[2];
+      xfsp->xfs_freeclusters = rg[3]; 
+  } else {
+		dpbp = CDSp->cds_table[drive].cdsDpb;
+		if (dpbp == NULL || media_check(dpbp) < 0)
+      return DE_INVLDDRV;
+		xfsp->xfs_secsize = dpbp->dpb_secsize;
+		xfsp->xfs_totalclusters = dpbp->dpb_size;
+		xfsp->xfs_freeclusters = dos_free(dpbp);
+		xfsp->xfs_clussize = dpbp->dpb_clsmask + 1;
+	}
+	xfsp->xfs_totalunits = xfsp->xfs_totalclusters;
+	xfsp->xfs_freeunits = xfsp->xfs_freeclusters;
+	xfsp->xfs_totalsectors = xfsp->xfs_totalclusters * xfsp->xfs_clussize;
+	xfsp->xfs_freesectors = xfsp->xfs_freeclusters * xfsp->xfs_clussize;
+	xfsp->xfs_datasize = sizeof(struct xfreespace);
+
+	fmemset(xfsp->xfs_reserved, 0, 8);
+
+  return SUCCESS;
+}
+#endif
 
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 {

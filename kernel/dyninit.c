@@ -39,7 +39,7 @@ additionally:
 */    
 #include "portab.h"
 #include "init-mod.h"
-#include "dyndata.h"
+#include "dyndata.h" 
 
 #if defined(DEBUG)
     #define DebugPrintf(x) printf x
@@ -48,7 +48,16 @@ additionally:
 #endif
 
 
-extern struct DynS FAR Dyn;
+/*extern struct DynS FAR Dyn;*/
+
+#ifndef __TURBOC__
+	#include "init-dat.h"
+	extern struct DynS DOSFAR Dyn;
+#else
+	extern struct DynS FAR Dyn;
+#endif	
+
+
 
 void far *DynAlloc(char *what, unsigned num, unsigned size)
 {
@@ -57,7 +66,7 @@ void far *DynAlloc(char *what, unsigned num, unsigned size)
 #ifndef DEBUG
     UNREFERENCED_PARAMETER(what);
 #endif
-    
+
     if ((ULONG)total + Dyn.Allocated > 0xffff)
     {
         printf("PANIC:Dyn %lu\n", (ULONG)total + Dyn.Allocated);

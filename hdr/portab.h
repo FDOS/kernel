@@ -36,6 +36,9 @@ static char *portab_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.9  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -119,6 +122,49 @@ static char *portab_hRcsId = "$Id$";
 /*                                                              */
 /****************************************************************/
 
+
+							/* commandline overflow - removing -DI86 TE*/
+#if defined(__TURBOC__)
+
+    #define I86        
+    #define CDECL   cdecl
+    void __int__(int);
+    
+#elif defined	(_MSC_VER)    
+
+    #define I86        
+    #define CDECL   _cdecl
+    #define __int__(intno) asm int intno;
+
+	#if defined(M_I286)  /* /G3 doesn't set M_I386, but sets M_I286 TE*/
+		#define I386
+	#endif	
+
+#elif defined(__WATCOMC__) /* don't know a better way */
+
+	#define I86
+	#define __int__(intno) asm int intno;
+	#define asm __asm 
+	#define far __far
+    #define CDECL   __cdecl
+	
+	#if _M_IX86 >= 300
+		#define I386
+	#endif		
+
+#elif defined (_MYMC68K_COMILER_)
+
+	#define MC68K
+
+#else	
+	anyone knows a _portable_ way to create nice errors??	
+	at least this causes the compiler not to compile :-)
+#endif
+                         /* functions, that are shared between C and ASM _must_ 
+                         	have a certain calling standard. These are declared
+                         	as 'ASMCFUNC', and is (and will be ?-) cdecl */
+#define ASMCFUNC cdecl
+
 #ifdef MC68K
 
 #define far                     /* No far type          */
@@ -198,6 +244,13 @@ typedef int COUNT;
 typedef unsigned int UCOUNT;
 typedef unsigned long ULONG;
 
+#ifdef WITHFAT32
+typedef unsigned long CLUSTER;
+#else
+typedef unsigned short CLUSTER;
+#endif
+typedef unsigned short UNICODE;
+
 #define STATIC                  /* local calls inside module */ 
 
 
@@ -240,18 +293,7 @@ typedef signed long LONG;
 	#define UNREFERENCED_PARAMETER(x) x;
 #endif	
 
-
-#if defined(__TURBOC__)
-    #define FDCALL  pascal
-    #define CDECL   cdecl
-#else
-    #define FDCALL  
-    #define CDECL   
-#endif
-
-#ifdef I86
-                    /* commandline overflow - removing /DPROTO
-                    TE*/
+#ifdef I86		/* commandline overflow - removing /DPROTO TE*/
     #define PROTO
 #endif
 

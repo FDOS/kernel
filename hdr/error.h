@@ -36,6 +36,9 @@ static BYTE *error_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.5  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -93,7 +96,7 @@ static BYTE *error_hRcsId = "$Id$";
  *      Initial revision.
  */
 
-/* Internal system error returns                                        */
+/* Internal system error returns                                */
 #define SUCCESS         0       /* Function was successful      */
 #define DE_INVLDFUNC    -1      /* Invalid function number      */
 #define DE_FILENOTFND   -2      /* File not found               */
@@ -107,22 +110,25 @@ static BYTE *error_hRcsId = "$Id$";
 #define DE_INVLDENV     -10     /* Invalid enviornement         */
 #define DE_INVLDFMT     -11     /* Invalid format               */
 #define DE_INVLDACC     -12     /* Invalid access               */
-#define DE_INVLDDATA    -13     /* Inavalid data                */
+#define DE_INVLDDATA    -13     /* Invalid data                 */
 #define DE_INVLDDRV     -15     /* Invalid drive                */
 #define DE_RMVCUDIR     -16     /* Attempt remove current dir   */
 #define DE_DEVICE       -17     /* Not same device              */
 #define DE_NFILES       -18     /* No more files                */
 #define DE_WRTPRTCT     -19     /* No more files                */
 #define DE_BLKINVLD     -20     /* invalid block                */
+#define DE_INVLDBUF     -24     /* invalid buffer size, ext fnc */
 #define DE_SEEK         -25     /* error on file seek           */
 #define DE_HNDLDSKFULL  -28     /* handle disk full (?)         */
+
+#define DE_INVLDPARM    -0x57    /* invalid parameter */
 
 #define DE_DEADLOCK	-36
 #define DE_LOCK		-39
 
 #define DE_FILEEXISTS   -80     /* File exists                  */
 
-/* Critical error flags                                                 */
+/* Critical error flags                                         */
 #define EFLG_READ       0x00    /* Read error                   */
 #define EFLG_WRITE      0x01    /* Write error                  */
 #define EFLG_RSVRD      0x00    /* Error in rserved area        */
@@ -134,8 +140,8 @@ static BYTE *error_hRcsId = "$Id$";
 #define EFLG_IGNORE     0x20    /* Handler can ignore           */
 #define EFLG_CHAR       0x80    /* Error in char or FAT image   */
 
-/* error results returned after asking user                             */
-/* MS-DOS compatible -- returned by CriticalError                       */
+/* error results returned after asking user                     */
+/* MS-DOS compatible -- returned by CriticalError               */
 #define CONTINUE        0
 #define RETRY           1
 #define ABORT           2

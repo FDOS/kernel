@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.16  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -215,6 +218,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #include "network.h"
 #include "config.h"
 #include "buffer.h"
+#include "xstructs.h"
 
 /* JPP: for testing/debuging disk IO */
 /*#define DISPLAY_GETBLOCK */
@@ -288,12 +292,17 @@ static BYTE *Globals_hRcsId = "$Id$";
 /* FAT cluster special flags                                            */
 #define FREE                    0x000
 
+#ifdef WITHFAT32
+#define LONG_LAST_CLUSTER       0x0FFFFFFFl
+#define LONG_BAD                0x0FFFFFF7l
+#else
 #define LONG_LAST_CLUSTER       0xFFFF
-#define LONG_MASK               0xFFF8
-#define LONG_BAD                0xFFF0
-#define LAST_CLUSTER            0x0FFF
-#define MASK                    0xFF8
-#define BAD                     0xFF0
+#define LONG_BAD                0xFFF8
+#endif
+#define MASK16                  0xFFF8
+#define BAD16                   0xFFF0
+#define MASK12                  0xFF8
+#define BAD12                   0xFF0
 
 /* Keyboard buffer maximum size                                         */
 #ifdef LINESIZE
@@ -314,20 +323,8 @@ FAR clk_dev,                    /* Clock device driver                  */
   FAR aux_dev,                  /* Generic aux device driver            */
   FAR blk_dev;                  /* Block device (Disk) driver           */
 extern UWORD
-  ram_top,                      /* How much ram in Kbytes               */
-#ifdef I86
-
-  api_sp,                       /* api stacks - for context             */
-#endif
-
-  api_ss,                       /* switching                            */
-  usr_sp,                       /* user stack                           */
-  usr_ss;
+  ram_top;                      /* How much ram in Kbytes               */
 extern COUNT *
-#ifdef MC68K
-  api_sp,                       /* api stacks - for context             */
-#endif
-
   error_tos,                    /* error stack                          */
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */
@@ -381,29 +378,26 @@ GLOBAL WORD bDumpRdWrParms
 
 GLOBAL BYTE copyright[]
 #ifdef MAIN
-#if 0
-= "(C) Copyright 1995, 1996, 1997, 1998\nPasquale J. Villani\nAll Rights Reserved\n"
-#else
-= ""
-#endif
+= "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n\
+All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n\
+WARRANTY; you can redistribute it and/or modify it under the terms of the\n\
+GNU General Public License as published by the Free Software Foundation;\n\
+either version 2, or (at your option) any later version.\n"
 #endif
 ;
 
 GLOBAL BYTE os_release[]
 #ifdef MAIN
 #if 0
-= "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n\
-\n\
-DOS-C is free software; you can redistribute it and/or modify it under the\n\
-terms of the GNU General Public License as published by the Free Software\n\
-Foundation; either version 2, or (at your option) any later version.\n\n\
-For technical information and description of the DOS-C operating system\n\
+= "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n"
+#endif
+= "FreeDOS kernel version " KERNEL_VERSION_STRING \
+  " (Build " KERNEL_BUILD_STRING  ") [" __DATE__ " " __TIME__ "]\n"
+#if 0
+"For technical information and description of the DOS-C operating system\n\
 consult \"FreeDOS Kernel\" by Pat Villani, published by Miller\n\
 Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
 \n"
-#else
-= "FreeDOS kernel version %d.%d.%d"SUB_BUILD
-  " (Build %d"SUB_BUILD") [" __DATE__ " " __TIME__ "]\n\n"
 #endif
 #endif
 ;
@@ -584,13 +578,6 @@ GLOBAL f_node_ptr f_nodes;      /* pointer to the array                 */
 
 GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
-GLOBAL struct buffer
-FAR *lastbuf;                   /* tail of ditto                        */
-/*  FAR * buffers;              /* pointer to array of track buffers    */
-
-/*GLOBAL BYTE FAR * dma_scratch;*/ /* scratchpad used for working around                                           */
-                                /* DMA transfers during disk I/O                                                */
-
 GLOBAL iregs
   FAR * ustackp,                /* user stack                           */
   FAR * kstackp;                /* kernel stack                         */
@@ -603,34 +590,31 @@ GLOBAL iregs
 /* Process related functions - not under automatic generation.  */
 /* Typically, these are in ".asm" files.                        */
 VOID
-FAR cpm_entry(VOID),
-INRPT FAR re_entry(VOID)        /*,
-                                   INRPT FAR handle_break(VOID) */ ;
+FAR   ASMCFUNC cpm_entry(VOID)
+/*INRPT FAR handle_break(VOID) */ ;
 VOID
 enable(VOID),
 disable(VOID);
 COUNT
-CriticalError(
+ASMCFUNC CriticalError(
     COUNT nFlag, COUNT nDrive, COUNT nError, struct dhdr FAR * lpDevice);
 
 #ifdef PROTO
-VOID FAR CharMapSrvc(VOID);
-VOID FAR set_stack(VOID);
-VOID FAR restore_stack(VOID);
-WORD execrh(request FAR *, struct dhdr FAR *);
+VOID FAR ASMCFUNC CharMapSrvc(VOID);
+VOID FAR ASMCFUNC set_stack(VOID);
+VOID FAR ASMCFUNC restore_stack(VOID);
+WORD     ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
 VOID exit(COUNT);
 /*VOID INRPT FAR handle_break(VOID); */
-VOID tmark(VOID);
-BOOL tdelay(LONG);
-BYTE FAR *device_end(VOID);
-COUNT kb_data(VOID);
-COUNT kb_input(VOID);
-COUNT kb_init(VOID);
-VOID setvec(UWORD, VOID(INRPT FAR *) ());
-BYTE FAR *getvec(UWORD);
+VOID ASMCFUNC tmark(VOID);
+BOOL ASMCFUNC tdelay(LONG);
+BYTE FAR *ASMCFUNC device_end(VOID);
+COUNT ASMCFUNC kb_data(VOID);
+COUNT ASMCFUNC kb_input(VOID);
+COUNT ASMCFUNC kb_init(VOID);
+VOID ASMCFUNC setvec(UWORD, VOID(INRPT FAR *) ());
+BYTE FAR *ASMCFUNC getvec(UWORD);
 COUNT con(COUNT);
-VOID getdirent(BYTE FAR *, struct dirent FAR *);
-VOID putdirent(struct dirent FAR *, BYTE FAR *);
 #else
 VOID FAR CharMapSrvc();
 VOID FAR set_stack();
@@ -647,8 +631,6 @@ COUNT kb_init();
 VOID setvec();
 BYTE FAR *getvec();
 COUNT con();
-VOID getdirent();
-VOID putdirent();
 #endif
 
 /*                                                              */
@@ -687,12 +669,12 @@ VOID fputbyte();
 #endif
 
 #ifdef I86
-#define setvec(n, isr)  (void)(*(VOID (INRPT FAR * FAR *)())(4 * (n)) = (isr))
+#define setvec(n, isr)  (void)(*(VOID (INRPT FAR * FAR *)())(MK_FP(0,4 * (n))) = (isr))
 #endif
 /*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 
 /* ^Break handling */
-void spawn_int23(void);         /* procsupt.asm */
+void ASMCFUNC spawn_int23(void);         /* procsupt.asm */
 int control_break(void);        /* break.c */
 void handle_break(void);        /* break.c */
 

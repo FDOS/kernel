@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.4  2001/09/23 20:39:44  bartoldeman
+# FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+#
 # Revision 1.3  2000/05/25 20:56:19  jimtabor
 # Fixed project history
 #
@@ -49,7 +52,7 @@
 
 !include "..\config.mak"
 
-production:     b_fat12.bin b_fat16.bin
+production:     b_fat12.bin b_fat16.bin b_fat32.bin
 
 b_fat12.bin:    boot.asm
                 $(NASM) -dISFAT12 boot.asm -ob_fat12.bin
@@ -57,8 +60,11 @@ b_fat12.bin:    boot.asm
 b_fat16.bin:    boot.asm
                 $(NASM) -dISFAT16 boot.asm -ob_fat16.bin
 
+b_fat32.bin:    boot32.asm
+                $(NASM) boot32.asm -ob_fat32.bin
+
 clobber:        clean
-                $(RM) b_fat12.bin b_fat16.bin status.me
+                $(RM) b_fat12.bin b_fat16.bin b_fat32.bin status.me
 
 clean:
                 $(RM) *.lst *.map *.bak *.obj

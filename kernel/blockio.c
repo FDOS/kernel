@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
                                                                                                                                                                    
 /*
  * $Log$
+ * Revision 1.13  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.12  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -194,15 +197,13 @@ VOID FAR reloc_call_init_buffers(void)
     pbuffer->b_flag = 0;
     pbuffer->b_blkno = 0;
     pbuffer->b_copies = 0;
-    pbuffer->b_offset_lo = 0;
-    pbuffer->b_offset_hi = 0;
+    pbuffer->b_offset = 0;
     if (i < (Config.cfgBuffers - 1))
       pbuffer->b_next = pbuffer + 1;
     else
       pbuffer->b_next = NULL;
   }
   firstbuf = &buffers[0];
-  lastbuf = &buffers[Config.cfgBuffers - 1];
 }
 */
 /* Extract the block number from a buffer structure. */
@@ -496,12 +497,11 @@ BOOL flush1(struct buffer FAR * bp)
     if (bp->b_flag & BFR_FAT)
     {
       int i = bp->b_copies;
-      LONG blkno = getblkno(bp);
-      UWORD offset = ((UWORD) bp->b_offset_hi << 8) | bp->b_offset_lo;
+      ULONG blkno = getblkno(bp);
 
       while (--i > 0)
       {
-        blkno += offset;
+        blkno += bp->b_offset;
         result = dskxfer(bp->b_unit, blkno, 
 		     (VOID FAR *) bp->b_buffer, 1, DSKWRITE);  /* BER 9/4/00 */
       }

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.17  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -191,10 +194,6 @@ static exe_header header;
 	   + 1 byte: '\0'
 	   -- 1999/04/21 ska */
 
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-#endif
-
 #ifndef PROTO
 COUNT ChildEnv(exec_blk FAR *, UWORD *, char far *);
 #else
@@ -326,7 +325,7 @@ VOID new_psp(psp FAR * p, int psize)
 
   /* CP/M-like entry point - jump to special entry        */
   p->ps_farcall = 0xea;
-  p->ps_reentry = cpm_entry;
+  p->ps_reentry = (VOID(FAR *) ())cpm_entry;
   /* unix style call - 0xcd 0x21 0xcb (int 21, retf)      */
   p->ps_unix[0] = 0xcd;
   p->ps_unix[1] = 0x21;
@@ -347,11 +346,11 @@ VOID new_psp(psp FAR * p, int psize)
   p->ps_dta = (BYTE FAR *) (&p->ps_cmd_count);
 
   /* terminate address                                    */
-  p->ps_isv22 = (VOID(interrupt FAR *) (void))getvec(0x22);
+  p->ps_isv22 = (VOID(INRPT FAR *) (void))getvec(0x22);
   /* break address                                        */
-  p->ps_isv23 = (VOID(interrupt FAR *) (void))getvec(0x23);
+  p->ps_isv23 = (VOID(INRPT FAR *) (void))getvec(0x23);
   /* critical error address                               */
-  p->ps_isv24 = (VOID(interrupt FAR *) (void))getvec(0x24);
+  p->ps_isv24 = (VOID(INRPT FAR *) (void))getvec(0x24);
 
   /* File System parameters                               */
   /* user stack pointer - int 21                          */
@@ -465,7 +464,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   LONG com_size;
 
   int  ModeLoadHigh = mode & 0x80;
-  int  UMBstate     = uppermem_link;
+  UBYTE  UMBstate     = uppermem_link;
 
   mode &= 0x7f;
 
@@ -522,7 +521,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     
   if (  ModeLoadHigh && uppermem_root)
     {
-    DosUmbLink(UMBstate);                          /* restore link state */
+    DosUmbLink(UMBstate);               /* restore link state */
     }
     
 
@@ -684,7 +683,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   LONG exe_size;
 
   int  ModeLoadHigh = mode & 0x80;
-  int  UMBstate = uppermem_link;
+  UBYTE UMBstate = uppermem_link;
 
   mode &= 0x7f;
     

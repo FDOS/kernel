@@ -29,6 +29,10 @@
 
 #include "portab.h"
 #include "init-mod.h"
+#include "dyndata.h"
+#include "init-dat.h"   
+
+
 
 /*
   These are the far variables from the DOS data segment that we need here. The
@@ -38,31 +42,31 @@
 
   -- Bart
  */
-extern UBYTE FAR nblkdev,
-    FAR lastdrive;                    /* value of last drive                  */
+extern UBYTE DOSFAR nblkdev,
+    DOSFAR lastdrive;                    /* value of last drive                  */
 
 GLOBAL BYTE
-    FAR os_major,                     /* major version number                 */
-    FAR os_minor,                     /* minor version number                 */
-    FAR dosidle_flag,
-    FAR BootDrive,                    /* Drive we came up from                */
-    FAR default_drive;                /* default drive for dos                */
+    DOSFAR os_major,                     /* major version number                 */
+    DOSFAR os_minor,                     /* minor version number                 */
+    DOSFAR dosidle_flag,
+    DOSFAR BootDrive,                    /* Drive we came up from                */
+    DOSFAR default_drive;                /* default drive for dos                */
 
-GLOBAL BYTE FAR os_release[];
-GLOBAL BYTE FAR copyright[];
-GLOBAL seg FAR RootPsp;               /* Root process -- do not abort         */
+GLOBAL BYTE DOSFAR os_release[];
+GLOBAL BYTE DOSFAR copyright[];
+GLOBAL seg DOSFAR RootPsp;               /* Root process -- do not abort         */
 
-extern struct dpb FAR * FAR DPBp; /* First drive Parameter Block          */
-extern cdstbl FAR * FAR CDSp; /* Current Directory Structure          */
+extern struct dpb FAR * DOSFAR DPBp; /* First drive Parameter Block          */
+extern cdstbl FAR * DOSFAR CDSp; /* Current Directory Structure          */
 
-extern struct dhdr FAR * FAR clock,           /* CLOCK$ device                        */
-                   FAR * FAR syscon;          /* console device                       */
-extern struct dhdr FAR con_dev,               /* console device drive                 */
-                   FAR clk_dev,               /* Clock device driver                  */
-                   FAR blk_dev;               /* Block device (Disk) driver           */
+extern struct dhdr FAR * DOSFAR clock,           /* CLOCK$ device                        */
+                   FAR * DOSFAR syscon;          /* console device                       */
+extern struct dhdr DOSTEXTFAR con_dev,               /* console device drive                 */
+                   DOSTEXTFAR clk_dev,               /* Clock device driver                  */
+                   DOSTEXTFAR blk_dev;               /* Block device (Disk) driver           */
 extern UWORD
-    FAR ram_top;                      /* How much ram in Kbytes               */
-extern iregs FAR * FAR user_r;        /* User registers for int 21h call      */
+    DOSFAR ram_top;                      /* How much ram in Kbytes               */
+extern iregs FAR * DOSFAR user_r;        /* User registers for int 21h call      */
 extern BYTE FAR _HMATextEnd[];
 
 #ifdef VERSION_STRINGS
@@ -71,6 +75,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.21  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.20  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -234,9 +241,32 @@ INIT static VOID init_kernel(VOID);
 INIT static VOID signon(VOID);
 INIT VOID kernel(VOID);
 INIT VOID FsConfig(VOID);
+INIT VOID InitPrinters(VOID);
 
-INIT VOID main(void)
+#ifdef _MSC_VER
+	BYTE _acrtused = 0;
+#endif	
+
+#ifdef _MSC_VER
+__segment DosDataSeg = 0;		/* serves for all references to the DOS DATA segment 
+									necessary for MSC+our funny linking model
+								*/
+__segment DosTextSeg = 0;								
+								
+#endif
+
+
+INIT VOID ASMCFUNC FreeDOSmain(void)
 {
+#ifdef _MSC_VER	
+	extern FAR DATASTART;     
+	extern FAR prn_dev;
+ 	DosDataSeg = (__segment)&DATASTART;	
+ 	DosTextSeg = (__segment)&prn_dev;
+#endif 	
+	
+	
+	
     setvec(0, int0_handler);        /* zero divide */
     setvec(1, empty_handler);       /* single step */
     setvec(3, empty_handler);       /* debug breakpoint */
@@ -295,7 +325,7 @@ INIT void init_kernel(void)
   lpOldTop = lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
 
 /* Fake int 21h stack frame */
-  user_r = (iregs FAR *) DOS_PSP + 0xD0;
+  user_r = (iregs FAR *) MK_FP(DOS_PSP,0xD0);
 
 #ifndef KDB
   for (i = 0x20; i <= 0x3f; i++)
@@ -304,6 +334,7 @@ INIT void init_kernel(void)
 
   /* Initialize IO subsystem                                      */
   InitIO();
+  InitPrinters();
 
 #ifndef KDB
   /* set interrupt vectors                                        */
@@ -431,14 +462,31 @@ INIT VOID FsConfig(VOID)
 
 INIT VOID signon()
 {
-  BYTE tmp_or[81]; /* ugly constant, but this string should fit on one line */
+  printf("\n%S"  ,(void FAR *)os_release);
 
-  printf("\nFreeDOS Kernel compatibility %d.%d\n%S\n",
-         os_major, os_minor, copyright);
-  fmemcpy(tmp_or, os_release, 81);
-  printf(tmp_or,
-         REVISION_MAJOR, REVISION_MINOR, REVISION_SEQ,
-         BUILD);
+  printf("Kernel compatibility %d.%d",
+         os_major, os_minor );
+
+#if defined(__TURBOC__)
+	printf(" - TURBOC");
+#elif defined(_MSC_VER)
+	printf(" - MSC");
+#elif defined(__WATCOMC__)
+	printf(" - WATCOMC");    
+#else
+	generate some bullshit error here, as the compiler should be known
+#endif
+
+#if defined (I386)
+	printf(" - 80386 CPU required");
+#elif defined (I186)
+	printf(" - 80186 CPU required");
+#endif	
+
+#ifdef WITHFAT32
+	printf(" - FAT32 support");
+#endif	
+  printf("\n\n%S",(void FAR *)copyright);
 }
 
 INIT void kernel()
@@ -683,3 +731,29 @@ VOID init_fatal(BYTE * err_msg)
   printf("\nInternal kernel error - %s\nSystem halted\n", err_msg);
   for (;;) ;
 }
+
+/*
+       Initialize all printers
+ 
+       this should work. IMHO, this might also be done on first use
+       of printer, as I never liked the noise by a resetting printer, and
+       I usually much more often reset my system, then I print :-)
+ */
+
+INIT VOID InitPrinters(VOID)
+{
+    iregs r;
+    int num_printers,i;
+
+    init_call_intr(0x11,&r);            /* get equipment list */
+
+    num_printers = (r.a.x >> 14) & 3;   /* bits 15-14 */
+    
+    for (i = 0;i < num_printers;i++)
+    {
+        r.a.x = 0x0100;                 /* initialize printer */
+        r.d.x = i;
+        init_call_intr(0x17,&r);
+    }
+}
+

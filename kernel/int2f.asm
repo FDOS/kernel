@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.13  2001/09/23 20:39:44  bartoldeman
+; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+;
 ; Revision 1.12  2001/08/19 12:58:36  bartoldeman
 ; Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
 ;
@@ -107,7 +110,6 @@
         %include "stacks.inc"
 
 segment	HMA_TEXT
-            extern  _nul_dev:wrt DGROUP
             extern  _cu_psp:wrt DGROUP
             extern _syscall_MUX14:wrt HMA_TEXT
 
@@ -158,153 +160,46 @@ Int2f?iret:
                iret
 
 
-FarTabRetnBX:   pop     bx
-                jmp     FarTabRetn
-;
-;return dos data seg.
-IntDosCal:
-                cmp     al, 31h
-                ja      FarTabRetn
-                push    bx
-                mov     bl, al
-                mov     bh, 0
-                shl     bx, 1
-                jmp     [cs:bx+DosCalTbl]
 
-DosCalTbl:
-dw retff, IntDosCal_1, IntDosCal_2, IntDosCal_3, IntDosCal_4, IntDosCal_5,
-dw IntDosCal_6, IntDosCal_7, IntDosCal_8, IntDosCal_9, IntDosCal_a,
-dw IntDosCal_b, IntDosCal_c, IntDosCal_d, IntDosCal_e, IntDosCal_f,
-dw IntDosCal_10, IntDosCal_11, IntDosCal_12, IntDosCal_13, IntDosCal_14,
-dw IntDosCal_15, IntDosCal_16, IntDosCal_17, IntDosCal_18, IntDosCal_19,
-dw IntDosCal_1a, IntDosCal_1b, IntDosCal_1c, IntDosCal_1d, IntDosCal_1e,
-dw IntDosCal_1f, IntDosCal_20, IntDosCal_21, IntDosCal_22, IntDosCal_23,
-dw IntDosCal_24, IntDosCal_25, IntDosCal_26, IntDosCal_27, IntDosCal_28,
-dw IntDosCal_29, IntDosCal_2a, IntDosCal_2b, IntDosCal_2c, IntDosCal_2d,
-dw IntDosCal_2e, IntDosCal_2f, IntDosCal_30, IntDosCal_31
+;***********************************************************
+; internal doscalls INT2F/11xx - handled through C 
+;***********************************************************
+IntDosCal:                
+                        ; set up register frame
+;struct int2f12regs
+;{
+;  UWORD es,ds;
+;  UWORD di,si,bp,bx,dx,cx,ax;
+;  UWORD ip,cs,flags;
+;  UWORD callerARG1; 
+;};
+    push ax
+    push cx
+    push dx
+    push bx
+    push bp
+    push si
+    push di
+    push ds
+    push es
 
-retff:          mov     al,0ffh
-                jmp     FarTabRetnBX
-                
-IntDosCal_3:                    
-                push    ax
-                mov     ax, seg _nul_dev
-                mov     ds,ax
-                pop     ax
-                clc
-                jmp     FarTabRetnBX
-
-IntDosCal_8:
-                ; decrease SFT reference count
-                dec     word [es:di]
-                jnz     .skip
-                dec     word [es:di]
-.skip:        
-                jmp     FarTabRetnBX
-
-IntDosCal_1:
-IntDosCal_2:
-IntDosCal_4:
-IntDosCal_5:
-IntDosCal_6:
-IntDosCal_7:
-IntDosCal_9:
-IntDosCal_a:
-IntDosCal_b:
-IntDosCal_c:
-IntDosCal_d:
-IntDosCal_e:
-IntDosCal_f:
-IntDosCal_10:
-IntDosCal_11:
-IntDosCal_13:
-IntDosCal_14:
-IntDosCal_15:
-IntDosCal_16:
-IntDosCal_17:
-IntDosCal_19:
-IntDosCal_1a:
-IntDosCal_1c:
-IntDosCal_1d:
-IntDosCal_1e:
-IntDosCal_1f:
-IntDosCal_20:
-IntDosCal_22:
-IntDosCal_23:
-IntDosCal_24:
-IntDosCal_26:
-IntDosCal_27:
-IntDosCal_28:
-IntDosCal_29:
-IntDosCal_2b:
-IntDosCal_2d:
-IntDosCal_2e:
-IntDosCal_2f:
-IntDosCal_30:
-IntDosCal_31:
-                jmp     FarTabRetnBX
-
-; get length of asciiz string
-IntDosCal_12:
-                push    di
-                push    es
-		extern  _fstrlen
-                call    _fstrlen
-                add     sp, byte 4
-                mov     cx, ax
-                inc     cx
-                jmp     FarTabRetnBX
-
-; get caller's registers
-IntDosCal_18:
-		extern	_user_r
-                lds     si, [_user_r]
-                jmp     FarTabRetnBX
-
-; #days in February - valid until 2099.
-IntDosCal_1b:
-                mov     al, 28
-                test    cl, 3
-                jnz     .noleap
-                inc     al
-.noleap:        jmp     FarTabRetnBX 
-
-; truename
-IntDosCal_21:   
-                xor     bx, bx
-                push    bx
-                push    es
-                push    di
-                push    ds
-                push    si
-		extern  _truename
-                call    _truename
-                add     sp, byte 10
-                jmp     FarTabRetnBX
-
-; get length of asciiz string
-IntDosCal_25:
-                push    si
-                push    ds
-                call    _fstrlen
-                add     sp, byte 4
-                mov     cx, ax
-                inc     cx
-                jmp     FarTabRetnBX                
-
-;
-;Set FastOpen but does nothing.
-IntDosCal_2a:
-                clc
-                jmp     FarTabRetn
-;
-;   added by James Tabor For Zip Drives
-;Return Null Device Pointer
-IntDosCal_2c:
-                mov     ax,_nul_dev
-                mov     bx,seg _nul_dev
-                clc
-                jmp     FarTabRetn
+    mov ax,DGROUP
+    mov ds,ax    
+                extern   _int2F_12_handler:wrt HGROUP
+    call _int2F_12_handler
+    
+    pop es
+    pop ds
+    pop di
+    pop si
+    pop bp
+    pop bx
+    pop dx
+    pop cx
+    pop ax
+    
+    iret
+                    
         
 
 ; Int 2F Multipurpose Remote System Calls

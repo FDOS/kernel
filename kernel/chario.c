@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.12  2001/08/20 20:32:15  bartoldeman
  * Truename, get free space and ctrl-break fixes.
  *
@@ -150,10 +153,6 @@ static VOID kbfill();
 struct dhdr FAR *finddev();
 #endif
 
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-#endif
-
 /*      Return a pointer to the first driver in the chain that
  *      matches the attributes.
  *      not necessary because we have the syscon pointer.
@@ -177,8 +176,15 @@ struct dhdr FAR *finddev(UWORD attr_mask)
 VOID _cso(COUNT c)
 {
    if (syscon->dh_attr & ATTR_FASTCON) {
-     _AL = c;
-     __int__(0x29);
+	 #if defined(__TURBOC__)   	
+     	_AL = c;
+     	__int__(0x29);
+     #else
+     	asm {
+     		mov al, byte ptr c;
+     		int 0x29;
+     	}
+     #endif	
      return;
    }
    CharReqHdr.r_length = sizeof(request);

@@ -21,10 +21,6 @@
 #include "nls.h"
 #include "buffer.h"
 
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-#endif
-
 /*
  * The null macro `INIT' can be used to allow the reader to differentiate
  * between functions defined in `INIT_TEXT' and those defined in `_TEXT'.
@@ -43,14 +39,14 @@ void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
 #define fstrncpy    reloc_call_fstrncpy
 #define strcpy      reloc_call_strcpy
 #define strlen      reloc_call_strlen
-WORD execrh(request FAR *, struct dhdr FAR *);
-VOID fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n);
-void fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);
-void memset(REG VOID * s, REG int ch, REG COUNT n);
-VOID strcpy(REG BYTE * d, REG BYTE * s);
-VOID fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, REG COUNT n);
-COUNT fstrlen(REG BYTE FAR * s);
-COUNT strlen(REG BYTE * s);
+WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
+VOID ASMCFUNC fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n);
+void ASMCFUNC fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);
+void ASMCFUNC memset(REG VOID * s, REG int ch, REG COUNT n);
+VOID ASMCFUNC strcpy(REG BYTE * d, REG BYTE * s);
+VOID ASMCFUNC fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, REG COUNT n);
+COUNT ASMCFUNC fstrlen(REG BYTE FAR * s);
+COUNT ASMCFUNC strlen(REG BYTE * s);
 
 #undef LINESIZE
 #define LINESIZE KBD_MAXLENGTH
@@ -60,7 +56,7 @@ COUNT strlen(REG BYTE * s);
 extern BYTE DosLoadedInHMA;
 extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
 
-#define setvec(n, isr)  (void)(*(VOID (INRPT FAR * FAR *)())(4 * (n)) = (isr))
+#define setvec(n, isr)  (void)(*(VOID (FAR * FAR *)())(MK_FP(0,4 * (n))) = (isr))
 
 #define fbcopy(s, d, n)    fmemcpy(d,s,n)
 #define GLOBAL extern
@@ -133,15 +129,15 @@ INIT COUNT toupper(COUNT c);
 INIT VOID mcb_init(UCOUNT seg, UWORD size);
 INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 INIT BYTE FAR *KernelAlloc(WORD nBytes);
-INIT COUNT Umb_Test(void);
-INIT COUNT UMB_get_largest(UCOUNT *seg, UCOUNT *size);
+INIT COUNT ASMCFUNC Umb_Test(void);
+INIT COUNT ASMCFUNC UMB_get_largest(UCOUNT *seg, UCOUNT *size);
 INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
 
 /* diskinit.c */
 COUNT dsk_init(VOID);
 
 /* int2f.asm */
-COUNT Umb_Test(void);
+COUNT ASMCFUNC Umb_Test(void);
 
 /* inithma.c */
 int MoveKernelToHMA(void);
@@ -152,45 +148,41 @@ UWORD init_oem(void);
 
 /* intr.asm */
 
-void init_call_intr(int nr, iregs *rp);
-UCOUNT read(int fd, void *buf, UCOUNT count); 
-int open(const char *pathname, int flags);
-int close(int fd);
-int dup2(int oldfd, int newfd); 
-int allocmem(UWORD size, seg *segp);
-INIT VOID init_PSPInit(seg psp_seg);
-INIT VOID init_PSPSet(seg psp_seg);
-INIT COUNT init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
-INIT VOID keycheck(VOID);
+void ASMCFUNC init_call_intr(int nr, iregs *rp);
+UCOUNT ASMCFUNC read(int fd, void *buf, UCOUNT count); 
+int ASMCFUNC open(const char *pathname, int flags);
+int ASMCFUNC close(int fd);
+int ASMCFUNC dup2(int oldfd, int newfd); 
+int ASMCFUNC allocmem(UWORD size, seg *segp);
+INIT VOID ASMCFUNC init_PSPInit(seg psp_seg);
+INIT VOID ASMCFUNC init_PSPSet(seg psp_seg);
+INIT COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
+INIT VOID ASMCFUNC keycheck(VOID);
 
 /* irqstack.asm */
-VOID init_stacks(VOID FAR * stack_base, COUNT nStacks, WORD stackSize);
+VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks, WORD stackSize);
 
 /* inthndlr.c */
-VOID far int21_entry(iregs UserRegs);
-VOID int21_service(iregs far * r);
-VOID INRPT FAR int0_handler(void);
-VOID INRPT FAR int6_handler(void);
-VOID INRPT FAR empty_handler(void);
-VOID INRPT far got_cbreak(void);  /* procsupt.asm */
-VOID INRPT far int20_handler(iregs UserRegs);
-VOID INRPT far int21_handler(iregs UserRegs);
-VOID INRPT FAR int22_handler(void);
-VOID INRPT FAR int23_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs
-                             , int flags);
-VOID INRPT FAR int24_handler(void);
-VOID INRPT FAR low_int25_handler(void);
-VOID INRPT FAR low_int26_handler(void);
-VOID INRPT FAR int27_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs
-                             , int flags);
-VOID INRPT FAR int28_handler(void);
-VOID INRPT FAR int29_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs
-                             , int flags);
-VOID INRPT FAR int2a_handler(void);
-VOID INRPT FAR int2f_handler(void);
+VOID far 	   ASMCFUNC int21_entry(iregs UserRegs);
+VOID 		   ASMCFUNC int21_service(iregs far * r);
+VOID FAR ASMCFUNC int0_handler(void);
+VOID FAR ASMCFUNC int6_handler(void);
+VOID FAR ASMCFUNC empty_handler(void);
+VOID far ASMCFUNC got_cbreak(void);  /* procsupt.asm */
+VOID far ASMCFUNC int20_handler(iregs UserRegs);
+VOID far ASMCFUNC int21_handler(iregs UserRegs);
+VOID FAR ASMCFUNC int22_handler(void);
+VOID FAR ASMCFUNC int24_handler(void);
+VOID FAR ASMCFUNC low_int25_handler(void);
+VOID FAR ASMCFUNC low_int26_handler(void);
+VOID FAR ASMCFUNC int27_handler(void);
+VOID FAR ASMCFUNC int28_handler(void);
+VOID FAR ASMCFUNC int29_handler(void);
+VOID FAR ASMCFUNC int2a_handler(void);
+VOID FAR ASMCFUNC int2f_handler(void);
 
 /* main.c */
-INIT VOID main(void);
+INIT VOID ASMCFUNC FreeDOSmain(void);
 INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT top);
 INIT VOID init_fatal(BYTE * err_msg);
 
@@ -201,3 +193,10 @@ void MoveKernel(unsigned NewKernelSegment);
 extern WORD HMAFree;          /* first byte in HMA not yet used      */
 
 extern unsigned CurrentKernelSegment;
+
+#if defined(WATCOM) && 0
+ULONG FAR ASMCFUNC MULULUS(ULONG mul1, UWORD mul2); /* MULtiply ULong by UShort */
+ULONG FAR ASMCFUNC MULULUL(ULONG mul1, ULONG mul2); /* MULtiply ULong by ULong */
+ULONG FAR ASMCFUNC DIVULUS(ULONG mul1, UWORD mul2); /* DIVide ULong by UShort */
+ULONG FAR ASMCFUNC DIVMODULUS(ULONG mul1, UWORD mul2,UWORD *rem); /* DIVide ULong by UShort */
+#endif

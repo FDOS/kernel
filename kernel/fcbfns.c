@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.17  2001/08/20 20:32:15  bartoldeman
  * Truename, get free space and ctrl-break fixes.
  *
@@ -177,6 +180,10 @@ VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
 {
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
+#ifdef WITHFAT32
+  UCOUNT shift = 0;
+  ULONG cluster_size, ntotal;
+#endif
 
                 	/* first check for valid drive          */
   *spc = -1;
@@ -211,9 +218,23 @@ VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
     return;
   }
 
+#ifdef WITHFAT32
+  cluster_size = (dpbp->dpb_clsmask + 1) * dpbp->dpb_secsize;
+  ntotal = dpbp->dpb_size - 1;
+  while (cluster_size <= 0x7fff) {
+    cluster_size <<= 1;
+    ntotal >>= 1;
+    shift++;
+  }
+  /* get the data available from dpb                      */
+  if (ntotal > 0xfffe) ntotal = 0xfffe;
+  *nc = (UCOUNT)ntotal;
+  *spc = (dpbp->dpb_clsmask + 1) << shift;
+#else
   /* get the data vailable from dpb                       */
   *nc = dpbp->dpb_size - 1;
   *spc = dpbp->dpb_clsmask + 1;
+#endif
   *bps = dpbp->dpb_secsize;
 
   /* Point to the media desctriptor for this drive               */
@@ -268,12 +289,12 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
   if (*(*lpFileName + 1) == ':')
   {
     /* non-portable construct to be changed                 */
-    REG UBYTE Drive = DosUpFChar(**lpFileName) - 'A' + 1;
+    REG UBYTE Drive = DosUpFChar(**lpFileName) - 'A';
 
     if (Drive >= lastdrive)
       return PARSE_RET_BADDRIVE;
 
-    lpFcb->fcb_drive = Drive;
+    lpFcb->fcb_drive = Drive + 1;
     *lpFileName += 2;
   }
 
@@ -744,10 +765,6 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
   /* Build a traditional DOS file name                            */
   CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
 
-  if ((UCOUNT)FcbDrive >= lastdrive) {
-    return DE_INVLDDRV;
-  }
-
   /* check for a device                                           */
   if (IsDevice(SecPathName))
   {
@@ -952,7 +969,7 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   *lpDir++ = FcbDrive; 
   fmemcpy(lpDir, &SearchDir, sizeof(struct dirent));
 
-  lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
+  lpFcb->fcb_dirclst = (UWORD)Dmatch.dm_dircluster;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
 /*
@@ -993,8 +1010,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
 
   Dmatch.dm_attr_srch = wAttr;
   Dmatch.dm_entry = lpFcb->fcb_strtclst;
-  Dmatch.dm_cluster = lpFcb->fcb_dirclst;
-  Dmatch.dm_dirstart= lpFcb->fcb_dirclst;
+  Dmatch.dm_dircluster = lpFcb->fcb_dirclst;
 
   if ((xfcb FAR *) lpFcb != lpXfcb)
   {
@@ -1015,7 +1031,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   *lpDir++ = FcbDrive; 
   fmemcpy((struct dirent FAR *)lpDir, &SearchDir, sizeof(struct dirent));
 
-  lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
+  lpFcb->fcb_dirclst = (UWORD)Dmatch.dm_dircluster;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
   lpFcb->fcb_sftno = Dmatch.dm_drive;

@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.31  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.30  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -274,11 +277,19 @@ VOID FAR int21_entry(iregs UserRegs)
 }
 #endif
 
+/* Structures needed for int 25 / int 26 */
+struct HugeSectorBlock
+{
+  ULONG blkno;
+  WORD nblks;
+  BYTE FAR *buf;
+};
+
 /* Normal entry.  This minimizes user stack usage by avoiding local     */
 /* variables needed for the rest of the handler.                        */
 /* this here works on the users stack !! and only very few functions 
    are allowed                                                          */
-VOID int21_syscall(iregs FAR * irp)
+VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 {
   Int21AX = irp->AX;
 
@@ -364,7 +375,7 @@ VOID int21_syscall(iregs FAR * irp)
 }
 
 
-VOID int21_service(iregs FAR * r)
+VOID ASMCFUNC int21_service(iregs FAR * r)
 {
   COUNT rc = 0,
 	  rc1;
@@ -893,7 +904,11 @@ dispatch:
       }  
       dpb->dpb_flags = M_CHANGED;       /* force reread of drive BPB/DPB */
           
+#ifdef WITHFAT32
+      if (media_check(dpb) < 0 || ISFAT32(dpb))
+#else
       if (media_check(dpb) < 0)
+#endif
       {
           r->AL = 0xff;
           CritErrCode = 0x0f;
@@ -1255,7 +1270,11 @@ dispatch:
 
     case 0x53:
       /*  DOS 2+ internal - TRANSLATE BIOS PARAMETER BLOCK TO DRIVE PARAM BLOCK */
-      bpb_to_dpb((bpb FAR *)MK_FP(r->DS, r->SI), (struct dpb FAR *)MK_FP(r->ES, r->BP));
+      bpb_to_dpb((bpb FAR *)MK_FP(r->DS, r->SI), (struct dpb FAR *)MK_FP(r->ES, r->BP)
+#ifdef WITHFAT32
+		      ,(r->CX == 0x4558 && r->DX == 0x4152)
+#endif
+		      );
       break;
       
       /* Get verify state                                             */
@@ -1645,7 +1664,7 @@ dispatch:
 
       /* Get/Set Serial Number */
     case 0x69:
-      rc = ( r->BL == 0 ? default_drive : r->BL - 1);
+      rc = (r->BL == 0 ? default_drive : r->BL - 1);
       if (rc < lastdrive)
       {
         UWORD saveCX = r->CX;
@@ -1679,7 +1698,7 @@ dispatch:
     case 0x6b: dummy func: return AL=0
 */    
     /* Extended Open-Creat, not fully functional. (bits 4,5,6 of BH) */
-    case 0x6c:
+	  case 0x6c:
       {
         COUNT x = 0;
       
@@ -1721,25 +1740,225 @@ break_out:
         break;
       }
 
-
     /* case 0x6d and above not implemented : see default; return AL=0 */
-        
-  }
 
+#ifdef WITHFAT32
+			/* DOS 7.0+ FAT32 extended funcitons */
+  	case 0x73:
+			{
+				switch(r->AL)
+					{
+						/* Get extended drive parameter block */
+					case 0x02:
+						{
+							struct xdpbdata FAR *xddp = (struct xdpbdata FAR *)MK_FP(r->ES, r->DI);
+							struct dpb FAR *dpb;
+
+							if (r->CX < sizeof(struct xdpbdata))
+								{
+								  r->AX = -DE_INVLDBUF;
+									goto error_out;
+								}
+
+              dpb = GetDriveDPB(r->DL, &rc);
+              if (rc != SUCCESS) goto error_exit;
+
+							dpb->dpb_flags = M_CHANGED;  /* force reread of drive BPB/DPB */
+          
+							if (media_check(dpb) < 0)
+								{
+									r->AX = -DE_INVLDDRV;
+									goto error_out;
+								}
+
+							fmemcpy(&xddp->xdd_dpb, dpb, sizeof(struct dpb));
+							xddp->xdd_dpbsize = sizeof(struct dpb);
+              CLEAR_CARRY_FLAG();
+
+							break;
+						}
+						/* Get extended free drive space */
+          case 0x03:
+    				{
+              struct xfreespace FAR *xfsp =
+                (struct xfreespace FAR *)MK_FP(r->ES, r->DI);
+    					if (r->CX < sizeof(struct xfreespace))
+    						{
+                  r->AX = -DE_INVLDBUF;
+                  goto error_out;
+    						}
+    					CLEAR_CARRY_FLAG();
+    					rc = DosGetExtFree((BYTE FAR *)FP_DS_DX, xfsp);
+    					if (rc != SUCCESS)
+    						goto error_exit;
+              xfsp->xfs_datasize = sizeof(struct xfreespace);
+              xfsp->xfs_version.actual = 0;
+    					break;
+    				}
+            /* Set DPB to use for formatting */
+          case 0x04:
+            {
+              struct xdpbforformat FAR *xdffp =
+                (struct xdpbforformat FAR *)MK_FP(r->ES, r->DI);
+              struct dpb FAR *dpb;
+    					if (r->CX < sizeof(struct xdpbforformat))
+    						{
+                  r->AX = -DE_INVLDBUF;
+                  goto error_out;
+    						}
+              dpb = GetDriveDPB(r->DL, &rc);
+              if (rc != SUCCESS) goto error_exit;
+
+              CLEAR_CARRY_FLAG();
+              xdffp->xdff_datasize = sizeof(struct xdpbforformat);
+              xdffp->xdff_version.actual = 0;
+
+	      switch ((UWORD)xdffp->xdff_function)
+                {
+                case 0x00:
+                  {
+                    DWORD nfreeclst = xdffp->xdff_f.setdpbcounts.nfreeclst;
+                    DWORD cluster = xdffp->xdff_f.setdpbcounts.cluster;
+                    if ((dpb->dpb_xfsinfosec == 0xffff && (nfreeclst != 0 ||
+                    		                           cluster != 0)) ||
+                        nfreeclst == 1 || nfreeclst > dpb->dpb_size ||
+                        cluster == 1 || cluster > dpb->dpb_size)
+                      {
+                        r->AX = -DE_INVLDPARM;
+                        goto error_out;
+                      }
+                    dpb->dpb_nfreeclst = nfreeclst;
+                    dpb->dpb_cluster = cluster;
+		    write_fsinfo(dpb);
+                    break;
+                  }
+                case 0x01:
+                  {
+                    ddt *pddt = getddt(r->DL);
+                    fmemcpy(&pddt->ddt_bpb, xdffp->xdff_f.rebuilddpb.bpbp,
+			    sizeof(bpb));
+                  }
+                case 0x02:
+                  {
+rebuild_dpb:
+                    dpb->dpb_flags = M_CHANGED;
+          
+                    if (media_check(dpb) < 0)
+                      {
+                        r->AX = -DE_INVLDDRV;
+                        goto error_out;
+                      }
+
+                    break;
+                  }
+                case 0x03:
+                  {
+                    struct buffer FAR *bp;
+                    bpb FAR *bpbp;
+                    DWORD newmirroring = xdffp->xdff_f.setmirroring.newmirroring;
+                    if (newmirroring != -1 && newmirroring & ~(0xf | 0x80))
+                      {
+                        r->AX = -DE_INVLDPARM;
+                        goto error_out;
+                      }
+                    xdffp->xdff_f.setmirroring.oldmirroring = dpb->dpb_xflags;
+                    if (newmirroring != -1)
+                      {
+                        bp = getblock(1, dpb->dpb_unit);
+                        bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
+                        bp->b_flag |= BFR_VALID | BFR_DIRTY;
+                        bpbp = (bpb FAR *)& bp->b_buffer[BT_BPB];
+                        bpbp->bpb_xflags = newmirroring;
+                      }
+                    goto rebuild_dpb;
+                  }
+                case 0x04:
+                  {
+                    struct buffer FAR *bp;
+                    bpb FAR *bpbp;
+                    DWORD rootclst = xdffp->xdff_f.setroot.newrootclst;
+                    if (rootclst != -1 && (rootclst == 1 ||
+                        rootclst > dpb->dpb_size))
+                      {
+                        r->AX = -DE_INVLDPARM;
+                        goto error_out;
+                      }
+                    xdffp->xdff_f.setroot.oldrootclst = dpb->dpb_xrootclst;
+                    if (rootclst != -1)
+                      {
+                        bp = getblock(1, dpb->dpb_unit);
+                        bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
+                        bp->b_flag |= BFR_VALID | BFR_DIRTY;
+                        bpbp = (bpb FAR *) & bp->b_buffer[BT_BPB];
+                        bpbp->bpb_xrootclst = rootclst;
+                      }
+                    goto rebuild_dpb;
+                  }
+                }
+
+              break;              
+            }
+						/* Extended absolute disk read/write */
+            /* TODO(vlp) consider using of the 13-14th bits of SI */
+          case 0x05:
+    				{
+              struct HugeSectorBlock FAR *SectorBlock =
+                (struct HugeSectorBlock FAR *)MK_FP(r->DS, r->BX);
+              UBYTE mode;
+         
+    					if (r->CX != 0xffff || ((r->SI & 1) == 0 && r->SI != 0)
+                  || (r->SI & ~0x6001))
+    						{
+                  r->AX = -DE_INVLDPARM;
+                  goto error_out;
+    						}
+                
+              if (r->DL - 1 >= lastdrive || r->DL == 0)
+                {
+                  r->AX = 0x207;
+                  goto error_out;
+                }
+    					CLEAR_CARRY_FLAG();
+
+              if (r->SI == 0) mode = DSKREAD;
+              else mode = DSKWRITE;
+              InDOS++;
+
+              r->AX=dskxfer(r->DL - 1, SectorBlock->blkno, SectorBlock->buf,
+                SectorBlock->nblks, mode);
+
+              if (mode == DSKWRITE)
+                if (r->AX <= 0)
+                setinvld(r->DL - 1);
+
+              if (r->AX > 0)
+                {
+                  r->AX = 0x20c;
+                  r->flags |= FLG_CARRY;
+                  --InDOS;
+                  return;
+                }
+
+
+              r->AX = 0;
+              r->flags &= ~FLG_CARRY;
+              --InDOS;
+    					break;
+    				}
+          }
+        break;
+			}
+#endif
+  }
 #ifdef DEBUG
   if (bDumpRegs)
-  {
-    fbcopy((VOID FAR *) user_r, (VOID FAR *) & error_regs,
-           sizeof(iregs));
-    dump_regs = TRUE;
-    dump();
-  }
+    {
+      fbcopy((VOID FAR *) user_r, (VOID FAR *) & error_regs,
+             sizeof(iregs));
+      dump_regs = TRUE;
+      dump();
+    }
 #endif
-}
-
-/* terminate handler */
-VOID INRPT FAR int22_handler(void)
-{
 }
 
 #if 0
@@ -1759,14 +1978,6 @@ VOID INRPT FAR int23_handler(int es, int ds, int di, int si, int bp, int sp, int
   return_user();
 }
 #endif
-
-/* Structures needed for int 25 / int 26 */
-struct HugeSectorBlock
-{
-  ULONG blkno;
-  WORD nblks;
-  BYTE FAR *buf;
-};
 
 struct int25regs
 {
@@ -1788,7 +1999,7 @@ struct int25regs
 /* 
     this function is called from an assembler wrapper function 
 */
-VOID int2526_handler(WORD mode, struct int25regs FAR * r)
+VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
 {
   ULONG blkno;
   UWORD nblks;
@@ -1806,7 +2017,16 @@ VOID int2526_handler(WORD mode, struct int25regs FAR * r)
     r->flags |= FLG_CARRY;
     return;
   }
-  
+
+#ifdef WITHFAT32
+  if (!(CDSp->cds_table[drv].cdsFlags & CDSNETWDRV) &&
+      ISFAT32(CDSp->cds_table[drv].cdsDpb))
+  {
+    r->ax = 0x207;
+    r->flags |= FLG_CARRY;
+    return;
+  }
+#endif  
 
   nblks = r->cx;
   blkno = r->dx;
@@ -1868,3 +2088,138 @@ static VOID StartTrace(VOID)
 }
 #endif
 
+/* 
+    this function is called from an assembler wrapper function 
+    and serves the internal dos calls - int2f/12xx
+*/
+struct int2f12regs
+{
+  UWORD es,ds;
+  UWORD di,si,bp,bx,dx,cx,ax;
+  UWORD ip,cs,flags;
+  UWORD callerARG1;             /* used if called from INT2F/12 */    
+};
+
+VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
+{ 
+    UWORD function = r.ax & 0xff;
+    
+    if (function > 0x31)
+        return;
+    
+    switch(function)
+    {
+        case 0x00:      /* installation check */
+            r.ax |= 0x00ff;
+            break;
+
+        case 0x03:      /* get DOS data segment */
+            r.ds = FP_SEG(&nul_dev);
+            break;         
+            
+        case 0x08:      /* decrease SFT reference count */
+            {
+            UWORD FAR *SFTp = MK_FP(r.es,r.di);
+            
+            r.ax = *SFTp;
+            
+            if (--*SFTp == 0) --*SFTp;
+            
+            }
+            break;
+
+        case 0x12:      /* get length of asciiz string */
+            
+            r.cx = fstrlen(MK_FP(r.es, r.di))+1;
+            
+            break;
+
+
+
+        case 0x18:      /* get caller's registers */
+        
+            r.ds = FP_SEG(user_r);
+            r.si = FP_OFF(user_r);
+            break;
+
+        case 0x1b:      /* #days in February - valid until 2099.*/
+        
+            r.ax = (r.ax & 0xff00) | (r.cx & 3 ? 28 : 29);
+            break;
+        
+        case 0x21:       /* truename */
+        
+            truename(MK_FP(r.ds,r.si), MK_FP(r.es,r.di),0);
+    
+            break;
+
+        case 0x25:      /* get length of asciiz string */
+        
+            r.cx = fstrlen(MK_FP(r.ds, r.si))+1;
+            break;
+        
+
+        case 0x2a:      /* Set FastOpen but does nothing. */
+        
+            r.flags &= ~FLG_CARRY;
+            break;        
+
+        case 0x2c:      /* added by James Tabor For Zip Drives
+                           Return Null Device Pointer          */
+                        /* by UDOS+RBIL: get header of SECOND device driver in device chain, 
+                           omitting the NUL device TE*/                            
+            r.bx = FP_SEG(nul_dev.dh_next);
+            r.ax = FP_OFF(nul_dev.dh_next);
+            
+            break;
+
+        case 0x2e:  /* GET or SET error table addresse - ignored
+                       called by MS debug with  DS != DOSDS, printf
+		       doesn't work!! */
+            break;
+
+        case 0x16:      /* get address of system file table entry - used by NET.EXE
+                           BX system file table entry number ( such as returned from 2F/1220)
+                           returns
+                           ES:DI pointer to SFT entry */
+            {
+            sft FAR *p = get_sft(r.bx);
+            
+            r.es = FP_SEG(p);                
+            r.di = FP_OFF(p);                
+            break;
+            }
+
+                                       
+        case 0x17:      /* get current directory structure for drive - used by NET.EXE
+                           STACK: drive (0=A:,1=B,...)
+                            ; returns
+                            ;   CF set if error
+                            ;   DS:SI pointer to CDS for drive
+                            ; 
+                            ; called like
+                            ;   push 2 (c-drive)
+                            ;   mov ax,1217
+                            ;   int 2f
+                            ;
+                            ; probable use: get sizeof(CDSentry)
+                            */
+            {
+            UWORD drv = r.callerARG1 & 0xff;
+            
+            if (drv >= lastdrive)
+                r.flags |= FLG_CARRY;
+            else
+                {
+                r.ds = FP_SEG(CDSp);
+                r.si = FP_OFF(&CDSp->cds_table[drv]);
+                r.flags &= ~FLG_CARRY;
+                }
+            break;
+            }                        
+        default:
+            printf("unknown internal dos function INT2F/12%02x\n",function);
+        
+        }
+
+}

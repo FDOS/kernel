@@ -28,7 +28,7 @@
 
 #include "portab.h"
 
-/* #define DOSEMU */
+/*#define DOSEMU*/
 
 #ifdef FORINIT
 #define fstrlen reloc_call_fstrlen
@@ -41,7 +41,7 @@
 #define hexd init_hexd
 #endif
 
-COUNT fstrlen (BYTE FAR * s);        /* don't want globals.h, sorry */
+COUNT ASMCFUNC fstrlen (BYTE FAR * s);        /* don't want globals.h, sorry */
 
 
 #ifdef VERSION_STRINGS
@@ -50,6 +50,9 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.11  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -75,6 +78,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.12  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.11  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -141,7 +147,7 @@ static BYTE *prfRcsId = "$Id$";
  * Initial revision.
  */
 
-static BYTE *charp;
+static BYTE *charp = 0;
 
 #ifdef PROTO
 VOID handle_char(COUNT);
@@ -160,10 +166,6 @@ COUNT do_printf();
 VOID cso(COUNT);
 #else
 VOID cso();
-#endif
-
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
 #endif
 
 #ifdef FORSYS
@@ -188,9 +190,18 @@ put_console(COUNT c)
 #ifdef FORSYS
   write(1,&c,1);      /* write character to stdout */
 #else  
+#if defined(__TURBOC__)   	
   _AX = 0x0e00 | c;
   _BX = 0x0070;
   __int__(0x10);
+#else
+	__asm {
+		mov al, byte ptr c;
+		mov ah, 0x0e;
+		mov bx, 0x0070;
+		int 0x10;
+	}  
+#endif /* __TURBO__*/
 #endif  
 }
 
@@ -227,7 +238,9 @@ BYTE *
   p = q = s;
   do
   {                             /* generate digits in reverse order */
-    *p++ = "0123456789abcdef"[(UWORD)(u % base)];
+  	static char hexDigits[] = "0123456789abcdef";
+  
+    *p++ = hexDigits[(UWORD)(u % base)];
   }
   while ((u /= base) > 0);
   
@@ -365,9 +378,10 @@ COUNT
       case 'p':
             {
             WORD w[2];
+            static char pointerFormat[] = "%04x:%04x";
             w[1] = *((unsigned int*) arg)++;
             w[0] = *((unsigned int*) arg)++;
-            do_printf("%04x:%04x",(BYTE**)&w);
+            do_printf(pointerFormat,(BYTE**)&w);
     	    continue;
     	    }
 

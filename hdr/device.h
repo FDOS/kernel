@@ -35,6 +35,9 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.7  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -229,25 +232,10 @@ struct dhdr
 /*                                                                      */
 /* Bios Parameter Block structure                                       */
 /*                                                                      */
-/* The following offsets are computed as byte offsets and are based on  */
-/* the struct below. The struct itself cannot be used because on some   */
-/* compilers, structure alignement may be forced, throwing following    */
-/* fields off (e.g. - BYTE, followed by a WORD may have a byte of fill  */
-/* inserted in between; the WORD would then be at offset 2, not 1).     */
-/*                                                                      */
-#define BPB_NBYTE       0
-#define BPB_NSECTOR     2
-#define BPB_NRESERVED   3
-#define BPB_NFAT        5
-#define BPB_NDIRENT     6
-#define BPB_NSIZE       8
-#define BPB_MDESC       10
-#define BPB_NFSECT      11
-#define BPB_NSECS       13
-#define BPB_NHEADS      15
-#define BPB_HIDDEN      17
-#define BPB_HUGE        21
-#define BPB_SIZEOF      25
+
+#define FAT_NO_MIRRORING 0x80
+
+#define BPB_SIZEOF 31  /* size of the standard BPB */
 
 typedef struct
 {
@@ -263,7 +251,21 @@ typedef struct
   UWORD bpb_nheads;             /* Number of heads              */
   ULONG bpb_hidden;             /* Hidden sectors               */
   ULONG bpb_huge;               /* Size in sectors if           */
-  /* bpb_nsize== 0                                */
+                                /* bpb_nsize == 0               */
+#ifdef WITHFAT32
+  ULONG bpb_xnfsect;            /* FAT size in sectors if       */
+                                /* bpb_nfsect == 0              */
+  UWORD bpb_xflags;             /* extended flags               */
+                                /* bit 7: disable mirroring     */
+                                /* bits 6-4: reserved (0)       */
+                                /* bits 3-0: active FAT number  */
+  UWORD bpb_xfsversion;         /* filesystem version           */
+  ULONG bpb_xrootclst;          /* starting cluster of root dir */
+  UWORD bpb_xfsinfosec;         /* FS info sector number,       */
+                                /* 0xFFFF if unknown            */
+  UWORD bpb_xbackupsec;         /* backup boot sector number    */
+                                /* 0xFFFF if unknown            */
+#endif
 }
 bpb;
 
@@ -334,6 +336,18 @@ typedef struct ddtstruct
   BITS ddt_WriteVerifySupported:1;
 } ddt;
 
+/* description flag bits */
+#define DF_FIXED      0x001
+#define DF_CHANGELINE 0x002
+#define DF_CURBPBLOCK 0x004
+#define DF_SAMESIZE   0x008
+#define DF_MULTLOG    0x010
+#define DF_CURLOG     0x020
+#define DF_DISKCHANGE 0x040
+#define DF_DPCHANGED  0x080
+#define DF_REFORMAT   0x100
+#define DF_NOACCESS   0x200
+
 /* typedef struct ddtstruct ddt;*/
 
 struct gblkio
@@ -382,6 +396,15 @@ typedef struct
   BYTE  bt_fstype[8];
 }
 boot;
+
+/* File system information structure */
+struct fsinfo
+{
+  UDWORD fi_signature; /* must be 0x61417272 */
+  DWORD fi_nfreeclst;  /* number of free clusters, -1 if unknown */
+  DWORD fi_cluster;    /* most recently allocated cluster, -1 if unknown */
+  UBYTE fi_reserved[12];
+};
 
 typedef boot super;             /* Alias for boot structure             */
 

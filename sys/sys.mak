@@ -4,6 +4,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.9  2001/09/23 20:39:44  bartoldeman
+# FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+#
 # Revision 1.8  2001/04/29 17:34:41  bartoldeman
 # A new SYS.COM/config.sys single stepping/console output/misc fixes.
 #
@@ -49,7 +52,7 @@
 !include "..\config.mak"
 
 CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
-	 -DI86;PROTO;FORSYS
+	 -DI86;PROTO;FORSYS;WITHFAT32
 
 #               *Implicit Rules*
 .c.obj:
@@ -77,6 +80,9 @@ b_fat12.h:      ..\boot\b_fat12.bin bin2c.com
 b_fat16.h:      ..\boot\b_fat16.bin bin2c.com
                 bin2c ..\boot\b_fat16.bin b_fat16.h b_fat16
 
+b_fat32.h:      ..\boot\b_fat32.bin bin2c.com
+                bin2c ..\boot\b_fat32.bin b_fat32.h b_fat32
+
 #floppy.obj:     ..\drivers\floppy.asm
 #                $(NASM) -fobj -DSYS=1 ..\drivers\floppy.asm -o floppy.obj 
 
@@ -88,13 +94,13 @@ sys.com:        $(EXE_dependencies)
                 $(CLIB);
 
 clobber:	clean
-                $(RM) sys.com b_fat12.h b_fat16.h
+                $(RM) sys.com b_fat12.h b_fat16.h b_fat32.h
 
 clean:
                 $(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las status.me
 
 #		*Individual File Dependencies*
-sys.obj: sys.c ..\hdr\portab.h ..\hdr\device.h b_fat12.h b_fat16.h
+sys.obj: sys.c ..\hdr\portab.h ..\hdr\device.h b_fat12.h b_fat16.h b_fat32.h
 
 # RULES (DEPENDENCIES)
 # ----------------

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.23  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.22  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -280,6 +283,18 @@ f_node_ptr dir_open(BYTE * dirname)
   /* Set the root flags since we always start from the root       */
 
   fnp->f_flags.f_droot = TRUE;
+#ifdef WITHFAT32
+  if (ISFAT32(fnp->f_dpb)) {
+      fnp->f_flags.f_droot = FALSE;
+      fnp->f_flags.f_ddir = TRUE;
+      fnp->f_offset = 0l;
+      fnp->f_cluster_offset = 0l;
+      fnp->f_highwater = 0l;
+      fnp->f_cluster = fnp->f_dpb->dpb_xrootclst;
+      fnp->f_dirstart = fnp->f_dpb->dpb_xrootclst;
+  }
+#endif
+
   for (p = pszPath; *p != '\0';)
   {
     /* skip all path seperators                             */
@@ -349,8 +364,8 @@ f_node_ptr dir_open(BYTE * dirname)
       fnp->f_offset = 0l;
       fnp->f_cluster_offset = 0l;	/*JPP */
       fnp->f_highwater = 0l;
-      fnp->f_cluster = fnp->f_dir.dir_start;
-      fnp->f_dirstart = fnp->f_dir.dir_start;
+      fnp->f_cluster = getdstart(fnp->f_dir);
+      fnp->f_dirstart = fnp->f_cluster;
       /* reset the directory flags    */
       fnp->f_diroff = 0l;
       fnp->f_flags.f_dmod = FALSE;
@@ -474,7 +489,7 @@ COUNT dir_read(REG f_node_ptr fnp)
     /* Update the fnode's directory info                    */
     fnp->f_flags.f_dfull = FALSE;
     fnp->f_flags.f_dmod = FALSE;
-
+    
     /* and for efficiency, stop when we hit the first       */
     /* unused entry.                                        */
     if (fnp->f_dir.dir_name[0] == '\0')
@@ -564,6 +579,9 @@ COUNT dir_write(REG f_node_ptr fnp)
       release_f_node(fnp);
       return 0;
     }
+    
+    if (fnp->f_flags.f_dnew && fnp->f_dir.dir_attrib != D_LFN)
+        fmemset(&fnp->f_dir.dir_case, 0, 8);
     putdirent((struct dirent FAR *)&fnp->f_dir,
         (VOID FAR *) & bp->b_buffer[(UWORD)fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
 
@@ -690,8 +708,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
       /* Test the attribute and return first found    */
       if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
       {
-        dmp->dm_dirstart= fnp->f_dirstart;
-        dmp->dm_cluster = fnp->f_dir.dir_start;        /* TE */
+        dmp->dm_dircluster = fnp->f_dirstart;        /* TE */
         memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
         dir_close(fnp);
         return SUCCESS;
@@ -708,15 +725,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   {
     dmp->dm_entry = 0;
     if (!fnp->f_flags.f_droot)
-    {
-      dmp->dm_cluster = fnp->f_dirstart;
-      dmp->dm_dirstart = fnp->f_dirstart;
-    }
+      dmp->dm_dircluster = fnp->f_dirstart;
     else
-    {
-      dmp->dm_cluster = 0;
-      dmp->dm_dirstart = 0;
-    }
+      dmp->dm_dircluster = 0;
     dir_close(fnp);
     return dos_findnext();
   }
@@ -772,11 +783,14 @@ COUNT dos_findnext(void)
     }          
 
   fnp->f_offset = fnp->f_diroff;
-  
-  fnp->f_dirstart = 
-    fnp->f_dir.dir_start = 
-    fnp->f_cluster = 
-        dmp->dm_dirstart;
+
+  fnp->f_dir.dir_start = dmp->dm_dircluster;
+#ifdef WITHFAT32
+  fnp->f_dir.dir_start_high = dmp->dm_dircluster >> 16;
+#endif
+
+  fnp->f_cluster = fnp->f_dirstart =
+      dmp->dm_dircluster;
 
   fnp->f_flags.f_droot = fnp->f_dirstart == 0;
   fnp->f_flags.f_ddir  = TRUE;
@@ -790,7 +804,8 @@ COUNT dos_findnext(void)
   while (dir_read(fnp) == DIRENT_SIZE)
   {
     ++dmp->dm_entry;
-    if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED)
+    if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
+          && (fnp->f_dir.dir_attrib & D_VOLID) != D_VOLID )
     {
       if (fcmp_wild((BYTE FAR *)dmp->dm_name_pat, (BYTE FAR *)fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
       {
@@ -817,8 +832,7 @@ COUNT dos_findnext(void)
   /* If found, transfer it to the dmatch structure                */
   if (found)
     {
-    dmp->dm_dirstart= fnp->f_dirstart;
-    dmp->dm_cluster = fnp->f_dir.dir_start;        /* TE */
+    dmp->dm_dircluster = fnp->f_dirstart;
     memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
     }
 
@@ -891,5 +905,4 @@ int FileName83Length(BYTE *filename83)
     ConvertName83ToNameSZ(buff, filename83);
     
     return strlen(buff);
- 
 }

@@ -38,6 +38,9 @@ static BYTE *buffer_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/09/23 20:39:44  bartoldeman
+ * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+ *
  * Revision 1.4  2001/08/19 12:58:34  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -65,17 +68,19 @@ struct buffer
   ULONG b_blkno;                /* block for this buffer        */
   /* DOS-C: 0xffff for huge block numbers */
   BYTE b_copies;                /* number of copies to write    */
-  UBYTE b_offset_lo;            /* span between copies (low)                                                    */
+#ifdef WITHFAT32
+  ULONG b_offset;               /* span between copies          */
+#else
+  UWORD b_offset;               /* span between copies          */
+#endif
 #if 0 /*TE*/
  union
   {
-    struct dpb FAR *_b_dpbp;    /* pointer to DPB                                                                                                                                               */
+    struct dpb FAR *_b_dpbp;    /* pointer to DPB               */
     LONG _b_huge_blkno;         /* DOS-C: actual block number if >= 0xffff */
   }
   _b;
 #endif  
-  UBYTE b_offset_hi;            /* DOS-C: span between copies (high) */
-  UBYTE b_unused;
   BYTE b_buffer[BUFFERSIZE];    /* 512 byte sectors for now     */
 };
 
