@@ -50,6 +50,7 @@ static char buff[MAX_BUFSIZE];
 #define sprintf init_sprintf
 #define charp init_charp
 #define hexd init_hexd
+#define hexDigits init_hexDigits
 #endif
 
 COUNT ASMCFUNC fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
@@ -163,9 +164,7 @@ BYTE *ltob(LONG n, BYTE * s, COUNT base)
   p = q = s;
   do
   {                             /* generate digits in reverse order */
-    static char hexDigits[] = "0123456789abcdef";
-
-    *p++ = hexDigits[(UWORD) (u % base)];
+    *p++ = "0123456789abcdef"[(UWORD) (u % base)];
   }
   while ((u /= base) > 0);
 
@@ -277,12 +276,11 @@ COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
       case 'p':
         {
           UWORD w[2];
-          static char pointerFormat[] = "%04x:%04x";
           w[1] = *((UWORD *) arg);
           arg += sizeof(UWORD) / sizeof(BYTE *);
           w[0] = *((UWORD *) arg);
           arg += sizeof(UWORD) / sizeof(BYTE *);
-          do_printf(pointerFormat, (BYTE **) & w);
+          do_printf("%04x:%04x", (BYTE **) & w);
           continue;
         }
 

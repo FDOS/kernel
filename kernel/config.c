@@ -84,10 +84,10 @@ extern BYTE DOSFAR ASM VgaSet, DOSFAR _HMATextAvailable,    /* first byte of ava
   DOSFAR ASM switchar, DOSFAR _InitTextStart,       /* first available byte of ram          */
   DOSFAR ReturnAnyDosVersionExpected;
 
-extern UWORD DOSFAR ASM ram_top,    /* How much ram in Kbytes               */
- 
-    DOSFAR ASM UMB_top,
-    DOSFAR ASM umb_start, DOSFAR ASM uppermem_root, DOSFAR ASM LoL_nbuffers;
+extern UWORD DOSFAR ASM uppermem_root, DOSFAR ASM LoL_nbuffers;
+
+UWORD umb_start = 0, UMB_top = 0;
+UWORD ram_top = 0; /* How much ram in Kbytes               */
 
 struct config Config = {
   NUMBUFF,
@@ -446,7 +446,7 @@ VOID configDone(VOID)
     {
 /* make last block normal with SC for the devices */
 
-      mumcb_init(uppermem_root, umr_new - uppermem_root - 1);
+      mumcb_init(umb_start, umr_new - umb_start - 1);
 
       zumcb_init(umr_new, (umb_start + UMB_top) - umr_new - 1);
       upBase += 16;
@@ -623,7 +623,7 @@ VOID DoConfig(int pass)
         umb_start = umb_seg;
 
 /* reset root */
-        uppermem_root = umb_seg;
+        uppermem_root = ram_top * 64 - 1;
 /* setup the real mcb for the devicehigh block */
         zumcb_init(umb_seg, UMB_top - 1);
         upBase += 16;
@@ -1408,12 +1408,8 @@ STATIC VOID mcb_init(UCOUNT seg, UWORD size)
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
 
-/*  if(UmbState == 1)*/
+  mcbp->m_size = (UmbState > 0 ? size - 1 : size);
 
-  mcbp->m_size = (size - 1);
-/*
-  mcbp->m_size = size;
-*/
   for (i = 0; i < 8; i++)
     mcbp->m_name[i] = '\0';
   mem_access_mode = FIRST_FIT;

@@ -37,7 +37,7 @@ static BYTE *dosnamesRcsId =
 
 #include "globals.h"
 
-char _DirWildNameChars[] = "*?./\\\"[]:|<>+=;,";
+const char _DirWildNameChars[] = "*?./\\\"[]:|<>+=;,";
 
 #define PathSep(c) ((c)=='/'||(c)=='\\')
 #define DriveChar(c) (((c)>='A'&&(c)<='Z')||((c)>='a'&&(c)<='z'))

@@ -340,12 +340,11 @@ _VgaSet         db      0               ; 0060 unknown
                 dw      0               ; 0061 unknown
                 global  _uppermem_link
 _uppermem_link  db      0               ; 0063 upper memory link flag
-                global  _UMB_top
-_UMB_top        dw      0               ; 0064 unknown UMB_top will do for now
+_min_pars       dw      0               ; 0064 minimum paragraphs of memory 
+					;      required by program being EXECed
                 global  _uppermem_root
-_uppermem_root  dw      0	        ; 0066 dmd_upper_root
-                global  _umb_start
-_umb_start      dw      0               ; 0068 para of last mem search
+_uppermem_root  dw      0	        ; 0066 dmd_upper_root (usually 9fff)
+_last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
@@ -615,12 +614,6 @@ segment	_BSS
 ;!!intr_dos_seg	resw	1
 
 
-                global  _ram_top
-_ram_top        dw      0
-
-
-
-;
 ; mark front and end of bss area to clear
 segment IB_B
     global __ib_start

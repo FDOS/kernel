@@ -7,7 +7,7 @@
 ;; ==> Reordering tables 1, 2, 4 and 5
 
 	%include "segs.inc"
-segment _DATA
+segment CONST2
 
 	GLOBAL _nlsPackageHardcoded
 _nlsPackageHardcoded:

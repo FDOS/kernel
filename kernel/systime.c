@@ -36,7 +36,7 @@ static BYTE *RcsId =
     "$Id$";
 #endif
 
-UWORD days[2][13] = {
+const UWORD days[2][13] = {
   {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365},
   {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
 };
@@ -47,7 +47,7 @@ extern request ASM ClkReqHdr;
     return a pointer to an array with the days for that year
 */
 
-UWORD *is_leap_year_monthdays(UWORD y)
+const UWORD *is_leap_year_monthdays(UWORD y)
 {
   /* this is correct in a strict mathematical sense   
      return ((y) & 3 ? days[0] : (y) % 100 ? days[1] : (y) % 400 ? days[0] : days[1]); */
@@ -123,7 +123,7 @@ BYTE FAR *wdp, FAR * mp, FAR * mdp;
 COUNT FAR *yp;
 {
   UWORD c;
-  UWORD *pdays;
+  const UWORD *pdays;
   UWORD Year, Month;
 
   ExecuteClockDriverRequest(C_INPUT);
@@ -164,7 +164,7 @@ COUNT FAR *yp;
 COUNT DosSetDate(Month, DayOfMonth, Year)
 UWORD Month, DayOfMonth, Year;
 {
-  UWORD *pdays;
+  const UWORD *pdays;
   pdays = is_leap_year_monthdays(Year);
 
   if (Year < 1980 || Year > 2099

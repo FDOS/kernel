@@ -8,6 +8,8 @@
     * cleaned up midnight flag, dates
     * tmark() and friends are floppy specific and implemented in C
       instead of ASM (parts by Bart)
+    * DMA boundary checking gives the right number of sectors if
+      the start sector is 512-bytes-aligned.
 + Changes Victor
     * lfn fixes
     * FAT32 fixes
@@ -36,7 +38,10 @@
       recognize FF8-FFF as FAT12 ending (was only FFF) (bug #1021)
     * avoid using LIB when linking the kernel by echo-ing to a linker
       resource file. Use a batch file to bypass Borlands Make 2.0
-      unwillingness to redirect stdout.	
+      unwillingness to redirect stdout.
+    * UMB variable clean-up
+    * use of "const" for constant global variables
+    * reduced size of Watcom-compiled SYS binary
 2001 Nov 18 - Build 2025c
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Bart

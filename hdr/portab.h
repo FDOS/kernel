@@ -197,12 +197,12 @@ typedef signed long LONG;
 #ifdef I86
 #ifndef MK_FP
 #ifdef __WATCOMC__
-#define MK_FP(__s,__o) (((unsigned short)(__s)):>((void __near *)(__o)))
+#define MK_FP(seg,ofs) 	      (((UWORD)(seg)):>((VOID *)(ofs)))
 #else
 #define MK_FP(seg,ofs)        ((VOID far *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
 #endif
-#define FP_SEG(fp)            ((UWORD)((ULONG)(VOID FAR *)(fp)>>16))
-#define FP_OFF(fp)            ((UWORD)(fp))
+#define FP_SEG(fp)            ((unsigned)(UWORD)((ULONG)(VOID FAR *)(fp)>>16))
+#define FP_OFF(fp)            ((unsigned)(UWORD)(fp))
 #endif
 #endif
 

@@ -21,12 +21,29 @@ char KERNEL[] = "KERNEL.SYS";
 
 #include <stdlib.h>
 #include <string.h>
-#include <io.h>
 #include <fcntl.h>
 
 #include "portab.h"
 extern WORD CDECL printf(CONST BYTE * fmt, ...);
 extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+
+#ifdef __WATCOMC__
+#define close _dos_close
+#define SEEK_SET 0
+int open(const char *pathname, int flags, ...);
+int read(int fd, void *buf, unsigned count);
+int write(int fd, const void *buf, unsigned count);
+int stat(const char *file_name, struct stat *buf);
+unsigned long lseek(int fildes, unsigned long offset, int whence);
+#pragma aux lseek =  \
+      "mov ah, 0x42" \
+      "int 0x21"     \
+      parm [bx] [dx cx] [ax] \
+      value [dx ax];
+
+#else
+#include <io.h>
+#endif
 
 #define FAR far
 #include "kconfig.h"
@@ -111,7 +128,6 @@ int readConfigSettings(int kfile, char *kfilename, KernelConfig * cfg)
 */
 int writeConfigSettings(int kfile, KernelConfig * cfg)
 {
-
   /* Seek to CONFIG section at start of options of kernel file */
   if (lseek(kfile, 2, SEEK_SET) != 2)
     return 1;

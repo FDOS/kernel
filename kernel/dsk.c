@@ -151,7 +151,7 @@ STATIC WORD dskerr();
 /* the function dispatch table                                          */
 /*                                                                      */
 
-static dsk_proc (*dispatch[NENTRY]) =
+static dsk_proc * const dispatch[NENTRY] =
 {
   _dsk_init,                    /* Initialize                   */
       mediachk,                 /* Media Check                  */
@@ -893,18 +893,12 @@ STATIC void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
 
 STATIC unsigned DMA_max_transfer(void FAR * buffer, unsigned count)
 {
-  UWORD utemp = (((UWORD) FP_SEG(buffer) << 4) + FP_OFF(buffer));
+  unsigned dma_off = (UWORD)((FP_SEG(buffer) << 4) + FP_OFF(buffer));
+  unsigned sectors_to_dma_boundary = (dma_off == 0 ?
+    0xffff / SEC_SIZE :
+    (UWORD)(-dma_off) / SEC_SIZE);
 
-#define SEC_SHIFT 9             /* = 0x200 = 512 */
-
-  utemp >>= SEC_SHIFT;
-
-  if (count > (0xffff >> SEC_SHIFT) - utemp)
-  {
-    count = (0xffff >> SEC_SHIFT) - utemp;
-  }
-
-  return count;
+  return min(count, sectors_to_dma_boundary);
 }
 
 /*
@@ -968,12 +962,8 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
   for (; totaltodo != 0;)
   {
-    count = totaltodo;
-
-    count = min(count, 0x7f);
-
     /* avoid overflowing 64K DMA boundary */
-    count = DMA_max_transfer(buffer, count);
+    count = DMA_max_transfer(buffer, totaltodo);
 
     if (FP_SEG(buffer) >= 0xa000 || count == 0)
     {

@@ -161,7 +161,7 @@ VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,
 /* inthndlr.c */
 VOID ASMCFUNC FAR int21_entry(iregs UserRegs);
 VOID ASMCFUNC int21_service(iregs far * r);
-VOID CDECL FAR int0_handler(void);
+VOID ASMCFUNC FAR int0_handler(void);
 VOID ASMCFUNC FAR int6_handler(void);
 VOID ASMCFUNC FAR empty_handler(void);
 VOID ASMCFUNC FAR got_cbreak(void);     /* procsupt.asm */
@@ -184,8 +184,8 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine,
 VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */
-WORD ASMCFUNC init_printf(CONST BYTE * fmt, ...);
-WORD ASMCFUNC init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+WORD CDECL init_printf(CONST BYTE * fmt, ...);
+WORD CDECL init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 void MoveKernel(unsigned NewKernelSegment);
 extern WORD HMAFree;            /* first byte in HMA not yet used      */

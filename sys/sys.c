@@ -36,15 +36,13 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.3"
+#define SYS_VERSION "v2.4"
 
-/* #include <stdio.h> */
 #include <stdlib.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <io.h>
 #include <dos.h>
 #include <ctype.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #ifdef __TURBOC__
 #include <mem.h>
 #else
@@ -65,6 +63,48 @@ extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 #include "b_fat32.h"
 #endif
 
+#ifndef __WATCOMC__
+#include <io.h>
+#else
+/* some non-conforming functions to make the executable smaller */
+int open(const char *pathname, int flags, ...)
+{
+  int handle;
+  int result = (flags & O_CREAT ?
+                _dos_creat(pathname, _A_NORMAL, &handle) :
+                _dos_open(pathname, flags & (O_RDONLY | O_WRONLY | O_RDWR),
+                          &handle));
+
+  return (result == 0 ? handle : -1);
+}
+
+int read(int fd, void *buf, unsigned count)
+{
+  unsigned bytes;
+  int result = _dos_read(fd, buf, count, &bytes);
+
+  return (result == 0 ? bytes : -1);
+}
+
+int write(int fd, const void *buf, unsigned count)
+{
+  unsigned bytes;
+  int result = _dos_write(fd, buf, count, &bytes);
+
+  return (result == 0 ? bytes : -1);
+}
+
+#define close _dos_close
+
+int stat(const char *file_name, struct stat *buf)
+{
+  struct find_t find_tbuf;
+  UNREFERENCED_PARAMETER(buf);
+  
+  return _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
+}
+#endif
+
 BYTE pgm[] = "SYS";
 
 void put_boot(COUNT, BYTE *, BOOL);
@@ -74,7 +114,7 @@ COUNT DiskRead(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 COUNT DiskWrite(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 
 #define SEC_SIZE        512
-#define COPY_SIZE	32768u
+#define COPY_SIZE	0x7e00
 
 #ifdef _MSC_VER
 #pragma pack(1)
@@ -304,6 +344,66 @@ VOID dump_sector(unsigned char far * sec)
     MSDOS requires int25, CX=ffff for drives > 32MB
 */
 
+#ifdef __WATCOMC__
+unsigned int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
+#pragma aux int2526readwrite =  \
+      "mov cx, 0xffff"    \
+      "cmp si, 0x26"      \
+      "je int26"          \
+      "int 0x25"          \
+      "jmp short cfltest" \
+      "int26:"            \
+      "int 0x26"          \
+      "cfltest:"          \
+      "mov ax, 0"         \
+      "adc ax, ax"        \
+      parm [ax] [bx] [si] \
+      modify [cx]         \
+      value [ax];
+
+fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
+#pragma aux fat32readwrite =  \
+      "mov ax, 0x7305"    \
+      "mov cx, 0xffff"    \
+      "inc dx"            \
+      "sub si, 0x25"      \
+      "int 0x21"          \
+      "mov ax, 0"         \
+      "adc ax, ax"        \
+      parm [dx] [bx] [si] \
+      modify [cx dx si]   \
+      value [ax];
+
+#else
+int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
+{
+  union REGS regs;
+
+  regs.h.al = (BYTE) DosDrive;
+  regs.x.bx = (short)&diskReadPacket;
+  regs.x.cx = 0xffff;
+
+  int86(intno, &regs, &regs);
+
+  return regs.x.cflag;
+}
+
+
+fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
+{
+  union REGS regs;
+
+  regs.x.ax = 0x7305;
+  regs.h.dl = DosDrive + 1;
+  regs.x.bx = (short)&diskReadPacket;
+  regs.x.cx = 0xffff;
+  regs.x.si = intno - 0x25;
+  int86(0x21, &regs, &regs);
+  
+  return regs.x.cflag;
+}
+#endif
+
 int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
                    unsigned intno)
 {
@@ -312,35 +412,81 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
     unsigned short count;
     void far *address;
   } diskReadPacket;
-  union REGS regs;
 
   diskReadPacket.sectorNumber = sector;
   diskReadPacket.count = count;
   diskReadPacket.address = buffer;
 
-  regs.h.al = (BYTE) DosDrive;
-  regs.x.bx = (short)&diskReadPacket;
-  regs.x.cx = 0xffff;
-
   if (intno != 0x25 && intno != 0x26)
     return 0xff;
 
-  int86(intno, &regs, &regs);
-
-#ifdef WITHFAT32
-  if (regs.x.cflag)
+  if (int2526readwrite(DosDrive, &diskReadPacket, intno))
   {
-    regs.x.ax = 0x7305;
-    regs.h.dl = DosDrive + 1;
-    regs.x.bx = (short)&diskReadPacket;
-    regs.x.cx = 0xffff;
-    regs.x.si = intno - 0x25;
-    int86(0x21, &regs, &regs);
-  }
+#ifdef WITHFAT32
+    return fat32readwrite(DosDrive, &diskReadPacket, intno);
+#else
+    return 0xff;
 #endif
-
-  return regs.x.cflag ? 0xff : 0;
+  }
+  return 0;
 }
+
+#ifdef __WATCOMC__
+
+unsigned getdrivespace(COUNT drive, unsigned *total_clusters);
+#pragma aux getdrivespace =  \
+      "mov ah, 0x36"      \
+      "inc dx"            \
+      "int 0x21"          \
+      "mov [si], dx"      \
+      parm [dx] [si]      \
+      modify [bx cx dx]   \
+      value [ax];
+
+unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size);
+#pragma aux getextdrivespace =  \
+      "mov ax, 0x7303"    \
+      "push ds"           \
+      "pop es"            \
+      "int 0x21"          \
+      "mov ax, 0"         \
+      "adc ax, ax"        \
+      parm [dx] [di] [cx] \
+      modify [es]         \
+      value [ax];
+
+#else
+
+unsigned getdrivespace(COUNT drive, unsigned *total_clusters)
+{
+  union REGS regs;
+
+  regs.h.ah = 0x36;             /* get drive free space */
+  regs.h.dl = drive + 1;        /* 1 = 'A',... */
+  int86(0x21, &regs, &regs);
+  *total_clusters = regs.x.dx;
+  return regs.x.ax;
+}
+
+unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size)
+{
+  union REGS regs;
+  struct SREGS sregs;
+
+  regs.x.ax = 0x7303;         /* get extended drive free space */
+
+  sregs.es = FP_SEG(buf);
+  regs.x.di = FP_OFF(buf);
+  sregs.ds = FP_SEG(drivename);
+  regs.x.dx = FP_OFF(drivename);
+
+  regs.x.cx = buf_size;
+
+  int86x(0x21, &regs, &regs, &sregs);
+  return regs.x.cflag;
+}
+
+#endif
 
 VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 {
@@ -350,10 +496,9 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
   struct bootsectortype32 *bs32;
 #endif
   int fs;
-  union REGS regs;
-  struct SREGS sregs;
   char drivename[] = "A:\\";
   unsigned char x[0x40];
+  unsigned total_clusters;
 
 #ifdef DEBUG
   printf("Reading old bootsector from drive %c:\n", drive + 'A');
@@ -386,17 +531,13 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     this should work, as the disk was writeable, so GetFreeDiskSpace should work.
 */
 
-  regs.h.ah = 0x36;             /* get drive free space */
-  regs.h.dl = drive + 1;        /* 1 = 'A',... */
-  int86(0x21, &regs, &regs);
-
-  if (regs.x.ax == 0xffff)
+  if (getdrivespace(drive, &total_clusters) == 0xffff)
   {
     printf("can't get free disk space for %c:\n", drive + 'A');
     exit(1);
   }
 
-  if (regs.x.dx <= 0xff6)
+  if (total_clusters <= 0xff6)
   {
     if (fs != 12)
       printf("warning : new detection overrides old detection\a\n");
@@ -413,19 +554,9 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
        we don't want to crash a FAT32 drive
      */
 
-    segread(&sregs);
-    sregs.es = sregs.ds;
-
-    regs.x.ax = 0x7303;         /* get extended drive free space */
-
     drivename[0] = 'A' + drive;
-    regs.x.dx = (unsigned)&drivename;
-    regs.x.di = (unsigned)&x;
-    regs.x.cx = sizeof(x);
-
-    int86x(0x21, &regs, &regs, &sregs);
-
-    if (regs.x.cflag)           /* error --> no Win98 --> no FAT32 */
+    if (getextdrivespace(drivename, x, sizeof(x)))
+    /* error --> no Win98 --> no FAT32 */
     {
       printf("get extended drive space not supported --> no FAT32\n");
     }

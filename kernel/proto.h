@@ -310,7 +310,7 @@ COUNT ASMCFUNC fstrcmp(REG BYTE FAR * d, REG BYTE FAR * s);
 COUNT ASMCFUNC fstrncmp(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l);
 COUNT ASMCFUNC strncmp(REG BYTE * d, REG BYTE * s, COUNT l);
 void ASMCFUNC fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l);
-BYTE * ASMCFUNC strchr(BYTE * s, BYTE c);
+BYTE * ASMCFUNC strchr(const BYTE * s, BYTE c);
 
 /* sysclk.c */
 COUNT BcdToByte(COUNT x);
@@ -335,7 +335,7 @@ VOID DosGetDate(BYTE FAR * wdp, BYTE FAR * mp, BYTE FAR * mdp,
                 COUNT FAR * yp);
 COUNT DosSetDate(UWORD Month, UWORD DayOfMonth, UWORD Year);
 
-UWORD *is_leap_year_monthdays(UWORD year);
+const UWORD *is_leap_year_monthdays(UWORD year);
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
 
 /* task.c */

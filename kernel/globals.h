@@ -175,7 +175,6 @@ FAR ASM clk_dev,                    /* Clock device driver                  */
   FAR ASM prn_dev,                  /* Generic printer device driver        */
   FAR ASM aux_dev,                  /* Generic aux device driver            */
   FAR ASM blk_dev;                  /* Block device (Disk) driver           */
-extern UWORD ASM ram_top;           /* How much ram in Kbytes               */
 extern COUNT *error_tos,        /* error stack                          */
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */
@@ -233,7 +232,7 @@ GLOBAL BYTE copyright[] =
 
 #endif
 
-GLOBAL BYTE os_release[]
+GLOBAL const BYTE os_release[]
 #ifdef MAIN
 #if 0
     = "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n"
@@ -260,7 +259,7 @@ extern BYTE ASM net_set_count;
 extern BYTE ASM NetDelay, ASM NetRetry;
 
 extern UWORD ASM first_mcb,         /* Start of user memory                 */
-  ASM UMB_top, ASM umb_start, ASM uppermem_root;    /* Start of umb chain ? */
+  ASM uppermem_root;                /* Start of umb chain (usually 9fff)    */
 extern sfttbl FAR * ASM sfthead;    /* System File Table head               */
 extern struct dhdr
 FAR * ASM clock,                    /* CLOCK$ device                        */

@@ -55,7 +55,6 @@ GLOBAL BYTE DOSFAR os_major,    /* major version number                 */
   DOSFAR ASM default_drive;         /* default drive for dos                */
 
 GLOBAL BYTE DOSFAR os_release[];
-/* GLOBAL BYTE DOSFAR copyright[]; */
 GLOBAL seg DOSFAR RootPsp;      /* Root process -- do not abort         */
 
 extern struct dpb FAR *DOSFAR ASM DPBp;     /* First drive Parameter Block          */
@@ -66,7 +65,6 @@ extern struct dhdr FAR *DOSFAR ASM clock,   /* CLOCK$ device                    
 extern struct dhdr ASM DOSTEXTFAR con_dev,  /* console device drive                 */
   DOSTEXTFAR ASM clk_dev,           /* Clock device driver                  */
   DOSTEXTFAR ASM blk_dev;           /* Block device (Disk) driver           */
-extern UWORD DOSFAR ASM ram_top;    /* How much ram in Kbytes               */
 extern iregs FAR *DOSFAR ASM user_r;        /* User registers for int 21h call      */
 extern BYTE FAR ASM _HMATextEnd[];
 
@@ -85,6 +83,7 @@ extern BYTE FAR *lpOldTop;
 extern BYTE FAR *lpTop;
 extern BYTE FAR *upBase;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
+extern UWORD ram_top;               /* How much ram in Kbytes               */
 
 VOID configDone(VOID);
 STATIC VOID InitIO(void);

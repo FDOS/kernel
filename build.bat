@@ -113,7 +113,7 @@ cd ..\kernel
 %MAKE% production
 if errorlevel 1 goto abort
 
-cd..
+cd ..
 
 :- if you like, put some finalizing commands (like copy to floppy)
 :- into build2.bat

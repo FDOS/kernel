@@ -568,7 +568,6 @@ VOID DosUmbLink(BYTE n)
 {
   REG mcb FAR *p;
   REG mcb FAR *q;
-  mcb FAR *end_of_conv_mem = para2far(ram_top * 64 - 1);
 
   if (uppermem_root == 0)
     return;
@@ -577,7 +576,7 @@ VOID DosUmbLink(BYTE n)
 /* like a xor thing! */
   if ((uppermem_link == 1) && (n == 0))
   {
-    while (p != end_of_conv_mem)
+    while (FP_SEG(p) != uppermem_root)
     {
       if (mcbFree(p))
         joinMCBs(p);
@@ -587,7 +586,7 @@ VOID DosUmbLink(BYTE n)
       p = nxtMCB(p);
     }
 
-    if (q->m_type == MCB_NORMAL)
+    if (q->m_type == MCB_NORMAL) 
       q->m_type = MCB_LAST;
     uppermem_link = n;
 
@@ -601,65 +600,13 @@ VOID DosUmbLink(BYTE n)
       q = nxtMCB(q);
     }
 
-    if (q->m_type == MCB_LAST)
-      q->m_type = MCB_NORMAL;
+    q->m_type = MCB_NORMAL;
     uppermem_link = n;
   }
 DUL_exit:
   return;
 }
 
-/*
-    if we arrive here the first time, it's just
-    before jumping to COMMAND.COM
-
-    so we are done initializing, and can claim the IMIT_DATA segment,
-    as these data/strings/buffers are no longer in use.
-
-    we carve a free memory block out of it and hope that
-    it will be useful (maybe for storing environments)
-
-*/
-#if 0
-BYTE INITDataSegmentClaimed = 1;        /* must be enabled by CONFIG.SYS */
-extern BYTE _INIT_DATA_START[], _INIT_DATA_END[];
-
-VOID ClaimINITDataSegment()
-{
-  unsigned ilow, ihigh;
-  VOID FAR *p;
-
-  if (INITDataSegmentClaimed)
-    return;
-  INITDataSegmentClaimed = 1;
-
-  ilow = (unsigned)_INIT_DATA_START;
-  ilow = (ilow + 0x0f) & ~0x000f;
-  ihigh = (unsigned)_INIT_DATA_END;
-  ihigh = ((ihigh + 0x0f) & ~0x000f) - 0x20;
-
-  if (ilow + 0x10 < ihigh)
-  {
-    printf("CLAIMING INIT_DATA memory - %u bytes\n", ihigh - ilow);
-  }
-
-  ((mcb *) ilow)->m_type = MCB_NORMAL;  /* 'M' */
-  ((mcb *) ilow)->m_psp = FREE_PSP;     /* '0' */
-  ((mcb *) ilow)->m_size = (ihigh - ilow - 0x10) >> 4;  /* '0' */
-
-  ((mcb *) ihigh)->m_type = MCB_NORMAL; /* 'M' */
-  ((mcb *) ihigh)->m_psp = 0x0008;      /* system */
-
-  p = (void FAR *)(void *)ihigh;
-
-  ((mcb *) ihigh)->m_size = first_mcb - 1 - FP_SEG(p) - (FP_OFF(p) >> 4);
-
-  p = (void FAR *)(void *)ilow;
-
-  first_mcb = FP_SEG(p) + (FP_OFF(p) >> 4);
-
-}
-#endif
 #endif
 
 /*

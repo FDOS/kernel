@@ -81,7 +81,7 @@ STATIC COUNT BcdToByte(COUNT x)
 WORD ASMCFUNC FAR clk_driver(rqptr rp)
 {
   COUNT c;
-  UWORD *pdays;
+  const UWORD *pdays;
   BYTE bcd_days[4], bcd_minutes, bcd_hours, bcd_seconds;
   ULONG Ticks;
   UWORD Month, Day, Year;

@@ -1327,11 +1327,9 @@ dispatch:
       /* UNDOCUMENTED: Double byte and korean tables                  */
     case 0x63:
       {
-        static char dbcsTable[4] = {
-          0, 0, 0, 0
-        };
-        r->DS = FP_SEG(&dbcsTable);
-        r->SI = FP_OFF(&dbcsTable);
+        static char *dbcsTable = "\0\0\0\0";
+        r->DS = FP_SEG(dbcsTable);
+        r->SI = FP_OFF(dbcsTable);
 #if 0
         /* not really supported, but will pass.                 */
         r->AL = 0x00;           /*jpp: according to interrupt list */
