@@ -1,3 +1,203 @@
+2004 Apr 17 - Build 2034
+-------- Bart Oldeman (bart@dosemu.org)
+    * break.c, chario.c, inthndlr.c, proto.h: Improve ctrl-c/ctrl-break
+      handling:
+      - read_char_sft_dev handles ^C at a fairly high level.
+      - ^C didn't work for int21/ah=3f. Corrected
+      - Do_DosIdle_loop still needs to wait even if it doesn't call the
+        idle int 
+      - ^C needs to be echoed to STDOUT for low character functions
+        (ah<0xd) but to the device that is read from for handle
+	functions. So we need to pass either the STDOUT sft or that
+        device on to the ^C echoer which now correctly prints ^C\r\n.
+      - misc cleanups in break.c.
+    * main.c: Move memset up a little else it would overwrite too much.
+    * build.txt, config.c, init-mod.h, initdisk.c, inithma.c, main.c: Lucho
+      reported that MSC compiled kernels now work after all. Let's mark
+      those nasty "BSS" variables explicitly then to try to avoid
+      future problems. Also DATASTART should be FAR and not DOSFAR for MSC
+    * stacks.inc, generic.mak, entry.asm, int2f.asm, kernel.asm, segs.inc:
+      (suggested by Arkady): use CPU to enforce 8086 etc instructions.
+    * ioctl.c: Correct int21/ax=4401: returned AL = old value, should
+      set CY and DE_INVLDDATA if DH!=0 (RBIL is a little confusing here).
+    * memmgr.c: Converted nxtMCBsize back to a macro. There is no need
+      to use far2para; FP_SEG works fine since MCBs always have offset 0.
+    * build.txt, config.c, config.h, kernel.asm, main.c, segs.inc, task.c:
+      Removed obsolete BYTE cfgCSYS_fnam[NAMEMAX]; config variable. Changed
+      cfgInit and cfgInitTail to pointers, adjusted some code to cooperate.
+    * chario.c: The screen position (for TABs) is only for raw
+      *CONOUT* devices already updated in dosfns.c
+    * memmgr.c, proto.h: Make unnecessary far pointers near.
+    * device.h, dsk.c, initdisk.c: Move the ddt bitfields to
+      df_descflags. Let SetLogDev call GetLogdev, eliminating common code.
+    * init-mod.h, mscl8.mak: Some vars need to be DOSFAR; 
+      init code is no longer tiny but small.
+    * segs.inc, inithma.c, main.c, asmsupt.asm, execrh.asm, init-mod.h,
+      kernel.asm, watcom.mak:
+      Make CS the same for INIT and HMA text for Watcom. Move HMA text
+      up in kernel.asm. Use std for the memory move: helps if there's
+      overlap (PCs with a very low amount of RAM).
+      No longer include duplicate execrh, asmsupt, and u8m/d functions
+      for the init text in the Watcom compiled kernel, since they can
+      be called "near" in the resident code.
+    * portab.h, kernel.asm, main.c, segs.inc:
+      Use the "small" model for the init code (split code/data).
+    * main.c: Use pointer to MK_FP(0,0x5e0) to save a bit of code.
+    * initdisk.c: Move some common code into a "push_ddt" function.
+    * sys.c: Correct int25/26 pragmas. Need to explicitly preserve bp
+      and pop flags.
+    * initdisk.c: fmemcpy->memcpy where possible
+    * config.c, init-mod.h, inithma.c, int2f.asm: Make
+      UMB_get_largest "pascal". Let it use the xms driver address from
+      the HMA code. Misc small config.c cleanups.
+    * initdisk.c: "Cache" far drive data table near. Enables elimination
+      of many far pointers in initdisk.c. Also clear up the
+      unnecessary casts in ConvPartTableEntryToIntern.
+    * drivers/getvec.asm, drivers/rdpcclk.asm, drivers/wratclk.asm,
+      drivers/wrpcclk.asm, globals.h: Use pascal calling
+      conventions for all clock related asm functions.
+    * drivers/floppy.asm, dsk.c: Use pascal calling conventions
+      for floppy asm functions.
+    * init-mod.h, intr.asm, proto.h, kernel.asm: Use the
+      pascal calling convention for all intr.asm functions, and let 
+      them pop the stack (smaller code than using bx). Tell Watcom
+      which registers are clobbered; save some more registers for
+      intr() -- especially for intr() this helps.
+    * device.h, execrh.asm, init-mod.h: Use pascal calling conventions
+      for execrh().
+    * mkfiles/watcom.mak: Use the "-r" switch for Watcom to preserve ES
+      around calls -- saves ~350 bytes.
+    * sys.c, init-mod.h, fdkrncfg.c, portab.h, prf.c, proto.h:
+      Introduce VA_CDECL: only Turbo C 2.01 needs an explicit cdecl
+      for printf, all other compilers can use it with pascal or
+      "register" calling conventions.  Saves ~50 bytes for the init code.
+    * asmsupt.asm, config.c, init-mod.h: Use strchr and strlen
+      more often; also use strchr in the init code.
+    * memmgr.c: Better to call fmemset than to do things manually.
+    * asmsupt.asm, proto.h, init-mod.h: Be more specific about
+      which registers are clobbered by asmsupt.asm functions. Preserve
+      "ES" for Watcom.  Saves ~150 bytes resident, ~90 bytes
+      nonresident, more for 386 kernels.
+      Preserve bx and cx for WATCOMC as well. Saves another 200 bytes.
+    * inthndlr.c: Simplify memory access mode check.
+    * dsk.c: Remove wrong "512" value for number of root directory
+      entries on FAT32 partitions.
+    * file.h, sft.h, dosfns.c, fcbfns.c: Get rid of SFT_M* mode
+      values. O_* values are sufficient.
+    * file.h, fatfs.c: Define O_ACCMODE and use it instead of "3" for
+      the open access mask.
+    * config.c, init-mod.h: Change default STACKS= size to 256.
+    * config.c, init-mod.h, main.c: Remove lpOldTop variable.
+      It is no longer necessary (has not been for some time) and the
+      assignment in config_init_buffers() was wrong (screwed up fnodes,
+      so that buffers overlapped fnodes...). 
+    * lol.h, config.c, fatfs.c, globals.h, kernel.asm, proto.h:
+      Made the main fnodes far so they can be in the HMA.
+      Internally the kernel uses two near fnodes though, to save on
+      codesize and fmemcpy's if necessary. Having memory management on
+      two fnodes is a little silly but I just want to make sure with
+      the panic message that we never accidentally try to use three near
+      fnodes at the same time (two are used at the same time by rename,
+      commit, and merge_file_changes).  This can be cleaned up later.
+    * fatfs.c: 
+      - Merge three almost identical pieces of code used to allocate a new
+        directory entry in creat, rename, and mkdir into alloc_find_free.
+      - Merge find_fat_free() and extend() -- they were almost
+        identical. Have a simplified clause for f_cluster ==
+        FREE. Set f_cluster = FREE in shrink_file if the file is set to
+        0 bytes; in that case we should set the current cluster to FREE
+        even if it is currently a LONG_LAST_CLUSTER.
+    * fnode.h, fatdir.c, fatfs.c, lfnapi.c:
+      - Eliminate f_back field. extend() now uses f_cluster instead of
+        f_back, while map_cluster makes sure it's not set to 
+        LONG_LAST_CLUSTER (but to the cluster before it) when calling
+        extend(). extend() and first_fat() now return the new cluster
+        number or LONG_LAST_CLUSTER, just like find_fat_free().
+      - Eliminated f_sector and f_boff fields from fnodes.
+      - Avoid bitfields for fnodes, using flags instead. Replaced droot
+        field by checks for f_dirstart == 0.
+      - Make f_diroff an entry offset so it can be 16bits. Enforce the
+        65536 entry limit in dir_read(), except for root directories. 
+	For root directories it's checked against a different limit
+	later. Saves 80 bytes or so + 2	bytes in every f_node.
+    * dsk.c, fatfs.c, memmgr.c: Remove add_far. adjust_far can do the job.
+    * chario.c: Echo input LF as CR-LF unless it's the first
+      character. Never store LF in the buffer.
+    * memmgr.c, task.c: Eliminated long2para and avoided use of "long"s
+      in DosExeLoader, using paragraphs to measure size instead. Saves 
+      ~130 bytes together.
+    * prf.c, asmsupt.asm: Saved ~75 bytes in printf and by elimination of
+      fstrlen. There's only one call; inlining doesn't increase the size.
+    * dosfns.c, int2f.asm, intr.asm, nls.c: Eliminate intr()
+      from resident code. Saves ~200 bytes of HMA resident code.  Also
+      made the nls.c functions SS!=DS safe.
+    * init-mod.h, inthndlr.c, intr.asm, main.c, proto.h, task.c:
+      int21/ah=26: new_psp now copies the old psp and just sets a few
+      fields int21/ah=55: child_psp does the rest init code does the
+      init (fixed values are always copied now)
+    * dosfns.c: Commit each close, even if the ref count is > 0.
+    * prf.c: Borland C didn't like one pseudo register use.
+    * initdisk.c: Merge "suspect partition" copy/paste code into functions.
+    * asmsupt.asm: Save a couple bytes by moving the strncmp_retzero block.
+    * fcbfns.c, proto.h: Don't call truename from FcbNameInit(). It
+      was only necessary for "FcbRename", which can call it itself.
+      Fixes for FcbOpen/FcbFindFirstNext a consequence of
+      truename's funny behaviour: truename(c:nul) = c:/nul and
+      truename(c:/nul) = c:\nul. Fixes the EJECT problem from Lucho.
+      Remove unused variable lpFcb.
+    * portab.h, dsk.c, main.c, newstuff.c: Define I386 and I186 more
+      cleanly.  Add (UWORD) casts to silence the compiler. Optimize
+      (head*sector) to secs_per_cyl. Add BORLANDC to compiler list
+      and simplify startup printf to one message. 
+      #pragma enable_message(130) for Watcom C causes it to
+      behave a little more like Borland in terms of warnings.
+    * exeflat.c, fatfs.c, fattab.c, fcbfns.c, inthndlr.c, 
+      memmgr.c, task.c, blockio.c, fatdir.c: Added explicit
+      (UWORD) type casts to avoid compiler warnings and sometimes save
+      a few bytes too. Also changed the FcbParseFname return value:
+      returns offset portion of pointer (SI) instead of the number of
+      bytes to be added to SI.
++ Changes Lucho
+    * task.c: fixes the CHKDSK I: "Invalid drive specification" bug
+    * mcb.h, inthndlr.c: save 33 bytes by eliminating a switch for 
+      memory/UMB access modes.
+    * talloc.c: talloc won't work with MSC (no sbrk or brk available)
+      + fix
+    * stacks.inc: smaller Protect/Restore 386 register macros.
+    * inthndlr.c: Code size reduction and dead code removal.
+    * dosnames.c: Remove wrong automatic "*.*" code from Lixing
+      Yuan -- return DE_PATHNOTFND or D_NFILES instead
+    * ioctl.c: move the lock/unlock simulation of success before the
+      device GENIOCTL check so that it applies to any device.
+    * filelist, dosnames.h, dosfns.c, dosnames.c, fatdir.c, fatfs.c,
+      globals.h, init-mod.h: (with Bart) -- remove the dosnames path
+      67 length check. Review the places where it really matters (chdir
+      and mkdir).
+    * init-mod.h, intr.asm, kernel.asm, main.c, procsupt.asm,
+      proto.h, task.c: enable interactive re-execution of the SHELL.
+    * nls.h, config.h, globals.h, init-mod.h: move NLS #defines to
+      nls.h. Move config structure to config.h. Some cosmetic changes.
+    * contrib.txt: From Lucho: update contributors list.
+    * config.c: From Lucho: fix EBDA problems with INSTALL. This
+      fixes the weird fmemcpy lockup; in reality kernel init code was
+      overwritten.
+    * asmsupt.asm, config.c, init-mod.h, inithma.c, main.c, makefile,
+      prf.c: Use asmsupt string and mem functions for the init code too.
++ Changes Arkady
+    * task.c: A few suggestions. Saves 5 bytes.
+    * inthndlr.c: Use AL, not AX, for int2f/ax=1213, as per RBIL
+    * inthndlr.c: Use xreg struct and macros to optimize the
+      int2f/12,4a handler a bit ~25 bytes
+    * config.c: Buffer config fixes.
+    * inthndlr.c, proto.h: Corrections to int2f/ax=4a01/2.
+    * blockio.c: buffer intersection check should use > instead
+      of >=. small optimization -- the segment in bp == firstbuf is
+      always the same so we just need to compare offsets.
+      AllocateHMASpace needs to check FP_SEG(firstbuf) for 0xffff,
+      since the buffers may not live in the HMA.
+    * *.bat, config.b, kernel/makefile, generic.mak: .BAT file and 
+      makefile cleanups. Also Lucho reported that nmake/nologo doesn't
+      always work in 4dos, but nmake /nologo works.
 2004 Jan 31 - Build 2033
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Bart
