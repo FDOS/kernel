@@ -286,6 +286,10 @@
 	*  config.c
 	  - source: (Bernd) the codepage table rewritten into a smaller layout.
 	  - bugfix: (Bernd, Aitor) country ID for Spain set to 34 (instead 33).
++ Changes Jason
+        * inthndlr.c
+          - set FAT32 fields of FAT12/16 DPBs on Int21h/7302h. Fixes bug 1819
+          - implement Set Extended Error function to help VC 4.99 with DOSLFN
 + Changes Lucho
 	* exeflat.c
 	  - fix: eliminated warning by explicit cast.
@@ -311,7 +315,6 @@
         - set AX = ES after Int 21h/4Ah (undocumented but expected by BRUN45)
           (the last 2 changes needed to fix bugs discovered by Michael Devore)
         - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
-        - set FAT32 fields of FAT12/16 DPBs on Int21h/7302h. Fixes bug 1819
         * autoexec.bat now single-line for FreeCOM compatibility when EOL=LF
         * break.c: check_handle_break() return was undefined if no Ctrl-break
         * config.sys: all commands removed as they were close to defaults

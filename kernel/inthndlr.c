@@ -196,19 +196,18 @@ int int21_fat32(lregs *r)
       xddp = MK_FP(r->ES, r->DI);
       
       fmemcpy(&xddp->xdd_dpb, dpb, sizeof(struct dpb));
-      if (!ISFAT32(dpb))
-      { /* FAT12/16 - set FAT32 fields. This helps DOSLFN 0.33+ */
-        xddp->xdd_dpb.dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_hi = 0;
-        xddp->xdd_dpb.dpb_xflags = 0;
-        xddp->xdd_dpb.dpb_xfsinfosec = 0xFFFF; /* unknown */
-        xddp->xdd_dpb.dpb_xbackupsec = 0xFFFF;
-        xddp->xdd_dpb.dpb_xdata = dpb->dpb_data;
-        xddp->xdd_dpb.dpb_xsize = dpb->dpb_size;
-        xddp->xdd_dpb.dpb_xfatsize = dpb->dpb_fatsize;
-        xddp->xdd_dpb.dpb_xrootclst = 0; /* impossible cluster number */
-        xddp->xdd_dpb.dpb_xcluster = dpb->dpb_cluster;
-      }
       xddp->xdd_dpbsize = sizeof(struct dpb);
+
+      /* if it doesn't look like an extended DPB, fill in those fields */
+      if (!ISFAT32(dpb) && dpb->dpb_xsize != dpb->dpb_size)
+      {
+        xddp->xdd_dpb.dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_hi =
+          (dpb->dpb_nfreeclst == 0xFFFF ? 0xFFFF : 0);
+        dpb16to32(&xddp->xdd_dpb);
+        xddp->xdd_dpb.dpb_xfatsize = dpb->dpb_fatsize;
+        xddp->xdd_dpb.dpb_xcluster = (dpb->dpb_cluster == 0xFFFF ?
+                       0xFFFFFFFFuL : dpb->dpb_cluster);
+      }
       break;
     }
     /* Get extended free drive space */
@@ -737,6 +736,9 @@ dispatch:
           lr.AL = retp[1];
           lr.AH = retp[2];
         }
+#if TOM /* Disable the much rarer case to save code size. The only MS-DOS
+         * utility featuring it is DOSKEY, and FreeCom almost replaces it
+         */
         else if (retp[0] == 0x86 &&     /* xchg al,ah   */
                  retp[1] == 0xc4 && retp[2] == 0x3d &&  /* cmp ax, xxyy */
                  (retp[5] == 0x75 || retp[5] == 0x74))  /* je/jne error    */
@@ -744,9 +746,8 @@ dispatch:
           lr.AL = retp[4];
           lr.AH = retp[3];
         }
-
+#endif
       }
-
       break;
 
       /* Keep Program (Terminate and stay resident) */
@@ -1221,6 +1222,21 @@ dispatch:
           if (rc != SUCCESS)
             goto error_exit;
           break;
+
+          /* Set Extended Error */
+        case 0x0a:
+          {
+            lregs er;
+            fmemcpy(&er, FP_DS_DX, sizeof(er));
+            CritErrCode        = er.AX;
+            FP_SEG(CritErrDev) = er.ES;
+            FP_OFF(CritErrDev) = er.DI;
+            CritErrLocus       = er.CH;
+            CritErrClass       = er.BH;
+            CritErrAction      = er.BL;
+            CLEAR_CARRY_FLAG();
+            break;
+          }
 
         default:
           CritErrCode = SUCCESS;
