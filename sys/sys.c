@@ -386,6 +386,17 @@ fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
       modify [cx dx si]   \
       value [ax];
 
+void reset_drive(int DosDrive);
+#pragma aux reset_drive = \
+      "push ds" \
+      "inc dx" \
+      "mov ah, 0xd" \ 
+      "int 0x21" \
+      "mov ah,0x32" \
+      "int 0x21" \
+      "pop ds" \
+      parm [dx] \
+      modify [ax bx];
 #else
 int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
@@ -414,6 +425,18 @@ fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
   
   return regs.x.cflag;
 }
+
+void reset_drive(int DosDrive)
+{
+  union REGS regs;
+
+  regs.h.ah = 0xd;
+  int86(0x21, &regs, &regs);
+  regs.h.ah = 0x32;
+  regs.h.dl = DosDrive + 1;
+  int86(0x21, &regs, &regs);
+}
+
 #endif
 
 int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
@@ -518,6 +541,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
   printf("Reading old bootsector from drive %c:\n", drive + 'A');
 #endif
 
+  reset_drive(drive);
   if (MyAbsReadWrite(drive, 1, 0, oldboot, 0x25) != 0)
   {
     printf("can't read old boot sector for drive %c:\n", drive + 'A');
@@ -729,6 +753,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     }
     close(fd);
   }
+  reset_drive(drive);
 }
 
 BOOL check_space(COUNT drive, BYTE * BlkBuffer)
