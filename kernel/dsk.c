@@ -33,8 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.9  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.10  2001/03/19 05:01:38  bartoldeman
+ * Space saving and partition detection fixes from Tom Ehlert and
+ * Brian Reifsnyder.
  *
  * Revision 1.9  2001/03/08 21:15:00  bartoldeman
  * Space saving fixes from Tom Ehlert
@@ -123,6 +124,17 @@ static BYTE *dskRcsId = "$Id$";
  * Initial revision.
  */
 
+#if 0 
+    #define PartCodePrintf(x) printf x 
+#else    
+    #define PartCodePrintf(x) 
+#endif    
+
+#define STATIC 
+
+
+
+
 #ifdef PROTO
 BOOL fl_reset(WORD);
 COUNT fl_readdasd(WORD);
@@ -143,7 +155,7 @@ COUNT fl_verify();
 BOOL fl_format();
 #endif
 
-#define NDEV            8       /* only one for demo            */
+#define NDEV            16      /* only one for demo            */
 #define SEC_SIZE        512     /* size of sector in bytes      */
 #define N_RETRY         5       /* number of retries permitted  */
 #define NENTRY          26      /* total size of dispatch table */
@@ -157,7 +169,7 @@ union
 }
 buffer;
 
-static struct media_info
+STATIC struct media_info
 {
   ULONG mi_size;                /* physical sector count        */
   UWORD mi_heads;               /* number of heads (sides)      */
@@ -182,10 +194,10 @@ static struct Access_info
   BYTE  AI_Flag;
 };
 
-static struct media_info miarray[NDEV]; /* Internal media info structs  */
-static struct FS_info fsarray[NDEV];
-static bpb bpbarray[NDEV];      /* BIOS parameter blocks        */
-static bpb *bpbptrs[NDEV];      /* pointers to bpbs             */
+STATIC struct media_info miarray[NDEV]; /* Internal media info structs  */
+STATIC struct FS_info fsarray[NDEV];
+STATIC bpb bpbarray[NDEV];      /* BIOS parameter blocks        */
+STATIC bpb *bpbptrs[NDEV];      /* pointers to bpbs             */
 
 /*TE - array access functions */
 struct media_info *getPMiarray(int dev) { return &miarray[dev];}
@@ -194,17 +206,12 @@ struct media_info *getPMiarray(int dev) { return &miarray[dev];}
 #define N_PART 4                /* number of partitions per
                                    table partition              */
 
-static WORD head,
-  track,
-  sector,
-  ret;                          /* globals for blockio          */
-static WORD count;
-static COUNT nUnits;            /* number of returned units     */
-static COUNT nPartitions;       /* number of DOS partitions     */
+STATIC COUNT nUnits;            /* number of returned units     */
+STATIC COUNT nPartitions;       /* number of DOS partitions     */
 
 #define PARTOFF 0x1be
 
-static struct
+STATIC struct dos_partitionS
 {
   BYTE peDrive;                 /* BIOS drive number            */
   BYTE peBootable;
@@ -238,7 +245,7 @@ WORD init(rqptr),
   blk_error(rqptr);
 COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, ULONG, byteptr);
 WORD dskerr(COUNT);
-COUNT processtable(COUNT ptDrive, BYTE ptHead, UWORD ptCylinder, BYTE ptSector, LONG ptAccuOff);
+COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder, BYTE ptSector, LONG ptAccuOff);
 #else
 WORD init(),
   mediachk(),
@@ -298,14 +305,61 @@ static WORD(*dispatch[NENTRY]) () =
 
 #define SIZEOF_PARTENT  16
 
+#define PRIMARY         0x01
+
 #define FAT12           0x01
 #define FAT16SMALL      0x04
 #define EXTENDED        0x05
 #define FAT16LARGE      0x06
+#define EXTENDED_INT32  0x0f  /* like 0x05, but uses extended INT32 */
 
 #define hd(x)   ((x) & 0x80)
 
-COUNT processtable(COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
+
+
+ULONG StartSector(WORD ptDrive,     unsigned  BeginHead,
+                                    unsigned BeginSector,   
+                                    unsigned BeginCylinder, 
+                                    ULONG    peStartSector,
+                                    ULONG    ptAccuOff)
+{
+        iregs regs;
+        
+        unsigned cylinders,heads,sectors;
+        ULONG startPos;
+        
+        regs.a.x = 0x0800;    /* get drive parameters */
+        regs.d.x = ptDrive;
+        intr(0x13, &regs);
+        
+        if ((regs.a.x & 0xff) != 0)
+            {
+            PartCodePrintf(("error getting drive parameters for drive %x\n", ptDrive));
+            return peStartSector+ptAccuOff;
+            }
+            
+        /* cylinders = (regs.c.x >>8) | ((regs.c.x & 0x0c) << 2); */
+        heads     = (regs.d.x >> 8) + 1; 
+        sectors   = regs.c.x & 0x3f;
+        
+        startPos = ((ULONG)BeginCylinder * heads + BeginHead) * sectors + BeginSector - 1;
+
+        PartCodePrintf((" CHS %x %x %x (%d %d %d) --> %lx ( %ld)\n",
+                             BeginHead,    
+                             BeginSector,   
+                             BeginCylinder, 
+                             BeginHead,    
+                             BeginSector,   
+                             BeginCylinder, 
+                             startPos, startPos));
+        
+        return startPos;
+}                                    
+      
+
+
+
+COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
                    BYTE ptSector, LONG ptAccuOff)
 {
   struct                        /* Temporary partition table    */
@@ -324,104 +378,165 @@ COUNT processtable(COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
   temp_part[N_PART], 
   	*ptemp_part;			/*TE*/
 
-  REG retry = N_RETRY;
+  int retry;
   UBYTE packed_byte,
     pb1;
-  COUNT Part;
+/*  COUNT Part; */
+  BYTE *p;
+  int partition_chain = 0;
+  int ret;
+  
+restart:                    /* yes, it's a GOTO >:-) */
+
+                            /* if someone has a circular linked 
+                                extended partition list, stop it sooner or later */
+    if (partition_chain > 64)
+        return TRUE;
+
+  
+    PartCodePrintf(("searching partition table at %x %x %x %x %lx\n", 
+         ptDrive,  ptHead, ptCylinder,
+                   ptSector, ptAccuOff));
 
   /* Read partition table                         */
-  do
+  for ( retry = N_RETRY; --retry >= 0; )
   {
     ret = fl_read((WORD) ptDrive, (WORD) ptHead, (WORD) ptCylinder,
                   (WORD) ptSector, (WORD) 1, (byteptr) & buffer);
+    if (ret == 0)
+        break;                  
   }
-  while (ret != 0 && --retry > 0);
   if (ret != 0)
     return FALSE;
 
   /* Read each partition into temporary array     */
-  for (Part = 0; Part < N_PART; Part++)
+  
+  p = (BYTE *) & buffer.bytes[PARTOFF];
+  
+  for (ptemp_part = &temp_part[0];
+       ptemp_part < &temp_part[N_PART]; ptemp_part++)
   {
-    REG BYTE *p =
-    (BYTE *) & buffer.bytes[PARTOFF + (Part * SIZEOF_PARTENT)];
 
-    getbyte((VOID *) p, &temp_part[Part].peBootable);
-    ++p;
-    getbyte((VOID *) p, &temp_part[Part].peBeginHead);
-    ++p;
-    getbyte((VOID *) p, &packed_byte);
-    temp_part[Part].peBeginSector = packed_byte & 0x3f;
-    ++p;
-    getbyte((VOID *) p, &pb1);
-    ++p;
-    temp_part[Part].peBeginCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
-    getbyte((VOID *) p, &temp_part[Part].peFileSystem);
-    ++p;
-    getbyte((VOID *) p, &temp_part[Part].peEndHead);
-    ++p;
-    getbyte((VOID *) p, &packed_byte);
-    temp_part[Part].peEndSector = packed_byte & 0x3f;
-    ++p;
-    getbyte((VOID *) p, &pb1);
-    ++p;
-    temp_part[Part].peEndCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
-    getlong((VOID *) p, &temp_part[Part].peStartSector);
-    p += sizeof(LONG);
-    getlong((VOID *) p, &temp_part[Part].peSectors);
-  };
+    getbyte((VOID *) (p+0), &ptemp_part->peBootable);
+    getbyte((VOID *) (p+1), &ptemp_part->peBeginHead);
+    getbyte((VOID *) (p+2), &packed_byte);
+    ptemp_part->peBeginSector = packed_byte & 0x3f;
+    getbyte((VOID *) (p+3), &pb1);
+    ptemp_part->peBeginCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
+    getbyte((VOID *) (p+4), &ptemp_part->peFileSystem);
+    getbyte((VOID *) (p+5), &ptemp_part->peEndHead);
+    getbyte((VOID *) (p+6), &packed_byte);
+    ptemp_part->peEndSector = packed_byte & 0x3f;
+    getbyte((VOID *) (p+7), &pb1);
+    ptemp_part->peEndCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
+    getlong((VOID *) (p+8), &ptemp_part->peStartSector);
+    getlong((VOID *) (p+12), &ptemp_part->peSectors);
+    
+    p += SIZEOF_PARTENT; /* == 16 */
+  }
 
   /* Walk through the table, add DOS partitions to global
      array and process extended partitions         */
-  for (Part = 0; Part < N_PART && nUnits < NDEV; Part++)
+  for (ptemp_part = &temp_part[0];
+       ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
   {
-/*TE*/  	
-  	ptemp_part = &temp_part[Part];
-  	
-    if (ptemp_part->peFileSystem == FAT12 ||
-	ptemp_part->peFileSystem == FAT16SMALL ||
-	ptemp_part->peFileSystem == FAT16LARGE)
+
+                                    /* when searching the EXT chain, 
+                                       must skip primary partitions */  	
+    if ( ( (table_type==PRIMARY)  
+      || ( (table_type==EXTENDED) && (partition_chain!=0) ) ) && 
+        ( ptemp_part->peFileSystem == FAT12 ||
+    	  ptemp_part->peFileSystem == FAT16SMALL ||
+	      ptemp_part->peFileSystem == FAT16LARGE)    )
     {
-      miarray[nUnits].mi_offset =
-	  ptemp_part->peStartSector + ptAccuOff;
-      miarray[nUnits].mi_drive = ptDrive;
-      miarray[nUnits].mi_partidx = nPartitions;
+      struct dos_partitionS *pdos_partition; 
+      
+      struct media_info *pmiarray = getPMiarray(nUnits);
+      	
+      pmiarray->mi_offset  = ptemp_part->peStartSector + ptAccuOff;
+      
+      PartCodePrintf(("mioffset1 = %lx - ", pmiarray->mi_offset));
+      pmiarray->mi_drive   = ptDrive;
+      pmiarray->mi_partidx = nPartitions;
+
+      {
+      ULONG newStartPos = StartSector(ptDrive, 
+                                    ptemp_part->peBeginHead,
+                                    ptemp_part->peBeginSector,   
+                                    ptemp_part->peBeginCylinder, 
+                                    ptemp_part->peStartSector,
+                                    ptAccuOff);
+                                    
+      if (newStartPos != pmiarray->mi_offset)
+        {
+        printf("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
+                                    ptemp_part->peBeginCylinder, 
+                                    ptemp_part->peBeginHead,
+                                    ptemp_part->peBeginSector,   
+                                    ptemp_part->peStartSector,
+                                    ptAccuOff);
+        printf(" old startpos = %ld, new startpos = %ld, taking new\n", 
+            pmiarray->mi_offset, newStartPos);
+                                    
+        pmiarray->mi_offset = newStartPos;
+        }                                      
+      }
+      
       nUnits++;
 
-      dos_partition[nPartitions].peDrive = ptDrive;
-      dos_partition[nPartitions].peBootable =
-	  ptemp_part->peBootable;
-      dos_partition[nPartitions].peBeginHead =
-	  ptemp_part->peBeginHead;
-      dos_partition[nPartitions].peBeginSector =
-	  ptemp_part->peBeginSector;
-      dos_partition[nPartitions].peBeginCylinder =
-	  ptemp_part->peBeginCylinder;
-      dos_partition[nPartitions].peFileSystem =
-	  ptemp_part->peFileSystem;
-      dos_partition[nPartitions].peEndHead =
-	  ptemp_part->peEndHead;
-      dos_partition[nPartitions].peEndSector =
-	  ptemp_part->peEndSector;
-      dos_partition[nPartitions].peEndCylinder =
-	  ptemp_part->peEndCylinder;
-      dos_partition[nPartitions].peStartSector =
-	  ptemp_part->peStartSector;
-      dos_partition[nPartitions].peSectors =
-	  ptemp_part->peSectors;
-      dos_partition[nPartitions].peAbsStart =
-	  ptemp_part->peStartSector + ptAccuOff;
+	  pdos_partition = &dos_partition[nPartitions];
+
+      pdos_partition->peDrive = ptDrive;
+      pdos_partition->peBootable    = ptemp_part->peBootable;
+      pdos_partition->peBeginHead   = ptemp_part->peBeginHead;
+      pdos_partition->peBeginSector = ptemp_part->peBeginSector;
+      pdos_partition->peBeginCylinder=ptemp_part->peBeginCylinder;
+      pdos_partition->peFileSystem   =ptemp_part->peFileSystem;
+      pdos_partition->peEndHead      =ptemp_part->peEndHead;
+      pdos_partition->peEndSector    =ptemp_part->peEndSector;
+      pdos_partition->peEndCylinder  =ptemp_part->peEndCylinder;
+      pdos_partition->peStartSector  =ptemp_part->peStartSector;
+      pdos_partition->peSectors      =ptemp_part->peSectors;
+      pdos_partition->peAbsStart     =ptemp_part->peStartSector + ptAccuOff;
+
+      PartCodePrintf(("DOS PARTITION drive %x CHS %x-%x-%x  %x-%x-%x  %lx %lx %lx FS %x\n",
+          pdos_partition->peDrive,
+          pdos_partition->peBeginCylinder,
+          pdos_partition->peBeginHead   ,
+          pdos_partition->peBeginSector ,
+          pdos_partition->peEndCylinder , 
+          pdos_partition->peEndHead     , 
+          pdos_partition->peEndSector   , 
+          pdos_partition->peStartSector , 
+          pdos_partition->peSectors     , 
+          pdos_partition->peAbsStart    ,
+           pdos_partition->peFileSystem
+          )); 
+      
+      
       nPartitions++;
     }
-    else if (ptemp_part->peFileSystem == EXTENDED)
+  }
+  for (ptemp_part = &temp_part[0];
+       ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
+  {
+    if ( (table_type==EXTENDED) &&
+         (ptemp_part->peFileSystem == EXTENDED ||
+          ptemp_part->peFileSystem == EXTENDED_INT32 ) )
     {
-      /* call again to process extended part table */
-      processtable(ptDrive,
-		   ptemp_part->peBeginHead,
-		   ptemp_part->peBeginCylinder,
-		   ptemp_part->peBeginSector,
-		   ptemp_part->peStartSector + ptAccuOff);
-    };
-  };
+      /* restart with new extended part table, don't recurs */
+        partition_chain++;
+      
+        ptHead = ptemp_part->peBeginHead;
+        ptCylinder = ptemp_part->peBeginCylinder;
+        ptSector = ptemp_part->peBeginSector;
+        ptAccuOff = ptemp_part->peStartSector + ptAccuOff;
+        
+        goto restart;
+    }
+   
+  }
+  
   return TRUE;
 }
 
@@ -469,9 +584,7 @@ static WORD init(rqptr rp)
 
     fsarray[Unit].fs_serialno = 0x12345678;
 
-/*TE*/
 	pbpbarray = getPBpbarray(Unit);    
-
 
     pbpbarray->bpb_nbyte = SEC_SIZE;
     pbpbarray->bpb_nsector = 2;
@@ -483,16 +596,32 @@ static WORD init(rqptr rp)
     pbpbarray->bpb_nfsect = 2;
 
     bpbptrs[Unit] = pbpbarray;
-  };
+  }
 
   nHardDisk = fl_nrdrives();
+  
+  /* as rather well documented, DOS searches 1st) all primary patitions on 
+     all drives, 2nd) all extended partitions. that  
+     makes many people (including me) unhappy, as all DRIVES D:,E:... 
+     on 1st disk will move up/down, if other disk with 
+     primary partitions are added/removed, but
+     thats the way it is (hope I got it right) 
+     TE (with a little help from my friends) */
+  
   for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
   {
     /* Process primary partition table                      */
-    if (!processtable((HardDrive | 0x80), 0, 0l, 1, 0l))
+    if (!processtable(PRIMARY, (HardDrive | 0x80), 0, 0l, 1, 0l))
       /* Exit if no hard drive                             */
       break;
-  };
+  }
+  for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+  {
+    /* Process extended partition table                      */
+    if (!processtable(EXTENDED, (HardDrive | 0x80), 0, 0l, 1, 0l))
+      /* Exit if no hard drive                             */
+      break;
+  }
 
   rp->r_nunits = nUnits;
   rp->r_bpbptr = bpbptrs;
@@ -533,9 +662,11 @@ static WORD mediachk(rqptr rp)
 /*
  *  Read Write Sector Zero or Hard Drive Dos Bpb
  */
-static WORD RWzero(rqptr rp, WORD t)
+STATIC WORD RWzero(rqptr rp, WORD t)
 {
   REG retry = N_RETRY;
+  WORD head,track,sector,ret;
+  
 
   if (hd(miarray[rp->r_unit].mi_drive))
   {
@@ -585,6 +716,7 @@ static WORD Getlogdev(rqptr rp)
 
 static WORD Setlogdev(rqptr rp)
 {
+	UNREFERENCED_PARAMETER(rp);
     return S_DONE;
 }
 
@@ -602,6 +734,7 @@ static WORD blk_Close(rqptr rp)
 
 static WORD blk_nondr(rqptr rp)
 {
+	UNREFERENCED_PARAMETER(rp);
     return S_BUSY|S_DONE;
 }
 
@@ -613,7 +746,7 @@ static WORD blk_Media(rqptr rp)
     return S_DONE;      	/* Floppy */
 }
 
-static WORD bldbpb(rqptr rp)
+STATIC WORD bldbpb(rqptr rp)
 {
   ULONG count, i;
   byteptr trans;
@@ -621,6 +754,7 @@ static WORD bldbpb(rqptr rp)
 /*TE*/  
   bpb *pbpbarray;
   struct media_info *pmiarray;
+  WORD head,track,sector,ret;
 
   ret = RWzero( rp, 0);
 
@@ -647,10 +781,14 @@ static WORD bldbpb(rqptr rp)
 /* Needs fat32 offset code */
 
   getlong(&((((BYTE *) & buffer.bytes[0x27])[0])), &fsarray[rp->r_unit].fs_serialno);
+/*TE  
   for(i = 0; i < 11 ;i++ )
     fsarray[rp->r_unit].fs_volume[i] = buffer.bytes[0x2B + i];
   for(i = 0; i < 8; i++ )
     fsarray[rp->r_unit].fs_fstype[i] = buffer.bytes[0x36 + i];
+*/    
+  memcpy(fsarray[rp->r_unit].fs_volume,&buffer.bytes[0x2B], 11);
+  memcpy(fsarray[rp->r_unit].fs_fstype,&buffer.bytes[0x36], 8);
 
 
 
@@ -696,7 +834,7 @@ static WORD bldbpb(rqptr rp)
   return S_DONE;
 }
 
-static COUNT write_and_verify(WORD drive, WORD head, WORD track, WORD sector,
+STATIC COUNT write_and_verify(WORD drive, WORD head, WORD track, WORD sector,
                               WORD count, BYTE FAR * buffer)
 {
   REG COUNT ret;
@@ -725,6 +863,7 @@ static WORD IoctlQueblk(rqptr rp)
 
 static WORD Genblkdev(rqptr rp)
 {
+    int ret;
     switch(rp->r_count){
         case 0x0860:            /* get device parameters */
         {
@@ -771,10 +910,8 @@ static WORD Genblkdev(rqptr rp)
         struct FS_info FAR * fs = &fsarray[rp->r_unit];
 
             gioc->ioc_serialno = fs->fs_serialno;
-            for(i = 0; i < 11 ;i++ )
-                gioc->ioc_volume[i] = fs->fs_volume[i];
-            for(i = 0; i < 8; i++ )
-                gioc->ioc_fstype[i] = fs->fs_fstype[i];
+            fmemcpy(gioc->ioc_volume,fs->fs_volume,11);
+            fmemcpy(gioc->ioc_fstype, fs->fs_fstype,8);
         }
         break;
         case 0x0846:        /* set volume serial number */
@@ -808,8 +945,7 @@ static WORD Genblkdev(rqptr rp)
   return S_DONE;
 }
 
-
-static WORD blockio(rqptr rp)
+WORD blockio(rqptr rp)
 {
   REG retry = N_RETRY,
     remaining;
@@ -817,6 +953,8 @@ static WORD blockio(rqptr rp)
     total;
   ULONG start;
   byteptr trans;
+  WORD head,track,sector,ret,count;
+  
   COUNT(*action) (WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 
   cmd = rp->r_command;
@@ -832,6 +970,10 @@ static WORD blockio(rqptr rp)
       )
   {
     count = ltop(&track, &sector, &head, rp->r_unit, remaining, start, trans);
+    
+    /*printf("dskAction %02x THS=%x-%x-%x block=%lx\n", rp->r_unit,track, head, sector, start);*/
+
+    
     do
     {
       switch (cmd)
@@ -848,6 +990,8 @@ static WORD blockio(rqptr rp)
         default:
           return failure(E_FAILURE);
       }
+      
+      
       if (count)
         ret = action((WORD) miarray[rp->r_unit].mi_drive, head, track, sector,
                      count, trans);
@@ -886,6 +1030,7 @@ static WORD blk_error(rqptr rp)
 
 static WORD blk_noerr(rqptr rp)
 {
+	UNREFERENCED_PARAMETER(rp);
     return S_DONE;
 }
 
@@ -924,12 +1069,13 @@ static WORD dskerr(COUNT code)
 /*                                                                      */
 /* Do logical block number to physical head/track/sector mapping        */
 /*                                                                      */
-static COUNT ltop(WORD * trackp, WORD * sectorp, WORD * headp, COUNT unit, COUNT count, ULONG strt_sect, byteptr strt_addr)
+COUNT ltop(WORD * trackp, WORD * sectorp, WORD * headp, COUNT unit, COUNT count, ULONG strt_sect, byteptr strt_addr)
 {
 #ifdef I86
   UWORD utemp;
 #endif
-	REG struct media_info *pmiarray;
+	struct media_info *pmiarray;
+	
 
 #ifdef I86
 /*TE*/
@@ -954,9 +1100,10 @@ static COUNT ltop(WORD * trackp, WORD * sectorp, WORD * headp, COUNT unit, COUNT
 
   *trackp = strt_sect / (pmiarray->mi_heads * pmiarray->mi_sectors);
   *sectorp = strt_sect % pmiarray->mi_sectors + 1;
-  *headp = (strt_sect % (pmiarray->mi_sectors * pmiarray->mi_heads))
+  *headp = (strt_sect % (pmiarray->mi_heads * pmiarray->mi_sectors))
       / pmiarray->mi_sectors;
   if (*sectorp + count > pmiarray->mi_sectors + 1)
     count = pmiarray->mi_sectors + 1 - *sectorp;
   return count;
 }
+
