@@ -40,8 +40,8 @@ RM=..\utils\rmfiles
 
 #               *Implicit Rules*
 .c.obj :
-	$(CC) $(CFLAGS) -c $*.c
+	$(CC) $(CFLAGS) $*.c
 
 .cpp.obj :
-	$(CC) $(CFLAGS) -c $*.cpp
+	$(CC) $(CFLAGS) $*.cpp
 
