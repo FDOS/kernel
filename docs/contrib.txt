@@ -1,22 +1,34 @@
-These are the know contributors of the FreeDOS kernel.  If you have
+These are the known contributors of the FreeDOS kernel. If you have
 contributed in any way to the kernel, but are not on this list,
 please email me at bart@dosemu.org so I can add you to the list!
 
 Thanks to all the following for contributing to the FreeDOS kernel:
 
-ror4 (ror4@angelfire.com)
-Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
-Charles Dye (raster@highfiber.com)
-John Price (linux-guru@gcfl.net)
-Steve Miller (SMiller@dsfx.com)
-Jens Horstmeier (Jens.Horstmeier@Abg1.SIEMENS.DE)
-James Tabor (jimtabor@infohwy.com)
-Eric Biederman (ebiederm+eric@ccr.net)
-Tom Ehlert (tom.ehlert@ginko.de)
-Victor Vlasenko (victor_vlasenko@hotbox.ru)
-Jeremy Davis (jeremyd@computer.org)
-Martin Stromberg (ams@ludd.luth.se)
+Arkady Belousov (ark@mos.ru)
 Bart Oldeman (bart@dosemu.org)
+Brian Reifsnyder (reifsnyderb@mindspring.com)
+Charles Dye (raster@highfiber.com)
+Eric Auer (eric@coli.uni-sb.de)
+Eric Biederman (ebiederm+eric@ccr.net)
+Eric Luttmann (ecl@users.sourceforge.net)
+Helmut Fritsch (helmut.fritsch@gcd-hs.de)
+James Tabor (jimtabor@infohwy.com)
+Jens Horstmeier (Jens.Horstmeier@abg1.siemens.de)
+Jeremy Davis (jeremyd@computer.org)
+Jim Hall (jhall@freedos.org)
+John Price (linux-guru@gcfl.net)
+Kolya Ksenev (7207@mx.csd.tsu.ru)
+Lixing Yuan (yuanlixg@china.com)
+Luchezar Georgiev (lig@linux.tu-varna.acad.bg)
+Martin Stromberg (ams@ludd.luth.se)
+Michal Bakowski (mb@orad.pl)
+Ron Cemer (roncemer@gte.net)
+"ror4" (ror4@angelfire.com)
+Rune Espeseth (re@icd.no)
+Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
+Steve Miller (SMiller@dsfx.com)
+Tom Ehlert (te@drivesnapshot.de)
+Victor Vlasenko (victor_vlasenko@hotbox.ru)
 
 At this place we should also thank Ralf Brown for his interrupt list.
 It is a truely invaluable resource for us.
