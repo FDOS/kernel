@@ -23,7 +23,7 @@ extern struct WinStartupInfo winStartupInfo;
  */
 struct WinPatchTable
 {
-  UWORD dosver;  /* Note: for FreeDOS this overlaps with os_setver version */
+  UWORD dosver;
   UWORD OffTempDS;
   UWORD OffTempBX;
   UWORD OffInDOS;

@@ -351,6 +351,10 @@ _uppermem_root	dw	0ffffh		; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 ;; FreeDOS specific entries
+		global	_os_setver_minor
+_os_setver_minor	db	0
+		global	_os_setver_major
+_os_setver_major	db	5
 		global	_os_minor
 _os_minor	db	0
 		global	_os_major	       
@@ -367,6 +371,9 @@ _f_nodes_cnt	dw	0
 		extern	_os_release
 os_release	dw	_os_release
 
+;; any FreeDOS variable below this point are subject to relocation.
+;; variables above should not change (unless necessary) as
+;; programs may make use of them (even though they should NOT!)
 %IFDEF WIN31SUPPORT
 		global	_winStartupInfo, _winInstanced
 _winInstanced    dw 0 ; set to 1 on WinInit broadcast, 0 on WinExit broadcast
@@ -381,19 +388,11 @@ instance_table: ; should include stacks, Win may auto determine SDA region
                 dw 0, seg _DATASTART  ; [?linear?] address of region's base
                 dw markEndInstanceData wrt seg _DATASTART ; size in bytes
                 dd 0 ; 0 marks end of table
-                dw 0
+patch_bytes:         ; mark end of array of offsets of critical section bytes to patch
+                dw 0 ; and 0 length for end of instance_table entry
 		global	_winPatchTable
 _winPatchTable: ; returns offsets to various internal variables
-%ENDIF ; WIN31SUPPORT
-        ; os version reported, patch table includes DOS version
-        ; so we include it here to save duplicate data, but even
-        ; without WIN31SUPPORT enabled these variables are used.
-        ; The setver variants are used so we report to Windows
-        ; editable (fake) DOS version user wanted.
-		global	_os_setver_minor, _os_setver_major
-_os_setver_minor	db	0
-_os_setver_major	db	0
-%IFDEF WIN31SUPPORT
+                dw 0x0006      ; DOS version, major# in low byte, eg. 6.00
                 dw save_DS     ; where DS stored during int21h dispatch
                 dw save_BX     ; where BX stored during int21h dispatch
                 dw _InDOS      ; offset of InDOS flag
@@ -407,7 +406,6 @@ _os_setver_major	db	0
                 dw _uppermem_root ; seg of last arena header in conv memory
                                   ; this matches MS DOS's location, but 
                                   ; do we have the same meaning?
-patch_bytes     dw 0 ; mark end of array of offsets of critical section bytes to patch
 %ENDIF ; WIN31SUPPORT
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
