@@ -109,7 +109,6 @@ segment INIT_TEXT
                 ;
 kernel_start:
 
-                push ax
                 push bx
                 pushf              
                 mov ax, 0e32h           ; '2' Tracecode - kernel entered
@@ -117,13 +116,12 @@ kernel_start:
                 int 010h
                 popf
                 pop bx
-                pop ax
 
 		mov	ax,seg init_tos
 		cli
 		mov	ss,ax
 		mov	sp,init_tos
-		int	12h		; move the init code to higher memory
+		int	12h		; move init text+data to higher memory
 		mov	cl,6
 		shl	ax,cl
 		mov	dx,15 + init_end wrt INIT_TEXT
@@ -137,13 +135,43 @@ kernel_start:
 		mov	ss,ax		; set SS to init data segment
 		sti                     ; now enable them
 		mov	ax,cs
+		mov	dx,__InitTextStart wrt HMA_TEXT
+%ifdef WATCOM
+		mov	cx,dx
+		shr	cx,4
+		add	ax,cx
+%endif
 		mov	ds,ax
-		xor	si,si
-		xor	di,di
-		mov	cx,1 + init_end wrt INIT_TEXT
+		mov	cx,-2 + init_end wrt INIT_TEXT
+		mov	si,cx
+		mov	di,cx
 		shr	cx,1
-		cld
+		inc	cx
+		std			; if there's overlap only std is safe
 		rep	movsw
+
+					; move HMA_TEXT to higher memory
+		mov	cx,dx		; cx = __InitTextStart wrt HMA_TEXT
+		shr	dx,4
+
+		sub	ax,dx
+		mov	ds,ax		; ds = HMA_TEXT
+		mov	ax,es
+		sub	ax,dx
+		mov	es,ax		; es = new HMA_TEXT
+
+		mov	si,cx
+		dec	si
+		dec	si
+		mov	di,si
+		shr	cx,1
+		rep	movsw
+		
+		cld
+%ifndef WATCOM				; for WATCOM: CS equal for HMA and INIT
+		add	ax,dx
+		mov	es,ax		; otherwise CS -> init_text
+%endif
 		push	es
 		mov	ax,cont
 		push	ax

@@ -330,22 +330,8 @@ void MoveKernel(unsigned NewKernelSegment)
 
   if (NewKernelSegment < CurrentKernelSegment ||
       NewKernelSegment == 0xffff)
-  {
-    unsigned i;
-    UBYTE FAR *s, FAR * d;
-
-    for (i = 0, s = HMASource, d = HMADest; i < len; i++)
-      d[i] = s[i];
-  }
-  else
-  {
-    /* might overlap */
-    unsigned i;
-    UBYTE FAR *s, FAR * d;
-
-    for (i = len, s = HMASource, d = HMADest; i != 0; i--)
-      d[i] = s[i];
-  }
+    fmemcpy(HMADest, HMASource, len);
+  /* else it's the very first relocation: handled by kernel.asm */
 
   HMAFree = (FP_OFF(HMADest) + len + 0xf) & 0xfff0;
   /* first free byte after HMA_TEXT on 16 byte boundary */

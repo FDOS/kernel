@@ -30,8 +30,12 @@
 group   PGROUP          PSP
 group   LGROUP          _LOWTEXT _IO_TEXT _IO_FIXED_DATA _TEXT
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA
+%ifdef WATCOM
+group   TGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END INIT_TEXT_START INIT_TEXT INIT_TEXT_END
+%else
 group   TGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 group   IGROUP          INIT_TEXT_START INIT_TEXT INIT_TEXT_END
+%endif
 group   I_GROUP         ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA IB_B I_BSS IB IB_E
 
 segment PSP             class=PSP
@@ -54,7 +58,7 @@ segment	HMA_TEXT	class=CODE
 segment HMA_TEXT_END	class=CODE
 segment INIT_TEXT_START class=CODE align=16
 segment	INIT_TEXT	class=CODE
-segment	INIT_TEXT_END   class=CODE	
+segment	INIT_TEXT_END   class=CODE
 segment ID_B            class=ID   align=16
 segment ID              class=ID   align=2
 segment ID_E            class=ID   align=2

@@ -227,7 +227,11 @@ STATIC void init_kernel(void)
   ram_top = init_oem();
 
   /* move kernel to high conventional RAM, just below the init code */
+#ifdef __WATCOMC__
+  lpTop = MK_FP(_CS, 0);
+#else
   lpTop = MK_FP(_CS - (FP_OFF(_HMATextEnd) + 15) / 16, 0);
+#endif
 
   MoveKernel(FP_SEG(lpTop));
   lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
