@@ -4,7 +4,7 @@
 # $Id$
 #
 
-!include "..\mkfiles\generic.mak"
+!include "../mkfiles/generic.mak"
 
 RELEASE = 1.00
 
