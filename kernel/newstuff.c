@@ -128,7 +128,7 @@ COUNT get_verify_drive(const char FAR * src)
     drive = default_drive;
 
   if (get_cds(drive) == NULL)
-    return DE_INVLDDRV;
+    return DE_PATHNOTFND;
     
   return drive;
 }

@@ -1271,7 +1271,7 @@ COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
 {
   if (path1[0] != path2[0])
   {
-    return DE_INVLDDRV;
+    return DE_DEVICE; /* not same device */
   }
   if (current_ldt->cdsFlags & CDSNETWDRV)
     return remote_rename();
