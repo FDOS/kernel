@@ -177,7 +177,8 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    idx = (unsigned) (((Cluster1 << 1) + Cluster1) >> 1) % dpbp->dpb_secsize;
+    idx = (unsigned) ((((unsigned)Cluster1 << 1) + (unsigned)Cluster1) >> 1)
+      % dpbp->dpb_secsize;
     
     /* Test to see if the cluster straddles the block. If   */
     /* it does, get the next block and use both to form the */
@@ -188,7 +189,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   
     if (idx >= (unsigned)dpbp->dpb_secsize - 1)
     {
-      bp1 = getFATblock(Cluster1 + 1, dpbp);
+      bp1 = getFATblock((unsigned)Cluster1 + 1, dpbp);
       if (bp1 == 0)
         return DE_BLKINVLD;
       
@@ -198,15 +199,15 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     }
 
     /* Now pack the value in                                */
-    if (Cluster1 & 0x01)
+    if ((unsigned)Cluster1 & 0x01)
     {
-      *fbp0 = (*fbp0 & 0x0f) | ((Cluster2 & 0x0f) << 4);
-      *fbp1 = (Cluster2 >> 4) & 0xff;
+      *fbp0 = (*fbp0 & 0x0f) | (((UBYTE)Cluster2 & 0x0f) << 4);
+      *fbp1 = (UBYTE)((unsigned)Cluster2 >> 4);
     }
     else
     {
-      *fbp0 = Cluster2 & 0xff;
-      *fbp1 = (*fbp1 & 0xf0) | ((Cluster2 >> 8) & 0x0f);
+      *fbp0 = (UBYTE)Cluster2;
+      *fbp1 = (*fbp1 & 0xf0) | ((UBYTE)((unsigned)Cluster2 >> 8) & 0x0f);
     }
   }
   else if (ISFAT16(dpbp)) 

@@ -406,7 +406,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       ULONG com_size_long = SftGetFsize(fd);
       /* maximally 64k - 256 bytes stack -
          256 bytes psp */
-      com_size = (min(com_size_long, 0xfe00u) >> 4) + 0x10;
+      com_size = ((UWORD)min(com_size_long, 0xfe00u) >> 4) + 0x10;
     }
 
     if ((mode & 0x7f) != OVERLAY)
@@ -668,7 +668,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
         mcb FAR *mp = MK_FP(mem - 1, 0);
         
         /* then the image should be placed as high as possible */
-        start_seg = start_seg + mp->m_size - (image_size + 15) / 16;
+        start_seg = start_seg + mp->m_size - (UWORD)((image_size + 15) / 16);
       }
     }
   }

@@ -88,7 +88,6 @@ BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps, UWORD * nc)
 UWORD FcbParseFname(int *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb)
 {
   WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
-  const BYTE FAR * lpFileName2 = lpFileName;
 
   /* pjv -- ExtFcbToFcb?                                          */
   /* Start out with some simple stuff first.  Check if we are     */
@@ -109,57 +108,57 @@ UWORD FcbParseFname(int *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb
 
   if (!(*wTestMode & PARSE_SEP_STOP))
   {
-    lpFileName2 = ParseSkipWh(lpFileName2);
-    if (TestCmnSeps(lpFileName2))
-      ++lpFileName2;
+    lpFileName = ParseSkipWh(lpFileName);
+    if (TestCmnSeps(lpFileName))
+      ++lpFileName;
   }
 
   /* Undocumented "feature," we skip white space anyway           */
-  lpFileName2 = ParseSkipWh(lpFileName2);
+  lpFileName = ParseSkipWh(lpFileName);
 
   /* Now check for drive specification                            */
-  if (*(lpFileName2 + 1) == ':')
+  if (*(lpFileName + 1) == ':')
   {
     /* non-portable construct to be changed                 */
-    REG UBYTE Drive = DosUpFChar(*lpFileName2) - 'A';
+    REG UBYTE Drive = DosUpFChar(*lpFileName) - 'A';
 
     if (Drive >= lastdrive)
     {
       *wTestMode = PARSE_RET_BADDRIVE;
-      return lpFileName2 - lpFileName;
+      return FP_OFF(lpFileName);
     }
 
     lpFcb->fcb_drive = Drive + 1;
-    lpFileName2 += 2;
+    lpFileName += 2;
   }
 
   /* special cases: '.' and '..' */
-  if (*lpFileName2 == '.')
+  if (*lpFileName == '.')
   {
     lpFcb->fcb_fname[0] = '.';
-    ++lpFileName2;
-    if (*lpFileName2 == '.')
+    ++lpFileName;
+    if (*lpFileName == '.')
     {
       lpFcb->fcb_fname[1] = '.';
-      ++lpFileName2;
+      ++lpFileName;
     }
     *wTestMode = PARSE_RET_NOWILD;
-    return lpFileName2 - lpFileName;
+    return FP_OFF(lpFileName);
   }
 
   /* Now to format the file name into the string                  */
-  lpFileName2 =
-      GetNameField(lpFileName2, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE,
+  lpFileName =
+      GetNameField(lpFileName, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE,
                    (BOOL *) & wRetCodeName);
 
   /* Do we have an extension? If do, format it else return        */
-  if (*lpFileName2 == '.')
-    lpFileName2 =
-        GetNameField(++lpFileName2, (BYTE FAR *) lpFcb->fcb_fext,
+  if (*lpFileName == '.')
+    lpFileName =
+        GetNameField(++lpFileName, (BYTE FAR *) lpFcb->fcb_fext,
                      FEXT_SIZE, (BOOL *) & wRetCodeExt);
 
   *wTestMode = (wRetCodeName | wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
-  return lpFileName2 - lpFileName;
+  return FP_OFF(lpFileName);
 }
 
 const BYTE FAR * ParseSkipWh(const BYTE FAR * lpFileName)
@@ -345,8 +344,8 @@ void FcbCalcRec(xfcb FAR * lpXfcb)
 
   /* Now update the fcb and compute where we need to position     */
   /* to.                                                          */
-  lpFcb->fcb_cublock = lpFcb->fcb_rndm / 128;
-  lpFcb->fcb_curec = lpFcb->fcb_rndm & 127;
+  lpFcb->fcb_cublock = (UWORD)(lpFcb->fcb_rndm / 128);
+  lpFcb->fcb_curec = (UBYTE)lpFcb->fcb_rndm & 127;
 }
 
 UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode)
@@ -362,7 +361,7 @@ UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode)
 
   old = lpFcb->fcb_rndm;
   nErrorCode = FcbReadWrite(lpXfcb, *nRecords, mode);
-  *nRecords = lpFcb->fcb_rndm - old;
+  *nRecords = (UWORD)(lpFcb->fcb_rndm - old);
 
   /* Now update the fcb                                           */
   FcbCalcRec(lpXfcb);

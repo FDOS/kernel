@@ -826,7 +826,7 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
     else
 #endif
     if ((dpbp->dpb_cluster == UNKNCLUSTER) || (dpbp->dpb_cluster > st))
-      dpbp->dpb_cluster = st;
+      dpbp->dpb_cluster = (UWORD)st;
 
     /* and just follow the linked list              */
     st = next;
@@ -1037,7 +1037,7 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   }
 #endif
 
-  if (idx > dpbp->dpb_size)
+  if ((UWORD)idx > dpbp->dpb_size)
   {
     dpbp->dpb_cluster = UNKNCLUSTER;
     return LONG_LAST_CLUSTER;
@@ -1047,7 +1047,7 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
     dpbp->dpb_nfreeclst--;      /* TE: moved from link_fat() */
 
   /* return the free entry                                */
-  dpbp->dpb_cluster = idx;
+  dpbp->dpb_cluster = (UWORD)idx;
   return idx;
 }
 
@@ -1447,8 +1447,8 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
 #ifdef WRITEZEROS
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
-    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset % secsize;
+    fnp->f_sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    fnp->f_boff = (UWORD)(fnp->f_offset % secsize);
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
@@ -1676,8 +1676,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
-    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset % secsize;
+    fnp->f_sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    fnp->f_boff = (UWORD)(fnp->f_offset % secsize);
 
     currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
 
@@ -1890,7 +1890,7 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
     return cnt;
   }
 #endif
-  dpbp->dpb_nfreeclst = cnt;
+  dpbp->dpb_nfreeclst = (UWORD)cnt;
   return cnt;
 }
 
@@ -1907,7 +1907,9 @@ int dos_cd(char * PathName)
   if ((fnp = dir_open(PathName)) == NULL)
     return DE_PATHNOTFND;
 
-  cdsp->cdsStrtClst = fnp->f_dirstart;
+  /* problem: RBIL table 01643 does not give a FAT32 field for the
+     CDS start cluster. But we are not using this field ourselves */
+  cdsp->cdsStrtClst = (UWORD)fnp->f_dirstart;
   dir_close(fnp);
   return SUCCESS;
 }
@@ -2028,7 +2030,7 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
   dpbp->dpb_data = dpbp->dpb_dirstrt
       + (dpbp->dpb_dirents + dpbp->dpb_secsize/DIRENT_SIZE - 1) /
           (dpbp->dpb_secsize/DIRENT_SIZE);
-  dpbp->dpb_size = ((size - dpbp->dpb_data) >> shftcnt) + 1;
+  dpbp->dpb_size = (UWORD)((size - dpbp->dpb_data) >> shftcnt) + 1;
   { /* Make sure the number of FAT sectors is actually enough to hold that */
     /* many clusters. Otherwise back the number of clusters down (LG & AB) */
     unsigned fatsiz;

@@ -82,7 +82,7 @@ seg far2para(VOID FAR * p)
 
 seg long2para(ULONG size)
 {
-  UWORD high = size >> 16;
+  UWORD high = (UWORD)(size >> 16);
   if ((UWORD) size > 0xfff0)
     high++;
   return (((UWORD) size + 0x0f) >> 4) + (high << 12);
@@ -104,7 +104,7 @@ VOID FAR * add_far(VOID FAR * fp, ULONG off)
 #endif
 
   off += FP_OFF(fp);
-  off2 = ((off >> 16) << 12) + ((UWORD) off >> 4);
+  off2 = ((UWORD)(off >> 16) << 12) + ((UWORD) off >> 4);
 
   return MK_FP(FP_SEG(fp) + off2, (UWORD) off & 0xf);
 }

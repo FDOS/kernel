@@ -229,8 +229,8 @@ int int21_fat32(lregs *r)
       {
         case 0x00:
         {
-          DWORD nfreeclst = xdffp->xdff_f.setdpbcounts.nfreeclst;
-          DWORD cluster = xdffp->xdff_f.setdpbcounts.cluster;
+          ULONG nfreeclst = xdffp->xdff_f.setdpbcounts.nfreeclst;
+          ULONG cluster = xdffp->xdff_f.setdpbcounts.cluster;
           if (ISFAT32(dpb))
           {
             if ((dpb->dpb_xfsinfosec == 0xffff
@@ -246,13 +246,13 @@ int int21_fat32(lregs *r)
           }
           else
           {
-            if (nfreeclst == 1 || nfreeclst > dpb->dpb_size ||
-                cluster == 1 || cluster > dpb->dpb_size)
+            if ((unsigned)nfreeclst == 1 || (unsigned)nfreeclst > dpb->dpb_size ||
+                (unsigned)cluster == 1 || (unsigned)cluster > dpb->dpb_size)
             {
               return DE_INVLDPARM;
             }
-            dpb->dpb_nfreeclst = nfreeclst;
-            dpb->dpb_cluster = cluster;
+            dpb->dpb_nfreeclst = (UWORD)nfreeclst;
+            dpb->dpb_cluster = (UWORD)cluster;
           }
           break;
         }
@@ -294,7 +294,7 @@ int int21_fat32(lregs *r)
             bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
             bp->b_flag |= BFR_VALID | BFR_DIRTY;
             bpbp = (bpb FAR *) & bp->b_buffer[BT_BPB];
-            bpbp->bpb_xflags = newmirroring;
+            bpbp->bpb_xflags = (UWORD)newmirroring;
           }
           goto rebuild_dpb;
         }
@@ -306,7 +306,7 @@ int int21_fat32(lregs *r)
           if (!ISFAT32(dpb)
               || (rootclst != -1
                   && (rootclst == 1
-                      || rootclst > dpb->dpb_xsize)))
+                      || (ULONG)rootclst > dpb->dpb_xsize)))
           {
             return DE_INVLDPARM;
           }
@@ -669,9 +669,8 @@ dispatch:
       /* Parse File Name                                              */
     case 0x29:
       {
-        UWORD offset = FcbParseFname(&rc, MK_FP(lr.DS, lr.SI), FP_ES_DI);
+        lr.SI = FcbParseFname(&rc, MK_FP(lr.DS, lr.SI), FP_ES_DI);
         lr.AL = rc;
-        lr.SI += offset;
       }
       break;
 
@@ -963,7 +962,7 @@ dispatch:
         }
         else
         {
-          lr.DX = (lrc >> 16);
+          lr.DX = (UWORD)(lrc >> 16);
           lr.AX = (UWORD) lrc;
         }
       }
@@ -1575,7 +1574,7 @@ dispatch:
         {
           lr.AX = (UWORD)lrc;
           /* action */
-          lr.CX = lrc >> 16;
+          lr.CX = (UWORD)(lrc >> 16);
         }
         break;
       }

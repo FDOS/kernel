@@ -119,7 +119,7 @@ int main(int argc, char **argv)
           exit(1);
         }
 	
-        silentSegments[silentcount++] = strtol(argptr + 1, NULL, 0);
+        silentSegments[silentcount++] = (short)strtol(argptr + 1, NULL, 0);
         break;
 	
       default:
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
     printf("Destination file %s could not be created\n", argv[2]);
     return 1;
   }
-  start_seg = strtol(argv[3], NULL, 0);
+  start_seg = (UWORD)strtol(argv[3], NULL, 0);
   if (header.exExtraBytes == 0)
     header.exExtraBytes = 0x200;
   printf("header len = %lu = 0x%lx\n", header.exHeaderSize * 16UL,

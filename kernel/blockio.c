@@ -412,7 +412,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
       IoReqHdr.r_huge = blkno;
     }
     else
-      IoReqHdr.r_start = blkno;
+      IoReqHdr.r_start = (UWORD)blkno;
     /*
      * Some drivers normalise transfer address so HMA transfers are disastrous!
      * Then transfer block through xferbuf (DiskTransferBuffer doesn't work!)

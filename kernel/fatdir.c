@@ -60,7 +60,7 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
     else
 #endif
     {
-      fnp->f_dirstart = 0l;
+      fnp->f_dirstart = 0;
       fnp->f_flags.f_droot = TRUE;
     }
   }
@@ -181,6 +181,18 @@ STATIC void swap_deleted(char *name)
     name[0] = DELETED;
 }
 
+STATIC struct buffer FAR *getblock_from_off(f_node_ptr fnp, unsigned secsize)
+{
+  /* Compute the block within the cluster and the */
+  /* offset within the block.                     */
+  fnp->f_sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+  fnp->f_boff = (UWORD)(fnp->f_offset % secsize);
+
+  /* Get the block we need from cache             */
+  return getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
+                  fnp->f_dpb->dpb_unit);
+}
+
 /* Description.
  *  Read next consequitive directory entry, pointed by fnp.
  *  If some error occures the other critical
@@ -237,14 +249,7 @@ COUNT dir_read(REG f_node_ptr fnp)
     if (map_cluster(fnp, XFR_READ) != SUCCESS)
       return DE_SEEK;
 
-    /* Compute the block within the cluster and the */
-    /* offset within the block.                     */
-    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset % secsize;
-
-    /* Get the block we need from cache             */
-    bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
-                  fnp->f_dpb->dpb_unit);
+    bp = getblock_from_off(fnp, secsize);
 #ifdef DISPLAY_GETBLOCK
     printf("DIR (dir_read)\n");
 #endif
@@ -335,14 +340,7 @@ BOOL dir_write(REG f_node_ptr fnp)
         return FALSE;
       }
 
-      /* Compute the block within the cluster and the */
-      /* offset within the block.                     */
-      fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-      fnp->f_boff = fnp->f_offset % secsize;
-
-      /* Get the block we need from cache             */
-      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
-                    fnp->f_dpb->dpb_unit);
+      bp = getblock_from_off(fnp, secsize);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
       bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
