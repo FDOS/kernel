@@ -622,6 +622,9 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     temp = bs32->sysFatSecMask + 1;
     for (bs32->sysFatSecShift = 0; temp != 1;
          bs32->sysFatSecShift++, temp >>= 1) ;
+
+    /* use fixed drive for A:, B: and DL otherwise */
+    bs32->bsDriveNumber = drive < 2 ? 0 : 0xff;
   }
 #ifdef DEBUG
   if (fs == 32)
@@ -656,6 +659,9 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     /* sector data starts on */
     temp = temp + bs->sysRootDirSecs;
     bs->sysDataStart = temp;
+
+    /* use fixed BIOS drive 0 for A:, B: and DL otherwise */
+    bs32->bsDriveNumber = drive < 2 ? 0 : 0xff;
   }
 
 #ifdef DEBUG

@@ -178,15 +178,21 @@ Entry:          jmp     short real_start
 ;   ENTRY
 ;-----------------------------------------------------------------------
 
-real_start:     cli
-                cld
+real_start:	cli
+		cld
 		xor	ax, ax
-                mov     ss, ax          ; initialize stack
+		mov     ss, ax          ; initialize stack
 		mov	ds, ax
-                mov     bp, 0x7c00
-                lea     sp, [bp-0x20]
-                sti
-		int     0x13            ; reset drive
+		mov     bp, 0x7c00
+		lea     sp, [bp-0x20]
+		sti
+		cmp     byte [drive], 0xff ; BIOS bug ??
+		jne	dont_use_dl
+                mov     [drive], dl	; BIOS passes drive number in DL
+                			; a reset should not be needed here
+dont_use_dl:    
+;		int     0x13            ; reset drive
+
 ;		int	0x12		; get memory available in AX
 ;		mov	ax, 0x01e0
 ;		mov	cl, 6		; move boot sector to higher memory
@@ -203,10 +209,9 @@ real_start:     cli
 
 cont:           mov     ds, ax
 		mov	ss, ax
-                mov     [drive], dl     ; BIOS passes drive number in DL
 
                 call    print
-                db      "Loading FreeDOS ",0
+                db      "FreeDOS",0
 
 %ifdef CALCPARAMS
                 GETDRIVEPARMS
@@ -337,7 +342,8 @@ finished:       ; Mark end of FAT chain with 0, so we have a single
                 pop     ds
 
                 call    print
-                db      " KERNEL",0
+                db      " Kernel",0			; "KERNEL"
+                
 
 ;       loadFile: Loads the file into memory, one cluster at a time.
 
@@ -402,6 +408,64 @@ print1:         lodsb                          ; get token
 readDisk:       push    si
 read_next:      push    dx
                 push    ax
+
+;******************** LBA_READ *******************************
+
+						; check for LBA support
+		push 	bx
+										
+  		mov 	ah,041h		;
+        	mov 	bx,055aah	;
+                mov     dl, [drive]
+                int     0x13
+                jc	read_normal_BIOS
+
+                sub	bx,0aa55h
+                jne	read_normal_BIOS
+                
+                shr     cx,1			; CX must have 1 bit set
+                jnc	read_normal_BIOS
+  				
+						; OK, drive seems to support LBA addressing
+
+		lea	si,[LBA_DISK_PARAMETER_BLOCK]
+                            
+						; setup LBA disk block                            	
+		mov	[si+12],bx
+		mov	[si+14],bx
+	
+		pop	bx
+		
+		pop	ax
+		pop	dx
+		push	dx
+		push	ax
+		mov	[si+ 8],ax
+		mov	[si+10],dx
+        	mov	[si+4],bx
+		mov	[si+6],es
+
+
+		mov	ah,042h
+                jmp short    do_int13_read
+
+LBA_DISK_PARAMETER_BLOCK:
+		db 10h		; constant size of block
+		db  0
+		dw  1		; 1 sector read
+							; and overflow into code !!!
+							
+
+
+read_normal_BIOS:      
+                pop 	bx
+
+		pop	ax
+		pop	dx
+		push	dx
+		push	ax
+;******************** END OF LBA_READ ************************
+
 
                 ;
                 ; translate sector number to BIOS parameters
@@ -480,14 +544,18 @@ ax_min_2:       push    ax
                 pop     ax
 %else
                 mov     ax, 0x0201
+do_int13_read:                
                 mov     dl, [drive]
                 int     0x13
 %endif
+
+read_finished:
                 jnc     read_ok                 ; jump if no error
                 xor     ah, ah                  ; else, reset floppy
                 int     0x13
                 pop     ax
                 pop     dx                      ; and...
+read_next_chained:                   
                 jmp     short read_next         ; read the same sector again
 
 read_ok:
@@ -512,10 +580,10 @@ no_incr_es:     pop     ax
                 sub	di,si                   ; if there is anything left to read,
                 jg      read_next               ; continue
 %else
-                add     ax, 1
+                add     ax, byte 1
                 adc     dx, byte 0              ; DX:AX = next sector to read
                 dec     di                      ; if there is anything left to read,
-                jnz     read_next               ; continue
+                jnz     read_next_chained       ; continue
 %endif
 
                 clc
