@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/07/23 12:47:42  bartoldeman
+ * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
+ *
  * Revision 1.15  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -206,10 +209,6 @@ LONG DosGetFsize(COUNT hndl)
 {
   sft FAR *s;
 /*  sfttbl FAR *sp;*/
-
-  /* Test that the handle is valid                */
-  if (hndl < 0)
-    return DE_INVLDHNDL;
 
   /* Get the SFT block that contains the SFT      */
   if ((s = get_sft(hndl)) == (sft FAR *) - 1)
@@ -389,8 +388,8 @@ VOID new_psp(psp FAR * p, int psize)
     RootPsp = FP_SEG(p);
 }
 
-static VOID patchPSP(UWORD pspseg, UWORD envseg, CommandTail FAR * cmdline
-                     ,BYTE FAR * fnam)
+static UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR *exb,
+                      BYTE FAR * fnam)
 {
   psp FAR *psp;
   mcb FAR *pspmcb;
@@ -401,9 +400,11 @@ static VOID patchPSP(UWORD pspseg, UWORD envseg, CommandTail FAR * cmdline
   ++pspseg;
   psp = MK_FP(pspseg, 0);
 
-  /* complete the psp by adding the command line          */
-  fbcopy(cmdline->ctBuffer, psp->ps_cmd, 127);
-  psp->ps_cmd_count = cmdline->ctCount;
+  /* complete the psp by adding the command line and FCBs     */
+  fbcopy(exb->exec.cmd_line->ctBuffer, psp->ps_cmd, 127);
+  fbcopy(exb->exec.fcb_1, &psp->ps_fcb1, 16);
+  fbcopy(exb->exec.fcb_2, &psp->ps_fcb2, 16);
+  psp->ps_cmd_count = exb->exec.cmd_line->ctCount;
 
   /* identify the mcb as this functions'                  */
   pspmcb->m_psp = pspseg;
@@ -438,6 +439,11 @@ set_name:
   if (i < 8)
     pspmcb->m_name[i] = '\0';
 
+  /* return value: AX value to be passed based on FCB values */
+  return ((psp->ps_fcb1.fcb_drive<lastdrive &&
+           CDSp->cds_table[psp->ps_fcb1.fcb_drive].cdsFlags & CDSVALID) ? 0 : 0xff) + 
+         ((psp->ps_fcb2.fcb_drive<lastdrive &&
+           CDSp->cds_table[psp->ps_fcb2.fcb_drive].cdsFlags & CDSVALID) ? 0 : 0xff) * 0x100;
 }
 
 COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
@@ -559,37 +565,37 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
   new_psp(p, mem + asize);
 
-  patchPSP(mem - 1, env, exp->exec.cmd_line, namep);
-
-  /* build the user area on the stack                     */
-  *((UWORD FAR *) MK_FP(mem, 0xfffe)) = (UWORD) 0;
-  irp = MK_FP(mem, (0xfffe - sizeof(iregs)));
-
-  /* start allocating REGs                                */
-  irp->ES = irp->DS = mem;
-  irp->CS = mem;
-  irp->IP = 0x100;
-  irp->AX = 0xffff;             /* for now, until fcb code is in    */
-  irp->BX =
-      irp->CX =
-      irp->DX =
-      irp->SI =
-      irp->DI =
-      irp->BP = 0;
-  irp->FLAGS = 0x200;
+  asize = patchPSP(mem - 1, env, exp, namep); /* asize=fcbcode for ax */
 
   /* Transfer control to the executable                   */
   p->ps_parent = cu_psp;
   p->ps_prevpsp = (BYTE FAR *) MK_FP(cu_psp, 0);
   q->ps_stack = (BYTE FAR *) user_r;
   user_r->FLAGS &= ~FLG_CARRY;
+  cu_psp = mem;
+  dta = p->ps_dta;
 
   switch (mode)
   {
     case LOADNGO:
       {
-        cu_psp = mem;
-        dta = p->ps_dta;
+        *((UWORD FAR *) MK_FP(mem, 0xfffe)) = (UWORD) 0;
+  
+        /* build the user area on the stack                     */
+        irp = MK_FP(mem, (0xfffe - sizeof(iregs)));
+
+        /* start allocating REGs                                */
+        irp->ES = irp->DS = mem;
+        irp->CS = mem;
+        irp->IP = 0x100;
+        irp->AX = asize; /* fcbcode */
+        irp->BX =
+        irp->CX =
+        irp->DX =
+        irp->SI =
+        irp->DI =
+        irp->BP = 0;
+        irp->FLAGS = 0x200;
 
         if (InDOS)
           --InDOS;
@@ -600,9 +606,9 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
         break;
       }
     case LOAD:
-      cu_psp = mem;
-      exp->exec.stack = (BYTE FAR *) irp;
-      exp->exec.start_addr = MK_FP(irp->CS, irp->IP);
+      exp->exec.stack = MK_FP(mem, 0xfffe);
+      *((UWORD FAR *)exp->exec.stack) = asize;
+      exp->exec.start_addr = MK_FP(mem, 0x100);
       return SUCCESS;
   }
 
@@ -626,12 +632,15 @@ VOID return_user(void)
   setvec(0x24, p->ps_isv24);
 
   /* And free all process memory if not a TSR return      */
+  int2f_Remote_call(REM_PROCESS_END, 0, 0, 0, 0, 0, 0);
   if (!tsr)
   {
+    int2f_Remote_call(REM_CLOSEALL, 0, 0, 0, 0, 0, 0);
     for (i = 0; i < p->ps_maxfiles; i++)
     {
       DosClose(i);
     }
+    FcbCloseAll();
     FreeProcessMem(cu_psp);
   }
 
@@ -917,25 +926,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
   new_psp(p, mem + asize);
 
-  patchPSP(mem - 1, env, exp->exec.cmd_line, namep);
-
-  /* build the user area on the stack                     */
-  irp = MK_FP(header.exInitSS + start_seg,
-              ((header.exInitSP - sizeof(iregs)) & 0xffff));
-
-  /* start allocating REGs                                */
-  /* Note: must match es & ds memory segment              */
-  irp->ES = irp->DS = mem;
-  irp->CS = header.exInitCS + start_seg;
-  irp->IP = header.exInitIP;
-  irp->AX = 0xffff;             /* for now, until fcb code is in    */
-  irp->BX =
-      irp->CX =
-      irp->DX =
-      irp->SI =
-      irp->DI =
-      irp->BP = 0;
-  irp->FLAGS = 0x200;
+  asize = patchPSP(mem - 1, env, exp, namep); /* asize = fcbcode */
 
   /* Transfer control to the executable                   */
   p->ps_parent = cu_psp;
@@ -946,6 +937,24 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   switch (mode)
   {
     case LOADNGO:
+      /* build the user area on the stack                     */
+      irp = MK_FP(header.exInitSS + start_seg,
+              ((header.exInitSP - sizeof(iregs)) & 0xffff));
+
+      /* start allocating REGs                                */
+      /* Note: must match es & ds memory segment              */
+      irp->ES = irp->DS = mem;
+      irp->CS = header.exInitCS + start_seg;
+      irp->IP = header.exInitIP;
+      irp->AX = asize;             /* asize = fcbcode    */
+      irp->BX =
+      irp->CX =
+      irp->DX =
+      irp->SI =
+      irp->DI =
+      irp->BP = 0;
+      irp->FLAGS = 0x200;
+
       cu_psp = mem;
       dta = p->ps_dta;
 
@@ -958,8 +967,9 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
     case LOAD:
       cu_psp = mem;
-      exp->exec.stack = (BYTE FAR *) irp;
-      exp->exec.start_addr = MK_FP(irp->CS, irp->IP);
+      exp->exec.stack = MK_FP(header.exInitSS + start_seg, header.exInitSP);
+      *((UWORD FAR *) exp->exec.stack) = asize; /* fcbcode */
+      exp->exec.start_addr = MK_FP(header.exInitCS + start_seg, header.exInitIP);
       return SUCCESS;
   }
   return DE_INVLDFMT;

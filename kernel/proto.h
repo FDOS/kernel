@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/07/23 12:47:42  bartoldeman
+ * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
+ *
  * Revision 1.18  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -219,29 +222,35 @@ COUNT SftSeek(sft FAR *sftp, LONG new_pos, COUNT mode);
 UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
 COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos);
 COUNT DosCreat(BYTE FAR * fname, COUNT attrib);
+COUNT DosCreatSft(BYTE * fname, COUNT attrib);
 COUNT CloneHandle(COUNT hndl);
 COUNT DosDup(COUNT Handle);
 COUNT DosForceDup(COUNT OldHandle, COUNT NewHandle);
 COUNT DosOpen(BYTE FAR * fname, COUNT mode);
+COUNT DosOpenSft(BYTE * fname, COUNT mode);
 COUNT DosClose(COUNT hndl);
+COUNT DosCloseSft(WORD sft_idx);
 VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps, COUNT FAR * nc);
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s);
 COUNT DosChangeDir(BYTE FAR * s);
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name);
 COUNT DosFindNext(void);
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp);
-COUNT DosSetFtime(COUNT hndl, date FAR * dp, time FAR * tp);
+COUNT DosSetFtimeSft(WORD sft_idx, date FAR * dp, time FAR * tp);
+#define DosSetFtime(hndl, dp, tp) DosSetFtimeSft(get_sft_idx(hndl), (dp), (tp))
 COUNT DosGetFattr(BYTE FAR * name);
 COUNT DosSetFattr(BYTE FAR * name, UWORD attrp);
 UBYTE DosSelectDrv(UBYTE drv);
 COUNT DosDelete(BYTE FAR *path);
 COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
+COUNT DosRenameTrue(BYTE * path1, BYTE * path2);
 COUNT DosMkdir(BYTE FAR * dir);
 COUNT DosRmdir(BYTE FAR * dir);
 struct dhdr FAR * IsDevice(BYTE FAR * FileName);
 BOOL IsShareInstalled(void);
 COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
-sft FAR *get_free_sft(WORD FAR * sft_idx);
+sft FAR *idx_to_sft(COUNT SftIndex);
+COUNT get_sft_idx(UCOUNT hndl);
 
 /*dosidle.asm */
 VOID DosIdle_int(void);
@@ -348,8 +357,9 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 BOOL FcbOpen(xfcb FAR * lpXfcb);
 BOOL FcbDelete(xfcb FAR * lpXfcb);
 BOOL FcbRename(xfcb FAR * lpXfcb);
-void MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir);
+VOID MoveDirInfo(dmatch * lpDmatch, fcb FAR * lpDir);
 BOOL FcbClose(xfcb FAR * lpXfcb);
+VOID FcbCloseAll(VOID);
 BOOL FcbFindFirst(xfcb FAR * lpXfcb);
 BOOL FcbFindNext(xfcb FAR * lpXfcb);
 
@@ -476,6 +486,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname);
 VOID new_psp(psp FAR * p, int psize);
 VOID return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
+LONG DosGetFsize(COUNT hndl);
 VOID InitPSP(VOID);
 
 /* newstuff.c */

@@ -567,9 +567,10 @@ StandardBios:               /* old way to get parameters */
     driveParam->driveno = drive;
 
     DebugPrintf(("drive parameters %02x - %04lu-%u-%u",
-                        drive,driveParam->chs.Cylinder,
-                        drive,driveParam->chs.Head,
-                        drive,driveParam->chs.Sector));
+                        drive,
+                        driveParam->chs.Cylinder,
+                        driveParam->chs.Head,
+                        driveParam->chs.Sector));
     DebugPrintf((" total size %luMB\n\n",driveParam->total_sectors/2048));
 
     

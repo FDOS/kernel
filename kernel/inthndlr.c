@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.27  2001/07/23 12:47:42  bartoldeman
+ * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
+ *
  * Revision 1.26  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -1174,8 +1177,6 @@ dispatch:
           || ((psp FAR *) (MK_FP(cu_psp, 0)))->ps_parent == cu_psp)
         break;
       tsr = FALSE;
-        int2f_Remote_call(REM_PROCESS_END, 0, 0, 0, 0, 0, 0);
-        int2f_Remote_call(REM_CLOSEALL, 0, 0, 0, 0, 0, 0);
       if (ErrorMode)
       {
         ErrorMode = FALSE;

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/07/23 12:47:42  bartoldeman
+ * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
+ *
  * Revision 1.18  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -358,6 +361,7 @@ COUNT dir_read(REG f_node_ptr fnp)
 /* REG j; */
 
   struct buffer FAR *bp;
+  REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
   /* Directories need to point to their current offset, not for   */
   /* next op. Therefore, if it is anything other than the first   */
@@ -382,7 +386,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   {
     if (fnp->f_flags.f_droot)
     {
-      if ((fnp->f_diroff / fnp->f_dpb->dpb_secsize
+      if ((fnp->f_diroff / secsize
            + fnp->f_dpb->dpb_dirstrt)
           >= fnp->f_dpb->dpb_data)
       {
@@ -390,18 +394,15 @@ COUNT dir_read(REG f_node_ptr fnp)
         return 0;
       }
 
-      bp = getblock((ULONG) (fnp->f_diroff / fnp->f_dpb->dpb_secsize
+      bp = getblock((ULONG) (fnp->f_diroff / secsize
                              + fnp->f_dpb->dpb_dirstrt),
                     fnp->f_dpb->dpb_unit);
-      bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_read)\n");
 #endif
     }
     else
     {
-      REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
       /* Do a "seek" to the directory position        */
       fnp->f_offset = fnp->f_diroff;
@@ -444,8 +445,6 @@ COUNT dir_read(REG f_node_ptr fnp)
                                       fnp->f_dpb->dpb_data)
                     + fnp->f_sector,
                     fnp->f_dpb->dpb_unit);
-      bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_read)\n");
 #endif
@@ -453,14 +452,17 @@ COUNT dir_read(REG f_node_ptr fnp)
 
     /* Now that we have the block for our entry, get the    */
     /* directory entry.                                     */
-    if (bp != NULL)
-      getdirent((BYTE FAR *) & bp->b_buffer[((UWORD)fnp->f_diroff) % fnp->f_dpb->dpb_secsize],
-                (struct dirent FAR *)&fnp->f_dir);
-    else
+    if (bp == NULL)
     {
       fnp->f_flags.f_dfull = TRUE;
       return 0;
     }
+
+    bp->b_flag &= ~(BFR_DATA | BFR_FAT);
+    bp->b_flag |= BFR_DIR | BFR_VALID;
+
+    getdirent((BYTE FAR *) & bp->b_buffer[((UWORD)fnp->f_diroff) % fnp->f_dpb->dpb_secsize],
+                (struct dirent FAR *)&fnp->f_dir);
 
     /* Update the fnode's directory info                    */
     fnp->f_flags.f_dfull = FALSE;
@@ -479,6 +481,7 @@ COUNT dir_read(REG f_node_ptr fnp)
 COUNT dir_write(REG f_node_ptr fnp)
 {
   struct buffer FAR *bp;
+  REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
   /* Update the entry if it was modified by a write or create...  */
   if (fnp->f_flags.f_dmod)
@@ -488,11 +491,9 @@ COUNT dir_write(REG f_node_ptr fnp)
     if (fnp->f_flags.f_droot)
     {
       bp = getblock(
-                     (ULONG) ((UWORD)fnp->f_diroff / fnp->f_dpb->dpb_secsize
+                     (ULONG) ((UWORD)fnp->f_diroff / secsize
                               + fnp->f_dpb->dpb_dirstrt),
                      fnp->f_dpb->dpb_unit);
-      bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_write)\n");
 #endif
@@ -503,7 +504,6 @@ COUNT dir_write(REG f_node_ptr fnp)
     /* can continually update the same directory entry.     */
     else
     {
-      REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
       /* Do a "seek" to the directory position        */
       /* and convert the fnode to a directory fnode.  */
@@ -558,8 +558,10 @@ COUNT dir_write(REG f_node_ptr fnp)
       return 0;
     }
     putdirent((struct dirent FAR *)&fnp->f_dir,
-    (VOID FAR *) & bp->b_buffer[(UWORD)fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
-    bp->b_flag |= BFR_DIRTY | BFR_VALID;
+        (VOID FAR *) & bp->b_buffer[(UWORD)fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
+
+    bp->b_flag &= ~(BFR_DATA | BFR_FAT);
+    bp->b_flag |= BFR_DIR | BFR_DIRTY | BFR_VALID;
   }
   return DIRENT_SIZE;
 }
@@ -801,16 +803,19 @@ COUNT dos_findnext(void)
   /* If found, transfer it to the dmatch structure                */
   if (found)
     {
+#if 0
     extern VOID FAR *FcbFindFirstDirPtr;
-
     if (FcbFindFirstDirPtr)
         {
                                     /* this works MUCH better, then converting
                                        83 -> ASCIIZ ->83;
                                        specifically ".", ".."
+
+                                       But completely bypasses the network case!
                                     */   
         fmemcpy(FcbFindFirstDirPtr, &fnp->f_dir, 32);    
         }
+#endif    
     
     pop_dmp(dmp, fnp);
     }

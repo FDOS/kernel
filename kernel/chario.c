@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/07/23 12:47:42  bartoldeman
+ * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
+ *
  * Revision 1.9  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -185,9 +188,7 @@ VOID cso(COUNT c)
 
 VOID sto(COUNT c)
 {
-  static COUNT scratch;         /* make this static to save stack space */
-
-  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) &scratch);
+  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) &UnusedRetVal);
 }
 
 VOID mod_sto(REG UCOUNT c)
@@ -224,13 +225,12 @@ VOID Do_DosIdle_loop(void)
 
 UCOUNT _sti(void)
 {
-  static COUNT scratch;
   UBYTE c;
   /*
    * XXX: If there's a read error, this will just keep retrying the read until
    * the error disappears. Maybe it should do something else instead. -- ror4
    */
-  while (GenericRead(STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & scratch, TRUE)
+  while (GenericRead(STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal, TRUE)
          != 1) ;
   return c;
 }

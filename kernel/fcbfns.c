@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/07/23 12:47:42  bartoldeman
+ * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
+ *
  * Revision 1.13  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -144,18 +147,14 @@ static BYTE *RcsId = "$Id$";
 fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb);
 fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
-sft FAR *FcbGetSft(COUNT SftIndex);
 VOID FcbNextRecord(fcb FAR * lpFcb);
-/* sft FAR *FcbGetFreeSft(WORD FAR * sft_idx); */
 BOOL FcbCalcRec(xfcb FAR * lpXfcb);
-VOID MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir);
+VOID MoveDirInfo(dmatch * lpDmatch, fcb FAR * lpDir);
 #else
 fcb FAR *ExtFcbToFcb();
 fcb FAR *CommonFcbInit();
 void FcbNameInit();
-sft FAR *FcbGetSft();
 VOID FcbNextRecord();
-/* sft FAR *FcbGetFreeSft(); */
 BOOL FcbCalcRec();
 VOID MoveDirInfo();
 #endif
@@ -166,7 +165,7 @@ VOID MoveDirInfo();
 
 static dmatch Dmatch;
 
-VOID FAR *FcbFindFirstDirPtr = NULL;
+/* VOID FAR *FcbFindFirstDirPtr = NULL; */
 
 
 VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
@@ -274,6 +273,19 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
     *lpFileName += 2;
   }
 
+  /* special cases: '.' and '..' */
+  if (**lpFileName == '.')
+  {
+      lpFcb->fcb_fname[0]='.';
+      ++*lpFileName;
+      if (**lpFileName == '.')
+      {
+          lpFcb->fcb_fname[1]='.';
+          ++*lpFileName;
+      }
+      return PARSE_RET_NOWILD;
+  }
+  
   /* Now to format the file name into the string                  */
   *lpFileName = GetNameField(*lpFileName, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE, (BOOL *) & wRetCodeName);
 
@@ -352,26 +364,6 @@ BYTE FAR *GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
   return lpFileName;
 }
 
-static sft FAR *FcbGetSft(COUNT SftIndex)
-{
-  /* Get the SFT block that contains the SFT      */
-  for (lpCurSft = sfthead; lpCurSft != (sfttbl FAR *) - 1;
-       lpCurSft = lpCurSft->sftt_next)
-  {
-    if (SftIndex < lpCurSft->sftt_count)
-      break;
-    else
-      SftIndex -= lpCurSft->sftt_count;
-  }
-
-  /* If not found, return an error                */
-  if (lpCurSft == (sfttbl FAR *) - 1)
-    return (sft FAR *) - 1;
-
-  /* finally, point to the right entry            */
-  return (sft FAR *) & (lpCurSft->sftt_table[SftIndex]);
-}
-
 static VOID FcbNextRecord(fcb FAR * lpFcb)
 {
   if (++lpFcb->fcb_curec > 128)
@@ -399,7 +391,7 @@ BOOL FcbRead(xfcb FAR * lpXfcb, COUNT * nErrorCode)
   lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* Get the SFT block that contains the SFT      */
-  if ((s = FcbGetSft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
+  if ((s = idx_to_sft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
     return FALSE;
 
   /* If this is not opened another error          */
@@ -470,7 +462,7 @@ BOOL FcbWrite(xfcb FAR * lpXfcb, COUNT * nErrorCode)
   lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* Get the SFT block that contains the SFT      */
-  if ((s = FcbGetSft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
+  if ((s = idx_to_sft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
     return FALSE;
 
   /* If this is not opened another error          */
@@ -517,24 +509,23 @@ BOOL FcbWrite(xfcb FAR * lpXfcb, COUNT * nErrorCode)
 
 BOOL FcbGetFileSize(xfcb FAR * lpXfcb)
 {
-  COUNT FcbDrive,
-    FileNum;
+  COUNT FcbDrive, hndl;
 
   /* Build a traditional DOS file name                            */
-  lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
+  lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
 
   /* check for a device                                           */
-  if (IsDevice(PriPathName) || (lpFcb->fcb_recsiz == 0))
+  if (IsDevice(SecPathName) || (lpFcb->fcb_recsiz == 0))
   {
     return FALSE;
   }
-  FileNum = dos_open(PriPathName, O_RDONLY);
-  if (FileNum >= 0)
+  hndl = DosOpen(SecPathName, O_RDONLY);
+  if (hndl >= 0)
   {
     LONG fsize;
 
     /* Get the size                                         */
-    fsize = dos_getfsize(FileNum);
+    fsize = DosGetFsize(hndl);
 
     /* compute the size and update the fcb                  */
     lpFcb->fcb_rndm = fsize / lpFcb->fcb_recsiz;
@@ -542,7 +533,7 @@ BOOL FcbGetFileSize(xfcb FAR * lpXfcb)
       ++lpFcb->fcb_rndm;
 
     /* close the file and leave                             */
-    return dos_close(FileNum) == SUCCESS;
+    return DosClose(hndl) == SUCCESS;
   }
   else
     return FALSE;
@@ -631,47 +622,33 @@ BOOL FcbRandomIO(xfcb FAR * lpXfcb, COUNT * nErrorCode,
 }
 
 /*
-static sft FAR *FcbGetFreeSft(WORD FAR * sft_idx)
+static sft FAR *FcbGetFreeSft(COUNT * sft_idx)
 see get_free_sft in dosfns.c
 */
 
 BOOL FcbCreate(xfcb FAR * lpXfcb)
 {
-  WORD sft_idx;
-  sft FAR *sftp;
+  COUNT sft_idx, FcbDrive;
   struct dhdr FAR *dhp;
-  COUNT FcbDrive;
-
-  /* get a free system file table entry                           */
-  if ((sftp = get_free_sft((WORD FAR *) & sft_idx)) == (sft FAR *) - 1)
-    return DE_TOOMANY;
 
   /* Build a traditional DOS file name                            */
   lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
+  sft_idx = DosCreatSft(PriPathName, 0);
+  if (sft_idx < 0)
+      return FALSE;
+
   /* check for a device                                           */
   dhp = IsDevice(PriPathName);
-  if (dhp || ((sftp->sft_status = dos_creat(PriPathName, 0)) >= 0))
-  {
-    sftp->sft_count += 1;
-    sftp->sft_mode = O_RDWR;
-    sftp->sft_attrib = 0;
-    sftp->sft_flags = dhp ?
-            ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF : 0;
-    sftp->sft_psp = cu_psp;
-    fbcopy(lpFcb->fcb_fname, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
-    sftp->sft_dev = dhp;
-    lpFcb->fcb_sftno = sft_idx;
-    lpFcb->fcb_curec = 0;
-    lpFcb->fcb_recsiz = (dhp ? 0 : 128);
-    if (!dhp) lpFcb->fcb_drive = FcbDrive;
-    lpFcb->fcb_fsize = 0;
-    lpFcb->fcb_date = dos_getdate();
-    lpFcb->fcb_time = dos_gettime();
-    lpFcb->fcb_rndm = 0;
-    return TRUE;
-  }
-  return FALSE;
+  lpFcb->fcb_sftno = sft_idx;
+  lpFcb->fcb_curec = 0;
+  lpFcb->fcb_recsiz = (dhp ? 0 : 128);
+  if (!dhp) lpFcb->fcb_drive = FcbDrive;
+  lpFcb->fcb_fsize = 0;
+  lpFcb->fcb_date = dos_getdate();
+  lpFcb->fcb_time = dos_gettime();
+  lpFcb->fcb_rndm = 0;
+  return TRUE;
 }
 
 STATIC fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb)
@@ -697,8 +674,11 @@ STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
   return lpFcb;
 }
 
-void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive)
+void FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
 {
+  BYTE loc_szBuffer[FNAME_SIZE+1+FEXT_SIZE+1];
+  BYTE *pszBuffer = loc_szBuffer;
+    
   /* Build a traditional DOS file name                            */
   if (lpFcb->fcb_drive != 0)
   {
@@ -711,107 +691,46 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive)
   {
     *pCurDrive = default_drive + 1;
   }
-
   ConvertName83ToNameSZ((BYTE FAR *)pszBuffer, (BYTE FAR *) lpFcb->fcb_fname);
-  
-/*
-  lpszFcbFname = (BYTE FAR *) lpFcb->fcb_fname;
-  for (loop = FNAME_SIZE; --loop >= 0; )
-  {
-    if (*lpszFcbFname != ' ')
-      *pszBuffer++ = *lpszFcbFname++;
-    else
-      break;
-  }
-
-  lpszFcbFext = (BYTE FAR *) lpFcb->fcb_fext;
-  if (*lpszFcbFext != ' ')
-  {
-    *pszBuffer++ = '.';
-    for (loop = FEXT_SIZE; --loop >= 0; )
-    {
-      if (*lpszFcbFext != ' ')
-		*pszBuffer++  = *lpszFcbFext++;
-      else
-		break;
-    }
-  }
-  *pszBuffer = '\0';
-*/
+  truename(loc_szBuffer, szBuffer, FALSE);
+  /* XXX fix truename error handling */
 }
 
 BOOL FcbOpen(xfcb FAR * lpXfcb)
 {
-  WORD sft_idx;
   sft FAR *sftp;
   struct dhdr FAR *dhp;
-  COUNT FcbDrive;
-
-  /* get a free system file table entry                           */
-  if ((sftp = get_free_sft((WORD FAR *) & sft_idx)) == (sft FAR *) - 1)
-    return DE_TOOMANY;
+  COUNT FcbDrive, sft_idx;
 
   /* Build a traditional DOS file name                            */
   lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
+  sft_idx = DosOpenSft(PriPathName, O_RDWR);
+  if (sft_idx < 0)
+      return FALSE;
+  
   /* check for a device                                           */
+  lpFcb->fcb_curec = 0;
+  lpFcb->fcb_rndm = 0;
+  lpFcb->fcb_sftno = sft_idx;
   dhp = IsDevice(PriPathName);
   if (dhp )
   {
-        sftp->sft_count += 1;
-        sftp->sft_mode = O_RDWR;
-        sftp->sft_attrib = 0;
-        sftp->sft_flags =
-            ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
-        sftp->sft_psp = cu_psp;
-        fbcopy(lpFcb->fcb_fname, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
-        sftp->sft_dev = dhp;
-        lpFcb->fcb_sftno = sft_idx;
-        lpFcb->fcb_curec = 0;
-        lpFcb->fcb_recsiz = 0;
-        lpFcb->fcb_fsize = 0;
-        lpFcb->fcb_date = dos_getdate();
-        lpFcb->fcb_time = dos_gettime();
-        lpFcb->fcb_rndm = 0;
-        return TRUE;
-  }
-  fbcopy((BYTE FAR *) & lpFcb->fcb_fname, (BYTE FAR *) & sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
-  if ((UCOUNT)FcbDrive >= lastdrive) {
-    return DE_INVLDDRV;
-  }
-  if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
-    COUNT result;
-    lpCurSft = (sfttbl FAR *)sftp;
-    result = -int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, O_RDWR));
-    sftp->sft_status = result;
-  }
-  else {
-  sftp->sft_status = dos_open(PriPathName, O_RDWR);
-    sftp->sft_size = dos_getfsize(sftp->sft_status);
-    dos_getftime(sftp->sft_status,
-	    (date FAR *) & sftp->sft_date,
-	    (time FAR *) & sftp->sft_time);
-		  
-  }
-  if (sftp->sft_status >= 0)
-  {
-    lpFcb->fcb_drive = FcbDrive;
-    lpFcb->fcb_sftno = sft_idx;
-    lpFcb->fcb_curec = 0;
-    lpFcb->fcb_recsiz = 128;
-    lpFcb->fcb_fsize = sftp->sft_size;
-    lpFcb->fcb_date = sftp->sft_date;
-    lpFcb->fcb_time = sftp->sft_time;
-    lpFcb->fcb_rndm = 0;
-    sftp->sft_count += 1;
-    sftp->sft_mode = O_RDWR;
-    sftp->sft_attrib = 0;
-    sftp->sft_flags = 0;
-    sftp->sft_psp = cu_psp;
-    return TRUE;
+      lpFcb->fcb_recsiz = 0;
+      lpFcb->fcb_fsize = 0;
+      lpFcb->fcb_date = dos_getdate();
+      lpFcb->fcb_time = dos_gettime();
   }
   else
-    return FALSE;
+  {
+      sftp = idx_to_sft(sft_idx);
+      lpFcb->fcb_drive = FcbDrive;
+      lpFcb->fcb_recsiz = 128;
+      lpFcb->fcb_fsize = sftp->sft_size;
+      lpFcb->fcb_date = sftp->sft_date;
+      lpFcb->fcb_time = sftp->sft_time;
+  }
+  return TRUE;
 }
 
 BOOL FcbDelete(xfcb FAR * lpXfcb)
@@ -819,18 +738,14 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
   COUNT FcbDrive;
 
   /* Build a traditional DOS file name                            */
-  CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
+  CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
 
   if ((UCOUNT)FcbDrive >= lastdrive) {
     return DE_INVLDDRV;
   }
-  current_ldt = &CDSp->cds_table[FcbDrive];
-  if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
-    return -int2f_Remote_call(REM_DELETE, 0, 0, 0, 0, 0, 0);
-  }
 
   /* check for a device                                           */
-  if (IsDevice(PriPathName))
+  if (IsDevice(SecPathName))
   {
     return FALSE;
   }
@@ -840,20 +755,21 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
     dmatch Dmatch;
 
     dta = (BYTE FAR *) & Dmatch;
-    if (dos_findfirst(D_ALL, PriPathName[1] == ':' ? &PriPathName[2] : PriPathName) != SUCCESS)
+    if (DosFindFirst(D_ALL, SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
     {
       dta = lpOldDta;
       return FALSE;
     }
     do
     {
-      if (dos_delete(Dmatch.dm_name) != SUCCESS)
+      truename(Dmatch.dm_name, SecPathName, FALSE);
+      if (DosDelete(SecPathName) != SUCCESS)
       {
         dta = lpOldDta;
         return FALSE;
       }
     }
-    while (dos_findnext() == SUCCESS);
+    while (DosFindNext() == SUCCESS);
     dta = lpOldDta;
     return TRUE;
   }
@@ -865,10 +781,10 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
   COUNT FcbDrive;
 
   /* Build a traditional DOS file name                            */
-  lpRenameFcb = (rfcb FAR *) CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
+  lpRenameFcb = (rfcb FAR *) CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
 
   /* check for a device                                           */
-  if (IsDevice(PriPathName))
+  if (IsDevice(SecPathName))
   {
     return FALSE;
   }
@@ -878,7 +794,7 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
     dmatch Dmatch;
 
     dta = (BYTE FAR *) & Dmatch;
-    if (dos_findfirst(D_ALL, PriPathName[1] == ':' ? &PriPathName[2] : PriPathName) != SUCCESS)
+    if (DosFindFirst(D_ALL, SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
     {
       dta = lpOldDta;
       return FALSE;
@@ -942,74 +858,38 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
 
       /* now to build a dos name again                */
       LocalFcb.fcb_drive = 0;
-      FcbNameInit((fcb FAR *) & LocalFcb, PriPathName, &FcbDrive);
+      FcbNameInit((fcb FAR *) & LocalFcb, SecPathName, &FcbDrive);
 
-      if (dos_rename(Dmatch.dm_name,
-       PriPathName[1] == ':' ? &PriPathName[2] : PriPathName) != SUCCESS)
+      truename(Dmatch.dm_name, PriPathName, FALSE);
+
+      if (DosRenameTrue(PriPathName, SecPathName) != SUCCESS)
       {
         dta = lpOldDta;
         return FALSE;
       }
     }
-    while (dos_findnext() == SUCCESS);
+    while (DosFindNext() == SUCCESS);
     dta = lpOldDta;
     return TRUE;
   }
 }
 
-#if 0
 /* TE:the MoveDirInfo() is now done by simply copying the dirEntry into the FCB
    this prevents problems with ".", ".." and saves code
+   BO:use FcbParseFname: avoid redirector problems and is there anyway
 */
 
-
-void MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir)
+VOID MoveDirInfo(dmatch * lpDmatch, fcb FAR * lpDir)
 {
-  BYTE FAR *lpToName,
-    FAR * lpszFrom;
-  COUNT nIndex;
-
+  BYTE FAR *lpszFrom = lpDmatch->dm_name;
   /* First, expand the find match into dir style  */
-  /* file name entry                              */
-  /* Fill with blanks first                       */
-
-  fmemset(lpDir->dir_name, ' ', FNAME_SIZE);
-  fmemset(lpDir->dir_ext , ' ', FEXT_SIZE );
-
-  /* next move in the file name while overwriting */
-  /* the filler blanks                            */
-  lpszFrom = lpDmatch->dm_name;
-  lpToName = (BYTE FAR *)lpDir->dir_name;
-  for (nIndex = 0; nIndex < FNAME_SIZE; nIndex++)
-  {
-    if (*lpszFrom != 0 && *lpszFrom != '.')
-      *lpToName++ = *lpszFrom++;
-    else
-      break;
-  }
-
-  if (*lpszFrom != '\0')
-  {
-    if (*lpszFrom == '.')
-      ++lpszFrom;
-    lpToName = (BYTE FAR *)lpDir->dir_ext;
-    for (nIndex = 0; nIndex < FEXT_SIZE; nIndex++)
-    {
-      if (*lpszFrom != '\0')
-        *lpToName++ = *lpszFrom++;
-      else
-        break;
-    }
-  }
-  for (nIndex = 0; nIndex < 10; nIndex++)
-    lpDir->dir_reserved[nIndex] = 0;
-  lpDir->dir_attrib = lpDmatch->dm_attr_fnd;
-  lpDir->dir_time = lpDmatch->dm_time;
-  lpDir->dir_date = lpDmatch->dm_date;
-  lpDir->dir_start = lpDmatch->dm_cluster;
-  lpDir->dir_size = lpDmatch->dm_size;
+  FcbParseFname(PARSE_DFLT_DRIVE | PARSE_SEP_STOP, &lpszFrom, lpDir);
+  /* lpDir->dir_attrib = lpDmatch->dm_attr_fnd;  XXX for extended fcb! */
+  lpDir->fcb_time = lpDmatch->dm_time;
+  lpDir->fcb_date = lpDmatch->dm_date;
+  lpDir->fcb_dirclst = lpDmatch->dm_cluster;
+  lpDir->fcb_fsize = lpDmatch->dm_size;
 }
-#endif
 
 BOOL FcbClose(xfcb FAR * lpXfcb)
 {
@@ -1019,52 +899,37 @@ BOOL FcbClose(xfcb FAR * lpXfcb)
   lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* Get the SFT block that contains the SFT      */
-  if ((s = FcbGetSft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
+  if ((s = idx_to_sft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
     return FALSE;
 
-  /* If this is not opened another error          */
-  if (s->sft_count == 0)
-    return FALSE;
+  /* change time and set file size                */
+  s->sft_size = lpFcb->fcb_fsize;
+  if (!(s->sft_flags & SFT_FSHARED))
+    dos_setfsize(s->sft_status, lpFcb->fcb_fsize);
+  DosSetFtimeSft(lpFcb->fcb_sftno, (date FAR *) &lpFcb->fcb_date, (time FAR *) &lpFcb->fcb_time);
+  return DosCloseSft(lpFcb->fcb_sftno) == SUCCESS;
+}
 
-  if (s->sft_flags & SFT_FSHARED)
-  {
-    int2f_Remote_call(REM_CLOSE, 0, 0, 0, (VOID FAR *) s, 0, 0);
-  }
+/* close all files opened by FCBs
+   DosCloseSft checks the open count (has to be 1) and current psp
+ */
+VOID FcbCloseAll()
+{
+  COUNT idx = 0;
 
-  /* now just drop the count if a device, else    */
-  /* call file system handler                     */
-  if (s->sft_flags & SFT_FDEVICE)
-  {
-    s->sft_count -= 1;
-    return TRUE;
-  }
-  else
-  {
-    s->sft_count -= 1;
-    if (s->sft_count > 0)
-      return SUCCESS;
-    else
-    {
-      /* change time and set file size                */
-      dos_setftime(s->sft_status,
-                   (date FAR *) & lpFcb->fcb_date,
-                   (time FAR *) & lpFcb->fcb_time);
-      dos_setfsize(s->sft_status,
-                   lpFcb->fcb_fsize);
-      return dos_close(s->sft_status) == SUCCESS;
-    }
-  }
+  for (idx = 0; DosCloseSft(idx) != DE_INVLDHNDL; idx++)
+      ;
 }
 
 BOOL FcbFindFirst(xfcb FAR * lpXfcb)
 {
-  BYTE FAR *lpDir;
+  fcb FAR *lpDir;
   COUNT FcbDrive;
   psp FAR *lpPsp = MK_FP(cu_psp, 0);
 
   /* First, move the dta to a local and change it around to match */
   /* our functions.                                               */
-  lpDir = (BYTE FAR *) dta;
+  lpDir = (fcb FAR *) dta;
   dta = (BYTE FAR *) & Dmatch;
 
   /* Next initialze local variables by moving them from the fcb   */
@@ -1072,28 +937,28 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   if (lpXfcb->xfcb_flag == 0xff)
   {
     wAttr = lpXfcb->xfcb_attrib;
-    fbcopy(lpXfcb, lpDir, 7);
+    /* fbcopy(lpXfcb, lpDir, 7); 
     lpDir += 7;
+    BO:WHY???
+    */
   }
   else
     wAttr = D_ALL;
 
-  *lpDir++ = FcbDrive;
+  /* *lpDir++ = FcbDrive; */
 
-  FcbFindFirstDirPtr = lpDir;
+  /* FcbFindFirstDirPtr = lpDir; */
 
-  if (dos_findfirst(wAttr, SecPathName) != SUCCESS)
+  if (DosFindFirst(wAttr, SecPathName) != SUCCESS)
   {
-    FcbFindFirstDirPtr = NULL;
+    /* FcbFindFirstDirPtr = NULL;*/
     dta = lpPsp->ps_dta;
     return FALSE;
   }
 
-  FcbFindFirstDirPtr = NULL;
+  /* FcbFindFirstDirPtr = NULL; */
 
-/*
-  MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
-*/
+  MoveDirInfo(&Dmatch, lpDir);
   lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
@@ -1115,13 +980,13 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
 
 BOOL FcbFindNext(xfcb FAR * lpXfcb)
 {
-  BYTE FAR *lpDir;
+  fcb FAR *lpDir;
   COUNT FcbDrive;
   psp FAR *lpPsp = MK_FP(cu_psp, 0);
 
   /* First, move the dta to a local and change it around to match */
   /* our functions.                                               */
-  lpDir = (BYTE FAR *) dta;
+  lpDir = (fcb FAR *) dta;
   dta = (BYTE FAR *) & Dmatch;
 
   /* Next initialze local variables by moving them from the fcb   */
@@ -1129,14 +994,17 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   if ((xfcb FAR *) lpFcb != lpXfcb)
   {
     wAttr = lpXfcb->xfcb_attrib;
+    /*
     fbcopy(lpXfcb, lpDir, 7);
     lpDir += 7;
+    BO:WHY???
+    */
   }
   else
     wAttr = D_ALL;
 
   /* Reconstrct the dirmatch structure from the fcb               */
-  *lpDir++ = FcbDrive;
+  /* *lpDir++ = FcbDrive; */
   Dmatch.dm_drive = lpFcb->fcb_sftno;
 
   fbcopy(lpFcb->fcb_fname, (BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
@@ -1147,20 +1015,18 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   Dmatch.dm_cluster = lpFcb->fcb_dirclst;
   Dmatch.dm_dirstart= lpFcb->fcb_dirclst;
 
-  FcbFindFirstDirPtr = lpDir;
+  /* FcbFindFirstDirPtr = lpDir; */
 
-  if (dos_findnext() != SUCCESS)
+  if (DosFindNext() != SUCCESS)
   {
-    FcbFindFirstDirPtr = NULL;
+      /*  FcbFindFirstDirPtr = NULL; */
     dta = lpPsp->ps_dta;
     CritErrCode = 0x12;
     return FALSE;
   }
-  FcbFindFirstDirPtr = NULL;
+  /*FcbFindFirstDirPtr = NULL;*/
 
-/*
-  MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
-*/  
+  MoveDirInfo(&Dmatch, lpDir);
   lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
