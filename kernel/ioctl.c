@@ -348,7 +348,7 @@ COUNT DosDevIOctl(lregs * r)
     case 0x0b:
       /* skip, it's a special case.                           */
       NetDelay = r->CX;
-      if (!r->DX)
+      if (r->DX)
         NetRetry = r->DX;
       break;
       
