@@ -291,10 +291,13 @@ _CDSp           dd      0               ; 0016 Current Directory Structure
 _FCBp           dd      0               ; 001a FCB table pointer
                 global  _nprotfcb
 _nprotfcb       dw      0               ; 001e number of protected fcbs
+                                        ; unused for DOS 5+, see winPatchTable
                 global  _nblkdev
 _nblkdev        db      0               ; 0020 number of block devices
+                                        ;      should match # of DPBs
                 global  _lastdrive
 _lastdrive      db      0               ; 0021 value of last drive
+                                        ;      ie max logical drives, should match # of CDSs
                 global  _nul_dev
 _nul_dev:           ; 0022 device chain root
                 extern  _con_dev:wrt LGROUP
@@ -348,10 +351,6 @@ _uppermem_root	dw	0ffffh		; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 ;; FreeDOS specific entries
-		global	_os_setver_minor
-_os_setver_minor	db	0
-		global	_os_setver_major
-_os_setver_major	db	5
 		global	_os_minor
 _os_minor	db	0
 		global	_os_major	       
@@ -367,6 +366,51 @@ _f_nodes_cnt	dw	0
 		global	os_release
 		extern	_os_release
 os_release	dw	_os_release
+
+%IFDEF WIN31SUPPORT
+		global	_winStartupInfo, _winInstanced
+_winInstanced    dw 0 ; set to 1 on WinInit broadcast, 0 on WinExit broadcast
+_winStartupInfo:
+                dw 0 ; structure version (same as windows version)
+                dd 0 ; next startup info structure, 0:0h marks end
+                dd 0 ; far pointer to name virtual device file or 0:0h
+                dd 0 ; far pointer, reference data for virtual device driver
+                dw instance_table,seg instance_table ; array of instance data
+instance_table: ; should include stacks, Win may auto determine SDA region
+                ; we simply include whole DOS data segment
+                dw 0, seg _DATASTART  ; [?linear?] address of region's base
+                dw markEndInstanceData wrt seg _DATASTART ; size in bytes
+                dd 0 ; 0 marks end of table
+                dw 0
+		global	_winPatchTable
+_winPatchTable: ; returns offsets to various internal variables
+%ENDIF ; WIN31SUPPORT
+        ; os version reported, patch table includes DOS version
+        ; so we include it here to save duplicate data, but even
+        ; without WIN31SUPPORT enabled these variables are used.
+        ; The setver variants are used so we report to Windows
+        ; editable (fake) DOS version user wanted.
+		global	_os_setver_minor, _os_setver_major
+_os_setver_major	db	0
+_os_setver_minor	db	0
+%IFDEF WIN31SUPPORT
+                dw dummy  ; where DS stored during int21h dispatch
+                dw dummy  ; where BX stored during int21h dispatch
+                dw _InDOS ; offset of InDOS flag
+                dw _MachineId  ; offset to variable containing MachineID
+                dw _nprotfcb   ; offset of to arrary of offsets to patch
+                               ; NOTE: this points to a null terminated
+                               ; array of offsets of critical section bytes
+                               ; to patch, for now we just point this to
+                               ; an empty table, so to save space we are
+                               ; reusing _nprotfcb as it is unused and
+                               ; can ?safely? be assumed to stay 0 
+                               ; ie we just point to a 0 word to mark end
+                ; FIXME is uppermem_root correct? or do what should we use?
+                dw _uppermem_root ; seg of last arena header in conv memory
+dummy           dw 0 ; 
+;patch_bytes     dw 0 ; mark end of array of offsets of critical section bytes to patch
+%ENDIF ; WIN31SUPPORT
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
                 times (0cch - ($ - DATASTART)) db 0
@@ -695,6 +739,9 @@ segment DYN_DATA
         global _Dyn
 _Dyn:
         DynAllocated dw 0
+
+markEndInstanceData:  ; mark end of DOS data seg we say needs instancing
+
         
 segment ID_B
     global __INIT_DATA_START

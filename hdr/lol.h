@@ -75,15 +75,20 @@ struct lol {
   unsigned short uppermem_root;/* 66 Start of umb chain (usually 9fff)    */
   unsigned short last_para;    /* 68 para: start scanning during memalloc */
   /* FreeDOS specific entries */
-  unsigned char os_setver_minor;/*6a settable minor DOS version           */
-  unsigned char os_setver_major;/*6b settable major DOS version           */
-  unsigned char os_minor;      /* 6c minor DOS version                    */
-  unsigned char os_major;      /* 6d major DOS version                    */
-  unsigned char rev_number;    /* 6e minor DOS version                    */
-  unsigned char version_flags; /* 6f DOS version flags                    */
-  struct f_node FAR *f_nodes;  /* 70 pointer to the array                 */
-  unsigned short f_nodes_cnt;  /* 74 number of allocated f_nodes          */
-  char *os_release;            /* 76 near pointer to os_release string    */
+  unsigned char os_minor;      /* 6a minor DOS version                    */
+  unsigned char os_major;      /* 6b major DOS version                    */
+  unsigned char rev_number;    /* 6c minor DOS version                    */
+  unsigned char version_flags; /* 6d DOS version flags                    */
+  struct f_node FAR *f_nodes;  /* 6e pointer to the array                 */
+  unsigned short f_nodes_cnt;  /* 72 number of allocated f_nodes          */
+  char *os_release;            /* 74 near pointer to os_release string    */
+#ifdef WIN31SUPPORT
+  unsigned short winInstanced; /* WinInit called                          */
+  unsigned long  winStartupInfo[4];
+  unsigned short instanceTable[5];
+#endif
+  unsigned char os_setver_minor;/*76/96 settable minor DOS version           */
+  unsigned char os_setver_major;/*77/97 settable major DOS version           */
 };
 
 #endif /* __LOL_H */

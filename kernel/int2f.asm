@@ -54,10 +54,12 @@ Int2f2:
 FarTabRetn:
                 retf    2                       ; Return far
 Int2f3:
-                cmp     ah,16h
-                je      FarTabRetn              ; Win Hook return fast
                 cmp     ah,12h
                 je      IntDosCal               ; Dos Internal calls
+                cmp     ah,16h
+                je      IntDosCal               ; Win (Multitasking) Hook
+                cmp     ah,46h
+                je      IntDosCal               ; Win Hook to avoid MCB corruption
 
                 cmp     ax,4a01h
                 je      IntDosCal               ; Dos Internal calls
@@ -108,6 +110,7 @@ DriverSysCal:
 
 ;**********************************************************************
 ; internal dos calls INT2F/12xx and INT2F/4A01,4A02 - handled through C 
+; also handle Windows' DOS notification hooks
 ;**********************************************************************
 IntDosCal:                
                         ; set up register frame

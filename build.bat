@@ -146,8 +146,10 @@ shift
 if "%1" == "" echo you MUST specify value to define with /D option
 if "%1" == "" echo such as /D DEBUG : extra DEBUG output
 if "%1" == "" echo or      /D DOSEMU : printf output goes to dosemu log
+if "%1" == "" echo or      /D WIN31SUPPORT : enable Win 3.x hooks
 if "%1" == "" goto abort
 set ALLCFLAGS=%ALLCFLAGS% -D%1
+set NASMFLAGS=%NASMFLAGS% -D%1
 goto nextOption
 
 :noenv
