@@ -39,6 +39,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/08/07 22:51:34  jimtabor
+ * Remove unused code
+ *
  * Revision 1.7  2000/08/07 03:03:12  jimtabor
  * Fix problem with devicehigh
  *
@@ -505,19 +508,9 @@ INIT VOID DoConfig(VOID)
             UmbState = 1;
             upBase = MK_FP(umb_start , 0);
             uppermem_root = umb_start;
-
-
-/* master sig for umb region with full size */
-/*
-            umcb_init((mcb FAR *) upBase, UMB_top );
-            upBase += 16;
-*/
 /* reset root */
-
             uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
-
 /* setup the real mcb for the devicehigh block */
-
             zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),  UMB_top - 1);
             upBase += 16;
         }
@@ -1081,22 +1074,6 @@ INIT VOID
   for (i = 0; i < 8; i++)
     mcbp->m_name[i] = '\0';
   mem_access_mode = FIRST_FIT;
-}
-
-/* master umb sig */
-
-INIT VOID
-  umcb_init(mcb FAR * mcbp, UWORD size)
-{
-  COUNT i;
-  static char name[8] = "UMB     ";
-
-  mcbp->m_type = MCB_LAST;
-  mcbp->m_psp = (UWORD) FP_SEG( mcbp );
-  mcbp->m_psp++;
-  mcbp->m_size = size;
-  for (i = 0; i < 8; i++)
-    mcbp->m_name[i] = name[i];
 }
 
 INIT VOID

@@ -34,8 +34,14 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/08/07 22:51:34  jimtabor
+ * Remove unused code
+ *
  * Revision 1.6  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
+ *
+ * Revision 1.5  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
  *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
@@ -189,7 +195,6 @@ INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
 INIT COUNT tolower(COUNT c);
 INIT COUNT toupper(COUNT c);
 INIT VOID mcb_init(mcb FAR * mcbp, UWORD size);
-INIT VOID umcb_init(mcb FAR * mcbp, UWORD size);
 INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 
 /* dosfns.c */
