@@ -290,7 +290,6 @@ COUNT DosMemLargest(UWORD FAR * size)
 COUNT DosMemFree(UWORD para)
 {
   REG mcb FAR *p;
-  COUNT i;
 
   if (!para)                    /* let esp. the kernel call this fct with para==0 */
     return DE_INVLDMCB;
@@ -305,8 +304,7 @@ COUNT DosMemFree(UWORD para)
   /* Mark the mcb as free so that we can later    */
   /* merge with other surrounding free mcb's      */
   p->m_psp = FREE_PSP;
-  for (i = 0; i < 8; i++)
-    p->m_name[i] = '\0';
+  fmemset(p->m_name, '\0', 8);
 
 #if 0
   /* Moved into allocating functions -- 1999/04/21 ska */
@@ -349,7 +347,6 @@ COUNT DosMemFree(UWORD para)
 COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
 {
   REG mcb FAR *p, FAR * q;
-  REG COUNT i;
 
   /* Initialize                                                   */
   p = para2far(para - 1);       /* pointer to MCB */
@@ -391,8 +388,7 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     /* Mark the mcb as free so that we can later    */
     /* merge with other surrounding free mcb's      */
     q->m_psp = FREE_PSP;
-    for (i = 0; i < 8; i++)
-      q->m_name[i] = '\0';
+    fmemset(q->m_name, '\0', 8);
 
     /* try to join q with the free mcb's following it if possible */
     if (joinMCBs(q) != SUCCESS)
@@ -517,7 +513,7 @@ VOID mcb_print(mcb FAR * mcbp)
 {
   static BYTE buff[9];
 
-  fmemcpy((BYTE FAR *) buff, (BYTE FAR *) (mcbp->m_name), 8);
+  fmemcpy(buff, mcbp->m_name, 8);
   buff[8] = '\0';
   printf
       ("%04x:%04x -> |%s| m_type = 0x%02x '%c'; m_psp = 0x%04x; m_size = 0x%04x\n",
