@@ -42,37 +42,52 @@ static BYTE *RcsId =
 /* Check for ^Break/^C.
  * Three sources are available:
  *       1) flag at 40:71 bit 7
- *       2) CON stream (if STDIN is redirected somewhere else)
- *       3) input stream (most likely STDIN)
- * Actions:
- *       1) echo ^C
- *       2) clear the STDIN stream
- *       3) decrease the InDOS flag as the kernel drops back to user space
- *       4) invoke INT-23 and never come back
+ *       2) syscon stream (usually CON:)
+ *       3) i/o stream (if unequal to syscon, e.g. AUX)
  */
-unsigned char check_handle_break(struct dhdr FAR **pdev, int sft_out)
+
+unsigned char ctrl_break_pressed(void)
+{
+  return CB_FLG & CB_MSK;
+}
+
+unsigned char check_handle_break(struct dhdr FAR **pdev)
 {
   unsigned char c = CTL_C;
-  if (CB_FLG & CB_MSK)
-    CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
-  else
+  if (!ctrl_break_pressed())
     c = (unsigned char)ndread(&syscon);
-  if (c == CTL_C)
-  {
-    sft_out = -1;
-    pdev = &syscon;
-  }
-  else if (*pdev != syscon)
+  if (c != CTL_C && *pdev != syscon)
     c = (unsigned char)ndread(pdev);
   if (c == CTL_C)
-  {
-    con_flush(pdev);
-    echo_ctl_c(pdev, sft_out);
-    if (!ErrorMode)      /* within int21_handler, InDOS is not incremented */
-      if (InDOS)
-        --InDOS;         /* fail-safe */
-
-    spawn_int23();       /* invoke user INT-23 and never come back */
-  }
+    handle_break(pdev, -1);
   return c;
 }
+
+/*
+ * Handles a ^Break state
+ *
+ * Actions:
+ *       1) clear the ^Break flag
+ *       2) clear the STDIN stream
+ *       3) echo ^C to sft_out or pdev if sft_out==-1
+ *       4) decrease the InDOS flag as the kernel drops back to user space
+ *       5) invoke INT-23 and never come back
+ */
+
+void handle_break(struct dhdr FAR **pdev, int sft_out)
+{
+  char *buf = "^C\r\n";
+
+  CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
+  con_flush(pdev);
+  if (sft_out == -1)
+    cooked_write(pdev, 4, buf);
+  else
+    DosRWSft(sft_out, 4, buf, XFR_FORCE_WRITE);
+  if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
+    if (InDOS)
+      --InDOS;                  /* fail-safe */
+
+  spawn_int23();                /* invoke user INT-23 and never come back */
+}
+

@@ -89,7 +89,7 @@ STATIC int CharIO(struct dhdr FAR **pdev, unsigned char ch, unsigned command)
 
 /* STATE FUNCTIONS */
 
-void CharCmd(struct dhdr FAR **pdev, unsigned command)
+STATIC void CharCmd(struct dhdr FAR **pdev, unsigned command)
 {
   while (CharRequest(pdev, command) == 1);
 }
@@ -126,14 +126,6 @@ int StdinBusy(void)
   return s->sft_posit >= s->sft_size;
 }
 
-STATIC void Do_DosIdle_loop(struct dhdr FAR **pdev)
-{
-  /* the idle int is only safe if we're using the character stack */
-  while (Busy(pdev) && (*pdev == syscon || Busy(&syscon)))
-    if (user_r->AH < 0xd)
-      DosIdle_int();
-}
-
 /* get character from the console - this is how DOS gets
    CTL_C/CTL_S/CTL_P when outputting */
 int ndread(struct dhdr FAR **pdev)
@@ -142,19 +134,6 @@ int ndread(struct dhdr FAR **pdev)
   if (CharReqHdr.r_status & S_BUSY)
     return -1;
   return CharReqHdr.r_ndbyte;
-}
-
-STATIC void con_hold(struct dhdr FAR **pdev, int sft_out)
-{
-  unsigned char c = check_handle_break(pdev, sft_out);
-  if (c == CTL_S)
-  {
-    CharIO(pdev, 0, C_INPUT);
-    Do_DosIdle_loop(pdev);
-    /* just wait and then skip a character */
-    check_handle_break(pdev, sft_out);
-    CharIO(pdev, 0, C_INPUT);
-  }
 }
 
 /* OUTPUT FUNCTIONS */
@@ -213,9 +192,9 @@ STATIC int cooked_write_char(struct dhdr FAR **pdev,
 
     /* if not fast then < 0x80; always check
        otherwise check every 32 characters */
-    if (*fast_counter <= 0x80)
+    if (*fast_counter <= 0x80 && check_handle_break(pdev) == CTL_S)
       /* Test for hold char and ctl_c */
-      con_hold(pdev, -1);
+      raw_get_char(pdev, TRUE);
     *fast_counter += 1;
     *fast_counter &= 0x9f;
 
@@ -302,16 +281,6 @@ STATIC int echo_char(int c, int sft_idx)
   return c;
 }
 
-void echo_ctl_c(struct dhdr FAR **pdev, int sft_idx)
-{
-  char *buf = "^C\r\n";
-
-  if (sft_idx == -1)
-    cooked_write(pdev, 4, buf);
-  else
-    DosRWSft(sft_idx, 4, buf, XFR_FORCE_WRITE);
-}
-
 STATIC void destr_bs(int sft_idx)
 {
   write_char(BS, sft_idx);
@@ -321,15 +290,13 @@ STATIC void destr_bs(int sft_idx)
 
 /* READ FUNCTIONS */
 
-STATIC int raw_get_char(struct dhdr FAR **pdev, int sft_out, BOOL check_break)
+STATIC unsigned char read_char_sft_dev(int sft_in, int sft_out,
+                                       struct dhdr FAR **pdev,
+                                       BOOL check_break);
+
+STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break)
 {
-  Do_DosIdle_loop(pdev);
-  if (check_break)
-  {
-    con_hold(pdev, sft_out);
-    Do_DosIdle_loop(pdev);
-  }
-  return CharIO(pdev, 0, C_INPUT);
+  return read_char_sft_dev(-1, -1, pdev, check_break);
 }
 
 long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
@@ -338,7 +305,7 @@ long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
   int c;
   while(n--)
   {
-    c = raw_get_char(pdev, -1, TRUE);
+    c = raw_get_char(pdev, TRUE);
     if (c < 0)
       return c;
     if (c == 256)
@@ -351,16 +318,53 @@ long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
   return xfer;
 }
 
-unsigned char read_char(int sft_in, int sft_out, BOOL check_break)
+STATIC unsigned char read_char_sft_dev(int sft_in, int sft_out,
+                                       struct dhdr FAR **pdev,
+                                       BOOL check_break)
 {
   unsigned char c;
-  struct dhdr FAR *dev = sft_to_dev(idx_to_sft(sft_in));
 
-  if (dev)
-    return (unsigned char)raw_get_char(&dev, sft_out, check_break);
+  if (pdev)
+  {
+    FOREVER
+    {
+      if (ctrl_break_pressed())
+      {
+        c = CTL_C;
+        break;
+      }
+      if (!Busy(pdev))
+      {
+        c = CharIO(pdev, 0, C_INPUT);
+        break;
+      }
+      if (check_break && *pdev != syscon)
+        check_handle_break(&syscon);
+      /* the idle int is only safe if we're using the character stack */
+      if (user_r->AH < 0xd)
+        DosIdle_int();
+    }
+  }
+  else
+    DosRWSft(sft_in, 1, &c, XFR_READ);
 
-  DosRWSft(sft_in, 1, &c, XFR_READ);
+  /* check for break or stop on sft_in, echo to sft_out */
+  if (check_break && (c == CTL_C || c == CTL_S))
+  {
+    if (c == CTL_S)
+      c = read_char_sft_dev(sft_in, sft_out, pdev, FALSE);
+    if (c == CTL_C)
+      handle_break(pdev, sft_out);
+    /* DOS oddity: if you press ^S somekey ^C then ^C does not break */
+    c = read_char(sft_in, sft_out, FALSE);
+  }
   return c;
+}
+
+unsigned char read_char(int sft_in, int sft_out, BOOL check_break)
+{
+  struct dhdr FAR *dev = sft_to_dev(idx_to_sft(sft_in));
+  return read_char_sft_dev(sft_in, sft_out, &dev, check_break);
 }
 
 STATIC unsigned char read_char_check_break(int sft_in, int sft_out)

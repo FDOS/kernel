@@ -408,7 +408,7 @@ dispatch:
 
   /* Check for Ctrl-Break */
   if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))
-    check_handle_break(&syscon, -1);
+    check_handle_break(&syscon);
 
   /* The dispatch handler                                         */
   switch (lr.AH)
