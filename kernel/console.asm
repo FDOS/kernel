@@ -56,30 +56,13 @@ uScanCode	db	0		; Scan code for con: device
 
 kbdType         db      0		; 00 for 84key, 10h for 102key        
 
-;
-; (taken from nansi.sys)
-;
                 global  ConInit
 ConInit:
-	        ; Jam special test code into keyboard buffer
-	        mov	ah,5
-	        mov	cx,0ffffh
-	        int	16h
-		; Try to read special test code from keyboard buffer
-		mov	cx, 10h
-kbdLoop:
-		; Get keystroke using extended keyboard read
-		mov	ah, 10h
-		int	16h
-		; Is it our special test code? 
-		cmp	ax, 0ffffh
-		; Yes; Set flag saying that the extended keyboard BIOS is supported
-		je	kbdExtended
-		loop	kbdLoop
-		jmp	short kbdSimple
-kbdExtended:
-		mov	byte[cs:kbdType],10h
-kbdSimple:
+	        mov	ax,40h
+	        mov	ds,ax
+	        mov	al,[96h]
+		and	al,10h
+		mov	byte[cs:kbdType],al ; enhanced keyboard if bit 4 set
                 jmp     _IOExit
 
 ;
