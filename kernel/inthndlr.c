@@ -532,9 +532,7 @@ dispatch:
       /* Parse File Name                                              */
     case 0x29:
       {
-        BYTE FAR *lpFileName;
-
-        lpFileName = MK_FP(r->DS, r->SI);
+        const BYTE FAR *lpFileName = MK_FP(r->DS, r->SI);
         r->AL = FcbParseFname(r->AL, &lpFileName, MK_FP(r->ES, r->DI));
         r->DS = FP_SEG(lpFileName);
         r->SI = FP_OFF(lpFileName);
@@ -820,7 +818,7 @@ dispatch:
 
       /* Dos Delete File                                              */
     case 0x41:
-      rc = DosDelete((BYTE FAR *) FP_DS_DX);
+      rc = DosDelete((BYTE FAR *) FP_DS_DX, D_ALL);
       if (rc < 0)
         goto error_exit;
       break;
@@ -1416,7 +1414,7 @@ dispatch:
         CLEAR_CARRY_FLAG();
       break;
 
-      /* Flush file buffer -- COMMIT FILE -- dummy function right now.  */
+      /* Flush file buffer -- COMMIT FILE.  */
     case 0x68:
     case 0x6a:
       if ((rc = DosCommit(r->BX)) < 0)

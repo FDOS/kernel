@@ -57,6 +57,10 @@ MENUDEFAULT=0,1				( configuration 0, wait 1 second)
 Although this is definitively worse then MSDOS menuing possibilities,
 IMHO it's better then nothing
 
+the selected configuration can be determined in AUTOEXEC.BAT in the
+environment variable CONFIG like
+
+        if %CONFIG% == 0 echo configuration 0 selected
 
 
 thus my config.sys now looks like

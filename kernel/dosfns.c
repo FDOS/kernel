@@ -37,7 +37,6 @@ static BYTE *dosfnsRcsId =
 
 COUNT get_free_hndl(VOID);
 sft FAR * get_free_sft(COUNT *);
-BOOL cmatch(COUNT, COUNT, COUNT);
 
 f_node_ptr xlt_fd(COUNT);
 
@@ -306,7 +305,7 @@ UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
 }
 #endif
 
-UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
+UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, const BYTE FAR * bp, COUNT FAR * err)
 {
   UCOUNT WriteCount;
 
@@ -334,7 +333,7 @@ UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     save_dta = dta;
     lpCurSft = s;
     current_filepos = s->sft_posit;     /* needed for MSCDEX */
-    dta = bp;
+    dta = (BYTE FAR *)bp;
     WriteCount = remote_write(s, n, &rc);
     dta = save_dta;
     *err = rc;
@@ -412,7 +411,7 @@ UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
           rq.r_length = sizeof(request);
           rq.r_command = C_OUTPUT;
           rq.r_count = 1;
-          rq.r_trans = bp;
+          rq.r_trans = (BYTE FAR *)bp;
           rq.r_status = 0;
           execrh((request FAR *) & rq, s->sft_dev);
           if (!(rq.r_status & S_ERROR))
@@ -627,26 +626,27 @@ BYTE FAR *get_root(BYTE FAR * fname)
   return ++froot;
 }
 
-/* Ascii only file name match routines                  */
-STATIC BOOL cmatch(COUNT s, COUNT d, COUNT mode)
+/* initialize SFT fields (for open/creat) for character devices */
+STATIC void DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
 {
-  if (s >= 'a' && s <= 'z')
-    s -= 'a' - 'A';
-  if (d >= 'a' && d <= 'z')
-    d -= 'a' - 'A';
-  if (mode && s == '?' && (d >= 'A' && s <= 'Z'))
-    return TRUE;
-  return s == d;
-}
+  int i;
 
-BOOL fnmatch(BYTE FAR * s, BYTE FAR * d, COUNT n, COUNT mode)
-{
-  while (n--)
-  {
-    if (!cmatch(*s++, *d++, mode))
-      return FALSE;
-  }
-  return TRUE;
+  sftp->sft_shroff = -1;      /* /// Added for SHARE - Ron Cemer */
+  sftp->sft_count += 1;
+  sftp->sft_flags =
+    ((dhp->
+      dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
+  fmemcpy(sftp->sft_name, dhp->dh_name, FNAME_SIZE);
+
+  /* pad with spaces */
+  for (i = FNAME_SIZE + FEXT_SIZE - 1; sftp->sft_name[i] == '\0'; i--)
+    sftp->sft_name[i] = ' ';
+  /* and uppercase */
+  DosUpFMem(sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
+
+  sftp->sft_dev = dhp;
+  sftp->sft_date = dos_getdate();
+  sftp->sft_time = dos_gettime();
 }
 
 COUNT DosCreatSft(BYTE * fname, COUNT attrib)
@@ -656,13 +656,6 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
   struct dhdr FAR *dhp;
   WORD result;
   COUNT drive;
-
-  /* NEVER EVER allow directories to be created */
-  attrib &= 0xff;
-  if (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE))
-  {
-    return DE_ACCESS;
-  }
 
   /* now get a free system file table entry       */
   if ((sftp = get_free_sft(&sft_idx)) == (sft FAR *) - 1)
@@ -674,21 +667,12 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
   sftp->sft_psp = cu_psp;
   sftp->sft_mode = SFT_MRDWR;
   sftp->sft_attrib = attrib;
-  sftp->sft_psp = cu_psp;
   
   /* check for a device   */
   dhp = IsDevice(fname);
   if (dhp)
   {
-    sftp->sft_count += 1;
-    sftp->sft_flags =
-        ((dhp->
-          dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
-    fmemcpy(sftp->sft_name, (BYTE FAR *) SecPathName,
-            FNAME_SIZE + FEXT_SIZE);
-    sftp->sft_dev = dhp;
-    sftp->sft_date = dos_getdate();
-    sftp->sft_time = dos_gettime();
+    DeviceOpenSft(dhp, sftp);
     return sft_idx;
   }
 
@@ -727,7 +711,7 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
     DosGetFile(fname, sftp->sft_name);
     dos_getftime(sftp->sft_status,
                  (date FAR *) & sftp->sft_date,
-                 (time FAR *) & sftp->sft_time);    
+                 (time FAR *) & sftp->sft_time);
     return sft_idx;
   }
   else
@@ -747,6 +731,13 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
   COUNT sft_idx, hndl, result;
+
+  /* NEVER EVER allow directories to be created */
+  attrib = (BYTE) attrib;
+  if (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE))
+  {
+    return DE_ACCESS;
+  }
 
   /* get a free handle  */
   if ((hndl = get_free_hndl()) < 0)
@@ -867,17 +858,7 @@ COUNT DosOpenSft(BYTE * fname, COUNT mode)
   dhp = IsDevice(fname);
   if (dhp)
   {
-    sftp->sft_shroff = -1;      /* /// Added for SHARE - Ron Cemer */
-
-    sftp->sft_count += 1;
-    sftp->sft_flags =
-        ((dhp->
-          dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
-    fmemcpy(sftp->sft_name, (BYTE FAR *) SecPathName,
-            FNAME_SIZE + FEXT_SIZE);
-    sftp->sft_dev = dhp;
-    sftp->sft_date = dos_getdate();
-    sftp->sft_time = dos_gettime();
+    DeviceOpenSft(dhp, sftp);
     return sft_idx;
   }
 
@@ -1260,8 +1241,8 @@ COUNT DosChangeDir(BYTE FAR * s)
    Copy the path to the current directory
    structure.
 
-	Some redirectors do not write back to the CDS.
-	SHSUCdX needs this. jt
+        Some redirectors do not write back to the CDS.
+        SHSUCdX needs this. jt
 */
   fstrcpy(current_ldt->cdsCurrentPath, PriPathName);
   if (PriPathName[7] == 0)
@@ -1571,7 +1552,7 @@ UBYTE DosSelectDrv(UBYTE drv)
   return lastdrive;
 }
 
-COUNT DosDelete(BYTE FAR * path)
+COUNT DosDelete(BYTE FAR * path, int attrib)
 {
   COUNT result, drive;
 
@@ -1597,11 +1578,11 @@ COUNT DosDelete(BYTE FAR * path)
   }
   else
   {
-    return dos_delete(PriPathName);
+    return dos_delete(PriPathName, attrib);
   }
 }
 
-COUNT DosRenameTrue(BYTE * path1, BYTE * path2)
+COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
 {
   COUNT drive1, drive2;
 
@@ -1623,7 +1604,7 @@ COUNT DosRenameTrue(BYTE * path1, BYTE * path2)
   }
   else
   {
-    return dos_rename(PriPathName, SecPathName);
+    return dos_rename(PriPathName, SecPathName, attrib);
   }
 }
 
@@ -1643,7 +1624,7 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
     return result;
   }
 
-  return DosRenameTrue(PriPathName, SecPathName);
+  return DosRenameTrue(PriPathName, SecPathName, D_ALL);
 }
 
 COUNT DosMkdir(BYTE FAR * dir)
@@ -1737,27 +1718,12 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
  * This seems to work well.
  */
 
+/* check for a device  */
 struct dhdr FAR *IsDevice(BYTE FAR * fname)
 {
   struct dhdr FAR *dhp;
-  BYTE FAR *froot;
-  WORD i;
-  BYTE tmpPathName[FNAME_SIZE + 1];
-
-  /* check for a device  */
-  froot = get_root(fname);
-  for (i = 0; i < FNAME_SIZE; i++)
-  {
-    if (*froot != '\0' && *froot != '.')
-      tmpPathName[i] = *froot++;
-    else
-      break;
-  }
-
-  for (; i < FNAME_SIZE; i++)
-    tmpPathName[i] = ' ';
-
-  tmpPathName[i] = 0;
+  char FAR *froot = get_root(fname);
+  int i;
 
 /* /// BUG!!! This is absolutely wrong.  A filename of "NUL.LST" must be
        treated EXACTLY the same as a filename of "NUL".  The existence or
@@ -1775,24 +1741,28 @@ struct dhdr FAR *IsDevice(BYTE FAR * fname)
 
     /*  BUGFIX: MSCD000<00> should be handled like MSCD000<20> TE */
 
-    char dev_name_buff[FNAME_SIZE];
-
-    int namelen = fstrlen(dhp->dh_name);
-
-    memset(dev_name_buff, ' ', FNAME_SIZE);
-
-    fmemcpy(dev_name_buff, dhp->dh_name, min(namelen, FNAME_SIZE));
-
-    if (fnmatch
-        ((BYTE FAR *) tmpPathName, (BYTE FAR *) dev_name_buff, FNAME_SIZE,
-         FALSE))
+    for (i = 0; i < FNAME_SIZE; i++)
     {
-      memcpy(SecPathName, tmpPathName, i + 1);
-      return dhp;
+      char c1 = froot[i];
+      if (c1 == '.' || c1 == '\0')
+      {
+        /* check if remainder of device name consists of spaces or nulls */
+        for (; i < FNAME_SIZE; i++)
+        {
+          char c2 = dhp->dh_name[i];
+          if (c2 != ' ' && c2 != '\0')
+            break;
+        }
+        break;
+      }
+      if (DosUpFChar(c1) != DosUpFChar(dhp->dh_name[i]))
+        break;
     }
+    if (i == FNAME_SIZE)
+      return dhp;
   }
 
-  return (struct dhdr FAR *)0;
+  return NULL;
 }
 
 /* /// Added for SHARE.  - Ron Cemer */

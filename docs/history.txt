@@ -1,9 +1,17 @@
+2002 Feb 17 - Build 2026a
+-------- Bart Oldeman (bart@dosemu.org)
 + Changes Martin
     * fixed SYS for non-Watcom compilers
++ Changes Tom
+    * set CONFIG environment variable to selected number of CONFIG.SYS
+      menu entry, for example for use in AUTOEXEC.BAT.
 + Changes Bart
-    * FCB and network redirector fixes
-      (FCBOpen was broken; it appears that clearing CF before calling
-       the redirector is safer then setting CF)
+    * fixed FCBOpen
+    * network redirector fixes ; it appears that clearing CF before calling
+       the redirector is safer than setting CF
+    * allow creating, renaming and deleting volume labels using FCBs
+    * fix renaming with wildcards using FCBs
+    * some dosfns.c and fcbfns.c clean-ups
 2002 Feb 9 - Build 2026
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

@@ -67,7 +67,6 @@ sft FAR *get_sft(UCOUNT);
 
 /* dosfns.c */
 BYTE FAR *get_root(BYTE FAR *);
-BOOL fnmatch(BYTE FAR *, BYTE FAR *, COUNT, COUNT);
 BOOL check_break(void);
 UCOUNT GenericReadSft(sft far * sftp, UCOUNT n, BYTE FAR * bp,
                       COUNT FAR * err, BOOL force_binary);
@@ -76,7 +75,7 @@ COUNT SftSeek(sft FAR * sftp, LONG new_pos, COUNT mode);
 #define GenericRead(hndl, n, bp, err, t) GenericReadSft(get_sft(hndl), n, bp, err, t)
 #define DosRead(hndl, n, bp, err) GenericRead(hndl, n, bp, err, FALSE)
 #define DosReadSft(sftp, n, bp, err) GenericReadSft(sftp, n, bp, err, FALSE)
-UCOUNT DosWriteSft(sft FAR * sftp, UCOUNT n, BYTE FAR * bp,
+UCOUNT DosWriteSft(sft FAR * sftp, UCOUNT n, const BYTE FAR * bp,
                    COUNT FAR * err);
 #define DosWrite(hndl, n, bp, err) DosWriteSft(get_sft(hndl), n, bp, err)
 COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos);
@@ -102,9 +101,9 @@ COUNT DosSetFtimeSft(WORD sft_idx, date dp, time tp);
 COUNT DosGetFattr(BYTE FAR * name);
 COUNT DosSetFattr(BYTE FAR * name, UWORD attrp);
 UBYTE DosSelectDrv(UBYTE drv);
-COUNT DosDelete(BYTE FAR * path);
+COUNT DosDelete(BYTE FAR * path, int attrib);
 COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
-COUNT DosRenameTrue(BYTE * path1, BYTE * path2);
+COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib);
 COUNT DosMkdir(BYTE FAR * dir);
 COUNT DosRmdir(BYTE FAR * dir);
 struct dhdr FAR *IsDevice(BYTE FAR * FileName);
@@ -145,10 +144,10 @@ BOOL fcmp_wild(BYTE FAR * s1, BYTE FAR * s2, COUNT n);
 VOID touc(BYTE * s, COUNT n);
 COUNT dos_close(COUNT fd);
 COUNT dos_commit(COUNT fd);
-COUNT dos_creat(BYTE * path, COUNT attrib);
-COUNT dos_delete(BYTE * path);
+COUNT dos_creat(BYTE * path, int attrib);
+COUNT dos_delete(BYTE * path, int attrib);
 COUNT dos_rmdir(BYTE * path);
-COUNT dos_rename(BYTE * path1, BYTE * path2);
+COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib);
 date dos_getdate(void);
 time dos_gettime(void);
 COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp);
@@ -160,9 +159,9 @@ COUNT dos_mkdir(BYTE * dir);
 BOOL last_link(f_node_ptr fnp);
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode);
 UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err);
-UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err);
+UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err);
 COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count);
-COUNT dos_write(COUNT fd, VOID FAR * buffer, UCOUNT count);
+COUNT dos_write(COUNT fd, const VOID FAR * buffer, UCOUNT count);
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin);
 CLUSTER dos_free(struct dpb FAR * dpbp);
 
@@ -205,11 +204,11 @@ VOID DosCharOutput(COUNT c);
 VOID DosDisplayOutput(COUNT c);
 VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
                    UCOUNT FAR * nc, BYTE FAR ** mdp);
-WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb);
-BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName);
+WORD FcbParseFname(int wTestMode, const BYTE FAR ** lpFileName, fcb FAR * lpFcb);
+const BYTE FAR *ParseSkipWh(const BYTE FAR * lpFileName);
 BOOL TestCmnSeps(BYTE FAR * lpFileName);
 BOOL TestFieldSeps(BYTE FAR * lpFileName);
-BYTE FAR *GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
+const BYTE FAR *GetNameField(const BYTE FAR * lpFileName, BYTE FAR * lpDestField,
                        COUNT nFieldSize, BOOL * pbWildCard);
 typedef BOOL FcbFunc_t (xfcb FAR *, COUNT *, UCOUNT);
 FcbFunc_t FcbRead, FcbWrite;
@@ -253,10 +252,10 @@ VOID DosUmbLink(BYTE n);
 VOID mcb_print(mcb FAR * mcbp);
 
 /* misc.c */
-VOID ASMCFUNC strcpy(REG BYTE * d, REG BYTE * s);
-VOID ASMCFUNC fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n);
-VOID ASMCFUNC fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
-void ASMCFUNC memcpy(REG void *d, REG VOID * s, REG COUNT n);
+VOID ASMCFUNC strcpy(REG BYTE * d, REG const BYTE * s);
+VOID ASMCFUNC fmemcpy(REG VOID FAR * d, REG const VOID FAR * s, REG COUNT n);
+VOID ASMCFUNC fstrcpy(REG BYTE FAR * d, REG const BYTE FAR * s);
+void ASMCFUNC memcpy(REG void *d, REG const VOID * s, REG COUNT n);
 void ASMCFUNC fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);
 void ASMCFUNC memset(REG VOID * s, REG int ch, REG COUNT n);
 

@@ -517,7 +517,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
     while (dir_read(fnp) == 1)
     {
       /* Test the attribute and return first found    */
-      if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
+      if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID &&
+          fnp->f_dir.dir_name[0] != DELETED)
       {
         dmp->dm_dircluster = fnp->f_dirstart;   /* TE */
         memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));

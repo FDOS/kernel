@@ -393,43 +393,30 @@ STATIC VOID signon()
 
 STATIC void kernel()
 {
-#if 0
-  BYTE FAR *ep, *sp;
-#endif
   exec_blk exb;
   CommandTail Cmd;
   int rc;
 
-#ifndef KDB
-  static BYTE master_env[] = "PATH=.\0\0\0\0\0";
-/*  static BYTE *path = "PATH=.";*/
-#endif
+  extern char MenuSelected;
 
-#ifdef KDB
-  kdb();
-#else
-#if 0
-  /* create the master environment area   */
+  BYTE master_env[32];
+  char *masterenv_ptr = master_env;
 
-  if (allocmem(0x2, &exb.exec.env_seg))
-    init_fatal("cannot allocate master environment space");
+  /* build the startup environment */
 
-  /* populate it with the minimum environment */
-  ++exb.exec.env_seg;
-  ep = MK_FP(exb.exec.env_seg, 0);
+  memset(master_env,0,sizeof(master_env));
 
-  for (sp = path; *sp != 0;)
-    *ep++ = *sp++;
+  /* initial path setting. is this useful ?? */
+  masterenv_ptr += sprintf(masterenv_ptr, "PATH=.");
 
-  *ep++ = '\0';
-  *ep++ = '\0';
-  *((int FAR *)ep) = 0;
-  ep += sizeof(int);
-#else
+  /* export the current selected config  menu */
+  if (MenuSelected)
+    {
+    masterenv_ptr += sprintf(masterenv_ptr, "CONFIG=%c", MenuSelected);
+    }
+
   exb.exec.env_seg = DOS_PSP + 8;
   fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
-#endif
-#endif
 
   RootPsp = ~0;
 

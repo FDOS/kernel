@@ -40,7 +40,7 @@ BYTE *RcsId = "$Id$";
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
 f_node_ptr split_path(BYTE *, BYTE *, BYTE *);
-BOOL find_fname(f_node_ptr, BYTE *, BYTE *);
+BOOL find_fname(f_node_ptr, BYTE *, BYTE *, int);
     /* /// Added - Ron Cemer */
 STATIC void merge_file_changes(f_node_ptr fnp, int collect);
     /* /// Added - Ron Cemer */
@@ -97,7 +97,7 @@ COUNT dos_open(BYTE * path, COUNT flag)
 
   /* Look for the file. If we can't find it, just return a not    */
   /* found error.                                                 */
-  if (!find_fname(fnp, szFileName, szFileExt))
+  if (!find_fname(fnp, szFileName, szFileExt, D_ALL))
   {
     dir_close(fnp);
     return DE_FILENOTFND;
@@ -277,7 +277,7 @@ f_node_ptr split_path(BYTE * path, BYTE * fname, BYTE * fext)
   return fnp;
 }
 
-STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
+STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext, int attr)
 {
   BOOL found = FALSE;
 
@@ -290,7 +290,7 @@ STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
 
       if (fcmp(fname, (BYTE *) fnp->f_dir.dir_name, FNAME_SIZE)
           && fcmp(fext, (BYTE *) fnp->f_dir.dir_ext, FEXT_SIZE)
-          && ((fnp->f_dir.dir_attrib & D_VOLID) == 0))
+          && (fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
       {
         found = TRUE;
         break;
@@ -417,7 +417,7 @@ STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst)
   dst->f_dir.dir_time = src->f_dir.dir_time;
 }
 
-COUNT dos_creat(BYTE * path, COUNT attrib)
+COUNT dos_creat(BYTE * path, int attrib)
 {
   REG f_node_ptr fnp;
 
@@ -430,7 +430,7 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, truncate it.                               */
-  if (find_fname(fnp, szFileName, szFileExt))
+  if (find_fname(fnp, szFileName, szFileExt, D_ALL | attrib))
   {
     /* The only permissable attribute is archive,   */
     /* check for any other bit set. If it is, give  */
@@ -542,7 +542,7 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   return SUCCESS;
 }
 
-COUNT dos_delete(BYTE * path)
+COUNT dos_delete(BYTE * path, int attrib)
 {
   REG f_node_ptr fnp;
 
@@ -555,13 +555,13 @@ COUNT dos_delete(BYTE * path)
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, szFileName, szFileExt))
+  if (find_fname(fnp, szFileName, szFileExt, attrib))
   {
-    /* The only permissable attribute is archive,   */
-    /* TE +hidden + system                          */
-    /* check for any other bit set. If it is, give  */
-    /* an access error.                             */
-    if (fnp->f_dir.dir_attrib & ~(D_ARCHIVE | D_HIDDEN | D_SYSTEM))
+    /* Do not delete directories or r/o files       */
+    /* lfn entries and volume labels are only found */
+    /* by find_fname() if attrib is set to a        */
+    /* special value                                */	  
+    if (fnp->f_dir.dir_attrib & (D_RDONLY | D_DIR))
     {
       dir_close(fnp);
       return DE_ACCESS;
@@ -599,7 +599,7 @@ COUNT dos_rmdir(BYTE * path)
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, szFileName, szFileExt))
+  if (find_fname(fnp, szFileName, szFileExt, D_ALL))
   {
     /* The only permissable attribute is directory, */
     /* check for any other bit set. If it is, give  */
@@ -668,7 +668,7 @@ COUNT dos_rmdir(BYTE * path)
   }
 }
 
-COUNT dos_rename(BYTE * path1, BYTE * path2)
+COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 {
   REG f_node_ptr fnp1;
   REG f_node_ptr fnp2;
@@ -684,7 +684,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
 
   /* Check that we don't have a duplicate name, so if we find     */
   /* one, it's an error.                                          */
-  if (find_fname(fnp2, szFileName, szFileExt))
+  if (find_fname(fnp2, szFileName, szFileExt, attrib))
   {
     dir_close(fnp2);
     return DE_ACCESS;
@@ -698,7 +698,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
     return DE_PATHNOTFND;
   }
 
-  if (!find_fname(fnp1, szFileName, szFileExt))
+  if (!find_fname(fnp1, szFileName, szFileExt, attrib))
   {
     /* No such file, return the error                       */
     dir_close(fnp1);
@@ -1101,7 +1101,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, szFileName, szFileExt))
+  if (find_fname(fnp, szFileName, szFileExt, D_ALL))
   {
     dir_close(fnp);
     return DE_ACCESS;
@@ -1828,7 +1828,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
 }
 
 /* Write block to disk */
-UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
+UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
 {
   REG f_node_ptr fnp;
   struct buffer FAR *bp;

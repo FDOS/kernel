@@ -47,6 +47,7 @@ static BYTE *fat_hRcsId =
 #define D_DEVICE        0x40    /* device bit                   */
 
 #define D_LFN (D_RDONLY | D_HIDDEN | D_SYSTEM | D_VOLID)
+#define D_ALL (D_RDONLY | D_HIDDEN | D_SYSTEM | D_DIR | D_ARCHIVE)
 
 /* FAT file name constants                                              */
 #define FNAME_SIZE              8

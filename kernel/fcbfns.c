@@ -38,7 +38,6 @@ static BYTE *RcsId =
 #define FCB_ERR_NODATA  1
 #define FCB_ERR_EOF     3
 #define FCB_ERR_WRITE   1
-#define D_ALL   D_NORMAL | D_RDONLY | D_HIDDEN | D_SYSTEM | D_DIR | D_ARCHIVE
 
 #ifdef PROTO
 fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb);
@@ -82,7 +81,7 @@ VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
 #define PARSE_RET_BADDRIVE      0xff
 
 #ifndef IPL
-WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
+WORD FcbParseFname(int wTestMode, const BYTE FAR ** lpFileName, fcb FAR * lpFcb)
 {
   COUNT nIndex;
   WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
@@ -156,7 +155,7 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
   return (wRetCodeName | wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
 }
 
-BYTE FAR * ParseSkipWh(BYTE FAR * lpFileName)
+const BYTE FAR * ParseSkipWh(const BYTE FAR * lpFileName)
 {
   while (*lpFileName == ' ' || *lpFileName == '\t')
     ++lpFileName;
@@ -191,7 +190,7 @@ BOOL TestFieldSeps(BYTE FAR * lpFileName)
 }
 #endif
 
-BYTE FAR * GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
+const BYTE FAR * GetNameField(const BYTE FAR * lpFileName, BYTE FAR * lpDestField,
                        COUNT nFieldSize, BOOL * pbWildCard)
 {
   COUNT nIndex = 0;
@@ -466,7 +465,9 @@ BOOL FcbOpenCreate(xfcb FAR * lpXfcb, BOOL Create)
 
   if (Create)
   {
-    sft_idx = DosCreatSft(PriPathName, 0);
+    /* pass attribute without constraints (dangerous for directories) */
+    int attr = (lpXfcb->xfcb_flag == 0xff ? lpXfcb->xfcb_attrib : 0);
+    sft_idx = DosCreatSft(PriPathName, attr);
   }
   else
   {
@@ -559,21 +560,22 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
   }
   else
   {
+    int attr = (lpXfcb->xfcb_flag == 0xff ? lpXfcb->xfcb_attrib : D_ALL);  
     BYTE FAR *lpOldDta = dta;
     dmatch Dmatch;
 
     dta = (BYTE FAR *) & Dmatch;
-    if (DosFindFirst
-        (D_ALL,
-         SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
+    if (DosFindFirst(attr, SecPathName) != SUCCESS)
     {
       dta = lpOldDta;
       return FALSE;
     }
     do
     {
-      truename(Dmatch.dm_name, SecPathName, FALSE);
-      if (DosDelete(SecPathName) != SUCCESS)
+      SecPathName[0] = 'A' + FcbDrive - 1; 
+      SecPathName[1] = ':';
+      strcpy(&SecPathName[2], Dmatch.dm_name);
+      if (DosDelete(SecPathName, attr) != SUCCESS)
       {
         dta = lpOldDta;
         return FALSE;
@@ -592,7 +594,8 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
 
   /* Build a traditional DOS file name                            */
   lpRenameFcb = (rfcb FAR *) CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
-
+  wAttr = (lpXfcb->xfcb_flag == 0xff ? lpXfcb->xfcb_attrib : D_ALL);
+   
   /* check for a device                                           */
   if (IsDevice(SecPathName))
   {
@@ -604,9 +607,7 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
     dmatch Dmatch;
 
     dta = (BYTE FAR *) & Dmatch;
-    if (DosFindFirst
-        (D_ALL,
-         SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
+    if (DosFindFirst(wAttr, SecPathName) != SUCCESS)
     {
       dta = lpOldDta;
       return FALSE;
@@ -615,65 +616,34 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
     do
     {
       fcb LocalFcb;
-      BYTE *pToName, *pszFrom;
-      BYTE FAR *pFromPattern;
-      COUNT nIndex;
+      BYTE *pToName;
+      const BYTE FAR *pFromPattern = Dmatch.dm_name;
+      int i;
 
-      /* First, expand the find match into fcb style  */
-      /* file name entry                              */
-      /* Fill with blanks first                       */
-      memset(LocalFcb.fcb_fname, ' ', FNAME_SIZE);
-      memset(LocalFcb.fcb_fext, ' ', FEXT_SIZE);
-
-      /* next move in the file name while overwriting */
-      /* the filler blanks                            */
-      pszFrom = Dmatch.dm_name;
-      pToName = LocalFcb.fcb_fname;
-      for (nIndex = 0; nIndex < FNAME_SIZE; nIndex++)
-      {
-        if (*pszFrom != 0 && *pszFrom != '.')
-          *pToName++ = *pszFrom++;
-        else if (*pszFrom == '.')
-        {
-          ++pszFrom;
-          break;
-        }
-        else
-          break;
-      }
-
-      if (*pszFrom != '\0')
-      {
-        pToName = LocalFcb.fcb_fext;
-        for (nIndex = 0; nIndex < FEXT_SIZE; nIndex++)
-        {
-          if (*pszFrom != '\0')
-            *pToName++ = *pszFrom++;
-          else
-            break;
-        }
-      }
-
+      FcbParseFname(0, &pFromPattern, &LocalFcb);
       /* Overlay the pattern, skipping '?'            */
       /* I'm cheating because this assumes that the   */
       /* struct alignments are on byte boundaries     */
       pToName = LocalFcb.fcb_fname;
-      for (pFromPattern = lpRenameFcb->renNewName,
-           nIndex = 0; nIndex < FNAME_SIZE + FEXT_SIZE; nIndex++)
+      pFromPattern = lpRenameFcb->renNewName;
+      for (i = 0; i < FNAME_SIZE + FEXT_SIZE; i++)
       {
         if (*pFromPattern != '?')
-          *pToName++ = *pFromPattern++;
-        else
-          ++pFromPattern;
+          *pToName = *pFromPattern;
+	pToName++;
+	pFromPattern++;
       }
 
+      SecPathName[0] = 'A' + FcbDrive - 1;
+      SecPathName[1] = ':';
+      strcpy(&SecPathName[2], Dmatch.dm_name);
+      truename(SecPathName, PriPathName, FALSE);
+
       /* now to build a dos name again                */
-      LocalFcb.fcb_drive = 0;
+      LocalFcb.fcb_drive = FcbDrive;
       FcbNameInit((fcb FAR *) & LocalFcb, SecPathName, &FcbDrive);
 
-      truename(Dmatch.dm_name, PriPathName, FALSE);
-
-      if (DosRenameTrue(PriPathName, SecPathName) != SUCCESS)
+      if (DosRenameTrue(PriPathName, SecPathName, wAttr) != SUCCESS)
       {
         dta = lpOldDta;
         return FALSE;

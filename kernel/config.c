@@ -128,7 +128,7 @@ BYTE askThisSingleCommand = FALSE;      	/* ?device=  device?= */
 BYTE DontAskThisSingleCommand = FALSE;      /* !files=	          */
 
 COUNT MenuTimeout = -1;
-BYTE MenuSelected = '2';
+BYTE MenuSelected = 0;
 BYTE MenuLine     = 0;
 UCOUNT Menus      = 0;
 
