@@ -158,17 +158,9 @@ cont:		mov     ax,cs
                 int 010h
                 popf
                 pop bx
-
-		xor	ax,ax
-		mov	es,ax
-		mov	[es:0x5e0], bl  ; store orig bootdrive:used by initdisk
-
                 pop ax
 
-		inc	bl
-		jns	floppy
-		mov	bl,3            ; set to C: if hard disk
-floppy:		mov	byte [_BootDrive],bl ; tell where we came from
+		mov	byte [_BootDrive],bl ; tell where we came from
 
 ;!!		int	11h
 ;!!		mov	cl,6

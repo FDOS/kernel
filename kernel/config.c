@@ -315,12 +315,12 @@ STATIC struct table commands[] = {
 int  findend(BYTE * s)
 {
   int nLen = 0;
-  /* 'marks' end if at least three spaces, 0, or newline is found. */
+  /* 'marks' end if at least ten spaces, 0, or newline is found. */
   while (*s && (*s != 0x0d || *s != 0x0a) )
   {
     BYTE *p= skipwh(s);
-    /* ah, more than two whitespaces ? We're done here (hrmph!) */
-    if((unsigned int)p - (unsigned int)s>=3)
+    /* ah, more than 9 whitespaces ? We're done here (hrmph!) */
+    if(p - s >= 10)
       break;
     nLen++;
     ++s;
@@ -1124,6 +1124,7 @@ STATIC VOID CfgSwitches(BYTE * pLine)
             pLine++;                    /* skip optional separator */
           if (!isnum(*pLine))
           {
+            pLine--;
             Config.ebda2move = 0;
             break;
           }
@@ -1983,7 +1984,7 @@ RestartInput:
     }
     else if(key == 0x5000 && MenuColor != -1)      /* arrow down */
     {
-      if(MenuSelected<10 && (Menus & (1 << (MenuSelected+1))) )
+      if(MenuSelected<MENULINESMAX && (Menus & (1 << (MenuSelected+1))) )
       {
         MenuSelected++;
       }

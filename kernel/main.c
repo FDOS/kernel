@@ -98,6 +98,8 @@ void fmemcpy(void far *dest, const void far *src, unsigned n)
 
 VOID ASMCFUNC FreeDOSmain(void)
 {
+  unsigned char drv;
+
 #ifdef _MSC_VER
   extern FAR prn_dev;
   DosDataSeg = (__segment) & DATASTART;
@@ -105,31 +107,30 @@ VOID ASMCFUNC FreeDOSmain(void)
   LoL = &DATASTART;
 #endif
 
-                        
                         /*  if the kernel has been UPX'ed,
                                 CONFIG info is stored at 50:e2 ..fc
                             and the bootdrive (passed from BIOS)
                             at 50:e0
-                        */    
-                        
+                        */
+
   if (fmemcmp(MK_FP(0x50,0xe0+2),"CONFIG",6) == 0)      /* UPX */
   {
-    UBYTE drv;
-
     fmemcpy(&InitKernelConfig, MK_FP(0,0x5e0+2), sizeof(InitKernelConfig));
 
     drv = *(UBYTE FAR *)MK_FP(0,0x5e0) + 1;
-    if (drv >= 0x80)
-      drv = 3; /* C: */
-    LoL->BootDrive = drv;
-    
-    *(DWORD FAR *)MK_FP(0,0x5e0+2) = 0; 
-  } 
+    *(DWORD FAR *)MK_FP(0,0x5e0+2) = 0;
+  }
   else
   {
+    drv = LoL->BootDrive + 1;
+    *(UBYTE FAR *)MK_FP(0,0x5e0) = drv - 1;
     fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
   }
-  
+
+  if (drv >= 0x80)
+    drv = 3; /* C: */
+  LoL->BootDrive = drv;
+
   setvec(0, int0_handler);      /* zero divide */
   setvec(1, empty_handler);     /* single step */
   setvec(3, empty_handler);     /* debug breakpoint */
