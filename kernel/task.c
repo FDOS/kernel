@@ -406,8 +406,11 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   /* If file not found - error                            */
   /* NOTE - this is fatal because we lost it in transit   */
   /* from DosExec!                                        */
-  /* if ((rc = DosOpen(namep, 0)) < 0)
-    fatal("(DosComLoader) com file lost in transit");*/
+  if ((rc = DosOpen(namep, 0)) < 0)
+#if 0
+    fatal("(DosComLoader) com file lost in transit")
+#endif
+  ;
 
   /* do it in 32K chunks                                  */
   if ((com_size = DosGetFsize(rc)) != 0)
@@ -716,12 +719,12 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     /* If file not found - error                            */
     /* NOTE - this is fatal because we lost it in transit   */
     /* from DosExec!                                        */
-#if 0
     if ((rc = DosOpen(namep, 0)) < 0)
     {
+#if 0
       fatal("(DosExeLoader) exe file lost in transit");
-    }
 #endif
+    }
     /* offset to start of image                             */
     if (doslseek(rc, image_offset, 0) != image_offset)
     {
