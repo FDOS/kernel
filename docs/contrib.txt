@@ -12,6 +12,9 @@ Steve Miller (SMiller@dsfx.com)
 Jens Horstmeier (Jens.Horstmeier@Abg1.SIEMENS.DE)
 James Tabor (jimtabor@infohwy.com)
 Eric Biederman (ebiederm+eric@ccr.net)
+Tom Ehlert (tom.ehlert@ginko.de)
+Victor Vlasenko (victor_vlasenko@hotbox.ru)
+Bart Oldeman (bart@dosemu.org)
 
 And last, but not least, a big thanx to Pasquale J. Villani
 (patv@iop.com), who was the original author of DOS-C, in which the
