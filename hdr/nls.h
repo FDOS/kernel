@@ -281,20 +281,19 @@
 	access to often used and mandatoryly present tables. */
 #define NLS_REORDER_POINTERS
 
-
 /*
  *	How the kernel and NLSFUNC communicate with each other
  */
- 	/* Must be returned by NLSFUNC upon MUX-14-00 */
+        /* Must be returned by NLSFUNC upon MUX-14-00 */
 #define NLS_FREEDOS_NLSFUNC_ID	0x534b
-	/* Represents a call to DOS-38 within DOS-65 handlers.
-		Current implementation relys on 0x101! */
+        /* Represents a call to DOS-38 within DOS-65 handlers.
+           Current implementation relys on 0x101! */
 #define NLS_DOS_38 0x101
-	/* NLSFUNC may return NLS_REDO to instruct the kernel to
-		try to perform the same action another time. This is most
-		useful if the kernel only loads the NLS pkg into memory so
-		the kernel will find it and will process the request internally
-		now. */
+        /* NLSFUNC may return NLS_REDO to instruct the kernel to
+           try to perform the same action another time. This is most
+           useful if the kernel only loads the NLS pkg into memory so
+           the kernel will find it and will process the request internally
+           now. */
 #define NLS_REDO 353
 
 /* Codes of the subfunctions of external NLSFUNC */
@@ -320,42 +319,41 @@
 	a "1" in the bitfield means that the feature is active/enabled.
 	All currently non-defined bits are to be zero to allow future
 	useage. */
-#define NLS_FLAG_DIRECT_UPCASE		0x0001	/* DOS-65-2[012], */
-#define NLS_FLAG_DIRECT_FUPCASE		0x0002	/* DOS-65-A[012], internal */
-#define NLS_FLAG_DIRECT_YESNO		0x0004	/* DOS-65-23 */
-#define	NLS_FLAG_DIRECT_GETDATA		0x0008	/* DOS-65-XX, DOS-38 */
+#define NLS_FLAG_DIRECT_UPCASE		0x0001  /* DOS-65-2[012], */
+#define NLS_FLAG_DIRECT_FUPCASE		0x0002  /* DOS-65-A[012], internal */
+#define NLS_FLAG_DIRECT_YESNO		0x0004  /* DOS-65-23 */
+#define	NLS_FLAG_DIRECT_GETDATA		0x0008  /* DOS-65-XX, DOS-38 */
 
 #define NLS_FLAG_HARDCODED NLS_FLAG_DIRECT_UPCASE		\
 							| NLS_FLAG_DIRECT_FUPCASE	\
 							| NLS_FLAG_DIRECT_YESNO		\
 							| NLS_FLAG_DIRECT_GETDATA
 
-	/* No codepage / country code given */
+        /* No codepage / country code given */
 #define NLS_DEFAULT ((UWORD)-1)
 
 /*
  *	This is the data in the exact order returned by DOS-65-01
  */
-struct nlsExtCntryInfo
-{
-	UBYTE subfct;				/* always 1 */
-	WORD size;					/* size of this structure
-									without this WORD itself */
-	WORD countryCode;           /* current country code */
-	WORD codePage;              /* current code page (CP) */
+struct nlsExtCntryInfo {
+  UBYTE subfct;                 /* always 1 */
+  WORD size;                    /* size of this structure
+                                   without this WORD itself */
+  WORD countryCode;             /* current country code */
+  WORD codePage;                /* current code page (CP) */
 
-	/*
-	 *	This is the data in the exact order as to return on
-	 *	DOS-38; it is also the most (important) part of DOS-65-01
-	 */
-								/* Note: The ASCIZ strings might become
-									a totally different understanding with
-									DBCS (Double Byte Character Support) */
+  /*
+   *      This is the data in the exact order as to return on
+   *      DOS-38; it is also the most (important) part of DOS-65-01
+   */
+  /* Note: The ASCIZ strings might become
+     a totally different understanding with
+     DBCS (Double Byte Character Support) */
   WORD dateFmt;                 /* order of portions of date
-  									0: mm/dd/yyyy (USA)
-  									1: dd/mm/yyyy (Europe)
-  									2: yyyy/mm/dd (Japan)
-  								*/
+                                   0: mm/dd/yyyy (USA)
+                                   1: dd/mm/yyyy (Europe)
+                                   2: yyyy/mm/dd (Japan)
+                                 */
   char curr[5];                 /* ASCIZ of currency string */
   char thSep[2];                /* ASCIZ of thousand's separator */
   char point[2];                /* ASCIZ of decimal point */
@@ -363,64 +361,63 @@ struct nlsExtCntryInfo
   char timeSep[2];              /* ASCIZ of time separator */
   BYTE currFmt;                 /* format of currency:
                                    bit 0: currency string is placed
-                                   	0: before number
-                                   	1: behind number
+                                   0: before number
+                                   1: behind number
                                    bit 1: currency string and number are
-                                   		separated by a space
-                                   	0: No
-                                   	1: Yes
+                                   separated by a space
+                                   0: No
+                                   1: Yes
                                    bit 2: currency string replaces decimal
-                                   		sign
-                                   	0: No
-                                   	1: Yes
+                                   sign
+                                   0: No
+                                   1: Yes
                                  */
   BYTE prescision;              /* of monetary numbers */
   BYTE timeFmt;                 /* time format:
-  									0: 12 hours (append AM/PM)
-  									1: 24 houres
-  								*/
-  VOID(FAR * upCaseFct) (VOID);	/* far call to a function upcasing the
-  				character in register AL */
+                                   0: 12 hours (append AM/PM)
+                                   1: 24 houres
+                                 */
+    VOID(FAR * upCaseFct) (VOID);       /* far call to a function upcasing the
+                                           character in register AL */
   char dataSep[2];              /* ASCIZ of separator in data records */
 };
 
-struct nlsPointer {	/* Information of DOS-65-0X is addressed
-							by a pointer */
-	UBYTE subfct;		/* number of the subfunction */
-	VOID FAR *pointer;	/* the pointer to be returned when the subfunction
-							of DOS-65 is called (Note: won't work for
-							subfunctions 0, 1, 0x20, 0x21, 0x22, 0x23,
-							0xA0, 0xA1,& 0xA2 */
+struct nlsPointer {             /* Information of DOS-65-0X is addressed
+                                   by a pointer */
+  UBYTE subfct;                 /* number of the subfunction */
+  VOID FAR *pointer;            /* the pointer to be returned when the subfunction
+                                   of DOS-65 is called (Note: won't work for
+                                   subfunctions 0, 1, 0x20, 0x21, 0x22, 0x23,
+                                   0xA0, 0xA1,& 0xA2 */
 };
 
-
-struct nlsPackage {	/* the contents of one chain item of the
-							list of NLS packages */
-	struct nlsPackage FAR *nxt;	/* next item in chain */
-	UWORD cntry, cp;		/* country ID / codepage of this NLS pkg */
-	int flags;					/* direct access and other flags */
-			/* Note: Depending on the flags above all remaining
-				portions may be omitted, if the external NLSFUNC-like
-				MUX-14 processor does not require them and performs
-				all actions itself, so that the kernel never tries to
-				fetch this information itself. */
-	UBYTE yeschar;	/* yes / no character DOS-65-23 */
-	UBYTE nochar;
-	unsigned numSubfct;		/* number of supported sub-functions */
-	struct nlsPointer nlsPointers[1];	/* grows dynamically */
+struct nlsPackage {             /* the contents of one chain item of the
+                                   list of NLS packages */
+  struct nlsPackage FAR *nxt;   /* next item in chain */
+  UWORD cntry, cp;              /* country ID / codepage of this NLS pkg */
+  int flags;                    /* direct access and other flags */
+  /* Note: Depending on the flags above all remaining
+     portions may be omitted, if the external NLSFUNC-like
+     MUX-14 processor does not require them and performs
+     all actions itself, so that the kernel never tries to
+     fetch this information itself. */
+  UBYTE yeschar;                /* yes / no character DOS-65-23 */
+  UBYTE nochar;
+  unsigned numSubfct;           /* number of supported sub-functions */
+  struct nlsPointer nlsPointers[1];     /* grows dynamically */
 };
 
-struct nlsDBCS {			/* The internal structure is unknown to me */
-	UWORD numEntries;
-	UWORD dbcsTbl[1];
+struct nlsDBCS {                /* The internal structure is unknown to me */
+  UWORD numEntries;
+  UWORD dbcsTbl[1];
 };
 
 struct nlsCharTbl {
-	/* table containing a list of characters */
-	UWORD numEntries;			/* number of entries of this table.
-									If <= 0x80, the first element of
-									the table corresponse to character 0x80 */
-	unsigned char tbl[1];		/* grows dynamically */
+  /* table containing a list of characters */
+  UWORD numEntries;             /* number of entries of this table.
+                                   If <= 0x80, the first element of
+                                   the table corresponse to character 0x80 */
+  unsigned char tbl[1];         /* grows dynamically */
 };
 #define nlsChBuf(len)		struct nlsCharTbl##len {		\
 			UWORD numEntries;							\
@@ -431,37 +428,35 @@ nlsChBuf(256);
 
 /* in file names permittable characters for DOS-65-05 */
 struct nlsFnamTerm {
-	WORD size;                /* size of this structure */
-	BYTE dummy1;
-	char firstCh,
-	  lastCh;                   /* first, last permittable character */
-	BYTE dummy2;
-	char firstExcl,
-	  lastExcl;                 /* first, last excluded character */
-	BYTE dummy3;
-	BYTE numSep;                /* number of file name separators */
-	char separators[1];			/* grows dynamically */
+  WORD size;                    /* size of this structure */
+  BYTE dummy1;
+  char firstCh, lastCh;         /* first, last permittable character */
+  BYTE dummy2;
+  char firstExcl, lastExcl;     /* first, last excluded character */
+  BYTE dummy3;
+  BYTE numSep;                  /* number of file name separators */
+  char separators[1];           /* grows dynamically */
 };
 
-struct nlsInfoBlock {		/* This block contains all information
-					shared by the kernel and the external NLSFUNC program */
-	char FAR *fname;	/* filename from COUNTRY=;
-							maybe tweaked by NLSFUNC */
-	UWORD sysCodePage;	/* system code page */
-	unsigned flags;		/* implementation flags */
-	struct nlsPackage FAR *actPkg;	/* current NLS package */
-	struct nlsPackage FAR *chain;	/* first item of info chain --
-										hardcoded U.S.A./CP437 */
+struct nlsInfoBlock {           /* This block contains all information
+                                   shared by the kernel and the external NLSFUNC program */
+  char FAR *fname;              /* filename from COUNTRY=;
+                                   maybe tweaked by NLSFUNC */
+  UWORD sysCodePage;            /* system code page */
+  unsigned flags;               /* implementation flags */
+  struct nlsPackage FAR *actPkg;        /* current NLS package */
+  struct nlsPackage FAR *chain; /* first item of info chain --
+                                   hardcoded U.S.A./CP437 */
 };
 
-extern struct nlsInfoBlock	nlsInfo;
-extern struct nlsPackage	nlsPackageHardcoded;
-	/* These are the "must have" tables within the hard coded NLS pkg */
-extern struct nlsFnamTerm	nlsFnameTermHardcoded;
-extern struct nlsDBCS		nlsDBCSHardcoded;
-extern struct nlsCharTbl	nlsUpcaseHardcoded;
-extern struct nlsCharTbl	nlsFUpcaseHardcoded;
-extern struct nlsCharTbl	nlsCollHardcoded;
+extern struct nlsInfoBlock nlsInfo;
+extern struct nlsPackage nlsPackageHardcoded;
+        /* These are the "must have" tables within the hard coded NLS pkg */
+extern struct nlsFnamTerm nlsFnameTermHardcoded;
+extern struct nlsDBCS nlsDBCSHardcoded;
+extern struct nlsCharTbl nlsUpcaseHardcoded;
+extern struct nlsCharTbl nlsFUpcaseHardcoded;
+extern struct nlsCharTbl nlsCollHardcoded;
 extern struct nlsExtCntryInfo nlsCntryInfoHardcoded;
 extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
@@ -522,35 +517,34 @@ extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
 #define CSYS_FD_IDSTRING "FreeDOS COUNTRY.SYS v1.0\r\n"
 
-struct nlsCSys_function	{		/* S3: function definition */
-	UDWORD csys_rpos;			/* relative position to actual data */
-	UWORD csys_length;
-	UBYTE csys_fctID;			/* As passed to DOS-65-XX */
-	UBYTE csys_reserved1;		/* always 0, reserved for future use */
+struct nlsCSys_function {       /* S3: function definition */
+  UDWORD csys_rpos;             /* relative position to actual data */
+  UWORD csys_length;
+  UBYTE csys_fctID;             /* As passed to DOS-65-XX */
+  UBYTE csys_reserved1;         /* always 0, reserved for future use */
 };
 
-struct nlsCSys_ccDefinition {	/* S1: country/codepage reference */
-	UDWORD csys_rpos;			/* moving the 4byte value to the front
-									can increase performance */
-	UWORD csys_cp;
-	UWORD csys_cntry;
+struct nlsCSys_ccDefinition {   /* S1: country/codepage reference */
+  UDWORD csys_rpos;             /* moving the 4byte value to the front
+                                   can increase performance */
+  UWORD csys_cp;
+  UWORD csys_cntry;
 };
 
-struct nlsCSys_numEntries {		/* helper structure for "number of entries" */
-	UWORD csys_numEntries;
+struct nlsCSys_numEntries {     /* helper structure for "number of entries" */
+  UWORD csys_numEntries;
 };
 
 /* Actually, this structure is never really used */
-struct nlsCSys_fileHeader {		/* S0: primary structure */
-	unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
-			/* decrement by 1 to cut off \0 from IDString -- ska*/
+struct nlsCSys_fileHeader {     /* S0: primary structure */
+  unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
+  /* decrement by 1 to cut off \0 from IDString -- ska */
 };
 
-struct nlsCSys_completeFileHeader {		/* as S0, but full 128 bytes */
-	unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
-	unsigned char csys_padbytes[128 - (sizeof(CSYS_FD_IDSTRING) - 1)];
+struct nlsCSys_completeFileHeader {     /* as S0, but full 128 bytes */
+  unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
+  unsigned char csys_padbytes[128 - (sizeof(CSYS_FD_IDSTRING) - 1)];
 };
-
 
 /* standard alignment */
 #include <algndflt.h>

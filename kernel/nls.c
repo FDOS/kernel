@@ -39,7 +39,8 @@
 #include <nls.h>
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 /*
@@ -50,8 +51,10 @@ static BYTE *RcsId = "$Id$";
 #ifdef NLS_DEBUG
 #define assertDSeqSS() if(_DS != _SS)	assertDSneSS();
 void assertDSneSS(void)
-{	panic("DS unequal to SS");
+{
+  panic("DS unequal to SS");
 }
+
 #define log(a)	printf a
 #define log1(a)	printf a
 #else
@@ -64,25 +67,23 @@ void assertDSneSS(void)
 #endif
 #endif
 
-
 struct nlsInfoBlock nlsInfo = {
-	 (char FAR *)0		/* filename to COUNTRY.SYS */
-	,437				/* system code page */
-	/* Implementation flags */
-	,0
+  (char FAR *)0                 /* filename to COUNTRY.SYS */
+      , 437                     /* system code page */
+      /* Implementation flags */
+      , 0
 #ifdef NLS_MODIFYABLE_DATA
-		| NLS_CODE_MODIFYABLE_DATA
+      | NLS_CODE_MODIFYABLE_DATA
 #endif
 #ifdef NLS_REORDER_POINTERS
-		| NLS_CODE_REORDER_POINTERS
+      | NLS_CODE_REORDER_POINTERS
 #endif
-	,&nlsPackageHardcoded	/* hardcoded first package */
-	,&nlsPackageHardcoded	/* first item in chain */
+      , &nlsPackageHardcoded    /* hardcoded first package */
+      , &nlsPackageHardcoded    /* first item in chain */
 };
 
-
-	/* getTableX return the pointer to the X'th table; X==subfct */
-	/* subfct 2: normal upcase table; 4: filename upcase table */
+        /* getTableX return the pointer to the X'th table; X==subfct */
+        /* subfct 2: normal upcase table; 4: filename upcase table */
 #ifdef NLS_REORDER_POINTERS
 #define getTable2(nls)	((nls)->nlsPointers[0].pointer)
 #define getTable4(nls)	((nls)->nlsPointers[1].pointer)
@@ -91,13 +92,12 @@ struct nlsInfoBlock nlsInfo = {
 #define getTable4(nls)	getTable(4, (nls))
 #define NEED_GET_TABLE
 #endif
-	/*== both chartables must be 128 bytes long and lower range is
+        /*== both chartables must be 128 bytes long and lower range is
 		identical to 7bit-US-ASCII ==ska*/
 #define getCharTbl2(nls)			\
 	 (((struct nlsCharTbl FAR*)getTable2(nls))->tbl - 0x80)
 #define getCharTbl4(nls)			\
 	 (((struct nlsCharTbl FAR*)getTable4(nls))->tbl - 0x80)
-
 
 /********************************************************************
  ***** MUX calling functions ****************************************
@@ -105,60 +105,61 @@ struct nlsInfoBlock nlsInfo = {
 
 /*== DS:SI _always_ points to global NLS info structure <-> no
  * subfct can use these registers for anything different. ==ska*/
-STATIC COUNT muxGo(int subfct, iregs *rp)
+STATIC COUNT muxGo(int subfct, iregs * rp)
 {
-log( ("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%04x:%04x\n", subfct
- , rp->DX, rp->BX, rp->ES, rp->DI) );
-	rp->SI = FP_OFF(&nlsInfo);
-	rp->DS = FP_SEG(&nlsInfo);
-	rp->AX = 0x1400 | subfct;
-	intr(0x2f, rp);
-log( ("NLS: muxGo(): return value = %d\n", rp->AX) );
-	return rp->AX;
+  log(("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%04x:%04x\n",
+       subfct, rp->DX, rp->BX, rp->ES, rp->DI));
+  rp->SI = FP_OFF(&nlsInfo);
+  rp->DS = FP_SEG(&nlsInfo);
+  rp->AX = 0x1400 | subfct;
+  intr(0x2f, rp);
+  log(("NLS: muxGo(): return value = %d\n", rp->AX));
+  return rp->AX;
 }
 
 /*
  *	Call NLSFUNC to load the NLS package
  */
 COUNT muxLoadPkg(UWORD cp, UWORD cntry)
-{	iregs r;
+{
+  iregs r;
 
-	assertDSeqSS();		/* because "&r" */
+  assertDSeqSS();               /* because "&r" */
 
-	/*          0x1400 == not installed, ok to install              */
-	/*          0x1401 == not installed, not ok to install          */
-	/*          0x14FF == installed                                 */
+  /*          0x1400 == not installed, ok to install              */
+  /*          0x1401 == not installed, not ok to install          */
+  /*          0x14FF == installed                                 */
 
-	r.BX = 0;					/* make sure the NLSFUNC ID is updated */
-	if(muxGo(0, &r) != 0x14ff)
-		return DE_FILENOTFND;		/* No NLSFUNC --> no load */
-	if(r.BX != NLS_FREEDOS_NLSFUNC_ID)	/* FreeDOS NLSFUNC will return */
-		return DE_INVLDACC;					/* This magic number */
+  r.BX = 0;                     /* make sure the NLSFUNC ID is updated */
+  if (muxGo(0, &r) != 0x14ff)
+    return DE_FILENOTFND;       /* No NLSFUNC --> no load */
+  if (r.BX != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
+    return DE_INVLDACC;         /* This magic number */
 
-	/* OK, the correct NLSFUNC is available --> load pkg */
-	/* If BX == -1 on entry, NLSFUNC updates BX to the codepage loaded
-		into memory. The system must then change to this one later */
-	r.DX = cntry;
-	r.BX = cp;
-	return muxGo(NLSFUNC_LOAD_PKG, &r);
+  /* OK, the correct NLSFUNC is available --> load pkg */
+  /* If BX == -1 on entry, NLSFUNC updates BX to the codepage loaded
+     into memory. The system must then change to this one later */
+  r.DX = cntry;
+  r.BX = cp;
+  return muxGo(NLSFUNC_LOAD_PKG, &r);
 }
 
-STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry, UWORD bufsize
-	, VOID FAR *buf)
-{	iregs r;
+STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry,
+                    UWORD bufsize, VOID FAR * buf)
+{
+  iregs r;
 
-	assertDSeqSS();		/* because "&r" */
+  assertDSeqSS();               /* because "&r" */
 
-log( ("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%04x:%04x\n",
-	subfct, bp, cp, cntry, bufsize, FP_SEG(buf), FP_OFF(buf)) );
+  log(("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%04x:%04x\n", subfct, bp, cp, cntry, bufsize, FP_SEG(buf), FP_OFF(buf)));
 
-	r.DX = cntry;
-	r.BX = cp;
-	r.ES = FP_SEG(buf);
-	r.DI = FP_OFF(buf);
-	r.CX = bufsize;
-	r.BP = bp;
-	return muxGo(subfct, &r);
+  r.DX = cntry;
+  r.BX = cp;
+  r.ES = FP_SEG(buf);
+  r.DI = FP_OFF(buf);
+  r.CX = bufsize;
+  r.BP = bp;
+  return muxGo(subfct, &r);
 }
 
 #define mux65(s,cp,cc,bs,b)	muxBufGo(2, (s), (cp), (cc), (bs), (b))
@@ -170,40 +171,41 @@ log( ("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%04x:%04x
  ***** Helper functions**********************************************
  ********************************************************************/
 
-
 /*
  *	Search for the NLS package within the chain
  *	Also resolves the default values (-1) into the currently
  *	active codepage/country code.
  */
 STATIC struct nlsPackage FAR *searchPackage(UWORD cp, UWORD cntry)
-{	struct nlsPackage FAR *nls;
+{
+  struct nlsPackage FAR *nls;
 
-	if(cp == NLS_DEFAULT)
-		cp = nlsInfo.actPkg->cp;
-	if(cntry == NLS_DEFAULT)
-		cntry = nlsInfo.actPkg->cntry;
+  if (cp == NLS_DEFAULT)
+    cp = nlsInfo.actPkg->cp;
+  if (cntry == NLS_DEFAULT)
+    cntry = nlsInfo.actPkg->cntry;
 
-	nls = nlsInfo.chain;
-	while((nls->cp != cp || nls->cntry != cntry)
-	 && (nls = nls->nxt) != NULL);
+  nls = nlsInfo.chain;
+  while ((nls->cp != cp || nls->cntry != cntry)
+         && (nls = nls->nxt) != NULL) ;
 
-	return nls;
+  return nls;
 }
 
 /* For various robustnesses reasons and to simplify the implementation
 	at other places, locateSubfct() returns NULL (== "not found"),
 	if nls == NULL on entry. */
-STATIC VOID FAR *locateSubfct(struct nlsPackage FAR *nls, int subfct)
-{	int cnt;
-	struct nlsPointer FAR *p;
+STATIC VOID FAR *locateSubfct(struct nlsPackage FAR * nls, int subfct)
+{
+  int cnt;
+  struct nlsPointer FAR *p;
 
-	if(nls) for(cnt = nls->numSubfct, p = &nls->nlsPointers[0]
-	 ; cnt--; ++p)
-		if(p->subfct == (UBYTE)subfct)
-			return p;
+  if (nls)
+    for (cnt = nls->numSubfct, p = &nls->nlsPointers[0]; cnt--; ++p)
+      if (p->subfct == (UBYTE) subfct)
+        return p;
 
-	return NULL;
+  return NULL;
 }
 
 #ifdef NEED_GET_TABLE
@@ -213,19 +215,23 @@ STATIC VOID FAR *locateSubfct(struct nlsPackage FAR *nls, int subfct)
 	function is guaranteed to return valid pointers, rather than
 	to let the user (some kernel function) deal with non-existing
 	tables -- 2000/02/26 ska*/
-STATIC VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR *nls)
-{	struct nlsPointer FAR *poi;
+STATIC VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR * nls)
+{
+  struct nlsPointer FAR *poi;
 
-	if((poi = locateSubfct(nls, subfct)) != NULL)
-		return poi;
+  if ((poi = locateSubfct(nls, subfct)) != NULL)
+    return poi;
 
-	/* Failed --> return the hardcoded table */
-	switch(subfct) {
-	case 2:	return &nlsUpHardcodedTable;
-	case 4:	return &nlsFnameUpHardcodedTable;
-	/* case 5:	return &nlsFnameTermHardcodedTable; */
-	/* case 6: return &nlsCollHardcodedTable; */
-	}
+  /* Failed --> return the hardcoded table */
+  switch (subfct)
+  {
+    case 2:
+      return &nlsUpHardcodedTable;
+    case 4:
+      return &nlsFnameUpHardcodedTable;
+      /* case 5:                                                                      return &nlsFnameTermHardcodedTable; */
+      /* case 6: return &nlsCollHardcodedTable; */
+  }
 }
 #endif
 
@@ -239,36 +245,36 @@ STATIC VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR *nls)
  *	the code to push bufsize, buf, call cpyBuf() and return its result.
  *	The parameter were ordered to allow this code optimization.
  */
-STATIC COUNT cpyBuf(VOID FAR *dst, UWORD dstlen
-	, VOID FAR *src, UWORD srclen)
+STATIC COUNT cpyBuf(VOID FAR * dst, UWORD dstlen, VOID FAR * src,
+                    UWORD srclen)
 {
-	if(srclen <= dstlen) {
-		fmemcpy(dst, src, srclen);
-		return SUCCESS;
-	}
-	return DE_INVLDFUNC;		/* buffer too small */
+  if (srclen <= dstlen)
+  {
+    fmemcpy(dst, src, srclen);
+    return SUCCESS;
+  }
+  return DE_INVLDFUNC;          /* buffer too small */
 }
-
-
 
 /*
  *	This function assumes that 'map' is adjusted such that
  *	map[0x80] is the uppercase of character 0x80.
  *== 128 byte chartables, lower range conform to 7bit-US-ASCII ==ska*/
-STATIC VOID upMMem(UBYTE FAR *map, UBYTE FAR * str, unsigned len)
+STATIC VOID upMMem(UBYTE FAR * map, UBYTE FAR * str, unsigned len)
 {
   REG unsigned c;
 
 #ifdef NLS_DEBUG
-	UBYTE FAR *oldStr;
-	unsigned oldLen;
+  UBYTE FAR *oldStr;
+  unsigned oldLen;
 
-	oldStr = str;
-	oldLen = len;
-log( ("NLS: upMMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str), FP_OFF(str)) );
-	for(c = 0; c < len; ++c)
-		printf("%c", str[c] > 32? str[c]: '.');
-	printf("\"\n");
+  oldStr = str;
+  oldLen = len;
+  log(("NLS: upMMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str),
+       FP_OFF(str)));
+  for (c = 0; c < len; ++c)
+    printf("%c", str[c] > 32 ? str[c] : '.');
+  printf("\"\n");
 #endif
   if (len)
     do
@@ -281,13 +287,12 @@ log( ("NLS: upMMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str), FP_OFF(str)) );
     }
     while (--len);
 #ifdef NLS_DEBUG
-printf("NLS: upMMem(): result=\"");
-	for(c = 0; c < oldLen; ++c)
-		printf("%c", oldStr[c] > 32? oldStr[c]: '.');
-	printf("\"\n");
+  printf("NLS: upMMem(): result=\"");
+  for (c = 0; c < oldLen; ++c)
+    printf("%c", oldStr[c] > 32 ? oldStr[c] : '.');
+  printf("\"\n");
 #endif
 }
-
 
 /********************************************************************
  ***** Lowlevel interface *******************************************
@@ -297,52 +302,53 @@ printf("NLS: upMMem(): result=\"");
 	the direct-access interface.
 	subfct == NLS_DOS_38 is a value > 0xff in order to not clash
 	with subfunctions valid to be passed as DOS-65-XX. */
-STATIC int nlsGetData(struct nlsPackage FAR *nls, int subfct, UBYTE FAR *buf
-	, unsigned bufsize)
-{	VOID FAR *poi;
+STATIC int nlsGetData(struct nlsPackage FAR * nls, int subfct,
+                      UBYTE FAR * buf, unsigned bufsize)
+{
+  VOID FAR *poi;
 
-log( ("NLS: nlsGetData(): subfct=%x, bufsize=%u, cp=%u, cntry=%u\n",
-	subfct, bufsize, nls->cp, nls->cntry) );
+  log(("NLS: nlsGetData(): subfct=%x, bufsize=%u, cp=%u, cntry=%u\n",
+       subfct, bufsize, nls->cp, nls->cntry));
 
-	/* Theoretically tables 1 and, if NLS_REORDER_POINTERS is enabled,
-		2 and 4 could be hard-coded, because their
-		data is located at predictable (calculatable) locations.
-		However, 1 and subfct NLS_DOS_38 are to handle the same
-		data and the "locateSubfct()" call has to be implemented anyway,
-		in order to handle all subfunctions.
-		Also, NLS is often NOT used in any case, so this code is more
-		size than speed optimized. */
-	if((poi = locateSubfct(nls, subfct)) != NULL) {
-log( ("NLS: nlsGetData(): subfunction found\n") );
-		switch(subfct) {
-		case 1:		/* Extended Country Information */
-			return cpyBuf(buf, bufsize, poi
-			 , ((struct nlsExtCntryInfo FAR*)poi)->size + 3);
-		case NLS_DOS_38:	/* Normal Country Information */
-			return cpyBuf(buf, bufsize
-			 , &(((struct nlsExtCntryInfo FAR*)poi)->dateFmt)
-			 , 24);	    	/* standard cinfo has no more 34 _used_ bytes */
-			                /* don't copy 34, copy only 0x18 instead, 
-                               see comment at DosGetCountryInformation	TE */
-		default:
-			/* All other subfunctions just return the found nlsPoinerInf
-				structure */
-			return cpyBuf(buf, bufsize, poi, sizeof(struct nlsPointer));
-		}
-	}
+  /* Theoretically tables 1 and, if NLS_REORDER_POINTERS is enabled,
+     2 and 4 could be hard-coded, because their
+     data is located at predictable (calculatable) locations.
+     However, 1 and subfct NLS_DOS_38 are to handle the same
+     data and the "locateSubfct()" call has to be implemented anyway,
+     in order to handle all subfunctions.
+     Also, NLS is often NOT used in any case, so this code is more
+     size than speed optimized. */
+  if ((poi = locateSubfct(nls, subfct)) != NULL)
+  {
+    log(("NLS: nlsGetData(): subfunction found\n"));
+    switch (subfct)
+    {
+      case 1:                  /* Extended Country Information */
+        return cpyBuf(buf, bufsize, poi,
+                      ((struct nlsExtCntryInfo FAR *)poi)->size + 3);
+      case NLS_DOS_38:         /* Normal Country Information */
+        return cpyBuf(buf, bufsize, &(((struct nlsExtCntryInfo FAR *)poi)->dateFmt), 24);       /* standard cinfo has no more 34 _used_ bytes */
+        /* don't copy 34, copy only 0x18 instead, 
+           see comment at DosGetCountryInformation                      TE */
+      default:
+        /* All other subfunctions just return the found nlsPoinerInf
+           structure */
+        return cpyBuf(buf, bufsize, poi, sizeof(struct nlsPointer));
+    }
+  }
 
-	/* The requested subfunction could not been located within the
-		NLS pkg --> error. Because the data corresponds to the subfunction
-		number passed to the API, the failure is the same as that a wrong
-		API function has been called. */
-log( ("NLS: nlsGetData(): Subfunction not found\n") );
-	return DE_INVLDFUNC;
+  /* The requested subfunction could not been located within the
+     NLS pkg --> error. Because the data corresponds to the subfunction
+     number passed to the API, the failure is the same as that a wrong
+     API function has been called. */
+  log(("NLS: nlsGetData(): Subfunction not found\n"));
+  return DE_INVLDFUNC;
 }
 
 VOID nlsCPchange(UWORD cp)
 {
-	UNREFERENCED_PARAMETER(cp);
-	printf("\7\nchange codepage not yet done ska\n");
+  UNREFERENCED_PARAMETER(cp);
+  printf("\7\nchange codepage not yet done ska\n");
 }
 
 /*
@@ -366,73 +372,74 @@ VOID nlsCPchange(UWORD cp)
  *	appropriate codepage on its own.
  */
 
-STATIC COUNT nlsSetPackage(struct nlsPackage FAR *nls)
+STATIC COUNT nlsSetPackage(struct nlsPackage FAR * nls)
 {
-	if(nls->cp != nlsInfo.actPkg->cp)	/* Codepage gets changed -->
-							inform all character drivers thereabout.
-							If this fails, it would be possible that the old
-							NLS pkg had been removed from memory by NLSFUNC. */
-		nlsCPchange(nls->cp);
+  if (nls->cp != nlsInfo.actPkg->cp)    /* Codepage gets changed -->
+                                           inform all character drivers thereabout.
+                                           If this fails, it would be possible that the old
+                                           NLS pkg had been removed from memory by NLSFUNC. */
+    nlsCPchange(nls->cp);
 
-	nlsInfo.actPkg = nls;
+  nlsInfo.actPkg = nls;
 
-	return SUCCESS;
+  return SUCCESS;
 }
 STATIC COUNT DosSetPackage(UWORD cp, UWORD cntry)
-{	struct nlsPackage FAR*nls;	/* NLS package to use to return the info from */
-
-		/* nls := NLS package of cntry/codepage */
-	if((nls = searchPackage(cp, cntry)) != NULL)
-		/* OK the NLS pkg is loaded --> activate it */
-		return nlsSetPackage(nls);
-
-		/* not loaded --> invoke NLSFUNC to load it */
-	return muxLoadPkg(cp, cntry);
-}
-
-STATIC void nlsUpMem(struct nlsPackage FAR *nls, VOID FAR *str, int len)
 {
-log( ("NLS: nlsUpMem()\n") );
-		upMMem(getCharTbl2(nls), (UBYTE FAR*)str, len);
-}
-STATIC void nlsFUpMem(struct nlsPackage FAR *nls, VOID FAR *str, int len)
-{
-log( ("NLS: nlsFUpMem()\n") );
-		upMMem(getCharTbl4(nls), (UBYTE FAR*)str, len);
+  struct nlsPackage FAR *nls;   /* NLS package to use to return the info from */
+
+  /* nls := NLS package of cntry/codepage */
+  if ((nls = searchPackage(cp, cntry)) != NULL)
+    /* OK the NLS pkg is loaded --> activate it */
+    return nlsSetPackage(nls);
+
+  /* not loaded --> invoke NLSFUNC to load it */
+  return muxLoadPkg(cp, cntry);
 }
 
-STATIC VOID xUpMem(struct nlsPackage FAR *nls, VOID FAR * str, unsigned len)
+STATIC void nlsUpMem(struct nlsPackage FAR * nls, VOID FAR * str, int len)
+{
+  log(("NLS: nlsUpMem()\n"));
+  upMMem(getCharTbl2(nls), (UBYTE FAR *) str, len);
+}
+STATIC void nlsFUpMem(struct nlsPackage FAR * nls, VOID FAR * str, int len)
+{
+  log(("NLS: nlsFUpMem()\n"));
+  upMMem(getCharTbl4(nls), (UBYTE FAR *) str, len);
+}
+
+STATIC VOID xUpMem(struct nlsPackage FAR * nls, VOID FAR * str,
+                   unsigned len)
 /* upcase a memory area */
 {
-log( ("NLS: xUpMem(): cp=%u, cntry=%u\n", nls->cp, nls->cntry) );
+  log(("NLS: xUpMem(): cp=%u, cntry=%u\n", nls->cp, nls->cntry));
 
-	if(nls->flags & NLS_FLAG_DIRECT_UPCASE)
-		nlsUpMem(nls, str, len);
-	else
-		muxBufGo(NLSFUNC_UPMEM, 0, nls->cp, nls->cntry, len, str);
+  if (nls->flags & NLS_FLAG_DIRECT_UPCASE)
+    nlsUpMem(nls, str, len);
+  else
+    muxBufGo(NLSFUNC_UPMEM, 0, nls->cp, nls->cntry, len, str);
 }
 
-STATIC int nlsYesNo(struct nlsPackage FAR *nls, unsigned char ch)
+STATIC int nlsYesNo(struct nlsPackage FAR * nls, unsigned char ch)
 {
-	assertDSeqSS();		/* because "&ch" */
+  assertDSeqSS();               /* because "&ch" */
 
-log( ("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch>32? ch: ' ') );
+  log(("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
 
-	xUpMem(nls, &ch, 1);		/* Upcase character */
-								/* Cannot use DosUpChar(), because
-									maybe: nls != current NLS pkg
-									However: Upcase character within lowlevel
-									function to allow a yesNo() function
-									catched by external MUX-14 handler, which
-									does NOT upcase character. */
-log( ("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch>32? ch: ' ') );
-	if(ch == nls->yeschar)
-		return 1;
-	if(ch == nls->nochar)
-		return 0;
-	return 2;
+  xUpMem(nls, &ch, 1);          /* Upcase character */
+  /* Cannot use DosUpChar(), because
+     maybe: nls != current NLS pkg
+     However: Upcase character within lowlevel
+     function to allow a yesNo() function
+     catched by external MUX-14 handler, which
+     does NOT upcase character. */
+  log(("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
+  if (ch == nls->yeschar)
+    return 1;
+  if (ch == nls->nochar)
+    return 0;
+  return 2;
 }
-
 
 /********************************************************************
  ***** DOS API ******************************************************
@@ -441,16 +448,16 @@ log( ("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch>32? ch: ' ') );
 BYTE DosYesNo(unsigned char ch)
 /* returns: 0: ch == "No", 1: ch == "Yes", 2: ch crap */
 {
-	if(nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_YESNO)
-		return nlsYesNo(nlsInfo.actPkg, ch);
-	else
-		return muxYesNo(ch);
+  if (nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_YESNO)
+    return nlsYesNo(nlsInfo.actPkg, ch);
+  else
+    return muxYesNo(ch);
 }
-
 
 #ifndef DosUpMem
 VOID DosUpMem(VOID FAR * str, unsigned len)
-{	xUpMem(nlsInfo.actPkg, str, len);
+{
+  xUpMem(nlsInfo.actPkg, str, len);
 }
 #endif
 
@@ -463,47 +470,48 @@ VOID DosUpMem(VOID FAR * str, unsigned len)
 unsigned char ASMCFUNC DosUpChar(unsigned char ch)
  /* upcase a single character */
 {
-	assertDSeqSS();			/* because "&ch" */
-log( ("NLS: DosUpChar(): in ch=%u (%c)\n", ch, ch>32? ch: ' ') );
-	DosUpMem((UBYTE FAR*)&ch, 1);
-log( ("NLS: DosUpChar(): upcased ch=%u (%c)\n", ch, ch>32? ch: ' ') );
-	return ch;
+  assertDSeqSS();               /* because "&ch" */
+  log(("NLS: DosUpChar(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
+  DosUpMem((UBYTE FAR *) & ch, 1);
+  log(("NLS: DosUpChar(): upcased ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
+  return ch;
 }
 
-VOID DosUpString(char FAR *str)
+VOID DosUpString(char FAR * str)
 /* upcase a string */
 {
-	DosUpMem(str, fstrlen(str));
+  DosUpMem(str, fstrlen(str));
 }
 
-VOID DosUpFMem(VOID FAR *str, unsigned len)
+VOID DosUpFMem(VOID FAR * str, unsigned len)
 /* upcase a memory area for file names */
 {
 #ifdef NLS_DEBUG
-	unsigned c;
-log( ("NLS: DosUpFMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str), FP_OFF(str)) );
-	for(c = 0; c < len; ++c)
-		printf("%c", str[c] > 32? str[c]: '.');
-	printf("\"\n");
+  unsigned c;
+  log(("NLS: DosUpFMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str),
+       FP_OFF(str)));
+  for (c = 0; c < len; ++c)
+    printf("%c", str[c] > 32 ? str[c] : '.');
+  printf("\"\n");
 #endif
-	if(nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_FUPCASE)
-		nlsFUpMem(nlsInfo.actPkg, str, len);
-	else
-		muxUpMem(NLSFUNC_FILE_UPMEM, str, len);
+  if (nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_FUPCASE)
+    nlsFUpMem(nlsInfo.actPkg, str, len);
+  else
+    muxUpMem(NLSFUNC_FILE_UPMEM, str, len);
 }
 
 unsigned char DosUpFChar(unsigned char ch)
  /* upcase a single character for file names */
 {
-	assertDSeqSS();			/* because "&ch" */
-	DosUpFMem((UBYTE FAR*)&ch, 1);
-	return ch;
+  assertDSeqSS();               /* because "&ch" */
+  DosUpFMem((UBYTE FAR *) & ch, 1);
+  return ch;
 }
 
-VOID DosUpFString(char FAR *str)
+VOID DosUpFString(char FAR * str)
 /* upcase a string for file names */
 {
-	DosUpFMem(str, fstrlen(str));
+  DosUpFMem(str, fstrlen(str));
 }
 
 /*
@@ -514,33 +522,34 @@ VOID DosUpFString(char FAR *str)
  *	loaded, MUX-14 is invoked; otherwise the pkg's NLS_Fct_buf
  *	function is invoked.
  */
-COUNT DosGetData(int subfct, UWORD cp, UWORD cntry
-	, UWORD bufsize, VOID FAR * buf)
-{	struct nlsPackage FAR*nls;	/* NLS package to use to return the info from */
+COUNT DosGetData(int subfct, UWORD cp, UWORD cntry, UWORD bufsize,
+                 VOID FAR * buf)
+{
+  struct nlsPackage FAR *nls;   /* NLS package to use to return the info from */
 
-log( ("NLS: GetData(): subfct=%x, cp=%u, cntry=%u, bufsize=%u\n",
-	subfct, cp, cntry, bufsize) );
+  log(("NLS: GetData(): subfct=%x, cp=%u, cntry=%u, bufsize=%u\n",
+       subfct, cp, cntry, bufsize));
 
-	if(!buf || !bufsize)
-		return DE_INVLDDATA;
-	if(subfct == 0)			/* Currently not supported */
-		return DE_INVLDFUNC;
+  if (!buf || !bufsize)
+    return DE_INVLDDATA;
+  if (subfct == 0)              /* Currently not supported */
+    return DE_INVLDFUNC;
 
-		/* nls := NLS package of cntry/codepage */
-	if((nls = searchPackage(cp, cntry)) == NULL
-	 || (nls->flags & NLS_FLAG_DIRECT_GETDATA) == 0) {
-	 		/* If the NLS pkg is not loaded into memory or the
-	 			direct-access flag is disabled, the request must
-	 			be passed through MUX */
-		return (subfct == NLS_DOS_38)
-		 ? mux38(nls->cp, nls->cntry, bufsize, buf)
-		 : mux65(subfct, nls->cp, nls->cntry, bufsize, buf);
-	}
+  /* nls := NLS package of cntry/codepage */
+  if ((nls = searchPackage(cp, cntry)) == NULL
+      || (nls->flags & NLS_FLAG_DIRECT_GETDATA) == 0)
+  {
+    /* If the NLS pkg is not loaded into memory or the
+       direct-access flag is disabled, the request must
+       be passed through MUX */
+    return (subfct == NLS_DOS_38)
+        ? mux38(nls->cp, nls->cntry, bufsize, buf)
+        : mux65(subfct, nls->cp, nls->cntry, bufsize, buf);
+  }
 
-	/* Direct access to the data */
-	return nlsGetData(nls, subfct, buf, bufsize);
+  /* Direct access to the data */
+  return nlsGetData(nls, subfct, buf, bufsize);
 }
-
 
 /*
  *	Called for DOS-38 get info
@@ -556,10 +565,11 @@ log( ("NLS: GetData(): subfct=%x, cp=%u, cntry=%u, bufsize=%u\n",
  * RBIL documents 0x18 bytes and calls 10 bytes 'reserved'
  * so we change the amount of copied bytes to 0x18
  */
- 
+
 #ifndef DosGetCountryInformation
-COUNT DosGetCountryInformation(UWORD cntry, VOID FAR *buf)
-{	return DosGetData(NLS_DOS_38, NLS_DEFAULT, cntry, 0x18, buf);
+COUNT DosGetCountryInformation(UWORD cntry, VOID FAR * buf)
+{
+  return DosGetData(NLS_DOS_38, NLS_DEFAULT, cntry, 0x18, buf);
 }
 #endif
 
@@ -568,17 +578,19 @@ COUNT DosGetCountryInformation(UWORD cntry, VOID FAR *buf)
  */
 #ifndef DosSetCountry
 COUNT DosSetCountry(UWORD cntry)
-{	return DosSetPackage(NLS_DEFAULT, cntry);
+{
+  return DosSetPackage(NLS_DEFAULT, cntry);
 }
 #endif
 
 /*
  *	Called for DOS-66-01 get CP
  */
-COUNT DosGetCodepage(UWORD FAR* actCP, UWORD FAR* sysCP)
-{	*sysCP = nlsInfo.sysCodePage;
-	*actCP = nlsInfo.actPkg->cp;
-	return SUCCESS;
+COUNT DosGetCodepage(UWORD FAR * actCP, UWORD FAR * sysCP)
+{
+  *sysCP = nlsInfo.sysCodePage;
+  *actCP = nlsInfo.actPkg->cp;
+  return SUCCESS;
 }
 
 /*
@@ -587,9 +599,10 @@ COUNT DosGetCodepage(UWORD FAR* actCP, UWORD FAR* sysCP)
  *	to specify it, is lost to me. (2000/02/13 ska)
  */
 COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
-{	if(sysCP == NLS_DEFAULT || sysCP == nlsInfo.sysCodePage)
-		return DosSetPackage(actCP, NLS_DEFAULT);
-	return DE_INVLDDATA;
+{
+  if (sysCP == NLS_DEFAULT || sysCP == nlsInfo.sysCodePage)
+    return DosSetPackage(actCP, NLS_DEFAULT);
+  return DE_INVLDDATA;
 }
 
 /********************************************************************
@@ -608,57 +621,59 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
 		if AL == 0, Carry must be cleared, otherwise set
 */
 UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
-{	struct nlsPackage FAR*nls;	/* addressed NLS package */
+{
+  struct nlsPackage FAR *nls;   /* addressed NLS package */
 
-	UNREFERENCED_PARAMETER (flags);
-	UNREFERENCED_PARAMETER (cs);
-	UNREFERENCED_PARAMETER (ip);
-	UNREFERENCED_PARAMETER (ds);
-	UNREFERENCED_PARAMETER (es);
-	UNREFERENCED_PARAMETER (si);
+  UNREFERENCED_PARAMETER(flags);
+  UNREFERENCED_PARAMETER(cs);
+  UNREFERENCED_PARAMETER(ip);
+  UNREFERENCED_PARAMETER(ds);
+  UNREFERENCED_PARAMETER(es);
+  UNREFERENCED_PARAMETER(si);
 
-log( ("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n",
-	AL, BX, DX) );
+  log(("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n", AL, BX, DX));
 
-	if((nls = searchPackage(BX, DX)) == NULL)
-		return DE_INVLDFUNC;	/* no such package */
+  if ((nls = searchPackage(BX, DX)) == NULL)
+    return DE_INVLDFUNC;        /* no such package */
 
-log( ("NLS: MUX14(): NLS pkg found\n") );
+  log(("NLS: MUX14(): NLS pkg found\n"));
 
-	switch(AL) {
-	case NLSFUNC_INSTALL_CHECK:
-		BX = NLS_FREEDOS_NLSFUNC_ID;
-		return SUCCESS;		/* kernel just simulates default functions */
-	case NLSFUNC_DOS38:
-		return nlsGetData(nls, NLS_DOS_38, MK_FP(ES, DI), 34);
-	case NLSFUNC_GETDATA:
-		return nlsGetData(nls, BP, MK_FP(ES, DI), CX);
-	case NLSFUNC_DRDOS_GETDATA:
-			/* Does not pass buffer length */
-		return nlsGetData(nls, CL, MK_FP(ES, DI), 512);
-	case NLSFUNC_LOAD_PKG:
-	case NLSFUNC_LOAD_PKG2:
-		return nlsSetPackage(nls);
-	case NLSFUNC_YESNO:
-		return nlsYesNo(nls, CL);
-	case NLSFUNC_UPMEM:
-		nlsUpMem(nls, MK_FP(ES, DI), CX);
-		return SUCCESS;
-	case NLSFUNC_FILE_UPMEM:
+  switch (AL)
+  {
+    case NLSFUNC_INSTALL_CHECK:
+      BX = NLS_FREEDOS_NLSFUNC_ID;
+      return SUCCESS;           /* kernel just simulates default functions */
+    case NLSFUNC_DOS38:
+      return nlsGetData(nls, NLS_DOS_38, MK_FP(ES, DI), 34);
+    case NLSFUNC_GETDATA:
+      return nlsGetData(nls, BP, MK_FP(ES, DI), CX);
+    case NLSFUNC_DRDOS_GETDATA:
+      /* Does not pass buffer length */
+      return nlsGetData(nls, CL, MK_FP(ES, DI), 512);
+    case NLSFUNC_LOAD_PKG:
+    case NLSFUNC_LOAD_PKG2:
+      return nlsSetPackage(nls);
+    case NLSFUNC_YESNO:
+      return nlsYesNo(nls, CL);
+    case NLSFUNC_UPMEM:
+      nlsUpMem(nls, MK_FP(ES, DI), CX);
+      return SUCCESS;
+    case NLSFUNC_FILE_UPMEM:
 #ifdef NLS_DEBUG
-{	unsigned j;
-	BYTE FAR *p;
-log( ("NLS: MUX14(FILE_UPMEM): len=%u, %04x:%04x=\"", CX, ES, DI) );
-	for(j = 0, p = MK_FP(ES, DI); j < CX; ++j)
-		printf("%c", p[j] > 32? p[j]: '.');
-	printf("\"\n");
-}
+      {
+        unsigned j;
+        BYTE FAR *p;
+        log(("NLS: MUX14(FILE_UPMEM): len=%u, %04x:%04x=\"", CX, ES, DI));
+        for (j = 0, p = MK_FP(ES, DI); j < CX; ++j)
+          printf("%c", p[j] > 32 ? p[j] : '.');
+        printf("\"\n");
+      }
 #endif
-		nlsFUpMem(nls, MK_FP(ES, DI), CX);
-		return SUCCESS;
-	}
-log( ("NLS: MUX14(): Invalid function %x\n", AL) );
-	return DE_INVLDFUNC;	/* no such function */
+      nlsFUpMem(nls, MK_FP(ES, DI), CX);
+      return SUCCESS;
+  }
+  log(("NLS: MUX14(): Invalid function %x\n", AL));
+  return DE_INVLDFUNC;          /* no such function */
 }
 
 /*
@@ -668,4 +683,3 @@ log( ("NLS: MUX14(): Invalid function %x\n", AL) );
  * Initial revision
  *
  */
-

@@ -30,7 +30,8 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static char *portab_hRcsId = "$Id$";
+static char *portab_hRcsId =
+    "$Id$";
 #endif
 #endif
 
@@ -57,84 +58,71 @@ static char *portab_hRcsId = "$Id$";
 /*                                                              */
 /****************************************************************/
 
-
-							/* commandline overflow - removing -DI86 TE*/
+                                                        /* commandline overflow - removing -DI86 TE */
 #if defined(__TURBOC__)
 
-    #define I86        
-    #define CDECL   cdecl
-    void __int__(int);
-    
-#elif defined	(_MSC_VER)    
+#define I86
+#define CDECL   cdecl
+void __int__(int);
 
-    #define I86        
-    #define CDECL   _cdecl
-    #define __int__(intno) asm int intno;
+#elif defined	(_MSC_VER)
 
-	#if defined(M_I286)  /* /G3 doesn't set M_I386, but sets M_I286 TE*/
-		#define I386
-	#endif	
+#define I86
+#define CDECL   _cdecl
+#define __int__(intno) asm int intno;
 
-#elif defined(__WATCOMC__) /* don't know a better way */
+#if defined(M_I286)             /* /G3 doesn't set M_I386, but sets M_I286 TE */
+#define I386
+#endif
 
-	#define I86
-	#define __int__(intno) asm int intno;
-	#define asm __asm 
-	#define far __far
-    #define CDECL   __cdecl
-	
-	#if _M_IX86 >= 300
-		#define I386
-	#endif		
+#elif defined(__WATCOMC__)      /* don't know a better way */
+
+#define I86
+#define __int__(intno) asm int intno;
+#define asm __asm
+#define far __far
+#define CDECL   __cdecl
+
+#if _M_IX86 >= 300
+#define I386
+#endif
 
 #elif defined (_MYMC68K_COMILER_)
 
-	#define MC68K
+#define MC68K
 
-#else	
-	anyone knows a _portable_ way to create nice errors??	
-	at least this causes the compiler not to compile :-)
+#else
+anyone knows a _portable_ way to create nice errors ? ?
+    at least this causes the compiler not to compile : -)
 #endif
                          /* functions, that are shared between C and ASM _must_ 
-                         	have a certain calling standard. These are declared
-                         	as 'ASMCFUNC', and is (and will be ?-) cdecl */
+                            have a certain calling standard. These are declared
+                            as 'ASMCFUNC', and is (and will be ?-) cdecl */
 #define ASMCFUNC cdecl
-
 #ifdef MC68K
-
 #define far                     /* No far type          */
 #define interrupt               /* No interrupt type    */
-
 #define VOID           void
 #define FAR                     /* linear architecture  */
 #define NEAR                    /*    "        "        */
 #define INRPT          interrupt
-
 #define CONST
 #define REG            register
-
 #define API            int      /* linear architecture  */
 #define NONNATIVE
-
 #define PARASIZE       4096     /* "paragraph" size     */
 #endif
-
 #ifdef I86
-
 #define VOID           void
 #define FAR            far      /* segment architecture */
 #define NEAR           near     /*    "          "      */
 #define INRPT          interrupt
-
 #define CONST          const
 #define REG            register
-
-#define API            int far pascal	/* segment architecture */
+#define API            int far pascal   /* segment architecture */
 #define NATIVE
-
 #define PARASIZE       16       /* "paragraph" size     */
 #endif
-
 /*                                                              */
 /* Boolean type & definitions of TRUE and FALSE boolean values  */
 /*                                                              */
@@ -186,8 +174,7 @@ typedef unsigned short CLUSTER;
 #endif
 typedef unsigned short UNICODE;
 
-#define STATIC                  /* local calls inside module */ 
-
+#define STATIC                  /* local calls inside module */
 
 #ifdef UNIX
 typedef char FAR *ADDRESS;
@@ -220,16 +207,16 @@ typedef signed long LONG;
 	this suppresses the warning 
 	unreferenced parameter 'x'
 	and (hopefully) generates no code
-*/	
+*/
 
 #if defined(__TURBOC__)
-	#define UNREFERENCED_PARAMETER(x) if (x);
-#else	
-	#define UNREFERENCED_PARAMETER(x) x;
-#endif	
+#define UNREFERENCED_PARAMETER(x) if (x);
+#else
+#define UNREFERENCED_PARAMETER(x) x;
+#endif
 
-#ifdef I86		/* commandline overflow - removing /DPROTO TE*/
-    #define PROTO
+#ifdef I86                      /* commandline overflow - removing /DPROTO TE */
+#define PROTO
 #endif
 
 /*

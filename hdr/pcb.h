@@ -51,27 +51,23 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *pcb_hRcsId = "$Id$";
+static BYTE *pcb_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
    /* Force one-byte alignment for all the internal structures, see above */
 #include <algnbyte.h>
 /*                                                                      */
 /* interrupt handler structure definition                               */
 /*                                                                      */
-typedef union
-{
+typedef union {
   UWORD x;                      /* access mode for ax, bx, etc.         */
-  struct
-  {
+  struct {
     UBYTE l;                    /* access mode for al, bl, etc.         */
     UBYTE h;                    /* access mode for ah, bh, etc.         */
-  }
-  b;
-}
-xreg;
+  } b;
+} xreg;
 
 /* The structure assumes that:
    1) An interrupt was invoked, &
@@ -79,41 +75,26 @@ xreg;
    Furthermore, the PUSH$ALL macro must push ES first and AX last.
        -- 2000/03/22 ska*/
 /* maps MS-DOS unique stacking order                                    */
-typedef struct _iregss
-{
-  xreg a,
-    b,
-    c,
-    d;
-  UWORD si,
-    di,
-    bp,
-    ds,
-    es;
-  UWORD ip,
-    cs,
-    flags;
-}
-iregs;
+typedef struct _iregss {
+  xreg a, b, c, d;
+  UWORD si, di, bp, ds, es;
+  UWORD ip, cs, flags;
+} iregs;
 
    /* Registers directly passed to syscall;
-       must be the same order as iregs!
-       Is used to define parameters. */
+      must be the same order as iregs!
+      Is used to define parameters. */
 #define DIRECT_IREGS   \
    xreg a, xreg b, xreg c, xreg d, \
    UWORD si, UWORD di, UWORD bp, UWORD ds, UWORD es,   \
    UWORD ip, UWORD cs, UWORD flags
 
-
-
 /* Process control block for task switching                             */
-typedef struct
-{
+typedef struct {
   UWORD pc_ss;
   UWORD pc_sp;
   iregs pc_regs;
-}
-pcb;
+} pcb;
 
 /* Note: The following figure is not made by myself and I assume that
    the order of "ES" through "AX" are misinterpreted?!  -- 2000/03/22 ska*/

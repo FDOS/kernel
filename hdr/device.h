@@ -29,10 +29,10 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *device_hRcsId = "$Id$";
+static BYTE *device_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 /*
  *      Status Word Bits
@@ -122,8 +122,7 @@ static BYTE *device_hRcsId = "$Id$";
 
 /* Device header */
 
-struct dhdr
-{
+struct dhdr {
   struct dhdr
   FAR *dh_next;
   UWORD dh_attr;
@@ -153,10 +152,9 @@ struct dhdr
 
 #define FAT_NO_MIRRORING 0x80
 
-#define BPB_SIZEOF 31  /* size of the standard BPB */
+#define BPB_SIZEOF 31           /* size of the standard BPB */
 
-typedef struct
-{
+typedef struct {
   UWORD bpb_nbyte;              /* Bytes per Sector             */
   UBYTE bpb_nsector;            /* Sectors per Allocation Unit  */
   UWORD bpb_nreserved;          /* # Reserved Sectors           */
@@ -169,23 +167,22 @@ typedef struct
   UWORD bpb_nheads;             /* Number of heads              */
   ULONG bpb_hidden;             /* Hidden sectors               */
   ULONG bpb_huge;               /* Size in sectors if           */
-                                /* bpb_nsize == 0               */
+  /* bpb_nsize == 0               */
 #ifdef WITHFAT32
   ULONG bpb_xnfsect;            /* FAT size in sectors if       */
-                                /* bpb_nfsect == 0              */
+  /* bpb_nfsect == 0              */
   UWORD bpb_xflags;             /* extended flags               */
-                                /* bit 7: disable mirroring     */
-                                /* bits 6-4: reserved (0)       */
-                                /* bits 3-0: active FAT number  */
+  /* bit 7: disable mirroring     */
+  /* bits 6-4: reserved (0)       */
+  /* bits 3-0: active FAT number  */
   UWORD bpb_xfsversion;         /* filesystem version           */
   ULONG bpb_xrootclst;          /* starting cluster of root dir */
   UWORD bpb_xfsinfosec;         /* FS info sector number,       */
-                                /* 0xFFFF if unknown            */
+  /* 0xFFFF if unknown            */
   UWORD bpb_xbackupsec;         /* backup boot sector number    */
-                                /* 0xFFFF if unknown            */
+  /* 0xFFFF if unknown            */
 #endif
-}
-bpb;
+} bpb;
 
 #define N_RETRY         5       /* number of retries permitted  */
 #define SEC_SIZE        512     /* size of sector in bytes      */
@@ -193,64 +190,61 @@ bpb;
 #define LBA_READ         0x4200
 #define LBA_WRITE        0x4300
 
-
-struct _bios_LBA_address_packet        /* Used to access a hard disk via LBA */
-                                       /*       Added by Brian E. Reifsnyder */
+struct _bios_LBA_address_packet
+                                           /* Used to access a hard disk via LBA */
+ /*       Added by Brian E. Reifsnyder */
 {
-  unsigned char    packet_size;        /* size of this packet...set to 16  */
-  unsigned char    reserved_1;         /* set to 0...unused                */
-  unsigned char    number_of_blocks;   /* 0 < number_of_blocks < 128       */
-  unsigned char    reserved_2;         /* set to 0...unused                */
-  UBYTE    far *   buffer_address;     /* addr of transfer buffer          */
-  unsigned long    block_address;      /* LBA address                      */
-  unsigned long    block_address_high; /* high bytes of LBA addr...unused  */
+  unsigned char packet_size;    /* size of this packet...set to 16  */
+  unsigned char reserved_1;     /* set to 0...unused                */
+  unsigned char number_of_blocks;       /* 0 < number_of_blocks < 128       */
+  unsigned char reserved_2;     /* set to 0...unused                */
+  UBYTE far *buffer_address;    /* addr of transfer buffer          */
+  unsigned long block_address;  /* LBA address                      */
+  unsigned long block_address_high;     /* high bytes of LBA addr...unused  */
 };
 
 struct CHS {
-    ULONG Cylinder;
-    UWORD Head;
-    UWORD Sector;
+  ULONG Cylinder;
+  UWORD Head;
+  UWORD Sector;
 };
 
 /* DOS 4.0-7.0 drive data table (see RBIL at INT2F,AX=0803) */
-typedef struct ddtstruct
-{
+typedef struct ddtstruct {
   struct ddtstruct FAR *ddt_next;
-                     /* pointer to next table (offset FFFFh if last table) */
-  UBYTE ddt_driveno; /* physical unit number (for INT 13)     */
-  UBYTE ddt_logdriveno; /* logical drive number (0=A:)        */
-  bpb ddt_bpb;       /* BIOS Parameter Block */
+  /* pointer to next table (offset FFFFh if last table) */
+  UBYTE ddt_driveno;            /* physical unit number (for INT 13)     */
+  UBYTE ddt_logdriveno;         /* logical drive number (0=A:)        */
+  bpb ddt_bpb;                  /* BIOS Parameter Block */
   UBYTE ddt_flags;
-          /* bit 6: 16-bit FAT instead of 12-bit
-             bit 7: unsupportable disk (all accesses will return Not Ready) */
-  UWORD ddt_FileOC;   /* Count of Open files on Drv */
-  UBYTE ddt_type;     /* device type       */
-  UWORD ddt_descflags;/* bit flags describing drive */
-  UWORD ddt_ncyl;     /* number of cylinders
-                           (for partition only, if hard disk) */
-  bpb ddt_defbpb;     /* BPB for default (highest) capacity supported */
-  UBYTE ddt_reserved[6]; /* (part of BPB above) */
-  UBYTE ddt_ltrack;   /* last track accessed */
-  union 
-  {
-    ULONG ddt_lasttime; /* removable media: time of last access
-                           in clock ticks (FFFFFFFFh if never) */
-    struct 
-    {
-      UWORD ddt_part;   /* partition (FFFFh = primary, 0001h = extended)
-                           always 0001h for DOS 5+ */
-      UWORD ddt_abscyl; /* absolute cylinder number of partition's
-                           start on physical drive
-                           (FFFFh if primary partition in DOS 4.x)*/
+  /* bit 6: 16-bit FAT instead of 12-bit
+     bit 7: unsupportable disk (all accesses will return Not Ready) */
+  UWORD ddt_FileOC;             /* Count of Open files on Drv */
+  UBYTE ddt_type;               /* device type       */
+  UWORD ddt_descflags;          /* bit flags describing drive */
+  UWORD ddt_ncyl;               /* number of cylinders
+                                   (for partition only, if hard disk) */
+  bpb ddt_defbpb;               /* BPB for default (highest) capacity supported */
+  UBYTE ddt_reserved[6];        /* (part of BPB above) */
+  UBYTE ddt_ltrack;             /* last track accessed */
+  union {
+    ULONG ddt_lasttime;         /* removable media: time of last access
+                                   in clock ticks (FFFFFFFFh if never) */
+    struct {
+      UWORD ddt_part;           /* partition (FFFFh = primary, 0001h = extended)
+                                   always 0001h for DOS 5+ */
+      UWORD ddt_abscyl;         /* absolute cylinder number of partition's
+                                   start on physical drive
+                                   (FFFFh if primary partition in DOS 4.x) */
     } ddt_hd;
   } ddt_fh;
-  UBYTE ddt_volume[12];  /* ASCIIZ volume label or "NO NAME    " if none
-                            (apparently taken from extended boot record
-                             rather than root directory) */
-  ULONG ddt_serialno;    /* serial number */
-  UBYTE ddt_fstype[9];   /* ASCIIZ filesystem type ("FAT12   " or "FAT16   ")*/
-  ULONG ddt_offset;   /* relative partition offset */
-  BITS ddt_LBASupported:1; /* set, if INT13 extensions enabled */
+  UBYTE ddt_volume[12];         /* ASCIIZ volume label or "NO NAME    " if none
+                                   (apparently taken from extended boot record
+                                   rather than root directory) */
+  ULONG ddt_serialno;           /* serial number */
+  UBYTE ddt_fstype[9];          /* ASCIIZ filesystem type ("FAT12   " or "FAT16   ") */
+  ULONG ddt_offset;             /* relative partition offset */
+  BITS ddt_LBASupported:1;      /* set, if INT13 extensions enabled */
   BITS ddt_WriteVerifySupported:1;
 } ddt;
 
@@ -268,41 +262,39 @@ typedef struct ddtstruct
 
 /* typedef struct ddtstruct ddt;*/
 
-struct gblkio
-{
-    UBYTE   gbio_spcfunbit;
-    UBYTE   gbio_devtype;
-    UWORD   gbio_devattrib;
-    UWORD   gbio_ncyl;
-    UBYTE   gbio_media;
-    bpb     gbio_bpb;
-    UWORD   gbio_nsecs;
+struct gblkio {
+  UBYTE gbio_spcfunbit;
+  UBYTE gbio_devtype;
+  UWORD gbio_devattrib;
+  UWORD gbio_ncyl;
+  UBYTE gbio_media;
+  bpb gbio_bpb;
+  UWORD gbio_nsecs;
 };
 
-struct gblkfv /* for format / verify track */
+struct gblkfv                   /* for format / verify track */
 {
-    UBYTE   gbfv_spcfunbit;
-    UWORD   gbfv_head;
-    UWORD   gbfv_cyl;
-    UWORD   gbfv_ntracks;
+  UBYTE gbfv_spcfunbit;
+  UWORD gbfv_head;
+  UWORD gbfv_cyl;
+  UWORD gbfv_ntracks;
 };
 
-struct gblkrw /* for read / write track */
+struct gblkrw                   /* for read / write track */
 {
-    UBYTE   gbrw_spcfunbit;
-    UWORD   gbrw_head;
-    UWORD   gbrw_cyl;
-    UWORD   gbrw_sector;
-    UWORD   gbrw_nsecs;
-    UBYTE FAR * gbrw_buffer;
+  UBYTE gbrw_spcfunbit;
+  UWORD gbrw_head;
+  UWORD gbrw_cyl;
+  UWORD gbrw_sector;
+  UWORD gbrw_nsecs;
+  UBYTE FAR *gbrw_buffer;
 };
 
-struct Gioc_media
-{
-  WORD  ioc_level;
+struct Gioc_media {
+  WORD ioc_level;
   ULONG ioc_serialno;
-  BYTE  ioc_volume[11];
-  BYTE  ioc_fstype[8];
+  BYTE ioc_volume[11];
+  BYTE ioc_fstype[8];
 };
 
 /*                                                                      */
@@ -315,90 +307,68 @@ struct Gioc_media
 #define BT_BPB          11
 #define BT_SIZEOF       36
 
-typedef struct
-{
-  BYTE  bt_jump[3];             /* Boot Jump opcodes            */
-  BYTE  bt_oem[8];              /* OEM Name                     */
-  bpb   bt_bpb;                 /* BPB for this media/device    */
-  WORD  bt_nsecs;               /* # Sectors per Track          */
-  WORD  bt_nheads;              /* # Heads                      */
-  WORD  bt_hidden;              /* # Hidden sectors             */
-  LONG  bt_huge;                /* use if nsecs == 0            */
-  BYTE  bt_drvno;
-  BYTE  bt_reserv;
-  BYTE  bt_btid;
+typedef struct {
+  BYTE bt_jump[3];              /* Boot Jump opcodes            */
+  BYTE bt_oem[8];               /* OEM Name                     */
+  bpb bt_bpb;                   /* BPB for this media/device    */
+  WORD bt_nsecs;                /* # Sectors per Track          */
+  WORD bt_nheads;               /* # Heads                      */
+  WORD bt_hidden;               /* # Hidden sectors             */
+  LONG bt_huge;                 /* use if nsecs == 0            */
+  BYTE bt_drvno;
+  BYTE bt_reserv;
+  BYTE bt_btid;
   ULONG bt_serialno;
-  BYTE  bt_volume[11];
-  BYTE  bt_fstype[8];
-}
-boot;
+  BYTE bt_volume[11];
+  BYTE bt_fstype[8];
+} boot;
 
 /* File system information structure */
-struct fsinfo
-{
-  UDWORD fi_signature; /* must be 0x61417272 */
-  DWORD fi_nfreeclst;  /* number of free clusters, -1 if unknown */
-  DWORD fi_cluster;    /* most recently allocated cluster, -1 if unknown */
+struct fsinfo {
+  UDWORD fi_signature;          /* must be 0x61417272 */
+  DWORD fi_nfreeclst;           /* number of free clusters, -1 if unknown */
+  DWORD fi_cluster;             /* most recently allocated cluster, -1 if unknown */
   UBYTE fi_reserved[12];
 };
 
 typedef boot super;             /* Alias for boot structure             */
 
-typedef struct
-{
+typedef struct {
   UBYTE r_length;               /*  Request Header length               */
   UBYTE r_unit;                 /*  Unit Code                           */
   UBYTE r_command;              /*  Command Code                        */
   WORD r_status;                /*  Status                              */
   BYTE r_reserved[8];           /*  DOS Reserved Area                   */
-  union
-  {
-    struct
-    {
+  union {
+    struct {
       UBYTE _r_nunits;          /*  number of units     */
       BYTE FAR *_r_endaddr;     /*  Ending Address      */
       bpb *FAR * _r_bpbptr;     /*  ptr to BPB array    */
       UBYTE _r_firstunit;
-    }
-    _r_init;
-    struct
-    {
+    } _r_init;
+    struct {
       BYTE _r_meddesc;          /*  MEDIA Descriptor    */
       BYTE _r_retcode;          /*  Return Code         */
-      BYTE FAR
-      * _r_vid;                 /* volume id */
-    }
-    _r_media;
-    struct
-    {
+      BYTE FAR * _r_vid;        /* volume id */
+    } _r_media;
+    struct {
       BYTE _r_meddesc;          /*  MEDIA Descriptor    */
-      boot FAR
-      * _r_fat;                 /*  boot sector pointer */
-      bpb FAR
-      * _r_bpbpt;               /*  ptr to BPB table    */
-    }
-    _r_bpb;
-    struct
-    {
+      boot FAR * _r_fat;        /*  boot sector pointer */
+      bpb FAR * _r_bpbpt;       /*  ptr to BPB table    */
+    } _r_bpb;
+    struct {
       BYTE _r_meddesc;          /*  MEDIA Descriptor    */
-      BYTE FAR
-      * _r_trans;               /*  Transfer Address    */
+      BYTE FAR * _r_trans;      /*  Transfer Address    */
       UWORD _r_count;           /*  Byte/Sector Count   */
       UWORD _r_start;           /*  Starting Sector No. */
-      BYTE FAR
-      * _r_vid;                 /* Pointer to volume id */
+      BYTE FAR * _r_vid;        /* Pointer to volume id */
       LONG _r_huge;             /* for > 32Mb drives    */
-    }
-    _r_rw;
-    struct
-    {
+    } _r_rw;
+    struct {
       BYTE _r_ndbyte;           /*  Byte Read From Device       */
-    }
-    _r_nd;
-  }
-  _r_x;
-}
-request;
+    } _r_nd;
+  } _r_x;
+} request;
 
 #define HUGECOUNT       0xffff
 #define MAXSHORT        0xffffl

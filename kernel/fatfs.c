@@ -59,17 +59,15 @@ BOOL first_fat(f_node_ptr);
 COUNT map_cluster(f_node_ptr, COUNT);
 STATIC VOID shrink_file(f_node_ptr fnp);
 
-ULONG clus2phys(CLUSTER cl_no, struct dpb FAR *dpbp)
+ULONG clus2phys(CLUSTER cl_no, struct dpb FAR * dpbp)
 {
-  CLUSTER data = 
+  CLUSTER data =
 #ifdef WITHFAT32
-    ISFAT32(dpbp) ?
-      dpbp->dpb_xdata :
+      ISFAT32(dpbp) ? dpbp->dpb_xdata :
 #endif
       dpbp->dpb_data;
-  return ((ULONG)(cl_no - 2) << dpbp->dpb_shftcnt) + data;
+  return ((ULONG) (cl_no - 2) << dpbp->dpb_shftcnt) + data;
 }
-
 
 /************************************************************************/
 /*                                                                      */
@@ -118,9 +116,9 @@ COUNT dos_open(BYTE * path, COUNT flag)
   fnp->f_flags.f_dnew = FALSE;
   fnp->f_flags.f_ddir = FALSE;
 
-  merge_file_changes(fnp, TRUE);    /* /// Added - Ron Cemer */
+  merge_file_changes(fnp, TRUE);        /* /// Added - Ron Cemer */
 
-    /* /// Moved from above.  - Ron Cemer */
+  /* /// Moved from above.  - Ron Cemer */
   fnp->f_cluster = getdstart(fnp->f_dir);
   fnp->f_cluster_offset = 0l;   /*JPP */
 
@@ -160,7 +158,7 @@ COUNT dos_close(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
   if (fnp->f_flags.f_dmod)
@@ -170,10 +168,10 @@ COUNT dos_close(COUNT fd)
     {
       fnp->f_dir.dir_time = dos_gettime();
       fnp->f_dir.dir_date = dos_getdate();
-    }  
+    }
 
     fnp->f_dir.dir_size = fnp->f_highwater;
-    merge_file_changes(fnp, FALSE);    /* /// Added - Ron Cemer */
+    merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
   fnp->f_flags.f_ddir = TRUE;
 
@@ -184,8 +182,7 @@ COUNT dos_close(COUNT fd)
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
-f_node_ptr
-  split_path(BYTE * path, BYTE * fname, BYTE * fext)
+f_node_ptr split_path(BYTE * path, BYTE * fname, BYTE * fext)
 {
   REG f_node_ptr fnp;
   COUNT nDrive;
@@ -194,7 +191,7 @@ f_node_ptr
   /* Start off by parsing out the components.                     */
   if (ParseDosName(path, &nDrive, &szDirName[2], fname, fext, FALSE)
       != SUCCESS)
-    return (f_node_ptr)0;
+    return (f_node_ptr) 0;
   if (nDrive < 0)
     nDrive = default_drive;
 
@@ -205,8 +202,9 @@ f_node_ptr
   SpacePad(fname, FNAME_SIZE);
   SpacePad(fext, FEXT_SIZE);
 
-  if (nDrive >= lastdrive) {
-    return (f_node_ptr)0;
+  if (nDrive >= lastdrive)
+  {
+    return (f_node_ptr) 0;
   }
   cdsp = &CDSp->cds_table[nDrive];
 
@@ -229,10 +227,11 @@ f_node_ptr
 
  */
 #ifdef DEBUG
-  if (cdsp->cdsFlags & CDSNETWDRV) {
+  if (cdsp->cdsFlags & CDSNETWDRV)
+  {
     printf("split path called for redirected file: `%s.%s'\n",
-	    fname, fext);
-    return (f_node_ptr)0;
+           fname, fext);
+    return (f_node_ptr) 0;
   }
 #endif
 
@@ -242,10 +241,10 @@ f_node_ptr
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit...     */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
   {
     dir_close(fnp);
-    return (f_node_ptr)0;
+    return (f_node_ptr) 0;
   }
 
   /* Convert the name into an absolute name for comparison...     */
@@ -267,8 +266,8 @@ STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
       if (fnp->f_dir.dir_name[0] == DELETED)
         continue;
 
-      if (fcmp(fname, (BYTE *)fnp->f_dir.dir_name, FNAME_SIZE)
-          && fcmp(fext, (BYTE *)fnp->f_dir.dir_ext, FEXT_SIZE)
+      if (fcmp(fname, (BYTE *) fnp->f_dir.dir_name, FNAME_SIZE)
+          && fcmp(fext, (BYTE *) fnp->f_dir.dir_ext, FEXT_SIZE)
           && ((fnp->f_dir.dir_attrib & D_VOLID) == 0))
       {
         found = TRUE;
@@ -292,10 +291,12 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
 {
   ULONG original_diroff = fnp->f_diroff;
   COUNT rc;
-  
-  while (TRUE) {
-    if(fnp->f_diroff == 0) break;
-    fnp->f_diroff -= 2*DIRENT_SIZE;
+
+  while (TRUE)
+  {
+    if (fnp->f_diroff == 0)
+      break;
+    fnp->f_diroff -= 2 * DIRENT_SIZE;
     /* it cannot / should not get below 0 because of '.' and '..' */
     if ((rc = dir_read(fnp)) < 0)
       return rc;
@@ -310,6 +311,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     return rc;
   return SUCCESS;
 }
+
     /* /// Added - Ron Cemer */
     /* If more than one f_node has a file open, and a write
        occurs, this function must be called to propagate the
@@ -319,65 +321,74 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
        reasons, since DOS without SHARE does not share changes
        between two or more open instances of the same file
        unless these instances were generated by dup() or dup2(). */
-STATIC void merge_file_changes(f_node_ptr fnp, int collect) {
-    f_node_ptr fnp2;
-    int i;
+STATIC void merge_file_changes(f_node_ptr fnp, int collect)
+{
+  f_node_ptr fnp2;
+  int i;
 
-    if (!IsShareInstalled()) return;
-    for (i = 0; i < f_nodes_cnt; i++) {
-        fnp2 = (f_node_ptr)&f_nodes[i];
-        if (   (fnp != (f_node_ptr)0)
-            && (fnp != fnp2)
-            && (fnp->f_count > 0)
-            && (is_same_file(fnp, fnp2))   ) {
-            if (collect) {
-                    /* We're collecting file changes from any other
-                       f_node which refers to this file. */
-                if (fnp2->f_mode != RDONLY) {
-                    fnp2->f_dir.dir_size = fnp2->f_highwater;
-                    copy_file_changes(fnp2, fnp);
-                    break;
-                }
-            } else {
-                    /* We just made changes to this file, so we are
-                       distributing these changes to the other f_nodes
-                       which refer to this file. */
-                if (fnp->f_mode != RDONLY)
-                    fnp->f_dir.dir_size = fnp->f_highwater;
-                copy_file_changes(fnp, fnp2);
-            }
+  if (!IsShareInstalled())
+    return;
+  for (i = 0; i < f_nodes_cnt; i++)
+  {
+    fnp2 = (f_node_ptr) & f_nodes[i];
+    if ((fnp != (f_node_ptr) 0)
+        && (fnp != fnp2)
+        && (fnp->f_count > 0) && (is_same_file(fnp, fnp2)))
+    {
+      if (collect)
+      {
+        /* We're collecting file changes from any other
+           f_node which refers to this file. */
+        if (fnp2->f_mode != RDONLY)
+        {
+          fnp2->f_dir.dir_size = fnp2->f_highwater;
+          copy_file_changes(fnp2, fnp);
+          break;
         }
+      }
+      else
+      {
+        /* We just made changes to this file, so we are
+           distributing these changes to the other f_nodes
+           which refer to this file. */
+        if (fnp->f_mode != RDONLY)
+          fnp->f_dir.dir_size = fnp->f_highwater;
+        copy_file_changes(fnp, fnp2);
+      }
     }
+  }
 }
 
     /* /// Added - Ron Cemer */
-STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2) {
-    return
-           (fnp1->f_dpb->dpb_unit == fnp2->f_dpb->dpb_unit)
-        && (fnp1->f_dpb->dpb_subunit == fnp2->f_dpb->dpb_subunit)
-        && (fcmp
-                ((BYTE *)fnp1->f_dir.dir_name,
-                 (BYTE *)fnp2->f_dir.dir_name, FNAME_SIZE))
-        && (fcmp
-                ((BYTE *)fnp1->f_dir.dir_ext,
-                 (BYTE *)fnp2->f_dir.dir_ext, FEXT_SIZE))
-        && ((fnp1->f_dir.dir_attrib & D_VOLID) == 0)
-        && ((fnp2->f_dir.dir_attrib & D_VOLID) == 0)
-        && (fnp1->f_diroff == fnp2->f_diroff)
-        && (fnp1->f_dirstart == fnp2->f_dirstart)
-        && (fnp1->f_dpb == fnp2->f_dpb);
+STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2)
+{
+  return
+      (fnp1->f_dpb->dpb_unit == fnp2->f_dpb->dpb_unit)
+      && (fnp1->f_dpb->dpb_subunit == fnp2->f_dpb->dpb_subunit)
+      && (fcmp
+          ((BYTE *) fnp1->f_dir.dir_name,
+           (BYTE *) fnp2->f_dir.dir_name, FNAME_SIZE))
+      && (fcmp
+          ((BYTE *) fnp1->f_dir.dir_ext,
+           (BYTE *) fnp2->f_dir.dir_ext, FEXT_SIZE))
+      && ((fnp1->f_dir.dir_attrib & D_VOLID) == 0)
+      && ((fnp2->f_dir.dir_attrib & D_VOLID) == 0)
+      && (fnp1->f_diroff == fnp2->f_diroff)
+      && (fnp1->f_dirstart == fnp2->f_dirstart)
+      && (fnp1->f_dpb == fnp2->f_dpb);
 }
 
     /* /// Added - Ron Cemer */
-STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst) {
-    dst->f_highwater = src->f_highwater;
-    dst->f_dir.dir_start = src->f_dir.dir_start;
+STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst)
+{
+  dst->f_highwater = src->f_highwater;
+  dst->f_dir.dir_start = src->f_dir.dir_start;
 #ifdef WITHFAT32
-    dst->f_dir.dir_start_high = src->f_dir.dir_start_high;
+  dst->f_dir.dir_start_high = src->f_dir.dir_start_high;
 #endif
-    dst->f_dir.dir_size = src->f_dir.dir_size;
-    dst->f_dir.dir_date = src->f_dir.dir_date;
-    dst->f_dir.dir_time = src->f_dir.dir_time;
+  dst->f_dir.dir_size = src->f_dir.dir_size;
+  dst->f_dir.dir_date = src->f_dir.dir_date;
+  dst->f_dir.dir_time = src->f_dir.dir_time;
 }
 
 COUNT dos_creat(BYTE * path, COUNT attrib)
@@ -477,7 +488,7 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
   fnp->f_flags.f_dnew = FALSE;
   fnp->f_flags.f_ddir = FALSE;
 
-  merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
+  merge_file_changes(fnp, FALSE);       /* /// Added - Ron Cemer */
 
   return xlt_fnp(fnp);
 }
@@ -485,11 +496,11 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
 STATIC COUNT delete_dir_entry(f_node_ptr fnp)
 {
   COUNT rc;
-    
+
   /* Ok, so we can delete. Start out by           */
   /* clobbering all FAT entries for this file     */
   /* (or, in English, truncate the FAT).          */
-  if ((rc=remove_lfn_entries(fnp)) < 0)
+  if ((rc = remove_lfn_entries(fnp)) < 0)
     return rc;
 
   wipe_out(fnp);
@@ -568,11 +579,11 @@ COUNT dos_rmdir(BYTE * path)
     /* check for any other bit set. If it is, give  */
     /* an access error.                             */
     /* if (fnp->f_dir.dir_attrib & ~D_DIR)          */
-    
+
     /* directories may have attributes, too. at least my WinNT disk
        has many 'archive' directories
-       we still don't allow RDONLY directories to be deleted TE*/
-    
+       we still don't allow RDONLY directories to be deleted TE */
+
 /*    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE|D_SYSTEM))
     {
       dir_close(fnp);
@@ -604,7 +615,8 @@ COUNT dos_rmdir(BYTE * path)
     {
       if (fnp1->f_dir.dir_name[0] == '\0')
         break;
-      if (fnp1->f_dir.dir_name[0] == DELETED || fnp1->f_dir.dir_attrib == D_LFN)
+      if (fnp1->f_dir.dir_name[0] == DELETED
+          || fnp1->f_dir.dir_attrib == D_LFN)
         continue;
       else
       {
@@ -693,7 +705,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
     }
   }
 
-  if ((ret=remove_lfn_entries(fnp1)) < 0)
+  if ((ret = remove_lfn_entries(fnp1)) < 0)
     return ret;
 
   /* put the fnode's name into the directory.                     */
@@ -731,10 +743,10 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
 /*                                                              */
 /* wipe out all FAT entries starting from st for create, delete, etc. */
 /*                                                              */
-STATIC VOID wipe_out_clusters(struct dpb FAR *dpbp, CLUSTER st)
+STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
 {
   REG CLUSTER next;
-  
+
   /* Loop from start until either a FREE entry is         */
   /* encountered (due to a fractured file system) of the  */
   /* last cluster is encountered.                         */
@@ -754,20 +766,20 @@ STATIC VOID wipe_out_clusters(struct dpb FAR *dpbp, CLUSTER st)
 #ifdef WITHFAT32
     if (ISFAT32(dpbp))
     {
-      if ((dpbp->dpb_xcluster == UNKNCLUSTER)
-          || (dpbp->dpb_xcluster > st))
+      if ((dpbp->dpb_xcluster == UNKNCLUSTER) || (dpbp->dpb_xcluster > st))
         dpbp->dpb_xcluster = st;
-    } else
+    }
+    else
 #endif
-    if ((dpbp->dpb_cluster == UNKNCLUSTER)
-        || (dpbp->dpb_cluster > st))
+    if ((dpbp->dpb_cluster == UNKNCLUSTER) || (dpbp->dpb_cluster > st))
       dpbp->dpb_cluster = st;
 
     /* and just follow the linked list              */
     st = next;
   }
 #ifdef WITHFAT32
-  if (ISFAT32(dpbp)) write_fsinfo(dpbp);
+  if (ISFAT32(dpbp))
+    write_fsinfo(dpbp);
 #endif
 }
 
@@ -786,7 +798,7 @@ STATIC VOID wipe_out(f_node_ptr fnp)
 STATIC BOOL find_free(f_node_ptr fnp)
 {
   COUNT rc;
-    
+
   while ((rc = dir_read(fnp)) == 1)
     if (fnp->f_dir.dir_name[0] == DELETED)
       return TRUE;
@@ -799,9 +811,7 @@ STATIC BOOL find_free(f_node_ptr fnp)
 date dos_getdate()
 {
 #ifndef NOTIME
-  BYTE WeekDay,
-    Month,
-    MonthDay;
+  BYTE WeekDay, Month, MonthDay;
   COUNT Year;
   date Date;
 
@@ -809,8 +819,7 @@ date dos_getdate()
   /* on start-up or the CMOS clock                        */
   DosGetDate((BYTE FAR *) & WeekDay,
              (BYTE FAR *) & Month,
-             (BYTE FAR *) & MonthDay,
-             (COUNT FAR *) & Year);
+             (BYTE FAR *) & MonthDay, (COUNT FAR *) & Year);
   Date = DT_ENCODE(Month, MonthDay, Year - EPOCH_YEAR);
   return Date;
 
@@ -827,18 +836,14 @@ date dos_getdate()
 time dos_gettime()
 {
 #ifndef NOTIME
-  BYTE Hour,
-    Minute,
-    Second,
-    Hundredth;
+  BYTE Hour, Minute, Second, Hundredth;
 
   /* First - get the system time set by either the user   */
   /* on start-up or the CMOS clock                        */
   DosGetTime((BYTE FAR *) & Hour,
              (BYTE FAR *) & Minute,
-             (BYTE FAR *) & Second,
-             (BYTE FAR *) & Hundredth);
-  return TM_ENCODE(Hour, Minute, Second/2);
+             (BYTE FAR *) & Second, (BYTE FAR *) & Hundredth);
+  return TM_ENCODE(Hour, Minute, Second / 2);
 #else
   return 0;
 #endif
@@ -858,7 +863,7 @@ COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
   /* Get the date and time from the fnode and return              */
@@ -882,14 +887,14 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
   /* Set the date and time from the fnode and return              */
   fnp->f_dir.dir_date = dp;
   fnp->f_dir.dir_time = tp;
-  fnp->f_flags.f_dmod = TRUE;         /* mark file as modified */
-  fnp->f_flags.f_ddate = TRUE;        /* set this date upon closing */
+  fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
+  fnp->f_flags.f_ddate = TRUE;  /* set this date upon closing */
 
   return SUCCESS;
 }
@@ -908,7 +913,7 @@ LONG dos_getcufsize(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return -1l;
 
   /* Return the file size                                         */
@@ -929,7 +934,7 @@ LONG dos_getfsize(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return -1l;
 
   /* Return the file size                                         */
@@ -950,14 +955,14 @@ BOOL dos_setfsize(COUNT fd, LONG size)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return FALSE;
 
   /* Change the file size                                         */
   fnp->f_dir.dir_size = size;
   fnp->f_highwater = size;
 
-  merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
+  merge_file_changes(fnp, FALSE);       /* /// Added - Ron Cemer */
 
   return TRUE;
 }
@@ -983,8 +988,9 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   {
     if (dpbp->dpb_xcluster != UNKNCLUSTER)
       idx = dpbp->dpb_xcluster;
-    size = dpbp->dpb_xsize;    
-  } else
+    size = dpbp->dpb_xsize;
+  }
+  else
 #endif
   if (dpbp->dpb_cluster != UNKNCLUSTER)
     idx = dpbp->dpb_cluster;
@@ -1003,20 +1009,20 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   {
     if (idx > dpbp->dpb_xsize)
     {
-      dpbp->dpb_xcluster = UNKNCLUSTER;        
+      dpbp->dpb_xcluster = UNKNCLUSTER;
       write_fsinfo(dpbp);
       dir_close(fnp);
       return LONG_LAST_CLUSTER;
     }
     if (dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
-      dpbp->dpb_xnfreeclst--;  /* TE: moved from link_fat() */
+      dpbp->dpb_xnfreeclst--;   /* TE: moved from link_fat() */
 
     /* return the free entry                                */
     dpbp->dpb_xcluster = idx;
     write_fsinfo(dpbp);
     return idx;
   }
-#endif  
+#endif
 
   if (idx > dpbp->dpb_size)
   {
@@ -1026,7 +1032,7 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   }
 
   if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
-      dpbp->dpb_nfreeclst--;  /* TE: moved from link_fat() */
+    dpbp->dpb_nfreeclst--;      /* TE: moved from link_fat() */
 
   /* return the free entry                                */
   dpbp->dpb_cluster = idx;
@@ -1052,16 +1058,16 @@ COUNT dos_mkdir(BYTE * dir)
   {
     return DE_PATHNOTFND;
   }
-  
+
   /* check that the resulting combined path does not exceed 
      the 64 PARSE_MAX limit. this leeds to problems:
      A) you can't CD to this directory later
      B) you can't create files in this subdirectory
      C) the created dir will not be found later, so you
-        can create an unlimited amount of same dirs. this space
-        is lost forever
-  */
-  if (strlen(dir) > PARSE_MAX+2) /* dir is already output of "truename" */
+     can create an unlimited amount of same dirs. this space
+     is lost forever
+   */
+  if (strlen(dir) > PARSE_MAX + 2)      /* dir is already output of "truename" */
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -1075,68 +1081,65 @@ COUNT dos_mkdir(BYTE * dir)
     return DE_ACCESS;
   }
 
-    /* Reset the directory by a close followed by   */
-    /* an open                                      */
-    fnp->f_flags.f_dmod = FALSE;
-    parent = fnp->f_dirstart;
-    dir_close(fnp);
-    fnp = split_path(dir, szFileName, szFileExt);
+  /* Reset the directory by a close followed by   */
+  /* an open                                      */
+  fnp->f_flags.f_dmod = FALSE;
+  parent = fnp->f_dirstart;
+  dir_close(fnp);
+  fnp = split_path(dir, szFileName, szFileExt);
 
-    /* Get a free f_node pointer so that we can use */
-    /* it in building the new file.                 */
-    /* Note that if we're in the root and we don't  */
-    /* find an empty slot, we need to abort.        */
-    if (find_free(fnp) == 0)
+  /* Get a free f_node pointer so that we can use */
+  /* it in building the new file.                 */
+  /* Note that if we're in the root and we don't  */
+  /* find an empty slot, we need to abort.        */
+  if (find_free(fnp) == 0)
+  {
+    if (fnp->f_flags.f_droot)
     {
-        if  (fnp->f_flags.f_droot)
-        {
-            fnp->f_flags.f_dmod = FALSE;
-            dir_close(fnp);
-            return DE_TOOMANY;
-        }
+      fnp->f_flags.f_dmod = FALSE;
+      dir_close(fnp);
+      return DE_TOOMANY;
+    }
 
     /* Otherwise just expand the directory          */
 
-      if ((ret = extend_dir(fnp)) != SUCCESS)
-        return ret;
-    }
+    if ((ret = extend_dir(fnp)) != SUCCESS)
+      return ret;
+  }
 
-    
-    /* get an empty cluster, so that we make it into a      */
-    /* directory.                                           */
-    /* TE this has to be done (and failed) BEFORE the dir entry */
-    /* is changed                                           */
-    free_fat = find_fat_free(fnp);
-    
-    /* No empty clusters, disk is FULL! Translate into a    */
-    /* useful error message.                                */
-    if (free_fat == LONG_LAST_CLUSTER)
-    {
-        dir_close(fnp);
-        return DE_HNDLDSKFULL;
-    }
-    
+  /* get an empty cluster, so that we make it into a      */
+  /* directory.                                           */
+  /* TE this has to be done (and failed) BEFORE the dir entry */
+  /* is changed                                           */
+  free_fat = find_fat_free(fnp);
 
-    /* put the fnode's name into the directory.             */
-    memcpy(fnp->f_dir.dir_name, szFileName, FNAME_SIZE);
-    memcpy(fnp->f_dir.dir_ext, szFileExt, FEXT_SIZE);
+  /* No empty clusters, disk is FULL! Translate into a    */
+  /* useful error message.                                */
+  if (free_fat == LONG_LAST_CLUSTER)
+  {
+    dir_close(fnp);
+    return DE_HNDLDSKFULL;
+  }
 
-    /* Set the fnode to the desired mode                            */
-    fnp->f_mode = WRONLY;
-    fnp->f_back = LONG_LAST_CLUSTER;
+  /* put the fnode's name into the directory.             */
+  memcpy(fnp->f_dir.dir_name, szFileName, FNAME_SIZE);
+  memcpy(fnp->f_dir.dir_ext, szFileExt, FEXT_SIZE);
 
-    fnp->f_dir.dir_size = 0l;
-    fnp->f_dir.dir_attrib = D_DIR;
-    fnp->f_dir.dir_time = dos_gettime();
-    fnp->f_dir.dir_date = dos_getdate();
+  /* Set the fnode to the desired mode                            */
+  fnp->f_mode = WRONLY;
+  fnp->f_back = LONG_LAST_CLUSTER;
 
-    fnp->f_flags.f_dmod = TRUE;
-    fnp->f_flags.f_dnew = FALSE;
-    fnp->f_flags.f_ddir = TRUE;
+  fnp->f_dir.dir_size = 0l;
+  fnp->f_dir.dir_attrib = D_DIR;
+  fnp->f_dir.dir_time = dos_gettime();
+  fnp->f_dir.dir_date = dos_getdate();
 
-    fnp->f_highwater = 0l;
-    fnp->f_offset = 0l;
+  fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags.f_dnew = FALSE;
+  fnp->f_flags.f_ddir = TRUE;
 
+  fnp->f_highwater = 0l;
+  fnp->f_offset = 0l;
 
   /* Mark the cluster in the FAT as used                  */
   fnp->f_cluster = free_fat;
@@ -1147,8 +1150,7 @@ COUNT dos_mkdir(BYTE * dir)
   /* Craft the new directory. Note that if we're in a new */
   /* directory just under the root, ".." pointer is 0.    */
   /* as we are overwriting it completely, don't read first */
-  bp = getblockOver(clus2phys(free_fat, dpbp),
-                    dpbp->dpb_unit);
+  bp = getblockOver(clus2phys(free_fat, dpbp), dpbp->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
   printf("FAT (dos_mkdir)\n");
 #endif
@@ -1173,17 +1175,19 @@ COUNT dos_mkdir(BYTE * dir)
   /* create the ".." entry                                */
   memcpy(DirEntBuffer.dir_name, "..      ", FNAME_SIZE);
 #ifdef WITHFAT32
-  if (ISFAT32(dpbp) && parent == dpbp->dpb_xrootclst) {
-     parent = 0;
+  if (ISFAT32(dpbp) && parent == dpbp->dpb_xrootclst)
+  {
+    parent = 0;
   }
 #endif
   setdstart(DirEntBuffer, parent);
 
   /* and put it out                                       */
-  putdirent((struct dirent FAR *)&DirEntBuffer, (BYTE FAR *) & bp->b_buffer[DIRENT_SIZE]);
+  putdirent((struct dirent FAR *)&DirEntBuffer,
+            (BYTE FAR *) & bp->b_buffer[DIRENT_SIZE]);
 
   /* fill the rest of the block with zeros                */
-  fmemset( & bp->b_buffer[2 * DIRENT_SIZE],0, BUFFERSIZE - 2 * DIRENT_SIZE);
+  fmemset(&bp->b_buffer[2 * DIRENT_SIZE], 0, BUFFERSIZE - 2 * DIRENT_SIZE);
 
   /* Mark the block to be written out                     */
   bp->b_flag |= BFR_DIRTY | BFR_VALID;
@@ -1192,7 +1196,7 @@ COUNT dos_mkdir(BYTE * dir)
   for (idx = 1; idx <= dpbp->dpb_clsmask; idx++)
   {
 
-  /* as we are overwriting it completely, don't read first */
+    /* as we are overwriting it completely, don't read first */
     bp = getblockOver(clus2phys(getdstart(fnp->f_dir), dpbp) + idx,
                       dpbp->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
@@ -1205,7 +1209,7 @@ COUNT dos_mkdir(BYTE * dir)
     }
     fmemset(bp->b_buffer, 0, BUFFERSIZE);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
-    bp->b_flag |= BFR_UNCACHE;          /* need not be cached */
+    bp->b_flag |= BFR_UNCACHE;  /* need not be cached */
   }
 
   /* flush the drive buffers so that all info is written  */
@@ -1270,15 +1274,16 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 #ifdef DISPLAY_GETBLOCK
     printf("DIR (extend_dir)\n");
 #endif
-    if (bp == NULL) {
+    if (bp == NULL)
+    {
       dir_close(fnp);
       return DE_BLKINVLD;
     }
     fmemset(bp->b_buffer, 0, BUFFERSIZE);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
-    
+
     if (idx != 0)
-        bp->b_flag |= BFR_UNCACHE;      /* needs not be cached */
+      bp->b_flag |= BFR_UNCACHE;        /* needs not be cached */
   }
 
   if (!find_free(fnp))
@@ -1351,7 +1356,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 #endif
 
   /* The variable clssize will be used later.             */
-  clssize = (ULONG)fnp->f_dpb->dpb_secsize << fnp->f_dpb->dpb_shftcnt;
+  clssize = (ULONG) fnp->f_dpb->dpb_secsize << fnp->f_dpb->dpb_shftcnt;
 
   /* If someone did a seek, but no writes have occured, we will   */
   /* need to initialize the fnode.                                */
@@ -1365,7 +1370,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     }
   }
 
-  if (fnp->f_offset >= fnp->f_cluster_offset)	/*JPP */
+  if (fnp->f_offset >= fnp->f_cluster_offset)   /*JPP */
   {
     /* Set internal index and cluster size.                 */
     idx = fnp->f_offset - fnp->f_cluster_offset;
@@ -1400,13 +1405,13 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
       if (!extend(fnp))
       {
         dir_close(fnp);
-	return DE_HNDLDSKFULL;
+        return DE_HNDLDSKFULL;
       }
     }
 
     if (idx < clssize)
       break;
-    
+
     fnp->f_back = fnp->f_cluster;
 
     /* get next cluster in the chain */
@@ -1414,7 +1419,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     fnp->f_cluster_offset += clssize;
     idx -= clssize;
   }
-  
+
 #ifdef DISPLAY_GETBLOCK
   printf("done.\n");
 #endif
@@ -1461,7 +1466,6 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
         
         the same should be done for writes as well
 
-
     the time to compile the complete kernel (on some P200) is 
     reduced from 67 to 56 seconds - in an otherwise identical configuration.
 
@@ -1487,7 +1491,6 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     
 */
 
-
 /* Read block from disk */
 UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 {
@@ -1497,7 +1500,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   UCOUNT ret_cnt = 0;
   UWORD secsize;
   UCOUNT to_xfer = count;
-  ULONG  currentblock;
+  ULONG currentblock;
 
 #if defined( DEBUG ) && 0
   if (bDumpRdWrParms)
@@ -1513,7 +1516,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
   {
     *err = DE_INVLDHNDL;
     return 0;
@@ -1556,8 +1559,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   {
     /* Do an EOF test and return whatever was transferred   */
     /* but only for regular files.                          */
-    if (!(fnp->f_flags.f_ddir)
-        && (fnp->f_offset >= fnp->f_highwater))
+    if (!(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_highwater))
     {
       *err = SUCCESS;
       return ret_cnt;
@@ -1596,96 +1598,90 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     }
 
     /* Compute the block within the cluster and the offset  */
-    /* within the block.                                    */         
+    /* within the block.                                    */
     fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
     fnp->f_boff = fnp->f_offset & (secsize - 1);
 
     currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
 
     /* see comments above */
-    
-    if (!fnp->f_flags.f_ddir &&     /* don't experiment with directories yet */
-        fnp->f_boff == 0     )      /* complete sectors only */
+
+    if (!fnp->f_flags.f_ddir && /* don't experiment with directories yet */
+        fnp->f_boff == 0)       /* complete sectors only */
     {
-        static ULONG startoffset;
-        UCOUNT sectors_to_read,sectors_wanted;
+      static ULONG startoffset;
+      UCOUNT sectors_to_read, sectors_wanted;
 
-                                
-        startoffset = fnp->f_offset;
-                                    
-        /* avoid EOF problems */
-        sectors_wanted = ((UCOUNT) min(fnp->f_highwater - fnp->f_offset, to_xfer)) /
-            secsize;
+      startoffset = fnp->f_offset;
 
-        if (sectors_wanted < 2)
-            goto normal_read;
-        
-        sectors_to_read = fnp->f_dpb->dpb_clsmask + 1 - fnp->f_sector;
+      /* avoid EOF problems */
+      sectors_wanted =
+          ((UCOUNT) min(fnp->f_highwater - fnp->f_offset, to_xfer)) /
+          secsize;
+
+      if (sectors_wanted < 2)
+        goto normal_read;
+
+      sectors_to_read = fnp->f_dpb->dpb_clsmask + 1 - fnp->f_sector;
+
+      sectors_to_read = min(sectors_to_read, sectors_wanted);
+
+      fnp->f_offset += sectors_to_read * secsize;
+
+      while (sectors_to_read < sectors_wanted)
+      {
+        if (map_cluster(fnp, XFR_READ) != SUCCESS)
+          break;
+
+        if (clus2phys(fnp->f_cluster, fnp->f_dpb) !=
+            currentblock + sectors_to_read)
+          break;
+
+        sectors_to_read += fnp->f_dpb->dpb_clsmask + 1;
 
         sectors_to_read = min(sectors_to_read, sectors_wanted);
 
-        fnp->f_offset  += sectors_to_read*secsize;
-        
-        while (sectors_to_read < sectors_wanted)
-            {
-            if (map_cluster(fnp, XFR_READ) != SUCCESS)
-                break;
-                    
-            if (clus2phys(fnp->f_cluster, fnp->f_dpb) != currentblock + sectors_to_read)
-                break; 
+        fnp->f_offset = startoffset + sectors_to_read * secsize;
 
-            sectors_to_read += fnp->f_dpb->dpb_clsmask + 1;
-            
-            sectors_to_read = min(sectors_to_read, sectors_wanted);
+      }
 
-            fnp->f_offset = startoffset + sectors_to_read*secsize;
+      xfr_cnt = sectors_to_read * secsize;
 
-            }    
-        
-        xfr_cnt = sectors_to_read * secsize;
+      /* avoid caching trouble */
 
-                                    /* avoid caching trouble */            
-                               
-        DeleteBlockInBufferCache(currentblock, 
-                                 currentblock + sectors_to_read - 1,
-                                 fnp->f_dpb->dpb_unit);
-        
-        if (dskxfer(fnp->f_dpb->dpb_unit,
-                    currentblock,
-                    (VOID FAR *) buffer, sectors_to_read, DSKREAD))
-        {
-          fnp->f_offset = startoffset;
-          *err = DE_BLKINVLD;
-          return ret_cnt;
-        }         
-         
+      DeleteBlockInBufferCache(currentblock,
+                               currentblock + sectors_to_read - 1,
+                               fnp->f_dpb->dpb_unit);
 
-        goto update_pointers;
+      if (dskxfer(fnp->f_dpb->dpb_unit,
+                  currentblock,
+                  (VOID FAR *) buffer, sectors_to_read, DSKREAD))
+      {
+        fnp->f_offset = startoffset;
+        *err = DE_BLKINVLD;
+        return ret_cnt;
+      }
+
+      goto update_pointers;
     }
 
-
-
-
-         
-                /* normal read: just the old, buffer = sector based read */
-normal_read:
-
+    /* normal read: just the old, buffer = sector based read */
+  normal_read:
 
 #ifdef DSK_DEBUG
     printf("read %d links; dir offset %ld, cluster %lx\n",
-           fnp->f_count,
-           fnp->f_diroff,
-           fnp->f_cluster);
+           fnp->f_count, fnp->f_diroff, fnp->f_cluster);
 #endif
 
     /* Get the block we need from cache                     */
-    bp = getblock(currentblock /*clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector*/,
-                  fnp->f_dpb->dpb_unit);
+    bp = getblock(currentblock
+                  /*clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector */
+                  , fnp->f_dpb->dpb_unit);
 
 #ifdef DISPLAY_GETBLOCK
     printf("DATA (readblock)\n");
 #endif
-    if (bp == NULL)         /* (struct buffer *)0 --> DS:0 !! */
+    if (bp == NULL)             /* (struct buffer *)0 --> DS:0 !! */
     {
       *err = DE_BLKINVLD;
       return ret_cnt;
@@ -1699,25 +1695,24 @@ normal_read:
     if (fnp->f_flags.f_ddir)
       xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
     else
-      xfr_cnt = (UWORD)min(min(to_xfer, secsize - fnp->f_boff),
-                    fnp->f_highwater - fnp->f_offset);
+      xfr_cnt = (UWORD) min(min(to_xfer, secsize - fnp->f_boff),
+                            fnp->f_highwater - fnp->f_offset);
 
     fmemcpy(buffer, &bp->b_buffer[fnp->f_boff], xfr_cnt);
 
-                                        /* complete buffer read ? 
-                                           probably not reused later
-                                         */
+    /* complete buffer read ? 
+       probably not reused later
+     */
     if (xfr_cnt == sizeof(bp->b_buffer) ||
-            fnp->f_offset + xfr_cnt == fnp->f_highwater )
-        {    
-        bp->b_flag |= BFR_UNCACHE;   
-        }
-
+        fnp->f_offset + xfr_cnt == fnp->f_highwater)
+    {
+      bp->b_flag |= BFR_UNCACHE;
+    }
 
     /* update pointers and counters                         */
     fnp->f_offset += xfr_cnt;
 
-update_pointers:    
+  update_pointers:
     ret_cnt += xfr_cnt;
     to_xfer -= xfr_cnt;
     buffer = add_far((VOID FAR *) buffer, (ULONG) xfr_cnt);
@@ -1735,78 +1730,74 @@ update_pointers:
 /* default                                                     */
 STATIC COUNT dos_extend(f_node_ptr fnp)
 {
-#ifdef WRITEZEROS  
+#ifdef WRITEZEROS
   struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   /* The variable secsize will be used later.                     */
   UWORD secsize = fnp->f_dpb->dpb_secsize;
   ULONG count;
-#endif  
+#endif
 
   if (fnp->f_offset <= fnp->f_highwater)
     return SUCCESS;
 
-#ifdef WRITEZEROS  
+#ifdef WRITEZEROS
   count = fnp->f_offset - fnp->f_highwater;
   fnp->f_offset = fnp->f_highwater;
   while (count > 0)
+#endif
   {
-#endif      
     if (map_cluster(fnp, XFR_WRITE) != SUCCESS)
       return DE_HNDLDSKFULL;
 
 #ifdef WRITEZEROS
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
-    fnp->f_sector =
-        (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
     fnp->f_boff = fnp->f_offset & (secsize - 1);
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
-           fnp->f_count,
-           fnp->f_diroff,
-           fnp->f_cluster);
+           fnp->f_count, fnp->f_diroff, fnp->f_cluster);
 #endif
 
-    xfr_cnt = count < (ULONG)secsize - fnp->f_boff ?
-        (UWORD) count :
-        secsize - fnp->f_boff;
+    xfr_cnt = count < (ULONG) secsize - fnp->f_boff ?
+        (UWORD) count : secsize - fnp->f_boff;
 
     /* get a buffer to store the block in */
-    if ( (fnp->f_boff == 0) && (xfr_cnt == secsize) ) {
-        bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
-                    fnp->f_dpb->dpb_unit);
-        
-    } else {
-        bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
-                fnp->f_dpb->dpb_unit);
+    if ((fnp->f_boff == 0) && (xfr_cnt == secsize))
+    {
+      bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) +
+                        fnp->f_sector, fnp->f_dpb->dpb_unit);
+
     }
-    if (bp == NULL) {
+    else
+    {
+      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
+                    fnp->f_dpb->dpb_unit);
+    }
+    if (bp == NULL)
+    {
       return DE_BLKINVLD;
-      }
-    
+    }
 
     /* set a block to zero                                  */
     fmemset((BYTE FAR *) & bp->b_buffer[fnp->f_boff], 0, xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
-    if (xfr_cnt == sizeof(bp->b_buffer)) /* probably not used later */
-        {    
-        bp->b_flag |= BFR_UNCACHE;   
-        }
+    if (xfr_cnt == sizeof(bp->b_buffer))        /* probably not used later */
+    {
+      bp->b_flag |= BFR_UNCACHE;
+    }
 
     /* update pointers and counters                         */
     count -= xfr_cnt;
     fnp->f_offset += xfr_cnt;
+    fnp->f_dir.dir_size = fnp->f_offset;
+#endif
     fnp->f_highwater = fnp->f_offset;
-    fnp->f_dir.dir_size = fnp->f_highwater;
-    merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
+    merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
-#else    
-  fnp->f_highwater = fnp->f_offset;
-  merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
-#endif  
   return SUCCESS;
 }
 
@@ -1835,7 +1826,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
   {
     *err = DE_INVLDHNDL;
     return 0;
@@ -1848,14 +1839,14 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     return 0;
   }
 
-  fnp->f_flags.f_dmod = TRUE;         /* mark file as modified */
-  fnp->f_flags.f_ddate = FALSE;       /* set date not valid any more */
+  fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
+  fnp->f_flags.f_ddate = FALSE; /* set date not valid any more */
 
-  /* extend file from fnp->f_highwater to fnp->f_offset */    
+  /* extend file from fnp->f_highwater to fnp->f_offset */
   *err = dos_extend(fnp);
   if (*err != SUCCESS)
     return 0;
-  
+
   /* Test that we are really about to do a data transfer. If the  */
   /* count is zero and the mode is XFR_READ, just exit. (Any      */
   /* read with a count of zero is a nop).                         */
@@ -1864,13 +1855,13 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* file length to the current length (truncates it).            */
   /*                                                              */
   /* NOTE: doing this up front saves a lot of headaches later.    */
-  
+
   if (count == 0)
   {
-    /* NOTE: doing this up front made a lot of headaches later :-( TE */ 
+    /* NOTE: doing this up front made a lot of headaches later :-( TE */
     /* FAT allocation has to be extended if necessary              TE */
     /* Now done in dos_extend                                      BO */
-    /* remove all the following allocated clusters in shrink_file     */  
+    /* remove all the following allocated clusters in shrink_file     */
     fnp->f_highwater = fnp->f_offset;
     shrink_file(fnp);
     return 0;
@@ -1948,15 +1939,12 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
-    fnp->f_sector =
-        (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
     fnp->f_boff = fnp->f_offset & (secsize - 1);
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
-           fnp->f_count,
-           fnp->f_diroff,
-           fnp->f_cluster);
+           fnp->f_count, fnp->f_diroff, fnp->f_cluster);
 #endif
 
 /* /// Moved xfr_cnt calculation from below so we can
@@ -1970,29 +1958,32 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 
     /* get a buffer to store the block in */
     /* /// BUG!!! Added conditional to only use getbuf() if we're going
-           to write the entire block, which is faster because it does
-           not first read the block from disk.  However, if we are
-           going to only write part of the block, we MUST use the
-           getblock() call, which first reads the block from disk.
-           Without this modification, the kernel was writing garbage
-           to the file when sequential writes were attempted at less
-           than the block size.  This was causing problems with
-           piping and redirection in FreeCOM, as well as many other
-           potential problems.
-           - Ron Cemer */
-    if ( (fnp->f_boff == 0) && (xfr_cnt == secsize) ) {
-        bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
-                    fnp->f_dpb->dpb_unit);
-        
-    } else {
-        bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
-                fnp->f_dpb->dpb_unit);
+       to write the entire block, which is faster because it does
+       not first read the block from disk.  However, if we are
+       going to only write part of the block, we MUST use the
+       getblock() call, which first reads the block from disk.
+       Without this modification, the kernel was writing garbage
+       to the file when sequential writes were attempted at less
+       than the block size.  This was causing problems with
+       piping and redirection in FreeCOM, as well as many other
+       potential problems.
+       - Ron Cemer */
+    if ((fnp->f_boff == 0) && (xfr_cnt == secsize))
+    {
+      bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) +
+                        fnp->f_sector, fnp->f_dpb->dpb_unit);
+
     }
-    if (bp == NULL) {
+    else
+    {
+      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) +
+                    fnp->f_sector, fnp->f_dpb->dpb_unit);
+    }
+    if (bp == NULL)
+    {
       *err = DE_BLKINVLD;
       return ret_cnt;
-      }
-    
+    }
 
     /* transfer a block                                     */
     /* Transfer size as either a full block size, or the    */
@@ -2007,11 +1998,10 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     fmemcpy(&bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
-    if (xfr_cnt == sizeof(bp->b_buffer)) /* probably not used later */
-        {    
-        bp->b_flag |= BFR_UNCACHE;   
-        }
-
+    if (xfr_cnt == sizeof(bp->b_buffer))        /* probably not used later */
+    {
+      bp->b_flag |= BFR_UNCACHE;
+    }
 
     /* update pointers and counters                         */
     ret_cnt += xfr_cnt;
@@ -2023,7 +2013,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
       fnp->f_highwater = fnp->f_offset;
       fnp->f_dir.dir_size = fnp->f_highwater;
     }
-    merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
+    merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
   *err = SUCCESS;
   return ret_cnt;
@@ -2043,7 +2033,7 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
   /* requested file was not open, tell the caller and exit                */
   /* note: an invalid fd is indicated by a 0 return               */
 
-  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
     return (LONG) DE_INVLDHNDL;
 
   /* now do the actual lseek adjustment to the file poitner       */
@@ -2069,7 +2059,7 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 }
 
 /* returns the number of unused clusters */
-CLUSTER dos_free(struct dpb FAR *dpbp)
+CLUSTER dos_free(struct dpb FAR * dpbp)
 {
   /* There's an unwritten rule here. All fs       */
   /* cluster start at 2 and run to max_cluster+2  */
@@ -2079,23 +2069,24 @@ CLUSTER dos_free(struct dpb FAR *dpbp)
 
 #ifdef WITHFAT32
   if (ISFAT32(dpbp))
-  {	  
+  {
     if (dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
       return dpbp->dpb_xnfreeclst;
     max_cluster = dpbp->dpb_xsize + 1;
-  }  
-  else 
-#endif 
-    if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
-      return dpbp->dpb_nfreeclst;
-  
+  }
+  else
+#endif
+  if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
+    return dpbp->dpb_nfreeclst;
+
   for (i = 2; i < max_cluster; i++)
   {
     if (next_cluster(dpbp, i) == 0)
       ++cnt;
   }
 #ifdef WITHFAT32
-  if (ISFAT32(dpbp)) {
+  if (ISFAT32(dpbp))
+  {
     dpbp->dpb_xnfreeclst = cnt;
     write_fsinfo(dpbp);
     return cnt;
@@ -2105,19 +2096,17 @@ CLUSTER dos_free(struct dpb FAR *dpbp)
   return cnt;
 }
 
-
-
 #ifndef IPL
-COUNT dos_cd(struct cds FAR * cdsp, BYTE *PathName)
+COUNT dos_cd(struct cds FAR * cdsp, BYTE * PathName)
 {
   f_node_ptr fnp;
 
   /* first check for valid drive          */
   if (cdsp->cdsDpb == 0)
-      return DE_INVLDDRV;
+    return DE_INVLDDRV;
 
   if ((media_check(cdsp->cdsDpb) < 0))
-      return DE_INVLDDRV;
+    return DE_INVLDDRV;
 
   /* now test for its existance. If it doesn't, return an error.  */
   if ((fnp = dir_open(PathName)) == NULL)
@@ -2143,7 +2132,7 @@ f_node_ptr get_f_node(void)
       return &f_nodes[i];
     }
   }
-  return (f_node_ptr)0;
+  return (f_node_ptr) 0;
 }
 
 VOID release_f_node(f_node_ptr fnp)
@@ -2171,7 +2160,7 @@ COUNT dos_getfattr(BYTE * name)
     return DE_FILENOTFND;
 
   /* note: an invalid fd is indicated by a 0 return               */
-  if ((fnp = xlt_fd(fd)) == (f_node_ptr)0)
+  if ((fnp = xlt_fd(fd)) == (f_node_ptr) 0)
     return DE_TOOMANY;
 
   /* If the fd was invalid because it was out of range or the     */
@@ -2199,7 +2188,7 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
     return DE_FILENOTFND;
 
   /* note: an invalid fd is indicated by a 0 return               */
-  if ((fnp = xlt_fd(fd)) == (f_node_ptr)0)
+  if ((fnp = xlt_fd(fd)) == (f_node_ptr) 0)
     return DE_TOOMANY;
 
   /* If the fd was invalid because it was out of range or the     */
@@ -2218,10 +2207,10 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 
   /* Set the attribute from the fnode and return          */
   /* clear all attributes but DIR and VOLID */
-  fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);	/* JPP */
+  fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);   /* JPP */
 
   /* set attributes that user requested */
-  fnp->f_dir.dir_attrib |= attrp;	/* JPP */
+  fnp->f_dir.dir_attrib |= attrp;       /* JPP */
   fnp->f_flags.f_dmod = TRUE;
   fnp->f_flags.f_ddate = TRUE;
   dos_close(fd);
@@ -2230,10 +2219,10 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 #endif
 
 #ifdef WITHFAT32
-VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp, BOOL extended)
+VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp, BOOL extended)
 #else
-VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
-#endif	
+VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
+#endif
 {
   ULONG size;
   REG UWORD shftcnt;
@@ -2244,16 +2233,13 @@ VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
   dpbp->dpb_fatstrt = bpbp->bpb_nreserved;
   dpbp->dpb_fats = bpbp->bpb_nfat;
   dpbp->dpb_dirents = bpbp->bpb_ndirent;
-  size = bpbp->bpb_nsize == 0 ?
-      bpbp->bpb_huge :
-      (ULONG) bpbp->bpb_nsize;
+  size = bpbp->bpb_nsize == 0 ? bpbp->bpb_huge : (ULONG) bpbp->bpb_nsize;
   dpbp->dpb_fatsize = bpbp->bpb_nfsect;
   dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
       + dpbp->dpb_fats * dpbp->dpb_fatsize;
   dpbp->dpb_data = dpbp->dpb_dirstrt
-      + ((DIRENT_SIZE * (ULONG)dpbp->dpb_dirents
-          + (dpbp->dpb_secsize - 1))
-         / dpbp->dpb_secsize);
+      + ((DIRENT_SIZE * (ULONG) dpbp->dpb_dirents
+          + (dpbp->dpb_secsize - 1)) / dpbp->dpb_secsize);
 /* Michal Meller <maceman@priv4,onet.pl> patch to jimtabor */
   dpbp->dpb_size = ((size - dpbp->dpb_data)
                     / ((ULONG) bpbp->bpb_nsector) + 1);
@@ -2266,9 +2252,9 @@ VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
   if (extended)
   {
     dpbp->dpb_xfatsize = bpbp->bpb_nfsect == 0 ? bpbp->bpb_xnfsect
-      : bpbp->bpb_nfsect;
+        : bpbp->bpb_nfsect;
     dpbp->dpb_xcluster = UNKNCLUSTER;
-    dpbp->dpb_xnfreeclst = XUNKNCLSTFREE;   /* number of free clusters */
+    dpbp->dpb_xnfreeclst = XUNKNCLSTFREE;       /* number of free clusters */
 
     dpbp->dpb_xflags = 0;
     dpbp->dpb_xfsinfosec = 0xffff;
@@ -2276,8 +2262,8 @@ VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
     dpbp->dpb_xrootclst = 0;
     dpbp->dpb_xdata = dpbp->dpb_data;
     dpbp->dpb_xsize = dpbp->dpb_size;
-    
-    if (ISFAT32(dpbp)) 
+
+    if (ISFAT32(dpbp))
     {
       dpbp->dpb_xflags = bpbp->bpb_xflags;
       dpbp->dpb_xfsinfosec = bpbp->bpb_xfsinfosec;
@@ -2285,13 +2271,14 @@ VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
       dpbp->dpb_dirents = 0;
       dpbp->dpb_dirstrt = 0xffff;
       dpbp->dpb_size = 0;
-      dpbp->dpb_xdata = dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_xfatsize;
-      dpbp->dpb_xsize = ((size - dpbp->dpb_xdata)
-                         / ((ULONG) bpbp->bpb_nsector) + 1);
+      dpbp->dpb_xdata =
+          dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_xfatsize;
+      dpbp->dpb_xsize =
+          ((size - dpbp->dpb_xdata) / ((ULONG) bpbp->bpb_nsector) + 1);
       dpbp->dpb_xrootclst = bpbp->bpb_xrootclst;
       read_fsinfo(dpbp);
-    } 
-  }  
+    }
+  }
 #endif
 
   for (shftcnt = 0; (bpbp->bpb_nsector >> shftcnt) > 1; shftcnt++)
@@ -2310,7 +2297,8 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     MediaReqHdr.r_mcmdesc = dpbp->dpb_mdb;
     MediaReqHdr.r_status = 0;
     execrh((request FAR *) & MediaReqHdr, dpbp->dpb_device);
-    if (!(MediaReqHdr.r_status & S_ERROR) && (MediaReqHdr.r_status & S_DONE))
+    if (!(MediaReqHdr.r_status & S_ERROR)
+        && (MediaReqHdr.r_status & S_DONE))
       break;
     else
     {
@@ -2357,12 +2345,14 @@ COUNT media_check(REG struct dpb FAR * dpbp)
         MediaReqHdr.r_mcmdesc = dpbp->dpb_mdb;
         MediaReqHdr.r_status = 0;
         execrh((request FAR *) & MediaReqHdr, dpbp->dpb_device);
-        if (!(MediaReqHdr.r_status & S_ERROR) && (MediaReqHdr.r_status & S_DONE))
+        if (!(MediaReqHdr.r_status & S_ERROR)
+            && (MediaReqHdr.r_status & S_DONE))
           break;
         else
         {
         loop2:
-          switch (block_error(&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
+          switch (block_error
+                  (&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
           {
             case ABORT:
             case FAIL:
@@ -2391,13 +2381,13 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 /* translate the fd into an f_node pointer */
 f_node_ptr xlt_fd(COUNT fd)
 {
-  return fd >= f_nodes_cnt ? (f_node_ptr)0 : &f_nodes[fd];
+  return fd >= f_nodes_cnt ? (f_node_ptr) 0 : &f_nodes[fd];
 }
 
 /* translate the f_node pointer into an fd */
 COUNT xlt_fnp(f_node_ptr fnp)
 {
-  return (COUNT)(fnp - f_nodes);
+  return (COUNT) (fnp - f_nodes);
 }
 
 #if 0
@@ -2406,11 +2396,10 @@ struct dhdr FAR *select_unit(COUNT drive)
   /* Just get the header from the dhdr array                      */
 /*  return blk_devices[drive].dpb_device; */
 
-    return (struct dhdr FAR *)CDSp->cds_table[drive].cdsDpb;
+  return (struct dhdr FAR *)CDSp->cds_table[drive].cdsDpb;
 
 }
 #endif
-
 
 /* TE
     if the current filesize in FAT is larger then the dir_size
@@ -2430,45 +2419,45 @@ struct dhdr FAR *select_unit(COUNT drive)
 STATIC VOID shrink_file(f_node_ptr fnp)
 {
 
-    ULONG lastoffset = fnp->f_offset;    /* has to be saved */
-    CLUSTER next,st;
-    struct dpb FAR *dpbp = fnp->f_dpb;
+  ULONG lastoffset = fnp->f_offset;     /* has to be saved */
+  CLUSTER next, st;
+  struct dpb FAR *dpbp = fnp->f_dpb;
 
-    fnp->f_offset = fnp->f_highwater;     /* end of file */
+  fnp->f_offset = fnp->f_highwater;     /* end of file */
 
-    if (fnp->f_offset) fnp->f_offset--;   /* last existing cluster */
-    
-    if (map_cluster(fnp, XFR_READ) != SUCCESS)  /* error, don't truncate */
-        goto done;        
-    
-    st = fnp->f_cluster;
+  if (fnp->f_offset)
+    fnp->f_offset--;            /* last existing cluster */
 
-    next = next_cluster(dpbp, st);
+  if (map_cluster(fnp, XFR_READ) != SUCCESS)    /* error, don't truncate */
+    goto done;
 
-    if (next == LONG_LAST_CLUSTER)         /* last cluster found */
-        goto done;
+  st = fnp->f_cluster;
 
-          /* Loop from start until either a FREE entry is         */
-          /* encountered (due to a damaged file system) or the    */
-          /* last cluster is encountered.                         */
-          /* zap the FAT pointed to                       */
+  next = next_cluster(dpbp, st);
 
-          
-    if (fnp->f_highwater == 0)
-        {
-	setdstart(fnp->f_dir, FREE);
-        link_fat(dpbp, st, FREE);
-        }    
-      else        
-        {
-        link_fat(dpbp, st,LONG_LAST_CLUSTER);
-        }
+  if (next == LONG_LAST_CLUSTER)        /* last cluster found */
+    goto done;
 
-    wipe_out_clusters(dpbp, next);
-    
+  /* Loop from start until either a FREE entry is         */
+  /* encountered (due to a damaged file system) or the    */
+  /* last cluster is encountered.                         */
+  /* zap the FAT pointed to                       */
+
+  if (fnp->f_highwater == 0)
+  {
+    setdstart(fnp->f_dir, FREE);
+    link_fat(dpbp, st, FREE);
+  }
+  else
+  {
+    link_fat(dpbp, st, LONG_LAST_CLUSTER);
+  }
+
+  wipe_out_clusters(dpbp, next);
+
 done:
-    fnp->f_offset = lastoffset;    /* has to be restored */
-    
+  fnp->f_offset = lastoffset;   /* has to be restored */
+
 }
 
 /*
@@ -2617,4 +2606,3 @@ done:
  *    Rev 1.0   02 Jul 1995  8:04:46   patv
  * Initial revision.
  */
-

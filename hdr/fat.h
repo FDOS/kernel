@@ -30,10 +30,10 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *fat_hRcsId = "$Id$";
+static BYTE *fat_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 /* FAT file system attribute bits                                       */
 #define D_NORMAL        0       /* normal                       */
@@ -79,8 +79,7 @@ static BYTE *fat_hRcsId = "$Id$";
 /* dpb_size == 0 for FAT32, hence doing -1 here */
 
 /* FAT file system directory entry                                      */
-struct dirent
-{
+struct dirent {
   UBYTE dir_name[FNAME_SIZE];   /* Filename                     */
   UBYTE dir_ext[FEXT_SIZE];     /* Filename extension           */
   UBYTE dir_attrib;             /* File Attribute               */
@@ -93,12 +92,11 @@ struct dirent
   time dir_time;                /* Time file created/updated    */
   date dir_date;                /* Date file created/updated    */
   UWORD dir_start;              /* Starting cluster             */
-  				/* 1st available = 2            */
+  /* 1st available = 2            */
   ULONG dir_size;               /* File size in bytes           */
 };
 
-struct lfn_entry
-{
+struct lfn_entry {
   UBYTE lfn_id;
   UNICODE lfn_name0_4[5];
   UBYTE lfn_attrib;
@@ -142,16 +140,15 @@ struct lfn_entry
 
 #define DIRENT_SIZE     32
 
-struct lfn_inode
-{
+struct lfn_inode {
   UNICODE name[256];
-  
+
   struct dirent l_dir;
-  
+
   ULONG l_diroff;               /* offset of the dir entry      */
 };
-  
-typedef struct lfn_inode FAR * lfn_inode_ptr;
+
+typedef struct lfn_inode FAR *lfn_inode_ptr;
 
 /*
  * Log: fat.h,v 

@@ -32,14 +32,14 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *buffer_hRcsId = "$Id$";
+static BYTE *buffer_hRcsId =
+    "$Id$";
 #endif
 #endif
 
 #define BUFFERSIZE 512
-struct buffer
-{
-  WORD b_dummy;                 /* dummy self pointing word to keep MFT from crashing */	
+struct buffer {
+  WORD b_dummy;                 /* dummy self pointing word to keep MFT from crashing */
   struct buffer
   FAR *b_next;                  /* form linked list for LRU     */
   BYTE b_unit;                  /* disk for this buffer         */
@@ -52,14 +52,12 @@ struct buffer
 #else
   UWORD b_offset;               /* span between copies          */
 #endif
-#if 0 /*TE*/
- union
-  {
+#if 0  /*TE*/
+      union {
     struct dpb FAR *_b_dpbp;    /* pointer to DPB               */
     LONG _b_huge_blkno;         /* DOS-C: actual block number if >= 0xffff */
-  }
-  _b;
-#endif  
+  } _b;
+#endif
   BYTE b_buffer[BUFFERSIZE];    /* 512 byte sectors for now     */
 };
 
@@ -79,4 +77,3 @@ struct buffer
  *         Rev 1.0   20 Apr 2001 17:30:00   Bart Oldeman
  *      Initial revision.
  */
-

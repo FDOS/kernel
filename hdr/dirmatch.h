@@ -30,26 +30,24 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *dirmatch_hRcsId = "$Id$";
+static BYTE *dirmatch_hRcsId =
+    "$Id$";
 #endif
 #endif
 
-
-typedef struct
-{
+typedef struct {
   BYTE dm_drive;
   BYTE dm_name_pat[FNAME_SIZE + FEXT_SIZE];
   BYTE dm_attr_srch;
   UWORD dm_entry;
-#ifdef WITHFAT32  
+#ifdef WITHFAT32
   ULONG dm_dircluster;
-#else  
+#else
   UWORD dm_dircluster;
   UWORD reserved;
 #endif
 
-  struct
-  {
+  struct {
     BITS                        /* directory has been modified  */
     f_dmod:1;
     BITS                        /* directory is the root        */
@@ -60,16 +58,14 @@ typedef struct
     f_ddir:1;
     BITS                        /* filler to avoid a bad bug (feature?) in */
     f_filler:12;                /* TC 2.01           */
-  }
-  dm_flags;                     /* file flags                   */
+  } dm_flags;                   /* file flags                   */
 
   BYTE dm_attr_fnd;             /* found file attribute         */
   time dm_time;                 /* file time                    */
   date dm_date;                 /* file date                    */
   LONG dm_size;                 /* file size                    */
-  BYTE dm_name[FNAME_SIZE + FEXT_SIZE + 2];	/* file name    */
-}
-dmatch;
+  BYTE dm_name[FNAME_SIZE + FEXT_SIZE + 2];     /* file name    */
+} dmatch;
 
 /*
  * Log: dirmatch.h,v 

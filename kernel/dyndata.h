@@ -14,6 +14,6 @@ void far *DynLast(void);
 void DynFree(void *ptr);
 
 struct DynS {
-     unsigned Allocated;
-     char Buffer[1];
-     };
+  unsigned Allocated;
+  char Buffer[1];
+};

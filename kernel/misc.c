@@ -29,7 +29,8 @@
 #include "portab.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *miscRcsId = "$Id$";
+static BYTE *miscRcsId =
+    "$Id$";
 #endif
 
 #include "globals.h"
@@ -119,4 +120,3 @@ VOID fmemset(REG VOID FAR * s, REG int ch, REG COUNT n)
  *    Rev 1.0   02 Jul 1995  8:06:28   patv
  * Initial revision.
  */
-

@@ -30,10 +30,10 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *fcb_hRcsId = "$Id$";
+static BYTE *fcb_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 /* fcb convience defines                                                */
 /* block device info                                                    */
@@ -77,8 +77,7 @@ static BYTE *fcb_hRcsId = "$Id$";
 #define FCB_WRITE 1
 
 /* File Control Block (FCB)                                             */
-typedef struct
-{
+typedef struct {
   BYTE fcb_drive;               /* Drive number 0=default, 1=A, etc     */
   BYTE fcb_fname[FNAME_SIZE];   /* File name                    */
   BYTE fcb_fext[FEXT_SIZE];     /* File name Extension          */
@@ -99,21 +98,17 @@ typedef struct
   /* end reserved                                                 */
   UBYTE fcb_curec;              /* Current block number of              */
   ULONG fcb_rndm;               /* Current relative record number       */
-}
-fcb;
+} fcb;
 
 /* FAT extended fcb                                                     */
-typedef struct
-{
+typedef struct {
   UBYTE xfcb_flag;              /* 0xff indicates Extended FCB  */
   BYTE xfcb_resvrd[5];          /* Reserved                     */
   UBYTE xfcb_attrib;            /* Attribute                    */
   fcb xfcb_fcb;
-}
-xfcb;
+} xfcb;
 
-typedef struct
-{
+typedef struct {
   UBYTE renDriveID;             /* drive no.                    */
   BYTE renOldName[8];           /* Old Filename                 */
   BYTE renOldExtent[3];         /* Old File Extension           */
@@ -121,8 +116,7 @@ typedef struct
   BYTE renNewName[8];           /* New Filename                 */
   BYTE renNewExtent[3];         /* New FileExtension            */
   BYTE renReserved2[9];
-}
-rfcb;
+} rfcb;
 
 /*
  * Log: fcb.h,v 

@@ -59,30 +59,22 @@
 #define REM_PRINTREDIR  0x1125
 #define REM_EXTOC       0x112e
 
-struct rgds
-{
+struct rgds {
   UWORD r_spc;
   UWORD r_navc;
   UWORD r_bps;
   UWORD r_nc;
 };
 
-struct remote_fileattrib
-{
+struct remote_fileattrib {
   UWORD rfa_file;               /* File Attributes  */
-  union
-  {
+  union {
     ULONG rfa_filesize;         /* file size */
-    struct
-    {
+    struct {
       UWORD rfa_filesize_lo;    /* DI Low */
       UWORD rfa_filesize_hi;    /* BX High */
-    }
-    _split_rfa_fz;
-  }
-  rfa_fz_union;
+    } _split_rfa_fz;
+  } rfa_fz_union;
   UWORD rfa_time;
   UWORD rfa_date;
 };
-
-

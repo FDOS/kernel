@@ -28,14 +28,14 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
-
 #include "portab.h"
 #include "globals.h"
 //#include "pcb.h"
 #include <nls.h>
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 #define filename Config.cfgCSYS_fnam
@@ -44,79 +44,87 @@ static BYTE *RcsId = "$Id$";
 
 static int err(void)
 {
-	printf("Syntax error in or invalid COUNTRY.SYS: \"%s\"\n"
-	 , filename);
-	return 0;
+  printf("Syntax error in or invalid COUNTRY.SYS: \"%s\"\n", filename);
+  return 0;
 }
 
 #define readStruct(s)	readStructure(&(s), sizeof(s), fd)
 static int readStructure(void *buf, int size, COUNT fd)
-{	if(DosRead(fd, buf, size) == size)
-		return 1;
+{
+  if (DosRead(fd, buf, size) == size)
+    return 1;
 
-	return err();
+  return err();
 }
-	/* Evaluate each argument only once */
+
+        /* Evaluate each argument only once */
 #define readFct(p,f)	readFct_((p), (f), fd)
 int readFct_(void *buf, struct csys_function *fct, COUNT fd)
-{	if(DosLseek(fd, fct->csys_rpos, 0) >= 0)
-		return readStructure(buf, fct->csys_length, fd);
-	return err();
+{
+  if (DosLseek(fd, fct->csys_rpos, 0) >= 0)
+    return readStructure(buf, fct->csys_length, fd);
+  return err();
 }
 
 #define seek(n)	rseek((LONG)(n), fd)
 static rseek(LONG rpos, COUNT fd)
-{	if(DosLseek(fd, rpos, 1) >= 0)
-		return 1;
+{
+  if (DosLseek(fd, rpos, 1) >= 0)
+    return 1;
 
-	return err();
+  return err();
 }
 
-
 COUNT csysOpen(void)
-{	COUNT fd;
-	struct nlsCSys_fileHeader header;
+{
+  COUNT fd;
+  struct nlsCSys_fileHeader header;
 
-	if((fd = DosOpen((BYTE FAR*)filename, 0)) < 0) {
-		printf("Cannot open: \"%s\"\n", filename);
-		return 1;
-	}
+  if ((fd = DosOpen((BYTE FAR *) filename, 0)) < 0)
+  {
+    printf("Cannot open: \"%s\"\n", filename);
+    return 1;
+  }
 
-	if(DosRead(fd, &header, sizeof(header)) != sizeof(header);
-	 || strcmp(header.csys_idstring, CSYS_FD_IDSTRING) != 0
-	 || DosLseek(fd, (LONG)sizeof(csys_completeFileHeader), 0)
-	  != (LONG)sizeof(csys_completeFileHeader)) {
-	 	printf("No valid COUNTRY.SYS: \"%s\"\n\nTry NLSFUNC /i %s\n"
-	 	 , filename, filename);
-	 	DosClose(fd);
-	 	return -1;
-	}
+  if (DosRead(fd, &header, sizeof(header)) != sizeof(header);
+      ||strcmp(header.csys_idstring, CSYS_FD_IDSTRING) != 0
+      || DosLseek(fd, (LONG) sizeof(csys_completeFileHeader), 0)
+      != (LONG) sizeof(csys_completeFileHeader))
+  {
+    printf("No valid COUNTRY.SYS: \"%s\"\n\nTry NLSFUNC /i %s\n", filename,
+           filename);
+    DosClose(fd);
+    return -1;
+  }
 
-	return fd;
+  return fd;
 }
 
 /* Searches for function definition of table #fctID and
 	moves it at index idx */
-static int chkTable(int idx, int fctID, struct csys_function *fcts
-	, int numFct)
-{	struct csys_function *fct, hfct;
-	int i;
+static int chkTable(int idx, int fctID, struct csys_function *fcts,
+                    int numFct)
+{
+  struct csys_function *fct, hfct;
+  int i;
 
-	for(i = 0, fct = fcts; i < numFct; ++i, ++fct)
-		if(fct->csys_fctID == fctID) {
-			/* function found */
-			if(i == idx)	/* already best place */
-				return 1;
-			/* Swap both places */
-			memcpy(&hfct, fct, sizeof(hfct));
-			memcpy(fct, &fcts[idx], sizeof(hfct));
-			memcpy(&fcts[idx], &hfct, sizeof(hfct));
-			return 1;
-		}
+  for (i = 0, fct = fcts; i < numFct; ++i, ++fct)
+    if (fct->csys_fctID == fctID)
+    {
+      /* function found */
+      if (i == idx)             /* already best place */
+        return 1;
+      /* Swap both places */
+      memcpy(&hfct, fct, sizeof(hfct));
+      memcpy(fct, &fcts[idx], sizeof(hfct));
+      memcpy(&fcts[idx], &hfct, sizeof(hfct));
+      return 1;
+    }
 
-	printf("Mandatory table %u not found.\n", fctID);
-	return 0;
+  printf("Mandatory table %u not found.\n", fctID);
+  return 0;
 }
+
 /*
  *	Description of the algorithm the COUNTRY= information is loaded.
 
@@ -172,7 +180,6 @@ a) The area containing the S3 structures, and
 b) probably the last loaded data could be found within the memory already,
 so the nlsPackage structure is larger than necessary.
 
-
 8) But the memory allocation in pass 1 is temporary anyway, because in
 the PostConfig() phase, all memory allocations are revoked and created
 anew. At this point -- immediately after revoking all memory and
@@ -197,187 +204,208 @@ indicates that the FP_OFF(...) is the offset base-relative to the data
 offset; which is base-relative to the "nls" pointer.
  */
 int csysLoadPackage(COUNT fd)
-{	struct csys_numEntries entries;
-	struct csys_ccDefinition entry;
-	struct csys_function *fcts;
-	struct nlsPackage *nls;
-	struct nlsPointer *poi;
-	int highmark, numFct, i, j;
-	int totalSize;
+{
+  struct csys_numEntries entries;
+  struct csys_ccDefinition entry;
+  struct csys_function *fcts;
+  struct nlsPackage *nls;
+  struct nlsPointer *poi;
+  int highmark, numFct, i, j;
+  int totalSize;
 #ifndef NLS_MODIFYABLE_DATA
-	BYTE FAR * p;
+  BYTE FAR *p;
 #endif
 #define numE entries.csys_entries
 #define bufp(offset)	(((BYTE*)nls) + (offset))
 #define fct fcts[numFct]
 
-	/* When this function is called, the position of the file is
-		at offset 128 (number of country/codepage pairs) */
-	if(!readStruct(entries))
-		return 0;
-	while(numE--) {
-		if(!readStruct(entry))
-			return 0;
-		if(entry.csys_cntry == cntry
-		 && (cp == NLS_DEFAULT || entry.csys_cp == cp)) {
-		 	/* Requested entry found! */
-		 	if(!seek(entry.csys_rpos)
-		 	 || !readStruct(entries))
-		 		return 0;
-			/* Now reading the function definitions at this position */
-			if(numE < 5) {
-				printf("Syntax error in COUNTRY.SYS: Too few subfunctions\n");
-				return 0;
-			}
-			/* If the file structure is good, each but one entry (0x23) is
-				one item within nlsPointers[] array */
-			fcts = KernelAlloc(sizeof(struct csys_function) * numE);
-			numFct = 0;		/* number of already loaded fct definition */
-			totalSize = 0;
-			{
-				if(!readStruct(fct))
-					return 0;
-				switch(fct.csys_fctID) {
-				case 0: case 0x20: case 0x21: case 0x22:
-						case 0xA0: case 0xA1: case 0xA2:
-					printf("Invalid subfunction %u ignored", fct.csys_fctID);
-					continue;
-				case 0x23:
-					if(fct.csys_length != 2) {
-						printf("Pseudo-table 35 length mismatch\n");
-						continue;
-					}
-				}
-				/* Search if the subfunction is already there */
-				for(j = 0; j < numFcts && fcts[j].csys_fctID != fct.csys_fctID
-				 ; ++j);
-				if(j != numFct) {
-					printf("Subfunction %u defined multiple times, ignored\n"
-					 , fct.csys_fctID);
-					continue;
-				}
+  /* When this function is called, the position of the file is
+     at offset 128 (number of country/codepage pairs) */
+  if (!readStruct(entries))
+    return 0;
+  while (numE--)
+  {
+    if (!readStruct(entry))
+      return 0;
+    if (entry.csys_cntry == cntry
+        && (cp == NLS_DEFAULT || entry.csys_cp == cp))
+    {
+      /* Requested entry found! */
+      if (!seek(entry.csys_rpos) || !readStruct(entries))
+        return 0;
+      /* Now reading the function definitions at this position */
+      if (numE < 5)
+      {
+        printf("Syntax error in COUNTRY.SYS: Too few subfunctions\n");
+        return 0;
+      }
+      /* If the file structure is good, each but one entry (0x23) is
+         one item within nlsPointers[] array */
+      fcts = KernelAlloc(sizeof(struct csys_function) * numE);
+      numFct = 0;               /* number of already loaded fct definition */
+      totalSize = 0;
+      {
+        if (!readStruct(fct))
+          return 0;
+        switch (fct.csys_fctID)
+        {
+          case 0:
+          case 0x20:
+          case 0x21:
+          case 0x22:
+          case 0xA0:
+          case 0xA1:
+          case 0xA2:
+            printf("Invalid subfunction %u ignored", fct.csys_fctID);
+            continue;
+          case 0x23:
+            if (fct.csys_length != 2)
+            {
+              printf("Pseudo-table 35 length mismatch\n");
+              continue;
+            }
+        }
+        /* Search if the subfunction is already there */
+        for (j = 0; j < numFcts && fcts[j].csys_fctID != fct.csys_fctID;
+             ++j) ;
+        if (j != numFct)
+        {
+          printf("Subfunction %u defined multiple times, ignored\n",
+                 fct.csys_fctID);
+          continue;
+        }
 
-				/* OK --> update the rpos member */
-				fct.csys_rpos += DosLtell(fd);
-				totalSize += fct.csys_length;
-				++numFct;
-			} while(--numE);
+        /* OK --> update the rpos member */
+        fct.csys_rpos += DosLtell(fd);
+        totalSize += fct.csys_length;
+        ++numFct;
+      }
+      while (--numE) ;
 
-			/* i is the number of available function definition */
-			/* check if all mandatory tables are loaded, at the same
-				time re-order the function definitions like that:
-					0x23, 1, 2, 4, 5
-			*/
+      /* i is the number of available function definition */
+      /* check if all mandatory tables are loaded, at the same
+         time re-order the function definitions like that:
+         0x23, 1, 2, 4, 5
+       */
 
-			/* That's automatically a check that more than 3 definitions
-				are available */
-			if(!chkTable(0, 0x23, fcts, numFct)	/* pseudo-table 0x23 yes/no */
-			 || !chkTable(1, 1, fcts, numFct)	/* ext cntry info */
-			 || !chkTable(2, 2, fcts, numFct)	/* normal upcase */
-			 || !chkTable(3, 4, fcts, numFct)	/* filename upcase */
-			 || !chkTable(4, 5, fcts, numFct))	/* filename terminator chars */
-			 	return 0;
+      /* That's automatically a check that more than 3 definitions
+         are available */
+      if (!chkTable(0, 0x23, fcts, numFct)      /* pseudo-table 0x23 yes/no */
+          || !chkTable(1, 1, fcts, numFct)      /* ext cntry info */
+          || !chkTable(2, 2, fcts, numFct)      /* normal upcase */
+          || !chkTable(3, 4, fcts, numFct)      /* filename upcase */
+          || !chkTable(4, 5, fcts, numFct))     /* filename terminator chars */
+        return 0;
 
-			/* Begin the loading process by to allocate memory as if
-				we had to load every byte */
-			/* One nlsPointers structure is already part of nlsPackage;
-				two function definitions need no nlsPointers entry (0x32, 1);
-				one additional byte is required by table 1, but which is
-				already within totalSize as the length of pseudo-table
-				0x23 has been counted. */
-			nls = KernelAlloc((data = sizeof(nlsPackage)
-			 + (numFct - 3) * sizeof(struct nlsPointer)) + totalSize);
-			/* data := first byte not used by the control area of
-				the nlsPackage structure; at this point it is the
-				offset where table #1 is to be loaded to*/
+      /* Begin the loading process by to allocate memory as if
+         we had to load every byte */
+      /* One nlsPointers structure is already part of nlsPackage;
+         two function definitions need no nlsPointers entry (0x32, 1);
+         one additional byte is required by table 1, but which is
+         already within totalSize as the length of pseudo-table
+         0x23 has been counted. */
+      nls = KernelAlloc((data = sizeof(nlsPackage)
+                         + (numFct - 3) * sizeof(struct nlsPointer)) +
+                        totalSize);
+      /* data := first byte not used by the control area of
+         the nlsPackage structure; at this point it is the
+         offset where table #1 is to be loaded to */
 
-			/* Install pseudo-table 0x23 */
-			if(!readFct((BYTE*)&nls->yeschar, fcts))
-				return 0;
-			nls->numSubfct = numFct - 1;	/* pseudo-table 0x23 */
+      /* Install pseudo-table 0x23 */
+      if (!readFct((BYTE *) & nls->yeschar, fcts))
+        return 0;
+      nls->numSubfct = numFct - 1;      /* pseudo-table 0x23 */
 
-			/* Install table #1 has it must overlay the last nlsPointers[]
-				item */
-			*bufp(data) = 1;		/* table #1 starts with the subfctID
-					then the data from the file follows */
-			if(!readFct(bufp(++data), ++fcts))
-				return 0;
-			data += fcts->csys_length;	/* first byte of local data area */
-			highmark = data;			/* first unused byte */
+      /* Install table #1 has it must overlay the last nlsPointers[]
+         item */
+      *bufp(data) = 1;          /* table #1 starts with the subfctID
+                                   then the data from the file follows */
+      if (!readFct(bufp(++data), ++fcts))
+        return 0;
+      data += fcts->csys_length;        /* first byte of local data area */
+      highmark = data;          /* first unused byte */
 
-			for(j = 0, poi = nls->nlsPointers; j < numFct - 1; ++j, ++poi) {
-				/* consecutively load all functions */
-				if(!readFct(bufp(data), ++fcts))
-					return 0;
-				poi->subfct = fcts->csys_fctID;
-				/* Now the function data is located at the current top of
-					used memory and, if allowed, the other memory is
-					tested, if such image is already loaded */
+      for (j = 0, poi = nls->nlsPointers; j < numFct - 1; ++j, ++poi)
+      {
+        /* consecutively load all functions */
+        if (!readFct(bufp(data), ++fcts))
+          return 0;
+        poi->subfct = fcts->csys_fctID;
+        /* Now the function data is located at the current top of
+           used memory and, if allowed, the other memory is
+           tested, if such image is already loaded */
 #ifndef NLS_MODIFYABLE_DATA
-				/* Try to locate the contents of the buffer */
-				/** brute force **/
-				/* For the standard tables one need to match tables
-					2 and 4 only. */
-				for(i = data; i + fcts->csys_length < highmark; ++i) {
-					if(memcmp(bufp(i), bufp(highmark), fcts->csys_length)
-					 == 0) {
-						/* found! */
-						/* ==> leave highmark untouch, but modify pointer */
-						poi->pointer = MK_FP(0, i);
-						/* the segment portion == 0 identifies this pointer
-							as local within the current data area */
-						goto nxtEntry;
-					}
-				}
-				/* Now try the hardcoded area */
-				for(p = hcTablesStart; p < hcTablesEnd - fcts->csys_length
-				 ; ++p) {
-					if(fmemcmp(p, bufp(highmark), fcts->csys_length) == 0) {
-						/* found! */
-						/* ==> leave highmark untouch, but modify pointer */
-						poi->pointer = p;
-						/* the segment portion != 0 identifies this is an
-							absolute pointer */
-						goto nxtEntry;
-					}
-				}
+        /* Try to locate the contents of the buffer */
+                                /** brute force **/
+        /* For the standard tables one need to match tables
+           2 and 4 only. */
+        for (i = data; i + fcts->csys_length < highmark; ++i)
+        {
+          if (memcmp(bufp(i), bufp(highmark), fcts->csys_length) == 0)
+          {
+            /* found! */
+            /* ==> leave highmark untouch, but modify pointer */
+            poi->pointer = MK_FP(0, i);
+            /* the segment portion == 0 identifies this pointer
+               as local within the current data area */
+            goto nxtEntry;
+          }
+        }
+        /* Now try the hardcoded area */
+        for (p = hcTablesStart; p < hcTablesEnd - fcts->csys_length; ++p)
+        {
+          if (fmemcmp(p, bufp(highmark), fcts->csys_length) == 0)
+          {
+            /* found! */
+            /* ==> leave highmark untouch, but modify pointer */
+            poi->pointer = p;
+            /* the segment portion != 0 identifies this is an
+               absolute pointer */
+            goto nxtEntry;
+          }
+        }
 #endif
-				/* Either not found or modifyable data allowed */
-				poi->pointer = MK_FP(0, highmark);	/* local address */
-				highmark += fcts->csys_length;		/* need to keep the data */
-			nxtEntry:
-			}
-				/* how many memory is really required */
-			Country.cfgCSYS_memory = highmark;
-			Country.cfgCSYS_data = nls;
-			return 1;
-		}
-	}
+        /* Either not found or modifyable data allowed */
+        poi->pointer = MK_FP(0, highmark);      /* local address */
+        highmark += fcts->csys_length;  /* need to keep the data */
+      nxtEntry:
+      }
+      /* how many memory is really required */
+      Country.cfgCSYS_memory = highmark;
+      Country.cfgCSYS_data = nls;
+      return 1;
+    }
+  }
 #undef numE
-	if(cp == NLS_DEFAULT)
-		printf("No definition of country ID %u in file \"%s\"\n",
-		 cntry, filename);
-	else
-		printf("No definition of country ID %u for codepage %u in file \"%s\"\n",
-		 cntry, cp, filename);
+  if (cp == NLS_DEFAULT)
+    printf("No definition of country ID %u in file \"%s\"\n",
+           cntry, filename);
+  else
+    printf
+        ("No definition of country ID %u for codepage %u in file \"%s\"\n",
+         cntry, cp, filename);
 
-	return 0;
+  return 0;
 }
 
 INIT BOOL LoadCountryInfo(char *fnam)
-{	COUNT fd;
-	int rc;
+{
+  COUNT fd;
+  int rc;
 
-	if(strlen(fnam) < sizeof(filename)) {
-		strcpy(filename, fnam);
-		if((fd = csysOpen()) >= 0) {
-			rc = csysLoadPackage(fd);
-			DosClose(fd);
-			return rc;
-		}
-	} else
-		printf("Filename too long\n");
-	return 0;
+  if (strlen(fnam) < sizeof(filename))
+  {
+    strcpy(filename, fnam);
+    if ((fd = csysOpen()) >= 0)
+    {
+      rc = csysLoadPackage(fd);
+      DosClose(fd);
+      return rc;
+    }
+  }
+  else
+    printf("Filename too long\n");
+  return 0;
 }
 
 /*
@@ -387,4 +415,3 @@ INIT BOOL LoadCountryInfo(char *fnam)
  * Add new files and update cvs with patches and changes
  *
  */
-

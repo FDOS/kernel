@@ -32,43 +32,43 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
-UWORD days[2][13] =
-{
+UWORD days[2][13] = {
   {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365},
   {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
 };
 
-extern request
-  ClkReqHdr;
-  
+extern request ClkReqHdr;
+
 /*
     return a pointer to an array with the days for that year
-*/      
+*/
 
 UWORD *is_leap_year_monthdays(UWORD y)
 {
- /* this is correct in a strict mathematical sense   
-    return ((y) & 3 ? days[0] : (y) % 100 ? days[1] : (y) % 400 ? days[0] : days[1]); */
- 
- /* this will work until 2200 - long enough for me - and saves 0x1f bytes */
- 
-    if ((y & 3) || y == 2100) return days[0];
-    
-    return days[1];
+  /* this is correct in a strict mathematical sense   
+     return ((y) & 3 ? days[0] : (y) % 100 ? days[1] : (y) % 400 ? days[0] : days[1]); */
+
+  /* this will work until 2200 - long enough for me - and saves 0x1f bytes */
+
+  if ((y & 3) || y == 2100)
+    return days[0];
+
+  return days[1];
 }
 
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth)
 {
-  if (Year < 1980) return 0;
-    
+  if (Year < 1980)
+    return 0;
+
   return DayOfMonth - 1
       + is_leap_year_monthdays(Year)[Month - 1]
-      + ((Year - 1980) * 365)
-      + ((Year - 1980 + 3) / 4);
-    
+      + ((Year - 1980) * 365) + ((Year - 1980 + 3) / 4);
+
 }
 
 /* common - call the clock driver */
@@ -80,14 +80,13 @@ void ExecuteClockDriverRequest(BYTE command)
   ClkReqHdr.r_trans = (BYTE FAR *) (&ClkRecord);
   ClkReqHdr.r_status = 0;
   execrh((request FAR *) & ClkReqHdr, (struct dhdr FAR *)clock);
-} 
+}
 
-  
-
-VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
+VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp,
+                BYTE FAR * hdp)
 {
   ExecuteClockDriverRequest(C_INPUT);
-    
+
   if (ClkReqHdr.r_status & S_ERROR)
     return;
 
@@ -99,8 +98,9 @@ VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
 
 COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd)
 {
-  BYTE Month, DayOfMonth, DayOfWeek; COUNT Year;
-    
+  BYTE Month, DayOfMonth, DayOfWeek;
+  COUNT Year;
+
   DosGetDate((BYTE FAR *) & DayOfWeek, (BYTE FAR *) & Month,
              (BYTE FAR *) & DayOfMonth, (COUNT FAR *) & Year);
 
@@ -119,21 +119,19 @@ COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd)
 }
 
 VOID DosGetDate(wdp, mp, mdp, yp)
-BYTE FAR *wdp,
-  FAR * mp,
-  FAR * mdp;
+BYTE FAR *wdp, FAR * mp, FAR * mdp;
 COUNT FAR *yp;
 {
   UWORD c;
-  UWORD *pdays;  
-  UWORD Year,Month;
+  UWORD *pdays;
+  UWORD Year, Month;
 
   ExecuteClockDriverRequest(C_INPUT);
 
   if (ClkReqHdr.r_status & S_ERROR)
     return;
 
-  for (Year = 1980, c = ClkRecord.clkDays; ;)
+  for (Year = 1980, c = ClkRecord.clkDays;;)
   {
     pdays = is_leap_year_monthdays(Year);
     if (c >= pdays[12])
@@ -154,7 +152,7 @@ COUNT FAR *yp;
   }
 
   *mp = Month;
-  *mdp = c - pdays[Month-1] + 1;
+  *mdp = c - pdays[Month - 1] + 1;
   *yp = Year;
 
   /* Day of week is simple. Take mod 7, add 2 (for Tuesday        */
@@ -164,19 +162,15 @@ COUNT FAR *yp;
 }
 
 COUNT DosSetDate(Month, DayOfMonth, Year)
-UWORD Month,
-  DayOfMonth,
-  Year;
+UWORD Month, DayOfMonth, Year;
 {
   UWORD *pdays;
-  pdays = is_leap_year_monthdays(Year);     
-  
+  pdays = is_leap_year_monthdays(Year);
+
   if (Year < 1980 || Year > 2099
       || Month < 1 || Month > 12
-      || DayOfMonth < 1
-      || DayOfMonth > pdays[Month] - pdays[Month-1])
+      || DayOfMonth < 1 || DayOfMonth > pdays[Month] - pdays[Month - 1])
     return DE_INVLDDATA;
-    
 
   DosGetTime((BYTE FAR *) & ClkRecord.clkHours,
              (BYTE FAR *) & ClkRecord.clkMinutes,

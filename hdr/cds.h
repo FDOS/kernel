@@ -28,30 +28,25 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *Cds_hRcsId = "$Id$";
+static BYTE *Cds_hRcsId =
+    "$Id$";
 #endif
 #endif
 
 #define MAX_CDSPATH 67
 
-struct cds
-{
+struct cds {
   BYTE cdsCurrentPath[MAX_CDSPATH];
   UWORD cdsFlags;
   struct dpb FAR *cdsDpb;
 
-  union
-  {
-    BYTE FAR *
-      _cdsRedirRec;
-    struct
-    {
+  union {
+    BYTE FAR *_cdsRedirRec;
+    struct {
       UWORD _cdsStrtClst;
       UWORD _cdsParam;
-    }
-    _cdsRedir;
-  }
-  _cdsUnion;
+    } _cdsRedir;
+  } _cdsUnion;
 
   UWORD cdsStoreUData;
 
@@ -67,11 +62,9 @@ struct cds
 #define cdsRedirRec _cdsUnion._cdsRedirRec
 #define cdsParam _cdsUnion._cdsRedir._cdsParam
 
-typedef struct _cdstbl
-{
+typedef struct _cdstbl {
   struct cds cds_table[26];
-}
-cdstbl;
+} cdstbl;
 
 /* Bits for cdsFlags                                            */
 #define CDSNETWDRV      0x8000

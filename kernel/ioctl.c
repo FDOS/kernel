@@ -30,7 +30,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 /*
@@ -53,21 +54,18 @@ static BYTE *RcsId = "$Id$";
 
 */
 
-
 COUNT DosDevIOctl(iregs FAR * r)
 {
   sft FAR *s;
   struct dpb FAR *dpbp;
   COUNT nMode;
 
-					/* commonly used, shouldn't harm to do front up */
+  /* commonly used, shouldn't harm to do front up */
 
   CharReqHdr.r_length = sizeof(request);
-  CharReqHdr.r_trans  = MK_FP(r->DS, r->DX);
+  CharReqHdr.r_trans = MK_FP(r->DS, r->DX);
   CharReqHdr.r_status = 0;
-  CharReqHdr.r_count  = r->CX;
-  
-
+  CharReqHdr.r_count = r->CX;
 
   /* Test that the handle is valid                                */
   switch (r->AL)
@@ -106,7 +104,7 @@ COUNT DosDevIOctl(iregs FAR * r)
 /* JPP - changed to use default drive if drive=0 */
 /* JT Fixed it */
 
-      CharReqHdr.r_unit = ( r->BL == 0 ? default_drive : r->BL - 1);
+      CharReqHdr.r_unit = (r->BL == 0 ? default_drive : r->BL - 1);
 
       if (CharReqHdr.r_unit >= lastdrive)
         return DE_INVLDDRV;
@@ -133,12 +131,12 @@ COUNT DosDevIOctl(iregs FAR * r)
   {
     case 0x00:
       /* Get the flags from the SFT                           */
-      if (s->sft_flags & SFT_FDEVICE)	    
-          r->AX = (s->sft_dev->dh_attr & 0xff00) | s->sft_flags_lo;
-      else	  
-          r->AX = s->sft_flags;
+      if (s->sft_flags & SFT_FDEVICE)
+        r->AX = (s->sft_dev->dh_attr & 0xff00) | s->sft_flags_lo;
+      else
+        r->AX = s->sft_flags;
 /* Undocumented result, Ax = Dx seen using Pcwatch */
-      r->DX = r->AX;	  
+      r->DX = r->AX;
       break;
 
     case 0x01:
@@ -165,36 +163,36 @@ COUNT DosDevIOctl(iregs FAR * r)
       nMode = C_IOCTLOUT;
     IoCharCommon:
       if ((s->sft_flags & SFT_FDEVICE)
-            || ((r->AL == 0x02 ) && (s->sft_dev->dh_attr & SFT_FIOCTL))
-            || ((r->AL == 0x03 ) && (s->sft_dev->dh_attr & SFT_FIOCTL))
-            || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
-            || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
+          || ((r->AL == 0x02) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+          || ((r->AL == 0x03) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+          || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
+          || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
       {
-          CharReqHdr.r_unit = 0;
-          CharReqHdr.r_command = nMode;
-          execrh((request FAR *) & CharReqHdr, s->sft_dev);
+        CharReqHdr.r_unit = 0;
+        CharReqHdr.r_command = nMode;
+        execrh((request FAR *) & CharReqHdr, s->sft_dev);
 
-          if (CharReqHdr.r_status & S_ERROR)
-          {
-            CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-            return DE_DEVICE;
-          }
+        if (CharReqHdr.r_status & S_ERROR)
+        {
+          CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
+          return DE_DEVICE;
+        }
 
-          if (r->AL == 0x07)
-          {
-            r->AL = CharReqHdr.r_status & S_BUSY ? 00 : 0xff;
+        if (r->AL == 0x07)
+        {
+          r->AL = CharReqHdr.r_status & S_BUSY ? 00 : 0xff;
 
-          }
-          else if (r->AL == 0x02 || r->AL == 0x03)
-          {
-            r->AX = CharReqHdr.r_count;
-          }
+        }
+        else if (r->AL == 0x02 || r->AL == 0x03)
+        {
+          r->AX = CharReqHdr.r_count;
+        }
 
-          else if (r->AL == 0x0c || r->AL == 0x10)
-          {
-            r->AX = CharReqHdr.r_status;
-          }
-          break;
+        else if (r->AL == 0x0c || r->AL == 0x10)
+        {
+          r->AX = CharReqHdr.r_status;
+        }
+        break;
       }
       return DE_INVLDFUNC;
 
@@ -210,44 +208,44 @@ COUNT DosDevIOctl(iregs FAR * r)
     case 0x05:
       nMode = C_IOCTLOUT;
     IoBlockCommon:
-      if(!dpbp)
+      if (!dpbp)
       {
         return DE_INVLDDRV;
       }
-      if ( ((r->AL == 0x04 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
-            || ((r->AL == 0x05 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
-            || ((r->AL == 0x11) && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
-            || ((r->AL == 0x0d) && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
+      if (((r->AL == 0x04) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
+          || ((r->AL == 0x05) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
+          || ((r->AL == 0x11)
+              && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
+          || ((r->AL == 0x0d)
+              && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
       {
         return DE_INVLDFUNC;
       }
 
-
       CharReqHdr.r_command = nMode;
-      execrh((request FAR *) & CharReqHdr,
-             dpbp->dpb_device);
+      execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
 
-        if (CharReqHdr.r_status & S_ERROR)
-        {
-            CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-            return DE_DEVICE;
-        }
-        if (r->AL == 0x08)
-        {
-            r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
+      if (CharReqHdr.r_status & S_ERROR)
+      {
+        CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
+        return DE_DEVICE;
+      }
+      if (r->AL == 0x08)
+      {
+        r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
 
-        }
+      }
 
-        else if (r->AL == 0x04 || r->AL == 0x05)
-        {
-            r->AX = CharReqHdr.r_count;
+      else if (r->AL == 0x04 || r->AL == 0x05)
+      {
+        r->AX = CharReqHdr.r_count;
 
-        }
-        else if (r->AL == 0x0d || r->AL == 0x11)
-        {
-            r->AX = CharReqHdr.r_status;
-        }
-        break;
+      }
+      else if (r->AL == 0x0d || r->AL == 0x11)
+      {
+        r->AX = CharReqHdr.r_status;
+      }
+      break;
 
     case 0x06:
       if (s->sft_flags & SFT_FDEVICE)
@@ -268,7 +266,7 @@ COUNT DosDevIOctl(iregs FAR * r)
       break;
 
     case 0x08:
-      if(!dpbp)
+      if (!dpbp)
       {
         return DE_INVLDDRV;
       }
@@ -280,21 +278,21 @@ COUNT DosDevIOctl(iregs FAR * r)
       return DE_INVLDFUNC;
 
     case 0x09:
-      if(CDSp->cds_table[CharReqHdr.r_unit].cdsFlags & CDSNETWDRV)
+      if (CDSp->cds_table[CharReqHdr.r_unit].cdsFlags & CDSNETWDRV)
+      {
+        r->DX = ATTR_REMOTE;
+        r->AX = S_DONE | S_BUSY;
+      }
+      else
+      {
+        if (!dpbp)
         {
-            r->DX = ATTR_REMOTE ;
-            r->AX = S_DONE|S_BUSY;
+          return DE_INVLDDRV;
         }
-        else
-        {
-            if(!dpbp)
-            {
-                return DE_INVLDDRV;
-            }
 /* Need to add subst bit 15  */
-            r->DX = dpbp->dpb_device->dh_attr;
-            r->AX = S_DONE|S_BUSY;
-        }
+        r->DX = dpbp->dpb_device->dh_attr;
+        r->AX = S_DONE | S_BUSY;
+      }
       break;
 
     case 0x0a:
@@ -308,17 +306,15 @@ COUNT DosDevIOctl(iregs FAR * r)
     case 0x0f:
       nMode = C_SETLDEV;
     IoLogCommon:
-      if(!dpbp)
+      if (!dpbp)
       {
         return DE_INVLDDRV;
       }
       if ((dpbp->dpb_device->dh_attr & ATTR_GENIOCTL))
       {
 
-
         CharReqHdr.r_command = nMode;
-        execrh((request FAR *) & CharReqHdr,
-               dpbp->dpb_device);
+        execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
 
         if (CharReqHdr.r_status & S_ERROR)
         {
@@ -327,8 +323,8 @@ COUNT DosDevIOctl(iregs FAR * r)
         }
         else
         {
-            r->AL = CharReqHdr.r_unit;
-            return SUCCESS;
+          r->AL = CharReqHdr.r_unit;
+          return SUCCESS;
         }
       }
       return DE_INVLDFUNC;
@@ -391,6 +387,3 @@ COUNT DosDevIOctl(iregs FAR * r)
  *    Rev 1.0   02 Jul 1995  8:32:04   patv
  * Initial revision.
  */
-
-
-

@@ -29,7 +29,8 @@
 #include "portab.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *stringsRcsId = "$Id$";
+static BYTE *stringsRcsId =
+    "$Id$";
 #endif
 
 #ifndef I86
@@ -187,4 +188,3 @@ BYTE *strchr(BYTE * s, BYTE c)
  *    Rev 1.0   02 Jul 1995  8:33:46   patv
  * Initial revision.
  */
-

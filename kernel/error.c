@@ -29,7 +29,8 @@
 #include "portab.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *errorRcsId = "$Id$";
+static BYTE *errorRcsId =
+    "$Id$";
 #endif
 
 #include "globals.h"
@@ -39,19 +40,11 @@ static BYTE *errorRcsId = "$Id$";
 VOID dump(void)
 {
   printf("Register Dump [AH = %02x CS:IP = %04x:%04x]\n",
-         error_regs.AH,
-         error_regs.CS,
-         error_regs.IP);
+         error_regs.AH, error_regs.CS, error_regs.IP);
   printf("AX:%04x BX:%04x CX:%04x DX:%04x\n",
-         error_regs.AX,
-         error_regs.BX,
-         error_regs.CX,
-         error_regs.DX);
+         error_regs.AX, error_regs.BX, error_regs.CX, error_regs.DX);
   printf("SI:%04x DI:%04x DS:%04x ES:%04x\n",
-         error_regs.SI,
-         error_regs.DI,
-         error_regs.DS,
-         error_regs.ES);
+         error_regs.SI, error_regs.DI, error_regs.DS, error_regs.ES);
 }
 #endif
 
@@ -82,21 +75,15 @@ VOID fatal(BYTE * err_msg)
 /* Abort, retry or fail for character devices                   */
 COUNT char_error(request * rq, struct dhdr FAR * lpDevice)
 {
-  return CriticalError(
-                        EFLG_CHAR | EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE,
-                        0,
-                        rq->r_status & S_MASK,
-                        lpDevice);
+  return CriticalError(EFLG_CHAR | EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE,
+                       0, rq->r_status & S_MASK, lpDevice);
 }
 
 /* Abort, retry or fail for block devices                       */
 COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice)
 {
-  return CriticalError(
-                        EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE,
-                        nDrive,
-                        rq->r_status & S_MASK,
-                        lpDevice);
+  return CriticalError(EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE,
+                       nDrive, rq->r_status & S_MASK, lpDevice);
 }
 
 /*
@@ -139,4 +126,3 @@ COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice)
  *    Rev 1.0   02 Jul 1995  8:06:14   patv
  * Initial revision.
  */
-

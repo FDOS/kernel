@@ -26,7 +26,8 @@
 /****************************************************************/
 
 #ifdef VERSION_STRINGS
-static BYTE *mainRcsId = "$Id$";
+static BYTE *mainRcsId =
+    "$Id$";
 #endif
 
 #include        "portab.h"
@@ -39,8 +40,7 @@ static BYTE *mainRcsId = "$Id$";
 */
 int SetJFTSize(UWORD nHandles)
 {
-  UWORD block,
-    maxBlock;
+  UWORD block, maxBlock;
   psp FAR *ppsp = MK_FP(cu_psp, 0);
   UBYTE FAR *newtab;
   COUNT i;
@@ -51,7 +51,8 @@ int SetJFTSize(UWORD nHandles)
     return SUCCESS;
   }
 
-  if ((DosMemAlloc((nHandles + 0xf) >> 4, mem_access_mode, &block, &maxBlock)) < 0)
+  if ((DosMemAlloc
+       ((nHandles + 0xf) >> 4, mem_access_mode, &block, &maxBlock)) < 0)
     return DE_NOMEM;
 
   ++block;
@@ -74,13 +75,8 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 {
   /* create filename from current date and time */
   char FAR *ptmp = pathname;
-  BYTE wd,
-    month,
-    day;
-  BYTE h,
-    m,
-    s,
-    hund;
+  BYTE wd, month, day;
+  BYTE h, m, s, hund;
   WORD sh;
   WORD year;
   int rc;
@@ -98,40 +94,39 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 
   sh = s * 100 + hund;
 
-    for ( loop = 0; loop < 0xfff; loop++)
-        {
-        sprintf(name83,"%x%x%x%x%x%03x.%03x",
+  for (loop = 0; loop < 0xfff; loop++)
+  {
+    sprintf(name83, "%x%x%x%x%x%03x.%03x",
+            year & 0xf, month & 0xf, day & 0xf, h & 0xf, m & 0xf,
+            sh & 0xfff, loop & 0xfff);
 
-             year & 0xf,month & 0xf, day & 0xf,h & 0xf,m & 0xf, sh&0xfff,
-             loop & 0xfff);
+    fmemcpy(ptmp, name83, 13);
 
-        fmemcpy(ptmp, name83, 13);
+    if ((rc = DosOpen(pathname, 0)) < 0 && rc != DE_ACCESS      /* subdirectory ?? */
+        /* todo: sharing collision on
+           network drive
+         */
+        )
+      break;
 
-        if ((rc = DosOpen(pathname, 0)) < 0 &&
-             rc != DE_ACCESS                /* subdirectory ?? */
-                                            /* todo: sharing collision on
-                                               network drive
-                                            */
-            )
-            break;
+    if (rc >= 0)
+      DosClose(rc);
+  }
 
-        if (rc >= 0) DosClose(rc);
-        }
-
-    if (rc == DE_FILENOTFND)
-    {
-        rc = DosCreat(pathname, attr);
-    }
-    return rc;
+  if (rc == DE_FILENOTFND)
+  {
+    rc = DosCreat(pathname, attr);
+  }
+  return rc;
 }
 
-COUNT get_verify_drive(char FAR *src)
+COUNT get_verify_drive(char FAR * src)
 {
   UBYTE drive;
 
   /* Do we have a drive?                                          */
   if (src[1] == ':')
-    drive = ((src[0]-1) | 0x20) - ('a'-1);
+    drive = ((src[0] - 1) | 0x20) - ('a' - 1);
   else
     return default_drive;
   if (drive < lastdrive && CDSp->cds_table[drive].cdsFlags & CDSVALID)
@@ -147,7 +142,7 @@ COUNT get_verify_drive(char FAR *src)
  * MSD returns \\D.\A.\????????.??? with SHSUCDX. So, this code is not
  * compatible MSD Func 60h.
  */
- 
+
 /*TE TODO:
 
     experimenting with NUL on MSDOS 7.0 (win95)
@@ -161,13 +156,13 @@ COUNT get_verify_drive(char FAR *src)
     TRUENAME A:NUL      A:/NUL             OK
     TRUENAME A:\NUL     A:\NUL
 
-*/ 
- 
+*/
+
 COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
   char *bufp = buf + 3;
-  COUNT i, rootEndPos = 2;     /* renamed x to rootEndPos - Ron Cemer */
+  COUNT i, rootEndPos = 2;      /* renamed x to rootEndPos - Ron Cemer */
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
   WORD d;
@@ -176,10 +171,10 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
 
   i = get_verify_drive(src);
   if (i < 0)
-      return DE_INVLDDRV;
-  
+    return DE_INVLDDRV;
+
   buf[0] = i + 'A';
-  buf[1] = ':'; /* Just to be sure */
+  buf[1] = ':';                 /* Just to be sure */
 
   /* First, adjust the source pointer */
   src = adjust_far(src);
@@ -193,42 +188,51 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
     MSD returns X:/CON for truename con. Not X:\CON
 */
   /* check for a device  */
-  
-  if ((*src != '.') && (*src != '\\') && (*src != '/') && ((dhp = IsDevice(src)) != NULL))
-    {
-  
+
+  if ((*src != '.') && (*src != '\\') && (*src != '/')
+      && ((dhp = IsDevice(src)) != NULL))
+  {
+
     froot = get_root(src);
 
     /* /// Bugfix: NUL.LST is the same as NUL.  This is true for all
-           devices.  On a device name, the extension is irrelevant
-           as long as the name matches.
-           - Ron Cemer */
-           
-    buf[2] ='/';
-        /* /// Bug: should be only copying up to first space.
-               - Ron Cemer */
-        
-    for (d = 0; d < FNAME_SIZE && dhp->dh_name[d] != 0 && dhp->dh_name[d] != ' '; d++)
-        *bufp++ = dhp->dh_name[d];
-        /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
-               DOS will also return C:/NUL.??? if you pass NUL.* in.
-               Code added here to support this.
-               - Ron Cemer */
-    while ( (*froot != '.') && (*froot != '\0') ) froot++;
-    if (*froot) froot++;
-    if (*froot) {
-        *bufp++ = '.';
-        for (i = 0; i < FEXT_SIZE; i++) {
-            if ( (*froot == '\0') || (*froot == '.') )
-                break;
-            if (*froot == '*') {
-                for (; i < FEXT_SIZE; i++) *bufp++ = '?';
-                break;
-            }
-            *bufp++ = *froot++;
+       devices.  On a device name, the extension is irrelevant
+       as long as the name matches.
+       - Ron Cemer */
+
+    buf[2] = '/';
+    /* /// Bug: should be only copying up to first space.
+       - Ron Cemer */
+
+    for (d = 0;
+         d < FNAME_SIZE && dhp->dh_name[d] != 0 && dhp->dh_name[d] != ' ';
+         d++)
+      *bufp++ = dhp->dh_name[d];
+    /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
+       DOS will also return C:/NUL.??? if you pass NUL.* in.
+       Code added here to support this.
+       - Ron Cemer */
+    while ((*froot != '.') && (*froot != '\0'))
+      froot++;
+    if (*froot)
+      froot++;
+    if (*froot)
+    {
+      *bufp++ = '.';
+      for (i = 0; i < FEXT_SIZE; i++)
+      {
+        if ((*froot == '\0') || (*froot == '.'))
+          break;
+        if (*froot == '*')
+        {
+          for (; i < FEXT_SIZE; i++)
+            *bufp++ = '?';
+          break;
         }
+        *bufp++ = *froot++;
+      }
     }
-        /* /// End of code additions.  - Ron Cemer */
+    /* /// End of code additions.  - Ron Cemer */
     goto exit_tn;
   }
 
@@ -240,28 +244,33 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
    *     path to the executable file.
    *     Jun 11, 2000 - rbc */
   /* /// Changed to "while" from "if".  - Ron Cemer */
-  while ( (src[0] == '.') && (src[1] == '\\') ) src += 2;
-    
+  while ((src[0] == '.') && (src[1] == '\\'))
+    src += 2;
+
   current_ldt = &CDSp->cds_table[i];
 
   /* Always give the redirector a chance to rewrite the filename */
   fstrncpy(bufp - 1, src, sizeof(buf) - (bufp - buf));
-  if ((t == FALSE) && (QRemote_Fn(buf, dest) == SUCCESS) && (dest[0] != '\0')) {
+  if ((t == FALSE) && (QRemote_Fn(buf, dest) == SUCCESS)
+      && (dest[0] != '\0'))
+  {
     return SUCCESS;
-  } else {
+  }
+  else
+  {
     bufp[-1] = '\\';
   }
-    if (t == FALSE)
-    {
-      fstrncpy(buf, current_ldt->cdsCurrentPath, current_ldt->cdsJoinOffset);
-      bufp = buf + current_ldt->cdsJoinOffset;
-      rootEndPos = current_ldt->cdsJoinOffset; /* renamed x to rootEndPos - Ron Cemer */
-      *bufp++ = '\\';
-    }
-
-  if (*src != '\\' && *src != '/')	/* append current dir */
+  if (t == FALSE)
   {
-    DosGetCuDir((UBYTE)(i+1), bufp);
+    fstrncpy(buf, current_ldt->cdsCurrentPath, current_ldt->cdsJoinOffset);
+    bufp = buf + current_ldt->cdsJoinOffset;
+    rootEndPos = current_ldt->cdsJoinOffset;    /* renamed x to rootEndPos - Ron Cemer */
+    *bufp++ = '\\';
+  }
+
+  if (*src != '\\' && *src != '/')      /* append current dir */
+  {
+    DosGetCuDir((UBYTE) (i + 1), bufp);
     if (*bufp)
     {
       while (*bufp)
@@ -274,16 +283,16 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
 
 /*move_name:*/
 
-    /* /// The block inside the "#if (0) ... #endif" is
-           seriously broken.  New code added below to replace it.
-           This eliminates many serious bugs, specifically
-           with FreeCOM where truename is required to work
-           according to the DOS specification in order for
-           the COPY and other file-related commands to work
-           properly.
-           This should be a major improvement to all apps which
-           use truename.
-           - Ron Cemer */
+  /* /// The block inside the "#if (0) ... #endif" is
+     seriously broken.  New code added below to replace it.
+     This eliminates many serious bugs, specifically
+     with FreeCOM where truename is required to work
+     according to the DOS specification in order for
+     the COPY and other file-related commands to work
+     properly.
+     This should be a major improvement to all apps which
+     use truename.
+     - Ron Cemer */
 
 #if (0)
 /*
@@ -291,14 +300,14 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
  *  function are operating with in normal parms.
  *  jt
  */
-    n = 9;
+  n = 9;
   /* convert all forward slashes to backslashes, and uppercase all characters */
   while (*src)
   {
     char c;
     c = *src++;
-    if(!n)
-        return DE_PATHNOTFND; /* do this for now */
+    if (!n)
+      return DE_PATHNOTFND;     /* do this for now */
     n--;
     switch (c)
     {
@@ -327,9 +336,10 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
       case '/':                /* convert to backslash */
       case '\\':
 
-        if (bufp[-1] != '\\'){
-            *bufp++ = '\\';
-            n = 9;
+        if (bufp[-1] != '\\')
+        {
+          *bufp++ = '\\';
+          n = 9;
         }
         break;
 
@@ -343,7 +353,7 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
 
             for (bufp -= 2; *bufp != '\\'; bufp--)
             {
-              if (bufp < buf + rootEndPos)   /* '..' illegal in root dir */
+              if (bufp < buf + rootEndPos)      /* '..' illegal in root dir */
                 return DE_PATHNOTFND;
             }
             src++;
@@ -351,20 +361,20 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
               bufp++;
           }
           else if (*src == '/' || *src == '\\' || *src == 0)
-                break;
-              /*  --bufp;*/
-            else
-                return DE_PATHNOTFND;
+            break;
+          /*  --bufp; */
+          else
+            return DE_PATHNOTFND;
         }
-        else if ( *src == '/' || *src == '\\' || *src == 0)
-            {
-                break;
-            }
-            else
-            {
-                n = 4;
-                *bufp++ = c;
-            }
+        else if (*src == '/' || *src == '\\' || *src == 0)
+        {
+          break;
+        }
+        else
+        {
+          n = 4;
+          *bufp++ = c;
+        }
         break;
 
       default:
@@ -379,110 +389,138 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
 #endif
 
 /* /// Beginning of new code.  - Ron Cemer */
-    bufp--;
+  bufp--;
+  {
+    char c, *bufend = buf + (sizeof(buf) - 1);
+    int gotAnyWildcards = 0;
+    int seglen, copylen, state;
+    while ((*src) && (bufp < bufend))
     {
-        char c, *bufend = buf+(sizeof(buf)-1);
-        int gotAnyWildcards = 0;
-        int seglen, copylen, state;
-        while ( (*src) && (bufp < bufend) ) {
-                /* Skip duplicated slashes. */
-            while ( (*src == '/') || (*src == '\\') ) src++;
-            if (!(*src)) break;
-                /* Find the end of this segment in the source string. */
-            for (seglen = 0; ; seglen++) {
-                c = src[seglen];
-                if ( (c == '\0') || (c == '/') || (c == '\\') )
-                    break;
+      /* Skip duplicated slashes. */
+      while ((*src == '/') || (*src == '\\'))
+        src++;
+      if (!(*src))
+        break;
+      /* Find the end of this segment in the source string. */
+      for (seglen = 0;; seglen++)
+      {
+        c = src[seglen];
+        if ((c == '\0') || (c == '/') || (c == '\\'))
+          break;
+      }
+      if (seglen > 0)
+      {
+        /* Ignore all ".\" or "\." path segments. */
+        if ((seglen != 1) || (*src != '.'))
+        {
+          /* Apply ".." to the path by removing
+             last path segment from buf. */
+          if ((seglen == 2) && (src[0] == '.') && (src[1] == '.'))
+          {
+            if (bufp > (buf + rootEndPos))
+            {
+              bufp--;
+              while ((bufp > (buf + rootEndPos))
+                     && (*bufp != '/') && (*bufp != '\\'))
+                bufp--;
             }
-            if (seglen > 0) {
-                    /* Ignore all ".\" or "\." path segments. */
-                if ( (seglen != 1) || (*src != '.') ) {
-                        /* Apply ".." to the path by removing
-                           last path segment from buf. */
-                    if ( (seglen==2) && (src[0] == '.') && (src[1] == '.') ) {
-                        if (bufp > (buf+rootEndPos)) {
-                            bufp--;
-                            while (   (bufp > (buf+rootEndPos))
-                                   && (*bufp != '/')
-                                   && (*bufp != '\\')   )
-                                bufp--;
-                        } else {
-			    /* .. in root dir illegal */			
-			    return DE_PATHNOTFND;		
-			}
-                    } else {
-                            /* New segment.  If any wildcards in previous
-                               segment(s), this is an invalid path. */
-                        if (gotAnyWildcards || src[0]=='.') return DE_PATHNOTFND;
-                            /* Append current path segment to result. */
-                        *(bufp++) = '\\';
-                        if (bufp >= bufend) break;
-                        copylen = state = 0;
-                        for (i=0; ( (i < seglen) && (bufp < bufend) ); i++) {
-                            c = src[i];
-                            gotAnyWildcards |= ( (c == '?') || (c == '*') );
-                            switch (state) {
-                            case 0: /* Copying filename (excl. extension) */
-                                if (c == '*') {
-                                    while (copylen < FNAME_SIZE) {
-                                        *(bufp++) = '?';
-                                        if (bufp >= bufend) break;
-                                        copylen++;
-                                    }
-                                    copylen = 0;
-                                    state = 1;  /* Go wait for dot */
-                                    break;
-                                }
-                                if (c == '.') {
-                                    if (src[i+1] != '.' && i+1 < seglen) *(bufp++) = '.';
-                                    copylen = 0;
-                                    state = 2;  /* Copy extension next */
-                                    break;
-                                }
-                                *(bufp++) = c;
-                                copylen++;
-                                if (copylen >= FNAME_SIZE) {
-                                    copylen = 0;
-                                    state = 1;  /* Go wait for dot */
-                                    break;
-                                }
-                                break;
-                            case 1: /* Looking for dot so we can copy exten */
-                                if (src[i] == '.' && src[i+1] != '.' && i+1 < seglen) {
-                                    *(bufp++) = '.';
-                                    state = 2;
-                                }
-                                break;
-                            case 2: /* Copying extension */
-                                if (c == '*') {
-                                    while (copylen < FEXT_SIZE) {
-                                        *(bufp++) = '?';
-                                        if (bufp >= bufend) break;
-                                        copylen++;
-                                    }
-                                    i = seglen;     /* Done with segment */
-                                    break;
-                                }
-                                if (c == '.') {
-                                    i = seglen;     /* Done with segment */
-                                    break;
-                                }
-                                *(bufp++) = c;
-                                copylen++;
-                                if (copylen >= FEXT_SIZE) {
-                                    i = seglen;     /* Done with segment */
-                                    break;
-                                }
-                                break;
-                            }
-                        }
+            else
+            {
+              /* .. in root dir illegal */
+              return DE_PATHNOTFND;
+            }
+          }
+          else
+          {
+            /* New segment.  If any wildcards in previous
+               segment(s), this is an invalid path. */
+            if (gotAnyWildcards || src[0] == '.')
+              return DE_PATHNOTFND;
+            /* Append current path segment to result. */
+            *(bufp++) = '\\';
+            if (bufp >= bufend)
+              break;
+            copylen = state = 0;
+            for (i = 0; ((i < seglen) && (bufp < bufend)); i++)
+            {
+              c = src[i];
+              gotAnyWildcards |= ((c == '?') || (c == '*'));
+              switch (state)
+              {
+                case 0:        /* Copying filename (excl. extension) */
+                  if (c == '*')
+                  {
+                    while (copylen < FNAME_SIZE)
+                    {
+                      *(bufp++) = '?';
+                      if (bufp >= bufend)
+                        break;
+                      copylen++;
                     }
-                }
-            }   /* if (seglen > 0) */
-            src += seglen;
-            if (*src) src++;
-        }   /* while ( (*src) && (bufp < bufend) ) */
-    }
+                    copylen = 0;
+                    state = 1;  /* Go wait for dot */
+                    break;
+                  }
+                  if (c == '.')
+                  {
+                    if (src[i + 1] != '.' && i + 1 < seglen)
+                      *(bufp++) = '.';
+                    copylen = 0;
+                    state = 2;  /* Copy extension next */
+                    break;
+                  }
+                  *(bufp++) = c;
+                  copylen++;
+                  if (copylen >= FNAME_SIZE)
+                  {
+                    copylen = 0;
+                    state = 1;  /* Go wait for dot */
+                    break;
+                  }
+                  break;
+                case 1:        /* Looking for dot so we can copy exten */
+                  if (src[i] == '.' && src[i + 1] != '.' && i + 1 < seglen)
+                  {
+                    *(bufp++) = '.';
+                    state = 2;
+                  }
+                  break;
+                case 2:        /* Copying extension */
+                  if (c == '*')
+                  {
+                    while (copylen < FEXT_SIZE)
+                    {
+                      *(bufp++) = '?';
+                      if (bufp >= bufend)
+                        break;
+                      copylen++;
+                    }
+                    i = seglen; /* Done with segment */
+                    break;
+                  }
+                  if (c == '.')
+                  {
+                    i = seglen; /* Done with segment */
+                    break;
+                  }
+                  *(bufp++) = c;
+                  copylen++;
+                  if (copylen >= FEXT_SIZE)
+                  {
+                    i = seglen; /* Done with segment */
+                    break;
+                  }
+                  break;
+              }
+            }
+          }
+        }
+      }                         /* if (seglen > 0) */
+      src += seglen;
+      if (*src)
+        src++;
+    }                           /* while ( (*src) && (bufp < bufend) ) */
+  }
 /* /// End of new code.  - Ron Cemer */
 
   if (bufp == buf + 2)
@@ -553,4 +591,3 @@ exit_tn:
  *    Rev 1.1   22 Jan 1997 13:21:22   patv
  * pre-0.92 Svante Frey bug fixes.
  */
-

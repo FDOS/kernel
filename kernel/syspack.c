@@ -31,7 +31,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *syspackRcsId = "$Id$";
+static BYTE *syspackRcsId =
+    "$Id$";
 #endif
 
 #ifdef NONNATIVE
@@ -55,7 +56,8 @@ VOID getbyte(VOID * vp, BYTE * bp)
 
 VOID fgetword(REG VOID FAR * vp, WORD FAR * wp)
 {
-  *wp = (((BYTE FAR *) vp)[0] & 0xff) + ((((BYTE FAR *) vp)[1] & 0xff) << 8);
+  *wp =
+      (((BYTE FAR *) vp)[0] & 0xff) + ((((BYTE FAR *) vp)[1] & 0xff) << 8);
 }
 
 VOID fgetlong(REG VOID FAR * vp, LONG FAR * lp)

@@ -30,13 +30,13 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *clock_hRcsId = "$Id$";
+static BYTE *clock_hRcsId =
+    "$Id$";
 #endif
 #endif
 
 /* Internal drive parameter block                               */
-struct dpb
-{
+struct dpb {
   BYTE dpb_unit;                /* unit for error reporting     */
   BYTE dpb_subunit;             /* the sub-unit for driver      */
   UWORD dpb_secsize;            /* sector size                  */
@@ -56,41 +56,39 @@ struct dpb
   struct dpb FAR *              /* next dpb in chain            */
     dpb_next;                   /* -1 = end                     */
   UWORD dpb_cluster;            /* cluster # of first free      */
-                                /* -1 if not known              */
+  /* -1 if not known              */
 #ifndef WITHFAT32
-  UWORD dpb_nfreeclst;          /* number of free clusters      */    
-                                /* -1 if not known              */
-#else    
-  union
-  {
-    struct
-    {
+  UWORD dpb_nfreeclst;          /* number of free clusters      */
+  /* -1 if not known              */
+#else
+  union {
+    struct {
       UWORD dpb_nfreeclst_lo;
       UWORD dpb_nfreeclst_hi;
     } dpb_nfreeclst_st;
-    ULONG _dpb_xnfreeclst;      /* number of free clusters      */    
-                                /* -1 if not known              */
+    ULONG _dpb_xnfreeclst;      /* number of free clusters      */
+    /* -1 if not known              */
   } dpb_nfreeclst_un;
-  #define dpb_nfreeclst dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_lo
-  #define dpb_xnfreeclst dpb_nfreeclst_un._dpb_xnfreeclst    
-      
+#define dpb_nfreeclst dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_lo
+#define dpb_xnfreeclst dpb_nfreeclst_un._dpb_xnfreeclst
+
   UWORD dpb_xflags;             /* extended flags, see bpb      */
   UWORD dpb_xfsinfosec;         /* FS info sector number,       */
-                                /* 0xFFFF if unknown            */
+  /* 0xFFFF if unknown            */
   UWORD dpb_xbackupsec;         /* backup boot sector number    */
-                                /* 0xFFFF if unknown            */
+  /* 0xFFFF if unknown            */
   ULONG dpb_xdata;
   ULONG dpb_xsize;              /* # of clusters+1 on media     */
   ULONG dpb_xfatsize;           /* # of sectors / FAT           */
   ULONG dpb_xrootclst;          /* starting cluster of root dir */
   ULONG dpb_xcluster;           /* cluster # of first free      */
-                                /* -1 if not known              */
-#endif    
+  /* -1 if not known              */
+#endif
 };
 
-#define UNKNCLUSTER      0x0000      /* see RBIL INT 21/AH=52 entry */
-#define XUNKNCLSTFREE    0xffffffffl /* unknown for DOS */
-#define UNKNCLSTFREE     0xffff      /* unknown for DOS */
+#define UNKNCLUSTER      0x0000 /* see RBIL INT 21/AH=52 entry */
+#define XUNKNCLSTFREE    0xffffffffl    /* unknown for DOS */
+#define UNKNCLSTFREE     0xffff /* unknown for DOS */
 
 /*
  * Log: dcb.h,v 

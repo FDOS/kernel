@@ -31,7 +31,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 /* see RBIL D-2152 and D-215D06 before attempting
@@ -66,4 +67,3 @@ VOID set_machine_name(BYTE FAR * netname, UWORD name_num)
  * *** empty log message ***
  *
  */
-

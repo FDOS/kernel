@@ -30,25 +30,22 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *fnode_hRcsId = "$Id$";
+static BYTE *fnode_hRcsId =
+    "$Id$";
 #endif
 #endif
 
-
-struct f_node
-{
+struct f_node {
   UWORD f_count;                /* number of uses of this file  */
   COUNT f_mode;                 /* read, write, read-write, etc */
 
-  struct
-  {
+  struct {
     BITS f_dmod:1;              /* directory has been modified  */
     BITS f_droot:1;             /* directory is the root        */
     BITS f_dnew:1;              /* fnode is new and needs fill  */
     BITS f_ddir:1;              /* fnode is assigned to dir     */
     BITS f_ddate:1;             /* date set using setdate       */
-  }
-  f_flags;                      /* file flags                   */
+  } f_flags;                    /* file flags                   */
 
   struct dirent f_dir;          /* this file's dir entry image  */
 
@@ -67,21 +64,20 @@ struct f_node
 };
 
 #if 0
-struct lfn_inode
- {
+struct lfn_inode {
   UNICODE name[255];
 
   struct dirent l_dir;          /* this file's dir entry image  */
 
   ULONG l_diroff;               /* offset of the dir entry      */
   CLUSTER l_dirstart;           /* the starting cluster of dir  */
-                              	/* when dir is not root         */
- };
+  /* when dir is not root         */
+};
 
-typedef struct lfn_inode FAR * lfn_inode_ptr;
+typedef struct lfn_inode FAR *lfn_inode_ptr;
 #endif
 
-typedef struct f_node * f_node_ptr;
+typedef struct f_node *f_node_ptr;
 
 /*
  * Log: fnode.h,v 

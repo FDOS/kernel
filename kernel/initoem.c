@@ -31,7 +31,8 @@
 #include "init-mod.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 UWORD init_oem(void)
@@ -42,7 +43,7 @@ UWORD init_oem(void)
   asm
   {
     int 0x12;
-    mov top_k,ax;
+    mov top_k, ax;
   }
 #else
   __int__(0x12);
@@ -94,4 +95,3 @@ UWORD init_oem(void)
  *    Rev 1.0   02 Jul 1995  8:31:54   patv
  * Initial revision.
  */
-

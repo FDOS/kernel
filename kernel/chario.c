@@ -31,7 +31,8 @@
 #include "portab.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *charioRcsId = "$Id$";
+static BYTE *charioRcsId =
+    "$Id$";
 #endif
 
 #include "globals.h"
@@ -67,26 +68,28 @@ struct dhdr FAR *finddev(UWORD attr_mask)
 
 VOID _cso(COUNT c)
 {
-   if (syscon->dh_attr & ATTR_FASTCON) {
-	 #if defined(__TURBOC__)   	
-     	_AL = c;
-     	__int__(0x29);
-     #else
-     	asm {
-     		mov al, byte ptr c;
-     		int 0x29;
-     	}
-     #endif	
-     return;
-   }
-   CharReqHdr.r_length = sizeof(request);
-   CharReqHdr.r_command = C_OUTPUT;
-   CharReqHdr.r_count = 1;
-   CharReqHdr.r_trans = (BYTE FAR *) (&c);
-   CharReqHdr.r_status = 0;
-   execrh((request FAR *) & CharReqHdr, syscon);
-   if (CharReqHdr.r_status & S_ERROR)
-     char_error(&CharReqHdr, syscon);
+  if (syscon->dh_attr & ATTR_FASTCON)
+  {
+#if defined(__TURBOC__)
+    _AL = c;
+    __int__(0x29);
+#else
+    asm
+    {
+      mov al, byte ptr c;
+      int 0x29;
+    }
+#endif
+    return;
+  }
+  CharReqHdr.r_length = sizeof(request);
+  CharReqHdr.r_command = C_OUTPUT;
+  CharReqHdr.r_count = 1;
+  CharReqHdr.r_trans = (BYTE FAR *) (&c);
+  CharReqHdr.r_status = 0;
+  execrh((request FAR *) & CharReqHdr, syscon);
+  if (CharReqHdr.r_status & S_ERROR)
+    char_error(&CharReqHdr, syscon);
 }
 
 VOID cso(COUNT c)
@@ -95,7 +98,7 @@ VOID cso(COUNT c)
   con_hold();
 
   if (PrinterEcho)
-    DosWrite(STDPRN, 1, (BYTE FAR *) & c, (COUNT FAR *) &UnusedRetVal);
+    DosWrite(STDPRN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal);
 
   switch (c)
   {
@@ -106,20 +109,24 @@ VOID cso(COUNT c)
     case BELL:
       break;
     case BS:
-      if (scr_pos > 0) scr_pos--;
+      if (scr_pos > 0)
+        scr_pos--;
       break;
     case HT:
-      do _cso(' '); while ((++scr_pos) & 7);
+      do
+        _cso(' ');
+      while ((++scr_pos) & 7);
       break;
     default:
       scr_pos++;
   }
-  if (c != HT) _cso(c);
+  if (c != HT)
+    _cso(c);
 }
 
 VOID sto(COUNT c)
 {
-  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) &UnusedRetVal);
+  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal);
 }
 
 VOID mod_cso(REG UCOUNT c)
@@ -169,11 +176,11 @@ COUNT ndread(void)
 COUNT con_read(void)
 {
   BYTE c;
-    
+
   CharReqHdr.r_length = sizeof(request);
   CharReqHdr.r_command = C_INPUT;
   CharReqHdr.r_count = 1;
-  CharReqHdr.r_trans = (BYTE FAR *)&c;
+  CharReqHdr.r_trans = (BYTE FAR *) & c;
   CharReqHdr.r_status = 0;
   execrh((request FAR *) & CharReqHdr, syscon);
   if (CharReqHdr.r_status & S_ERROR)
@@ -186,7 +193,7 @@ COUNT con_read(void)
 VOID con_hold(void)
 {
   UBYTE c = ndread();
-  if(c == CTL_S)
+  if (c == CTL_S)
   {
     con_read();
     Do_DosIdle_loop();
@@ -210,8 +217,9 @@ UCOUNT _sti(BOOL check_break)
   Do_DosIdle_loop();
   if (check_break)
     con_hold();
-  while (GenericRead(STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal, TRUE)
-         != 1) ;
+  while (GenericRead
+         (STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal,
+          TRUE) != 1) ;
   return c;
 }
 
@@ -285,11 +293,9 @@ static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
 /* return number of characters before EOF if there is one, else just the total */
 UCOUNT sti_0a(keyboard FAR * kp)
 {
-  REG UWORD c,
-    cu_pos = scr_pos;
-  UWORD
-      virt_pos = scr_pos;
-  UWORD init_count = 0; /* kp->kb_count; */
+  REG UWORD c, cu_pos = scr_pos;
+  UWORD virt_pos = scr_pos;
+  UWORD init_count = 0;         /* kp->kb_count; */
   BOOL eof = FALSE;
 #ifndef NOSPCL
   static BYTE local_buffer[LINESIZE];
@@ -327,7 +333,7 @@ UCOUNT sti_0a(keyboard FAR * kp)
               break;
             }
 
-          case F1:  
+          case F1:
           case RIGHT:
             c = local_buffer[kp->kb_count];
             if (c)
@@ -377,7 +383,7 @@ UCOUNT sti_0a(keyboard FAR * kp)
           return eof;
         else
           return kp->kb_count--;
-        
+
       case LF:
         break;
 
@@ -406,7 +412,7 @@ UCOUNT sti(keyboard * kp)
   UCOUNT ReadCount = sti_0a(kp);
   kp->kb_count++;
 
-  if (ReadCount >= kp->kb_count && kp->kb_count < kp->kb_size) 
+  if (ReadCount >= kp->kb_count && kp->kb_count < kp->kb_size)
   {
     kp->kb_buf[kp->kb_count++] = LF;
     cso(LF);
@@ -483,4 +489,3 @@ UCOUNT sti(keyboard * kp)
  * Initial revision.
  *
  */
-

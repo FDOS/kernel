@@ -30,7 +30,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))
@@ -46,11 +47,11 @@ static exe_header header;
 #define CHUNK 32256
 #define MAXENV 32768u
 #define ENV_KEEPFREE 83         /* keep unallocated by environment variables */
-	/* The '65' added to nEnvSize does not cover the additional stuff:
-	   + 2 bytes: number of strings
-	   + 80 bytes: maximum absolute filename
-	   + 1 byte: '\0'
-	   -- 1999/04/21 ska */
+        /* The '65' added to nEnvSize does not cover the additional stuff:
+           + 2 bytes: number of strings
+           + 80 bytes: maximum absolute filename
+           + 1 byte: '\0'
+           -- 1999/04/21 ska */
 
 #ifndef PROTO
 COUNT ChildEnv(exec_blk FAR *, UWORD *, char far *);
@@ -88,7 +89,8 @@ LONG DosGetFsize(COUNT hndl)
   return dos_getfsize(s->sft_status);
 }
 
-COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
+COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg,
+               char far * pathname)
 {
   BYTE FAR *pSrc;
   BYTE FAR *pDest;
@@ -101,14 +103,12 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* copy parent's environment if exec.env_seg == 0       */
 
   pSrc = exp->exec.env_seg ?
-      MK_FP(exp->exec.env_seg, 0) :
-      MK_FP(ppsp->ps_environ, 0);
+      MK_FP(exp->exec.env_seg, 0) : MK_FP(ppsp->ps_environ, 0);
 
 #if 0
   /* Every process requires an environment because of argv[0]
      -- 1999/04/21 ska */
-  */
-      if (!pSrc)                /* no environment to copy */
+  */if (!pSrc)                  /* no environment to copy */
   {
     *pChildEnvSeg = 0;
     return SUCCESS;
@@ -120,15 +120,15 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
      -- 1999/04/21 ska */
   if (pSrc)
   {                             /* if no environment is available, one byte is required */
-  
-    for (nEnvSize = 0; ; nEnvSize++)
+
+    for (nEnvSize = 0;; nEnvSize++)
     {
-                                /* Test env size and abort if greater than max          */
-        if (nEnvSize >= MAXENV - ENV_KEEPFREE)
-            return DE_INVLDENV;
-        
-        if (*(UWORD FAR *)(pSrc+nEnvSize) == 0)
-            break;            
+      /* Test env size and abort if greater than max          */
+      if (nEnvSize >= MAXENV - ENV_KEEPFREE)
+        return DE_INVLDENV;
+
+      if (*(UWORD FAR *) (pSrc + nEnvSize) == 0)
+        break;
     }
     nEnvSize += 2;              /* account for trailing \0\0 */
   }
@@ -136,7 +136,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* allocate enough space for env + path                 */
   if ((RetCode = DosMemAlloc(long2para(nEnvSize + ENV_KEEPFREE),
                              mem_access_mode, (seg FAR *) pChildEnvSeg,
-                           NULL /*(UWORD FAR *) MaxEnvSize ska */ )) < 0)
+                             NULL /*(UWORD FAR *) MaxEnvSize ska */ )) < 0)
     return RetCode;
   pDest = MK_FP(*pChildEnvSeg + 1, 0);
 
@@ -152,12 +152,13 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   else
     *pDest++ = '\0';            /* create an empty environment */
 
-                                /* initialize 'extra strings' count */
+  /* initialize 'extra strings' count */
   *((UWORD FAR *) pDest) = 1;
-  pDest += sizeof(UWORD)/sizeof(BYTE);
+  pDest += sizeof(UWORD) / sizeof(BYTE);
 
   /* copy complete pathname */
-  if ((RetCode = truename(pathname, pDest, TRUE)) != SUCCESS) {
+  if ((RetCode = truename(pathname, pDest, TRUE)) != SUCCESS)
+  {
     return RetCode;
   }
 
@@ -172,7 +173,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
 /* The following code is 8086 dependant                         */
 VOID new_psp(psp FAR * p, int psize)
 {
-  REG COUNT i;	
+  REG COUNT i;
   psp FAR *q = MK_FP(cu_psp, 0);
 
   /* Clear out new psp first                              */
@@ -225,7 +226,7 @@ VOID new_psp(psp FAR * p, int psize)
   p->ps_filetab = p->ps_files;
 
   /* clone the file table                                 */
-  if (p!=q)
+  if (p != q)
   {
     REG COUNT i;
 
@@ -250,7 +251,7 @@ VOID new_psp(psp FAR * p, int psize)
     RootPsp = FP_SEG(p);
 }
 
-STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR *exb,
+STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR * exb,
                       BYTE FAR * fnam)
 {
   psp FAR *psp;
@@ -302,29 +303,33 @@ set_name:
     pspmcb->m_name[i] = '\0';
 
   /* return value: AX value to be passed based on FCB values */
-  return ((psp->ps_fcb1.fcb_drive<lastdrive &&
-           CDSp->cds_table[psp->ps_fcb1.fcb_drive].cdsFlags & CDSVALID) ? 0 : 0xff) + 
-         ((psp->ps_fcb2.fcb_drive<lastdrive &&
-           CDSp->cds_table[psp->ps_fcb2.fcb_drive].cdsFlags & CDSVALID) ? 0 : 0xff) * 0x100;
+  return ((psp->ps_fcb1.fcb_drive < lastdrive &&
+           CDSp->cds_table[psp->ps_fcb1.fcb_drive].
+           cdsFlags & CDSVALID) ? 0 : 0xff) + ((psp->ps_fcb2.fcb_drive <
+                                                lastdrive
+                                                && CDSp->cds_table[psp->
+                                                                   ps_fcb2.
+                                                                   fcb_drive].
+                                                cdsFlags & CDSVALID) ? 0 :
+                                               0xff) * 0x100;
 }
 
 COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
   COUNT rc
-    /* err     */
-    /*,env_size*/;
+      /* err     */
+      /*,env_size */ ;
   COUNT nread;
   UWORD mem;
-  UWORD env,
-    asize;
+  UWORD env, asize;
   BYTE FAR *sp;
   psp FAR *p;
   psp FAR *q = MK_FP(cu_psp, 0);
   iregs FAR *irp;
   LONG com_size;
 
-  int  ModeLoadHigh = mode & 0x80;
-  UBYTE  UMBstate     = uppermem_link;
+  int ModeLoadHigh = mode & 0x80;
+  UBYTE UMBstate = uppermem_link;
 
   mode &= 0x7f;
 
@@ -335,9 +340,9 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     {
       return rc;
     }
-    
-    /* COMFILES will always be loaded in largest area. is that true TE*/
-    
+
+    /* COMFILES will always be loaded in largest area. is that true TE */
+
     /* Now find out how many paragraphs are available       */
     if ((rc = DosMemLargest((seg FAR *) & asize)) != SUCCESS)
     {
@@ -345,48 +350,49 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       return rc;
     }
     com_size = asize;
-    
-    if (  ModeLoadHigh )
-        {
-        DosUmbLink(1);                          /* link in UMB's */
-        }
-    
-    /* Allocate our memory and pass back any errors         */
-    if ((rc = DosMemAlloc((seg) com_size, mem_access_mode, (seg FAR *) & mem
-                        ,(UWORD FAR *) & asize)) < 0)
+
+    if (ModeLoadHigh)
     {
-        if (rc == DE_NOMEM)
+      DosUmbLink(1);            /* link in UMB's */
+    }
+
+    /* Allocate our memory and pass back any errors         */
+    if ((rc =
+         DosMemAlloc((seg) com_size, mem_access_mode, (seg FAR *) & mem,
+                     (UWORD FAR *) & asize)) < 0)
+    {
+      if (rc == DE_NOMEM)
+      {
+        if ((rc =
+             DosMemAlloc(0, LARGEST, (seg FAR *) & mem,
+                         (UWORD FAR *) & asize)) < 0)
         {
-            if ((rc = DosMemAlloc(0, LARGEST, (seg FAR *) & mem
-                                  ,(UWORD FAR *) & asize)) < 0)
-            {
-                DosMemFree(env);
-                return rc;
-            }
-            /* This should never happen, but ... */
-            if (asize < com_size)
-            {
-                DosMemFree(mem);
-                DosMemFree(env);
-                return rc;
-            }
+          DosMemFree(env);
+          return rc;
         }
-        else
+        /* This should never happen, but ... */
+        if (asize < com_size)
         {
-            DosMemFree(env);           /* env may be 0 */
-            return rc;
+          DosMemFree(mem);
+          DosMemFree(env);
+          return rc;
         }
+      }
+      else
+      {
+        DosMemFree(env);        /* env may be 0 */
+        return rc;
+      }
     }
     ++mem;
   }
   else
     mem = exp->load.load_seg;
-    
-  if (  ModeLoadHigh )
-    {
-    DosUmbLink(UMBstate);               /* restore link state */
-    }
-    
+
+  if (ModeLoadHigh)
+  {
+    DosUmbLink(UMBstate);       /* restore link state */
+  }
 
   /* Now load the executable                              */
   /* If file not found - error                            */
@@ -401,20 +407,19 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     if (mode == OVERLAY)        /* memory already allocated */
       sp = MK_FP(mem, 0);
     else
-    {                 /* test the filesize against the allocated memory */
-      
+    {                           /* test the filesize against the allocated memory */
+
       sp = MK_FP(mem, sizeof(psp));
 
       /* This is a potential problem, what to do with .COM files larger than
          the allocated memory?
          MS DOS always only loads the very first 64KB - sizeof(psp) bytes.
          -- 1999/04/21 ska */
-         
-         /* BUG !! in case of LH, memory may be smaller then 64K TE*/
-         
-         
-      if (com_size > ((LONG)asize << 4))  /* less memory than the .COM file has */
-        com_size = (LONG)asize << 4;
+
+      /* BUG !! in case of LH, memory may be smaller then 64K TE */
+
+      if (com_size > ((LONG) asize << 4))       /* less memory than the .COM file has */
+        com_size = (LONG) asize << 4;
     }
     do
     {
@@ -433,7 +438,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
   new_psp(p, mem + asize);
 
-  asize = patchPSP(mem - 1, env, exp, namep); /* asize=fcbcode for ax */
+  asize = patchPSP(mem - 1, env, exp, namep);   /* asize=fcbcode for ax */
 
   /* Transfer control to the executable                   */
   p->ps_parent = cu_psp;
@@ -447,14 +452,13 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   {
     case LOADNGO:
       {
-                            /*  BUG !!
-                                this works only, if COMSIZE >= 64K
-                                in case of LH, this is not necessarily true
-                            */    
-      
-      
+        /*  BUG !!
+           this works only, if COMSIZE >= 64K
+           in case of LH, this is not necessarily true
+         */
+
         *((UWORD FAR *) MK_FP(mem, 0xfffe)) = (UWORD) 0;
-  
+
         /* build the user area on the stack                     */
         irp = MK_FP(mem, (0xfffe - sizeof(iregs)));
 
@@ -462,13 +466,8 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
         irp->ES = irp->DS = mem;
         irp->CS = mem;
         irp->IP = 0x100;
-        irp->AX = asize; /* fcbcode */
-        irp->BX =
-        irp->CX =
-        irp->DX =
-        irp->SI =
-        irp->DI =
-        irp->BP = 0;
+        irp->AX = asize;        /* fcbcode */
+        irp->BX = irp->CX = irp->DX = irp->SI = irp->DI = irp->BP = 0;
         irp->FLAGS = 0x200;
 
         if (InDOS)
@@ -476,12 +475,12 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
         exec_user(irp);
 
         /* We should never be here          
-        fatal("KERNEL RETURNED!!!");                    */
+           fatal("KERNEL RETURNED!!!");                    */
         break;
       }
     case LOAD:
       exp->exec.stack = MK_FP(mem, 0xfffe);
-      *((UWORD FAR *)exp->exec.stack) = asize;
+      *((UWORD FAR *) exp->exec.stack) = asize;
       exp->exec.start_addr = MK_FP(mem, 0x100);
       return SUCCESS;
   }
@@ -491,8 +490,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
 VOID return_user(void)
 {
-  psp FAR *p,
-    FAR * q;
+  psp FAR *p, FAR * q;
   REG COUNT i;
   iregs FAR *irp;
 /*  long j;*/
@@ -506,8 +504,8 @@ VOID return_user(void)
   setvec(0x24, p->ps_isv24);
 
   /* And free all process memory if not a TSR return      */
-  remote_process_end();     /* might be a good idea to do that after closing
-                               but doesn't help NET either TE */
+  remote_process_end();         /* might be a good idea to do that after closing
+                                   but doesn't help NET either TE */
   if (!tsr)
   {
     remote_close_all();
@@ -518,7 +516,6 @@ VOID return_user(void)
     FcbCloseAll();
     FreeProcessMem(cu_psp);
   }
-                    
 
   cu_psp = p->ps_parent;
   q = MK_FP(cu_psp, 0);
@@ -536,20 +533,16 @@ VOID return_user(void)
 
 COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
-  COUNT rc;    
-    /*err,     */
-    /*env_size,*/
-  
-  UWORD mem,
-    env,
-    asize,
-    start_seg;
+  COUNT rc;
+  /*err,     */
+  /*env_size, */
 
-  int  ModeLoadHigh = mode & 0x80;
+  UWORD mem, env, asize, start_seg;
+
+  int ModeLoadHigh = mode & 0x80;
   UBYTE UMBstate = uppermem_link;
 
   mode &= 0x7f;
-    
 
   /* Clone the environement and create a memory arena     */
   if (mode != OVERLAY)
@@ -559,126 +552,123 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   }
   else
     mem = exp->load.load_seg;
-  
 
   {
-  ULONG image_size;
-  ULONG image_offset;
-  LONG exe_size;
-  mcb FAR *mp;
-    
+    ULONG image_size;
+    ULONG image_offset;
+    LONG exe_size;
+    mcb FAR *mp;
 
-  /* compute image offset from the header                 */
-  image_offset = (ULONG)header.exHeaderSize * 16;
+    /* compute image offset from the header                 */
+    image_offset = (ULONG) header.exHeaderSize * 16;
 
-  /* compute image size by removing the offset from the   */
-  /* number pages scaled to bytes plus the remainder and  */
-  /* the psp                                              */
-  /*  First scale the size                                */
-  image_size = (ULONG)header.exPages * 512;
-  /* remove the offset                                    */
-  image_size -= image_offset;
+    /* compute image size by removing the offset from the   */
+    /* number pages scaled to bytes plus the remainder and  */
+    /* the psp                                              */
+    /*  First scale the size                                */
+    image_size = (ULONG) header.exPages * 512;
+    /* remove the offset                                    */
+    image_size -= image_offset;
 
-  /* and finally add in the psp size                      */
-  if (mode != OVERLAY)
-    image_size += sizeof(psp);             /*TE 03/20/01*/
-    
-  if (mode != OVERLAY)
-  {
-    if (  ModeLoadHigh )
+    /* and finally add in the psp size                      */
+    if (mode != OVERLAY)
+      image_size += sizeof(psp);        /*TE 03/20/01 */
+
+    if (mode != OVERLAY)
     {
-      DosUmbLink(1);                          /* link in UMB's */
-      mem_access_mode |= ModeLoadHigh;
-    }
-  
-    /* Now find out how many paragraphs are available       */
-    if ((rc = DosMemLargest((seg FAR *) & asize)) != SUCCESS)
-    {
-      DosMemFree(env);
-      return rc;
-    }
+      if (ModeLoadHigh)
+      {
+        DosUmbLink(1);          /* link in UMB's */
+        mem_access_mode |= ModeLoadHigh;
+      }
 
-    exe_size = (LONG) long2para(image_size) + header.exMinAlloc;
-    
-    
-    /* + long2para((LONG) sizeof(psp)); ?? see above
-       image_size += sizeof(psp) -- 1999/04/21 ska */
-    if (exe_size > asize && (mem_access_mode & 0x80))
-    {
-      /* First try low memory */
-      mem_access_mode &= ~0x80;
-      rc = DosMemLargest((seg FAR *) & asize);
-      mem_access_mode |= 0x80;
-      if (rc != SUCCESS)
+      /* Now find out how many paragraphs are available       */
+      if ((rc = DosMemLargest((seg FAR *) & asize)) != SUCCESS)
       {
         DosMemFree(env);
         return rc;
       }
-    }
-    if (exe_size > asize)
-    {
-      DosMemFree(env);
-      return DE_NOMEM;
-    }
-    exe_size = (LONG) long2para(image_size) + header.exMaxAlloc;
-    /* + long2para((LONG) sizeof(psp)); ?? -- 1999/04/21 ska */
-    if (exe_size > asize)
-      exe_size = asize;
-    
-    /* TE if header.exMinAlloc == header.exMaxAlloc == 0,
-       DOS will allocate the largest possible memory area
-       and load the image as high as possible into it.
-       discovered (and after that found in RBIL), when testing NET */
-       
-    if ((header.exMinAlloc | header.exMaxAlloc ) == 0)
-      exe_size = asize;
-      
-      
-    /* /// Removed closing curly brace.  We should not attempt to allocate
-       memory if we are overlaying the current process, because the new
-       process will simply re-use the block we already have allocated.
-       This was causing execl() to fail in applications which use it to
-       overlay (replace) the current exe file with a new one.
-       Jun 11, 2000 - rbc
-  } */
 
+      exe_size = (LONG) long2para(image_size) + header.exMinAlloc;
 
-  /* Allocate our memory and pass back any errors         */
-  /* We can still get an error on first fit if the above  */
-  /* returned size was a bet fit case                     */
-  /* ModeLoadHigh = 80 = try high, then low                   */
-  if ((rc = DosMemAlloc((seg) exe_size, mem_access_mode | ModeLoadHigh, (seg FAR *) & mem
-                        ,(UWORD FAR *) & asize)) < 0)
-  {
-    if (rc == DE_NOMEM)
-    {
-      if ((rc = DosMemAlloc(0, LARGEST, (seg FAR *) & mem
-                            ,(UWORD FAR *) & asize)) < 0)
+      /* + long2para((LONG) sizeof(psp)); ?? see above
+         image_size += sizeof(psp) -- 1999/04/21 ska */
+      if (exe_size > asize && (mem_access_mode & 0x80))
+      {
+        /* First try low memory */
+        mem_access_mode &= ~0x80;
+        rc = DosMemLargest((seg FAR *) & asize);
+        mem_access_mode |= 0x80;
+        if (rc != SUCCESS)
+        {
+          DosMemFree(env);
+          return rc;
+        }
+      }
+      if (exe_size > asize)
       {
         DosMemFree(env);
-        return rc;
+        return DE_NOMEM;
       }
-      /* This should never happen, but ... */
-      if (asize < exe_size)
-      {
-        DosMemFree(mem);
-        DosMemFree(env);
-        return rc;
-      }
-    }
-    else
-    {
-      DosMemFree(env);
-      return rc;
-    }
-  }
-  else
-    /* with no error, we got exactly what we asked for      */
-    asize = exe_size;
+      exe_size = (LONG) long2para(image_size) + header.exMaxAlloc;
+      /* + long2para((LONG) sizeof(psp)); ?? -- 1999/04/21 ska */
+      if (exe_size > asize)
+        exe_size = asize;
 
-#ifdef DEBUG  
-  printf("loading '%S' at %04x\n", namep, mem);
-#endif    
+      /* TE if header.exMinAlloc == header.exMaxAlloc == 0,
+         DOS will allocate the largest possible memory area
+         and load the image as high as possible into it.
+         discovered (and after that found in RBIL), when testing NET */
+
+      if ((header.exMinAlloc | header.exMaxAlloc) == 0)
+        exe_size = asize;
+
+      /* /// Removed closing curly brace.  We should not attempt to allocate
+         memory if we are overlaying the current process, because the new
+         process will simply re-use the block we already have allocated.
+         This was causing execl() to fail in applications which use it to
+         overlay (replace) the current exe file with a new one.
+         Jun 11, 2000 - rbc
+         } */
+
+      /* Allocate our memory and pass back any errors         */
+      /* We can still get an error on first fit if the above  */
+      /* returned size was a bet fit case                     */
+      /* ModeLoadHigh = 80 = try high, then low                   */
+      if ((rc =
+           DosMemAlloc((seg) exe_size, mem_access_mode | ModeLoadHigh,
+                       (seg FAR *) & mem, (UWORD FAR *) & asize)) < 0)
+      {
+        if (rc == DE_NOMEM)
+        {
+          if ((rc =
+               DosMemAlloc(0, LARGEST, (seg FAR *) & mem,
+                           (UWORD FAR *) & asize)) < 0)
+          {
+            DosMemFree(env);
+            return rc;
+          }
+          /* This should never happen, but ... */
+          if (asize < exe_size)
+          {
+            DosMemFree(mem);
+            DosMemFree(env);
+            return rc;
+          }
+        }
+        else
+        {
+          DosMemFree(env);
+          return rc;
+        }
+      }
+      else
+        /* with no error, we got exactly what we asked for      */
+        asize = exe_size;
+
+#ifdef DEBUG
+      printf("loading '%S' at %04x\n", namep, mem);
+#endif
 
 /* /// Added open curly brace and "else" clause.  We should not attempt
        to allocate memory if we are overlaying the current process, because
@@ -686,114 +676,118 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
        This was causing execl() to fail in applications which use it to
        overlay (replace) the current exe file with a new one.
        Jun 11, 2000 - rbc */
-  }
-  else
-    asize = exe_size;
-/* /// End of additions.  Jun 11, 2000 - rbc */
-
-  if (  ModeLoadHigh )
-    {
-    mem_access_mode &= ~ModeLoadHigh;              /* restore old situation */
-    DosUmbLink(UMBstate);                          /* restore link state */
-    }
-
-   
-  if (mode != OVERLAY)
-  {
-    /* memory found large enough - continue processing      */
-    mp = MK_FP(mem, 0);
-    ++mem;
-  }
-  else
-    mem = exp->load.load_seg;
-
-  /* create the start seg for later computations          */
-  if (mode == OVERLAY)
-    start_seg = mem;
-  else
-  {
-    start_seg = mem + long2para((LONG) sizeof(psp));
-  }
-
-  /* Now load the executable                              */
-  /* If file not found - error                            */
-  /* NOTE - this is fatal because we lost it in transit   */
-  /* from DosExec!                                        */
-  if ((rc = DosOpen(namep, 0)) < 0)
-  {
-    fatal("(DosExeLoader) exe file lost in transit");
-  }
-  /* offset to start of image                             */
-  if (doslseek(rc, image_offset, 0) != image_offset)
-  {
-    if (mode != OVERLAY)
-    {
-      DosMemFree(--mem);
-      DosMemFree(env);
-    }
-    return DE_INVLDDATA;
-  }
-
-  /* read in the image in 32K chunks                      */
-  if (mode != OVERLAY)
-  {
-    exe_size = image_size - sizeof(psp);
-  }
-  else
-    exe_size = image_size;
-
-  if (exe_size > 0)
-  {
-    UCOUNT nBytesRead;
-    BYTE FAR *sp;
-      
-    if (mode != OVERLAY)
-    {
-      if ((header.exMinAlloc == 0) && (header.exMaxAlloc == 0))
-      {
-                             /* then the image should be placed as high as possible */
-        start_seg = start_seg + mp->m_size - (image_size + 15) / 16;
-      }
-    }
-
-    sp = MK_FP(start_seg, 0x0);
-
-    do
-    {
-      nBytesRead = DosRead((COUNT) rc, (COUNT) (exe_size < CHUNK ? exe_size : CHUNK), (VOID FAR *) sp, &UnusedRetVal);
-      sp = add_far((VOID FAR *) sp, (ULONG) nBytesRead);
-      exe_size -= nBytesRead;
-    }
-    while (nBytesRead && exe_size > 0);
-  }
-  }
-  
-  { /* relocate the image for new segment                   */
-  COUNT i;
-  UWORD reloc[2];
-  seg FAR *spot;
-      
-  doslseek(rc, (LONG) header.exRelocTable, 0);
-  for (i = 0; i < header.exRelocItems; i++)
-  {
-    if (DosRead(rc, sizeof(reloc), (VOID FAR *) & reloc[0], &UnusedRetVal) != sizeof(reloc))
-    {
-      return DE_INVLDDATA;
-    }
-    if (mode == OVERLAY)
-    {
-      spot = MK_FP(reloc[1] + mem, reloc[0]);
-      *spot += exp->load.reloc;
     }
     else
+      asize = exe_size;
+/* /// End of additions.  Jun 11, 2000 - rbc */
+
+    if (ModeLoadHigh)
     {
-      /*      spot = MK_FP(reloc[1] + mem + 0x10, reloc[0]); */
-      spot = MK_FP(reloc[1] + start_seg, reloc[0]);
-      *spot += start_seg;
+      mem_access_mode &= ~ModeLoadHigh; /* restore old situation */
+      DosUmbLink(UMBstate);     /* restore link state */
+    }
+
+    if (mode != OVERLAY)
+    {
+      /* memory found large enough - continue processing      */
+      mp = MK_FP(mem, 0);
+      ++mem;
+    }
+    else
+      mem = exp->load.load_seg;
+
+    /* create the start seg for later computations          */
+    if (mode == OVERLAY)
+      start_seg = mem;
+    else
+    {
+      start_seg = mem + long2para((LONG) sizeof(psp));
+    }
+
+    /* Now load the executable                              */
+    /* If file not found - error                            */
+    /* NOTE - this is fatal because we lost it in transit   */
+    /* from DosExec!                                        */
+    if ((rc = DosOpen(namep, 0)) < 0)
+    {
+      fatal("(DosExeLoader) exe file lost in transit");
+    }
+    /* offset to start of image                             */
+    if (doslseek(rc, image_offset, 0) != image_offset)
+    {
+      if (mode != OVERLAY)
+      {
+        DosMemFree(--mem);
+        DosMemFree(env);
+      }
+      return DE_INVLDDATA;
+    }
+
+    /* read in the image in 32K chunks                      */
+    if (mode != OVERLAY)
+    {
+      exe_size = image_size - sizeof(psp);
+    }
+    else
+      exe_size = image_size;
+
+    if (exe_size > 0)
+    {
+      UCOUNT nBytesRead;
+      BYTE FAR *sp;
+
+      if (mode != OVERLAY)
+      {
+        if ((header.exMinAlloc == 0) && (header.exMaxAlloc == 0))
+        {
+          /* then the image should be placed as high as possible */
+          start_seg = start_seg + mp->m_size - (image_size + 15) / 16;
+        }
+      }
+
+      sp = MK_FP(start_seg, 0x0);
+
+      do
+      {
+        nBytesRead =
+            DosRead((COUNT) rc,
+                    (COUNT) (exe_size < CHUNK ? exe_size : CHUNK),
+                    (VOID FAR *) sp, &UnusedRetVal);
+        sp = add_far((VOID FAR *) sp, (ULONG) nBytesRead);
+        exe_size -= nBytesRead;
+      }
+      while (nBytesRead && exe_size > 0);
     }
   }
+
+  {                             /* relocate the image for new segment                   */
+    COUNT i;
+    UWORD reloc[2];
+    seg FAR *spot;
+
+    doslseek(rc, (LONG) header.exRelocTable, 0);
+    for (i = 0; i < header.exRelocItems; i++)
+    {
+      if (DosRead
+          (rc, sizeof(reloc), (VOID FAR *) & reloc[0],
+           &UnusedRetVal) != sizeof(reloc))
+      {
+        return DE_INVLDDATA;
+      }
+      if (mode == OVERLAY)
+      {
+        spot = MK_FP(reloc[1] + mem, reloc[0]);
+        *spot += exp->load.reloc;
+      }
+      else
+      {
+        /*      spot = MK_FP(reloc[1] + mem + 0x10, reloc[0]); */
+        spot = MK_FP(reloc[1] + start_seg, reloc[0]);
+        *spot += start_seg;
+      }
+    }
   }
-  
+
   /* and finally close the file                           */
   DosClose(rc);
 
@@ -801,64 +795,61 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   if (mode == OVERLAY)
     return SUCCESS;
 
-  
   {
-  psp FAR *p;
-  psp FAR *q = MK_FP(cu_psp, 0);      
+    psp FAR *p;
+    psp FAR *q = MK_FP(cu_psp, 0);
 
-  /* point to the PSP so we can build it                  */
-  p = MK_FP(mem, 0);
-  setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
-  new_psp(p, mem + asize);
+    /* point to the PSP so we can build it                  */
+    p = MK_FP(mem, 0);
+    setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
+    new_psp(p, mem + asize);
 
-  asize = patchPSP(mem - 1, env, exp, namep); /* asize = fcbcode */
+    asize = patchPSP(mem - 1, env, exp, namep); /* asize = fcbcode */
 
-  /* Transfer control to the executable                   */
-  p->ps_parent = cu_psp;
-  p->ps_prevpsp = (BYTE FAR *) MK_FP(cu_psp, 0);
-  q->ps_stack = (BYTE FAR *) user_r;
-  user_r->FLAGS &= ~FLG_CARRY;
+    /* Transfer control to the executable                   */
+    p->ps_parent = cu_psp;
+    p->ps_prevpsp = (BYTE FAR *) MK_FP(cu_psp, 0);
+    q->ps_stack = (BYTE FAR *) user_r;
+    user_r->FLAGS &= ~FLG_CARRY;
 
-  switch (mode)
-  {
-    case LOADNGO:
+    switch (mode)
     {
-      /* build the user area on the stack                     */
-      iregs FAR *irp = MK_FP(header.exInitSS + start_seg,
-              ((header.exInitSP - sizeof(iregs)) & 0xffff));
+      case LOADNGO:
+        {
+          /* build the user area on the stack                     */
+          iregs FAR *irp = MK_FP(header.exInitSS + start_seg,
+                                 ((header.exInitSP -
+                                   sizeof(iregs)) & 0xffff));
 
-      /* start allocating REGs                                */
-      /* Note: must match es & ds memory segment              */
-      irp->ES = irp->DS = mem;
-      irp->CS = header.exInitCS + start_seg;
-      irp->IP = header.exInitIP;
-      irp->AX = asize;             /* asize = fcbcode    */
-      irp->BX =
-      irp->CX =
-      irp->DX =
-      irp->SI =
-      irp->DI =
-      irp->BP = 0;
-      irp->FLAGS = 0x200;
+          /* start allocating REGs                                */
+          /* Note: must match es & ds memory segment              */
+          irp->ES = irp->DS = mem;
+          irp->CS = header.exInitCS + start_seg;
+          irp->IP = header.exInitIP;
+          irp->AX = asize;      /* asize = fcbcode    */
+          irp->BX = irp->CX = irp->DX = irp->SI = irp->DI = irp->BP = 0;
+          irp->FLAGS = 0x200;
 
-      cu_psp = mem;
-      dta = p->ps_dta;
+          cu_psp = mem;
+          dta = p->ps_dta;
 
-      if (InDOS)
-        --InDOS;
-      exec_user(irp);
-      /* We should never be here     
-      fatal("KERNEL RETURNED!!!");                    */
-      break;
+          if (InDOS)
+            --InDOS;
+          exec_user(irp);
+          /* We should never be here     
+             fatal("KERNEL RETURNED!!!");                    */
+          break;
+        }
+
+      case LOAD:
+        cu_psp = mem;
+        exp->exec.stack =
+            MK_FP(header.exInitSS + start_seg, header.exInitSP);
+        *((UWORD FAR *) exp->exec.stack) = asize;       /* fcbcode */
+        exp->exec.start_addr =
+            MK_FP(header.exInitCS + start_seg, header.exInitIP);
+        return SUCCESS;
     }
-
-    case LOAD:
-      cu_psp = mem;
-      exp->exec.stack = MK_FP(header.exInitSS + start_seg, header.exInitSP);
-      *((UWORD FAR *) exp->exec.stack) = asize; /* fcbcode */
-      exp->exec.start_addr = MK_FP(header.exInitCS + start_seg, header.exInitIP);
-      return SUCCESS;
-  }
   }
   return DE_INVLDFMT;
 }
@@ -884,7 +875,6 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   {
     return DE_FILENOTFND;
   }
-
 
   if (DosRead(rc, sizeof(exe_header), (VOID FAR *) & header, &UnusedRetVal)
       != sizeof(exe_header))
@@ -995,4 +985,3 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
  *    Rev 1.0   02 Jul 1995  8:34:06   patv
  * Initial revision.
  */
-

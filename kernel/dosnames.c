@@ -31,7 +31,8 @@
 #include "portab.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *dosnamesRcsId = "$Id$";
+static BYTE *dosnamesRcsId =
+    "$Id$";
 #endif
 
 #include "globals.h"
@@ -79,16 +80,10 @@ VOID SpacePad(BYTE * szString, COUNT nChars)
 COUNT ParseDosName(BYTE * lpszFileName,
                    COUNT * pnDrive,
                    BYTE * pszDir,
-                   BYTE * pszFile,
-                   BYTE * pszExt,
-                   BOOL bAllowWildcards)
+                   BYTE * pszFile, BYTE * pszExt, BOOL bAllowWildcards)
 {
-  COUNT nDirCnt,
-    nFileCnt,
-    nExtCnt;
-  BYTE *lpszLclDir,
-    *lpszLclFile,
-    *lpszLclExt;
+  COUNT nDirCnt, nFileCnt, nExtCnt;
+  BYTE *lpszLclDir, *lpszLclFile, *lpszLclExt;
 
   /* Initialize the users data fields                             */
   if (pszDir)
@@ -118,12 +113,13 @@ COUNT ParseDosName(BYTE * lpszFileName,
   }
   nDirCnt = FP_OFF(lpszLclFile) - FP_OFF(lpszLclDir);
   /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if (nDirCnt > PARSE_MAX-1)
-    nDirCnt = PARSE_MAX-1;
+  if (nDirCnt > PARSE_MAX - 1)
+    nDirCnt = PARSE_MAX - 1;
 
   /* Parse out the file name portion.                             */
   lpszFileName = lpszLclFile;
-  while (bAllowWildcards ? WildChar(*lpszFileName) : NameChar(*lpszFileName))
+  while (bAllowWildcards ? WildChar(*lpszFileName) :
+         NameChar(*lpszFileName))
   {
     ++nFileCnt;
     ++lpszFileName;
@@ -131,26 +127,25 @@ COUNT ParseDosName(BYTE * lpszFileName,
 
   if (nFileCnt == 0)
 /* Lixing Yuan Patch */
-     if (bAllowWildcards)  /* for find first */
-     {
-       if (*lpszFileName != '\0')
-         return DE_FILENOTFND;
-       if (nDirCnt == 1) /* for d:\ */
-         return DE_NFILES;
-       if (pszDir)
-       {
-         memcpy(pszDir, lpszLclDir, nDirCnt);
-         pszDir[nDirCnt] = '\0';
-       }
-       if (pszFile)
-         memcpy(pszFile, "????????", FNAME_SIZE+1);
-       if (pszExt)
-         memcpy(pszExt, "???", FEXT_SIZE+1);
-       return SUCCESS;
-     }
-   else
-    return DE_FILENOTFND;
-
+    if (bAllowWildcards)        /* for find first */
+    {
+      if (*lpszFileName != '\0')
+        return DE_FILENOTFND;
+      if (nDirCnt == 1)         /* for d:\ */
+        return DE_NFILES;
+      if (pszDir)
+      {
+        memcpy(pszDir, lpszLclDir, nDirCnt);
+        pszDir[nDirCnt] = '\0';
+      }
+      if (pszFile)
+        memcpy(pszFile, "????????", FNAME_SIZE + 1);
+      if (pszExt)
+        memcpy(pszExt, "???", FEXT_SIZE + 1);
+      return SUCCESS;
+    }
+    else
+      return DE_FILENOTFND;
 
   /* Now we have pointers set to the directory portion and the    */
   /* file portion.  Now determine the existance of an extension.  */
@@ -160,14 +155,16 @@ COUNT ParseDosName(BYTE * lpszFileName,
     lpszLclExt = ++lpszFileName;
     while (*lpszFileName)
     {
-      if (bAllowWildcards ? WildChar(*lpszFileName) : NameChar(*lpszFileName))
+      if (bAllowWildcards ? WildChar(*lpszFileName) :
+          NameChar(*lpszFileName))
       {
         ++nExtCnt;
         ++lpszFileName;
       }
-      else{
+      else
+      {
         return DE_FILENOTFND;
-        }
+      }
     }
   }
   else if (*lpszFileName)
@@ -199,14 +196,10 @@ COUNT ParseDosName(BYTE * lpszFileName,
 #if 0
 /* not necessary anymore because of truename */
 COUNT ParseDosPath(BYTE * lpszFileName,
-                   COUNT * pnDrive,
-                   BYTE * pszDir,
-                   BYTE * pszCurPath)
+                   COUNT * pnDrive, BYTE * pszDir, BYTE * pszCurPath)
 {
-  COUNT nDirCnt,
-    nPathCnt;
-  BYTE *lpszLclDir,
-   *pszBase = pszDir;
+  COUNT nDirCnt, nPathCnt;
+  BYTE *lpszLclDir, *pszBase = pszDir;
 
   /* Initialize the users data fields                             */
   *pszDir = '\0';
@@ -237,10 +230,10 @@ COUNT ParseDosPath(BYTE * lpszFileName,
   lpszLclDir = lpszFileName;
   if (!PathSep(*lpszLclDir))
   {
-    fstrncpy(pszDir, pszCurPath, PARSE_MAX - 1);        /*TE*/
-    nPathCnt = fstrlen(pszCurPath);
-    if (!PathSep(pszDir[nPathCnt - 1]) && nPathCnt < PARSE_MAX - 1) /*TE*/
-      pszDir[nPathCnt++] = '\\';
+    fstrncpy(pszDir, pszCurPath, PARSE_MAX - 1);
+     /*TE*/ nPathCnt = fstrlen(pszCurPath);
+    if (!PathSep(pszDir[nPathCnt - 1]) && nPathCnt < PARSE_MAX - 1)
+       /*TE*/ pszDir[nPathCnt++] = '\\';
     if (nPathCnt > PARSE_MAX)
       nPathCnt = PARSE_MAX;
     pszDir += nPathCnt;
@@ -248,16 +241,15 @@ COUNT ParseDosPath(BYTE * lpszFileName,
 
   /* Now see how long a directory component we have.              */
   while (NameChar(*lpszFileName)
-         || PathSep(*lpszFileName)
-         || '.' == *lpszFileName)
+         || PathSep(*lpszFileName) || '.' == *lpszFileName)
   {
     ++nDirCnt;
     ++lpszFileName;
   }
 
   /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if ((nDirCnt + nPathCnt) > PARSE_MAX - 1)     /*TE*/
-    nDirCnt = PARSE_MAX - 1 - nPathCnt;
+  if ((nDirCnt + nPathCnt) > PARSE_MAX - 1)
+     /*TE*/ nDirCnt = PARSE_MAX - 1 - nPathCnt;
 
   /* Finally copy whatever the user wants extracted to the user's */
   /* buffers.                                                     */
@@ -289,11 +281,8 @@ COUNT ParseDosPath(BYTE * lpszFileName,
 
 VOID DosTrimPath(BYTE * lpszPathNamep)
 {
-  BYTE *lpszLast,
-    *lpszNext,
-    *lpszRoot = NULL;
-  COUNT nChars,
-    flDotDot;
+  BYTE *lpszLast, *lpszNext, *lpszRoot = NULL;
+  COUNT nChars, flDotDot;
 
   /* First, convert all '/' to '\'.  Look for root as we scan     */
   if (*lpszPathNamep == '\\')
@@ -302,14 +291,13 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
   {
     if (*lpszNext == '/')
       *lpszNext = '\\';
-    if (!lpszRoot &&
-        *lpszNext == ':' && *(lpszNext + 1) == '\\')
+    if (!lpszRoot && *lpszNext == ':' && *(lpszNext + 1) == '\\')
       lpszRoot = lpszNext + 1;
   }
 
-                                                /* NAMEMAX + 2, must include C: TE*/
+  /* NAMEMAX + 2, must include C: TE */
   for (lpszLast = lpszNext = lpszPathNamep, nChars = 0;
-       *lpszNext != '\0' && nChars < NAMEMAX+2;)
+       *lpszNext != '\0' && nChars < NAMEMAX + 2;)
   {
     /* Initialize flag for loop.                            */
     flDotDot = FALSE;
@@ -325,8 +313,7 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
       /* as appropriate.                              */
       else if (*(lpszNext + 1) == '.')
       {
-        if (*(lpszNext + 2) == '.'
-            && !(*(lpszNext + 3)))
+        if (*(lpszNext + 2) == '.' && !(*(lpszNext + 3)))
         {
           /* At the end, just truncate    */
           /* and exit.                    */
@@ -337,8 +324,7 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
           return;
         }
 
-        if (*(lpszNext + 2) == '.'
-            && *(lpszNext + 3) == '\\')
+        if (*(lpszNext + 2) == '.' && *(lpszNext + 3) == '\\')
         {
           fstrncpy(lpszLast, lpszNext + 3, NAMEMAX);
           /* bump back to the last        */
@@ -351,8 +337,7 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
           {
             --lpszLast;
           }
-          while (lpszLast != lpszPathNamep
-                 && *lpszLast != '\\');
+          while (lpszLast != lpszPathNamep && *lpszLast != '\\');
           flDotDot = TRUE;
         }
         /* Note: we skip strange stuff that     */
@@ -360,7 +345,7 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
         else if (*(lpszNext + 2) == '\\')
         {
           fstrncpy(lpszNext, lpszNext + 2, NAMEMAX);
-	  flDotDot = TRUE;
+          flDotDot = TRUE;
         }
         /* If we're at the end of a string,     */
         /* just exit.                           */
@@ -460,4 +445,3 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
  * Initial revision.
  *
  */
-

@@ -33,7 +33,8 @@
 extern void ASMCFUNC spawn_int23(void);
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 #define CB_FLG *(UBYTE FAR*)MK_FP(0x40, 0x71)
@@ -67,7 +68,7 @@ void handle_break(void)
   if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
     if (InDOS)
       --InDOS;                  /* fail-safe */
- 
+
   spawn_int23();                /* invoke user INT-23 and never come back */
 }
 
@@ -81,4 +82,3 @@ void handle_break(void)
  * Steffen contributed.
  *
  */
-

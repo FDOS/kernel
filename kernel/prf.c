@@ -41,11 +41,11 @@
 #define hexd init_hexd
 #endif
 
-COUNT ASMCFUNC fstrlen (BYTE FAR * s);        /* don't want globals.h, sorry */
-
+COUNT ASMCFUNC fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
 
 #ifdef VERSION_STRINGS
-static BYTE *prfRcsId = "$Id$";
+static BYTE *prfRcsId =
+    "$Id$";
 #endif
 
 static BYTE *charp = 0;
@@ -70,45 +70,44 @@ VOID cso();
 #endif
 
 #ifdef FORSYS
-COUNT fstrlen (BYTE FAR * s)        /* don't want globals.h, sorry */
+COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
 {
-    int i = 0;
+  int i = 0;
 
-    while (*s++)
-       i++;
+  while (*s++)
+    i++;
 
-    return i;
+  return i;
 }
 #endif
 
 /* special console output routine */
-VOID
-put_console(COUNT c)
+VOID put_console(COUNT c)
 {
   if (c == '\n')
     put_console('\r');
 
 #ifdef FORSYS
-  write(1,&c,1);      /* write character to stdout */
-#else  
-#if defined(__TURBOC__)   	
+  write(1, &c, 1);              /* write character to stdout */
+#else
+#if defined(__TURBOC__)
   _AX = 0x0e00 | c;
   _BX = 0x0070;
   __int__(0x10);
 #else
-	__asm {
-		mov al, byte ptr c;
-		mov ah, 0x0e;
-		mov bx, 0x0070;
-		int 0x10;
-	}  
-#endif /* __TURBO__*/
-#endif  
+  __asm
+  {
+    mov al, byte ptr c;
+    mov ah, 0x0e;
+    mov bx, 0x0070;
+    int 0x10;
+  }
+#endif                          /* __TURBO__ */
+#endif
 }
 
 /* special handler to switch between sprintf and printf */
-static VOID
-  handle_char(COUNT c)
+static VOID handle_char(COUNT c)
 {
   if (charp == 0)
     put_console(c);
@@ -117,34 +116,33 @@ static VOID
 }
 
 /* ltob -- convert an long integer to a string in any base (2-16) */
-BYTE *
-  ltob(LONG n, BYTE * s, COUNT base)
+BYTE *ltob(LONG n, BYTE * s, COUNT base)
 {
   ULONG u;
   BYTE *p, *q;
-  int  c;
+  int c;
 
-    u = n;
+  u = n;
 
   if (base == -10)              /* signals signed conversion */
-  	{
+  {
     base = 10;
-	if (n < 0 )
-  		{
-    	u = -n;
-    	*s++ = '-';
-  		}
-  	}
-  	
+    if (n < 0)
+    {
+      u = -n;
+      *s++ = '-';
+    }
+  }
+
   p = q = s;
   do
   {                             /* generate digits in reverse order */
-  	static char hexDigits[] = "0123456789abcdef";
-  
-    *p++ = hexDigits[(UWORD)(u % base)];
+    static char hexDigits[] = "0123456789abcdef";
+
+    *p++ = hexDigits[(UWORD) (u % base)];
   }
   while ((u /= base) > 0);
-  
+
   *p = '\0';                    /* terminate the string */
   while (q < --p)
   {                             /* reverse the digits */
@@ -155,7 +153,6 @@ BYTE *
   return s;
 }
 
-
 #define LEFT    0
 #define RIGHT   1
 
@@ -165,9 +162,9 @@ WORD printf(CONST BYTE * fmt, ...)
 {
   WORD ret;
 
-  static char buff[80]; /* adjust if necessary */	
+  static char buff[80];         /* adjust if necessary */
   charp = buff;
-  ret = do_printf(fmt, (BYTE **)&fmt + 1);
+  ret = do_printf(fmt, (BYTE **) & fmt + 1);
   handle_char(NULL);
   _ES = FP_SEG(buff);
   _DX = FP_OFF(buff);
@@ -179,20 +176,20 @@ WORD printf(CONST BYTE * fmt, ...)
 WORD printf(CONST BYTE * fmt, ...)
 {
   charp = 0;
-  return do_printf(fmt, (BYTE **)&fmt + 1);
+  return do_printf(fmt, (BYTE **) & fmt + 1);
 }
 #endif
 
-WORD
-sprintf(BYTE * buff, CONST BYTE * fmt, ...)
+WORD sprintf(BYTE * buff, CONST BYTE * fmt, ...)
 {
   WORD ret;
 
   charp = buff;
-  ret = do_printf(fmt, (BYTE **)&fmt + 1);
+  ret = do_printf(fmt, (BYTE **) & fmt + 1);
   handle_char(NULL);
   return ret;
 }
+
 /*
 ULONG FAR retcs(int i)
 {
@@ -202,19 +199,14 @@ ULONG FAR retcs(int i)
     return *(ULONG *)p;
 }
 */
-COUNT
-  do_printf(CONST BYTE * fmt, BYTE ** arg)
+COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
 {
   int base;
-  BYTE s[11],
-      FAR *p;
-  int c,
-    flag,
-    size,
-    fill;
-  int longarg;  
+  BYTE s[11], FAR * p;
+  int c, flag, size, fill;
+  int longarg;
   long currentArg;
-  
+
 /*  
   long cs = retcs(1);
   put_console("0123456789ABCDEF"[(cs >> 28) & 0x0f]);
@@ -235,154 +227,148 @@ COUNT
       continue;
     }
 
-	longarg = FALSE;
-  	size = 0;
+    longarg = FALSE;
+    size = 0;
     flag = RIGHT;
     fill = ' ';
 
-    if ( *fmt == '-')
+    if (*fmt == '-')
     {
       flag = LEFT;
       fmt++;
     }
-    
-    if ( *fmt == '0')
+
+    if (*fmt == '0')
     {
       fill = '0';
       fmt++;
     }
 
-	while (*fmt >= '0' && *fmt <= '9')
-	{
+    while (*fmt >= '0' && *fmt <= '9')
+    {
       size = size * 10 + (*fmt++ - '0');
-	}
-
-    
+    }
 
     if (*fmt == 'l')
     {
-    	longarg = TRUE;
-    	fmt++;
+      longarg = TRUE;
+      fmt++;
     }
 
-    
     c = *fmt++;
     switch (c)
     {
-      case '\0': 
-      		return 0;
-      	
+      case '\0':
+        return 0;
+
       case 'c':
-	        handle_char(*(COUNT *) arg++);
-    	    continue;
+        handle_char(*(COUNT *) arg++);
+        continue;
 
       case 'p':
-            {
-            UWORD w[2];
-            static char pointerFormat[] = "%04x:%04x";
-            w[1] = *((UWORD *) arg);
-            arg += sizeof(UWORD)/sizeof(BYTE *);
-            w[0] = *((UWORD *) arg);
-            arg += sizeof(UWORD)/sizeof(BYTE *);
-            do_printf(pointerFormat,(BYTE**)&w);
-    	    continue;
-    	    }
+        {
+          UWORD w[2];
+          static char pointerFormat[] = "%04x:%04x";
+          w[1] = *((UWORD *) arg);
+          arg += sizeof(UWORD) / sizeof(BYTE *);
+          w[0] = *((UWORD *) arg);
+          arg += sizeof(UWORD) / sizeof(BYTE *);
+          do_printf(pointerFormat, (BYTE **) & w);
+          continue;
+        }
 
       case 's':
-            p = *arg++;
-	    goto do_outputstring;
-            
+        p = *arg++;
+        goto do_outputstring;
+
       case 'F':
-            fmt++;
-            /* we assume %Fs here */
+        fmt++;
+        /* we assume %Fs here */
       case 'S':
-            p = *((BYTE FAR **) arg);
-            arg += sizeof(BYTE FAR *)/sizeof(BYTE *);
-            goto do_outputstring;
+        p = *((BYTE FAR **) arg);
+        arg += sizeof(BYTE FAR *) / sizeof(BYTE *);
+        goto do_outputstring;
 
       case 'i':
       case 'd':
-            base = -10;
-            goto lprt;
+        base = -10;
+        goto lprt;
 
       case 'o':
-            base = 8;
-            goto lprt;
+        base = 8;
+        goto lprt;
 
       case 'u':
-            base = 10;
-            goto lprt;
+        base = 10;
+        goto lprt;
 
       case 'X':
       case 'x':
-            base = 16;
+        base = 16;
 
-          lprt:
-          	if (longarg)
-                {
-                    currentArg = *((LONG *) arg);
-                    arg += sizeof(LONG)/sizeof(BYTE *);
-                }
-          	else
-                {
-                    if (base < 0)
-                    {
-                        currentArg = *((int*) arg);
-                        arg += sizeof(int)/sizeof(BYTE *);
-                    }
-                    else
-                    {
-                        currentArg = *((unsigned int*) arg);
-                        arg += sizeof(unsigned int)/sizeof(BYTE *);
-                    }   
-                }	
-          
-            ltob(currentArg, s, base);
+      lprt:
+        if (longarg)
+        {
+          currentArg = *((LONG *) arg);
+          arg += sizeof(LONG) / sizeof(BYTE *);
+        }
+        else
+        {
+          if (base < 0)
+          {
+            currentArg = *((int *)arg);
+            arg += sizeof(int) / sizeof(BYTE *);
+          }
+          else
+          {
+            currentArg = *((unsigned int *)arg);
+            arg += sizeof(unsigned int) / sizeof(BYTE *);
+          }
+        }
 
-            p = s;
-do_outputstring:
-            
-            size  -= fstrlen(p);
-            
-            if (flag == RIGHT )
-            {
-              for ( ; size > 0; size--)
-                handle_char(fill);
-            }
-            for (; *p != '\0'; p++)
-              handle_char(*p);
+        ltob(currentArg, s, base);
 
-            for ( ; size > 0; size--)
-                handle_char(fill);
-                
-            continue;
+        p = s;
+      do_outputstring:
 
-          default:
-            handle_char('?');
-          
-            handle_char(c);
-            break;
+        size -= fstrlen(p);
 
+        if (flag == RIGHT)
+        {
+          for (; size > 0; size--)
+            handle_char(fill);
+        }
+        for (; *p != '\0'; p++)
+          handle_char(*p);
+
+        for (; size > 0; size--)
+          handle_char(fill);
+
+        continue;
+
+      default:
+        handle_char('?');
+
+        handle_char(c);
+        break;
 
     }
   }
   return 0;
 }
 
-void hexd(char *title,UBYTE FAR *p,COUNT numBytes)
+void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
 {
-    int loop;
-    printf("%s%04x|", title, FP_SEG(p));
-    for (loop = 0; loop < numBytes; loop++)
-        printf("%02x ", p[loop]);
-    printf("|");
-    
-    for (loop = 0; loop < numBytes; loop++)
-        printf("%c", p[loop] < 0x20 ? '.' : p[loop]);
-    printf("\n");    
-}    
+  int loop;
+  printf("%s%04x|", title, FP_SEG(p));
+  for (loop = 0; loop < numBytes; loop++)
+    printf("%02x ", p[loop]);
+  printf("|");
 
-
+  for (loop = 0; loop < numBytes; loop++)
+    printf("%c", p[loop] < 0x20 ? '.' : p[loop]);
+  printf("\n");
+}
 
 #ifdef TEST
 /*
@@ -397,83 +383,108 @@ void hexd(char *title,UBYTE FAR *p,COUNT numBytes)
 
 */
 #include <c:\tc\include\conio.h>
-void cso(char c) { putch(c); }
+void cso(char c)
+{
+  putch(c);
+}
 
+struct {
+  char *should;
+  char *format;
+  unsigned lowint;
+  unsigned highint;
 
-struct  {
-	char *should;
-	char *format;
-	unsigned lowint;
-	unsigned highint;
-	
-} testarray[] = 
-	{ 
-		{ "hello world", "%s %s", (unsigned)"hello",(unsigned)"world"},
-		{ "hello", "%3s", (unsigned)"hello",0},
-		{ "  hello", "%7s", (unsigned)"hello",0},
-		{ "hello  ", "%-7s", (unsigned)"hello",0},
-		{ "hello", "%s", (unsigned)"hello",0},
-		
-		
-		
-		{ "1",	"%d", 1, 0},
-		{ "-1", "%d", -1,0},
-		{ "65535", "%u", -1,0},
-		{ "-32768", "%d", 0x8000,0},
-		{ "32767", "%d", 0x7fff,0},
-		{ "-32767", "%d", 0x8001,0},
-		
-		{"8000", "%x", 0x8000, 0},
-		{"   1", "%4x", 1, 0},
-		{"0001", "%04x", 1, 0},
-		{"1   ", "%-4x", 1, 0},
-		{"1000", "%-04x", 1, 0},
+} testarray[] = {
+  {
+  "hello world", "%s %s", (unsigned)"hello", (unsigned)"world"},
+  {
+  "hello", "%3s", (unsigned)"hello", 0},
+  {
+  "  hello", "%7s", (unsigned)"hello", 0},
+  {
+  "hello  ", "%-7s", (unsigned)"hello", 0},
+  {
+  "hello", "%s", (unsigned)"hello", 0},
+  {
+  "1", "%d", 1, 0},
+  {
+  "-1", "%d", -1, 0},
+  {
+  "65535", "%u", -1, 0},
+  {
+  "-32768", "%d", 0x8000, 0},
+  {
+  "32767", "%d", 0x7fff, 0},
+  {
+  "-32767", "%d", 0x8001, 0},
+  {
+  "8000", "%x", 0x8000, 0},
+  {
+  "   1", "%4x", 1, 0},
+  {
+  "0001", "%04x", 1, 0},
+  {
+  "1   ", "%-4x", 1, 0},
+  {
+  "1000", "%-04x", 1, 0},
+  {
+  "1", "%ld", 1, 0},
+  {
+  "-1", "%ld", -1, -1},
+  {
+  "65535", "%ld", -1, 0},
+  {
+  "65535", "%u", -1, 0},
+  {
+  "8000", "%lx", 0x8000, 0},
+  {
+  "80000000", "%lx", 0, 0x8000},
+  {
+  "   1", "%4lx", 1, 0},
+  {
+  "0001", "%04lx", 1, 0},
+  {
+  "1   ", "%-4lx", 1, 0},
+  {
+  "1000", "%-04lx", 1, 0},
+  {
+  "-2147483648", "%ld", 0, 0x8000},
+  {
+  "2147483648", "%lu", 0, 0x8000},
+  {
+  "2147483649", "%lu", 1, 0x8000},
+  {
+  "-2147483647", "%ld", 1, 0x8000},
+  {
+  "32767", "%ld", 0x7fff, 0},
+  {
+"ptr 1234:5678", "ptr %p", 0x5678, 0x1234}, 0};
 
-		{ "1",	"%ld", 1, 0},
-		{ "-1", "%ld", -1,-1},
-		{ "65535", "%ld", -1,0},
-		{ "65535", "%u", -1,0},
-		{"8000", "%lx", 0x8000, 0},
-		{"80000000", "%lx", 0,0x8000},
-		{"   1", "%4lx", 1, 0},
-		{"0001", "%04lx", 1, 0},
-		{"1   ", "%-4lx", 1, 0},
-		{"1000", "%-04lx", 1, 0},
-		
-		{ "-2147483648", "%ld", 0,0x8000},
-		{  "2147483648", "%lu", 0,0x8000},
-		{  "2147483649", "%lu", 1,0x8000},
-		{ "-2147483647", "%ld", 1,0x8000},
-		{ "32767", "%ld", 0x7fff,0},
-
-		{ "ptr 1234:5678", "ptr %p", 0x5678,0x1234},
-		
-		
-		
-		0
-	};
-	
 test(char *should, char *format, unsigned lowint, unsigned highint)
 {
-	char b[100];
-	
-	sprintf(b, format, lowint,highint);
-	
-	printf("'%s' = '%s'\n", should, b);
-	
-	if (strcmp(b,should)) { printf("\nhit the ANYKEY\n"); getch(); }
-}	
+  char b[100];
 
+  sprintf(b, format, lowint, highint);
+
+  printf("'%s' = '%s'\n", should, b);
+
+  if (strcmp(b, should))
+  {
+    printf("\nhit the ANYKEY\n");
+    getch();
+  }
+}
 
 main()
 {
-	int i;
-	printf("hello world\n");
-	
-	for (i = 0; testarray[i].should; i++)
-	{
-		test(testarray[i].should,testarray[i].format, testarray[i].lowint, testarray[i].highint);
-	}
+  int i;
+  printf("hello world\n");
+
+  for (i = 0; testarray[i].should; i++)
+  {
+    test(testarray[i].should, testarray[i].format, testarray[i].lowint,
+         testarray[i].highint);
+  }
 }
 #endif
 
@@ -517,4 +528,3 @@ main()
  *    Rev 1.0   02 Jul 1995  8:05:10   patv
  * Initial revision.
  */
-

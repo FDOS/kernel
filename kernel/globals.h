@@ -29,10 +29,10 @@
 
 #ifdef VERSION_STRINGS
 #ifdef MAIN
-static BYTE *Globals_hRcsId = "$Id$";
+static BYTE *Globals_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 #include "device.h"
 #include "mcb.h"
@@ -86,7 +86,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 /*                                                                      */
 /* Defaults and limits - System wide                                    */
 #define PARSE_MAX       MAX_CDSPATH     /* maximum # of bytes in path   */
-#define NAMEMAX         PARSE_MAX	/* Maximum path for CDS         */
+#define NAMEMAX         PARSE_MAX       /* Maximum path for CDS         */
 
 /* internal error from failure or aborted operation                     */
 #define ERROR           -1
@@ -127,8 +127,6 @@ static BYTE *Globals_hRcsId = "$Id$";
 #define DSKWRITEINT26   3
 #define DSKREADINT25    4
 
-
-
 /* FAT cluster special flags                                            */
 #define FREE                    0x000
 
@@ -162,86 +160,79 @@ FAR clk_dev,                    /* Clock device driver                  */
   FAR prn_dev,                  /* Generic printer device driver        */
   FAR aux_dev,                  /* Generic aux device driver            */
   FAR blk_dev;                  /* Block device (Disk) driver           */
-extern UWORD
-  ram_top;                      /* How much ram in Kbytes               */
-extern COUNT *
-  error_tos,                    /* error stack                          */
+extern UWORD ram_top;           /* How much ram in Kbytes               */
+extern COUNT *error_tos,        /* error stack                          */
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */
-extern BYTE
-  FAR _InitTextStart;           /* first available byte of ram          */
-extern BYTE
-  FAR _HMATextAvailable,        /* first byte of available CODE area    */
+extern BYTE FAR _InitTextStart; /* first available byte of ram          */
+extern BYTE FAR _HMATextAvailable,      /* first byte of available CODE area    */
   FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
   FAR _HMATextEnd[];            /* and the last byte of it              */
-extern 
-  BYTE DosLoadedInHMA;          /* if InitHMA has moved DOS up          */
-  
+extern
+BYTE DosLoadedInHMA;            /* if InitHMA has moved DOS up          */
+
 extern struct ClockRecord
   ClkRecord;
 
 /*                                                                      */
 /* Global variables                                                     */
 /*                                                                      */
-GLOBAL BYTE
-  os_major,                     /* major version number                 */
+GLOBAL BYTE os_major,           /* major version number                 */
   os_minor,                     /* minor version number                 */
-
   rev_number                    /* minor version number                 */
 #ifdef MAIN
-= REV_NUMBER,
+    = REV_NUMBER,
 #else
  ,
 #endif
-
   version_flags                 /* minor version number                 */
 #ifdef MAIN
-= 0;
+    = 0;
 #else
-  ; 
+ ;
 #endif
 
 #ifdef DEBUG
 GLOBAL WORD bDumpRegs
 #ifdef MAIN
-= FALSE;
+    = FALSE;
 #else
  ;
 #endif
 GLOBAL WORD bDumpRdWrParms
 #ifdef MAIN
-= FALSE;
+    = FALSE;
 #else
  ;
 #endif
 #endif
 
-#if 0   /* defined in MAIN.C now to save low memory */
+#if 0                           /* defined in MAIN.C now to save low memory */
 
-GLOBAL BYTE copyright[] = 
+GLOBAL BYTE copyright[] =
     "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
     "GNU General Public License as published by the Free Software Foundation;\n"
     "either version 2, or (at your option) any later version.\n";
-    
+
 #endif
 
 GLOBAL BYTE os_release[]
 #ifdef MAIN
 #if 0
-= "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n"
+    = "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n"
 #endif
-= "FreeDOS kernel version " KERNEL_VERSION_STRING \
-  " (Build " KERNEL_BUILD_STRING  ") [" __DATE__ " " __TIME__ "]\n"
+    = "FreeDOS kernel version " KERNEL_VERSION_STRING
+    " (Build " KERNEL_BUILD_STRING ") [" __DATE__ " " __TIME__ "]\n"
 #if 0
-"For technical information and description of the DOS-C operating system\n\
+    "For technical information and description of the DOS-C operating system\n\
 consult \"FreeDOS Kernel\" by Pat Villani, published by Miller\n\
 Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
 \n"
 #endif
 #endif
-;
+ ;
 
 /* Globally referenced variables - WARNING: ORDER IS DEFINED IN         */
 /* KERNAL.ASM AND MUST NOT BE CHANGED. DO NOT CHANGE ORDER BECAUSE THEY */
@@ -251,109 +242,81 @@ Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
 extern UWORD NetBios;
 extern BYTE *net_name;
 extern BYTE net_set_count;
-extern BYTE NetDelay,
-  NetRetry;
+extern BYTE NetDelay, NetRetry;
 
-extern UWORD
-  first_mcb,                    /* Start of user memory                 */
-  UMB_top,
-  umb_start,
-  uppermem_root;                /* Start of umb chain ? */
+extern UWORD first_mcb,         /* Start of user memory                 */
+  UMB_top, umb_start, uppermem_root;    /* Start of umb chain ? */
 extern struct dpb
 FAR *DPBp;                      /* First drive Parameter Block          */
-extern sfttbl
-  FAR * sfthead;                /* System File Table head               */
+extern sfttbl FAR * sfthead;    /* System File Table head               */
 extern struct dhdr
 FAR *clock,                     /* CLOCK$ device                        */
   FAR * syscon;                 /* console device                       */
-extern WORD
-  maxbksize;                    /* Number of Drives in system           */
+extern WORD maxbksize;          /* Number of Drives in system           */
 extern struct buffer
 FAR *firstbuf;                  /* head of buffers linked list          */
-extern cdstbl
-  FAR * CDSp;                   /* Current Directory Structure          */
+extern cdstbl FAR * CDSp;       /* Current Directory Structure          */
 extern
 struct cds FAR *current_ldt;
 extern LONG current_filepos;    /* current file position                */
-extern sfttbl
-  FAR * FCBp;                   /* FCB table pointer                    */
-extern WORD
-  nprotfcb;                     /* number of protected fcbs             */
-extern UBYTE
-  nblkdev,                      /* number of block devices              */
+extern sfttbl FAR * FCBp;       /* FCB table pointer                    */
+extern WORD nprotfcb;           /* number of protected fcbs             */
+extern UBYTE nblkdev,           /* number of block devices              */
   lastdrive,                    /* value of last drive                  */
   uppermem_link,                /* UMB Link flag */
-  PrinterEcho;			/* Printer Echo Flag                    */
+  PrinterEcho;                  /* Printer Echo Flag                    */
 
-extern UWORD
-  LoL_nbuffers;                 /* Number of buffers                    */
-  
+extern UWORD LoL_nbuffers;      /* Number of buffers                    */
+
 extern struct dhdr
   nul_dev;
-extern UBYTE
-  mem_access_mode;              /* memory allocation scheme             */
-extern BYTE
-  ErrorMode,                    /* Critical error flag                  */
+extern UBYTE mem_access_mode;   /* memory allocation scheme             */
+extern BYTE ErrorMode,          /* Critical error flag                  */
   InDOS,                        /* In DOS critical section              */
   OpenMode,                     /* File Open Attributes                 */
   SAttr,                        /* Attrib Mask for Dir Search           */
-  dosidle_flag,
-  Server_Call,
-  CritErrLocus,
-  CritErrAction,
-  CritErrClass,
-  VgaSet,
-  njoined;                      /* number of joined devices             */
+  dosidle_flag, Server_Call, CritErrLocus, CritErrAction, CritErrClass, VgaSet, njoined;        /* number of joined devices             */
 
 extern UWORD Int21AX;
 extern COUNT CritErrCode;
-extern BYTE FAR * CritErrDev;
+extern BYTE FAR *CritErrDev;
 
 extern struct dirent
   SearchDir;
 
-extern struct
-{
+extern struct {
   COUNT nDrive;
   BYTE szName[FNAME_SIZE + 1];
   BYTE szExt[FEXT_SIZE + 1];
-}
-FcbSearchBuffer;
+} FcbSearchBuffer;
 
-extern struct                    /* Path name parsing buffer             */
+extern struct                   /* Path name parsing buffer             */
 {
   BYTE _PriPathName[128];
-}
-_PriPathBuffer;
+} _PriPathBuffer;
 
-extern struct
-{
+extern struct {
   BYTE _fname[FNAME_SIZE];
-  BYTE _fext[FEXT_SIZE+1]; /* space for 0 */
-}
-szNames;
+  BYTE _fext[FEXT_SIZE + 1];    /* space for 0 */
+} szNames;
 
 #define PriPathName _PriPathBuffer._PriPathName
 #define szDirName TempCDS.cdsCurrentPath
 #define szFileName szNames._fname
 #define szFileExt szNames._fext
 
-extern struct                    /* Alternate path name parsing buffer   */
+extern struct                   /* Alternate path name parsing buffer   */
 {
   BYTE _SecPathName[128];
-}
-_SecPathBuffer;
+} _SecPathBuffer;
 
 #define SecPathName _SecPathBuffer._SecPathName
 
-extern UWORD
-  wAttr;
+extern UWORD wAttr;
 
-extern BYTE
-  default_drive;                /* default drive for dos                */
+extern BYTE default_drive;      /* default drive for dos                */
 
-extern BYTE
-  TempBuffer[],                 /* Temporary general purpose buffer     */
+extern BYTE TempBuffer[],       /* Temporary general purpose buffer     */
   FAR internal_data[],          /* sda areas                            */
   FAR swap_always[],            /*  "    "                              */
   FAR swap_indos[],             /*  "    "                              */
@@ -361,57 +324,46 @@ extern BYTE
   break_flg,                    /* true if break was detected           */
   break_ena,                    /* break enabled flag                   */
   FAR * dta;                    /* Disk transfer area (kludge)          */
-extern seg
-  cu_psp;                       /* current psp segment                  */
-extern iregs
-  FAR * user_r;                 /* User registers for int 21h call      */
+extern seg cu_psp;              /* current psp segment                  */
+extern iregs FAR * user_r;      /* User registers for int 21h call      */
 
 extern struct dirent            /* Temporary directory entry            */
   DirEntBuffer;
 
 extern request                  /* I/O Request packets                  */
-  CharReqHdr,
-  IoReqHdr,
-  MediaReqHdr;
+  CharReqHdr, IoReqHdr, MediaReqHdr;
 
-extern fcb
-  FAR * lpFcb;                  /* Pointer to users fcb                 */
+extern fcb FAR * lpFcb;         /* Pointer to users fcb                 */
 
-extern sft
-  FAR * lpCurSft;
+extern sft FAR * lpCurSft;
 
-extern BYTE
-  verify_ena,                   /* verify enabled flag                  */
+extern BYTE verify_ena,         /* verify enabled flag                  */
   switchar,                     /* switch char                          */
   return_mode,                  /* Process termination rets             */
   return_code;                  /*     "        "       "               */
 
-extern BYTE
-  BootDrive,                    /* Drive we came up from                */
+extern BYTE BootDrive,          /* Drive we came up from                */
   scr_pos;                      /* screen position for bs, ht, etc      */
 /*extern WORD
-  NumFloppies; !!*/             /* How many floppies we have            */
+  NumFloppies; !!*//* How many floppies we have            */
 
-extern keyboard
-  kb_buf;
+extern keyboard kb_buf;
 
 extern struct cds
   TempCDS;
 
 /* start of uncontrolled variables                                      */
-GLOBAL seg
-  RootPsp;                      /* Root process -- do not abort         */
+GLOBAL seg RootPsp;             /* Root process -- do not abort         */
 
 /* don't know what it should do, but its no longer in use TE
 GLOBAL struct f_node
  *pDirFileNode;
-*/ 
+*/
 
 #ifdef DEBUG
 GLOBAL iregs error_regs;        /* registers for dump                   */
 
-GLOBAL WORD
-  dump_regs;                    /* dump registers of bad call           */
+GLOBAL WORD dump_regs;          /* dump registers of bad call           */
 
 #endif
 
@@ -421,7 +373,7 @@ GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
 /*!! GLOBAL iregs
       FAR * ustackp,                /* user stack                           */
-/*!!  FAR * kstackp; */             /* kernel stack                         */
+/*!!  FAR * kstackp; *//* kernel stack                         */
 
 /*                                                                      */
 /* Function prototypes - automatically generated                        */
@@ -430,21 +382,18 @@ GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
 /* Process related functions - not under automatic generation.  */
 /* Typically, these are in ".asm" files.                        */
-VOID
-FAR   ASMCFUNC cpm_entry(VOID)
+VOID FAR ASMCFUNC cpm_entry(VOID)
 /*INRPT FAR handle_break(VOID) */ ;
-VOID
-enable(VOID),
-disable(VOID);
+VOID enable(VOID), disable(VOID);
 COUNT
-ASMCFUNC CriticalError(
-    COUNT nFlag, COUNT nDrive, COUNT nError, struct dhdr FAR * lpDevice);
+    ASMCFUNC CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
+                           struct dhdr FAR * lpDevice);
 
 #ifdef PROTO
 VOID FAR ASMCFUNC CharMapSrvc(VOID);
 VOID FAR ASMCFUNC set_stack(VOID);
 VOID FAR ASMCFUNC restore_stack(VOID);
-WORD     ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
+WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
 VOID exit(COUNT);
 /*VOID INRPT FAR handle_break(VOID); */
 VOID ASMCFUNC tmark(VOID);
@@ -515,14 +464,13 @@ VOID fputbyte();
 /*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 
 /* ^Break handling */
-void ASMCFUNC spawn_int23(void);         /* procsupt.asm */
+void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 int control_break(void);        /* break.c */
 void handle_break(void);        /* break.c */
 
-
 GLOBAL BYTE ReturnAnyDosVersionExpected;
 
-GLOBAL COUNT UnusedRetVal;        /* put unused errors here (to save stack space) */
+GLOBAL COUNT UnusedRetVal;      /* put unused errors here (to save stack space) */
 
 /*
  * Log: globals.h,v 

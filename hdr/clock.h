@@ -32,13 +32,12 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *clock_hRcsId = "$Id$";
+static BYTE *clock_hRcsId =
+    "$Id$";
 #endif
 #endif
 
-
-struct ClockRecord
-{
+struct ClockRecord {
   UWORD clkDays;                /* days since Jan 1, 1980.              */
   UBYTE clkMinutes;             /* residual minutes.                    */
   UBYTE clkHours;               /* residual hours.                      */

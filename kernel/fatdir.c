@@ -31,7 +31,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *fatdirRcsId = "$Id$";
+static BYTE *fatdirRcsId =
+    "$Id$";
 #endif
 
 /* Description.
@@ -45,24 +46,25 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_flags.f_droot = FALSE;
   fnp->f_flags.f_ddir = TRUE;
   fnp->f_flags.f_dnew = TRUE;
-  fnp->f_diroff = fnp->f_offset = fnp->f_cluster_offset = fnp->f_highwater = 0l;
+  fnp->f_diroff = fnp->f_offset = fnp->f_cluster_offset =
+      fnp->f_highwater = 0l;
 
   /* root directory */
   if (dirstart == 0)
-    {
+  {
 #ifdef WITHFAT32
-      if (ISFAT32(fnp->f_dpb))
-        {
-          fnp->f_cluster = fnp->f_dirstart = fnp->f_dpb->dpb_xrootclst;
-        }
-      else
-#endif
-        {
-          fnp->f_dirstart = 0l;
-          fnp->f_flags.f_droot = TRUE;
-       }
+    if (ISFAT32(fnp->f_dpb))
+    {
+      fnp->f_cluster = fnp->f_dirstart = fnp->f_dpb->dpb_xrootclst;
     }
-  else /* non-root */
+    else
+#endif
+    {
+      fnp->f_dirstart = 0l;
+      fnp->f_flags.f_droot = TRUE;
+    }
+  }
+  else                          /* non-root */
     fnp->f_cluster = fnp->f_dirstart = dirstart;
 }
 
@@ -76,17 +78,18 @@ f_node_ptr dir_open(BYTE * dirname)
   BYTE *pszPath = dirname + 2;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node()) == (f_node_ptr)0)
+  if ((fnp = get_f_node()) == (f_node_ptr) 0)
   {
-    return (f_node_ptr)0;
+    return (f_node_ptr) 0;
   }
 
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
   /* determine what drive we are using...                         */
-  if (ParseDosName(dirname, &drive, (BYTE *) 0, (BYTE *) 0, (BYTE *) 0, FALSE)
-      != SUCCESS)
+  if (ParseDosName
+      (dirname, &drive, (BYTE *) 0, (BYTE *) 0, (BYTE *) 0,
+       FALSE) != SUCCESS)
   {
     release_f_node(fnp);
     return NULL;
@@ -104,7 +107,8 @@ f_node_ptr dir_open(BYTE * dirname)
   {
     drive = default_drive;
   }
-  if (drive >= lastdrive) {
+  if (drive >= lastdrive)
+  {
     release_f_node(fnp);
     return NULL;
   }
@@ -113,7 +117,7 @@ f_node_ptr dir_open(BYTE * dirname)
 
   /* Generate full path name                                      */
   /* not necessary anymore, since truename did that already
-       i = cdsp->cdsJoinOffset;
+     i = cdsp->cdsJoinOffset;
      ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[i]); */
 
 /* for testing only for now */
@@ -139,7 +143,7 @@ f_node_ptr dir_open(BYTE * dirname)
   if (media_check(fnp->f_dpb) < 0)
   {
     release_f_node(fnp);
-    return (f_node_ptr)0;
+    return (f_node_ptr) 0;
   }
 
   /* Walk the directory tree to find the starting cluster         */
@@ -161,8 +165,8 @@ f_node_ptr dir_open(BYTE * dirname)
     /* comparison...                                        */
     /* first the file name with trailing spaces...          */
 
-    memset(TempBuffer, ' ', FNAME_SIZE+FEXT_SIZE);
-    
+    memset(TempBuffer, ' ', FNAME_SIZE + FEXT_SIZE);
+
     for (i = 0; i < FNAME_SIZE; i++)
     {
       if (*p != '\0' && *p != '.' && *p != '/' && *p != '\\')
@@ -191,9 +195,12 @@ f_node_ptr dir_open(BYTE * dirname)
 
     while (dir_read(fnp) == 1)
     {
-      if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED)
+      if (fnp->f_dir.dir_name[0] != '\0'
+          && fnp->f_dir.dir_name[0] != DELETED)
       {
-        if (fcmp(TempBuffer, (BYTE *)fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
+        if (fcmp
+            (TempBuffer, (BYTE *) fnp->f_dir.dir_name,
+             FNAME_SIZE + FEXT_SIZE))
         {
           i = TRUE;
           break;
@@ -205,7 +212,7 @@ f_node_ptr dir_open(BYTE * dirname)
     {
 
       release_f_node(fnp);
-      return (f_node_ptr)0;
+      return (f_node_ptr) 0;
     }
     else
     {
@@ -250,7 +257,7 @@ COUNT dir_read(REG f_node_ptr fnp)
 
   if (fnp->f_flags.f_droot)
   {
-    if (new_diroff >= DIRENT_SIZE * (ULONG)fnp->f_dpb->dpb_dirents)
+    if (new_diroff >= DIRENT_SIZE * (ULONG) fnp->f_dpb->dpb_dirents)
       return DE_SEEK;
 
     bp = getblock((ULONG) (new_diroff / secsize
@@ -294,14 +301,15 @@ COUNT dir_read(REG f_node_ptr fnp)
   bp->b_flag &= ~(BFR_DATA | BFR_FAT);
   bp->b_flag |= BFR_DIR | BFR_VALID;
 
-  getdirent((BYTE FAR *) & bp->b_buffer[((UWORD)new_diroff) % fnp->f_dpb->dpb_secsize],
-              (struct dirent FAR *)&fnp->f_dir);
+  getdirent((BYTE FAR *) & bp->
+            b_buffer[((UWORD) new_diroff) % fnp->f_dpb->dpb_secsize],
+            (struct dirent FAR *)&fnp->f_dir);
 
   /* Update the fnode's directory info                    */
   fnp->f_flags.f_dmod = FALSE;
   fnp->f_flags.f_dnew = FALSE;
   fnp->f_diroff = new_diroff;
-    
+
   /* and for efficiency, stop when we hit the first       */
   /* unused entry.                                        */
   /* either returns 1 or 0                                */
@@ -328,10 +336,9 @@ BOOL dir_write(REG f_node_ptr fnp)
     /* simple.                                              */
     if (fnp->f_flags.f_droot)
     {
-      bp = getblock(
-                     (ULONG) ((UWORD)fnp->f_diroff / secsize
-                              + fnp->f_dpb->dpb_dirstrt),
-                     fnp->f_dpb->dpb_unit);
+      bp = getblock((ULONG) ((UWORD) fnp->f_diroff / secsize
+                             + fnp->f_dpb->dpb_dirstrt),
+                    fnp->f_dpb->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_write)\n");
 #endif
@@ -348,7 +355,7 @@ BOOL dir_write(REG f_node_ptr fnp)
       fnp->f_offset = fnp->f_diroff;
       fnp->f_back = LONG_LAST_CLUSTER;
       fnp->f_cluster = fnp->f_dirstart;
-      fnp->f_cluster_offset = 0l;	/*JPP */
+      fnp->f_cluster_offset = 0l;       /*JPP */
 
       /* Search through the FAT to find the block     */
       /* that this entry is in.                       */
@@ -383,11 +390,12 @@ BOOL dir_write(REG f_node_ptr fnp)
       release_f_node(fnp);
       return FALSE;
     }
-    
+
     if (fnp->f_flags.f_dnew && fnp->f_dir.dir_attrib != D_LFN)
-        fmemset(&fnp->f_dir.dir_case, 0, 8);
+      fmemset(&fnp->f_dir.dir_case, 0, 8);
     putdirent((struct dirent FAR *)&fnp->f_dir,
-        (VOID FAR *) & bp->b_buffer[(UWORD)fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
+              (VOID FAR *) & bp->b_buffer[(UWORD) fnp->f_diroff %
+                                          fnp->f_dpb->dpb_secsize]);
 
     bp->b_flag &= ~(BFR_DATA | BFR_FAT);
     bp->b_flag |= BFR_DIR | BFR_DIRTY | BFR_VALID;
@@ -417,7 +425,7 @@ VOID dir_close(REG f_node_ptr fnp)
 }
 
 #ifndef IPL
-COUNT dos_findfirst(UCOUNT attr, BYTE *name)
+COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 {
   REG f_node_ptr fnp;
   REG dmatch *dmp = (dmatch *) TempBuffer;
@@ -425,8 +433,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   COUNT nDrive;
   BYTE *p;
 
-  BYTE local_name[FNAME_SIZE + 1],
-    local_ext[FEXT_SIZE + 1];
+  BYTE local_name[FNAME_SIZE + 1], local_ext[FEXT_SIZE + 1];
 
 /*  printf("ff %Fs\n", name);*/
 
@@ -438,7 +445,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   /* current directory, do a seek and read, then close the fnode. */
 
   /* Parse out the drive, file name and file extension.           */
-  i = ParseDosName(name, &nDrive, &szDirName[2], local_name, local_ext, TRUE);
+  i = ParseDosName(name, &nDrive, &szDirName[2], local_name, local_ext,
+                   TRUE);
   if (i != SUCCESS)
     return i;
 /*
@@ -453,14 +461,14 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
     SearchDir.dir_name[i] = *p;
 
   for (; i < FNAME_SIZE; ++i)
-      SearchDir.dir_name[i] = ' ';
+    SearchDir.dir_name[i] = ' ';
 
   /* and the extension (don't forget to add trailing spaces)...   */
   for (p = local_ext, i = 0; i < FEXT_SIZE && *p; ++p, ++i)
     SearchDir.dir_ext[i] = *p;
 
   for (; i < FEXT_SIZE; ++i)
-      SearchDir.dir_ext[i] = ' ';
+    SearchDir.dir_ext[i] = ' ';
 
   /* Convert everything to uppercase. */
   DosUpFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
@@ -471,7 +479,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   /* name                                                 */
   szDirName[0] = 'A' + nDrive;
   szDirName[1] = ':';
-    
+
   /* Special handling - the volume id is only in the root         */
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
@@ -483,16 +491,16 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   }
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
-  
+
 /*  printf("dir_open %s\n", szDirName);*/
   if ((fnp = dir_open(szDirName)) == NULL)
     return DE_PATHNOTFND;
 
   /* Now initialize the dirmatch structure.            */
-  
-  nDrive=get_verify_drive(name);
+
+  nDrive = get_verify_drive(name);
   if (nDrive < 0)
-      return nDrive;
+    return nDrive;
   dmp->dm_drive = nDrive;
   dmp->dm_attr_srch = attr;
 
@@ -507,7 +515,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
       /* Test the attribute and return first found    */
       if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
       {
-        dmp->dm_dircluster = fnp->f_dirstart;        /* TE */
+        dmp->dm_dircluster = fnp->f_dirstart;   /* TE */
         memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
         dir_close(fnp);
         return SUCCESS;
@@ -531,6 +539,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
     return dos_findnext();
   }
 }
+
 /*
     BUGFIX TE 06/28/01 
     
@@ -547,11 +556,11 @@ COUNT dos_findnext(void)
   BOOL found = FALSE;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node()) == (f_node_ptr)0)
+  if ((fnp = get_f_node()) == (f_node_ptr) 0)
   {
     return DE_NFILES;
   }
-  
+
   memset(fnp, 0, sizeof(*fnp));
 
   /* Force the fnode into read-write mode                         */
@@ -571,35 +580,38 @@ COUNT dos_findnext(void)
   /* Search through the directory to find the entry, but do a     */
   /* seek first.                                                  */
   if (dmp->dm_entry > 0)
-    {
-    fnp->f_diroff = (ULONG)(dmp->dm_entry - 1) * DIRENT_SIZE;
+  {
+    fnp->f_diroff = (ULONG) (dmp->dm_entry - 1) * DIRENT_SIZE;
     fnp->f_flags.f_dnew = FALSE;
-    }
+  }
   else
-    {
+  {
     fnp->f_diroff = 0;
     fnp->f_flags.f_dnew = TRUE;
-    }          
+  }
 
   /* Loop through the directory                                   */
   while (dir_read(fnp) == 1)
   {
     ++dmp->dm_entry;
     if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
-          && (fnp->f_dir.dir_attrib & D_VOLID) != D_VOLID )
+        && (fnp->f_dir.dir_attrib & D_VOLID) != D_VOLID)
     {
-      if (fcmp_wild((BYTE FAR *)dmp->dm_name_pat, (BYTE FAR *)fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
+      if (fcmp_wild
+          ((BYTE FAR *) dmp->dm_name_pat, (BYTE FAR *) fnp->f_dir.dir_name,
+           FNAME_SIZE + FEXT_SIZE))
       {
         /*
-            MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.
-            Bits 0x21 seem to get set some where in MSD so Rd and Arc
-            files are returned. 
-            RdOnly + Archive bits are ignored
+           MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.
+           Bits 0x21 seem to get set some where in MSD so Rd and Arc
+           files are returned. 
+           RdOnly + Archive bits are ignored
          */
-         
+
         /* Test the attribute as the final step */
         if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
-           ((~dmp->dm_attr_srch & fnp->f_dir.dir_attrib & (D_DIR | D_SYSTEM | D_HIDDEN)) == 0))
+            ((~dmp->dm_attr_srch & fnp->f_dir.
+              dir_attrib & (D_DIR | D_SYSTEM | D_HIDDEN)) == 0))
         {
           found = TRUE;
           break;
@@ -612,10 +624,10 @@ COUNT dos_findnext(void)
 
   /* If found, transfer it to the dmatch structure                */
   if (found)
-    {
+  {
     dmp->dm_dircluster = fnp->f_dirstart;
     memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
-    }
+  }
 
   /* return the result                                            */
   release_f_node(fnp);
@@ -631,61 +643,57 @@ COUNT dos_findnext(void)
         "test e", " test .y z",...
         
     so we have to work from the last blank backward 
-*/    
-void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName)
+*/
+void ConvertName83ToNameSZ(BYTE FAR * destSZ, BYTE FAR * srcFCBName)
 {
-    int loop;
-    int noExtension = FALSE;
-    
-    if (*srcFCBName == '.')
-    {
-        noExtension = TRUE;
-    }
-    
-        
+  int loop;
+  int noExtension = FALSE;
 
-    fmemcpy(destSZ,srcFCBName,FNAME_SIZE);
+  if (*srcFCBName == '.')
+  {
+    noExtension = TRUE;
+  }
 
-    srcFCBName += FNAME_SIZE;
-    
-    for (loop = FNAME_SIZE; --loop >= 0; )
-        {
-        if (destSZ[loop] != ' ')
-            break;
-        }    
-    destSZ     += loop + 1;
-    
-    
-    
-    if (!noExtension)       /* not for ".", ".." */
+  fmemcpy(destSZ, srcFCBName, FNAME_SIZE);
+
+  srcFCBName += FNAME_SIZE;
+
+  for (loop = FNAME_SIZE; --loop >= 0;)
+  {
+    if (destSZ[loop] != ' ')
+      break;
+  }
+  destSZ += loop + 1;
+
+  if (!noExtension)             /* not for ".", ".." */
+  {
+
+    for (loop = FEXT_SIZE; --loop >= 0;)
     {
-  
-        for (loop = FEXT_SIZE; --loop >= 0; )
-        {
-            if (srcFCBName[loop] != ' ')
-                break;
-        }    
-        if (loop >= 0)
-        {        
-            *destSZ++ = '.';
-            fmemcpy(destSZ,srcFCBName,loop+1);
-            destSZ += loop+1;
-        }
+      if (srcFCBName[loop] != ' ')
+        break;
     }
-    *destSZ = '\0';
+    if (loop >= 0)
+    {
+      *destSZ++ = '.';
+      fmemcpy(destSZ, srcFCBName, loop + 1);
+      destSZ += loop + 1;
+    }
+  }
+  *destSZ = '\0';
 }
 
 /*
     returns the asciiSZ length of a 8.3 filename
-*/    
+*/
 
-int FileName83Length(BYTE *filename83)
+int FileName83Length(BYTE * filename83)
 {
-    BYTE buff[13];
+  BYTE buff[13];
 
-    ConvertName83ToNameSZ(buff, filename83);
-    
-    return strlen(buff);
+  ConvertName83ToNameSZ(buff, filename83);
+
+  return strlen(buff);
 }
 
 /*
@@ -777,4 +785,3 @@ int FileName83Length(BYTE *filename83)
  *    Rev 1.0   02 Jul 1995  8:04:34   patv
  * Initial revision.
  */
-

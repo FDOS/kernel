@@ -5,9 +5,9 @@
 
     alll data herein goes to special segment 
         DYN_DATA AFTER BSS, but immediately before HMA_TEXT
-*/    
+*/
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
 
-struct DynS Dyn = {0};
+struct DynS Dyn = { 0 };

@@ -34,7 +34,8 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *time_hRcsId = "$Id$";
+static BYTE *time_hRcsId =
+    "$Id$";
 #endif
 #endif
 
@@ -87,4 +88,3 @@ typedef UWORD time;
  *         Rev 1.0   02 Jul 1995 10:39:56   patv
  *      Initial revision.
  */
-

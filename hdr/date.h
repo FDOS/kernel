@@ -32,7 +32,8 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *date_hRcsId = "$Id$";
+static BYTE *date_hRcsId =
+    "$Id$";
 #endif
 #endif
 

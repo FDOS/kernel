@@ -30,21 +30,19 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *tail_hRcsId = "$Id$";
+static BYTE *tail_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 #ifndef LINESIZE
 #define LINESIZE       127
 #endif
 
-typedef struct
-{
+typedef struct {
   UBYTE ctCount;                /* number of bytes returned             */
   BYTE ctBuffer[LINESIZE];      /* the buffer itself            */
-}
-CommandTail;
+} CommandTail;
 
 /*
  * Log: tail.h,v 

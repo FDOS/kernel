@@ -29,16 +29,15 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *sft_hRcsId = "$Id$";
+static BYTE *sft_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 #define SFTMAX  128
 
 /* Handle Definition entry                                              */
-typedef struct
-{
+typedef struct {
   WORD sft_count;               /* 00 - reference count                      */
   WORD sft_mode;                /* 02 - open mode - see below                */
   BYTE sft_attrib;              /* 04 - file attribute - dir style           */
@@ -46,24 +45,17 @@ typedef struct
   union                         /* 05 */
   {
     WORD _sft_flags;
-    struct
-    {
+    struct {
       BYTE _sft_flags_lo;
       BYTE _sft_flags_hi;
-    }
-    _split_sft_flags;
-  }
-  sft_flags_union;
+    } _split_sft_flags;
+  } sft_flags_union;
 
   union                         /* 07 */
   {
-    struct dpb FAR *
-      _sft_dcb;                 /* The device control block     */
-    struct dhdr FAR *
-      _sft_dev;                 /* device driver for char dev   */
-  }
-  
-  sft_dcb_or_dev;
+    struct dpb FAR *_sft_dcb;   /* The device control block     */
+    struct dhdr FAR *_sft_dev;  /* device driver for char dev   */
+  } sft_dcb_or_dev;
   WORD sft_stclust;             /* 0b - Starting cluster                     */
   time sft_time;                /* 0d - File time                            */
   date sft_date;                /* 0f - File date                            */
@@ -74,36 +66,30 @@ typedef struct
   WORD sft_dirdlust;            /* 1d - Sector containing cluster            */
   BYTE sft_diridx;              /* 1f - directory index                      */
   BYTE sft_name[11];            /* 20 - dir style file name                  */
-  BYTE FAR *
-    sft_bshare;                 /* 2b - backward link of file sharing sft    */
+  BYTE FAR *sft_bshare;         /* 2b - backward link of file sharing sft    */
   WORD sft_mach;                /* 2f - machine number - network apps        */
   WORD sft_psp;                 /* 31 - owner psp                            */
   WORD sft_shroff;              /* 33 - Sharing offset                       */
   WORD sft_status;              /* 35 - this sft status                      */
-  BYTE FAR * sft_ifsptr;        /* 37 - pointer to IFS driver for file, 0000000h if native DOS */
-}
-sft;
+  BYTE FAR *sft_ifsptr;         /* 37 - pointer to IFS driver for file, 0000000h if native DOS */
+} sft;
 
 /* SFT Table header definition                                          */
-typedef struct _sftheader
-{
+typedef struct _sftheader {
   struct _sfttbl FAR *          /* link to next table in list   */
     sftt_next;
   WORD sftt_count;              /* # of handle definition       */
   /* entries, this table          */
-}
-sftheader;
+} sftheader;
 
 /* System File Definition List                                          */
-typedef struct _sfttbl
-{
+typedef struct _sfttbl {
   struct _sfttbl FAR *          /* link to next table in list   */
     sftt_next;
   WORD sftt_count;              /* # of handle definition       */
   /* entries, this table          */
   sft sftt_table[SFTMAX];       /* The array of sft for block   */
-}
-sfttbl;
+} sfttbl;
 
 /* defines for sft use                                                  */
 #define SFT_MASK        0x0060  /* splits device data           */
@@ -152,7 +138,6 @@ sfttbl;
 #define sft_flags   sft_flags_union._sft_flags
 #define sft_flags_hi  sft_flags_union._split_sft_flags._sft_flags_hi
 #define sft_flags_lo  sft_flags_union._split_sft_flags._sft_flags_lo
-
 
 /*
  * Log: sft.h,v 

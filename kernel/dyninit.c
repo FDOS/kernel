@@ -4,7 +4,6 @@
     this serves requests from the INIT modules to
     allocate dynamic data.
 
-
 kernel layout:
  00000H 000FFH 00100H PSP                PSP
  00100H 004E1H 003E2H _TEXT              CODE
@@ -28,7 +27,6 @@ additionally:
  122E0H 12AA5H 007C6H ID                 ID
  12AA6H 12CBFH 0021AH IB                 IB
 
-
  purpose is to move the HMA_TEXT = resident kernel
  around, so that below it - after BSS, there is data 
  addressable near by the kernel, to hold some arrays
@@ -36,62 +34,61 @@ additionally:
  
  making f_nodes near saves ~2.150 code in HMA
     
-*/    
+*/
 #include "portab.h"
 #include "init-mod.h"
-#include "dyndata.h" 
+#include "dyndata.h"
 
 #if defined(DEBUG)
-    #define DebugPrintf(x) printf x
+#define DebugPrintf(x) printf x
 #else
-    #define DebugPrintf(x)
+#define DebugPrintf(x)
 #endif
-
 
 /*extern struct DynS FAR Dyn;*/
 
 #ifndef __TURBOC__
-	#include "init-dat.h"
-	extern struct DynS DOSFAR Dyn;
+#include "init-dat.h"
+extern struct DynS DOSFAR Dyn;
 #else
-	extern struct DynS FAR Dyn;
-#endif	
-
-
+extern struct DynS FAR Dyn;
+#endif
 
 void far *DynAlloc(char *what, unsigned num, unsigned size)
 {
-    void far *now;
-    unsigned total = num * size;
+  void far *now;
+  unsigned total = num * size;
 #ifndef DEBUG
-    UNREFERENCED_PARAMETER(what);
+  UNREFERENCED_PARAMETER(what);
 #endif
 
-    if ((ULONG)total + Dyn.Allocated > 0xffff)
-    {
-        printf("PANIC:Dyn %lu\n", (ULONG)total + Dyn.Allocated);
-        for (;;);
-    }
-                
-    DebugPrintf(("DYNDATA:allocating %s - %u * %u bytes, total %u, %u..%u\n",
-        what, num, size, total, Dyn.Allocated,Dyn.Allocated+total));
-    
-    now = (void far *)&Dyn.Buffer[Dyn.Allocated];
-    fmemset(now, 0, total);
-    
-    Dyn.Allocated += total;
-    
-    return now;   
-}    
+  if ((ULONG) total + Dyn.Allocated > 0xffff)
+  {
+    printf("PANIC:Dyn %lu\n", (ULONG) total + Dyn.Allocated);
+    for (;;) ;
+  }
+
+  DebugPrintf(("DYNDATA:allocating %s - %u * %u bytes, total %u, %u..%u\n",
+               what, num, size, total, Dyn.Allocated,
+               Dyn.Allocated + total));
+
+  now = (void far *)&Dyn.Buffer[Dyn.Allocated];
+  fmemset(now, 0, total);
+
+  Dyn.Allocated += total;
+
+  return now;
+}
 
 void DynFree(void *ptr)
 {
-    Dyn.Allocated = (char *)ptr - (char *)Dyn.Buffer;
+  Dyn.Allocated = (char *)ptr - (char *)Dyn.Buffer;
 }
 
 void FAR *DynLast()
 {
-    DebugPrintf(("dynamic data end at %p\n",(void FAR *)(Dyn.Buffer+Dyn.Allocated)));
+  DebugPrintf(("dynamic data end at %p\n",
+               (void FAR *)(Dyn.Buffer + Dyn.Allocated)));
 
-    return Dyn.Buffer+Dyn.Allocated;
-}    
+  return Dyn.Buffer + Dyn.Allocated;
+}

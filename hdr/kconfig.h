@@ -13,15 +13,15 @@
         < 0 : not possible to skip config.sys
         = 0 : only possible if already pressed before, no message
         > 0 : wait so long for F5/F8
-*/              
+*/
 typedef struct _KernelConfig {
-    char CONFIG[6];         /* "CONFIG" */
-    unsigned short ConfigSize; 
-    
-    unsigned char  DLASortByDriveNo;
-    unsigned char  InitDiskShowDriveAssignment;
-    signed   char  SkipConfigSeconds;
-    unsigned char  ForceLBA;
-    unsigned char  GlobalEnableLBAsupport;       /* = 0 --> disable LBA support */
-    } KernelConfig;
-extern struct _KernelConfig FAR LowKernelConfig;    
+  char CONFIG[6];               /* "CONFIG" */
+  unsigned short ConfigSize;
+
+  unsigned char DLASortByDriveNo;
+  unsigned char InitDiskShowDriveAssignment;
+  signed char SkipConfigSeconds;
+  unsigned char ForceLBA;
+  unsigned char GlobalEnableLBAsupport; /* = 0 --> disable LBA support */
+} KernelConfig;
+extern struct _KernelConfig FAR LowKernelConfig;

@@ -22,8 +22,7 @@
 #include "buffer.h"
 
 #include "KConfig.h"
-extern struct _KernelConfig InitKernelConfig;    
-
+extern struct _KernelConfig InitKernelConfig;
 
 /*
  * The null macro `INIT' can be used to allow the reader to differentiate
@@ -58,7 +57,7 @@ COUNT ASMCFUNC strlen(REG BYTE * s);
 
 /*inithma.c*/
 extern BYTE DosLoadedInHMA;
-extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
+extern fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
 
 #define setvec(n, isr)  (void)(*(VOID (FAR * FAR *)())(MK_FP(0,4 * (n))) = (isr))
 
@@ -75,46 +74,43 @@ extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
 #define MAX_HARD_DRIVE  8
 #define NDEV            26      /* up to Z:                     */
 
-
-
 /* Start of configuration variables                                     */
-struct config
-{
-    BYTE cfgBuffers;
-    /* number of buffers in the system      */
-    UBYTE cfgFiles;
-    /* number of available files            */
-    UBYTE cfgFcbs;
-    /* number of available FCBs             */
-    UBYTE cfgProtFcbs;
-    /* number of protected FCBs             */
-    BYTE cfgInit[NAMEMAX];
-    /* init of command.com          */
-    BYTE cfgInitTail[NAMEMAX];
-    /* command.com's tail           */
-    UBYTE cfgLastdrive;
-    /* last drive                           */
-    BYTE cfgStacks;
-    /* number of stacks                     */
-    UWORD cfgStackSize;
-    /* stacks size for each stack           */
-    /* COUNTRY=
-              In Pass #1 these information is collected and in PostConfig()
-                     the NLS package is loaded into memory.
-                     -- 2000/06/11 ska*/
-    WORD cfgCSYS_cntry;
-    /* country ID to be loaded */
-    WORD cfgCSYS_cp;
-    /* requested codepage; NLS_DEFAULT if default */
-    BYTE cfgCSYS_fnam[NAMEMAX];
-    /* filename of COUNTRY= */
-    WORD cfgCSYS_memory;
-    /* number of bytes required for the NLS pkg;
-       0 if none */
-    VOID FAR *cfgCSYS_data;
-    /* where the loaded data is for PostConfig() */
-    UBYTE cfgP_0_startmode;
-    /* load command.com high or not */
+struct config {
+  BYTE cfgBuffers;
+  /* number of buffers in the system      */
+  UBYTE cfgFiles;
+  /* number of available files            */
+  UBYTE cfgFcbs;
+  /* number of available FCBs             */
+  UBYTE cfgProtFcbs;
+  /* number of protected FCBs             */
+  BYTE cfgInit[NAMEMAX];
+  /* init of command.com          */
+  BYTE cfgInitTail[NAMEMAX];
+  /* command.com's tail           */
+  UBYTE cfgLastdrive;
+  /* last drive                           */
+  BYTE cfgStacks;
+  /* number of stacks                     */
+  UWORD cfgStackSize;
+  /* stacks size for each stack           */
+  /* COUNTRY=
+     In Pass #1 these information is collected and in PostConfig()
+     the NLS package is loaded into memory.
+     -- 2000/06/11 ska */
+  WORD cfgCSYS_cntry;
+  /* country ID to be loaded */
+  WORD cfgCSYS_cp;
+  /* requested codepage; NLS_DEFAULT if default */
+  BYTE cfgCSYS_fnam[NAMEMAX];
+  /* filename of COUNTRY= */
+  WORD cfgCSYS_memory;
+  /* number of bytes required for the NLS pkg;
+     0 if none */
+  VOID FAR *cfgCSYS_data;
+  /* where the loaded data is for PostConfig() */
+  UBYTE cfgP_0_startmode;
+  /* load command.com high or not */
 };
 
 extern struct config Config;
@@ -134,7 +130,7 @@ INIT VOID mcb_init(UCOUNT seg, UWORD size);
 INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 INIT BYTE FAR *KernelAlloc(WORD nBytes);
 INIT COUNT ASMCFUNC Umb_Test(void);
-INIT COUNT ASMCFUNC UMB_get_largest(UCOUNT *seg, UCOUNT *size);
+INIT COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
 INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
 
 /* diskinit.c */
@@ -152,27 +148,28 @@ UWORD init_oem(void);
 
 /* intr.asm */
 
-void ASMCFUNC init_call_intr(int nr, iregs *rp);
-UCOUNT ASMCFUNC read(int fd, void *buf, UCOUNT count); 
+void ASMCFUNC init_call_intr(int nr, iregs * rp);
+UCOUNT ASMCFUNC read(int fd, void *buf, UCOUNT count);
 int ASMCFUNC open(const char *pathname, int flags);
 int ASMCFUNC close(int fd);
 int ASMCFUNC dup2(int oldfd, int newfd);
-int ASMCFUNC allocmem(UWORD size, seg *segp);
+int ASMCFUNC allocmem(UWORD size, seg * segp);
 INIT VOID ASMCFUNC init_PSPInit(seg psp_seg);
 INIT VOID ASMCFUNC init_PSPSet(seg psp_seg);
 INIT COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
 INIT VOID ASMCFUNC keycheck(VOID);
 
 /* irqstack.asm */
-VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks, WORD stackSize);
+VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,
+                          WORD stackSize);
 
 /* inthndlr.c */
-VOID far 	   ASMCFUNC int21_entry(iregs UserRegs);
-VOID 		   ASMCFUNC int21_service(iregs far * r);
+VOID far ASMCFUNC int21_entry(iregs UserRegs);
+VOID ASMCFUNC int21_service(iregs far * r);
 VOID FAR ASMCFUNC int0_handler(void);
 VOID FAR ASMCFUNC int6_handler(void);
 VOID FAR ASMCFUNC empty_handler(void);
-VOID far ASMCFUNC got_cbreak(void);  /* procsupt.asm */
+VOID far ASMCFUNC got_cbreak(void);     /* procsupt.asm */
 VOID far ASMCFUNC int20_handler(iregs UserRegs);
 VOID far ASMCFUNC int21_handler(iregs UserRegs);
 VOID FAR ASMCFUNC int22_handler(void);
@@ -187,21 +184,22 @@ VOID FAR ASMCFUNC int2f_handler(void);
 
 /* main.c */
 INIT VOID ASMCFUNC FreeDOSmain(void);
-INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT top);
+INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine,
+                      COUNT mode, COUNT top);
 INIT VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */
-WORD init_printf(CONST BYTE * fmt,...);
+WORD init_printf(CONST BYTE * fmt, ...);
 WORD init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 void MoveKernel(unsigned NewKernelSegment);
-extern WORD HMAFree;          /* first byte in HMA not yet used      */
+extern WORD HMAFree;            /* first byte in HMA not yet used      */
 
 extern unsigned CurrentKernelSegment;
 
 #if defined(WATCOM) && 0
-ULONG FAR ASMCFUNC MULULUS(ULONG mul1, UWORD mul2); /* MULtiply ULong by UShort */
-ULONG FAR ASMCFUNC MULULUL(ULONG mul1, ULONG mul2); /* MULtiply ULong by ULong */
-ULONG FAR ASMCFUNC DIVULUS(ULONG mul1, UWORD mul2); /* DIVide ULong by UShort */
-ULONG FAR ASMCFUNC DIVMODULUS(ULONG mul1, UWORD mul2,UWORD *rem); /* DIVide ULong by UShort */
+ULONG FAR ASMCFUNC MULULUS(ULONG mul1, UWORD mul2);     /* MULtiply ULong by UShort */
+ULONG FAR ASMCFUNC MULULUL(ULONG mul1, ULONG mul2);     /* MULtiply ULong by ULong */
+ULONG FAR ASMCFUNC DIVULUS(ULONG mul1, UWORD mul2);     /* DIVide ULong by UShort */
+ULONG FAR ASMCFUNC DIVMODULUS(ULONG mul1, UWORD mul2, UWORD * rem);     /* DIVide ULong by UShort */
 #endif

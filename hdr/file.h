@@ -30,10 +30,10 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *file_hRcsId = "$Id$";
+static BYTE *file_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 /* 0 = CON, standard input, can be redirected                           */
 /* 1 = CON, standard output, can be redirected                          */

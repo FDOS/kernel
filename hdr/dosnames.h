@@ -30,19 +30,18 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *dosnames_hRcsId = "$Id$";
+static BYTE *dosnames_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 #define PARSE_MAX 64
 
-struct dosnames
-{
+struct dosnames {
   UBYTE dn_drive;               /* the drive that was parsed    */
   UBYTE dn_network[PARSE_MAX];  /* specified network            */
   UBYTE dn_path[PARSE_MAX];     /* the path                     */
-  UBYTE dn_name[FNAME_SIZE + FEXT_SIZE + 1];	/* the file name       */
+  UBYTE dn_name[FNAME_SIZE + FEXT_SIZE + 1];    /* the file name       */
 };
 
 /*

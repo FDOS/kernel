@@ -30,15 +30,14 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
-#include "init-dat.h"   
+#include "init-dat.h"
 
-GLOBAL BYTE copyright[] = 
+GLOBAL BYTE copyright[] =
     "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
     "GNU General Public License as published by the Free Software Foundation;\n"
     "either version 2, or (at your option) any later version.\n";
-
 
 /*
   These are the far variables from the DOS data segment that we need here. The
@@ -48,45 +47,41 @@ GLOBAL BYTE copyright[] =
 
   -- Bart
  */
-extern UBYTE DOSFAR nblkdev,
-    DOSFAR lastdrive;                    /* value of last drive                  */
+extern UBYTE DOSFAR nblkdev, DOSFAR lastdrive;  /* value of last drive                  */
 
-GLOBAL BYTE
-    DOSFAR os_major,                     /* major version number                 */
-    DOSFAR os_minor,                     /* minor version number                 */
-    DOSFAR dosidle_flag,
-    DOSFAR BootDrive,                    /* Drive we came up from                */
-    DOSFAR default_drive;                /* default drive for dos                */
+GLOBAL BYTE DOSFAR os_major,    /* major version number                 */
+  DOSFAR os_minor,              /* minor version number                 */
+  DOSFAR dosidle_flag, DOSFAR BootDrive,        /* Drive we came up from                */
+  DOSFAR default_drive;         /* default drive for dos                */
 
 GLOBAL BYTE DOSFAR os_release[];
 /* GLOBAL BYTE DOSFAR copyright[]; */
-GLOBAL seg DOSFAR RootPsp;               /* Root process -- do not abort         */
+GLOBAL seg DOSFAR RootPsp;      /* Root process -- do not abort         */
 
-extern struct dpb FAR * DOSFAR DPBp; /* First drive Parameter Block          */
-extern cdstbl FAR * DOSFAR CDSp; /* Current Directory Structure          */
+extern struct dpb FAR *DOSFAR DPBp;     /* First drive Parameter Block          */
+extern cdstbl FAR *DOSFAR CDSp; /* Current Directory Structure          */
 
-extern struct dhdr FAR * DOSFAR clock,           /* CLOCK$ device                        */
-                   FAR * DOSFAR syscon;          /* console device                       */
-extern struct dhdr DOSTEXTFAR con_dev,               /* console device drive                 */
-                   DOSTEXTFAR clk_dev,               /* Clock device driver                  */
-                   DOSTEXTFAR blk_dev;               /* Block device (Disk) driver           */
-extern UWORD
-    DOSFAR ram_top;                      /* How much ram in Kbytes               */
-extern iregs FAR * DOSFAR user_r;        /* User registers for int 21h call      */
+extern struct dhdr FAR *DOSFAR clock,   /* CLOCK$ device                        */
+  FAR * DOSFAR syscon;          /* console device                       */
+extern struct dhdr DOSTEXTFAR con_dev,  /* console device drive                 */
+  DOSTEXTFAR clk_dev,           /* Clock device driver                  */
+  DOSTEXTFAR blk_dev;           /* Block device (Disk) driver           */
+extern UWORD DOSFAR ram_top;    /* How much ram in Kbytes               */
+extern iregs FAR *DOSFAR user_r;        /* User registers for int 21h call      */
 extern BYTE FAR _HMATextEnd[];
 
 #ifdef VERSION_STRINGS
-static BYTE *mainRcsId = "$Id$";
+static BYTE *mainRcsId =
+    "$Id$";
 #endif
 
-struct _KernelConfig InitKernelConfig = {"", 0, 0, 0, 0, 0, 0};
-
+struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0 };
 
 extern WORD days[2][13];
-extern BYTE FAR * lpBase;
-extern BYTE FAR * lpOldTop;
-extern BYTE FAR * lpTop;
-extern BYTE FAR * upBase;
+extern BYTE FAR *lpBase;
+extern BYTE FAR *lpOldTop;
+extern BYTE FAR *lpTop;
+extern BYTE FAR *upBase;
 extern BYTE _ib_start[], _ib_end[], _init_end[];
 
 INIT VOID configDone(VOID);
@@ -100,38 +95,36 @@ INIT VOID FsConfig(VOID);
 INIT VOID InitPrinters(VOID);
 
 #ifdef _MSC_VER
-	BYTE _acrtused = 0;
-#endif	
-
-#ifdef _MSC_VER
-__segment DosDataSeg = 0;		/* serves for all references to the DOS DATA segment 
-									necessary for MSC+our funny linking model
-								*/
-__segment DosTextSeg = 0;								
-								
+BYTE _acrtused = 0;
 #endif
 
+#ifdef _MSC_VER
+__segment DosDataSeg = 0;       /* serves for all references to the DOS DATA segment 
+                                   necessary for MSC+our funny linking model
+                                 */
+__segment DosTextSeg = 0;
+
+#endif
 
 INIT VOID ASMCFUNC FreeDOSmain(void)
 {
-#ifdef _MSC_VER	
-	extern FAR DATASTART;     
-	extern FAR prn_dev;
- 	DosDataSeg = (__segment)&DATASTART;	
- 	DosTextSeg = (__segment)&prn_dev;
-#endif 	
+#ifdef _MSC_VER
+  extern FAR DATASTART;
+  extern FAR prn_dev;
+  DosDataSeg = (__segment) & DATASTART;
+  DosTextSeg = (__segment) & prn_dev;
+#endif
 
-	fmemcpy(&InitKernelConfig,&LowKernelConfig,sizeof(InitKernelConfig));
+  fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
 
-	
-    setvec(0, int0_handler);        /* zero divide */
-    setvec(1, empty_handler);       /* single step */
-    setvec(3, empty_handler);       /* debug breakpoint */
-    setvec(6, empty_handler);       /* invalid opcode */
-    
-    /* clear the Init BSS area (what normally the RTL does */
-    memset(_ib_start, 0, _ib_end - _ib_start);
-    
+  setvec(0, int0_handler);      /* zero divide */
+  setvec(1, empty_handler);     /* single step */
+  setvec(3, empty_handler);     /* debug breakpoint */
+  setvec(6, empty_handler);     /* invalid opcode */
+
+  /* clear the Init BSS area (what normally the RTL does */
+  memset(_ib_start, 0, _ib_end - _ib_start);
+
   init_kernel();
 
 #ifdef DEBUG
@@ -155,19 +148,19 @@ INIT VOID ASMCFUNC FreeDOSmain(void)
 void InitializeAllBPBs(VOID)
 {
   static char filename[] = "A:-@JUNK@-.TMP";
-  int drive,fileno;
-  for (drive = 'C'; drive < 'A'+nblkdev; drive++)
-    {
-      filename[0] = drive;
-      if ((fileno = open(filename, O_RDONLY)) >= 0)
-        close(fileno);
-    }
-}    
+  int drive, fileno;
+  for (drive = 'C'; drive < 'A' + nblkdev; drive++)
+  {
+    filename[0] = drive;
+    if ((fileno = open(filename, O_RDONLY)) >= 0)
+      close(fileno);
+  }
+}
 
 INIT void init_kernel(void)
 {
   COUNT i;
-  
+
   os_major = MAJOR_RELEASE;
   os_minor = MINOR_RELEASE;
 
@@ -175,14 +168,14 @@ INIT void init_kernel(void)
   ram_top = init_oem();
 
   /* move kernel to high conventional RAM, just below the init code */
-  lpTop = MK_FP(ram_top * 64 - (FP_OFF(_init_end)+15)/16 -
-      (FP_OFF(_HMATextEnd)+15)/16, 0);
-  
+  lpTop = MK_FP(ram_top * 64 - (FP_OFF(_init_end) + 15) / 16 -
+                (FP_OFF(_HMATextEnd) + 15) / 16, 0);
+
   MoveKernel(FP_SEG(lpTop));
   lpOldTop = lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
 
 /* Fake int 21h stack frame */
-  user_r = (iregs FAR *) MK_FP(DOS_PSP,0xD0);
+  user_r = (iregs FAR *) MK_FP(DOS_PSP, 0xD0);
 
 #ifndef KDB
   for (i = 0x20; i <= 0x3f; i++)
@@ -223,7 +216,7 @@ INIT void init_kernel(void)
 
   /* Number of units */
   if (blk_dev.dh_name[0] > 0)
-      update_dcb(&blk_dev);
+    update_dcb(&blk_dev);
 
   /* Now config the temporary file system */
   FsConfig();
@@ -235,7 +228,7 @@ INIT void init_kernel(void)
   /* Close all (device) files */
   for (i = 0; i < lastdrive; i++)
     close(i);
-  
+
   /* and do final buffer allocation. */
   PostConfig();
   nblkdev = 0;
@@ -251,7 +244,7 @@ INIT void init_kernel(void)
   /* Close all (device) files */
   for (i = 0; i < lastdrive; i++)
     close(i);
-  
+
   /* Now config the final file system     */
   FsConfig();
 
@@ -274,7 +267,7 @@ INIT VOID FsConfig(VOID)
   dup2(STDIN, STDOUT);
 
   /* 2 is /dev/con (stderr)     */
-  dup2(STDIN, STDERR); 
+  dup2(STDIN, STDERR);
 
   /* 3 is /dev/aux                                                */
   open("AUX", O_RDWR);
@@ -288,15 +281,15 @@ INIT VOID FsConfig(VOID)
   dpb = DPBp;
 
   /* Initialize the current directory structures    */
-  for (i = 0; i < lastdrive  ; i++)
+  for (i = 0; i < lastdrive; i++)
   {
-  	struct cds FAR *pcds_table = &CDSp->cds_table[i];
+    struct cds FAR *pcds_table = &CDSp->cds_table[i];
 
     fmemcpy(pcds_table->cdsCurrentPath, "A:\\\0", 4);
 
     pcds_table->cdsCurrentPath[0] += i;
 
-    if (i < nblkdev && (ULONG)dpb != 0xffffffffl)
+    if (i < nblkdev && (ULONG) dpb != 0xffffffffl)
     {
       pcds_table->cdsDpb = dpb;
       pcds_table->cdsFlags = CDSPHYSDRV;
@@ -318,39 +311,36 @@ INIT VOID FsConfig(VOID)
 
 INIT VOID signon()
 {
-  printf("\n%S"  ,(void FAR *)os_release);
+  printf("\n%S", (void FAR *)os_release);
 
-  printf("Kernel compatibility %d.%d",
-         os_major, os_minor );
+  printf("Kernel compatibility %d.%d", os_major, os_minor);
 
 #if defined(__TURBOC__)
-	printf(" - TURBOC");
+  printf(" - TURBOC");
 #elif defined(_MSC_VER)
-	printf(" - MSC");
+  printf(" - MSC");
 #elif defined(__WATCOMC__)
-	printf(" - WATCOMC");    
+  printf(" - WATCOMC");
 #else
-	generate some bullshit error here, as the compiler should be known
+  generate some bullshit error here, as the compiler should be known
+#endif
+#if defined (I386)
+    printf(" - 80386 CPU required");
+#elif defined (I186)
+    printf(" - 80186 CPU required");
 #endif
 
-#if defined (I386)
-	printf(" - 80386 CPU required");
-#elif defined (I186)
-	printf(" - 80186 CPU required");
-#endif	
-
 #ifdef WITHFAT32
-	printf(" - FAT32 support");
-#endif	
-  printf("\n\n%S",(void FAR *)copyright);
+  printf(" - FAT32 support");
+#endif
+  printf("\n\n%S", (void FAR *)copyright);
 }
 
 INIT void kernel()
 {
-#if 0    
-  BYTE FAR *ep,
-   *sp;
-#endif  
+#if 0
+  BYTE FAR *ep, *sp;
+#endif
   exec_blk exb;
   CommandTail Cmd;
   int rc;
@@ -365,7 +355,7 @@ INIT void kernel()
 #else
 #if 0
   /* create the master environment area   */
-  
+
   if (allocmem(0x2, &exb.exec.env_seg))
     init_fatal("cannot allocate master environment space");
 
@@ -381,66 +371,59 @@ INIT void kernel()
   *((int FAR *)ep) = 0;
   ep += sizeof(int);
 #else
-  exb.exec.env_seg = DOS_PSP+8;
+  exb.exec.env_seg = DOS_PSP + 8;
   fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
-#endif  
-#endif  
+#endif
+#endif
 
-  
   RootPsp = ~0;
-
- 
 
   /* process 0       */
   /* Execute command.com /P from the drive we just booted from    */
-  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail, 
-                    sizeof(Config.cfgInitTail)-1);
+  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail,
+           sizeof(Config.cfgInitTail) - 1);
 
   for (Cmd.ctCount = 0; Cmd.ctCount < 127; Cmd.ctCount++)
     if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
       break;
 
-
-
-
-  /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it */  
+  /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it */
 
   if (Cmd.ctCount < 127 - 3)
-  {      
-      extern int singleStep   ;
-      extern int SkipAllConfig;
-      char *insertString = NULL;
+  {
+    extern int singleStep;
+    extern int SkipAllConfig;
+    char *insertString = NULL;
 
-      if (singleStep) insertString = " /Y"; /* single step AUTOEXEC */
-      
-      if (SkipAllConfig)  insertString = " /D"; /* disable AUTOEXEC */
-      
-      if (insertString)
+    if (singleStep)
+      insertString = " /Y";     /* single step AUTOEXEC */
+
+    if (SkipAllConfig)
+      insertString = " /D";     /* disable AUTOEXEC */
+
+    if (insertString)
+    {
+
+      /* insert /D, /Y as first argument */
+      int cmdEnd, i, slen = strlen(insertString);
+
+      for (cmdEnd = 0; cmdEnd < 127; cmdEnd++)
       {
-        
-                                     /* insert /D, /Y as first argument */
-        int cmdEnd,i,slen = strlen(insertString);
-        
-        for (cmdEnd = 0;cmdEnd < 127; cmdEnd++)
+        if (Cmd.ctBuffer[cmdEnd] == ' ' ||
+            Cmd.ctBuffer[cmdEnd] == '\t' || Cmd.ctBuffer[cmdEnd] == '\r')
         {
-            if (Cmd.ctBuffer[cmdEnd] == ' ' ||
-                Cmd.ctBuffer[cmdEnd] == '\t' ||
-                Cmd.ctBuffer[cmdEnd] == '\r')
-            {
-                for (i = 127 - slen; i >= cmdEnd; i--)
-                    Cmd.ctBuffer[i+slen] = Cmd.ctBuffer[i];
-                    
-                fmemcpy(&Cmd.ctBuffer[cmdEnd], insertString,slen);
+          for (i = 127 - slen; i >= cmdEnd; i--)
+            Cmd.ctBuffer[i + slen] = Cmd.ctBuffer[i];
 
-                Cmd.ctCount += slen;
+          fmemcpy(&Cmd.ctBuffer[cmdEnd], insertString, slen);
 
-                break;
-            }
+          Cmd.ctCount += slen;
+
+          break;
         }
-      }  
+      }
+    }
   }
-
-      
 
   exb.exec.cmd_line = (CommandTail FAR *) & Cmd;
   exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0;
@@ -449,13 +432,17 @@ INIT void kernel()
   printf("Process 0 starting: %s\n\n", Config.cfgInit);
 #endif
 
-  while ((rc = init_DosExec(Config.cfgP_0_startmode, &exb, Config.cfgInit)) != SUCCESS)
+  while ((rc =
+          init_DosExec(Config.cfgP_0_startmode, &exb,
+                       Config.cfgInit)) != SUCCESS)
   {
     BYTE *pLine;
-    printf("\nBad or missing Command Interpreter: %d - %s\n", rc, Cmd.ctBuffer);
-    printf("\nPlease enter the correct location (for example C:\\COMMAND.COM):\n");
-    rc = read(STDIN, Cmd.ctBuffer, sizeof(Cmd.ctBuffer)-1);
-    Cmd.ctBuffer[rc]='\0';
+    printf("\nBad or missing Command Interpreter: %d - %s\n", rc,
+           Cmd.ctBuffer);
+    printf
+        ("\nPlease enter the correct location (for example C:\\COMMAND.COM):\n");
+    rc = read(STDIN, Cmd.ctBuffer, sizeof(Cmd.ctBuffer) - 1);
+    Cmd.ctBuffer[rc] = '\0';
 
     /* Get the string argument that represents the new init pgm     */
     pLine = GetStringArg(Cmd.ctBuffer, Config.cfgInit);
@@ -466,8 +453,8 @@ INIT void kernel()
 
     /* and add a DOS new line just to be safe                       */
     strcat(Cmd.ctBuffer, "\r\n");
-    
-    Cmd.ctCount =  rc-(pLine-Cmd.ctBuffer);
+
+    Cmd.ctCount = rc - (pLine - Cmd.ctBuffer);
 
 #ifdef DEBUG
     printf("Process 0 starting: %s\n\n", Config.cfgInit);
@@ -484,17 +471,20 @@ static VOID update_dcb(struct dhdr FAR * dhp)
   COUNT nunits = dhp->dh_name[0];
   struct dpb FAR *dpb;
 
-  if (nblkdev==0)
+  if (nblkdev == 0)
     dpb = DPBp;
-  else {
-    for (dpb = DPBp; (ULONG)dpb->dpb_next != 0xffffffffl; dpb = dpb->dpb_next)
+  else
+  {
+    for (dpb = DPBp; (ULONG) dpb->dpb_next != 0xffffffffl;
+         dpb = dpb->dpb_next)
       ;
-    dpb = dpb->dpb_next = (struct dpb FAR *)KernelAlloc(nunits*sizeof(struct dpb));
+    dpb = dpb->dpb_next =
+        (struct dpb FAR *)KernelAlloc(nunits * sizeof(struct dpb));
   }
 
-  for(Index = 0; Index < nunits; Index++)
-  {      
-    dpb->dpb_next = dpb+1;
+  for (Index = 0; Index < nunits; Index++)
+  {
+    dpb->dpb_next = dpb + 1;
     dpb->dpb_unit = nblkdev;
     dpb->dpb_subunit = Index;
     dpb->dpb_device = dhp;
@@ -507,17 +497,17 @@ static VOID update_dcb(struct dhdr FAR * dhp)
     ++dpb;
     ++nblkdev;
   }
-  (dpb-1)->dpb_next = (void FAR *)0xFFFFFFFFl;
+  (dpb - 1)->dpb_next = (void FAR *)0xFFFFFFFFl;
 }
-
 
 /* If cmdLine is NULL, this is an internal driver */
 
-BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_top)
+BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode,
+                 COUNT r_top)
 {
   request rq;
 
-  UCOUNT maxmem = ((UCOUNT)r_top << 6) - FP_SEG(dhp);
+  UCOUNT maxmem = ((UCOUNT) r_top << 6) - FP_SEG(dhp);
 
   if (maxmem >= 0x1000)
     maxmem = 0xFFFF;
@@ -540,25 +530,27 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
   if (rq.r_status & S_ERROR)
     return TRUE;
 
-  if(cmdLine){
+  if (cmdLine)
+  {
     if (mode)
     {
       /* Don't link in device drivers which do not take up memory */
-      if (rq.r_endaddr == (BYTE FAR *)dhp)
+      if (rq.r_endaddr == (BYTE FAR *) dhp)
         return TRUE;
       else
         upBase = rq.r_endaddr;
     }
     else
     {
-      if (rq.r_endaddr == (BYTE FAR *)dhp)
+      if (rq.r_endaddr == (BYTE FAR *) dhp)
         return TRUE;
       else
         lpBase = rq.r_endaddr;
     }
   }
 
-  if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0)) {
+  if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
+  {
     dhp->dh_name[0] = rq.r_nunits;
     update_dcb(dhp);
   }
@@ -570,7 +562,6 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
 
   return FALSE;
 }
-
 
 INIT static void InitIO(void)
 {
@@ -598,19 +589,19 @@ VOID init_fatal(BYTE * err_msg)
 
 INIT VOID InitPrinters(VOID)
 {
-    iregs r;
-    int num_printers,i;
+  iregs r;
+  int num_printers, i;
 
-    init_call_intr(0x11,&r);            /* get equipment list */
+  init_call_intr(0x11, &r);     /* get equipment list */
 
-    num_printers = (r.a.x >> 14) & 3;   /* bits 15-14 */
-    
-    for (i = 0;i < num_printers;i++)
-    {
-        r.a.x = 0x0100;                 /* initialize printer */
-        r.d.x = i;
-        init_call_intr(0x17,&r);
-    }
+  num_printers = (r.a.x >> 14) & 3;     /* bits 15-14 */
+
+  for (i = 0; i < num_printers; i++)
+  {
+    r.a.x = 0x0100;             /* initialize printer */
+    r.d.x = i;
+    init_call_intr(0x17, &r);
+  }
 }
 
 /*
@@ -705,5 +696,3 @@ INIT VOID InitPrinters(VOID)
  *    Rev 1.0   02 Jul 1995  8:33:18   patv
  * Initial revision.
  */
-
-

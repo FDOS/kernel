@@ -30,7 +30,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 #ifdef PROTO
@@ -54,8 +55,7 @@ VOID DayToBcd();
 /*                                                                      */
 /* WARNING - THIS DRIVER IS NON-PORTABLE!!!!                            */
 /*                                                                      */
-extern UWORD days[2][13];    /* this is defined by SYSTIME.C */
-
+extern UWORD days[2][13];       /* this is defined by SYSTIME.C */
 
 static struct ClockRecord clk;
 
@@ -82,42 +82,35 @@ static COUNT BcdToByte(COUNT x)
 
 WORD FAR ASMCFUNC clk_driver(rqptr rp)
 {
-  COUNT 
-    c;
+  COUNT c;
   UWORD *pdays;
-  BYTE bcd_days[4],
-    bcd_minutes,
-    bcd_hours,
-    bcd_seconds;
+  BYTE bcd_days[4], bcd_minutes, bcd_hours, bcd_seconds;
   ULONG Ticks;
-  UWORD Month,
-    Day,
-    Year;
-  
-  
-  
+  UWORD Month, Day, Year;
+
   switch (rp->r_command)
   {
     case C_INIT:
       /* If AT clock exists, copy AT clock time to system clock */
       if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
       {
-        DaysSinceEpoch = DaysFromYearMonthDay(
-                        100 * BcdToByte(bcd_days[3]) + BcdToByte(bcd_days[2]),
-                        BcdToByte(bcd_days[1]),
-                        BcdToByte(bcd_days[0]) );
+        DaysSinceEpoch =
+            DaysFromYearMonthDay(100 * BcdToByte(bcd_days[3]) +
+                                 BcdToByte(bcd_days[2]),
+                                 BcdToByte(bcd_days[1]),
+                                 BcdToByte(bcd_days[0]));
 
-      /*
-       * This is a rather tricky calculation. The number of timer ticks per
-       * second is not exactly 18.2, but rather 0x1800b0 / 86400 = 19663 / 1080
-       * (the timer interrupt updates the midnight flag when the tick count
-       * reaches 0x1800b0). Fortunately, 86400 * 19663 = 1698883200 < ULONG_MAX,
-       * so we can simply multiply the number of seconds by 19663 without
-       * worrying about overflow. :) -- ror4
-       */
+        /*
+         * This is a rather tricky calculation. The number of timer ticks per
+         * second is not exactly 18.2, but rather 0x1800b0 / 86400 = 19663 / 1080
+         * (the timer interrupt updates the midnight flag when the tick count
+         * reaches 0x1800b0). Fortunately, 86400 * 19663 = 1698883200 < ULONG_MAX,
+         * so we can simply multiply the number of seconds by 19663 without
+         * worrying about overflow. :) -- ror4
+         */
         Ticks = (3600ul * BcdToByte(bcd_hours) +
-               60ul * BcdToByte(bcd_minutes) +
-               BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
+                 60ul * BcdToByte(bcd_minutes) +
+                 BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
         WritePCClock(Ticks);
       }
       rp->r_endaddr = device_end();
@@ -126,8 +119,7 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
 
     case C_INPUT:
       {
-        ULONG remainder,
-          hs;
+        ULONG remainder, hs;
         if (ReadPCClock(&Ticks))
           ++DaysSinceEpoch;
         clk.clkDays = DaysSinceEpoch;
@@ -138,7 +130,7 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
          * (100 x 86400) / 0x1800b0 = 108000 / 19663. -- ror4
          */
         hs = 0;
-#if 0        
+#if 0
         if (Ticks >= 64 * 19663ul)
         {
           hs += 64 * 108000ul;
@@ -175,14 +167,14 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
           Ticks -= 19663ul;
         }
 #else
-    	{
-		UWORD  q1 = Ticks/19663ul;
+        {
+          UWORD q1 = Ticks / 19663ul;
 
-		Ticks -= q1*19663ul;
-		hs     = q1*108000ul;
-    	}
-    
-#endif        
+          Ticks -= q1 * 19663ul;
+          hs = q1 * 108000ul;
+        }
+
+#endif
         /*
          * Now Ticks < 19663, so Ticks * 108000 < 2123604000 < ULONG_MAX.
          * *phew* -- ror4
@@ -195,12 +187,13 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
         clk.clkSeconds = remainder / 100ul;
         clk.clkHundredths = remainder % 100ul;
       }
-      
-      fmemcpy(rp->r_trans, &clk, min(sizeof(struct ClockRecord),rp->r_count ));
+
+      fmemcpy(rp->r_trans, &clk,
+              min(sizeof(struct ClockRecord), rp->r_count));
       return S_DONE;
 
     case C_OUTPUT:
-      rp->r_count = min(rp->r_count,sizeof(struct ClockRecord)); 
+      rp->r_count = min(rp->r_count, sizeof(struct ClockRecord));
       fmemcpy(&clk, rp->r_trans, rp->r_count);
 
       /* Set PC Clock first                                   */
@@ -209,10 +202,9 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
         ULONG hs;
         hs = 360000ul * clk.clkHours +
             6000ul * clk.clkMinutes +
-            100ul * clk.clkSeconds +
-            clk.clkHundredths;
+            100ul * clk.clkSeconds + clk.clkHundredths;
         Ticks = 0;
-#if 0        
+#if 0
         if (hs >= 64 * 108000ul)
         {
           Ticks += 64 * 19663ul;
@@ -248,15 +240,15 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
           Ticks += 19663ul;
           hs -= 108000ul;
         }
-#else 
-    	{
-		UWORD  q1 = hs/108000ul;
+#else
+        {
+          UWORD q1 = hs / 108000ul;
 
-		hs     -= q1*108000ul;
-		Ticks   = q1*19663ul;
-    	}
-    
-#endif        
+          hs -= q1 * 108000ul;
+          Ticks = q1 * 19663ul;
+        }
+
+#endif
         Ticks += hs * 19663ul / 108000ul;
       }
       WritePCClock(Ticks);
@@ -264,7 +256,7 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
       /* Now set AT clock                                     */
       /* Fix year by looping through each year, subtracting   */
       /* the appropriate number of days for that year.        */
-      for (Year = 1980, c = clk.clkDays; ;)
+      for (Year = 1980, c = clk.clkDays;;)
       {
         pdays = is_leap_year_monthdays(Year);
         if (c >= pdays[12])
@@ -286,8 +278,7 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
           break;
         }
       }
-      
-      
+
       DayToBcd((BYTE *) bcd_days, &Month, &Day, &Year);
       bcd_minutes = ByteToBcd(clk.clkMinutes);
       bcd_hours = ByteToBcd(clk.clkHours);
@@ -304,7 +295,7 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
     case C_OSTAT:
     case C_ISTAT:
     default:
-      return failure(E_FAILURE);	/* general failure */
+      return failure(E_FAILURE);        /* general failure */
   }
 }
 
@@ -364,4 +355,3 @@ VOID DayToBcd(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr)
  *    Rev 1.0   02 Jul 1995  8:32:30   patv
  * Initial revision.
  */
-

@@ -30,7 +30,8 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId = "$Id$";
+static BYTE *RcsId =
+    "$Id$";
 #endif
 
 #define FCB_SUCCESS     0
@@ -41,7 +42,8 @@ static BYTE *RcsId = "$Id$";
 
 #ifdef PROTO
 fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb);
-fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer, COUNT * pCurDrive);
+fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
+                       COUNT * pCurDrive);
 void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 VOID FcbNextRecord(fcb FAR * lpFcb);
 BOOL FcbCalcRec(xfcb FAR * lpXfcb);
@@ -53,9 +55,8 @@ VOID FcbNextRecord();
 BOOL FcbCalcRec();
 #endif
 
-#define TestCmnSeps(lpFileName) (strchr(":<|>+=,", *lpFileName) != NULL) 
-#define TestFieldSeps(lpFileName) (*(lpFileName) <= ' ' || strchr("/\"[]<>|.", *lpFileName) != NULL) 
-
+#define TestCmnSeps(lpFileName) (strchr(":<|>+=,", *lpFileName) != NULL)
+#define TestFieldSeps(lpFileName) (*(lpFileName) <= ' ' || strchr("/\"[]<>|.", *lpFileName) != NULL)
 
 static dmatch Dmatch;
 
@@ -63,12 +64,12 @@ VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
                    UCOUNT FAR * nc, BYTE FAR ** mdp)
 {
   UCOUNT navc;
-    
+
   /* get the data available from dpb                       */
-  *nc = 0xffff; /* pass 0xffff to skip free count */
-  if (DosGetFree((UBYTE)drive, spc, &navc, bps, nc))
-  /* Point to the media desctriptor for this drive               */
-      *mdp = (BYTE FAR*)&(CDSp->cds_table[drive].cdsDpb->dpb_mdb);
+  *nc = 0xffff;                 /* pass 0xffff to skip free count */
+  if (DosGetFree((UBYTE) drive, spc, &navc, bps, nc))
+    /* Point to the media desctriptor for this drive               */
+    *mdp = (BYTE FAR *) & (CDSp->cds_table[drive].cdsDpb->dpb_mdb);
 }
 
 #define PARSE_SEP_STOP          0x01
@@ -84,7 +85,7 @@ VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
 WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
 {
   COUNT nIndex;
-  WORD wRetCodeName,wRetCodeExt;
+  WORD wRetCodeName, wRetCodeExt;
 
   /* pjv -- ExtFcbToFcb?                                          */
   /* Start out with some simple stuff first.  Check if we are     */
@@ -131,24 +132,28 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
   /* special cases: '.' and '..' */
   if (**lpFileName == '.')
   {
-      lpFcb->fcb_fname[0]='.';
+    lpFcb->fcb_fname[0] = '.';
+    ++*lpFileName;
+    if (**lpFileName == '.')
+    {
+      lpFcb->fcb_fname[1] = '.';
       ++*lpFileName;
-      if (**lpFileName == '.')
-      {
-          lpFcb->fcb_fname[1]='.';
-          ++*lpFileName;
-      }
-      return PARSE_RET_NOWILD;
+    }
+    return PARSE_RET_NOWILD;
   }
-  
+
   /* Now to format the file name into the string                  */
-  *lpFileName = GetNameField(*lpFileName, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE, (BOOL *) & wRetCodeName);
+  *lpFileName =
+      GetNameField(*lpFileName, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE,
+                   (BOOL *) & wRetCodeName);
 
   /* Do we have an extension? If do, format it else return        */
   if (**lpFileName == '.')
-    *lpFileName = GetNameField(++*lpFileName, (BYTE FAR *) lpFcb->fcb_fext, FEXT_SIZE, (BOOL *) & wRetCodeExt);
+    *lpFileName =
+        GetNameField(++*lpFileName, (BYTE FAR *) lpFcb->fcb_fext,
+                     FEXT_SIZE, (BOOL *) & wRetCodeExt);
 
-  return (wRetCodeName|wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
+  return (wRetCodeName | wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
 }
 
 BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName)
@@ -158,24 +163,22 @@ BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName)
   return lpFileName;
 }
 
-#if 0 /* defined above */
+#if 0                           /* defined above */
 BOOL TestCmnSeps(BYTE FAR * lpFileName)
 {
-  BYTE *pszTest,
-   *pszCmnSeps = ":<|>+=,";
+  BYTE *pszTest, *pszCmnSeps = ":<|>+=,";
 
   for (pszTest = pszCmnSeps; *pszTest != '\0'; ++pszTest)
     if (*lpFileName == *pszTest)
       return TRUE;
   return FALSE;
 }
-#endif    
+#endif
 
 #if 0
 BOOL TestFieldSeps(BYTE FAR * lpFileName)
 {
-  BYTE *pszTest,
-   *pszCmnSeps = "/\"[]<>|.";
+  BYTE *pszTest, *pszCmnSeps = "/\"[]<>|.";
 
   /* Another non-portable construct                               */
   if (*lpFileName <= ' ')
@@ -188,7 +191,6 @@ BOOL TestFieldSeps(BYTE FAR * lpFileName)
 }
 #endif
 
-
 BYTE FAR *GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
                        COUNT nFieldSize, BOOL * pbWildCard)
 {
@@ -196,7 +198,8 @@ BYTE FAR *GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
   BYTE cFill = ' ';
 
   *pbWildCard = FALSE;
-  while (*lpFileName != '\0' && !TestFieldSeps(lpFileName) && nIndex < nFieldSize)
+  while (*lpFileName != '\0' && !TestFieldSeps(lpFileName)
+         && nIndex < nFieldSize)
   {
     if (*lpFileName == ' ')
       break;
@@ -231,8 +234,8 @@ static VOID FcbNextRecord(fcb FAR * lpFcb)
 static ULONG FcbRec(VOID)
 {
   UWORD tmp = 128;
-    
-  return ((ULONG)lpFcb->fcb_cublock * tmp) + lpFcb->fcb_curec;
+
+  return ((ULONG) lpFcb->fcb_cublock * tmp) + lpFcb->fcb_curec;
 }
 
 BOOL FcbRead(xfcb FAR * lpXfcb, COUNT * nErrorCode)
@@ -395,7 +398,8 @@ BOOL FcbCalcRec(xfcb FAR * lpXfcb)
   return TRUE;
 }
 
-BOOL FcbRandomBlockRead(xfcb FAR * lpXfcb, COUNT nRecords, COUNT * nErrorCode)
+BOOL FcbRandomBlockRead(xfcb FAR * lpXfcb, COUNT nRecords,
+                        COUNT * nErrorCode)
 {
   FcbCalcRec(lpXfcb);
 
@@ -412,7 +416,8 @@ BOOL FcbRandomBlockRead(xfcb FAR * lpXfcb, COUNT nRecords, COUNT * nErrorCode)
   return TRUE;
 }
 
-BOOL FcbRandomBlockWrite(xfcb FAR * lpXfcb, COUNT nRecords, COUNT * nErrorCode)
+BOOL FcbRandomBlockWrite(xfcb FAR * lpXfcb, COUNT nRecords,
+                         COUNT * nErrorCode)
 {
   FcbCalcRec(lpXfcb);
 
@@ -430,7 +435,7 @@ BOOL FcbRandomBlockWrite(xfcb FAR * lpXfcb, COUNT nRecords, COUNT * nErrorCode)
 }
 
 BOOL FcbRandomIO(xfcb FAR * lpXfcb, COUNT * nErrorCode,
-                        BOOL (*FcbFunc)(xfcb FAR *, COUNT *))
+                 BOOL(*FcbFunc) (xfcb FAR *, COUNT *))
 {
   UWORD uwCurrentBlock;
   UBYTE ucCurrentRecord;
@@ -443,7 +448,7 @@ BOOL FcbRandomIO(xfcb FAR * lpXfcb, COUNT * nErrorCode,
   uwCurrentBlock = lpFcb->fcb_cublock;
   ucCurrentRecord = lpFcb->fcb_curec;
 
-  (*FcbFunc)(lpXfcb, nErrorCode);
+  (*FcbFunc) (lpXfcb, nErrorCode);
 
   lpFcb->fcb_cublock = uwCurrentBlock;
   lpFcb->fcb_curec = ucCurrentRecord;
@@ -466,7 +471,7 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
 
   sft_idx = DosCreatSft(PriPathName, 0);
   if (sft_idx < 0)
-      return FALSE;
+    return FALSE;
 
   sftp = idx_to_sft(sft_idx);
   sftp->sft_mode |= SFT_MFCB;
@@ -476,7 +481,8 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
   lpFcb->fcb_sftno = sft_idx;
   lpFcb->fcb_curec = 0;
   lpFcb->fcb_recsiz = (dhp ? 0 : 128);
-  if (!dhp) lpFcb->fcb_drive = FcbDrive;
+  if (!dhp)
+    lpFcb->fcb_drive = FcbDrive;
   lpFcb->fcb_fsize = 0;
   lpFcb->fcb_date = dos_getdate();
   lpFcb->fcb_time = dos_gettime();
@@ -509,9 +515,9 @@ STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
 
 void FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
 {
-  BYTE loc_szBuffer[2+FNAME_SIZE+1+FEXT_SIZE+1];    /* 'A:' + '.' + '\0' */
+  BYTE loc_szBuffer[2 + FNAME_SIZE + 1 + FEXT_SIZE + 1];        /* 'A:' + '.' + '\0' */
   BYTE *pszBuffer = loc_szBuffer;
-    
+
   /* Build a traditional DOS file name                            */
   if (lpFcb->fcb_drive != 0)
   {
@@ -540,30 +546,30 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
 
   sft_idx = DosOpenSft(PriPathName, O_RDWR);
   if (sft_idx < 0)
-      return FALSE;
-  
+    return FALSE;
+
   sftp = idx_to_sft(sft_idx);
   sftp->sft_mode |= SFT_MFCB;
-  
+
   /* check for a device                                           */
   lpFcb->fcb_curec = 0;
   lpFcb->fcb_rndm = 0;
   lpFcb->fcb_sftno = sft_idx;
   dhp = IsDevice(PriPathName);
-  if (dhp )
+  if (dhp)
   {
-      lpFcb->fcb_recsiz = 0;
-      lpFcb->fcb_fsize = 0;
-      lpFcb->fcb_date = dos_getdate();
-      lpFcb->fcb_time = dos_gettime();
+    lpFcb->fcb_recsiz = 0;
+    lpFcb->fcb_fsize = 0;
+    lpFcb->fcb_date = dos_getdate();
+    lpFcb->fcb_time = dos_gettime();
   }
   else
   {
-      lpFcb->fcb_drive = FcbDrive;
-      lpFcb->fcb_recsiz = 128;
-      lpFcb->fcb_fsize = sftp->sft_size;
-      lpFcb->fcb_date = sftp->sft_date;
-      lpFcb->fcb_time = sftp->sft_time;
+    lpFcb->fcb_drive = FcbDrive;
+    lpFcb->fcb_recsiz = 128;
+    lpFcb->fcb_fsize = sftp->sft_size;
+    lpFcb->fcb_date = sftp->sft_date;
+    lpFcb->fcb_time = sftp->sft_time;
   }
   return TRUE;
 }
@@ -586,7 +592,9 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
     dmatch Dmatch;
 
     dta = (BYTE FAR *) & Dmatch;
-    if (DosFindFirst(D_ALL, SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
+    if (DosFindFirst
+        (D_ALL,
+         SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
     {
       dta = lpOldDta;
       return FALSE;
@@ -625,7 +633,9 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
     dmatch Dmatch;
 
     dta = (BYTE FAR *) & Dmatch;
-    if (DosFindFirst(D_ALL, SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
+    if (DosFindFirst
+        (D_ALL,
+         SecPathName[1] == ':' ? &SecPathName[2] : SecPathName) != SUCCESS)
     {
       dta = lpOldDta;
       return FALSE;
@@ -634,8 +644,7 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
     do
     {
       fcb LocalFcb;
-      BYTE *pToName,
-       *pszFrom;
+      BYTE *pToName, *pszFrom;
       BYTE FAR *pFromPattern;
       COUNT nIndex;
 
@@ -718,7 +727,7 @@ BOOL FcbClose(xfcb FAR * lpXfcb)
   lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* An already closed FCB can be closed again without error */
-  if (lpFcb->fcb_sftno == (BYTE)0xff)
+  if (lpFcb->fcb_sftno == (BYTE) 0xff)
     return TRUE;
 
   /* Get the SFT block that contains the SFT      */
@@ -730,8 +739,9 @@ BOOL FcbClose(xfcb FAR * lpXfcb)
   if (!(s->sft_flags & SFT_FSHARED))
     dos_setfsize(s->sft_status, lpFcb->fcb_fsize);
   DosSetFtimeSft(lpFcb->fcb_sftno, lpFcb->fcb_date, lpFcb->fcb_time);
-  if (DosCloseSft(lpFcb->fcb_sftno) == SUCCESS) {
-    lpFcb->fcb_sftno = (BYTE)0xff;
+  if (DosCloseSft(lpFcb->fcb_sftno) == SUCCESS)
+  {
+    lpFcb->fcb_sftno = (BYTE) 0xff;
     return TRUE;
   }
   return FALSE;
@@ -743,7 +753,7 @@ VOID FcbCloseAll()
   COUNT idx = 0;
   sft FAR *sftp;
 
-  for (idx = 0; (sftp = idx_to_sft(idx)) != (sft FAR *) -1; idx++)
+  for (idx = 0; (sftp = idx_to_sft(idx)) != (sft FAR *) - 1; idx++)
     if ((sftp->sft_mode & SFT_MFCB) && sftp->sft_psp == cu_psp)
       DosCloseSft(idx);
 }
@@ -764,8 +774,8 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   if (lpXfcb->xfcb_flag == 0xff)
   {
     wAttr = lpXfcb->xfcb_attrib;
-    fmemcpy(lpDir, lpXfcb, 7); 
-    lpDir += 7;  
+    fmemcpy(lpDir, lpXfcb, 7);
+    lpDir += 7;
   }
   else
     wAttr = D_ALL;
@@ -776,10 +786,10 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
     return FALSE;
   }
 
-  *lpDir++ = FcbDrive; 
+  *lpDir++ = FcbDrive;
   fmemcpy(lpDir, &SearchDir, sizeof(struct dirent));
 
-  lpFcb->fcb_dirclst = (UWORD)Dmatch.dm_dircluster;
+  lpFcb->fcb_dirclst = (UWORD) Dmatch.dm_dircluster;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
 /*
@@ -787,7 +797,7 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
     The First byte is the current directory count and the second seems
     to be the attribute byte.
  */
-  lpFcb->fcb_sftno = Dmatch.dm_drive; /* MSD seems to save this @ fcb_date.*/
+  lpFcb->fcb_sftno = Dmatch.dm_drive;   /* MSD seems to save this @ fcb_date. */
 #if 0
   lpFcb->fcb_cublock = Dmatch.dm_entry;
   lpFcb->fcb_cublock *= 0x100;
@@ -838,10 +848,10 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
     return FALSE;
   }
 
-  *lpDir++ = FcbDrive; 
+  *lpDir++ = FcbDrive;
   fmemcpy((struct dirent FAR *)lpDir, &SearchDir, sizeof(struct dirent));
 
-  lpFcb->fcb_dirclst = (UWORD)Dmatch.dm_dircluster;
+  lpFcb->fcb_dirclst = (UWORD) Dmatch.dm_dircluster;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
   lpFcb->fcb_sftno = Dmatch.dm_drive;
@@ -917,5 +927,3 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
  *    Rev 1.0   02 Jul 1995  8:06:06   patv
  * Initial revision.
  */
-
-

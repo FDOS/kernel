@@ -30,13 +30,12 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *exe_hRcsId = "$Id$";
+static BYTE *exe_hRcsId =
+    "$Id$";
 #endif
 #endif
 
-
-typedef struct
-{
+typedef struct {
   UWORD exSignature;
   UWORD exExtraBytes;
   UWORD exPages;
@@ -51,8 +50,7 @@ typedef struct
   UWORD exInitCS;
   UWORD exRelocTable;
   UWORD exOverlay;
-}
-exe_header;
+} exe_header;
 
 #define MAGIC 0x5a4d
 

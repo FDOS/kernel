@@ -30,10 +30,10 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *error_hRcsId = "$Id$";
+static BYTE *error_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 /* Internal system error returns                                */
 #define SUCCESS         0       /* Function was successful      */
@@ -60,7 +60,7 @@ static BYTE *error_hRcsId = "$Id$";
 #define DE_SEEK         -25     /* error on file seek           */
 #define DE_HNDLDSKFULL  -28     /* handle disk full (?)         */
 
-#define DE_INVLDPARM    -0x57    /* invalid parameter */
+#define DE_INVLDPARM    -0x57   /* invalid parameter */
 
 #define DE_DEADLOCK	-36
 #define DE_LOCK		-39

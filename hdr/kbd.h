@@ -30,21 +30,19 @@
 
 #ifdef MAIN
 #ifdef VERSION_STRINGS
-static BYTE *kbd_hRcsId = "$Id$";
+static BYTE *kbd_hRcsId =
+    "$Id$";
 #endif
 #endif
-
 
 #define KBD_MAXLENGTH   256
 
 /* Keyboard buffer                                                      */
-typedef struct
-{
+typedef struct {
   UBYTE kb_size;                /* size of buffer in bytes              */
   UBYTE kb_count;               /* number of bytes returned             */
   BYTE kb_buf[KBD_MAXLENGTH];   /* the buffer itself            */
-}
-keyboard;
+} keyboard;
 
 /*
  * Log: kbd.h,v 
