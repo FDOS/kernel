@@ -145,9 +145,9 @@ void write_fsinfo(struct dpb FAR * dpbp)
 /*                                                              */
 /* The FAT file system is difficult to trace through FAT table. */
 /* There are two kinds of FAT's, 12 bit and 16 bit. The 16 bit  */
-/* FAT is the easiest, since it is noting more than a series of */
-/* UWORD's. The 12 bit FAT is difficult, because it packs 3 FAT */
-/* entries into two BYTE's. The are packed as follows:          */
+/* FAT is the easiest, since it is nothing more than a series   */
+/* of UWORD's. The 12 bit FAT is difficult, because it packs 3  */
+/* FAT entries into two BYTE's. These are packed as follows:    */
 /*                                                              */
 /*      0x0003 0x0004 0x0005 0x0006 0x0007 0x0008 0x0009 ...    */
 /*                                                              */
@@ -177,9 +177,8 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    idx = (unsigned) ((((unsigned)Cluster1 << 1) + (unsigned)Cluster1) >> 1)
-      % dpbp->dpb_secsize;
-    
+    idx = (((unsigned)Cluster1 << 1) + (unsigned)Cluster1) % dpbp->dpb_secsize;
+
     /* Test to see if the cluster straddles the block. If   */
     /* it does, get the next block and use both to form the */
     /* the FAT word. Otherwise, just point to the next      */
@@ -201,13 +200,13 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* Now pack the value in                                */
     if ((unsigned)Cluster1 & 0x01)
     {
-      *fbp0 = (*fbp0 & 0x0f) | (((UBYTE)Cluster2 & 0x0f) << 4);
+      *fbp0 = (*fbp0 & 0x0f) | (UBYTE)((UBYTE)Cluster2 << 4);
       *fbp1 = (UBYTE)((unsigned)Cluster2 >> 4);
     }
     else
     {
       *fbp0 = (UBYTE)Cluster2;
-      *fbp1 = (*fbp1 & 0xf0) | ((UBYTE)((unsigned)Cluster2 >> 8) & 0x0f);
+      *fbp1 = (*fbp1 & 0xf0) | (UBYTE)((unsigned)Cluster2 >> 8);
     }
   }
   else if (ISFAT16(dpbp)) 
