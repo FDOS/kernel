@@ -28,7 +28,6 @@ cd ..\boot
 
 cd ..\sys
 %MAKE% clobber
-%MAKE% clobber
 
 cd ..\kernel
 %MAKE% clobber
