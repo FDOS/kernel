@@ -361,7 +361,6 @@ extern UWORD ASM f_nodes_cnt;   /* number of allocated f_nodes          */
 /* Typically, these are in ".asm" files.                        */
 VOID ASMCFUNC FAR cpm_entry(VOID)
 /*INRPT FAR handle_break(VOID) */ ;
-VOID enable(VOID), disable(VOID);
 COUNT ASMCFUNC
     CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
                            struct dhdr FAR * lpDevice);

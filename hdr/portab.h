@@ -71,6 +71,9 @@ static char *portab_hRcsId =
 #endif
 #define PASCAL  pascal
 void __int__(int);
+void __emit__(char, ...);
+#define disable() __emit__(0xfa)
+#define enable() __emit__(0xfb)
 
 #elif defined	(_MSC_VER)
 
@@ -82,6 +85,8 @@ void __int__(int);
 #define VA_CDECL
 #define PASCAL  pascal
 #define __int__(intno) asm int intno;
+#define disable() asm cli
+#define enable() asm sti
 #define _CS getCS()
 static unsigned short __inline getCS(void)
 {
@@ -97,6 +102,10 @@ static unsigned short __inline getSS(void)
 
 #define I86
 #define __int__(intno) asm int intno;
+void disable(void);
+#pragma aux disable = "cli" modify exact [];
+void enable(void);
+#pragma aux enable = "sti" modify exact [];
 #define asm __asm
 #define far __far
 #define CDECL   __cdecl

@@ -55,6 +55,7 @@ STATIC VOID FsConfig(VOID);
 STATIC VOID InitPrinters(VOID);
 STATIC VOID InitSerialPorts(VOID);
 STATIC void CheckContinueBootFromHarddisk(void);
+STATIC void setup_int_vectors(void);
 
 #ifdef _MSC_VER
 BYTE _acrtused = 0;
@@ -107,11 +108,7 @@ VOID ASMCFUNC FreeDOSmain(void)
     drv = 3; /* C: */
   LoL->BootDrive = drv;
 
-  setvec(0, int0_handler);      /* zero divide */
-  setvec(1, empty_handler);     /* single step */
-  setvec(3, empty_handler);     /* debug breakpoint */
-  setvec(6, int6_handler);      /* invalid opcode */
-
+  setup_int_vectors();
 
   CheckContinueBootFromHarddisk();
 
@@ -210,6 +207,47 @@ STATIC void PSPInit(void)
   p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
 }
 
+void setvec(unsigned char intno, intvec vector)
+{
+  disable();
+  *(intvec FAR *)MK_FP(0,4 * intno) = vector;
+  enable();
+}
+
+STATIC void setup_int_vectors(void)
+{
+  static struct vec
+  {
+    unsigned char intno;
+    size_t handleroff;
+  } vectors[] =
+    {
+      /* all of these are in the DOS DS */
+      { 0x0, FP_OFF(int0_handler) },   /* zero divide */
+      { 0x1, FP_OFF(empty_handler) },  /* single step */
+      { 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
+      { 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
+      { 0x20, FP_OFF(int20_handler) },
+      { 0x21, FP_OFF(int21_handler) },
+      { 0x22, FP_OFF(int22_handler) },
+      { 0x24, FP_OFF(int24_handler) },
+      { 0x25, FP_OFF(low_int25_handler) },
+      { 0x26, FP_OFF(low_int26_handler) },
+      { 0x27, FP_OFF(int27_handler) },
+      { 0x28, FP_OFF(int28_handler) },
+      { 0x2a, FP_OFF(int2a_handler) },
+      { 0x2f, FP_OFF(int2f_handler) }
+    };
+  struct vec *pvec;
+  int i;
+
+  for (i = 0x23; i <= 0x3f; i++)
+    setvec(i, empty_handler);
+  for (pvec = vectors; pvec < vectors + (sizeof vectors/sizeof *pvec); pvec++)
+    setvec(pvec->intno, MK_FP(FP_SEG(empty_handler), pvec->handleroff));
+  pokeb(0, 0x30 * 4, 0xea);
+  pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
+}
 
 STATIC void init_kernel(void)
 {
@@ -231,29 +269,10 @@ STATIC void init_kernel(void)
   MoveKernel(FP_SEG(lpTop));
   lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
 
-  for (i = 0x20; i <= 0x3f; i++)
-    setvec(i, empty_handler);
-
   /* Initialize IO subsystem                                      */
   InitIO();
   InitPrinters();
   InitSerialPorts();
-
-  /* set interrupt vectors                                        */
-  setvec(0x1b, got_cbreak);
-  setvec(0x20, int20_handler);
-  setvec(0x21, int21_handler);
-  setvec(0x22, int22_handler);
-  setvec(0x23, empty_handler);
-  setvec(0x24, int24_handler);
-  setvec(0x25, low_int25_handler);
-  setvec(0x26, low_int26_handler);
-  setvec(0x27, int27_handler);
-  setvec(0x28, int28_handler);
-  setvec(0x2a, int2a_handler);
-  setvec(0x2f, int2f_handler);
-  pokeb(0, 0x30 * 4, 0xea);
-  pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
 
   init_PSPSet(DOS_PSP);
   set_DTA(MK_FP(DOS_PSP, 0x80));
@@ -576,6 +595,7 @@ STATIC void InitIO(void)
   struct dhdr far *device = &LoL->nul_dev;
 
   /* Initialize driver chain                                      */
+  setvec(0x1b, got_cbreak);
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
   do {
     init_device(device, NULL, 0, &lpTop);
