@@ -833,9 +833,7 @@ dispatch:
       {
         UWORD cntry = lr.AL;
 
-        if (cntry == 0)
-          cntry = (UWORD) - 1;
-        else if (cntry == 0xff)
+        if (cntry == 0xff)
           cntry = lr.BX;
 
         if (0xffff == lr.DX)
@@ -846,6 +844,8 @@ dispatch:
         }
         else
         {
+          if (cntry == 0)
+            cntry--;
           /* Get Country Information */
           if ((rc = DosGetCountryInformation(cntry, FP_DS_DX)) < 0)
             goto error_invalid;
