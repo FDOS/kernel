@@ -293,6 +293,9 @@ BOOL dir_write(REG f_node_ptr fnp)
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
+  if (!fnp->f_flags.f_ddir)
+    return FALSE;
+
   /* Update the entry if it was modified by a write or create...  */
   if (fnp->f_flags.f_dmod)
   {
@@ -376,7 +379,7 @@ BOOL dir_write(REG f_node_ptr fnp)
 VOID dir_close(REG f_node_ptr fnp)
 {
   /* Test for invalid f_nodes                                     */
-  if (fnp == NULL)
+  if (fnp == NULL || !fnp->f_flags.f_ddir)
     return;
 
 #ifndef IPL

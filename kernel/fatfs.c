@@ -1025,7 +1025,6 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
     {
       dpbp->dpb_xcluster = UNKNCLUSTER;
       write_fsinfo(dpbp);
-      dir_close(fnp);
       return LONG_LAST_CLUSTER;
     }
     if (dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
@@ -1041,7 +1040,6 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   if (idx > dpbp->dpb_size)
   {
     dpbp->dpb_cluster = UNKNCLUSTER;
-    dir_close(fnp);
     return LONG_LAST_CLUSTER;
   }
 
@@ -1395,14 +1393,8 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
       return DE_SEEK;
     /* expand the list if we're going to write and have run into    */
     /* the last cluster marker.                                     */
-    if ((mode == XFR_WRITE) && (last_link(fnp)))
-    {
-      if (!extend(fnp))
-      {
-        dir_close(fnp);
-        return DE_HNDLDSKFULL;
-      }
-    }
+    if ((mode == XFR_WRITE) && last_link(fnp) && !extend(fnp))
+      return DE_HNDLDSKFULL;
 
     if (fnp->f_cluster_offset == relcluster)
       break;
