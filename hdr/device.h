@@ -35,8 +35,15 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/11 04:24:51  jimtabor
+ * Added Boot blk structs
+ *
  * Revision 1.2  2000/05/08 04:28:22  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/11 04:24:51  jimtabor
+ * Added Boot blk structs
  *
  * Revision 1.4  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -195,6 +202,7 @@ struct dhdr
 #define ATTR_CHAR       0x8000
 #define ATTR_IOCTL      0x4000
 #define ATTR_BLDFAT     0x2000
+#define ATTR_REMOTE     0x1000
 #define ATTR_EXCALLS    0x0800
 #define ATTR_QRYIOCTL   0x0080
 #define ATTR_GENIOCTL   0x0040
@@ -256,6 +264,14 @@ struct gblkio
     UBYTE   gbio_media;
     bpb     gbio_bpb;
     UWORD   gbio_nsecs;
+};
+
+struct Gioc_media
+{
+  WORD  ioc_level;
+  ULONG ioc_serialno;
+  BYTE  ioc_volume[11];
+  BYTE  ioc_fstype[8];
 };
 
 /*                                                                      */
