@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.8  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -75,25 +78,20 @@ static BYTE *RcsId = "$Id$";
  *
  */
 
+/* see RBIL D-2152 and D-215D06 before attempting
+   to change these two functions!
+ */
 UWORD get_machine_name(BYTE FAR * netname)
 {
-  BYTE FAR *xn;
-
-  xn = MK_FP(net_name, 0);
-  fbcopy((BYTE FAR *) netname, xn, 15);
+  fmemcpy(netname, &net_name, 15);
   return (NetBios);
-
 }
 
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num)
 {
-  BYTE FAR *xn;
-
-  xn = MK_FP(net_name, 0);
   NetBios = name_num;
-  fbcopy(xn, (BYTE FAR *) netname, 15);
+  fmemcpy(&net_name, netname, 15);
   net_set_count++;
-
 }
 
 /*
@@ -161,44 +159,7 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
   dmp->dm_date = SDp->dir_date;
   dmp->dm_size = (LONG) SDp->dir_size;
 
-/*
-   Needed Code Rep-off.;)
- */
-/*    
-  p = dmp->dm_name;
-  if (SDp->dir_name[0] == '.')
-  {
-    for (x = 0, q = (BYTE FAR *) SDp->dir_name; x < FNAME_SIZE; x++)
-    {
-      if (*q == ' ')
-        break;
-      *p++ = *q++;
-    }
-  }
-  else
-  {
-    for (x = 0, q = (BYTE FAR *) SDp->dir_name; x < FNAME_SIZE; x++)
-    {
-      if (*q == ' ')
-        break;
-      *p++ = *q++;
-    }
-    if (SDp->dir_ext[0] != ' ')
-    {
-      *p++ = '.';
-      for (x = 0, q = (BYTE FAR *) SDp->dir_ext; x < FEXT_SIZE; x++)
-      {
-        if (*q == ' ')
-          break;
-        *p++ = *q++;
-      }
-    }
-   }
-  *p++ = NULL;
-*/    
   ConvertName83ToNameSZ((BYTE FAR *) dmp->dm_name, (BYTE FAR *) SDp->dir_name);
-
-
   return i;
 }
 

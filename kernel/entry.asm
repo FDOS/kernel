@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.9  2001/03/30 19:30:06  bartoldeman
+; Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+;
 ; Revision 1.8  2001/03/27 20:27:43  bartoldeman
 ; dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
 ;
@@ -191,6 +194,39 @@ _RestartSysCall:
                 POP$ALL                 ; get the original regs
                 jmp     short int21_reentry     ; restart the system call
 
+
+;
+; interrupt zero divide handler:
+; print a message 'Interrupt divide by zero'
+; Terminate the current process
+;
+;       VOID INRPT far
+;       int20_handler(iregs UserRegs)
+;
+
+divide_by_zero_message db 0dh,0ah,'Interrupt divide by zero',0dh,0ah,0
+
+                global reloc_call_int0_handler
+reloc_call_int0_handler:
+                
+                mov si,divide_by_zero_message
+                
+zero_message_loop:
+                mov al, [cs:si]
+                test al,al
+                je   zero_done
+
+                inc si
+                mov bx, 0070h
+                mov ah, 0eh
+                
+                int  10h
+                
+                jmp short zero_message_loop
+                
+zero_done:
+                mov ax,04c7fh       ; terminate with errorlevel 127                                                
+                int 21h
 
 ;
 ; Terminate the current process

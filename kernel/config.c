@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/03/30 19:30:00  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.13  2001/03/27 20:27:27  bartoldeman
  * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
  *
@@ -197,6 +200,7 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
 INIT VOID Dosmem(BYTE * pLine);
 INIT VOID Country(BYTE * pLine);
 INIT VOID InitPgm(BYTE * pLine);
+INIT VOID InitPgmHigh(BYTE * pLine);
 INIT VOID Switchar(BYTE * pLine);
 INIT VOID CfgFailure(BYTE * pLine);
 INIT VOID Stacks(BYTE * pLine);
@@ -251,6 +255,7 @@ static struct table commands[] =
         /* rem is never executed by locking out pass                    */
   {"REM", 0, CfgFailure},
   {"SHELL", 1, InitPgm},
+  {"SHELLHIGH", 1, InitPgmHigh},
   {"STACKS", 1, Stacks},
   {"SWITCHAR", 1, Switchar},
   {"SCREEN", 1, sysScreenMode}, /* JPP */
@@ -322,6 +327,8 @@ INIT void PreConfig(void)
   /* Initialize the file table                                    */
   f_nodes = (struct f_node FAR *)
       KernelAlloc(Config.cfgFiles * sizeof(struct f_node));
+
+  f_nodes_cnt = Config.cfgFiles;
   /* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
   FCBp = (sfttbl FAR *)
@@ -399,7 +406,9 @@ INIT void PostConfig(void)
   /* Initialize the file table                                    */
   f_nodes = (struct f_node FAR *)
       KernelAlloc(Config.cfgFiles * sizeof(struct f_node));
-  /* sfthead = (sfttbl FAR *)&basesft; */
+  
+  f_nodes_cnt = Config.cfgFiles;   /* and the number of allocated files */
+/* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
   FCBp = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
@@ -920,6 +929,13 @@ INIT static VOID Stacks(BYTE * pLine)
   }
 }
 
+INIT static VOID InitPgmHigh(BYTE * pLine)
+{
+  InitPgm(pLine);
+  Config.cfgP_0_startmode = 0x80;
+}
+
+
 INIT static VOID InitPgm(BYTE * pLine)
 {
   /* Get the string argument that represents the new init pgm     */
@@ -931,6 +947,8 @@ INIT static VOID InitPgm(BYTE * pLine)
 
   /* and add a DOS new line just to be safe                       */
   strcat(Config.cfgInitTail, "\r\n");
+
+  Config.cfgP_0_startmode = 0;
 }
 
 INIT static VOID Break(BYTE * pLine)
@@ -1100,6 +1118,8 @@ INIT BYTE FAR *KernelAlloc(WORD nBytes)
   }
   else
     lpBase += nBytes;
+
+  fmemset( lpAllocated, 0, nBytes);
 
   return lpAllocated;
 }

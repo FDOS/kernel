@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.7  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -149,6 +152,8 @@ static BYTE *RcsId = "$Id$";
 #define LOAD    1
 #define OVERLAY 3
 
+#define LOAD_HIGH 0x80
+
 static exe_header header;
 
 #define CHUNK 32256
@@ -176,7 +181,7 @@ LONG doslseek(COUNT fd, LONG foffset, COUNT origin)
 LONG DosGetFsize(COUNT hndl)
 {
   sft FAR *s;
-  sfttbl FAR *sp;
+/*  sfttbl FAR *sp;*/
 
   /* Test that the handle is valid                */
   if (hndl < 0)
@@ -444,8 +449,8 @@ set_name:
 COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
   COUNT rc,
-    err,
-    env_size;
+    err
+    /*,env_size*/;
   COUNT nread;
   UWORD mem;
   UWORD env,
@@ -455,6 +460,11 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   psp FAR *q = MK_FP(cu_psp, 0);
   iregs FAR *irp;
   LONG com_size;
+
+  int  ModeLoadHigh = mode & 0x80;
+  int  UMBstate     = uppermem_link;
+
+  mode &= 0x7f;
 
   if (mode != OVERLAY)
   {
@@ -470,6 +480,12 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       return rc;
     }
     com_size = asize;
+    
+    if (  ModeLoadHigh && uppermem_root)
+        {
+        DosUmbLink(1);                          /* link in UMB's */
+        }
+    
     /* Allocate our memory and pass back any errors         */
     if ((rc = DosMemAlloc((seg) com_size, mem_access_mode, (seg FAR *) & mem
                         ,(UWORD FAR *) & asize)) < 0)
@@ -500,6 +516,12 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   }
   else
     mem = exp->load.load_seg;
+    
+  if (  ModeLoadHigh && uppermem_root)
+    {
+    DosUmbLink(UMBstate);                          /* restore link state */
+    }
+    
 
   /* Now load the executable                              */
   /* If file not found - error                            */
@@ -596,7 +618,7 @@ VOID return_user(void)
     FAR * q;
   REG COUNT i;
   iregs FAR *irp;
-  long j;
+/*  long j;*/
 
   /* restore parent                                       */
   p = MK_FP(cu_psp, 0);
@@ -630,11 +652,11 @@ VOID return_user(void)
   exec_user((iregs FAR *) q->ps_stack);
 }
 
-static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
+COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
   COUNT rc,
     err,
-    env_size,
+    /*env_size,*/
     i;
   COUNT nBytesRead;
   UWORD mem,
@@ -651,6 +673,12 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   UWORD reloc[2];
   seg FAR *spot;
   LONG exe_size;
+
+  int  ModeLoadHigh = mode & 0x80;
+  int  UMBstate = uppermem_link;
+
+  mode &= 0x7f;
+    
 
   /* Clone the environement and create a memory arena     */
   if (mode != OVERLAY)
@@ -675,7 +703,7 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   /* and finally add in the psp size                      */
   if (mode != OVERLAY)
     image_size += sizeof(psp);             /*TE 03/20/01*/
-
+    
   if (mode != OVERLAY)
   {
     /* Now find out how many paragraphs are available       */
@@ -704,11 +732,18 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
        overlay (replace) the current exe file with a new one.
        Jun 11, 2000 - rbc
   } */
+
+
+  if (  ModeLoadHigh && uppermem_root)
+    {
+    DosUmbLink(1);                          /* link in UMB's */
+    }
   
   /* Allocate our memory and pass back any errors         */
   /* We can still get an error on first fit if the above  */
   /* returned size was a bet fit case                     */
-  if ((rc = DosMemAlloc((seg) exe_size, mem_access_mode, (seg FAR *) & mem
+  /* ModeLoadHigh = 80 = try high, then low                   */
+  if ((rc = DosMemAlloc((seg) exe_size, mem_access_mode | ModeLoadHigh, (seg FAR *) & mem
                         ,(UWORD FAR *) & asize)) < 0)
   {
     if (rc == DE_NOMEM)
@@ -737,6 +772,10 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     /* with no error, we got exactly what we asked for      */
     asize = exe_size;
 
+#ifdef DEBUG  
+    printf("loading %s at %04x\n", (char*)namep,mem);
+#endif    
+
 /* /// Added open curly brace and "else" clause.  We should not attempt
        to allocate memory if we are overlaying the current process, because
        the new process will simply re-use the block we already have allocated.
@@ -747,6 +786,12 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   else
     asize = exe_size;
 /* /// End of additions.  Jun 11, 2000 - rbc */
+
+  if (  ModeLoadHigh && uppermem_root)
+    {
+    DosUmbLink(UMBstate);                          /* restore link state */
+    }
+
    
   if (mode != OVERLAY)
   {
@@ -905,7 +950,7 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   COUNT rc,
     err;
   exec_blk leb = *ep;
-  BYTE FAR *cp;
+/*  BYTE FAR *cp;*/
   BOOL bIsCom = FALSE;
 
   /* If file not found - free ram and return error        */
@@ -917,6 +962,7 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   {
     return DE_FILENOTFND;
   }
+
 
   if (DosRead(rc, sizeof(exe_header), (VOID FAR *) & header, &err)
       != sizeof(exe_header))
@@ -955,6 +1001,8 @@ VOID InitPSP(VOID)
   new_psp(p, 0);
 }
 
+UBYTE P_0_startmode = 0;
+
 /* process 0       */
 VOID FAR reloc_call_p_0(VOID)
 {
@@ -979,7 +1027,8 @@ VOID FAR reloc_call_p_0(VOID)
 #ifdef DEBUG
   printf("Process 0 starting: %s\n\n", (BYTE *) szfInitialPrgm);
 #endif
-  if ((rc = DosExec(0, (exec_blk FAR *) & exb, szfInitialPrgm)) != SUCCESS)
+  if ((rc = DosExec(Config.cfgP_0_startmode,
+                    (exec_blk FAR *) & exb, szfInitialPrgm)) != SUCCESS)
     printf("\nBad or missing Command Interpreter: %d\n", rc);
   else
     printf("\nSystem shutdown complete\nReboot now.\n");

@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.12  2001/03/24 22:13:05  bartoldeman
  * See history.txt: dsk.c changes, warning removal and int21 entry handling.
  *
@@ -464,7 +467,7 @@ static void merge_file_changes(struct f_node FAR *fnp, int collect) {
     int i;
 
     if (!IsShareInstalled()) return;
-    for (i = 0; i < NFILES; i++) {
+    for (i = 0; i < f_nodes_cnt; i++) {
         fnp2 = &f_nodes[i];
         if (   (fnp != (struct f_node FAR *)0)
             && (fnp != fnp2)
@@ -2078,7 +2081,7 @@ struct f_node FAR *get_f_node(void)
 {
   REG i;
 
-  for (i = 0; i < NFILES; i++)
+  for (i = 0; i < f_nodes_cnt; i++)
   {
     if (f_nodes[i].f_count == 0)
     {
@@ -2297,7 +2300,7 @@ COUNT media_check(REG struct dpb * dpbp)
 /* translate the fd into an f_node pointer */
 struct f_node FAR *xlt_fd(COUNT fd)
 {
-  return fd >= NFILES ? (struct f_node FAR *)0 : &f_nodes[fd];
+  return fd >= f_nodes_cnt ? (struct f_node FAR *)0 : &f_nodes[fd];
 }
 
 /* translate the f_node pointer into an fd */

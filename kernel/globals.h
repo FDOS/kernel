@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.7  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -604,6 +607,8 @@ GLOBAL struct dpb
 GLOBAL struct f_node FAR
 * f_nodes;                      /* pointer to the array                 */
 
+GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
+
 GLOBAL struct buffer
 FAR *lastbuf;                   /* tail of ditto                        */
 /*  FAR * buffers;              /* pointer to array of track buffers    */
@@ -637,6 +642,7 @@ GLOBAL struct config
   WORD cfgCSYS_memory;         /* number of bytes required for the NLS pkg;
                                    0 if none */
   VOID FAR *cfgCSYS_data;      /* where the loaded data is for PostConfig() */
+  UBYTE cfgP_0_startmode;      /* load command.com high or not */
 } Config
 #ifdef MAIN
 =
@@ -656,6 +662,7 @@ GLOBAL struct config
      ,""                   /* filename */
      ,0                        /* amount required memory */
      ,0                        /* pointer to loaded data */
+     ,0                        /* strategy for command.com is low by default */
 };
 #else
 ;

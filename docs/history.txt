@@ -1,5 +1,19 @@
-2001 Mar 28 - Build 2023
+2001 Mar 30 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Tom: Kernel alloc initialises to 0. This avoids some weird errors.
+              Implemented default divide by 0 handler (INT 0)
+              FILES= fixes from config.sys. fatfs.c ignored it and always
+              used the default of 16.
+              Misc debug code removal.
+              int 21/ax=3306 report running HIGH fix.
+              int 21/ah=69 : save CX
+              InitializeAllBPBs() or MakeNortonDiskEditorHappy()
+              More extended information if MCB chain corruption occurs.
+         Bart: getdpb fixes (int 21/ah=32).
+               fix carry handling in int 21/ah=5e.   
+               fix {get,set}_machine_name in network.c
++ Add    Support for SHELLHIGH in config.sys
+2001 Mar 28 - Build 2023
 + Fixes  Bug fix release 2023b: dsk.c (reported by Nagy Daniel), inthndlr and
 	 int25/26 fixes by Tom Ehlert.
 2001 Mar 27 - Build 2023

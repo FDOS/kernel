@@ -39,6 +39,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.9  2001/03/25 17:11:54  bartoldeman
  * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
  *
@@ -184,6 +187,7 @@ void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
 
 INIT VOID main(void)
 {
+    setvec(0, int0_handler);        /* zero divide */
     setvec(1, empty_handler);       /* single step */
     setvec(3, empty_handler);       /* debug breakpoint */
     
@@ -208,6 +212,30 @@ INIT VOID main(void)
   signon();
   kernel();
 }
+
+/*
+    InitializeAllBPBs()
+    
+    or MakeNortonDiskEditorHappy()
+
+    it has been determined, that FDOS's BPB tables are initialized,
+    only when used (like DIR H:).
+    at least one known utility (norton DE) seems to access them directly.
+    ok, so we access for all drives, that the stuff gets build
+*/
+
+void InitializeAllBPBs()
+{
+  static char filename[] = "A:-@JUNK@-.TMP";
+  int drive,fileno;
+  for (drive = 'Z'; drive >= 'C'; drive--)
+    {
+      filename[0] = drive;
+      if ((fileno = dos_open((BYTE FAR *) filename, O_RDONLY)) >= 0)
+        dos_close(fileno);
+    }
+}    
+
 
 INIT void init_kernel(void)
 {
@@ -296,6 +324,9 @@ INIT void init_kernel(void)
   version_flags = 0;
   pDirFileNode = 0;
   dosidle_flag = 0;
+  
+  InitializeAllBPBs();
+  
 }
 
 INIT VOID FsConfig(VOID)
@@ -303,7 +334,6 @@ INIT VOID FsConfig(VOID)
   REG COUNT i;
   date Date;
   time Time;
-  BYTE x;
 
   /* Get the start-up date and time                               */
   Date = dos_getdate();
@@ -439,7 +469,6 @@ INIT void kernel()
   seg asize;
   BYTE FAR *ep,
    *sp;
-  COUNT ret_code;
 #ifndef KDB
   static BYTE *path = "PATH=.";
 #endif

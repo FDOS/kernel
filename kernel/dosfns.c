@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.12  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.11  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -1419,7 +1422,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 
 BYTE DosSelectDrv(BYTE drv)
 {
-  if ((0 <= drv) && (drv <= (lastdrive -1 )) &&(CDSp->cds_table[drv].cdsFlags & 0xf000))
+  if ((0 <= drv) && (drv < lastdrive) &&(CDSp->cds_table[drv].cdsFlags & 0xf000))
   {
     current_ldt = &CDSp->cds_table[drv];
     default_drive = drv;

@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.16  2001/03/27 20:27:43  bartoldeman
  * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
  *
@@ -840,7 +843,10 @@ dispatch:
       if (r->DL <= (lastdrive - 1))
       {
         struct dpb FAR *dpb = CDSp->cds_table[r->DL].cdsDpb;
-        if (dpb == 0)
+        if (dpb == 0 ||
+            (CDSp->cds_table[r->DL].cdsFlags & CDSNETWDRV) ||
+            FP_SEG(dpb) != FP_SEG(&dpb) || /* check if it's a NEAR pointer */
+             media_check((struct dpb *)dpb) < 0)
         {
           r->AL = 0xff;
           CritErrCode = 0x0f;
@@ -1485,6 +1491,7 @@ dispatch:
       break;
 
     case 0x5e:
+      CLEAR_CARRY_FLAG();
       switch (r->AL)
       {
         case 0x00:
@@ -1500,13 +1507,9 @@ dispatch:
 	    COUNT result;
             result = int2f_Remote_call(REM_PRINTSET, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
 	    r->AX = result;
-	    if (result != SUCCESS) {
-            goto error_out;
-	    } else {
-	  	    CLEAR_CARRY_FLAG();
-	    }
-          break;
-      }
+	    if (result != SUCCESS) goto error_out;
+            break;
+          }
       }
       break;
 
@@ -1679,6 +1682,7 @@ dispatch:
       rc = ( r->BL == 0 ? default_drive : r->BL - 1);
       if (rc <= (lastdrive -1))
       {
+        UWORD saveCX = r->CX;
         if (CDSp->cds_table[rc].cdsFlags & CDSNETWDRV) {
           goto error_invalid;
         }
@@ -1695,6 +1699,7 @@ dispatch:
             rc = DosDevIOctl(r, (COUNT FAR *) & rc1);
             break;
         }
+        r->CX = saveCX;
         if (rc1 != SUCCESS)
         {
           r->AX = -rc1;

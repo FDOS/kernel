@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.8  2001/03/30 19:30:06  bartoldeman
+; Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+;
 ; Revision 1.7  2001/03/21 02:56:26  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -235,9 +238,7 @@ dos_data        db      0
 
                 times (0eh - ($ - DATASTART)) db 0
                 global  _NetBios
-_NetBios        db      0               ; NetBios Number
-                global  _Num_Name
-_Num_Name       db      0
+_NetBios        dw      0               ; NetBios Number
 
                 times (26h - 0ch - ($ - DATASTART)) db 0
 
@@ -829,7 +830,10 @@ _low_int26_handler: jmp far reloc_call_low_int26_handler
 _int27_handler: jmp far reloc_call_int27_handler
                 call near forceEnableA20
 
-
+                global  _int0_handler
+                extern  reloc_call_int0_handler
+_int0_handler:  jmp far reloc_call_int0_handler
+                call near forceEnableA20
 
                 global  _cpm_entry
                 extern  reloc_call_cpm_entry

@@ -34,6 +34,9 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.5  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -41,6 +44,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.6  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.5  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -347,6 +353,20 @@ do_outputstring:
   }
   return 0;
 }
+
+void hexd(char *title,UBYTE FAR *p,COUNT numBytes)
+{
+    int loop;
+    printf("%s%04x|",title,p);
+    for (loop = 0; loop < numBytes; loop++)
+        printf("%02x ", p[loop]);
+    printf("|");
+    
+    for (loop = 0; loop < numBytes; loop++)
+        printf("%c", p[loop] < 0x20 ? '.' : p[loop]);
+    printf("\n");    
+}    
+
 
 
 #ifdef TEST

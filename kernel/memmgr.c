@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.9  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -518,7 +521,7 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
 COUNT DosMemCheck(void)
 {
   REG mcb FAR *p;
-  REG mcb FAR *u;
+  REG mcb FAR *pprev = 0;
 
   /* Initialize                                           */
   p = para2far(first_mcb);
@@ -528,9 +531,15 @@ COUNT DosMemCheck(void)
   {
     /* check for corruption                         */
     if (p->m_type != MCB_NORMAL)
+      {
+      printf("dos mem corrupt, first_mcb=%04x\n", first_mcb);
+      hexd("prev " ,pprev,16);
+      hexd("notMZ",p,16);
       return DE_MCBDESTRY;
+      }
 
     /* not corrupted - but not end, bump the pointer */
+    pprev = p;
     p = nxtMCB(p);
   }
   return SUCCESS;

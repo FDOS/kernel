@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.11  2001/03/27 20:27:43  bartoldeman
  * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
  *
@@ -243,6 +246,8 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
 COUNT DosMkdir(BYTE FAR * dir);
 COUNT DosRmdir(BYTE FAR * dir);
 struct dhdr FAR * IsDevice(BYTE FAR * FileName);
+/* extern sft FAR *get_free_sft(WORD FAR * sft_idx);
+   #define FcbGetFreeSft(sft_idx) get_free_sft(sft_idx) */
 
 /*dosidle.asm */
 VOID DosIdle_int(void);
@@ -269,6 +274,7 @@ COUNT dir_write(REG struct f_node FAR * fnp);
 VOID dir_close(REG struct f_node FAR * fnp);
 COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name);
 COUNT dos_findnext(void);
+void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName);
 
 /* fatfs.c */
 __FAR_WRAPPER(COUNT, dos_open, (BYTE FAR * path, COUNT flag))
@@ -353,6 +359,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb);
 
 /* inithma.c */
 int MoveKernelToHMA(void);
+VOID FAR *HMAalloc(COUNT bytesToAllocate);
 
 /* initoem.c */
 UWORD init_oem(void);
@@ -375,6 +382,7 @@ VOID INRPT FAR int28_handler(void);
 VOID INRPT FAR int2a_handler(void);
 VOID INRPT FAR int2f_handler(void);
 VOID INRPT FAR empty_handler(void);
+VOID INRPT FAR int0_handler(void);
 
 /* ioctl.c */
 COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err);
@@ -454,6 +462,7 @@ UWORD syscall_MUX14(DIRECT_IREGS);
 VOID put_console(COUNT c);
 __FAR_WRAPPER(WORD, printf, (CONST BYTE * fmt,...))
 WORD sprintf(BYTE * buff, CONST BYTE * fmt,...);
+VOID hexd(char *title,VOID FAR *p,COUNT numBytes);
 
 /* strings.c */
 __FAR_WRAPPER(COUNT, strlen, (REG BYTE * s))
@@ -547,8 +556,3 @@ unsigned long FAR is_dosemu(void);
 */
 
 #define ASSERT_CONST(x) { typedef struct { char x[2 * (x) - 1]; } xx ; }
-
-void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName);
-
-
-VOID FAR *HMAalloc(COUNT bytesToAllocate);

@@ -75,6 +75,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.2  2001/03/30 19:30:06  bartoldeman
+ * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
+ *
  * Revision 1.1  2001/03/21 03:01:45  bartoldeman
  * New file by Tom Ehlert for HMA initialization.
  *
@@ -233,8 +236,6 @@ int MoveKernelToHMA()
     unsigned  len;
     
     
-    int3();
-    
     
     if (DosLoadedInHMA) 
     {
@@ -306,7 +307,6 @@ int MoveKernelToHMA()
         
         HMAFree = FP_OFF(HMADest)+len;  /* first free byte after HMA_TEXT */
         
-        int3();
         
     }    
     {
@@ -388,13 +388,15 @@ int MoveKernelToHMA()
         
         DosLoadedInHMA = TRUE;
     }        
+    
+    /* report the fact we are running high thorugh int 21, ax=3306 */
+    version_flags |= 0x10;    
+    
 
-    int3();
     return TRUE;
     
 errorReturn:
     printf("HMA errors, not doing HMA\n");
-    int3();
     return FALSE;
 }
 
@@ -415,7 +417,7 @@ errorReturn:
 void InstallVDISK()
     {
         static struct {                /* Boot-Sektor of a RAM-Disk */
- 	                 BYTE dummy1[3];   /* HIMEM.SYS uses 3, but FDXMS uses 2 */
+ 	                 UBYTE dummy1[3];   /* HIMEM.SYS uses 3, but FDXMS uses 2 */
 	                 char Name[5];
 	                 BYTE dummy2[3];
 	                 WORD BpS;
@@ -528,6 +530,8 @@ VOID FAR *HMAalloc(COUNT bytesToAllocate)
     HMAFree += bytesToAllocate;
 
     /*printf("HMA allocated %d byte at %x\n", bytesToAllocate, HMAptr); */
+    
+    fmemset( HMAptr,0, bytesToAllocate);
     
     return HMAptr;
 }
