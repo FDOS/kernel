@@ -43,7 +43,7 @@ static BYTE *RcsId =
 STATIC fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb);
 STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
                        COUNT * pCurDrive);
-STATIC int FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
+STATIC void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 STATIC void FcbNextRecord(fcb FAR * lpFcb);
 STATIC void FcbCalcRec(xfcb FAR * lpXfcb);
 
@@ -400,20 +400,10 @@ UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
 
   /* Build a traditional DOS file name                            */
   fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
-  if (lpFcb == NULL)
-    return FCB_ERROR;
-
   if ((flags & O_CREAT) && lpXfcb->xfcb_flag == 0xff)
     /* pass attribute without constraints (dangerous for directories) */
     attr = lpXfcb->xfcb_attrib;
 
-  /* for c:/nul c:nul must be opened instead!
-   * this is a consequence of truename's funny behaviour:
-   * truename(c:nul) = c:/nul and truename(c:/nul) = c:\nul
-   * and for FCBs it's easiest to call truename twice
-   */
-  if (SecPathName[2] == '/')
-    strcpy(&SecPathName[2], &SecPathName[3]);
   sft_idx = (short)DosOpenSft(SecPathName, flags, attr);
   if (sft_idx < 0)
   {
@@ -459,17 +449,14 @@ STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
   sda_lpFcb = lpFcb = ExtFcbToFcb(lpExtFcb);
 
   /* Build a traditional DOS file name                            */
-  if (FcbNameInit(lpFcb, pszBuffer, pCurDrive) < SUCCESS)
-    return NULL;
-
+  FcbNameInit(lpFcb, pszBuffer, pCurDrive);
   /* and return the fcb pointer                                   */
   return lpFcb;
 }
 
-int FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
+STATIC void FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
 {
-  BYTE loc_szBuffer[2 + FNAME_SIZE + 1 + FEXT_SIZE + 1];        /* 'A:' + '.' + '\0' */
-  BYTE *pszBuffer = loc_szBuffer;
+  BYTE *pszBuffer = szBuffer;
 
   /* Build a traditional DOS file name                            */
   *pCurDrive = default_drive + 1;
@@ -481,7 +468,6 @@ int FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
     pszBuffer += 2;
   }
   ConvertName83ToNameSZ(pszBuffer, lpFcb->fcb_fname);
-  return truename(loc_szBuffer, szBuffer, CDS_MODE_CHECK_DEV_PATH|CDS_MODE_ALLOW_WILDCARDS);
 }
 
 UBYTE FcbDelete(xfcb FAR * lpXfcb)
@@ -493,7 +479,7 @@ UBYTE FcbDelete(xfcb FAR * lpXfcb)
   /* Build a traditional DOS file name                            */
   fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
   /* check for a device                                           */
-  if (lpFcb == NULL || IsDevice(SecPathName))
+  if (IsDevice(SecPathName))
   {
     result = FCB_ERROR;
   }
@@ -535,7 +521,7 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
   lpRenameFcb = (rfcb FAR *) CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
 
   /* check for a device                                           */
-  if (lpRenameFcb == NULL || IsDevice(SecPathName))
+  if (IsDevice(SecPathName))
   {
     result = FCB_ERROR;
   }
@@ -552,6 +538,8 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
     }
     else do
     {
+      /* 'A:' + '.' + '\0' */
+      BYTE loc_szBuffer[2 + FNAME_SIZE + 1 + FEXT_SIZE + 1];
       fcb LocalFcb;
       BYTE *pToName;
       const BYTE FAR *pFromPattern = Dmatch.dm_name;
@@ -583,7 +571,8 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       }
       /* now to build a dos name again                */
       LocalFcb.fcb_drive = FcbDrive;
-      result = FcbNameInit((fcb FAR *) & LocalFcb, SecPathName, &FcbDrive);
+      FcbNameInit(&LocalFcb, loc_szBuffer, &FcbDrive);
+      result = truename(loc_szBuffer, SecPathName, 0);
       if (result < SUCCESS || (!(result & IS_NETWORK) && (result & IS_DEVICE)))
       {
         result = FCB_ERROR;
@@ -660,9 +649,6 @@ UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
 
   /* Next initialze local variables by moving them from the fcb   */
   lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
-  if (lpFcb == NULL)
-    return FCB_ERROR;
-
   /* Reconstrct the dirmatch structure from the fcb - doesn't hurt for first */
   Dmatch.dm_drive = lpFcb->fcb_sftno;
 
@@ -682,9 +668,6 @@ UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
     lpDir += 7;
   }
 
-  /* for c:/nul c:nul must be opened instead! (see above) */
-  if (SecPathName[2] == '/')
-    strcpy(&SecPathName[2], &SecPathName[3]);
   CritErrCode = -(First ? DosFindFirst(wAttr, SecPathName) : DosFindNext());
   if (CritErrCode != SUCCESS)
   {

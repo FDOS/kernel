@@ -214,7 +214,6 @@ void FcbSetRandom(xfcb FAR * lpXfcb);
 UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode);
 UBYTE FcbRandomIO(xfcb FAR * lpXfcb, int mode);
 UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags);
-int FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 UBYTE FcbDelete(xfcb FAR * lpXfcb);
 UBYTE FcbRename(xfcb FAR * lpXfcb);
 UBYTE FcbClose(xfcb FAR * lpXfcb);
