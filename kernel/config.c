@@ -207,7 +207,7 @@ STATIC char * GetNumber(REG const char *p, int *num);
 #if 0
 STATIC COUNT tolower(COUNT c);
 #endif
-STATIC COUNT toupper(COUNT c);
+STATIC unsigned char toupper(unsigned char c);
 STATIC VOID strupr(char *s);
 STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type);
 STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
@@ -223,7 +223,7 @@ STATIC int SkipLine(char *pLine);
 #if 0
 STATIC char * stristr(char *s1, char *s2);
 #endif
-STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
+STATIC int strcasecmp(const char * d, const char * s);
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
 STATIC void umb_init(void);
 
@@ -1582,7 +1582,7 @@ STATIC char * GetNumber(REG const char *p, int *num)
 
   for(;;p++)
   {
-    unsigned char ch = toupper((unsigned char)*p);
+    unsigned char ch = toupper(*p);
     if (ch == 'X')
     {
       base = 16;
@@ -1606,7 +1606,7 @@ STATIC char * GetNumber(REG const char *p, int *num)
 }
 
 /* Yet another change for true portability (PJV) */
-STATIC COUNT toupper(COUNT c)
+STATIC unsigned char toupper(unsigned char c)
 {
   if (c >= 'a' && c <= 'z')
     return (c - ('a' - 'A'));
@@ -1658,20 +1658,16 @@ char *strcat(register char * d, register const char * s)
 }
 
 /* compare two ASCII strings ignoring case */
-STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s)
+STATIC int strcasecmp(const char * d, const char * s)
 {
-  while (*s != '\0' && *d != '\0')
+  int ret;
+  for (;; s++, d++)
   {
-
-    if (toupper(*d) == toupper(*s))
-      ++s, ++d;
-
-    else
-      return toupper(*d) - toupper(*s);
-
+    ret = toupper(*d) - toupper(*s);
+    if (ret != 0 || *d == '\0')
+      break;
   }
-
-  return toupper(*d) - toupper(*s);
+  return ret;
 }
 
 /*
@@ -1817,7 +1813,7 @@ STATIC VOID CfgMenu(BYTE * pLine)
   pLine = skipwh(pLine);  /* skip more whitespaces... */
 
   /* now I'm expecting a number here if this is a menu-choice line. */
-  if (pLine[0]>='0' && pLine[0]<='9')
+  if (isnum(pLine[0]))
   {
     int nIndex = pLine[0]-'0';
 
@@ -1942,7 +1938,7 @@ RestartInput:
     if (key == '\r' || key == 0x1b) /* CR/ESC - use default */
       break;
 
-    if (key >= '0' && key <= '9' && (Menus & (1 << (key - '0'))))
+    if (isnum(key) && (Menus & (1 << (key - '0'))))
     {
       MenuSelected = key - '0';
       break;
@@ -2473,8 +2469,8 @@ STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePa
     }
   }
   
-  printf("could not find country info for country ID %u\n", ctryCode);
-  printf("current supported countries are ");
+  printf("could not find country info for country ID %u\n"
+         "current supported countries are ", ctryCode);
 
   for (i = 0; i < sizeof(specificCountriesSupported)/sizeof(specificCountriesSupported[0]); i++)
   {
@@ -2570,10 +2566,19 @@ STATIC void free(seg segment)
   init_call_intr(0x21, &r);
 }
 
+/* set memory allocation strategy */
+STATIC void set_strategy(unsigned char strat)
+{
+  iregs r;
+
+  r.a.x = 0x5801;
+  r.b.b.l = strat;
+  init_call_intr(0x21, &r);
+}
+
 VOID DoInstall(void)
 {
   int i;
-  iregs r;
   unsigned short installMemory; 
 
 
@@ -2587,11 +2592,8 @@ VOID DoInstall(void)
      we need to protect the INIT_CODE from other programs
      that will be executing soon
   */
-  
-  r.a.x = 0x5801;             /* set memory allocation strategy */
-  r.b.b.l = 0x02;			    /*low memory, last fit			*/
-  init_call_intr(0x21, &r);
 
+  set_strategy(LAST_FIT);
   allocmem(((unsigned)_init_end + ebda_size + 15) / 16, &installMemory);
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
@@ -2599,18 +2601,10 @@ VOID DoInstall(void)
   for (i = 0; i < numInstallCmds; i++)
   {
     InstallPrintf(("%d:%s\n",i,InstallCommands[i].buffer));
-    
-    r.a.x = 0x5801;             /* set memory allocation strategy */
-    r.b.b.l = InstallCommands[i].mode;
-    init_call_intr(0x21, &r);
-    
+    set_stragegy(InstallCommands[i].mode);
     InstallExec(&InstallCommands[i]);
-  }      
-
-  r.a.x = 0x5801;             /* set memory allocation strategy */
-  r.b.b.l = 0x00;			    /*low memory, high			*/
-  init_call_intr(0x21, &r);
-    
+  }
+  set_strategy(FIRST_FIT);
   free(installMemory);
   
   InstallPrintf(("Done with installing commands\n"));
