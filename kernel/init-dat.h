@@ -30,4 +30,3 @@ extern __segment DosTextSeg;
 #error unknown compiler - please adjust
 We might even deal with a pre-ANSI compiler. This will certainly not compile.
 #endif
-extern BYTE DOSFAR version_flags;       /* minor version number                 */

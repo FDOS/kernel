@@ -66,6 +66,7 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "init-dat.h"
+#include "lol.h"
 
 extern BYTE FAR ASM _HMATextAvailable,      /* first byte of available CODE area    */
   FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
@@ -246,7 +247,7 @@ int MoveKernelToHMA()
   InstallVDISK();
 
   /* report the fact we are running high through int 21, ax=3306 */
-  version_flags |= 0x10;
+  LoL->version_flags |= 0x10;
 
   return TRUE;
 
@@ -323,7 +324,8 @@ void MoveKernel(unsigned NewKernelSegment)
   UBYTE FAR *HMADest;
   UBYTE FAR *HMASource;
   unsigned len;
-
+  unsigned jmpseg = CurrentKernelSegment;
+ 
   if (CurrentKernelSegment == 0)
     CurrentKernelSegment = FP_SEG(_HMATextEnd);
 
@@ -404,7 +406,7 @@ void MoveKernel(unsigned NewKernelSegment)
     for (rp = _HMARelocationTableStart; rp < _HMARelocationTableEnd; rp++)
     {
       if (rp->jmpFar != 0xea || /* jmp FAR */
-          rp->jmpSegment != CurrentKernelSegment ||     /* will only relocate HMA_TEXT */
+          rp->jmpSegment != jmpseg ||     /* will only relocate HMA_TEXT */
           rp->callNear != 0xe8 ||       /* call NEAR */
           0)
       {

@@ -76,15 +76,15 @@ typedef struct {
 
 /* SFT Table header definition                                          */
 typedef struct _sftheader {
-  struct _sfttbl FAR *          /* link to next table in list   */
+  struct sfttbl FAR *           /* link to next table in list   */
     sftt_next;
   WORD sftt_count;              /* # of handle definition       */
   /* entries, this table          */
 } sftheader;
 
 /* System File Definition List                                          */
-typedef struct _sfttbl {
-  struct _sfttbl FAR *          /* link to next table in list   */
+typedef struct sfttbl {
+  struct sfttbl FAR *           /* link to next table in list   */
     sftt_next;
   WORD sftt_count;              /* # of handle definition       */
   /* entries, this table          */

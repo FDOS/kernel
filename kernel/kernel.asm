@@ -101,7 +101,7 @@ beyond_entry:   resb    256-(beyond_entry-entry)
 
 segment INIT_TEXT
 
-		extern	_FreeDOSmain:wrt I_GROUP
+		extern	_FreeDOSmain
 
                 ;
                 ; kernel start-up
@@ -118,7 +118,7 @@ kernel_start:
                 pop bx
                 pop ax
 
-		mov	ax,I_GROUP
+		mov	ax,cs
 		cli
 		mov	ss,ax
 		mov	sp,init_tos
@@ -142,23 +142,10 @@ kernel_start:
 		mov	ax,cont
 		push	ax
 		retf
-cont:		; inititalize api stacks for high water tests
-                mov     ax,cs
+cont:		mov     ax,cs
                 mov     ss,ax
-                mov     di,seg apistk_bottom
-                mov     es,di
-                mov     di,apistk_bottom
-                mov     ax,apistk_top
-                sub     ax,di
-                sar     ax,1
-                mov     cx,ax
-                mov     ax,09090h
-                cld
-                rep     stosw
                 ; Now set up call frame
-                mov     ax,DGROUP
-                mov     ds,ax
-                mov     es,ax
+                mov     ds,[cs:_INIT_DGROUP]
                 mov     bp,sp           ; and set up stack frame for c
                 sti                     ; now enable them
 
@@ -230,6 +217,7 @@ _nul_intr:
                 pop     es
                 retf
 
+segment _LOWTEXT
                 ; floppy parameter table
                 global _int1e_table
 _int1e_table:   times 0eh db 0
@@ -278,16 +266,14 @@ _first_mcb      dw      0               ;-0002 Start of user memory
 MARK0026H       equ     $
 _DPBp           dd      0               ; 0000 First drive Parameter Block
                 global  _sfthead
-_sfthead        dw      _firstsftt      ; 0004 System File Table head
-                dw      seg _firstsftt
+_sfthead        dd      0               ; 0004 System File Table head
                 global  _clock
 _clock          dd      0               ; 0008 CLOCK$ device
                 global  _syscon
 _syscon         dw      _con_dev,seg _con_dev   ; 000c console device
                 global  _maxbksize
 _maxbksize      dw      512             ; 0010 maximum bytes/sector of any block device
-		dw	buf_info        ; 0012 pointer to buffers info structure
-		dw	seg buf_info
+		dd	0               ; 0012 pointer to buffers info structure
                 global  _CDSp
 _CDSp           dd      0               ; 0016 Current Directory Structure
                 global  _FCBp
@@ -348,6 +334,22 @@ _min_pars       dw      0               ; 0064 minimum paragraphs of memory
 _uppermem_root	dw	0ffffh		; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
+;; FreeDOS specific entries
+		global	_os_minor
+_os_minor	db	0
+		global	_os_major	       
+_os_major	db	5
+		global	_rev_number
+_rev_number	db	0
+		global	_version_flags	       
+_version_flags	db	0
+		global	_f_nodes
+_f_nodes	dw	0
+		global	_f_nodes_cnt
+_f_nodes_cnt	dw	0
+		global	os_release
+		extern	_os_release
+os_release	dw	_os_release
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
                 times (0cch - ($ - DATASTART)) db 0
@@ -438,8 +440,7 @@ _CritErrCode    dw      0               ; 04 - DOS format error Code
 _CritErrAction  db      0               ; 06 - Error Action Code
 _CritErrClass   db      0               ; 07 - Error Class
 _CritErrDev     dd      0               ; 08 - Failing Device Address
-_dta            dw      _sda_tmp_dm, seg _sda_tmp_dm
-                                        ; 0C - current DTA, initialize to TempBuffer.
+_dta            dd      0               ; 0C - current DTA
 _cu_psp         dw      0               ; 10 - Current PSP
 break_sp        dw      0               ; 12 - used in int 23
 _return_code    dw      0               ; 14 - return code from process
@@ -596,13 +597,13 @@ _FcbSearchBuffer:              ;  of error stack as scratch buffer
                 
                 global apistk_bottom
 apistk_bottom:
-                times STACK_SIZE dw 0      ;300 - Error Processing Stack
+                times STACK_SIZE dw 0x9090 ;300 - Error Processing Stack
                 global  _error_tos
 _error_tos:
-                times STACK_SIZE dw 0      ;480 - Disk Function Stack
+                times STACK_SIZE dw 0x9090 ;480 - Disk Function Stack
                 global  _disk_api_tos
 _disk_api_tos:
-                times STACK_SIZE dw 0      ;600 - Char Function Stack
+                times STACK_SIZE dw 0x9090 ;600 - Char Function Stack
                 global  _char_api_tos
 _char_api_tos:
 apistk_top:
@@ -656,7 +657,7 @@ clk_stk_top:
 
 ; have a jump to the real thing here for AARD compliance
                 global  _CharMapSrvc ; in _DATA (see AARD)
-_CharMapSrvc:   jmp far CharMapSrvc2
+_CharMapSrvc:   jmp 0x70:CharMapSrvc2
             
 ; Dynamic data:
 ; member of the DOS DATA GROUP
@@ -750,14 +751,6 @@ _empty_handler:
                 iret
     
 
-; to minimize relocations
-    global _DGROUP_
-_DGROUP_:
-         dw DGROUP    
-
-
-segment _LOWTEXT
-
 global _initforceEnableA20
 initforceEnableA20:
 		call near forceEnableA20
@@ -768,65 +761,65 @@ __HMARelocationTableStart:
 
                 global  _int2f_handler
                 extern  reloc_call_int2f_handler
-_int2f_handler: jmp far reloc_call_int2f_handler
+_int2f_handler: jmp 0:reloc_call_int2f_handler
                 call near forceEnableA20
 
                 global  _int20_handler
                 extern  reloc_call_int20_handler
-_int20_handler: jmp far reloc_call_int20_handler
+_int20_handler: jmp 0:reloc_call_int20_handler
                 call near forceEnableA20
 
                 global  _int21_handler
                 extern  reloc_call_int21_handler
-_int21_handler: jmp far reloc_call_int21_handler
+_int21_handler: jmp 0:reloc_call_int21_handler
                 call near forceEnableA20
 
 
                 global  _low_int25_handler
                 extern  reloc_call_low_int25_handler
-_low_int25_handler: jmp far reloc_call_low_int25_handler
+_low_int25_handler: jmp 0:reloc_call_low_int25_handler
                 call near forceEnableA20
 
                 global  _low_int26_handler
                 extern  reloc_call_low_int26_handler
-_low_int26_handler: jmp far reloc_call_low_int26_handler
+_low_int26_handler: jmp 0:reloc_call_low_int26_handler
                 call near forceEnableA20
 
                 global  _int27_handler
                 extern  reloc_call_int27_handler
-_int27_handler: jmp far reloc_call_int27_handler
+_int27_handler: jmp 0:reloc_call_int27_handler
                 call near forceEnableA20
 
                 global  _int0_handler
                 extern  reloc_call_int0_handler
-_int0_handler:  jmp far reloc_call_int0_handler
+_int0_handler:  jmp 0:reloc_call_int0_handler
                 call near forceEnableA20
 
                 global  _int6_handler
                 extern  reloc_call_int6_handler
-_int6_handler:  jmp far reloc_call_int6_handler
+_int6_handler:  jmp 0:reloc_call_int6_handler
                 call near forceEnableA20
 
                 global  _cpm_entry
                 extern  reloc_call_cpm_entry
-_cpm_entry:     jmp far reloc_call_cpm_entry
+_cpm_entry:     jmp 0:reloc_call_cpm_entry
                 call near forceEnableA20
 
                 global  _reloc_call_blk_driver
                 extern  _blk_driver
 _reloc_call_blk_driver:
-                jmp far _blk_driver
+                jmp 0:_blk_driver
                 call near forceEnableA20
 
                 global  _reloc_call_clk_driver
                 extern  _clk_driver
 _reloc_call_clk_driver:
-                jmp far _clk_driver
+                jmp 0:_clk_driver
                 call near forceEnableA20
 
 ;               global  _CharMapSrvc ; in _DATA (see AARD)
                 extern  _reloc_call_CharMapSrvc
-CharMapSrvc2:   jmp far _reloc_call_CharMapSrvc
+CharMapSrvc2:   jmp 0:_reloc_call_CharMapSrvc
                 call near forceEnableA20
 
 
@@ -946,6 +939,11 @@ _int24_handler: mov     al,FAIL
 ; this makes some things easier
 ;
 
+; to minimize relocations
+segment HMA_TEXT
+		global _DGROUP_
+_DGROUP_	dw DGROUP    
+
 segment _LOWTEXT
                 global _TEXT_DGROUP
 _TEXT_DGROUP dw DGROUP
@@ -953,4 +951,3 @@ _TEXT_DGROUP dw DGROUP
 segment INIT_TEXT
                 global _INIT_DGROUP
 _INIT_DGROUP dw DGROUP
-

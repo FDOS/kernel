@@ -31,6 +31,7 @@
 #include "init-mod.h"
 #include "init-dat.h"
 #include "dyndata.h"
+#include "lol.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -52,33 +53,18 @@ static BYTE *RcsId =
 
   -- Bart
  */
-extern f_node_ptr DOSFAR f_nodes;       /* pointer to the array                 */
-extern UWORD DOSFAR f_nodes_cnt,        /* number of allocated f_nodes          */
-  DOSFAR ASM first_mcb;             /* Start of user memory                 */
 
-extern UBYTE DOSFAR ASM lastdrive, DOSFAR ASM nblkdev, DOSFAR ASM uppermem_link;
 extern struct dhdr
-DOSTEXTFAR ASM blk_dev,             /* Block device (Disk) driver           */
-  DOSFAR ASM nul_dev;
-extern struct buffer FAR *DOSFAR ASM firstbuf;      /* head of buffers linked list          */
+DOSTEXTFAR ASM blk_dev;             /* Block device (Disk) driver           */
 extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
-extern struct dpb FAR *DOSFAR ASM DPBp;
-/* First drive Parameter Block          */
-extern struct cds FAR *DOSFAR ASM CDSp;
-/* Current Directory Structure          */
-extern sfttbl FAR *DOSFAR ASM sfthead;
-/* System File Table head               */
-extern sfttbl FAR *DOSFAR ASM FCBp;
+extern struct lol ASM DOSFAR DATASTART;
+struct lol FAR *LoL = &DATASTART;
 
 extern BYTE DOSFAR _HMATextAvailable,    /* first byte of available CODE area    */
   FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
   FAR _HMATextEnd[], DOSFAR ASM break_ena,  /* break enabled flag                   */
-  DOSFAR os_major,              /* major version number                 */
-  DOSFAR os_minor,              /* minor version number                 */
-  DOSFAR ASM switchar, DOSFAR _InitTextStart,       /* first available byte of ram          */
+  DOSFAR _InitTextStart,       /* first available byte of ram          */
   DOSFAR ReturnAnyDosVersionExpected;
-
-extern UWORD DOSFAR ASM uppermem_root, DOSFAR ASM LoL_nbuffers;
 
 UWORD umb_start = 0, UMB_top = 0;
 UWORD ram_top = 0; /* How much ram in Kbytes               */
@@ -183,7 +169,7 @@ STATIC char * stristr(char *s1, char *s2);
 #endif
 STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
-STATIC unsigned alloc(size_t size);
+STATIC void umb_init(void);
 
 void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
@@ -297,33 +283,33 @@ void PreConfig(void)
 /*  f_nodes = (f_node_ptr)
       KernelAlloc(Config.cfgFiles * sizeof(struct f_node));*/
 
-  f_nodes = (f_node_ptr)
+  LoL->f_nodes = (f_node_ptr)
       DynAlloc("f_nodes", Config.cfgFiles, sizeof(struct f_node));
 
-  f_nodes_cnt = Config.cfgFiles;
-  /* sfthead = (sfttbl FAR *)&basesft; */
-  /* FCBp = (sfttbl FAR *)&FcbSft; */
-  /* FCBp = (sfttbl FAR *)
+  LoL->f_nodes_cnt = Config.cfgFiles;
+  LoL->sfthead = MK_FP(FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
+  /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
+  /* LoL->FCBp = (sfttbl FAR *)
      KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
 
   config_init_buffers(Config.cfgBuffers);
 
-  sfthead->sftt_next =
+  LoL->sfthead->sftt_next =
       KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft), 'F', 0);
-  sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
-  sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
+  LoL->sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
+  LoL->sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
-  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive, 'L', 0);
+  LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
 
-  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E', 0);
+  LoL->DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E', 0);
 
 #ifdef DEBUG
-  printf("Preliminary:\n f_node 0x%x", f_nodes);
-/*  printf(" FCB table 0x%p\n",FCBp);*/
-  printf(" sft table 0x%p\n", sfthead->sftt_next);
-  printf(" CDS table 0x%p\n", CDSp);
-  printf(" DPB table 0x%p\n", DPBp);
+  printf("Preliminary:\n f_node 0x%x", LoL->f_nodes);
+/*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
+  printf(" sft table 0x%p\n", LoL->sfthead->sftt_next);
+  printf(" CDS table 0x%p\n", LoL->CDSp);
+  printf(" DPB table 0x%p\n", LoL->DPBp);
 #endif
 
   /* Done.  Now initialize the MCB structure                      */
@@ -339,11 +325,11 @@ void PreConfig2(void)
   /* initialize NEAR allocated things */
 
   /* Initialize the file table                                    */
-  DynFree(f_nodes);
-  f_nodes = (f_node_ptr)
+  DynFree(LoL->f_nodes);
+  LoL->f_nodes = (f_node_ptr)
       DynAlloc("f_nodes", Config.cfgFiles, sizeof(struct f_node));
 
-  f_nodes_cnt = Config.cfgFiles;        /* and the number of allocated files */
+  LoL->f_nodes_cnt = Config.cfgFiles;        /* and the number of allocated files */
 
   /* Initialize the base memory pointers from last time.          */
   /*
@@ -353,10 +339,10 @@ void PreConfig2(void)
      and allocation starts after the kernel.
    */
 
-  base_seg = first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
+  base_seg = LoL->first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init(first_mcb, ram_top * 64 - first_mcb - 1);
+  mcb_init(LoL->first_mcb, ram_top * 64 - LoL->first_mcb - 1);
   if (UmbState == 2)
     umb_init();    
 }
@@ -379,9 +365,9 @@ void PostConfig(void)
   /* close all (device) files */
 
   /* compute lastdrive ... */
-  lastdrive = Config.cfgLastdrive;
-  if (lastdrive < nblkdev)
-    lastdrive = nblkdev;
+  LoL->lastdrive = Config.cfgLastdrive;
+  if (LoL->lastdrive < LoL->nblkdev)
+    LoL->lastdrive = LoL->nblkdev;
 
   DebugPrintf(("starting FAR allocations at %x\n", base_seg));
 
@@ -393,27 +379,27 @@ void PostConfig(void)
 
   config_init_buffers(Config.cfgBuffers);
 
-/* sfthead = (sfttbl FAR *)&basesft; */
-  /* FCBp = (sfttbl FAR *)&FcbSft; */
-  /* FCBp = KernelAlloc(sizeof(sftheader)
+/* LoL->sfthead = (sfttbl FAR *)&basesft; */
+  /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
+  /* LoL->FCBp = KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
-  sfthead->sftt_next = (sfttbl FAR *)
+  LoL->sfthead->sftt_next = (sfttbl FAR *)
     KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft), 'F',
                 Config.cfgFilesHigh);
-  sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
-  sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
+  LoL->sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
+  LoL->sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
-  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive, 'L', Config.cfgLastdriveHigh);
+  LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
-  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E',
+  LoL->DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E',
                      Config.cfgDosDataUmb);
 
 #ifdef DEBUG
-  printf("Final: \n f_node 0x%x\n", f_nodes);
-/*  printf(" FCB table 0x%p\n",FCBp);*/
-  printf(" sft table 0x%p\n", sfthead->sftt_next);
-  printf(" CDS table 0x%p\n", CDSp);
-  printf(" DPB table 0x%p\n", DPBp);
+  printf("Final: \n f_node 0x%x\n", LoL->f_nodes);
+/*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
+  printf(" sft table 0x%p\n", LoL->sfthead->sftt_next);
+  printf(" CDS table 0x%p\n", LoL->CDSp);
+  printf(" DPB table 0x%p\n", LoL->DPBp);
 #endif
   if (Config.cfgStacks)
   {
@@ -436,9 +422,12 @@ VOID configDone(VOID)
 
   if (HMAState != HMA_DONE)
   {
-    seg kernel_seg = alloc((HMAFree+0xf)/16);
-    mcb FAR *p = para2far(kernel_seg - 1);
-    
+    mcb FAR *p;
+    unsigned short kernel_seg;
+
+    allocmem((HMAFree+0xf)/16, &kernel_seg);
+    p = para2far(kernel_seg - 1);
+
     p->m_name[0] = 'S';
     p->m_name[1] = 'C';
     p->m_psp = 8;  
@@ -480,12 +469,12 @@ STATIC void umb_init(void)
     UmbState = 1;
 
     /* reset root */
-    uppermem_root = ram_top * 64 - 1;
+    LoL->uppermem_root = ram_top * 64 - 1;
 
     /* create link mcb (below) */
     para2far(base_seg)->m_type = MCB_NORMAL;
     para2far(base_seg)->m_size--;
-    mumcb_init(uppermem_root, umb_seg - uppermem_root - 1);
+    mumcb_init(LoL->uppermem_root, umb_seg - LoL->uppermem_root - 1);
 
     /* setup the real mcb for the devicehigh block */
     mcb_init(umb_seg, umb_size - 2); 
@@ -511,7 +500,7 @@ STATIC void umb_init(void)
       mcb_init(umb_seg, umb_size - 2);
 
       /* determine prev and next umbs */
-      umb_prev = prev_mcb(umb_seg, uppermem_root);
+      umb_prev = prev_mcb(umb_seg, LoL->uppermem_root);
       umb_next = umb_prev + para2far(umb_prev)->m_size + 1;
       para2far(umb_seg)->m_type = MCB_NORMAL;
 
@@ -893,8 +882,8 @@ STATIC VOID sysVersion(BYTE * pLine)
 
   printf("Changing reported version to %d.%d\n", major, minor);
 
-  os_major = major;
-  os_minor = minor;
+  LoL->os_major = major;
+  LoL->os_minor = minor;
 }
 
 STATIC VOID Files(BYTE * pLine)
@@ -982,8 +971,8 @@ STATIC VOID Dosmem(BYTE * pLine)
 
   if (UmbState == 0)
   {
-    uppermem_link = 0;
-    uppermem_root = 0xffff;
+    LoL->uppermem_link = 0;
+    LoL->uppermem_root = 0xffff;
     UmbState = UMBwanted ? 2 : 0;
   }
   /* Check if HMA is available straight away */
@@ -1013,7 +1002,7 @@ STATIC VOID CfgSwitchar(BYTE * pLine)
   /* Format: SWITCHAR = character         */
 
   GetStringArg(pLine, szBuf);
-  switchar = *szBuf;
+  init_switchar(*szBuf);
 }
 
 STATIC VOID Fcbs(BYTE * pLine)
@@ -1213,7 +1202,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   else
   {
     base = base_seg;
-    start = first_mcb;
+    start = LoL->first_mcb;
   }
 
   if (base == start)
@@ -1261,9 +1250,9 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
       printf("multisegmented device driver found, next %p\n", next_dhp);
     /* give warning message */
 #endif
-    /* Link in device driver and save nul_dev pointer to next */
-    dhp->dh_next = nul_dev.dh_next;
-    nul_dev.dh_next = dhp;
+    /* Link in device driver and save LoL->nul_dev pointer to next */
+    dhp->dh_next = LoL->nul_dev.dh_next;
+    LoL->nul_dev.dh_next = dhp;
   }
 
   /* might have been the UMB driver or DOS=UMB */
@@ -1318,7 +1307,7 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
   else
   {
     base = base_seg;
-    start = first_mcb;
+    start = LoL->first_mcb;
   }
 
   /* create the special DOS data MCB if it doesn't exist yet */
@@ -1360,7 +1349,7 @@ void FAR * KernelAlloc(size_t nBytes, char type, int mode)
   void FAR *p;
   size_t nPara = (nBytes + 15)/16;
 
-  if (first_mcb == 0)
+  if (LoL->first_mcb == 0)
   {
     /* prealloc */
     lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop));
@@ -1634,16 +1623,17 @@ VOID config_init_buffers(COUNT anzBuffers)
     printf("BUFFERS=%u not supported, reducing to 99\n", anzBuffers);
     anzBuffers = 99;
   }
-  LoL_nbuffers = anzBuffers;
+  LoL->nbuffers = anzBuffers;
   
   lpTop = lpOldTop;
 
-  firstbuf = ConfigAlloc(sizeof(struct buffer) * anzBuffers, 'B');
+  LoL->inforecptr = &LoL->firstbuf;
+  LoL->firstbuf = ConfigAlloc(sizeof(struct buffer) * anzBuffers, 'B');
 
-  pbuffer = firstbuf;
+  pbuffer = LoL->firstbuf;
 
   DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
-  DebugPrintf((" (%p)", firstbuf));
+  DebugPrintf((" (%p)", LoL->firstbuf));
 
   pbuffer->b_prev = FP_OFF(pbuffer + (anzBuffers-1));
   for (i = 1; i < anzBuffers; ++i)
@@ -2355,16 +2345,6 @@ void InstallExec(char *cmd)
   }
 }		
 
-STATIC unsigned alloc(size_t size)
-{
-  iregs r;
-        
-  r.a.b.h = 0x48;				/* alloc memory	*/
-  r.b.x = size;
-  init_call_intr(0x21, &r);
-  return r.a.x;
-}
-
 STATIC void free(seg segment)
 {
   iregs r;
@@ -2397,7 +2377,7 @@ VOID DoInstall(void)
   r.b.b.l = 0x02;			    /*low memory, last fit			*/
   init_call_intr(0x21, &r);
 
-  installMemory = alloc(((unsigned)_init_end+15)/16);
+  allocmem(((unsigned)_init_end+15)/16, &installMemory);
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
 
@@ -2421,4 +2401,3 @@ VOID DoInstall(void)
   InstallPrintf(("Done with installing commands\n"));
   return;
 }
-

@@ -147,7 +147,10 @@ int ASMCFUNC allocmem(UWORD size, seg * segp);
 VOID ASMCFUNC init_PSPInit(seg psp_seg);
 VOID ASMCFUNC init_PSPSet(seg psp_seg);
 COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
+int ASMCFUNC init_setdrive(int drive);
+int ASMCFUNC init_switchar(int chr);
 VOID ASMCFUNC keycheck(VOID);
+void ASMCFUNC set_DTA(void far *dta);
 
 /* irqstack.asm */
 VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,
@@ -193,3 +196,6 @@ ULONG ASMCFUNC FAR MULULUL(ULONG mul1, ULONG mul2);     /* MULtiply ULong by ULo
 ULONG ASMCFUNC FAR DIVULUS(ULONG mul1, UWORD mul2);     /* DIVide ULong by UShort */
 ULONG ASMCFUNC FAR DIVMODULUS(ULONG mul1, UWORD mul2, UWORD * rem);     /* DIVide ULong by UShort */
 #endif
+
+extern struct lol FAR *LoL;
+

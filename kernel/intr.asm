@@ -285,6 +285,24 @@ _init_DosExec:
 exec_no_error        
         ret
 
+;; int init_setdrive(int drive)
+   global _init_setdrive
+_init_setdrive:
+	mov ah, 0x0e
+	mov bx, sp
+	mov dl, [bx+2]
+	int 21h
+	ret
+
+;; int init_switchar(int char)
+   global _init_switchar
+_init_switchar:
+	mov ax, 0x3701
+	mov bx, sp
+	mov dl, [bx+2]
+	int 21h
+	ret
+
 ;; int allocmem(UWORD size, seg *segp)
     global _allocmem
 _allocmem:        
@@ -299,3 +317,13 @@ _allocmem:
         xor ax, ax
         ret
                         
+;; void set_DTA(void far *dta)        
+    global _set_DTA
+_set_DTA
+	mov ah, 1ah
+	mov bx, sp
+	push ds
+	lds dx, [bx+2]
+	int 21h
+	pop ds
+	ret
