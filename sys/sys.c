@@ -415,7 +415,7 @@ int main(int argc, char **argv)
       "             to write to *instead* of real boot sector\n"
       "  BOTH     : write to *both* the real boot sector and the image file\n"
       "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
-      "  /OEM     : indicates kernel is IBMIO.SYS/IBMDOS.SYS loaded at 0x70\n"
+      "  /OEM     : indicates kernel is IBMBIO.COM/IBMDOS.COM loaded at 0x70\n"
 #ifdef WITHOEMCOMPATBS
       "             /OEM:DR use IBMBIO.COM/IBMDOS.SYS and FD boot sector (default)\n"
       "             /OEM:PC use PC-DOS compatible boot sector\n"
@@ -822,6 +822,10 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   struct bootsectortype *bs;
   static unsigned char oldboot[SEC_SIZE], newboot[SEC_SIZE];
   static unsigned char default_bpb[0x5c];
+
+#ifndef WITHOEMCOMPATBS
+  UNREFERENCED_PARAMETER(altkern);
+#endif
 
 #ifdef DEBUG
   printf("Reading old bootsector from drive %c:\n", drive + 'A');
