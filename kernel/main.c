@@ -570,6 +570,14 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
     if (rq.r_endaddr == (BYTE FAR *) dhp)
       return TRUE;
 
+    /* Don't link in block device drivers which indicate no units */
+    if (!(dhp->dh_attr & ATTR_CHAR) && !rq.r_nunits)
+    {
+      rq.r_endaddr = (BYTE FAR *) dhp;
+      return TRUE;
+    }
+
+
     /* Fix for multisegmented device drivers:                          */
     /*   If there are multiple device drivers in a single driver file, */
     /*   only the END ADDRESS returned by the last INIT call should be */
