@@ -1,3 +1,16 @@
+2004 Sept ?? - Build 2035a
+-------- Jeremy Davis (jeremyd@computer.org)
++ Changes Bart
+      * int2f.asm: call_nls: DI register was not preserved (bug 1812)
++ Changes Arkady
+	* floppy.asm: fix epilog for FL_SETMEDIATYPE & FL_SETDISKTYPE
+	  to use 'ret' instead of 'ret 8'; improve comments
+	* entry.asm: use unsigned comparision instead of signed
++ Changes Lucho
+	* dsk.c: text in play_dj
+        * fatfs.c:
+          - zero creation/access stamp on directory entry write as MS-DOS 7.10
+          - prevent removal or renaming of the current directory of that drive
 2004 May 30 - Build 2035
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Lucho + Tom

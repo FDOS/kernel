@@ -374,7 +374,8 @@ typedef struct {
     struct {
       UBYTE _r_cat;             /* Category code */
       UBYTE _r_fun;             /* Function code */
-      UBYTE unused[4];          /* SI or DI contents or DS:reqhdr */
+      UWORD _r_si;              /* Contents of SI and DI */
+      UWORD _r_di;              /* (PC DOS 7 Technical Update, pp 104,105) */
       union
       {
         struct gblkio FAR *_r_io;
@@ -424,6 +425,8 @@ typedef struct {
 /* generic IOCTL and IOCTL query macros */
 #define r_cat           _r_x._r_gen._r_cat
 #define r_fun           _r_x._r_gen._r_fun
+#define r_si            _r_x._r_gen._r_si
+#define r_di            _r_x._r_gen._r_di
 #define r_rw            _r_x._r_gen._r_par._r_rw
 #define r_io            _r_x._r_gen._r_par._r_io
 #define r_fv            _r_x._r_gen._r_par._r_fv

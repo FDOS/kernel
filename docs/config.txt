@@ -1,49 +1,218 @@
-Advanced - FreeDOS specific - CONFIG.SYS processing
-
-a new command DOSDATA=UMB
-DOSDATA=UMB loads some FreeDOS specific stuff in Upper Memory Blocks,
-like the RAM that FILESHIGH, LASTDRIVEHIGH, and STACKSHIGH occupy
-
-a new command ECHO
-ECHO does ECHO its argument (surprised ?-) and is executed at
-the time the DEVICE= lines are executed.
-use it similarly to
-
-	ECHO loading driver 1
-	device=Driver1.sys
-	ECHO driver1 successfully loaded
-
-a new command called EECHO is also available, for echo-ing ANSI Escape Sequences
-(redefines keyboard input for example).
-
-
-an undocumented command SCREEN=xx
-SCREEN= switches into videomode xxx  (INT10/11xx/000)
-useful 
-	SCREEN=0x11   -- 28    lines
-	SCREEN=0x12   -- 43/50 lines (on EGA/VGA)
+Configuring your DOS system for use:
+------------------------------------
+When booting DOS, you will find it only supports a subset of
+the devices available on many computers.  To support additional
+devices and advanced features, device specific driver and
+memory resident software most be loaded.  This allows the
+kernel to be easily extended to support hardware not presently
+available and take better advantage of installed hardware
+without wasting resources on computers lacking it.  This
+software is generally loaded during the kernel initialization
+phase, with details describing what to load expressed in the
+file CONFIG.SYS.  The FreeDOS kernel will first look for a
+file named FDCONFIG.SYS, should it exist, it will will be used
+instead of CONFIG.SYS; this allows the FreeDOS kernel to coexist
+and be configured differently than another DOS kernel.  There
+are additional options available to adjust other aspects of the
+kernel's behaviour.  Note: some options listed below are FreeDOS
+specific and will not work when using other/older DOS kernels.
+Below is list of all documented FreeDOS config.sys supported
+options; additional undocumented options may exist but are not
+meant for normal usage.
 
 
+BREAK
+Usage:  break=on|off
+Set extended Control-C/Control-Break checking to on [default] or off.
+When set to on, the kernel will perform the check (and invoke current
+handler if pressed) prior to most int 21h calls.  When set to off,
+the kernel only performs the check on I/O calls using standard streams.
+e.g.  break=off
 
-the following advanced config.sys processing options are available:
+BUFFERS
+BUFFERSHIGH
+Usage:  buffers=nn[,n] where nn is in range 1-99 & n is in range 1-8
+Memory buffers used by the kernel; primary[,secondary]
+The secondary buffer option is available for compatibility with
+other DOS kernels, but is ignored by the FreeDOS kernel.
+e.g.  buffers=20
+
+COUNTRY
+Usage:  country=nnn[,[mmm][,[d:][path]file]]
+Only limited country=nnn support is presently available.
+Enables/sets international features of DOS
+nnn is country code (001==US)
+mmm is code page (437 is default, 850 is updated form, 1252 for Windows)
+[drive][path]file specifies file with country specific data
+e.g.  country=001,850,C:\FDOS\BIN\COUNTRY.SYS
+
+DEVICE
+Usage:  device=[d:][path]file [options]
+Load the device driver specified by d:path\file (into conventional
+[low 640KB] memory).  The options are for the driver itself; refer
+to documentation that came with your particular device for supported
+options and their usage.
+e.g.  device=himem.sys
+
+DEVICEHIGH
+Usage:  devicehigh=[d:][path]file [options]
+This is just like device= statement, except it attempts to load
+the device driver into high memory first (failing that it should
+load it in conventional memory).  
+Note: The order you load devices may have a large impact on amount
+of free memory available.  In general try to load large (in memory
+usage) programs into high memory first.
+Important: You should have a high memory manager such as FDXMS or
+Himem installed (prior device=FDXMS.SYS or device=HIMEM.SYS) before
+using this option.
+e.g.  devicehigh=atapicdd.sys /D:FDCD0001
+
+DOS
+Usage:  dos=high|low,umb|noumb
+Indicates whether the kernel should try to load itself into
+high memory or only conventional (low), and whether to link
+upper memory blocks in with normal memory or not.  
+Note: only one set need be given, ie dos=high and dos=noumb are ok.
+Important: if you specify dos=high[,umb|noumb] then you must also
+load a high memory manager (first), ie FDXMS or HIMEM
+e.g.  dos=high,umb
+or    dos=low,noumb
+
+DOSDATA
+Usage:  dosdata=umb
+Try to load kernel data into Upper Memory Blocks; effectively
+same as using the <name>HIGH variant of kernel parameters,
+such as fileshigh, lastdrivehigh, and stackshigh (does not
+effect drivers loaded using device= or install=).
+e.g.  dosdata=umb
+
+ECHO
+Usage:  ECHO Message to be displayed to user.
+ECHO displays (echos) its arguments to the console during
+config.sys processing when device drivers are loaded (when
+DEVICE= lines are executed).
+e.g.  
+      ECHO loading driver 1
+      device=Driver1.sys
+      ECHO driver1 successfully loaded
+
+EECHO
+Usage:  EECHO Message with ANSI Escape Sequence
+EECHO allows for echo-ing ANSI Escape Sequences
+(redefines keyboard input for example).  Use a dollar sign ($)
+to represent the ANSI Escape character.  Note: requires an
+ansi driver loaded prior to use.
+
+FCBS
+Usage:  fcbs=nnn
+where nnn is in range 1-255
+Sets the number of File Control Blocks to reserve room for.
+As file control blocks have been replaced by file handles
+(see files) most applications will not need this value adjusted.
+e.g.  fcbs=4
+
+FILES
+FILESHIGH
+Usage:  files=nnn 
+where nnn is in range 8-255 (default 8)
+Specifies how many files allowed open at once (reserves
+memory necessary to support opening this many files).
+Note: there are other restrictions, so a given program
+       may not be able to actually open this many
+A good number is 20, though some programs suggest/require
+30, 40, or even 255
+e.g.  files=20
+
+INSTALL
+INSTALLHIGH
+Usage:  install=[d:][path]file [options]
+Load the program specified by d:path\file.  Generally used to
+load TSR (terminate and stay resident) programs with a minimal
+environment block.  The options are for the program itself; refer
+to documentation that came with your particular software for
+supported options and usage.
+e.g.  install=nansi.com
+
+LASTDRIVE
+LASTDRIVEHIGH
+Usage:  lastdrive=x 
+where x is last drive letter available for use; A-Z
+e.g. lastdrive=z
+
+NUMLOCK
+Usage:  numlock=on|off
+Set the keyboard number lock to on or off.
+e.g.  numlock=off
+
+REM
+Usage:  rem Your remarks!
+This provides the ability to place comments within the configuration
+file.  The text following the rem until the end of the line is
+reached are ignored.  This may also be used to temporarily disable
+loading a particular device or other option.
+
+SCREEN
+Usage:  screen=xx
+Switches into videomode xxx  (INT10/11xx/000)
+where xx should be 0x11 for 28 lines or 0x12 for 43/50 (EGA/VGA) lines
+
+SET
+Usage:  set ENVVAR=value
+Sets the environment variable to provided value.
+e.g.  set HOME=C:\home\me
+
+SHELL
+SHELLHIGH
+Usage:  shell=[d:][path]file [options]
+Indicates the shell to use; often used to alter COMMAND.COM's behavior.
+Note: it is command.com that processes AUTOEXEC.BAT; by using the
+shell option, you can get command.com to process a differently named
+file (such as FDAUTO.BAT for coexisting with another DOS using different
+configuration options) or run a completely different command interpreter
+such as 4DOS or a (unix) sh variant.
+e.g.  shell=C:\COMMAND.COM /E:256 /P
+
+STACKS
+STACKSHIGH
+Usage:  stacks=nn,nnn
+where nn is in range 0,8-64 and nnn is in range 32-512
+Changes number of stacks available
+nn is number of different stacks and nnn is size in bytes of each one
+e.g.  stacks=16,256
+
+SWITCHAR
+Usage:  switchar=c
+Sets the default switchar to character c.  Where c is a single character
+that is used to indicate a command line parameter is an option switch.
+The default is a forward slash (/).  Note: This simply sets the value
+returned by a get switchar query, it will not effect programs that use
+hardcoded switch characters.
+e.g.  switchar=-
+
+VERSION
+Usage:  version=x.y
+FreeDOS specific command to specify what DOS version to report.
+e.g.  version=6.2
+
+
+
+Advanced - FreeDOS specific CONFIG.SYS menu processing:
+-------------------------------------------------------
 
 normal
 	FILES=20
 	DEVICE=MyNetWorkDriver.sys
 
 '?' - ALWAYS ask if a single line shall be executed
-
 	FILES=20
 	?DEVICE=MyNetWorkDriver.sys
 
 
 '!' - NEVER ask if a single line shall be executed, even if single stepping
-
 	!FILES=20
 	!DOS=HIGH,UMB
 	!BUFFERS=30
 	DEVICE=MyNetWorkDriver.sys
-
 
 
 configuration management - you may compose several configurations,
@@ -66,8 +235,11 @@ MENUDEFAULT=0,1				( configuration 0, wait 1 second)
 2?  device=MyNetworkDriver.SYS
 
 
-Although this is definitively worse then MSDOS menuing possibilities,
-IMHO it's better then nothing. 
+Although this is different than MSDOS menuing possibilities, it 
+allows for selecting from multiple options during bootup while
+remaining simple.  It, however, does not allow for multi-level
+menuing based configuration schemes.
+
 
 It's also possible to combine menu options, to avoid writing thing every 
 time again.
@@ -165,11 +337,7 @@ MENUDEFAULT=1,10		( configuration 1, wait 10 seconds)
 4?  ECHO You selected menu #4
 
 
-
-
-
-
-
 2002-11-28 - Tom Ehlert
 2003-07-15 - Bernd Blaauw
 2003-09-18 - Bart Oldeman
+2004-07-24 - Jeremy Davis

@@ -107,27 +107,20 @@ struct dpb FAR *get_dpb(COUNT dsk)
   return cdsp->cdsDpb;
 }
 
-/* initialize all direntry fields except for the name */
+/* initialize directory entry (creation/access stamps 0 as per MS-DOS 7.10) */
 STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
-                          CLUSTER cluster)
+                          CLUSTER cluster, char *name)
 {
-  struct dostime dt;
-
   dentry->dir_size = 0l;
+  memset(dentry, 0, sizeof(struct dirent));
+  memcpy(dentry->dir_name, name, FNAME_SIZE + FEXT_SIZE);
 #ifdef WITHFAT32
   dentry->dir_start_high = (UWORD)(cluster >> 16);
-#else
-  dentry->dir_start_high = 0;
 #endif
   dentry->dir_start = (UWORD)cluster;
-  dentry->dir_attrib = attrib;
-  dentry->dir_case = 0;
-  DosGetTime(&dt);
-  dentry->dir_crtimems = dt.hundredth;
-  if (dt.second & 1)
-    dentry->dir_crtimems += 100;
-  dentry->dir_time = dentry->dir_crtime = time_encode(&dt);
-  dentry->dir_date = dentry->dir_crdate = dentry->dir_accdate = dos_getdate();
+  dentry->dir_attrib = (UBYTE)attrib;
+  dentry->dir_time = dos_gettime();
+  dentry->dir_date = dos_getdate();
 }
 
 /************************************************************************/
@@ -154,7 +147,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   if ((flags & O_ACCMODE) > 2)
     return DE_INVLDACC;
 
-  /* first split the passed dir into comopnents (i.e. - path to   */
+  /* next split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
   if ((fnp = split_path(path, fcbname)) == NULL)
     return DE_PATHNOTFND;
@@ -206,9 +199,6 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
     int ret = alloc_find_free(fnp, path, fcbname);
     if (ret != SUCCESS)
       return ret;
-
-    /* put the fnode's name into the directory.             */
-    memcpy(fnp->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
     status = S_CREATED;
   }
   else
@@ -225,7 +215,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
 
   if (status != S_OPENED)
   {
-    init_direntry(&fnp->f_dir, attrib, FREE);
+    init_direntry(&fnp->f_dir, attrib, FREE, fcbname);
     fnp->f_flags = F_DMOD | F_DDIR;
     if (!dir_write(fnp))
     {
@@ -584,7 +574,12 @@ COUNT dos_rmdir(BYTE * path)
   BOOL found;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
-  /* first split the passed dir into comopnents (i.e. -   */
+  /* prevent removal of the current directory of that drive */
+  register struct cds FAR *cdsp = get_cds(path[0] - 'A');
+  if (!fstrcmp(path, cdsp->cdsCurrentPath))
+    return DE_RMVCUDIR;
+
+  /* next, split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(path, fcbname)) == NULL)
   {
@@ -598,24 +593,20 @@ COUNT dos_rmdir(BYTE * path)
     return DE_ACCESS;
   }
 
-  /* Check that we don't have a duplicate name, so if we  */
-  /* find one, it's an error.                             */
+  /* Verify name exists, and if so then ensure it refers  */
+  /* to a directory and directory is empty.               */
   if (find_fname(fnp, fcbname, D_ALL))
   {
-    /* The only permissable attribute is directory, */
-    /* check for any other bit set. If it is, give  */
-    /* an access error.                             */
-    /* if (fnp->f_dir.dir_attrib & ~D_DIR)          */
-
-    /* directories may have attributes, too. at least my WinNT disk
-       has many 'archive' directories
-       we still don't allow RDONLY directories to be deleted TE */
-
-/*    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE|D_SYSTEM))
+    /* Check if it's really a directory, directories may
+       have attributes, but if other than 'archive' then do not
+       allow (RDONLY|SYSTEM|HIDDEN) directory to be deleted.
+    */
+    if ( !(fnp->f_dir.dir_attrib & D_DIR) ||
+          (fnp->f_dir.dir_attrib & ~(D_DIR |D_ARCHIVE)) )
     {
       dir_close(fnp);
       return DE_ACCESS;
-    } */
+    }
 
     /* Check that the directory is empty. Only the  */
     /* "." and ".." are permissable.                */
@@ -628,7 +619,8 @@ COUNT dos_rmdir(BYTE * path)
     }
     
     dir_read(fnp1);
-    if (fnp1->f_dir.dir_name[0] != '.')
+    /* 1st entry should be ".", else directory corrupt or not empty */
+    if (fnp1->f_dir.dir_name[0] != '.' || fnp1->f_dir.dir_name[1] != ' ')
     {
       dir_close(fnp);
       return DE_ACCESS;
@@ -636,7 +628,8 @@ COUNT dos_rmdir(BYTE * path)
 
     fnp1->f_diroff++;
     dir_read(fnp1);
-    if (fnp1->f_dir.dir_name[0] != '.')
+    /* secondard entry should be ".." */
+    if (fnp1->f_dir.dir_name[0] != '.' || fnp1->f_dir.dir_name[1] != '.')
     {
       dir_close(fnp);
       return DE_ACCESS;
@@ -683,6 +676,11 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   COUNT ret;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
+  /* prevent renaming of the current directory of that drive */
+  register struct cds FAR *cdsp = get_cds(path1[0] - 'A');
+  if (!fstrcmp(path1, cdsp->cdsCurrentPath))
+    return DE_RMVCUDIR;
+
   /* first split the passed target into compnents (i.e. - path to */
   /* new file name and name of new file name                      */
   if ((fnp2 = split_path(path2, fcbname)) == NULL)
@@ -723,18 +721,11 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if ((ret = remove_lfn_entries(fnp1)) < 0)
     return ret;
 
+  /* init fnode for new file name to match old file name */
+  memcpy(&fnp2->f_dir, &fnp1->f_dir, sizeof(struct dirent));
+
   /* put the fnode's name into the directory.                     */
   memcpy(fnp2->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
-
-  /* Set the fnode to the desired mode                            */
-  fnp2->f_dir.dir_size = fnp1->f_dir.dir_size;
-  fnp2->f_dir.dir_start = fnp1->f_dir.dir_start;
-#ifdef WITHFAT32
-  fnp2->f_dir.dir_start_high = fnp1->f_dir.dir_start_high;
-#endif
-  fnp2->f_dir.dir_attrib = fnp1->f_dir.dir_attrib;
-  fnp2->f_dir.dir_time = fnp1->f_dir.dir_time;
-  fnp2->f_dir.dir_date = fnp1->f_dir.dir_date;
 
   /* The directory has been modified, so set the bit before       */
   /* closing it, allowing it to be updated.                       */
@@ -798,10 +789,8 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
 /*                                                              */
 STATIC VOID wipe_out(f_node_ptr fnp)
 {
-  /* if already free or not valid file, just exit         */
-  if ((fnp == NULL) || checkdstart(fnp->f_dpb, &fnp->f_dir, FREE))
-    return;
-
+  /* if not already free and valid file, do it */
+  if (fnp && !checkdstart(fnp->f_dpb, &fnp->f_dir, FREE))
   wipe_out_clusters(fnp->f_dpb, getdstart(fnp->f_dpb, &fnp->f_dir));
 }
 
@@ -1105,13 +1094,10 @@ COUNT dos_mkdir(BYTE * dir)
     return DE_HNDLDSKFULL;
   }
 
-  /* put the fnode's name into the directory.             */
-  memcpy(fnp->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
-
   /* Set the fnode to the desired mode                            */
   fnp->f_mode = WRONLY;
 
-  init_direntry(&fnp->f_dir, D_DIR, free_fat);
+  init_direntry(&fnp->f_dir, D_DIR, free_fat, fcbname);
 
   fnp->f_flags = F_DMOD | F_DDIR;
 
@@ -1135,9 +1121,7 @@ COUNT dos_mkdir(BYTE * dir)
   }
 
   /* Create the "." entry                                 */
-  DirEntBuffer.dir_name[0] = '.';
-  memset(DirEntBuffer.dir_name + 1, ' ', FNAME_SIZE + FEXT_SIZE - 1);
-  init_direntry(&DirEntBuffer, D_DIR, free_fat);
+  init_direntry(&DirEntBuffer, D_DIR, free_fat, ".          ");
 
   /* And put it out                                       */
   putdirent(&DirEntBuffer, bp->b_buffer);
@@ -1986,6 +1970,7 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
   fnp->f_flags |= F_DMOD | F_DDATE;
+  merge_file_changes(fnp, FALSE);
   save_far_f_node(fnp);
   dos_close(fd);
   return SUCCESS;
@@ -2135,7 +2120,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 
       /* If it definitely changed, don't know (falls through) */
       /* or has been changed, rebuild the bpb.                */
-    case M_CHANGED:
+    /* case M_CHANGED: */
     default:
       setinvld(dpbp->dpb_unit);
       ret = rqblockio(C_BLDBPB, dpbp);

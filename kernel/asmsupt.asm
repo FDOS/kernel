@@ -416,13 +416,9 @@ FMEMCHR:
                 mov ax, di
                 jmp short strchr_found1
 
-%endif
-
 ;**********************************************************************
-%if 0
-nix pascal - still untested
-                global  _fstrcmp
-_fstrcmp:
+                global  FSTRCMP
+FSTRCMP:
                 call pascal_setup
 
                 ; Get the source pointer, ss
