@@ -34,14 +34,7 @@ static BYTE *memmgrRcsId =
     "$Id$";
 #endif
 
-/*#define nxtMCBsize(mcb,size)	\
-	MK_FP(far2para((VOID FAR *) (mcb)) + (size) + 1, 0) */
-
-void FAR *nxtMCBsize(mcb FAR * Mcb, int size)
-{
-  return MK_FP(far2para((VOID FAR *) (Mcb)) + (size) + 1, 0);
-}
-
+#define nxtMCBsize(mcb,size) MK_FP(FP_SEG(mcb) + (size) + 1, 0)
 #define nxtMCB(mcb) nxtMCBsize((mcb), (mcb)->m_size)
 
 #define mcbFree(mcb) ((mcb)->m_psp == FREE_PSP)
@@ -73,11 +66,6 @@ STATIC COUNT joinMCBs(mcb FAR * p)
   }
 
   return SUCCESS;
-}
-
-seg far2para(VOID FAR * p)
-{
-  return FP_SEG(p) + (FP_OFF(p) >> 4);
 }
 
 /*
@@ -252,7 +240,7 @@ stopIt:                        /* reached from FIRST_FIT on match */
   foundSeg->m_psp = cu_psp;     /* the new block is for current process */
   foundSeg->m_name[0] = '\0';
 
-  *para = far2para((VOID FAR *) (BYTE FAR *) foundSeg);
+  *para = FP_SEG(foundSeg);
   return SUCCESS;
 }
 
