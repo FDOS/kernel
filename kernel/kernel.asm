@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2000/08/06 05:50:17  jimtabor
+; Add new files and update cvs with patches and changes
+;
 ; Revision 1.4  2000/06/21 18:16:46  jimtabor
 ; Add UMB code, patch, and code fixes
 ;
@@ -307,7 +310,8 @@ deblock_seg     dw      0               ; 0056 (offset always zero)
                 times 3 db 0            ; 0058 unknown
                 dw      0               ; 005B unknown
                 db      0, 0FFh, 0      ; 005D unknown
-                db      0               ; 0060 unknown
+                global _VgaSet
+_VgaSet         db      0               ; 0060 unknown
                 dw      0               ; 0061 unknown
                 global  _uppermem_link
 _uppermem_link  db      0               ; 0063 upper memory link flag
@@ -315,7 +319,8 @@ _uppermem_link  db      0               ; 0063 upper memory link flag
 _UMB_top        dw      0               ; 0064 unknown UMB_top will do for now
                 global  _uppermem_root
 _uppermem_root  dw      0FFFFh          ; 0066 dmd_upper_root
-                dw      0               ; 0068 para of last mem search
+                global  _umb_start
+_umb_start      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
 

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.8  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -291,7 +294,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     /* find the entry...                    */
     i = FALSE;
 
-    upFMem((BYTE FAR *) TempBuffer, FNAME_SIZE + FEXT_SIZE);
+    DosUpFMem((BYTE FAR *) TempBuffer, FNAME_SIZE + FEXT_SIZE);
 
     while (dir_read(fnp) == DIRENT_SIZE)
     {
@@ -592,7 +595,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   /* current directory, do a seek and read, then close the fnode. */
 
   /* Start out by initializing the dirmatch structure.            */
-  dmp->dm_drive = default_drive;
+  dmp->dm_drive = default_drive ;
   dmp->dm_entry = 0;
   dmp->dm_cluster = 0;
 
@@ -609,7 +612,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 */
   if (nDrive >= 0)
   {
-    dmp->dm_drive = nDrive;
+    dmp->dm_drive = nDrive ;
   }
   else
     nDrive = default_drive;
@@ -652,7 +655,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
       SearchDir.dir_ext[i] = ' ';
 
   /* Convert everything to uppercase. */
-  upFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
+  DosUpFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
   /* Copy the raw pattern from our data segment to the DTA. */
   fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
@@ -665,6 +668,56 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
       return DE_FILENOTFND;
     return SUCCESS;
   }
+
+    /* /// Added code here to do matching against device names.
+           DOS findfirst will match exact device names if the
+           filename portion (excluding the extension) contains
+           a valid device name.
+           Credits: some of this code was ripped off from truename()
+           in newstuff.c.
+           - Ron Cemer */
+  if (!(attr & D_VOLID)) {
+    char Name[FNAME_SIZE];
+    int d, wild = 0;
+    for (d = 0; d < FNAME_SIZE; d++) {
+        if ((Name[d] = SearchDir.dir_name[d]) == '?') {
+            wild = 1;
+            break;
+        }
+    }
+    if (!wild) {
+        struct dhdr FAR *dhp;
+        for (dhp = (struct dhdr FAR *)&nul_dev;
+             dhp != (struct dhdr FAR *)-1;
+             dhp = dhp->dh_next) {
+            if (fnmatch
+                ((BYTE FAR *)&Name,
+                 (BYTE FAR *)dhp->dh_name,
+                 FNAME_SIZE,
+                 FALSE)) {
+                    /* Found a matching device. */
+                dmp->dm_entry = 0;
+                dmp->dm_cluster = 0;
+                dmp->dm_flags.f_dmod = 0;
+                dmp->dm_flags.f_droot = 0;
+                dmp->dm_flags.f_dnew = 0;
+                dmp->dm_flags.f_ddir = 0;
+                dmp->dm_flags.f_dfull = 0;
+                dmp->dm_dirstart = 0;
+                dmp->dm_attr_fnd = D_DEVICE;
+                dmp->dm_time = dos_gettime();
+                dmp->dm_date = dos_getdate();
+                dmp->dm_size = 0L;
+                for (d = 0; ( (d < FNAME_SIZE) && (Name[d] != ' ') ); d++)
+                    dmp->dm_name[d] = Name[d];
+                dmp->dm_name[d] = '\0';
+                return SUCCESS;
+            }
+        }
+    }
+  }
+    /* /// End of additions.  - Ron Cemer */
+
 
   /* Now search through the directory to find the entry...        */
   /* Special handling - the volume id is only in the root         */
@@ -741,6 +794,9 @@ COUNT dos_findnext(void)
   /* assign our match parameters pointer.                         */
   dmp = (dmatch FAR *) dta;
 
+    /* /// findnext will always fail on a device name.  - Ron Cemer */
+  if (dmp->dm_attr_fnd == D_DEVICE) return DE_FILENOTFND;
+
 /*
  *  The new version of SHSUCDX 1.0 looks at the dm_drive byte to
  *  test 40h. I used RamView to see location MSD 116:04be and
@@ -752,7 +808,7 @@ COUNT dos_findnext(void)
  *  So, assume bit 6 is redirector and bit 7 is network.
  *  jt
  */
-  nDrive = dmp->dm_drive & 0x1f;
+  nDrive = dmp->dm_drive  & 0x1f;
 
   if (nDrive > (lastdrive -1)) {
     return DE_INVLDDRV;
@@ -780,7 +836,7 @@ COUNT dos_findnext(void)
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
-  if (dmp->dm_drive > (lastdrive -1)) {
+  if (dmp->dm_drive > (lastdrive)) {
     return DE_INVLDDRV;
   }
   /* Select the default to help non-drive specified path          */

@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.7  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -217,7 +220,7 @@ COUNT get_verify_drive(char FAR *src)
   }
   else
     drive = default_drive;
-  if ((drive < 0) || (drive > (lastdrive - 1))) {
+  if ((drive < 0) || (drive > lastdrive)) {
     drive = DE_INVLDDRV;
   }
   return drive;
@@ -233,9 +236,10 @@ COUNT get_verify_drive(char FAR *src)
 COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
-  static char Name[8] = "        ";
+    /* /// Changed to FNAME_SIZE from 8 for cleanliness.  - Ron Cemer */
+  static char Name[FNAME_SIZE];
   char *bufp = buf + 3;
-  COUNT i, n, x = 2;
+  COUNT i, n, rootEndPos = 2;     /* renamed x to rootEndPos - Ron Cemer */
   struct cds FAR *cdsp;
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
@@ -251,13 +255,23 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   {
     buf[0] = (src[0] | 0x20) + 'A' - 'a';
 
-    if (buf[0] > (lastdrive - 1) + 'A')
+    if (buf[0] > lastdrive + 'A')
       return DE_PATHNOTFND;
 
     src += 2;
   }
   else
     buf[0] = default_drive + 'A';
+
+/* /// Added to adjust for filenames which begin with ".\"
+       The problem was manifesting itself in the inability
+       to run an program whose filename (without the extension)
+       was longer than six characters and the PATH variable
+       contained ".", unless you explicitly specified the full
+       path to the executable file.
+       Jun 11, 2000 - rbc */
+/* /// Changed to "while" from "if".  - Ron Cemer */
+  while ( (src[0] == '.') && (src[1] == '\\') ) src += 2;
 
   i = buf[0] - 'A';
 /*
@@ -277,23 +291,50 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   for (; d < FNAME_SIZE; d++)
     Name[d] = ' ';
 
+    /* /// Bugfix: NUL.LST is the same as NUL.  This is true for all
+           devices.  On a device name, the extension is irrelevant
+           as long as the name matches.
+           - Ron Cemer */
+#if (0)
   /* if we have an extension, can't be a device   */
   if (*froot != '.')
   {
+#endif
     for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
     {
       if (fnmatch((BYTE FAR *) &Name, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
       {
         buf[2] ='/';
-        for (d = 0; d < FNAME_SIZE; d++){
-            if(Name[d] == 0x20)
-                goto exit_tn;
+            /* /// Bug: should be only copying up to first space.
+                   - Ron Cemer
+        for (d = 0; d < FNAME_SIZE || Name[d] == ' '; d++) */
+        for (d = 0; ( (d < FNAME_SIZE) && (Name[d] != ' ') ); d++)
             *bufp++ = Name[d];
+            /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
+                   DOS will also return C:/NUL.??? if you pass NUL.* in.
+                   Code added here to support this.
+                   - Ron Cemer */
+        while ( (*froot != '.') && (*froot != '\0') ) froot++;
+        if (*froot) froot++;
+        if (*froot) {
+            *bufp++ = '.';
+            for (i = 0; i < FEXT_SIZE; i++) {
+                if ( (*froot == '\0') || (*froot == '.') )
+                    break;
+                if (*froot == '*') {
+                    for (; i < FEXT_SIZE; i++) *bufp++ = '?';
+                    break;
+                }
+                *bufp++ = *froot++;
+            }
         }
+            /* /// End of code additions.  - Ron Cemer */
         goto exit_tn;
       }
     }
+#if (0)
   }
+#endif
 
   cdsp = &CDSp->cds_table[i];
   current_ldt = cdsp;
@@ -309,7 +350,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     {
       fsncopy((BYTE FAR *) & cdsp->cdsCurrentPath[0], (BYTE FAR *) & buf[0], cdsp->cdsJoinOffset);
       bufp = buf + cdsp->cdsJoinOffset;
-      x = cdsp->cdsJoinOffset;
+      rootEndPos = cdsp->cdsJoinOffset; /* renamed x to rootEndPos - Ron Cemer */
       *bufp++ = '\\';
     }
 
@@ -327,6 +368,19 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     src++;
 
 move_name:
+
+    /* /// The block inside the "#if (0) ... #endif" is
+           seriously broken.  New code added below to replace it.
+           This eliminates many serious bugs, specifically
+           with FreeCOM where truename is required to work
+           according to the DOS specification in order for
+           the COPY and other file-related commands to work
+           properly.
+           This should be a major improvement to all apps which
+           use truename.
+           - Ron Cemer */
+
+#if (0)
 /*
  *  The code here is brain dead. It works long as the calling
  *  function are operating with in normal parms.
@@ -384,7 +438,7 @@ move_name:
 
             for (bufp -= 2; *bufp != '\\'; bufp--)
             {
-              if (bufp < buf + x)	/* '..' illegal in root dir */
+              if (bufp < buf + rootEndPos)   /* '..' illegal in root dir */
                 return DE_PATHNOTFND;
             }
             src++;
@@ -413,9 +467,115 @@ move_name:
         break;
     }
   }
+
   /* remove trailing backslashes */
   while (bufp[-1] == '\\')
     --bufp;
+#endif
+
+/* /// Beginning of new code.  - Ron Cemer */
+    bufp--;
+    {
+        char c, *bufend = buf+(sizeof(buf)-1);
+        int gotAnyWildcards = 0;
+        int seglen, copylen, state;
+        while ( (*src) && (bufp < bufend) ) {
+                /* Skip duplicated slashes. */
+            while ( (*src == '/') || (*src == '\\') ) src++;
+            if (!(*src)) break;
+                /* Find the end of this segment in the source string. */
+            for (seglen = 0; ; seglen++) {
+                c = src[seglen];
+                if ( (c == '\0') || (c == '/') || (c == '\\') )
+                    break;
+            }
+            if (seglen > 0) {
+                    /* Ignore all ".\" or "\." path segments. */
+                if ( (seglen != 1) || (*src != '.') ) {
+                        /* Apply ".." to the path by removing
+                           last path segment from buf. */
+                    if ( (seglen==2) && (src[0] == '.') && (src[1] == '.') ) {
+                        if (bufp > (buf+rootEndPos)) {
+                            bufp--;
+                            while (   (bufp > (buf+rootEndPos))
+                                   && (*bufp != '/')
+                                   && (*bufp != '\\')   )
+                                bufp--;
+                        }
+                    } else {
+                            /* New segment.  If any wildcards in previous
+                               segment(s), this is an invalid path. */
+                        if (gotAnyWildcards) return DE_PATHNOTFND;
+                            /* Append current path segment to result. */
+                        *(bufp++) = '\\';
+                        if (bufp >= bufend) break;
+                        copylen = state = 0;
+                        for (i=0; ( (i < seglen) && (bufp < bufend) ); i++) {
+                            c = src[i];
+                            gotAnyWildcards |= ( (c == '?') || (c == '*') );
+                            switch (state) {
+                            case 0: /* Copying filename (excl. extension) */
+                                if (c == '*') {
+                                    while (copylen < FNAME_SIZE) {
+                                        *(bufp++) = '?';
+                                        if (bufp >= bufend) break;
+                                        copylen++;
+                                    }
+                                    copylen = 0;
+                                    state = 1;  /* Go wait for dot */
+                                    break;
+                                }
+                                if (c == '.') {
+                                    *(bufp++) = '.';
+                                    copylen = 0;
+                                    state = 2;  /* Copy extension next */
+                                    break;
+                                }
+                                *(bufp++) = c;
+                                copylen++;
+                                if (copylen >= FNAME_SIZE) {
+                                    copylen = 0;
+                                    state = 1;  /* Go wait for dot */
+                                    break;
+                                }
+                                break;
+                            case 1: /* Looking for dot so we can copy exten */
+                                if (src[i] == '.') {
+                                    *(bufp++) = '.';
+                                    state = 2;
+                                }
+                                break;
+                            case 2: /* Copying extension */
+                                if (c == '*') {
+                                    while (copylen < FEXT_SIZE) {
+                                        *(bufp++) = '?';
+                                        if (bufp >= bufend) break;
+                                        copylen++;
+                                    }
+                                    i = seglen;     /* Done with segment */
+                                    break;
+                                }
+                                if (c == '.') {
+                                    i = seglen;     /* Done with segment */
+                                    break;
+                                }
+                                *(bufp++) = c;
+                                copylen++;
+                                if (copylen >= FEXT_SIZE) {
+                                    i = seglen;     /* Done with segment */
+                                    break;
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }   /* if (seglen > 0) */
+            src += seglen;
+            if (*src) src++;
+        }   /* while ( (*src) && (bufp < bufend) ) */
+    }
+/* /// End of new code.  - Ron Cemer */
 
   if (bufp == buf + 2)
     ++bufp;
@@ -425,7 +585,7 @@ exit_tn:
   *bufp++ = 0;
 
   /* finally, uppercase everything */
-  upString(buf);
+  DosUpString(buf);
 
   /* copy to user's buffer */
   fbcopy(buf, dest, bufp - buf);

@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.4  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -185,7 +188,14 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
 
   /* Initialize                                           */
   p = para2far(first_mcb);
+
   biggestSeg = foundSeg = NULL;
+
+    if((mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link) {
+        if(uppermem_root)
+            p = para2far(uppermem_root);
+
+     }
 
   /* Search through memory blocks                         */
   FOREVER
@@ -196,7 +206,7 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
 
     if (mcbFree(p))
     {                           /* unused block, check if it applies to the rule */
-      if (joinMCBs(p) != SUCCESS)	/* join following unused blocks */
+      if (joinMCBs(p) != SUCCESS)   /* join following unused blocks */
         return DE_MCBDESTRY;    /* error */
 
       if (!biggestSeg || biggestSeg->m_size < p->m_size)
@@ -208,6 +218,8 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
         switch (mode)
         {
           case LAST_FIT:       /* search for last possible */
+          case LAST_FIT_U:
+          case LAST_FIT_UO:
           default:
             foundSeg = p;
             break;
@@ -218,14 +230,19 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
             break;
 
           case BEST_FIT:       /* first, but smallest block */
+          case BEST_FIT_U:
+          case BEST_FIT_UO:
             if (!foundSeg || foundSeg->m_size > p->m_size)
               /* better match found */
               foundSeg = p;
             break;
 
-          case FIRST_FIT:      /* first possible */
+          case FIRST_FIT:       /* first possible */
+          case FIRST_FIT_U:
+          case FIRST_FIT_UO:
             foundSeg = p;
             goto stopIt;        /* OK, rest of chain can be ignored */
+
         }
       }
     }
@@ -254,7 +271,8 @@ stopIt:                        /* reached from FIRST_FIT on match */
     /* foundSeg := pointer to allocated block
        p := pointer to MCB that will form the rest of the block
      */
-    if (mode == LAST_FIT)
+    if (
+    (mode == LAST_FIT)||(mode == LAST_FIT_UO)||(mode == LAST_FIT_U))
     {
       /* allocate the block from the end of the found block */
       p = foundSeg;
@@ -310,7 +328,6 @@ COUNT FAR init_call_DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FA
 COUNT DosMemLargest(UWORD FAR * size)
 {
   REG mcb FAR *p;
-  mcb FAR *q;
   COUNT found;
 
   /* Initialize                                           */
@@ -376,6 +393,7 @@ COUNT DosMemFree(UWORD para)
 #if 0
   /* Moved into allocating functions -- 1999/04/21 ska */
   /* Now merge free blocks                        */
+
   for (p = (mcb FAR *) (MK_FP(first_mcb, 0)); p->m_type != MCB_LAST; p = q)
   {
     /* make q a pointer to the next block   */
@@ -469,6 +487,7 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
 COUNT DosMemCheck(void)
 {
   REG mcb FAR *p;
+  REG mcb FAR *u;
 
   /* Initialize                                           */
   p = para2far(first_mcb);
@@ -483,13 +502,13 @@ COUNT DosMemCheck(void)
     /* not corrupted - but not end, bump the pointer */
     p = nxtMCB(p);
   }
-
   return SUCCESS;
 }
 
 COUNT FreeProcessMem(UWORD ps)
 {
-  mcb FAR *p;
+  mcb FAR *p, FAR *u;
+  COUNT x = 0;
 
   /* Initialize                                           */
   p = para2far(first_mcb);
@@ -501,12 +520,14 @@ COUNT FreeProcessMem(UWORD ps)
       DosMemFree(FP_SEG(p));
 
     /* not corrupted - if last we're OK!            */
-    if (p->m_type == MCB_LAST)
-      return SUCCESS;
+    if (p->m_type == MCB_LAST){
+        if(x)
+            return DE_MCBDESTRY;
+        return SUCCESS;
+    }
 
     p = nxtMCB(p);
   }
-
   return DE_MCBDESTRY;
 }
 
@@ -536,7 +557,6 @@ COUNT DosGetLargestBlock(UWORD FAR * block)
     if (p->m_type == MCB_LAST)
       break;
     p = nxtMCB(p);
-
   }
   *block = sz;
   return SUCCESS;
@@ -545,7 +565,8 @@ COUNT DosGetLargestBlock(UWORD FAR * block)
 
 VOID show_chain(void)
 {
-  mcb FAR *p = para2far(first_mcb);
+  mcb FAR *p, FAR *u;
+  p = para2far(first_mcb);
 
   for (;;)
   {
@@ -578,5 +599,50 @@ VOID _fmemcpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n)
   while (n--)
     *d++ = *s++;
 
+}
+
+VOID DosUmbLink(BYTE n)
+{
+    REG mcb FAR *p;
+    REG mcb FAR *q;
+
+    if(uppermem_root){
+
+        q = p = para2far(first_mcb);
+
+        if(uppermem_link){
+
+           while ( p != (mcb FAR *) para2far(0x9fff) )
+            {
+
+                if (!mcbValid(p))
+                    goto DUL_exit;
+                q = p;
+                p = nxtMCB(p);
+            }
+
+            printf("M end at 0x%04x:0x%04x\n", FP_SEG(q), FP_OFF(q));
+
+            if(q->m_type == MCB_NORMAL)
+                q->m_type = MCB_LAST;
+        }
+        else
+        {
+            while( q->m_type != MCB_LAST)
+            {
+                if (!mcbValid(q))
+                    goto DUL_exit;
+                q = nxtMCB(q);
+            }
+
+            printf("Z end at 0x%04x:0x%04x\n", FP_SEG(q), FP_OFF(q));
+
+            if(q->m_type == MCB_LAST)
+                q->m_type = MCB_NORMAL;
+        }
+        uppermem_link = n;
+    }
+DUL_exit:
+    return;
 }
 #endif

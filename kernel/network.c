@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.6  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -118,7 +121,7 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
 COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
 {
   COUNT i, x;
-  char FAR *p, *q;
+  char FAR *p, FAR *q;
   VOID FAR * test;
   struct dirent FAR *SDp = (struct dirent FAR *) &SearchDir;
 

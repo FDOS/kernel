@@ -29,6 +29,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2000/08/06 05:50:17  jimtabor
+; Add new files and update cvs with patches and changes
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -95,10 +98,10 @@ _CharMapSrvc:
                 push    cx
                 push    bx
 
-                mov     dx, DGROUP
-                mov     ds, dx
+                push    ax          ; arg of _upChar
+                mov     ax, DGROUP
+                mov     ds, ax
 
-                push    ax
                 call    _upChar
                 ;add     sp, byte 2	// next POP retrieves orig AX
 

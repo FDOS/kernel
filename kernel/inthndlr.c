@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.8  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -194,12 +197,15 @@ static VOID StartTrace(VOID);
 static bTraceNext = FALSE;
 #endif
 
+#if 0      /* Very suspicious, passing structure by value??
+               Deactivated -- 2000/06/16 ska*/
 /* Special entry for far call into the kernel                           */
 #pragma argsused
 VOID FAR int21_entry(iregs UserRegs)
 {
   int21_handler(UserRegs);
 }
+#endif
 
 /* Normal entry.  This minimizes user stack usage by avoiding local     */
 /* variables needed for the rest of the handler.                        */
@@ -342,25 +348,7 @@ dispatch:
       r->FLAGS |= FLG_CARRY;
       break;
 
-#if 0
-      /* Moved to simulate a 0x4c00 -- 1999/04/21 ska */
-      /* Terminate Program                                            */
-    case 0x00:
-      if (cu_psp == RootPsp)
-        break;
-      else if (((psp FAR *) (MK_FP(cu_psp, 0)))->ps_parent == cu_psp)
-        break;
-      tsr = FALSE;
-      return_mode = break_flg ? 1 : 0;
-      return_code = r->AL;
-      if (DosMemCheck() != SUCCESS)
-        panic("MCB chain corrupted");
-#ifdef TSC
-      StartTrace();
-#endif
-      return_user();
-      break;
-#endif
+       /* case 0x00:   --> Simulate a DOS-4C-00 */
 
       /* Read Keyboard with Echo                      */
     case 0x01:
@@ -862,11 +850,11 @@ dispatch:
 
         if (0xffff == r->DX) {
         	/* Set Country Code */
-        	if((rc = setCountryCode(cntry)) < 0)
+            if((rc = DosSetCountry(cntry)) < 0)
         		goto error_invalid;
         } else {
         	/* Get Country Information */
-        	if((rc = getCountryInformation(cntry, MK_FP(r->DS, r->DX))) < 0)
+            if((rc = DosGetCountryInformation(cntry, MK_FP(r->DS, r->DX))) < 0)
         		goto error_invalid;
         	r->AX = r->BX = cntry;
         }
@@ -1277,23 +1265,35 @@ dispatch:
           break;
 
         case 0x01:
-/*          if (((COUNT) r->BX) < 0 || r->BX > 2)
-            goto error_invalid;
-          else
-          {   */
+        {
+            switch (r->BX)
+            {
+            case LAST_FIT:
+            case LAST_FIT_U:
+            case LAST_FIT_UO:
+            case LARGEST:
+            case BEST_FIT:
+            case BEST_FIT_U:
+            case BEST_FIT_UO:
+            case FIRST_FIT:
+            case FIRST_FIT_U:
+            case FIRST_FIT_UO:
+                mem_access_mode = r->BX;
+                break;
 
-            mem_access_mode = r->BX;
+            default:
+                goto error_invalid;
+            }
+        }
             r->FLAGS &= ~FLG_CARRY;
-
-/*          }*/
-          break;
+            break;
 
         case 0x02:
             r->AL = uppermem_link;
             break;
 
         case 0x03:
-            uppermem_link = r->BL;
+            DosUmbLink(r->BL);
             break;
 
         default:
@@ -1510,31 +1510,39 @@ dispatch:
     case 0x65:
     	switch(r->AL) {
     	case 0x20:				/* upcase single character */
-            r->DL = upChar(r->DL);
+            r->DL = DosUpChar(r->DL);
             break;
         case 0x21:				/* upcase memory area */
-            upMem(MK_FP(r->DS, r->DX), r->CX);
+            DosUpMem(MK_FP(r->DS, r->DX), r->CX);
             break;
         case 0x22:				/* upcase ASCIZ */
-            upString(MK_FP(r->DS, r->DX));
+            DosUpString(MK_FP(r->DS, r->DX));
             break;
     	case 0xA0:				/* upcase single character of filenames */
-            r->DL = upFChar(r->DL);
+            r->DL = DosUpFChar(r->DL);
             break;
         case 0xA1:				/* upcase memory area of filenames */
-            upFMem(MK_FP(r->DS, r->DX), r->CX);
+            DosUpFMem(MK_FP(r->DS, r->DX), r->CX);
             break;
         case 0xA2:				/* upcase ASCIZ of filenames */
-            upFString(MK_FP(r->DS, r->DX));
+            DosUpFString(MK_FP(r->DS, r->DX));
             break;
         case 0x23:				/* check Yes/No response */
-            r->AX = yesNo(r->DL);
+            r->AX = DosYesNo(r->DL);
             break;
       	default:
-			if ((rc = extCtryInfo(
+            if ((rc = DosGetData(
                          r->AL, r->BX, r->DX, r->CX,
-                         MK_FP(r->ES, r->DI))) < 0)
-             	goto error_exit;
+                         MK_FP(r->ES, r->DI))) < 0) {
+#ifdef NLS_DEBUG
+   printf("DosGetData() := %d\n", rc);
+#endif
+               goto error_exit;
+            }
+#ifdef NLS_DEBUG
+   printf("DosGetData() returned successfully\n", rc);
+#endif
+
             break;
          }
 		r->FLAGS &= ~FLG_CARRY;
@@ -1546,10 +1554,10 @@ dispatch:
       switch (r->AL)
       {
         case 1:
-          rc = getCodePage(&r->BX, &r->DX);
+          rc = DosGetCodepage(&r->BX, &r->DX);
 			break;
         case 2:
-          rc = setCodePage(r->BX, r->DX);
+          rc = DosSetCodepage(r->BX, r->DX);
           break;
 
         default:

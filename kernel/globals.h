@@ -36,8 +36,8 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.4  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
+ * Revision 1.5  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
  *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
@@ -180,6 +180,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #include "error.h"
 #include "version.h"
 #include "network.h"
+#include "config.h"
 
 /* JPP: for testing/debuging disk IO */
 /*#define DISPLAY_GETBLOCK */
@@ -424,6 +425,7 @@ extern BYTE NetDelay,
 extern UWORD
   first_mcb,                    /* Start of user memory                 */
   UMB_top,
+  umb_start,
   uppermem_root;                /* Start of umb chain ? */
 extern struct dpb
 FAR *DPBp;                      /* First drive Parameter Block          */
@@ -462,6 +464,7 @@ extern BYTE
   CritErrLocus,
   CritErrAction,
   CritErrClass,
+  VgaSet,
   njoined;                      /* number of joined devices             */
 
 extern UWORD Int21AX;
@@ -609,8 +612,17 @@ GLOBAL struct config
   BYTE cfgLastdrive;            /* last drive                           */
   BYTE cfgStacks;               /* number of stacks                     */
   UWORD cfgStackSize;           /* stacks size for each stack           */
-}
-Config
+   /* COUNTRY=
+       In Pass #1 these information is collected and in PostConfig()
+       the NLS package is loaded into memory.
+           -- 2000/06/11 ska*/
+  WORD cfgCSYS_cntry;          /* country ID to be loaded */
+  WORD cfgCSYS_cp;             /* requested codepage; NLS_DEFAULT if default */
+  BYTE cfgCSYS_fnam[NAMEMAX];  /* filename of COUNTRY= */
+  WORD cfgCSYS_memory;         /* number of bytes required for the NLS pkg;
+                                   0 if none */
+  VOID FAR *cfgCSYS_data;      /* where the loaded data is for PostConfig() */
+} Config
 #ifdef MAIN
 =
 {
@@ -623,6 +635,12 @@ Config
   NLAST,
   NSTACKS,
   128
+       /* COUNTRY= is initialized within DoConfig() */
+     ,0                        /* country ID */
+     ,0                        /* codepage */
+     ,""                   /* filename */
+     ,0                        /* amount required memory */
+     ,0                        /* pointer to loaded data */
 };
 #else
 ;

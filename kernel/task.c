@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -661,8 +664,14 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     /* + long2para((LONG) sizeof(psp)); ?? -- 1999/04/21 ska */
     if (exe_size > asize)
       exe_size = asize;
-  }
-
+/* /// Removed closing curly brace.  We should not attempt to allocate
+       memory if we are overlaying the current process, because the new
+       process will simply re-use the block we already have allocated.
+       This was causing execl() to fail in applications which use it to
+       overlay (replace) the current exe file with a new one.
+       Jun 11, 2000 - rbc
+  } */
+  
   /* Allocate our memory and pass back any errors         */
   /* We can still get an error on first fit if the above  */
   /* returned size was a bet fit case                     */
@@ -694,6 +703,18 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   else
     /* with no error, we got exactly what we asked for      */
     asize = exe_size;
+
+/* /// Added open curly brace and "else" clause.  We should not attempt
+       to allocate memory if we are overlaying the current process, because
+       the new process will simply re-use the block we already have allocated.
+       This was causing execl() to fail in applications which use it to
+       overlay (replace) the current exe file with a new one.
+       Jun 11, 2000 - rbc */
+  }
+  else
+    asize = exe_size;
+/* /// End of additions.  Jun 11, 2000 - rbc */
+   
   if (mode != OVERLAY)
   {
     /* memory found large enough - continue processing      */

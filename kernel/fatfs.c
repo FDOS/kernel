@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.5  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -377,9 +380,9 @@ static struct f_node FAR *
   }
 
   /* Convert the name into an absolute name for comparison...     */
-  upFMem((BYTE FAR *) dname, strlen(dname));
-  upFMem((BYTE FAR *) fname, FNAME_SIZE);
-  upFMem((BYTE FAR *) fext, FEXT_SIZE);
+  DosUpFString((BYTE FAR *) dname);
+  DosUpFMem((BYTE FAR *) fname, FNAME_SIZE);
+  DosUpFMem((BYTE FAR *) fext, FEXT_SIZE);
 
   return fnp;
 }

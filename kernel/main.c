@@ -39,6 +39,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.6  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -193,8 +196,8 @@ INIT static VOID init_kernel(void)
 
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();
-
-  UMB_top = 3; /* testing for now*
+  UMB_top = 0;
+  umb_start = 0;
 
 /* Fake int 21h stack frame */
   user_r = (iregs FAR *) DOS_PSP + 0xD0;

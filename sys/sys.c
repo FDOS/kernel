@@ -27,6 +27,9 @@
 ***************************************************************/
 
 /* $Log$
+ * Revision 1.4  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.3  2000/05/25 20:56:23  jimtabor
  * Fixed project history
  *

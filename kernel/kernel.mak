@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.4  2000/08/06 05:50:17  jimtabor
+# Add new files and update cvs with patches and changes
+#
 # Revision 1.3  2000/05/25 20:56:21  jimtabor
 # Fixed project history
 #
@@ -119,10 +122,10 @@ INCLUDEPATH = ..\HDR
 #AFLAGS      = /Mx /DSTANDALONE=1 /I..\HDR
 NASMFLAGS   = -i../hdr/
 LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
-CFLAGS = -1- -O -Z -d -I..\hdr -I. \
-    -D__STDC__=0;DEBUG;KERNEL;I86;PROTO;ASMSUPT
 #CFLAGS = -1- -O -Z -d -I..\hdr -I. \
-#     -D__STDC__=0;KERNEL;I86;PROTO;ASMSUPT
+#    -D__STDC__=0;DEBUG;KERNEL;I86;PROTO;ASMSUPT
+CFLAGS = -1- -O -Z -d -I..\hdr -I. \
+     -D__STDC__=0;KERNEL;I86;PROTO;ASMSUPT
 INITCFLAGS = $(CFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP
 HDR=../hdr/
 
@@ -243,6 +246,8 @@ intr.obj: intr.asm segs.inc intr.h
 io.obj: io.asm segs.inc
 
 irqstack.obj: irqstack.asm
+
+nls_hc.obj: nls_hc.asm segs.inc
 
 nlssupt.obj: nlssupt.asm segs.inc
 
@@ -399,10 +404,10 @@ nls.obj: nls.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
- $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
- 001-437.nls
+ $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h
 
-nls_hc.obj: nls_hc.c globals.h $(HDR)portab.h $(HDR)nls.h
+# \
+# 001-437.nls
 
 prf.obj: prf.c $(HDR)portab.h
 

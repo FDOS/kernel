@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.5  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -223,7 +226,7 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
   /* Now check for drive specification                            */
   if (*(*lpFileName + 1) == ':')
   {
-    REG BYTE Drive = upChar(**lpFileName);
+    REG BYTE Drive = DosUpFChar(**lpFileName);
 
     /* non-portable construct to be changed                 */
     if (Drive < 'A' || Drive > 'Z')
@@ -299,7 +302,7 @@ BYTE FAR *GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
     }
     if (*lpFileName == '?')
       *pbWildCard = TRUE;
-    *lpDestField++ = upChar(*lpFileName++);
+    *lpDestField++ = DosUpFChar(*lpFileName++);
     ++nIndex;
   }
 
@@ -476,7 +479,6 @@ BOOL FcbGetFileSize(xfcb FAR * lpXfcb)
   lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
   /* check for a device                                           */
-  /* if we have an extension, can't be a device                   */
   if (IsDevice(PriPathName) || (lpFcb->fcb_recsiz == 0))
   {
     return FALSE;
@@ -645,7 +647,6 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
   lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
   /* check for a device                                           */
-  /* if we have an extension, can't be a device                   */
   dhp = IsDevice(PriPathName);
   if (dhp)
   {
@@ -781,7 +782,6 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
   lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
   /* check for a device                                           */
-  /* if we have an extension, can't be a device                   */
   dhp = IsDevice(PriPathName);
   if (dhp )
   {
@@ -858,7 +858,6 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
   }
 
   /* check for a device                                           */
-  /* if we have an extension, can't be a device                   */
   if (IsDevice(PriPathName))
   {
     return FALSE;
@@ -897,7 +896,6 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
   lpRenameFcb = (rfcb FAR *) CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
   /* check for a device                                           */
-  /* if we have an extension, can't be a device                   */
   if (IsDevice(PriPathName))
   {
     return FALSE;
@@ -1108,7 +1106,7 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   dta = (BYTE FAR *) & Dmatch;
 
   /* Next initialze local variables by moving them from the fcb   */
-  lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
+  lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
   if (lpXfcb->xfcb_flag == 0xff)
   {
     wAttr = lpXfcb->xfcb_attrib;
@@ -1118,8 +1116,10 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   else
     wAttr = D_ALL;
 
-  *lpDir++ = PriPathName[0] - 'A';
-  if (dos_findfirst(wAttr, PriPathName) != SUCCESS)
+  *lpDir++ = FcbDrive;
+
+
+  if (dos_findfirst(wAttr, SecPathName) != SUCCESS)
   {
     dta = lpPsp->ps_dta;
     return FALSE;
@@ -1129,16 +1129,19 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
 
   lpFcb->fcb_dirclst = Dmatch.dm_cluster;
   lpFcb->fcb_diroff = Dmatch.dm_entry;
+
 /*
-    This is undocumented and seen using Pcwatch.
+    This is undocumented and seen using Pcwatch and Ramview.
     The First byte is the current directory count and the second seems
     to be the attribute byte.
  */
+  lpFcb->fcb_sftno = Dmatch.dm_drive; /* MSD seems to save this @ fcb_date.*/
 #if 0
   lpFcb->fcb_cublock = Dmatch.dm_entry;
   lpFcb->fcb_cublock *= 0x100;
   lpFcb->fcb_cublock += wAttr;
 #endif
+
   dta = lpPsp->ps_dta;
   return TRUE;
 }
@@ -1157,7 +1160,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   dta = (BYTE FAR *) & Dmatch;
 
   /* Next initialze local variables by moving them from the fcb   */
-  lpFcb = CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
+  lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
   if ((xfcb FAR *) lpFcb != lpXfcb)
   {
     wAttr = lpXfcb->xfcb_attrib;
@@ -1169,10 +1172,10 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
 
   /* Reconstrct the dirmatch structure from the fcb               */
   *lpDir++ = FcbDrive;
-  Dmatch.dm_drive = FcbDrive ? FcbDrive - 1 : default_drive;
+  Dmatch.dm_drive = lpFcb->fcb_sftno;
 
   fbcopy(lpFcb->fcb_fname, (BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
-  upFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
+  DosUpFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
 
   Dmatch.dm_attr_srch = wAttr;
   Dmatch.dm_entry = lpFcb->fcb_diroff;
@@ -1188,13 +1191,17 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
   lpFcb->fcb_dirclst = Dmatch.dm_cluster;
   lpFcb->fcb_diroff = Dmatch.dm_entry;
-  dta = lpPsp->ps_dta;
+
+  lpFcb->fcb_sftno = Dmatch.dm_drive;
 #if 0
   lpFcb->fcb_cublock = Dmatch.dm_entry;
   lpFcb->fcb_cublock *= 0x100;
   lpFcb->fcb_cublock += wAttr;
 #endif
+
+  dta = lpPsp->ps_dta;
   return TRUE;
 }
 #endif
+
 

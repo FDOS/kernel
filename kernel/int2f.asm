@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2000/08/06 05:50:17  jimtabor
+; Add new files and update cvs with patches and changes
+;
 ; Revision 1.5  2000/06/21 18:16:46  jimtabor
 ; Add UMB code, patch, and code fixes
 ;
@@ -83,9 +86,13 @@
 ;
 
 		%include "segs.inc"
+        %include "stacks.inc"
 
 segment	_TEXT
-            extern _nul_dev:wrt DGROUP
+            extern  _nul_dev:wrt DGROUP
+            extern  _umb_start:wrt DGROUP
+            extern  _UMB_top:wrt DGROUP
+            extern _syscall_MUX14:wrt _TEXT
 
                 global  _int2f_handler
 _int2f_handler:
@@ -107,8 +114,27 @@ Int2f3:
                 cmp     ah,10h                  ; SHARE.EXE interrupt?
                 je      Int2f1                  ; yes, do installation check
                 cmp     ah,14h                  ; NLSFUNC.EXE interrupt?
-                je      Int2f1                  ; yes, do installation check
-                iret                            ; Default, interrupt return
+                jne     Int2f?iret              ; yes, do installation check
+Int2f?14:      ;; MUX-14 -- NLSFUNC API
+               ;; all functions are passed to syscall_MUX14
+               push bp                 ; Preserve BP later on
+               PUSH$ALL
+               call _syscall_MUX14
+               pop bp                  ; Discard incoming AX
+               push ax                 ; Correct stack for POP$ALL
+               POP$ALL
+               mov bp, sp
+               or ax, ax
+               jnz Int2f?14?1          ; must return set carry
+                   ;; -6 == -2 (CS), -2 (IP), -2 (flags)
+                   ;; current SP = on old_BP
+               and BYTE [bp-6], 0feh   ; clear carry as no error condition
+               pop bp
+               iret
+Int2f?14?1:        or BYTE [bp-6], 1
+               pop bp
+Int2f?iret:
+               iret
 
 ;
 ;return dos data seg.
@@ -285,3 +311,97 @@ int2f_call:
                 pop     bp
                 pop     bp
                 ret
+;
+; Test to see if a umb driver has been loaded.
+;
+; From RB list and Dosemu xms.c.
+;
+; Call the XMS driver "Request upper memory block" function with:
+;     AH = 10h
+;     DX = size of block in paragraphs
+; Return: AX = status
+;         0001h success
+;         BX = segment address of UMB
+;         DX = actual size of block
+;         0000h failure
+;         BL = error code (80h,B0h,B1h) (see #02775)
+;         DX = largest available block
+;
+; (Table 02775)
+; Values for XMS error code returned in BL:
+;  00h    successful
+;  80h    function not implemented
+;  B0h    only a smaller UMB is available
+;  B1h    no UMB's are available
+;  B2h    UMB segment number is invalid
+;
+;
+                global  _Umb_Test
+_Umb_Test
+                push    bp
+                mov     bp,sp
+                push    es
+                push    ds
+                push    dx
+                push    bx
+
+                mov     ax,DGROUP
+                mov     ds,ax
+
+                mov     ax,4300h        ; is there a xms driver installed?
+                int     2fh
+                cmp     al,80h
+                jne     umbt_error
+
+                mov     ax,4310h
+                int     2fh
+
+                push    es              ; save driver entry point
+                push    bx
+
+                mov     dx,0xffff       ; go for broke!
+                mov     ax,1000h        ; get the umb's
+                push    cs              ; setup far return
+                push    word umbt1
+                push    es              ; push the driver entry point
+                push    bx
+                retf                    ; Call the driver
+umbt1:
+;
+;       bl = 0xB0 and  ax = 0 so do it again.
+;
+                cmp     bl,0xb0         ; fail safe
+                je      umbtb
+                add     sp,4
+                jmp     umbt_error
+umbtb:
+                and     dx,dx           ; if it returns a size of zero.
+                jne     umbtc
+                add     sp,4
+                jmp     umbt_error
+
+umbtc:
+                pop     bx              ; restore driver entry
+                pop     es
+
+                mov     ax,1000h        ; dx set with largest size
+                push    cs
+                push    word umbt2
+                push    es
+                push    bx
+                retf
+umbt2:
+                cmp     ax,1
+                jne     umbt_error
+
+                mov     word [_umb_start], bx   ; save the segment
+                mov     word [_UMB_top], dx     ; and the true size
+
+umbt_error:     dec     ax
+
+                pop     bx
+                pop     dx
+                pop     ds
+                pop     es
+                pop     bp
+                retf                ; this was called FAR.

@@ -39,6 +39,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.5  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -148,12 +151,14 @@ static BYTE FAR *lpOldLast;
 static BYTE FAR *upOldLast;
 static COUNT nCfgLine;
 static COUNT nPass;
+static COUNT UmbState;
 static BYTE szLine[256];
 static BYTE szBuf[256];
 
 int singleStep = 0;
 
 INIT VOID  zumcb_init(mcb FAR * mcbp, UWORD size);
+INIT VOID  mumcb_init(mcb FAR * mcbp, UWORD size);
 
 INIT VOID Buffers(BYTE * pLine);
 INIT VOID sysScreenMode(BYTE * pLine);
@@ -201,7 +206,7 @@ static struct table commands[] =
   {"country", 1, Country},
   {"device", 2, Device},
   {"devicehigh", 2, DeviceHigh},
-  {"dos", 1, Dosmem},
+  {"dos", 2, Dosmem},
   {"fcbs", 1, Fcbs},
   {"files", 1, Files},
   {"lastdrive", 1, Lastdrive},
@@ -229,6 +234,8 @@ INIT void PreConfig(void)
 {
   /* Set pass number                                              */
   nPass = 0;
+  VgaSet = 0;
+  UmbState = 0;
 
   /* Initialize the base memory pointers                          */
   lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & last);
@@ -301,9 +308,6 @@ INIT void PreConfig(void)
 /* Also, run config.sys to load drivers.                                */
 INIT void PostConfig(void)
 {
-
-  COUNT tmp = 0xc000;
-
   /* Set pass number                                              */
   nPass = 2;
   /* compute lastdrive ... */
@@ -368,19 +372,6 @@ INIT void PostConfig(void)
          FP_SEG(lpBase), FP_OFF(lpBase));
 #endif
 
-    if(uppermem_link)
-    {
-        upBase = MK_FP(tmp , 0);
-        uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
-         umcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)), 0 );
-
-         upBase += 16;
-
-#ifdef DEBUG
-  printf("UMB Allocation completed: top at 0x%04x:0x%04x\n",
-         FP_SEG(upBase), FP_OFF(upBase));
-#endif
-    }
 
 }
 
@@ -403,15 +394,34 @@ INIT VOID configDone(VOID)
   mcb_init((mcb FAR *) (MK_FP(first_mcb, 0)),
            (ram_top << 6) - first_mcb - 1);
 
-    if(uppermem_link)
+    if(UmbState == 1)
     {
-        uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
-         zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
-                    (UMB_top << 6) - uppermem_root - 1);
+
+    mumcb_init((mcb FAR *) (MK_FP(0x9fff, 0)),
+                               umb_start - 0x9fff);
+
+/* make last end of mem block normal with SC */
+
+    mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
+    (FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4)) - uppermem_root - 1);
+
+    uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+
+    zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
+                               (umb_start + UMB_top ) - uppermem_root - 1);
+    upBase += 16;
+
     }
+
+#ifdef DEBUG
+  printf("UMB Allocation completed: top at 0x%04x:0x%04x\n",
+         FP_SEG(upBase), FP_OFF(upBase));
+#endif
 
   /* The standard handles should be reopened here, because
      we may have loaded new console or printer drivers in CONFIG.SYS */
+
+
 }
 
 INIT VOID DoConfig(VOID)
@@ -484,6 +494,37 @@ INIT VOID DoConfig(VOID)
 
     while (!bEof && *pLine != EOF)
     {
+/*
+    Do it here in the loop.
+*/
+    if(UmbState == 2){
+        if(!Umb_Test()){
+            UmbState = 1;
+            upBase = MK_FP(umb_start , 0);
+            uppermem_root = umb_start;
+
+/* master sig for umb region with full size */
+
+            umcb_init((mcb FAR *) upBase, UMB_top );
+            upBase += 16;
+
+/* reset root */
+
+            uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+
+/* setup the real mcb for the devicehigh block */
+
+            zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),  UMB_top - 1);
+            upBase += 16;
+
+#ifdef DEBUG
+  printf("UMB Allocation completed: top at 0x%04x:0x%04x\n",
+         FP_SEG(upBase), FP_OFF(upBase));
+#endif
+        }
+    }
+
+
       for (pTmp = pLine; pTmp - szLine < LINESIZE; pTmp++)
       {
         if (*pTmp == '\r' || *pTmp == EOF)
@@ -676,22 +717,17 @@ INIT static VOID Lastdrive(BYTE * pLine)
   Config.cfgLastdrive = max(Config.cfgLastdrive, drv);
 }
 
+/*
+    UmbState of confidence, 1 is sure, 2 maybe, 4 unknown and 0 no way.
+*/
+
 INIT static VOID Dosmem(BYTE * pLine)
 {
-    COUNT tmp;
-    COUNT FAR * u = MK_FP(0xc000, 0);
-
+    if(UmbState == 0){
+    uppermem_link = 0;
+    uppermem_root = 0;
     GetStringArg(pLine, szBuf);
-    uppermem_link = strcmp(szBuf, "UMB") ? 1 : 0;
-
-    if(uppermem_link)
-    {
-        tmp = *u;
-        *u = 0x1234;
-        if(*u  == 0x1234)
-            *u = tmp;
-        else
-            uppermem_link = 0;
+    UmbState = strcmp(szBuf, "UMB") ? 2 : 0;
     }
 }
 
@@ -827,7 +863,7 @@ INIT static VOID Break(BYTE * pLine)
 
 INIT static VOID DeviceHigh(BYTE * pLine)
 {
-    if(uppermem_link)
+    if(UmbState == 1)
     {
         LoadDevice(pLine, UMB_top, TRUE);
     }
@@ -1036,23 +1072,34 @@ INIT VOID
 
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
+
+/*  if(UmbState == 1)*/
+
+      mcbp->m_size = (size - 1);
+/*
   mcbp->m_size = size;
+*/
   for (i = 0; i < 8; i++)
     mcbp->m_name[i] = '\0';
   mem_access_mode = FIRST_FIT;
 }
+
+/* master umb sig */
+
 INIT VOID
   umcb_init(mcb FAR * mcbp, UWORD size)
 {
   COUNT i;
   static char name[8] = "UMB     ";
 
-  mcbp->m_type = 0x4d;
-  mcbp->m_psp = 0x08;
+  mcbp->m_type = MCB_LAST;
+  mcbp->m_psp = (UWORD) FP_SEG( mcbp );
+  mcbp->m_psp++;
   mcbp->m_size = size;
   for (i = 0; i < 8; i++)
     mcbp->m_name[i] = name[i];
 }
+
 INIT VOID
   zumcb_init(mcb FAR * mcbp, UWORD size)
 {
@@ -1060,6 +1107,19 @@ INIT VOID
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
   mcbp->m_size = size;
+}
+
+INIT VOID
+  mumcb_init(mcb FAR * mcbp, UWORD size)
+{
+  COUNT i;
+  static char name[8] = "SC\0\0\0\0\0\0";
+
+  mcbp->m_type = MCB_NORMAL;
+  mcbp->m_psp = 8;
+  mcbp->m_size = size;
+  for (i = 0; i < 8; i++)
+    mcbp->m_name[i] = name[i];
 }
 #endif
 
@@ -1070,4 +1130,5 @@ INIT VOID
     ++d;
   strcpy(d, s);
 }
+
 

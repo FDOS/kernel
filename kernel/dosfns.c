@@ -34,6 +34,9 @@ static BYTE *dosfnsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
  * Revision 1.7  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -814,6 +817,15 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   WORD i;
 	COUNT drive, result;
 
+/* /// Added to adjust for filenames which begin with ".\"
+       The problem was manifesting itself in the inability
+       to run an program whose filename (without the extension)
+       was longer than six characters and the PATH variable
+       contained ".", unless you explicitly specified the full
+       path to the executable file.
+       Jun 11, 2000 - rbc */
+  if ( (fname[0] == '.') && (fname[1] == '\\') ) fname += 2;
+
   /* test if mode is in range                     */
   if ((mode & ~SFT_OMASK) != 0)
     return DE_INVLDACC;
@@ -1170,7 +1182,17 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
 		return result;
 	}
 
-	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
+/* /// Added check for "d:\", which returns 0x10 (subdirectory) under DOS.
+       - Ron Cemer */
+    if (   (PriPathName[0] != '\0')
+        && (PriPathName[1] == ':')
+        && ( (PriPathName[2] == '/') || (PriPathName[2] == '\\') )
+        && (PriPathName[3] == '\0')   ) {
+        *attrp = 0x10;
+        return SUCCESS;
+    }
+
+    if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
 	{
 		last_cds = current_ldt;
 		current_ldt = &CDSp->cds_table[drive];
@@ -1180,8 +1202,21 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
 		*attrp = srfa[0];
 	}
 	else {
-		result =  dos_getfattr(name, attrp);
+/* /// Use truename()'s result, which we already have in PriPathName.
+       I copy it to tmp_name because PriPathName is global and seems
+       to get trashed somewhere in transit.
+       The reason for using truename()'s result is that dos_?etfattr()
+       are very low-level functions and don't handle full path expansion
+       or cleanup, such as converting "c:\a\b\.\c\.." to "C:\A\B".
+       - Ron Cemer
+*/
+        BYTE tmp_name[128];
+        int i;
+        for (i = 0; PriPathName[i] != '\0'; i++) tmp_name[i] = PriPathName[i];
+        tmp_name[i] = '\0';
+        result = dos_getfattr(tmp_name, attrp);
 	}
+/* Sorry Ron someone else found this, see history.txt */
     return result;
 }
 
@@ -1214,7 +1249,16 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 		current_ldt = last_cds;
 	}
 	else {
-		result =  dos_setfattr(name, attrp);
+/* /// Use truename()'s result, which we already have in PriPathName.
+       I copy it to tmp_name because PriPathName is global and seems
+       to get trashed somewhere in transit.
+       - Ron Cemer
+*/
+        BYTE tmp_name[128];
+        int i;
+        for (i = 0; PriPathName[i] != '\0'; i++) tmp_name[i] = PriPathName[i];
+        tmp_name[i] = '\0';
+        result =  dos_setfattr(name, attrp);
 	}
 	return result;
 }
@@ -1362,9 +1406,16 @@ struct dhdr FAR * IsDevice(BYTE FAR * fname)
     SecPathName[i] = ' ';
 
   SecPathName[i] = 0;
-  /* if we have an extension, can't be a device   */
+
+/* /// BUG!!! This is absolutely wrong.  A filename of "NUL.LST" must be
+       treated EXACTLY the same as a filename of "NUL".  The existence or
+       content of the extension is irrelevent in determining whether a
+       filename refers to a device.
+       - Ron Cemer
+  // if we have an extension, can't be a device <--- WRONG.
   if (*froot != '.')
   {
+*/
     for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
     {
       if (fnmatch((BYTE FAR *) SecPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
@@ -1372,7 +1423,7 @@ struct dhdr FAR * IsDevice(BYTE FAR * fname)
         return dhp;
       }
     }
-  }
+
   return (struct dhdr FAR *)0;
 }
 

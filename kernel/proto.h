@@ -34,8 +34,8 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.5  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
+ * Revision 1.6  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
  *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
@@ -374,6 +374,7 @@ COUNT DosMemCheck(void);
 COUNT FreeProcessMem(UWORD ps);
 COUNT DosGetLargestBlock(UWORD FAR * block);
 VOID show_chain(void);
+VOID DosUmbLink(BYTE n);
 VOID mcb_print(mcb FAR * mcbp);
 VOID _fmemcpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n);
 
@@ -385,19 +386,26 @@ VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n);
 __FAR_WRAPPER(VOID, fbcopy, (REG VOID FAR * s, REG VOID FAR * d, REG COUNT n))
 
 /* nls.c */
-COUNT extCtryInfo(int subfct, UWORD codepage,
-	UWORD cntry, UWORD bufsize, UBYTE FAR * buf);
-BYTE yesNo(unsigned char ch);
-unsigned char upChar(unsigned char ch);
-VOID upString(unsigned char FAR * str);
-VOID upMem(unsigned char FAR * str, unsigned len);
-unsigned char upFChar(unsigned char ch);
-VOID upFString(unsigned char FAR * str);
-VOID upFMem(unsigned char FAR * str, unsigned len);
-COUNT setCountryCode(UWORD cntry);
-COUNT getCountryInformation(UWORD cntry, BYTE FAR *buf);
-COUNT getCodePage(UWORD FAR* actCP, UWORD FAR*sysCP);
-COUNT setCodePage(UWORD actCP, UWORD sysCP);
+BYTE DosYesNo(unsigned char ch);
+#ifndef DosUpMem
+VOID DosUpMem(VOID FAR * str, unsigned len);
+#endif
+unsigned char DosUpChar(unsigned char ch);
+VOID DosUpString(char FAR *str);
+VOID DosUpFMem(VOID FAR *str, unsigned len);
+unsigned char DosUpFChar(unsigned char ch);
+VOID DosUpFString(char FAR *str);
+COUNT DosGetData(int subfct, UWORD cp, UWORD cntry
+   , UWORD bufsize, VOID FAR * buf);
+#ifndef DosGetCountryInformation
+COUNT DosGetCountryInformation(UWORD cntry, VOID FAR *buf);
+#endif
+#ifndef DosSetCountry
+COUNT DosSetCountry(UWORD cntry);
+#endif
+COUNT DosGetCodepage(UWORD FAR* actCP, UWORD FAR* sysCP);
+COUNT DosSetCodepage(UWORD actCP, UWORD sysCP);
+UWORD syscall_MUX14(DIRECT_IREGS);
 
 /* prf.c */
 VOID put_console(COUNT c);
@@ -460,6 +468,8 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t);
 COUNT int2f_Remote_call(UWORD func, UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
 COUNT QRemote_Fn(char FAR * s, char FAR * d);
 
+COUNT FAR Umb_Test(void);
+
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err);
@@ -467,6 +477,9 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp);
 
 /* procsupt.asm */
 VOID INRPT FAR exec_user(iregs FAR * irp);
+#define strcpy(d, s)    scopy(s, d)
 
-#define strcpy(d, s)	scopy(s, d)
+/* detect.c */
+unsigned long FAR is_dosemu(void);
+
 
