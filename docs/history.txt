@@ -1,3 +1,18 @@
+2002 Nov 9 - Build 2027
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * memset ErrorAlreadyPrinted to 0 in config.c
++ Changes Bart
+    * reset drive before and after int26 in SYS for winnt compatibility
+    * propagate sharing bits correctly in DosOpen
+    * return DE_NFILES if a volume label is not found; search for volume
+      label if attr & 8 not just if attr==8
+    * initialize the critical error code to 0 in inthndlr.c
+    * ignore value of DH for extended open int21/ah=6c
+    * fix problem with NULL device code being in the wrong segment
+    * Hopefully innocent hack to deal with NDN in ioctl.c (ignore upper bits
+      of the drive number)
+    * use subst bit 15 for int21/ax=4409(IOCTL-CHECK IF BLOCK DEVICE REMOTE).
 2002 Oct 27 - Build 2027rc
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Bart
