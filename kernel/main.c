@@ -404,7 +404,7 @@ STATIC void kernel()
   /* process 0       */
   /* Execute command.com from the drive we just booted from    */
   memset(Cmd.ctBuffer, 0, sizeof(Cmd.ctBuffer));
-  memcpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail));
+  strcpy(Cmd.ctBuffer, Config.cfgInitTail);
 
   for (Cmd.ctCount = 0; Cmd.ctCount < sizeof(Cmd.ctBuffer); Cmd.ctCount++)
     if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
