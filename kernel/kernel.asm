@@ -123,7 +123,7 @@ kernel_start:
 		mov	sp,init_tos
 		int	12h		; move init text+data to higher memory
 		mov	cl,6
-		shl	ax,cl
+		shl	ax,cl           ; convert kb to para
 		mov	dx,15 + init_end wrt INIT_TEXT
 		mov	cl,4
 		shr	dx,cl
@@ -136,35 +136,27 @@ kernel_start:
 		sti                     ; now enable them
 		mov	ax,cs
 		mov	dx,__InitTextStart wrt HMA_TEXT    ; para aligned
+		shr	dx,cl
 %ifdef WATCOM
-		mov	si,dx
-		mov	cl,4
-		shr	si,cl
-		add	ax,si
+		add	ax,dx
 %endif
 		mov	ds,ax
-		mov	cx,-2 + init_end wrt INIT_TEXT     ; word aligned
-		mov	si,cx
-		mov	di,cx
+		mov	si,-2 + init_end wrt INIT_TEXT     ; word aligned
+		lea	cx,[si+2]
+		mov	di,si
 		shr	cx,1
-		inc	cx
 		std			; if there's overlap only std is safe
 		rep	movsw
 
 					; move HMA_TEXT to higher memory
-		mov	si,dx		; si = __InitTextStart wrt HMA_TEXT
-		mov	cl,4
-		shr	dx,cl
-
 		sub	ax,dx
 		mov	ds,ax		; ds = HMA_TEXT
 		mov	ax,es
 		sub	ax,dx
 		mov	es,ax		; es = new HMA_TEXT
 
-		mov	cx,si		; cx = __InitTextStart wrt HMA_TEXT
-		dec	si
-		dec	si
+		mov	si,-2 + __InitTextStart wrt HMA_TEXT
+		lea	cx,[si+2]
 		mov	di,si
 		shr	cx,1
 		rep	movsw
