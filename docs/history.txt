@@ -342,13 +342,36 @@
           (the last 2 changes proposed by Bart Oldeman)
  + Changes Eduardo
         * country.asm: added NLS uppercase/collating tables (437,850,857,858)
-        * inthndlr.c: added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
+        * inthndlr.c:
+          - added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
+          - DOS-63-00 returns DBCS table from the active NLS package, not the
+            harcoded one.
+          - DOS-65-23: DosYesNo() arg is now DX, not DL.
         * nls.c: MuxLoadPkg(), MuxGo() functions modified for NLSFUNC
+          - New macro getTable7()
+          - New functions nlsIsDBCS() (check if a byte is a dual byte char
+            leadbyte) and DosGetDBCS() (returns DBCS table from the active NLS
+            package)
+          - Add DBCS table to getTable() and fixes references to harcoded
+            UCASE and FUCASE tables.
+          - DosYesNo(): arg is now UWORD, not unsigned char.
+          - nlsYesNo(): Add DBCS support
+          - syscall_MUX14(): arg of nlsYesNo() is now CX instead of CL.
+        * nls.h:
+          - yeschar and nochar are now UWORD instead of UBYTE.
+          - NLS_FREEDOS_NLSFUNC_VERSION bumped to 0xFD02.
+          - Add a small comment.
+        * nls_hc.asm: YesChar and NoChar are now two bytes each.
+        * proto.h:
+          - DosYesNo(): Argument is now UWORD (dual byte)
+          - Add prototype for DosGetDBCS()
  + Changes Jeremy
 	* config.txt
 	  - update to include all CONFIG.SYS options (except ANYDOS)
         * exeflat.c
           - show usage also when number of arguments incorrect
+        < many other changes to be added by Jeremy himself :->
+
 *** Sync - Stable Build 2035 ***
 
 2004 May 30 - Build 2035

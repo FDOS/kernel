@@ -1288,8 +1288,15 @@ dispatch:
       /* UNDOCUMENTED: Double byte and korean tables                  */
     case 0x63:
       {
-        lr.DS = FP_SEG(&nlsDBCSHardcoded);
-        lr.SI = FP_OFF(&nlsDBCSHardcoded);
+        VOID FAR *p;
+
+        if (lr.AL == 0) {
+          p = DosGetDBCS();
+          lr.DS = FP_SEG(p);
+          lr.SI = FP_OFF(p);
+        }
+        lr.AL = 0x00;
+    
 #if 0
         /* not really supported, but will pass.                 */
         lr.AL = 0x00;           /*jpp: according to interrupt list */
@@ -1326,7 +1333,7 @@ dispatch:
           DosUpFString(FP_DS_DX);
           break;
         case 0x23:             /* check Yes/No response */
-          lr.AX = DosYesNo(lr.DL);
+          lr.AX = DosYesNo(lr.DX);
           break;
         default:
 #ifdef NLS_DEBUG

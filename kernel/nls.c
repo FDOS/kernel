@@ -75,9 +75,11 @@ struct nlsInfoBlock nlsInfo = {
 #ifdef NLS_REORDER_POINTERS
 #define getTable2(nls)	((nls)->nlsPointers[0].pointer)
 #define getTable4(nls)	((nls)->nlsPointers[1].pointer)
+#define getTable7(nls)	((nls)->nlsPointers[4].pointer)
 #else
 #define getTable2(nls)	getTable(2, (nls))
 #define getTable4(nls)	getTable(4, (nls))
+#define getTable7(nls)	getTable(7, (nls))
 #define NEED_GET_TABLE
 #endif
         /*== both chartables must be 128 bytes long and lower range is
@@ -213,12 +215,15 @@ STATIC VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR * nls)
   switch (subfct)
   {
     case 2:
-      return &nlsUpHardcodedTable;
+      return &nlsUpcaseHardcoded;
     case 4:
-      return &nlsFnameUpHardcodedTable;
+      return &nlsFUpcaseHardcoded;
       /* case 5:                                                                      return &nlsFnameTermHardcodedTable; */
       /* case 6: return &nlsCollHardcodedTable; */
+    case 7:
+      return &nlsDBCSHardcoded;
   }
+  return NULL;
 }
 #endif
 
@@ -422,18 +427,41 @@ STATIC VOID xUpMem(struct nlsPackage FAR * nls, VOID FAR * str,
     muxBufGo(NLSFUNC_UPMEM, 0, nls->cp, nls->cntry, len, str);
 }
 
-STATIC int nlsYesNo(struct nlsPackage FAR * nls, unsigned char ch)
+STATIC BOOL nlsIsDBCS(UBYTE ch)
 {
-  log(("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
 
-  xUpMem(nls, MK_FP(_SS, &ch), 1);          /* Upcase character */
-  /* Cannot use DosUpChar(), because
-     maybe: nls != current NLS pkg
-     However: Upcase character within lowlevel
-     function to allow a yesNo() function
-     catched by external MUX-14 handler, which
-     does NOT upcase character. */
-  log(("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
+  if (ch < 128)
+    return FALSE;		/* No leadbyte is smaller than that */
+
+  {
+    UWORD FAR *t= ((struct nlsDBCS FAR*)getTable7(nlsInfo.actPkg))->dbcsTbl;
+
+    for (; *t != 0; ++t)
+      if (ch >= (*t & 0xFF) && ch <= (*t >> 8))
+        return TRUE;
+  }
+
+  return FALSE;
+}
+
+STATIC int nlsYesNo(struct nlsPackage FAR * nls, UWORD ch)
+{
+  /* Check if it is a dual byte character */
+  if (!nlsIsDBCS(ch & 0xFF)) {
+    ch &= 0xFF;
+    log(("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch > 32 ? (char)ch : ' '));
+    xUpMem(nls, MK_FP(_SS, &ch), 1);          /* Upcase character */
+    /* Cannot use DosUpChar(), because
+       maybe: nls != current NLS pkg
+       However: Upcase character within lowlevel
+       function to allow a yesNo() function
+       catched by external MUX-14 handler, which
+       does NOT upcase character. */
+    log(("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch > 32 ? (char)ch : ' '));
+  }
+  else
+    log(("NLS: nlsYesNo(): in ch=%u (DBCS)\n", ch));
+
   if (ch == nls->yeschar)
     return 1;
   if (ch == nls->nochar)
@@ -445,7 +473,7 @@ STATIC int nlsYesNo(struct nlsPackage FAR * nls, unsigned char ch)
  ***** DOS API ******************************************************
  ********************************************************************/
 
-BYTE DosYesNo(unsigned char ch)
+BYTE DosYesNo(UWORD ch)
 /* returns: 0: ch == "No", 1: ch == "Yes", 2: ch crap */
 {
   if (nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_YESNO)
@@ -490,7 +518,7 @@ VOID DosUpFMem(VOID FAR * str, unsigned len)
   log(("NLS: DosUpFMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str),
        FP_OFF(str)));
   for (c = 0; c < len; ++c)
-    printf("%c", str[c] > 32 ? str[c] : '.');
+    printf("%c", ((char FAR *)str)[c] > 32 ? ((char FAR *)str)[c] : '.');
   printf("\"\n");
 #endif
   if (nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_FUPCASE)
@@ -605,6 +633,11 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
   return DE_INVLDDATA;
 }
 
+VOID FAR *DosGetDBCS(void)
+{
+	return getTable7(nlsInfo.actPkg);
+}
+
 /********************************************************************
  ***** MUX-14 API ***************************************************
  ********************************************************************/
@@ -655,7 +688,7 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
     case NLSFUNC_LOAD_PKG2:
       return nlsSetPackage(nls);
     case NLSFUNC_YESNO:
-      return nlsYesNo(nls, CL);
+      return nlsYesNo(nls, CX);
     case NLSFUNC_UPMEM:
       nlsUpMem(nls, MK_FP(ES, DI), CX);
       return SUCCESS;
