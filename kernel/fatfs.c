@@ -407,6 +407,7 @@ STATIC BOOL find_fname(f_node_ptr fnp, char *fcbname, int attr)
     {
       return TRUE;
     }
+    fnp->f_diroff++;
   }
   return FALSE;
 }
@@ -428,10 +429,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
   {
     if (fnp->f_diroff == 0)
       break;
-    fnp->f_diroff -= 2;
-    /* it cannot / should not get below 0 because of '.' and '..'
-     * except for root directories... but then dir_read() makes it 0
-     * again */
+    fnp->f_diroff--;
     if (dir_read(fnp) <= 0) {
       dir_close(fnp);
       return DE_BLKINVLD;
@@ -442,7 +440,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     fnp->f_flags |= F_DMOD;
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
-  fnp->f_diroff = original_diroff - 1;
+  fnp->f_diroff = original_diroff;
   if (dir_read(fnp) <= 0) {
     dir_close(fnp);
     return DE_BLKINVLD;
@@ -642,6 +640,7 @@ COUNT dos_rmdir(BYTE * path)
       return DE_ACCESS;
     }
 
+    fnp1->f_diroff++;
     dir_read(fnp1);
     if (fnp1->f_dir.dir_name[0] != '.')
     {
@@ -652,18 +651,18 @@ COUNT dos_rmdir(BYTE * path)
     /* Now search through the directory and make certain    */
     /* that there are no entries.                           */
     found = FALSE;
+    fnp1->f_diroff++;
     while (dir_read(fnp1) == 1)
     {
       if (fnp1->f_dir.dir_name[0] == '\0')
         break;
-      if (fnp1->f_dir.dir_name[0] == DELETED
-          || fnp1->f_dir.dir_attrib == D_LFN)
-        continue;
-      else
+      if (fnp1->f_dir.dir_name[0] != DELETED
+          && fnp1->f_dir.dir_attrib != D_LFN)
       {
         found = TRUE;
         break;
       }
+      fnp1->f_diroff++;
     }
 
     dir_close(fnp1);
@@ -817,8 +816,11 @@ STATIC BOOL find_free(f_node_ptr fnp)
   COUNT rc;
 
   while ((rc = dir_read(fnp)) == 1)
+  {
     if (fnp->f_dir.dir_name[0] == DELETED)
       return TRUE;
+    fnp->f_diroff++;
+  }
   return rc >= 0;
 }
 

@@ -54,9 +54,8 @@ struct f_node {
 };
 
 #define F_DMOD  1               /* directory has been modified  */
-#define F_DNEW  2               /* fnode is new and needs fill  */
-#define F_DDIR  4               /* fnode is assigned to dir     */
-#define F_DDATE 8               /* date set using setdate       */
+#define F_DDIR  2               /* fnode is assigned to dir     */
+#define F_DDATE 4               /* date set using setdate       */
 
 typedef struct f_node *f_node_ptr;
 
