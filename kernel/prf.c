@@ -144,7 +144,7 @@ static BYTE *charp = 0;
 STATIC VOID handle_char(COUNT);
 STATIC void ltob(LONG, BYTE *, COUNT);
 STATIC void do_printf(const char *, REG va_list);
-int CDECL printf(CONST BYTE * fmt, ...);
+int VA_CDECL printf(const char * fmt, ...);
 
 /* special handler to switch between sprintf and printf */
 STATIC VOID handle_char(COUNT c)
@@ -196,7 +196,7 @@ STATIC void ltob(LONG n, BYTE * s, COUNT base)
 #define LONGARG 4
 
 /* printf -- short version of printf to conserve space */
-int CDECL printf(CONST BYTE * fmt, ...)
+int VA_CDECL printf(const char *fmt, ...)
 {
   va_list arg;
   va_start(arg, fmt);
@@ -205,7 +205,7 @@ int CDECL printf(CONST BYTE * fmt, ...)
   return 0;
 }
 
-int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...)
+int VA_CDECL sprintf(char * buff, const char * fmt, ...)
 {
   va_list arg;
 

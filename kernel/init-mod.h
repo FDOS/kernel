@@ -179,8 +179,8 @@ BOOL init_device(struct dhdr FAR * dhp, char * cmdLine,
 VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */
-WORD CDECL init_printf(CONST BYTE * fmt, ...);
-WORD CDECL init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+int VA_CDECL init_printf(const char * fmt, ...);
+int VA_CDECL init_sprintf(char * buff, const char * fmt, ...);
 
 /* procsupt.asm */
 VOID ASMCFUNC FAR got_cbreak(void);

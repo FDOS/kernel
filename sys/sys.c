@@ -59,8 +59,8 @@
  * #including <stdio.h> to make executable MUCH smaller
  * using [s]printf from prf.c!
  */
-extern WORD CDECL printf(CONST BYTE * fmt, ...);
-extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+extern int VA_CDECL printf(const char * fmt, ...);
+extern int VA_CDECL sprintf(char * buff, const char * fmt, ...);
 
 #include "fat12com.h"
 #include "fat16com.h"

@@ -24,8 +24,8 @@ char KERNEL[] = "KERNEL.SYS";
 #include <fcntl.h>
 
 #include "portab.h"
-extern int CDECL printf(CONST BYTE * fmt, ...);
-extern int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+extern int VA_CDECL printf(const char * fmt, ...);
+extern int VA_CDECL sprintf(char * buff, const char * fmt, ...);
 
 #ifdef __WATCOMC__
 unsigned _dos_close(int handle);

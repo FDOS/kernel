@@ -281,8 +281,8 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
 
 /* prf.c */
 #ifdef DEBUG
-int CDECL printf(CONST BYTE * fmt, ...);
-int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+int VA_CDECL printf(const char * fmt, ...);
+int VA_CDECL sprintf(char * buff, const char * fmt, ...);
 #endif
 VOID hexd(char *title, VOID FAR * p, COUNT numBytes);
 void put_unsigned(unsigned n, int base, int width);

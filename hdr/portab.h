@@ -63,6 +63,12 @@ static char *portab_hRcsId =
 
 #define I86
 #define CDECL   cdecl
+#if __TURBOC__ > 0x202
+/* printf callers do the right thing for tc++ 1.01 but not tc 2.01 */
+#define VA_CDECL
+#else
+#define VA_CDECL cdecl
+#endif
 #define PASCAL  pascal
 void __int__(int);
 
@@ -73,6 +79,7 @@ void __int__(int);
 #pragma warning(disable: 4761) /* "integral size mismatch in argument;
                                    conversion supplied" */
 #define CDECL   _cdecl
+#define VA_CDECL
 #define PASCAL  pascal
 #define __int__(intno) asm int intno;
 #define _SS SS()
@@ -88,6 +95,7 @@ static unsigned short __inline SS(void)
 #define asm __asm
 #define far __far
 #define CDECL   __cdecl
+#define VA_CDECL
 #define PASCAL  pascal
 #define _SS SS()
 unsigned short SS(void);
