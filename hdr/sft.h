@@ -35,8 +35,15 @@ static BYTE *sft_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/25 20:56:19  jimtabor
+ * Fixed project history
+ *
  * Revision 1.2  2000/05/08 04:28:22  jimtabor
  * Update CVS to 2020
+ *
+ * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+ * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+ * MS-DOS.  Distributed under the GNU GPL.
  *
  * Revision 1.3  2000/03/09 06:06:38  kernel
  * 2017f updates by James Tabor

@@ -25,11 +25,17 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-
-
+;
 ; $Log$
+; Revision 1.3  2000/05/25 20:56:19  jimtabor
+; Fixed project history
+;
 ; Revision 1.2  2000/05/11 03:56:42  jimtabor
 ; Clean up and Release
+;
+; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+; MS-DOS.  Distributed under the GNU GPL.
 ;
 ; Revision 1.12  1999/09/25 06:42:18  jprice
 ; Optimize boot loader.  Documentation.

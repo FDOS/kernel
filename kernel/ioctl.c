@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/25 20:56:21  jimtabor
+ * Fixed project history
+ *
  * Revision 1.4  2000/05/17 19:15:12  jimtabor
  * Cleanup, add and fix source.
  *
@@ -44,9 +47,9 @@ static BYTE *RcsId = "$Id$";
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
  *
- * $Log$
- * Revision 1.4  2000/05/17 19:15:12  jimtabor
- * Cleanup, add and fix source.
+ * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+ * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+ * MS-DOS.  Distributed under the GNU GPL.
  *
  * Revision 1.4  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code

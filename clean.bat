@@ -5,8 +5,15 @@ rem batch file to clean everything
 rem $Id$
 
 rem $Log$
+rem Revision 1.3  2000/05/25 20:56:19  jimtabor
+rem Fixed project history
+rem
 rem Revision 1.2  2000/05/14 17:05:58  jimtabor
 rem Cleanup CRs
+rem
+rem Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+rem The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+rem MS-DOS.  Distributed under the GNU GPL.
 rem
 rem Revision 1.3  1999/08/25 03:59:14  jprice
 rem New build batch files.

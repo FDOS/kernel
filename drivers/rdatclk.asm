@@ -29,7 +29,11 @@
 ;
 ; @Header: /home/cvsroot/fdkernel/DRIVERS/RDATCLK.ASM,v 1.3 1999/04/12 03:19:44 jprice Exp @
 ;
-; @Log: RDATCLK.ASM,v @
+; @Log: rdatclk.asm,v @
+; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+; MS-DOS.  Distributed under the GNU GPL.
+;
 ; Revision 1.3  1999/04/12 03:19:44  jprice
 ; more ror4 patches
 ;

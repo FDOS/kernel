@@ -36,8 +36,15 @@ static BYTE *syspackRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/25 20:56:21  jimtabor
+ * Fixed project history
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+ * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+ * MS-DOS.  Distributed under the GNU GPL.
  *
  * Revision 1.1.1.1  1999/03/29 15:42:21  jprice
  * New version without IPL.SYS

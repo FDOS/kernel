@@ -1,3 +1,7 @@
+2000 May 25 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  Project history.
+
 2000 May 17 - Build 2020
 -------- James Tabor (jimtabor@infohwy.com)
 + Fixed  Delete, Rename, Mkdir, and Rmdir. Comment out isDevice. There is

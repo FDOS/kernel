@@ -5,8 +5,15 @@
 #
 
 # $Log$
+# Revision 1.3  2000/05/25 20:56:19  jimtabor
+# Fixed project history
+#
 # Revision 1.2  2000/05/11 03:56:42  jimtabor
 # Clean up and Release
+#
+# Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+# The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+# MS-DOS.  Distributed under the GNU GPL.
 #
 # Revision 1.3  1999/04/23 03:44:17  jprice
 # Ported to NASM by ror4. Improvements
