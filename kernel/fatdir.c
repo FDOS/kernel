@@ -212,9 +212,11 @@ COUNT dir_read(REG f_node_ptr fnp)
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
   unsigned new_diroff = fnp->f_diroff;
 
-  /* can't have more than 65535 directory entries */
-  if (new_diroff == 65535)
-    return DE_SEEK;
+  /* can't have more than 65535 directory entries
+     remove lfn entries may call us with new_diroff == -1
+     for root directories though */
+  if (!fnp->f_flags.f_droot && new_diroff >= 65535U)
+      return DE_SEEK;
 
   /* Directories need to point to their current offset, not for   */
   /* next op. Therefore, if it is anything other than the first   */

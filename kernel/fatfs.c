@@ -451,7 +451,9 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     if (fnp->f_diroff == 0)
       break;
     fnp->f_diroff -= 2;
-    /* it cannot / should not get below 0 because of '.' and '..' */
+    /* it cannot / should not get below 0 because of '.' and '..'
+     * except for root directories... but then dir_read() makes it 0
+     * again */
     if (dir_read(fnp) <= 0) {
       dir_close(fnp);
       return DE_BLKINVLD;
