@@ -704,7 +704,7 @@ __HMATextStart:
 ; the HMA area is filled with 1eh+3(=sizeof VDISK) = 33 byte dummy data,
 ; so nothing will ever be below 0xffff:0031
 ;
-segment _TEXT
+segment HMA_TEXT
 begin_hma:              
                 times 10h db 0   ; filler [ffff:0..ffff:10]
                 times 20h db 0

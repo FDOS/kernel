@@ -30,7 +30,7 @@
 
                 %include "..\kernel\segs.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
 
 ;
 ;       VOID WriteATClock(bcdDays, bcdHours, bcdMinutes, bcdSeconds)

@@ -31,9 +31,9 @@
 		%include "segs.inc"
         %include "stacks.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
             extern  _cu_psp:wrt DGROUP
-            extern _syscall_MUX14:wrt _TEXT
+            extern _syscall_MUX14:wrt HMA_TEXT
 
                 global  reloc_call_int2f_handler
 reloc_call_int2f_handler:

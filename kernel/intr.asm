@@ -28,7 +28,7 @@
 
 		%include "segs.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
 ;
 ;       void intr(nr, rp)
 ;       REG int nr

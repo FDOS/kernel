@@ -30,7 +30,7 @@
 
 		%include "segs.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
                 global  _reloc_call_CharMapSrvc
                 extern  _DosUpChar:wrt TGROUP
 ;

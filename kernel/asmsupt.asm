@@ -36,7 +36,7 @@
 
 		%include "segs.inc"
 
-segment _TEXT
+segment HMA_TEXT
 
 ;*********************************************************************
 ; this implements some of the common string handling functions

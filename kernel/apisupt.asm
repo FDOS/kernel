@@ -29,7 +29,7 @@
 
 		%include "segs.inc"
 
-segment _TEXT
+segment HMA_TEXT
 %if 0
 
                 extern  _api_sp:wrt DGROUP      ; api stacks - for context

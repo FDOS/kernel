@@ -31,7 +31,7 @@
 		%include "segs.inc"
                 %include "stacks.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
                 extern   _int21_syscall:wrt TGROUP
                 extern   _int21_service:wrt TGROUP
                 extern   _int2526_handler:wrt TGROUP

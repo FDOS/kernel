@@ -38,7 +38,7 @@
 
                 %include "stacks.inc"
 
-segment _TEXT
+segment HMA_TEXT
 
                 extern   _DGROUP_:wrt LGROUP
 
@@ -85,7 +85,7 @@ _got_cbreak:
 	pop ds
 	iret
 
-segment	_TEXT
+segment	HMA_TEXT
 
 ;
 ;       Special call for switching processes during break handling

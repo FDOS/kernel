@@ -30,7 +30,7 @@
 
         %include "..\kernel\segs.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
 
 ;
 ;       BOOL ReadPCClock(Ticks)

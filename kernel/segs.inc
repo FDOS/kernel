@@ -31,7 +31,7 @@ group   PGROUP          PSP
 group   LGROUP          _LOWTEXT _IO_TEXT _IO_FIXED_DATA
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA
 group   I_GROUP         INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA IB_B I_BSS IB IB_E
-group   TGROUP          HMA_TEXT_START _TEXT HMA_TEXT_END
+group   TGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 
 segment PSP             class=PSP
 segment	_LOWTEXT	class=LCODE
@@ -48,7 +48,7 @@ segment CONST2		class=DATA align=2
 segment	DCONST      	class=DCONST   align=2     
 segment	DYN_DATA        class=DYN_DATA
 segment	HMA_TEXT_START	class=CODE align=16
-segment	_TEXT		class=CODE
+segment	HMA_TEXT	class=CODE
 segment HMA_TEXT_END	class=CODE
 segment INIT_TEXT_START class=INIT align=16
 segment	INIT_TEXT	class=INIT

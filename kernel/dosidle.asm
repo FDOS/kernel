@@ -31,7 +31,7 @@
 PSP_USERSP      equ     2eh
 PSP_USERSS      equ     30h
 
-segment _TEXT
+segment HMA_TEXT
 
                 global  _DosIdle_int
 
