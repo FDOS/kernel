@@ -1,3 +1,31 @@
+2000 Jun 20 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix	 Bart Oldeman (Bart.Oldeman@bristol.ac.uk) found bugs with copy
+         command using Dosemu Lredir. Fixed Dosfns return for ReadCount, 
+         WriteCount and  DosGetFattr. Fixed the return in int2f.asm for
+         Read/Write Remote. By adding xor ax,ax.
+         I found some more return bugs in int2f.asm after adding Barts
+         patch.
+
+2000 Jun 08 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Started the UMB code. Devicehigh and dos=umb only works with
+         Dosemu for now.
+
+2000 Jun 07 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Int2f added code for Fastopen call.
+         Now MSD Scandisk works!
+
+2000 Jun 06 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Dos Func 0x59 and found a redirector bug in fncfns.c.
+
+2000 Jun 01 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix    Lastdrive is a real number 1 thru 26 not 0 thru 25.
++ Fix    Ioctl and Dsk did not return the currect AX for Ioctl calls.
+
 2000 Jun 01 - Build 2021
 -------- James Tabor (jimtabor@infohwy.com)
 + Clean  Removed test prinf statements in source.
