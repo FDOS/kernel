@@ -1804,7 +1804,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   update_pointers:
     ret_cnt += xfr_cnt;
     to_xfer -= xfr_cnt;
-    buffer = add_far((VOID FAR *) buffer, (ULONG) xfr_cnt);
+    buffer = add_far(buffer, xfr_cnt);
     if (mode == XFR_WRITE)
     {
       if (fnp->f_offset > fnp->f_dir.dir_size)

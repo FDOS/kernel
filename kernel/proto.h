@@ -230,7 +230,7 @@ COUNT DosDevIOctl(lregs * r);
 /* memmgr.c */
 seg far2para(VOID FAR * p);
 seg long2para(ULONG size);
-VOID FAR *add_far(VOID FAR * fp, ULONG off);
+void FAR *add_far(void FAR * fp, unsigned off);
 VOID FAR *adjust_far(const void FAR * fp);
 COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para,
                   UWORD FAR * asize);

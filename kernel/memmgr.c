@@ -83,22 +83,23 @@ seg far2para(VOID FAR * p)
 /*
  * Add a displacement to a far pointer and return the result normalized.
  */
-VOID FAR * add_far(VOID FAR * fp, ULONG off)
+void FAR * add_far(void FAR * fp, unsigned off)
 {
-  UWORD off2;
+  unsigned segment, offset;
 
   if (FP_SEG(fp) == 0xffff)
-    return ((BYTE FAR *) fp) + FP_OFF(off);
+    return ((char FAR *) fp) + off;
 
 #ifndef I86
   if (FP_SEG(fp) == 0)
-    return ((BYTE FAR *) fp) + FP_OFF(off);
+    return ((char FAR *) fp) + off;
 #endif
 
-  off += FP_OFF(fp);
-  off2 = ((UWORD)(off >> 16) << 12) + ((UWORD) off >> 4);
-
-  return MK_FP(FP_SEG(fp) + off2, (UWORD) off & 0xf);
+  offset = off + FP_OFF(fp);
+  segment = FP_SEG(fp) + (offset >> 4);
+  if (offset < off) /* forward carry without using a long */
+    segment += 0x1000;
+  return MK_FP(segment, offset & 0xf);
 }
 
 /*
