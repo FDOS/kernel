@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/03/22 04:55:36  bartoldeman
+ * Fix prototypes.
+ *
  * Revision 1.10  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -800,8 +803,6 @@ INIT static VOID Dosmem(BYTE * pLine)
 
     if (HMAwanted)
     {
-        int MoveKernelToHMA();    
-            
         HMATextIsAvailable = MoveKernelToHMA();    
     }
 }

@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/03/22 04:55:36  bartoldeman
+ * Fix prototypes.
+ *
  * Revision 1.9  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -344,6 +347,9 @@ void MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir);
 BOOL FcbClose(xfcb FAR * lpXfcb);
 BOOL FcbFindFirst(xfcb FAR * lpXfcb);
 BOOL FcbFindNext(xfcb FAR * lpXfcb);
+
+/* inithma.c */
+int MoveKernelToHMA(void);
 
 /* initoem.c */
 UWORD init_oem(void);
