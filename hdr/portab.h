@@ -71,9 +71,11 @@ static char *portab_hRcsId =
 #endif
 #define PASCAL  pascal
 void __int__(int);
+#ifndef FORSYS
 void __emit__(char, ...);
 #define disable() __emit__(0xfa)
 #define enable() __emit__(0xfb)
+#endif
 
 #elif defined	(_MSC_VER)
 
