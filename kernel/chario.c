@@ -317,7 +317,7 @@ STATIC unsigned char read_char_sft_dev(int sft_in, int sft_out,
 {
   unsigned char c;
 
-  if (pdev)
+  if (*pdev)
   {
     FOREVER
     {
