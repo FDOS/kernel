@@ -380,40 +380,20 @@ COUNT truename(const char FAR * src, char * dest, COUNT t);
 
 /* network.c */
 int network_redirector(unsigned cmd);
-int ASMPASCAL network_redirector_fp(unsigned cmd, void far *s);
+int network_redirector_fp(unsigned cmd, void far *s);
+int ASMPASCAL network_redirector_open(unsigned cmd, void far *s, unsigned arg);
+unsigned ASMCFUNC network_redirector_rw(unsigned cmd, void far *s,
+                                         unsigned n, int *err);
 COUNT ASMCFUNC remote_doredirect(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                  UWORD i, VOID FAR * data);
 COUNT ASMCFUNC remote_printset(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                UWORD i, VOID FAR * data);
 COUNT ASMCFUNC remote_process_end(VOID);
 COUNT ASMCFUNC remote_getfree(VOID FAR * s, VOID * d);
-COUNT ASMCFUNC remote_open(sft FAR * s, COUNT mode);
-int ASMCFUNC remote_extopen(sft FAR * s, unsigned attr);
 LONG ASMCFUNC remote_lseek(sft FAR * s, LONG new_pos);
-UCOUNT ASMCFUNC remote_read(sft FAR * s, UCOUNT n, COUNT * err);
-UCOUNT ASMCFUNC remote_write(sft FAR * s, UCOUNT n, COUNT * err);
-COUNT ASMCFUNC remote_creat(sft FAR * s, COUNT attr);
 COUNT ASMCFUNC remote_setfattr(COUNT attr);
 COUNT ASMCFUNC remote_printredir(UCOUNT dx, UCOUNT ax);
 COUNT ASMCFUNC QRemote_Fn(char FAR * d, const char FAR * s);
-#ifdef __WATCOMC__
-/* bx, cx, and es not used or clobbered for all remote functions,
- * except lock_unlock and process_end */
-#pragma aux cdecl_axdx "_*" parm caller [] modify exact [ax dx]
-#pragma aux (cdecl_axdx) remote_doredirect
-#pragma aux (cdecl_axdx) remote_printset
-#pragma aux (cdecl_axdx) remote_getfree
-#pragma aux (cdecl_axdx) remote_open
-#pragma aux (cdecl_axdx) remote_extopen
-#pragma aux (cdecl_axdx) remote_lseek
-#pragma aux (cdecl_axdx) remote_read
-#pragma aux (cdecl_axdx) remote_write
-#pragma aux (cdecl_axdx) remote_creat
-#pragma aux (cdecl_axdx) remote_setfattr
-#pragma aux (cdecl_axdx) remote_printredir
-#pragma aux (cdecl_axdx) QRemote_Fn
-#pragma aux (pascal) network_redirector_fp modify exact [ax dx]
-#endif
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);

@@ -233,7 +233,8 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     lpCurSft = s;
     current_filepos = s->sft_posit;     /* needed for MSCDEX */
     dta = bp;
-    XferCount = (mode == XFR_READ ? remote_read : remote_write)(s, n, &err);
+    XferCount = network_redirector_rw(mode == XFR_READ ? REM_READ : REM_WRITE,
+                                      s, n, &err);
     dta = save_dta;
     return err == SUCCESS ? (long)XferCount : err;
   }
@@ -546,22 +547,26 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   if (result & IS_NETWORK)
   {
     int status;
+    unsigned cmd;
     if ((flags & (O_TRUNC | O_CREAT)) == O_CREAT)
       attrib |= 0x100;
-  
+
     lpCurSft = sftp;
+    cmd = REM_CREATE;
     if (!(flags & O_LEGACY))
     {
       extern UWORD ASM ext_open_mode, ASM ext_open_attrib, ASM ext_open_action;
       ext_open_mode = flags & 0x70ff;
       ext_open_attrib = attrib & 0xff;
       ext_open_action = ((flags & 0x0300) >> 8) | ((flags & O_CREAT) >> 6);
-      status = remote_extopen(sftp, attrib);
+      cmd = REM_EXTOC;
     }
-    else if (flags & O_CREAT)
-      status = remote_creat(sftp, attrib);
-    else
-      status = remote_open(sftp, (BYTE)flags);
+    else if (!(flags & O_CREAT))
+    {
+      cmd = REM_OPEN;
+      attrib = (BYTE)flags;
+    }
+    status = network_redirector_open(cmd, sftp, attrib);
     if (status >= SUCCESS)
     {
       if (sftp->sft_count == 0)

@@ -271,109 +271,66 @@ SHARE_LOCK_UNLOCK:
 ;
 ; assume ss == ds after setup of stack in entry
 ; sumtimes return data *ptr is the push stack word
-;        
+;
 
-                global  NETWORK_REDIRECTOR_FP
-NETWORK_REDIRECTOR_FP:
+                global  _remote_printredir
+_remote_printredir:
                 push    bp
-                mov     bp, sp
-                mov     al, [bp+8]
-                pop     bp
-                call    call_int2f
-                ret     6
-
-                global  _remote_read
-_remote_read:   mov     al, 08h
-                jmp     short call_int2f
-        
-                global  _remote_write        
-_remote_write:  mov     al, 09h
-                jmp     short call_int2f
-        
-                global  _remote_getfree
-_remote_getfree:
-                mov     al, 0ch
-                jmp     short call_int2f
+                mov     bp,sp
+                push    si
+                push    di
+                mov     ax, 1125h
+                mov     dx, [bp+4]
+                push    word [bp+6]
+                jmp     short int2f_call
 
                 global  _remote_setfattr
 _remote_setfattr: 
-                mov     al, 0eh
-                jmp     short call_int2f
-
-                global  _remote_open
-_remote_open: 
-                mov     al, 16h
-                jmp     short call_int2f
-
-                global  _remote_creat
-_remote_creat: 
-                mov     al, 17h
-                jmp     short call_int2f
-
-                global  _remote_doredirect
-_remote_doredirect:
-                mov     al, 1eh
-                jmp     short call_int2f
-
-                global  _remote_printset
-_remote_printset:
-                mov     al, 1fh
-                jmp     short call_int2f
+                push    bp
+                mov     bp,sp
+                push    si
+                push    di
+                mov     ax, 110eh
+                push    word [bp+4]        
+                jmp     short int2f_call
 
                 global  _remote_lseek
 _remote_lseek: 
-                mov     al, 21h
-                jmp     short call_int2f
-
-                global  _QRemote_Fn
-_QRemote_Fn
-                mov     al, 23h
-                jmp     short call_int2f
-        
-                global  _remote_printredir
-_remote_printredir:
-                mov     al, 25h
-                jmp     short call_int2f
-
-                global  _remote_extopen
-_remote_extopen:
-                mov     al, 2eh
-                
-call_int2f:
-                mov     ah, 11h
                 push    bp
                 mov     bp,sp
-                push    es
                 push    si
                 push    di
-                push    cx
-                push    bx
 
-                cmp     al, 0eh
-                je      remote_setfattr
+                mov     ax, 1121h      ; 21h, Lseek from eof
+                les     di, [bp+4]
+                mov     dx, [bp+8]
+                mov     cx, [bp+10]
+                ; "fall through"
+
+remote_getfattr:        
+                clc                    ; set to succeed
+                int     2fh
+                jc      no_clear_ax
+                jmp     short no_neg_ax
+
+;int ASMPASCAL network_redirector_open(unsigned cmd, void far *s, unsigned arg)
+                global NETWORK_REDIRECTOR_OPEN
+NETWORK_REDIRECTOR_OPEN:
+                pop     bx             ; ret address
+                pop     cx             ; stack value (arg)
+                pop     dx             ; off s
+                pop     es             ; seg s
+                pop     ax             ; cmd (ax)
+                push    bx             ; ret address
+call_int2f:
+                push    bp
+                push    si
+                push    di
+                mov     di, dx         ; es:di -> s
                 cmp     al, 0fh
                 je      remote_getfattr
-                cmp     al, 1eh
-                je      print_doredir
-                cmp     al, 1fh
-                je      print_doredir
-                cmp     al, 25h
-                je      remote_printredir
+                push    cx             ; arg
 
-                les     di, [bp+4]
-                cmp     al, 08h
-                je      remote_rw
-                cmp     al, 09h
-                je      remote_rw                
-                cmp     al, 0ch
-                je      remote_getfree
-                cmp     al, 21h        ; 21h, Lseek from eof
-                je      lseekeof
-                cmp     al, 23h
-                je      qremote_fn
-        
-int2f_call_push:                
-                push    word [bp+8]    ; very fakey, HaHa ;)
 int2f_call:
                 xor     cx, cx         ; set to succeed; clear carry and CX
                 int     2fh
@@ -386,31 +343,26 @@ clear_ax:
                 xchg    ax, cx         ; extended open -> status from CX in AX
                                        ; otherwise CX was set to zero above
 no_neg_ax:
-                pop     bx
-                pop     cx
                 pop     di
                 pop     si
-                pop     es
                 pop     bp
                 ret
 
-lseekeof:              
-                mov     dx, [bp+8]
-                mov     cx, [bp+10]
-                ; "fall through"
+                global  _remote_doredirect
+_remote_doredirect:
+                mov     al, 1eh
+                jmp     short print_doredir
 
-remote_getfattr:        
-                clc                     ; set to succeed
-                int     2fh
-                jc      no_clear_ax
-                jmp     short no_neg_ax
-
-remote_setfattr:       
-                push    word [bp+4]        
-                jmp     short int2f_call
-
+                global  _remote_printset
+_remote_printset:
+                mov     al, 1fh
 print_doredir:  
+                push    bp
+                mov     bp,sp
+                push    si
+                push    di
                 push    ds
+                mov     ah, 11h
                 mov     si,[bp+14]
                 les     di,[bp+10]
                 mov     dx,[bp+8]
@@ -427,7 +379,14 @@ print_doredir:
                 xor     cx, cx
                 jmp     short clear_ax
 
-remote_getfree:
+                global  _remote_getfree
+_remote_getfree:
+                push    bp
+                mov     bp,sp
+                push    si
+                push    di
+                mov     ax, 110ch
+                les     di, [bp+4]
                 clc                     ; set to succeed
                 int     2fh
                 jc      no_clear_ax
@@ -439,15 +398,15 @@ remote_getfree:
                 xor     cx, cx
                 jmp     short clear_ax
 
-remote_printredir:       
-                mov     dx, [bp+4]
-                push    word [bp+6]
-                jmp     short int2f_call
-
-remote_rw:      jmp     short remote_rw1
-                     
-qremote_fn:
+                global  _QRemote_Fn
+_QRemote_Fn:
+                push    bp
+                mov     bp,sp
+                push    si
+                push    di
                 push    ds
+                mov     ax, 1123h
+                les     di, [bp+4]
                 lds     si,[bp+8]
                 clc
                 int     2fh
@@ -457,13 +416,21 @@ qremote_fn:
                 xor     cx, cx
                 jmp     short clear_ax
 
-remote_rw1:     mov     cx, [bp+8]
+                global  _network_redirector_rw
+_network_redirector_rw:
+                push    bp
+                mov     bp, sp
+                push    si
+                push    di
+                mov     ax, [bp+4]
+                les     di, [bp+6]
+                mov     cx, [bp+10]
                 clc                     ; set to succeed
                 int     2fh
                 jc      int2f_carry
                 xor     ax, ax
 int2f_carry:    neg     ax
-                mov     di, [bp+10]
+                mov     di, [bp+12]
                 mov     [di], ax
                 mov     ax, cx
                 jmp     no_neg_ax
@@ -471,7 +438,7 @@ int2f_carry:    neg     ax
                 global  _remote_process_end
 _remote_process_end:                     ; Terminate process
                 mov     ds, [_cu_psp] 
-                mov     al, 22h
+                mov     ax, 1122h
                 call    call_int2f
                 push    ss
                 pop     ds
