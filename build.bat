@@ -6,7 +6,7 @@
 :- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp] [86|186|386]
 :- option case is significant !!
 
-if "%1" == "-r" call clobber
+if "%1" == "-r" call clobber.bat
 if "%1" == "-r" shift
 
 set XERROR=
@@ -14,7 +14,7 @@ set XERROR=
 if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
 if not exist config.bat goto abort
 
-call config
+call config.bat
 
 :-----------------------------------------------------------------------
 :- following is command line handling
@@ -41,7 +41,7 @@ if not "%1" == "" goto loop_commandline
 if "%COMPILER%" == "" echo you MUST define a COMPILER variable in CONFIG.BAT
 if "%COMPILER%" == "" goto abort
 
-call default
+call default.bat
 
 :-----------------------------------------------------------------------
 :- finally - we are going to compile
@@ -109,4 +109,4 @@ echo Compilation was aborted!
 set XERROR=1
 
 :end
-default clearset
+default.bat clearset

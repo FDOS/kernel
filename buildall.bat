@@ -79,7 +79,7 @@ if exist %TempSumfile% del %TempSumfile%
 >ktemp.bat
 for %%i in (bin\k*.map) do echo call %0 $SUMMARY %%i >>ktemp.bat
 sort <ktemp.bat >ktemps.bat
-call ktemps
+call ktemps.bat
 del ktemp.bat
 del ktemps.bat
 

@@ -6,8 +6,8 @@
 if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
 if not exist config.bat goto end
 
-call config
-call default
+call config.bat
+call default.bat
 
 cd utils
 %MAKE% clobber
@@ -35,4 +35,4 @@ if exist *.bak del *.bak
 if exist status.me del status.me
 
 :end
-default clearset
+default.bat clearset
