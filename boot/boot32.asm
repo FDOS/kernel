@@ -384,8 +384,8 @@ no_incr_es:
                 adc     dx,byte 0
                 ret
 
-filename        db      "KERNEL  SYS"
+       times   0x01f1-$+$$ db 0
 
-		times	0x01fe-$+$$ db 0
+filename        db      "KERNEL  SYS",0,0
 
 sign            dw      0xAA55

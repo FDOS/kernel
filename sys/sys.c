@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.7"
+#define SYS_VERSION "v2.8"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -111,9 +111,10 @@ int write(int fd, const void *buf, unsigned count)
 int stat(const char *file_name, struct stat *buf)
 {
   struct find_t find_tbuf;
-  UNREFERENCED_PARAMETER(buf);
-  
-  return _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
+  int ret = _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
+  if (!ret)
+    buf->st_size = find_tbuf.size;
+  return ret;
 }
 
 /* WATCOM's getenv is case-insensitive which wastes a lot of space
@@ -726,6 +727,18 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
   printf("Root directory starts at sector (PREVIOUS + %u * %u)\n",
          bs->bsFATsecs, bs->bsFATs);
 #endif
+  {
+    struct stat sbuf;
+    static char metakern[] = "A:\\METAKERN.SYS";
+    metakern[0] = drive + 'A';
+    if (!stat(metakern, &sbuf) && sbuf.st_size && !(sbuf.st_size & SEC_SIZE-1))
+    {
+      memcpy(&newboot[0x1f1], "METAKERNSYS", 11);
+#ifdef DEBUG
+      printf("%s found - boot sector patched to load it!\n", metakern);
+#endif
+    }
+  }
 
 #ifdef DDEBUG
   printf("\nNew Boot Sector:\n");

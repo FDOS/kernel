@@ -388,18 +388,17 @@ no_incr_es:	pop	di
 ;-----------------------------------------------------------------------
 
 msg_LoadFreeDOS db "Loading FreeDOS ",0
+
+mystack        dw 0x7c00   ; the 0 for SS overlaps into pad bytes!
+       ; (so we can LSS SP to 0:7c00)
+
+       times 0x01ee-$+$$ db 0
+
 msg_BootError	db "No "
 		; currently, only "kernel.sys not found" gives a message,
 		; but read errors in data or root or fat sectors do not.
 
 filename	db "KERNEL  SYS"
 
-msg_BootErrorPart2:
-		db " ???",0
-
-		times 0x01fa-$+$$ db 0
-
-mystack		dw 0x7c00	; the 0 for SS overlaps into sign!
-		; (so we can LSS SP to 0:7c00)
 sign		dw 0, 0xAA55
 		; Win9x uses all 4 bytes as magic value here.
