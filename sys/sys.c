@@ -30,7 +30,7 @@
 /* #define DDEBUG */
 #define WITHOEMCOMPATBS /* include support for OEM MS/PC DOS 3.??-6.x */
 
-#define SYS_VERSION "v3.5"
+#define SYS_VERSION "v3.5a"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -325,6 +325,7 @@ typedef struct SYSOptions {
 } SYSOptions;
 
 
+void dumpBS(const char *, int);
 void restoreBS(const char *, int);
 void put_boot(SYSOptions *opts);
 BOOL check_space(COUNT, ULONG);
@@ -463,6 +464,14 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
         else if (memicmp(argp, "BACKUPBS", 8) == 0) /* save current bs before overwriting */
         {
           opts->bsFileOrig = argv[argno];
+        }
+        else if (memicmp(argp, "DUMPBS", 6) == 0) /* save current bs and exit */
+        {
+          if (drivearg)
+            dumpBS(argv[argno], (BYTE)(toupper(*(argv[drivearg])) - 'A'));
+          else
+            printf("%s: unspecified drive, unable to obtain boot sector\n", pgm);
+          exit(1);
         }
         else if (memicmp(argp, "RESTORBS", 8) == 0) /* overwrite bs and exit */
         {
@@ -1001,6 +1010,7 @@ void correct_bpb(struct bootsectortype *default_bpb,
   oldboot->bsHiddenSecs = default_bpb->bsHiddenSecs;
 }
 
+
 /* reads in boot sector (1st SEC_SIZE bytes) from file */
 void readBS(const char *bsFile, UBYTE *bootsector)
 {
@@ -1092,6 +1102,39 @@ void saveBS(const char *bsFile, UBYTE *bootsector)
     close(fd);
   } /* if write boot sector file */
 }
+
+/* write drive's boot record unmodified to bsFile */
+void dumpBS(const char *bsFile, int drive)
+{
+  UBYTE bootsector[SEC_SIZE];
+
+  if (bsFile == NULL)
+  {
+    printf("%s: missing filename to dump boot sector to\n", pgm);
+    exit(1);
+  }
+
+  /* lock drive */
+  generic_block_ioctl(drive + 1, 0x84a, NULL);
+
+  reset_drive(drive);
+
+  /* suggestion: allow reading from a boot sector or image file here */
+  if (MyAbsReadWrite(drive, 1, 0, bootsector, 0) != 0)
+  {
+    printf("%s: failed to read boot sector for drive %c:\n", pgm, drive + 'A');
+    exit(1);
+  }
+
+  reset_drive(drive);
+
+  /* unlock_drive */
+  generic_block_ioctl(drive + 1, 0x86a, NULL);
+
+  saveBS(bsFile, bootsector);
+}
+
+
 
 void put_boot(SYSOptions *opts)
 {

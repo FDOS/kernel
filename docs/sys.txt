@@ -36,6 +36,7 @@ SYS [source] dest: [bootsect] [{option}]
   /SKFN filename : set KERNEL.SYS input file and /OEM:FD
   /SCFN filename : sets COMMAND.COM input file
   /BACKUPBS [path]filename : save current bs before overwriting
+  /DUMPBS   [path]filename : save current bs and exit
   /RESTORBS [path]filename : overwrite bs and exit
 
 SYS CONFIG /help

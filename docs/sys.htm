@@ -55,6 +55,16 @@ Switches (FreeDOS specific):
   [image or bs] file, if exists only the 1st 512 bytes will be
   overwritten.
 
+  <b>/DUMPBS <i>[path]filename</i></b>
+  The original boot sector is written to <i>[path]filename</i> and
+  then exits.  The filename may refer to any [image or bs] file,
+  if exists only the 1st 512 bytes will be overwritten.
+  Note: /backupbs is intented to provide a backup of existing
+  boot sector in case one wishes to restore it later (see /restorbs),
+  whereas /dumpbs is intended only as a convenient method to
+  obtain current boot sector (such as for debugging purposes or
+  alternate installation scenerios).
+
   <b>/RESTORBS <i>[path]filename</i></b>
   Restores original boot sector (<i>[path]filename</i>) and exits.
   The boot sector specified is written with no modifications.
