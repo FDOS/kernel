@@ -153,6 +153,8 @@ int main(int argc, char **argv)
     return 1;
   }
   start_seg = strtol(argv[3], NULL, 0);
+  if (header.exExtraBytes == 0)
+    header.exExtraBytes = 0x200;
   printf("header len = %lu = 0x%lx\n", header.exHeaderSize * 16UL,
          header.exHeaderSize * 16UL);
   size =
@@ -278,7 +280,7 @@ int main(int argc, char **argv)
   if (UPX)
   {
     /* UPX trailer */
-    /* hand assembled - so this reamins ANSI C ;-)  */
+    /* hand assembled - so this remains ANSI C ;-)  */
     static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
       0xE8, 0x00, 0x00,         /* call 103                     */
       0x59,                     /* pop cx                       */

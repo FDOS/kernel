@@ -207,11 +207,12 @@ UCOUNT DosRWSft(sft FAR * s, UCOUNT n, void FAR * bp, COUNT * err, int mode)
   {
     if (mode==XFR_READ)
     {
+      char c;
+    
       /* First test for eof and exit          */
       /* immediately if it is                 */
       if (!(s->sft_flags & SFT_FEOF) || (s->sft_flags & SFT_FNUL))
       {
-        s->sft_flags &= ~SFT_FEOF;
         return 0;
       }
 
@@ -220,21 +221,28 @@ UCOUNT DosRWSft(sft FAR * s, UCOUNT n, void FAR * bp, COUNT * err, int mode)
         return BinaryCharIO(s->sft_dev, n, bp, C_INPUT, err);
       if (s->sft_flags & SFT_FCONIN)
       {
-        UCOUNT ReadCount;
-        
-        kb_buf.kb_size = LINESIZE - 1;
-        ReadCount = sti(&kb_buf);
-        if (ReadCount < kb_buf.kb_count)
-          s->sft_flags &= ~SFT_FEOF;
-        fmemcpy(bp, kb_buf.kb_buf, kb_buf.kb_count);
-        return ReadCount;
+        n = sti(n, bp);
+        if (n == 0)
+          c = CTL_Z;
       }
-      *(char FAR *)bp = _sti(FALSE);
-      return 1;
+      else
+      {
+        n = 1;
+        Do_DosIdle_loop();
+        BinaryReadSft(s, &c, err);
+        if (c != CTL_Z)
+          *(char FAR *)bp = c;
+      }      
+      if (c == CTL_Z)
+      {
+        n = 0;
+        s->sft_flags &= ~SFT_FEOF;
+      }
+      return n;
     }
     else
     {
-      /* set to no EOF                        */
+      /* reset EOF state (set to no EOF)      */  
       s->sft_flags |= SFT_FEOF;
 
       /* if null just report full transfer    */
@@ -329,7 +337,6 @@ UCOUNT BinaryReadSft(sft FAR * s, void *bp, COUNT *err)
     /* immediately if it is                 */
     if (!(s->sft_flags & SFT_FEOF) || (s->sft_flags & SFT_FNUL))
     {
-      s->sft_flags &= ~SFT_FEOF;
       return 0;
     }
     return BinaryCharIO(s->sft_dev, 1, bp, C_INPUT, err);

@@ -131,8 +131,15 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 #define ESC             0x1b
 #define CTL_BS          0x7f
 
+#define INS             0x52
+#define DEL             0x53
+
 #define F1              0x3b
+#define F2              0x3c
 #define F3              0x3d
+#define F4              0x3e
+#define F5              0x3f
+#define F6              0x40
 #define LEFT            0x4b
 #define RIGHT           0x4d
 
@@ -156,12 +163,6 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 #define BAD16                   0xFFF0
 #define MASK12                  0xFF8
 #define BAD12                   0xFF0
-
-/* Keyboard buffer maximum size                                         */
-#ifdef LINESIZE
-#undef LINESIZE
-#endif
-#define LINESIZE KBD_MAXLENGTH
 
 /* NLS character table type                                             */
 typedef BYTE *UPMAP;
@@ -260,6 +261,7 @@ extern BYTE ASM NetDelay, ASM NetRetry;
 
 extern UWORD ASM first_mcb,         /* Start of user memory                 */
   ASM uppermem_root;                /* Start of umb chain (usually 9fff)    */
+extern char * ASM inputptr;         /* pointer to unread CON input          */ 
 extern sfttbl FAR * ASM sfthead;    /* System File Table head               */
 extern struct dhdr
 FAR * ASM clock,                    /* CLOCK$ device                        */
@@ -351,6 +353,7 @@ extern BYTE ASM BootDrive,          /* Drive we came up from                */
   NumFloppies; !!*//* How many floppies we have            */
 
 extern keyboard ASM kb_buf;
+extern char ASM local_buffer[LINEBUFSIZE0A];
 
 extern struct cds
   ASM TempCDS;

@@ -35,13 +35,11 @@ static BYTE *tail_hRcsId =
 #endif
 #endif
 
-#ifndef LINESIZE
-#define LINESIZE       127
-#endif
+#define CTBUFFERSIZE       127
 
 typedef struct {
   UBYTE ctCount;                /* number of bytes returned             */
-  BYTE ctBuffer[LINESIZE];      /* the buffer itself            */
+  char ctBuffer[CTBUFFERSIZE];  /* the buffer itself            */
 } CommandTail;
 
 /*

@@ -53,7 +53,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
 UCOUNT BinaryCharIO(struct dhdr FAR * dev, UCOUNT n, void FAR * bp, unsigned command, COUNT *err);
 VOID sto(COUNT c);
 VOID cso(COUNT c);
-VOID mod_cso(REG UCOUNT c);
+unsigned mod_cso(unsigned c);
 VOID destr_bs(void);
 UCOUNT _sti(BOOL check_break);
 VOID con_hold(void);
@@ -61,8 +61,8 @@ BOOL con_break(void);
 BOOL StdinBusy(void);
 VOID KbdFlush(void);
 VOID Do_DosIdle_loop(void);
-UCOUNT sti_0a(keyboard FAR * kp);
-UCOUNT sti(keyboard * kp);
+void sti_0a(keyboard FAR * kp);
+unsigned sti(unsigned n, char FAR * bp);
 
 sft FAR *get_sft(UCOUNT);
 

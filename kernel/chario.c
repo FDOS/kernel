@@ -37,14 +37,6 @@ static BYTE *charioRcsId =
 
 #include "globals.h"
 
-#ifdef PROTO
-STATIC VOID kbfill(keyboard FAR *, UCOUNT, BOOL, UWORD *);
-struct dhdr FAR *finddev(UWORD attr_mask);
-#else
-STATIC VOID kbfill();
-struct dhdr FAR *finddev();
-#endif
-
 /*      Return a pointer to the first driver in the chain that
  *      matches the attributes.
  *      not necessary because we have the syscon pointer.
@@ -155,7 +147,7 @@ VOID sto(COUNT c)
   DosWrite(STDOUT, 1, (BYTE FAR *) & c, & UnusedRetVal);
 }
 
-VOID mod_cso(REG UCOUNT c)
+unsigned mod_cso(register unsigned c)
 {
   if (c < ' ' && c != HT)
   {
@@ -164,6 +156,7 @@ VOID mod_cso(REG UCOUNT c)
   }
   else
     cso(c);
+  return c;
 }
 
 VOID destr_bs(void)
@@ -285,47 +278,25 @@ VOID KbdFlush(void)
   execrh((request FAR *) & CharReqHdr, syscon);
 }
 
-STATIC VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
-{
-  if (kp->kb_count >= kp->kb_size)
-  {
-    cso(BELL);
-    return;
-  }
-  kp->kb_buf[kp->kb_count++] = c;
-  if (!ctlf)
-  {
-    mod_cso(c);
-    *vp += 2;
-  }
-  else
-  {
-    cso(c);
-    if (c != HT)
-      ++ * vp;
-    else
-      *vp = (*vp + 8) & -8;
-  }
-}
-
-/* return number of characters before EOF if there is one, else just the total */
-UCOUNT sti_0a(keyboard FAR * kp)
+/* reads a line */
+void sti_0a(keyboard FAR * kp)
 {
   REG UWORD c, cu_pos = scr_pos;
-  UWORD virt_pos = scr_pos;
-  UWORD init_count = 0;         /* kp->kb_count; */
-  BOOL eof = FALSE;
-#ifndef NOSPCL
-  static BYTE local_buffer[LINESIZE];
-#endif
+  unsigned count = 0, stored_pos = 0, size = kp->kb_size, stored_size = kp->kb_count;
+  BOOL insert = FALSE;
 
-  if (kp->kb_size == 0)
-    return eof;
-  /* if (kp->kb_size <= kp->kb_count || kp->kb_buf[kp->kb_count] != CR) */
-  kp->kb_count = 0;
-  FOREVER
+  if (size == 0)
+    return;
+
+  /* the stored line is invalid unless it ends with a CR */
+  if (kp->kb_buf[stored_size] != CR)
   {
-    switch (c = _sti(TRUE))
+    stored_size = 0;
+  }
+      
+  while ((c = _sti(TRUE)) != CR)
+  {
+    switch (c)
     {
       case CTL_C:
         handle_break();
@@ -339,23 +310,53 @@ UCOUNT sti_0a(keyboard FAR * kp)
           case LEFT:
             goto backspace;
 
-          case F3:
-            {
-              REG COUNT i;
-
-              for (i = kp->kb_count; local_buffer[i] != '\0'; i++)
-              {
-                c = local_buffer[kp->kb_count];
-                kbfill(kp, c, FALSE, &virt_pos);
-              }
-              break;
-            }
-
-          case F1:
           case RIGHT:
-            c = local_buffer[kp->kb_count];
-            if (c)
-              kbfill(kp, c, FALSE, &virt_pos);
+          case F1:
+            if (stored_pos < stored_size && count < size - 1)
+              local_buffer[count++] = mod_cso(kp->kb_buf[stored_pos++]);
+            break;
+            
+          case F2:
+            c = _sti(TRUE);
+            /* insert up to character c */
+        insert_to_c:            
+            while (stored_pos < stored_size && count < size - 1)
+            {
+              char c2 = kp->kb_buf[stored_pos];
+              if (c2 == c)
+                break;
+              stored_pos++;
+              local_buffer[count++] = mod_cso(c2);
+            }
+            break;
+            
+          case F3:
+            c = (unsigned)-1;
+            goto insert_to_c;
+
+          case F4:
+            c = _sti(TRUE); 
+            /* delete up to character c */
+            while (stored_pos < stored_size && c != kp->kb_buf[stored_pos])
+              stored_pos++;
+            break;
+            
+          case F5:
+            fmemcpy(kp->kb_buf, local_buffer, count);
+            stored_size = count;
+            cso('@');
+            goto start_new_line;
+
+          case F6:
+            c = CTL_Z;
+            goto default_case;
+
+          case INS:
+            insert = !insert;
+            break;
+            
+          case DEL:
+            stored_pos++;
             break;
         }
         break;
@@ -364,79 +365,109 @@ UCOUNT sti_0a(keyboard FAR * kp)
       case CTL_BS:
       case BS:
       backspace:
-        if (kp->kb_count > 0)
+        if (count > 0)
         {
-          if (kp->kb_buf[kp->kb_count - 1] >= ' ')
+          unsigned new_pos;
+          c = local_buffer[--count];
+          if (c == HT)
           {
-            destr_bs();
-            --virt_pos;
-          }
-          else if ((kp->kb_buf[kp->kb_count - 1] < ' ')
-                   && (kp->kb_buf[kp->kb_count - 1] != HT))
-          {
-            destr_bs();
-            destr_bs();
-            virt_pos -= 2;
-          }
-          else if (kp->kb_buf[kp->kb_count - 1] == HT)
-          {
-            do
+            unsigned i;
+            new_pos = cu_pos;
+            for (i = 0; i < count; i++)
             {
-              destr_bs();
-              --virt_pos;
+              if (local_buffer[i] == HT)
+                new_pos = (new_pos + 8) & ~7;
+              else if (local_buffer[i] < ' ')
+                new_pos += 2;
+              else
+                new_pos++;
             }
-            while ((virt_pos > cu_pos) && (virt_pos & 7));
+            do
+              destr_bs();
+            while (scr_pos > new_pos);
           }
-          --kp->kb_count;
+          else
+          {
+            if (c < ' ')
+              destr_bs();
+            destr_bs();
+          }
         }
+        if (stored_pos > 0 && !insert)
+          stored_pos--;
         break;
 
-      case CR:
-#ifndef NOSPCL
-        fmemcpy(local_buffer, kp->kb_buf, (COUNT) kp->kb_count);
-        local_buffer[kp->kb_count] = '\0';
-#endif
-        kbfill(kp, CR, TRUE, &virt_pos);
-        if (eof)
-          return eof;
-        else
-          return kp->kb_count--;
-
       case LF:
+        cso(CR);
+        cso(LF);
         break;
 
       case ESC:
         cso('\\');
+    start_new_line:
         cso(CR);
         cso(LF);
         for (c = 0; c < cu_pos; c++)
           cso(' ');
-        kp->kb_count = init_count;
-        eof = FALSE;
+        count = 0;
+        stored_pos = 0;
+        insert = FALSE;
         break;
 
-      case CTL_Z:
-        eof = kp->kb_count;
         /* fall through */
       default:
-        kbfill(kp, c, FALSE, &virt_pos);
+    default_case:
+        if (count < size - 1)
+          local_buffer[count++] = mod_cso(c);
+        else
+          cso(BELL);
+        if (stored_pos < stored_size && !insert)
+          stored_pos++;
         break;
     }
   }
+  local_buffer[count] = CR;
+  cso(CR);
+  fmemcpy(kp->kb_buf, local_buffer, count + 1);
+  /* if local_buffer overflows into the CON default buffer we
+     must invalidate it */
+  if (count > LINEBUFSIZECON)
+    kb_buf.kb_size = 0;
+  kp->kb_count = count;
 }
 
-UCOUNT sti(keyboard * kp)
+unsigned sti(unsigned n, char FAR * bp)
 {
-  UCOUNT ReadCount = sti_0a(kp);
-  kp->kb_count++;
-
-  if (ReadCount >= kp->kb_count && kp->kb_count < kp->kb_size)
+  char *bufend = &kb_buf.kb_buf[kb_buf.kb_count + 2];
+    
+  if (inputptr == NULL)
   {
-    kp->kb_buf[kp->kb_count++] = LF;
+    /* can we reuse kb_buf or was it overwritten? */
+    if (kb_buf.kb_size != LINEBUFSIZECON)
+    {
+      kb_buf.kb_count = 0;
+      kb_buf.kb_size = LINEBUFSIZECON;
+    }
+    sti_0a(&kb_buf);
+    bufend = &kb_buf.kb_buf[kb_buf.kb_count + 2];
+    bufend[-1] = LF;
     cso(LF);
-    ReadCount++;
+    inputptr = kb_buf.kb_buf;
+    if (*inputptr == CTL_Z)
+    {
+      inputptr = NULL;
+      return 0;
+    }   
   }
-  return ReadCount;
+
+  if (inputptr > bufend - n)
+    n = bufend - inputptr;
+
+  fmemcpy(bp, inputptr, n);
+  inputptr += n;
+  if (inputptr == bufend)
+    inputptr = NULL;
+  return n;
 }
 
 /*

@@ -268,7 +268,8 @@ _NetRetry       dw      3               ;-000c network retry count
 _NetDelay       dw      1               ;-000a network delay count
                 global  _DskBuffer
 _DskBuffer      dd      -1              ;-0008 current dos disk buffer
-                dw      0               ;-0004 Unread con input
+                global  _inputptr
+_inputptr       dw      0               ;-0004 Unread con input
                 global  _first_mcb
 _first_mcb      dw      0               ;-0002 Start of user memory
                 global  _DPBp
@@ -362,9 +363,12 @@ _firstsftt:
 
                 global  MARK01FBH
 MARK01FBH       equ     $
-                times 128 db 0
+                global  _local_buffer   ; local_buffer is 256 bytes long
+                                        ; so it overflows into kb_buf!!
+        ; only when kb_buf is used, local_buffer is limited to 128 bytes.
+_local_buffer:  times 128 db 0
                 global  _kb_buf
-_kb_buf db      129,0                   ; initialise buffer to empty
+_kb_buf db      128,0                   ; initialise buffer to empty
                 times 128+1 db 0   ; room for 128 byte readline + LF
 ;
 ; Variables that follow are documented as part of the DOS 4.0-6.X swappable
