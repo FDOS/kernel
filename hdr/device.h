@@ -467,7 +467,7 @@ COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice, int mo
 WORD ASMCFUNC FAR clk_driver(rqptr rp);
 
 /* execrh.asm */
-WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
+WORD ASMPASCAL execrh(request FAR *, struct dhdr FAR *);
 
 /*
  *      end of device.h

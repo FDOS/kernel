@@ -31,7 +31,7 @@
                 %include "segs.inc"
 
 segment	HMA_TEXT
-                ; _execrh
+                ; EXECRH
                 ;       Execute Device Request
                 ;
                 ; execrh(rhp, dhp)
@@ -41,47 +41,47 @@ segment	HMA_TEXT
 ;
 ; The stack is very critical in here.
 ;
-        global  _execrh
-	global  _init_execrh
+        global  EXECRH
+	global  INIT_EXECRH
 
-%macro EXECRH 0
+%macro EXECRHM 0
                 push    bp              ; perform c entry
                 mov     bp,sp
                 push    si
                 push    ds              ; sp=bp-8
 
-                lds     si,[bp+8]       ; ds:si = device header
-                les     bx,[bp+4]       ; es:bx = request header
+                lds     si,[bp+4]       ; ds:si = device header
+                les     bx,[bp+8]       ; es:bx = request header
 
 
                 mov     ax, [si+6]      ; construct strategy address
-                mov     [bp+8], ax    
+                mov     [bp+4], ax    
 
                 push si                 ; the bloody fucking RTSND.DOS 
                 push di                 ; driver destroys SI,DI (tom 14.2.03)
 
-                call    far[bp+8]       ; call far the strategy
+                call    far[bp+4]       ; call far the strategy
 
                 pop di 
                 pop si
                                 
 
 		mov     ax,[si+8]       ; construct 'interrupt' address
-                mov     [bp+8],ax       ; construct interrupt address 
-                call    far[bp+8]       ; call far the interrupt
+                mov     [bp+4],ax       ; construct interrupt address 
+                call    far[bp+4]       ; call far the interrupt
 
                 sti                     ; damm driver turn off ints
                 cld                     ; has gone backwards
                 pop     ds
                 pop     si
                 pop     bp
-                ret
+                ret     8
 %endmacro
 
-_execrh:
-	EXECRH
+EXECRH:
+	EXECRHM
 
 segment INIT_TEXT
 
-_init_execrh:
-	EXECRH
+INIT_EXECRH:
+	EXECRHM

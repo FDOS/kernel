@@ -46,7 +46,7 @@ extern struct _KernelConfig InitKernelConfig;
 #define fstrlen     init_fstrlen
 
 /* execrh.asm */
-WORD   ASMCFUNC  execrh(request FAR *, struct dhdr FAR *);
+WORD   ASMPASCAL execrh(request FAR *, struct dhdr FAR *);
 
 /* asmsupt.asm */
 VOID   ASMPASCAL  memset(      void     *s,  int ch,             size_t n);
