@@ -12,6 +12,10 @@ http://www.freedos.org.
 See the DOCS directory for more documentation and information about
 the FreeDOS Kernel.
 
+Contents of zip files:
+ke20xx_16.zip : binaries for 8086, FAT16
+ke20xx_32.zip : binaries for 80386, FAT16,FAT32
+ke20xxsrc.zip : sources for the kernel
 
 BUG REPORTS
 -----------
