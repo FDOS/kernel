@@ -61,33 +61,33 @@ struct MenuSelector
 STATIC struct MenuSelector MenuStruct[MENULINESMAX] BSS_INIT({0});
 
 int nMenuLine BSS_INIT(0);
-BOOL MenuColor = -1;
+int MenuColor = -1;
 
-STATIC void WriteMenuLine(int MenuSelected)
+STATIC void WriteMenuLine(struct MenuSelector *menu)
 {
   iregs r;
   unsigned char attr = (unsigned char)MenuColor;
-  char *pText = MenuStruct[MenuSelected].Text;
+  char *pText = menu->Text;
 
   if (pText[0] == 0)
     return;
 
-  if(MenuStruct[MenuSelected].bSelected==1)
+  if(menu->bSelected)
     attr = ((attr << 4) | (attr >> 4));
 
   /* clear line */
   r.a.x   = 0x0600;
   r.b.b.h = attr;
-  r.c.b.l = r.d.b.l = MenuStruct[MenuSelected].x;
-  r.c.b.h = r.d.b.h = MenuStruct[MenuSelected].y;
+  r.c.b.l = r.d.b.l = menu->x;
+  r.c.b.h = r.d.b.h = menu->y;
   r.d.b.l += strlen(pText) - 1;
   init_call_intr(0x10, &r);
 
   /* set cursor position: */
   r.a.b.h = 0x02;
   r.b.b.h = 0;
-  r.d.b.l = MenuStruct[MenuSelected].x;
-  r.d.b.h = MenuStruct[MenuSelected].y;
+  r.d.b.l = menu->x;
+  r.d.b.h = menu->y;
   init_call_intr(0x10, &r);
 
   printf("%s", pText);
@@ -96,14 +96,14 @@ STATIC void WriteMenuLine(int MenuSelected)
 /* Deselect the previously selected line */
 STATIC void DeselectLastLine(void)
 {
-  int i;
-  for (i = 0 ; i < MENULINESMAX; i++)
+  struct MenuSelector *menu;
+  for (menu = MenuStruct; menu < &MenuStruct[MENULINESMAX]; menu++)
   {
-    if (MenuStruct[i].bSelected == 1)
+    if (menu->bSelected)
     {
       /* deselect it: */
-      MenuStruct[i].bSelected = 0;
-      WriteMenuLine(i);
+      menu->bSelected = 0;
+      WriteMenuLine(menu);
       break;
     }
   }
@@ -111,9 +111,12 @@ STATIC void DeselectLastLine(void)
 
 STATIC void SelectLine(int MenuSelected)
 {
+  struct MenuSelector *menu;
+
   DeselectLastLine(); /* clear previous selection */
-  MenuStruct[MenuSelected].bSelected = 1;  /* set selection flag for this one */
-  WriteMenuLine(MenuSelected);
+  menu = &MenuStruct[MenuSelected];
+  menu->bSelected = 1;  /* set selection flag for this one */
+  WriteMenuLine(menu);
 }
 
 UWORD umb_start BSS_INIT(0), UMB_top BSS_INIT(0);
@@ -1815,10 +1818,10 @@ STATIC VOID CfgMenu(BYTE * pLine)
   /* now I'm expecting a number here if this is a menu-choice line. */
   if (isnum(pLine[0]))
   {
-    int nIndex = pLine[0]-'0';
+    struct MenuSelector *menu = &MenuStruct[pLine[0]-'0'];
 
-    MenuStruct[nIndex].x = (pLine-pNumber);  /* xpos is at start of number */
-    MenuStruct[nIndex].y = nMenuLine;
+    menu->x = (pLine-pNumber);  /* xpos is at start of number */
+    menu->y = nMenuLine;
     /* copy menu text: */
     nLen = findend(pLine); /* length is until cr/lf, null or three spaces */
 
@@ -1826,8 +1829,8 @@ STATIC VOID CfgMenu(BYTE * pLine)
        (change struct at top of file if you want more...) */
     if (nLen > MENULINEMAX-1)
       nLen = MENULINEMAX-1;
-    memcpy(MenuStruct[nIndex].Text, pLine, nLen);
-    MenuStruct[nIndex].Text[nLen] = 0;  /* nullTerminate */
+    memcpy(menu->Text, pLine, nLen);
+    menu->Text[nLen] = 0;  /* nullTerminate */
   }
   nMenuLine++;
 }
@@ -1856,7 +1859,7 @@ STATIC VOID DoMenu(void)
 
   for (;;)
   {
-    int i;
+    int i, j;
 
 RestartInput:
 
@@ -1875,18 +1878,18 @@ RestartInput:
 
     printf("Select from Menu [");
 
-    for (i = 0; i <= 9; i++)
-      if (Menus & (1 << i))
+    for (i = 0, j = 1; i <= 9; i++, j<<=1)
+      if (Menus & j)
         printf("%c", '0' + i);
     printf("], or press [ENTER]");
 
     if (MenuColor != -1)
-      printf(" (Selection=%d)", MenuSelected);
+      printf(" (Selection=%d) ", MenuSelected);
 
     if (MenuTimeout >= 0)
-      printf(" - %d \b", MenuTimeout);
+      printf("- %d \b", MenuTimeout);
     else
-      printf("     \b\b\b\b\b");
+      printf("    \b\b\b\b\b");
 
     if (MenuColor != -1)
       printf("\r\n\n  ");
@@ -1981,16 +1984,16 @@ STATIC void ClearScreen(unsigned char attr)
 {
   /* scroll down (newlines): */
   iregs r;
-  unsigned char columns, rows;
+  unsigned char rows;
 
   /* clear */
   r.a.x = 0x0600;
   r.b.b.h = attr;
   r.c.x = 0;
-  columns = peekb(0x40, 0x4a) - 1;
+  r.d.b.l = peekb(0x40, 0x4a) - 1; /* columns */
   rows = peekb(0x40, 0x84);
   if (rows == 0) rows = 24;
-  r.d.x = rows * 0x100 + columns;
+  r.d.b.h = rows;
   init_call_intr(0x10, &r);
 
   /* move cursor to pos 0,0: */
@@ -2500,6 +2503,8 @@ struct instCmds {
 
 STATIC VOID _CmdInstall(BYTE * pLine,int mode)
 {
+  struct instCmds *cmd;
+
   InstallPrintf(("Installcmd %d:%s\n",numInstallCmds,pLine));
   
   if (numInstallCmds > LENGTH(InstallCommands))
@@ -2508,9 +2513,10 @@ STATIC VOID _CmdInstall(BYTE * pLine,int mode)
     CfgFailure(pLine);
     return;
   }
-  memcpy(InstallCommands[numInstallCmds].buffer,pLine,127);
-  InstallCommands[numInstallCmds].buffer[127] = 0;
-  InstallCommands[numInstallCmds].mode        = mode;
+  cmd = &InstallCommands[numInstallCmds];
+  memcpy(cmd->buffer,pLine,127);
+  cmd->buffer[127] = 0;
+  cmd->mode = mode;
   numInstallCmds++;
 }
 STATIC VOID CmdInstall(BYTE * pLine)
@@ -2580,7 +2586,7 @@ VOID DoInstall(void)
 {
   int i;
   unsigned short installMemory; 
-
+  struct instCmds *cmd;
 
   if (numInstallCmds == 0)
     return;
@@ -2598,11 +2604,11 @@ VOID DoInstall(void)
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
 
-  for (i = 0; i < numInstallCmds; i++)
+  for (i = 0, cmd = InstallCommands; i < numInstallCmds; i++, cmd++)
   {
-    InstallPrintf(("%d:%s\n",i,InstallCommands[i].buffer));
-    set_strategy(InstallCommands[i].mode);
-    InstallExec(&InstallCommands[i]);
+    InstallPrintf(("%d:%s\n",i,cmd->buffer));
+    set_strategy(cmd->mode);
+    InstallExec(cmd);
   }
   set_strategy(FIRST_FIT);
   free(installMemory);
