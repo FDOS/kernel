@@ -987,7 +987,7 @@ COUNT DosChangeDir(BYTE FAR * s)
   }
 
   if ((FP_OFF(current_ldt) != 0xFFFF) &&
-      (strlen(PriPathName) > sizeof(current_ldt->cdsCurrentPath) - 1))
+      (strlen(PriPathName) >= sizeof(current_ldt->cdsCurrentPath)))
     return DE_PATHNOTFND;
 
 #if defined(CHDIR_DEBUG)

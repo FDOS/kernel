@@ -99,8 +99,7 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 /* Constants and macros                                                 */
 /*                                                                      */
 /* Defaults and limits - System wide                                    */
-#define PARSE_MAX       MAX_CDSPATH     /* maximum # of bytes in path   */
-#define NAMEMAX         PARSE_MAX       /* Maximum path for CDS         */
+#define NAMEMAX         MAX_CDSPATH     /* Maximum path for CDS         */
 
 /* internal error from failure or aborted operation                     */
 #define ERROR           -1

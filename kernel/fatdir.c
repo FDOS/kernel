@@ -409,7 +409,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* dirmatch structure and then for every find, we will open the */
   /* current directory, do a seek and read, then close the fnode. */
 
-  /* Parse out the drive, file name and file extension.           */
+  /* Parse out the file name */
   i = ParseDosName(name, SearchDir.dir_name, TRUE);
   if (i < SUCCESS)
     return i;

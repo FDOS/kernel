@@ -96,9 +96,6 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
     ++filename;
   }
   nDirCnt = lpszLclFile - lpszLclDir;
-  /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if (nDirCnt > PARSE_MAX - 1)
-    nDirCnt = PARSE_MAX - 1;
 
   /* Parse out the file name portion.                             */
   filename = lpszLclFile;

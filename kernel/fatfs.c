@@ -1064,23 +1064,23 @@ COUNT dos_mkdir(BYTE * dir)
   CLUSTER free_fat, parent;
   COUNT ret;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
-  
-  /* first split the passed dir into comopnents (i.e. -   */
+
+  /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(dir, fcbname)) == NULL)
   {
     return DE_PATHNOTFND;
   }
 
-  /* check that the resulting combined path does not exceed 
-     the 64 PARSE_MAX limit. this leeds to problems:
+  /* check that the resulting combined path does not exceed
+     the 67 MAX_CDSPATH limit. this leads to problems:
      A) you can't CD to this directory later
      B) you can't create files in this subdirectory
      C) the created dir will not be found later, so you
      can create an unlimited amount of same dirs. this space
      is lost forever
    */
-  if (strlen(dir) > PARSE_MAX + 2)      /* dir is already output of "truename" */
+  if (strlen(dir) >= MAX_CDSPATH)  /* dir is already output of "truename" */
   {
     dir_close(fnp);
     return DE_PATHNOTFND;

@@ -70,7 +70,6 @@ void MoveKernel(unsigned NewKernelSegment);
 
 #define GLOBAL extern
 #define NAMEMAX         MAX_CDSPATH     /* Maximum path for CDS         */
-#define PARSE_MAX       MAX_CDSPATH     /* maximum # of bytes in path   */
 #define NFILES          16      /* number of files in table     */
 #define NFCBS           16      /* number of fcbs               */
 #define NSTACKS         8       /* number of stacks             */

@@ -42,7 +42,6 @@
 */*/hdr/dcb.h
 */*/hdr/device.h
 */*/hdr/dirmatch.h
-*/*/hdr/dosnames.h
 */*/hdr/error.h
 */*/hdr/exe.h
 */*/hdr/fat.h
