@@ -58,6 +58,12 @@ CLUSTER first_fat(f_node_ptr);
 COUNT map_cluster(f_node_ptr, COUNT);
 STATIC VOID shrink_file(f_node_ptr fnp);
 
+/* FAT time notation in the form of hhhh hmmm mmmd dddd (d = double second) */
+STATIC time time_encode(struct dostime *t)
+{
+  return (t->hour << 11) | (t->minute << 5) | (t->second >> 1);
+}
+
 #ifdef WITHFAT32
 CLUSTER getdstart(struct dpb FAR *dpbp, struct dirent *dentry)
 {
@@ -68,13 +74,9 @@ CLUSTER getdstart(struct dpb FAR *dpbp, struct dirent *dentry)
 
 void setdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value)
 {
-  if (!ISFAT32(dpbp))
-  {
-    dentry->dir_start = (UWORD)value;
-    return;
-  }
   dentry->dir_start = (UWORD)value;
-  dentry->dir_start_high = (UWORD)(value >> 16);
+  if (ISFAT32(dpbp))
+    dentry->dir_start_high = (UWORD)(value >> 16);
 }
 
 BOOL checkdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value)
@@ -124,8 +126,7 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
   dentry->dir_crtimems = dt.hundredth;
   if (dt.second & 1)
     dentry->dir_crtimems += 100;
-  dentry->dir_time = dentry->dir_crtime =
-    TM_ENCODE(dt.hour, dt.minute, dt.second >> 1);
+  dentry->dir_time = dentry->dir_crtime = time_encode(&dt);
   dentry->dir_date = dentry->dir_crdate = dentry->dir_accdate = dos_getdate();
 }
 
@@ -258,16 +259,9 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
 
 BOOL fcmp_wild(const char * s1, const char * s2, unsigned n)
 {
-  while (n--)
-  {
-    if (*s1 == '?')
-    {
-      ++s1, ++s2;
-      continue;
-    }
-    if (*s1++ != *s2++)
+  for ( ; n--; ++s1, ++s2)
+    if (*s1 != '?' && *s1 != *s2)
       return FALSE;
-  }
   return TRUE;
 }
 
@@ -882,7 +876,7 @@ time dos_gettime(void)
   /* First - get the system time set by either the user   */
   /* on start-up or the CMOS clock                        */
   DosGetTime(&dt);
-  return TM_ENCODE(dt.hour, dt.minute, dt.second >> 1);
+  return time_encode(&dt);
 }
 
 /*                                                              */
@@ -1183,8 +1177,7 @@ COUNT dos_mkdir(BYTE * dir)
       return DE_BLKINVLD;
     }
     fmemset(bp->b_buffer, 0, BUFFERSIZE);
-    bp->b_flag |= BFR_DIRTY | BFR_VALID;
-    bp->b_flag |= BFR_UNCACHE;  /* need not be cached */
+    bp->b_flag |= BFR_DIRTY | BFR_VALID | BFR_UNCACHE; /* need not be cached */
   }
 
   /* flush the drive buffers so that all info is written  */
