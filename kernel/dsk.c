@@ -434,9 +434,8 @@ STATIC WORD getbpb(ddt * pddt)
     {
       /* FAT32 boot sector */
       fs = (struct FS_info *)&DiskTransferBuffer[0x43];
-      pbpbarray->bpb_ndirent = 512;
     }
-#endif    
+#endif
     pddt->ddt_serialno = getlong(&fs->serialno);
     memcpy(pddt->ddt_volume, fs->volume, sizeof fs->volume);
     memcpy(pddt->ddt_fstype, fs->fstype, sizeof fs->fstype);
