@@ -28,7 +28,6 @@
 */*/docs/readme.txt
 */*/docs/sys.txt
 */*/drivers/floppy.asm
-*/*/drivers/getvec.asm
 */*/drivers/makefile
 */*/drivers/rdpcclk.asm
 */*/drivers/wratclk.asm

@@ -101,7 +101,10 @@ extern BYTE DosLoadedInHMA;
 void MoveKernel(unsigned NewKernelSegment);
 
 void setvec(unsigned char intno, intvec vector);
-#define getvec(n) (*(intvec FAR *)MK_FP(0,4 * (n)))
+#ifndef __WATCOMC__
+#define getvec init_getvec
+#endif
+intvec getvec(unsigned char intno);
 
 #define GLOBAL extern
 #define NAMEMAX         MAX_CDSPATH     /* Maximum path for CDS         */

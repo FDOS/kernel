@@ -22,9 +22,9 @@
 #AFLAGS = /Mx /Dmem$(MODEL)=1
 #LIBFLAGS = /c
 
-OBJS   = floppy.obj getvec.obj rdpcclk.obj wrpcclk.obj wratclk.obj
+OBJS   = floppy.obj rdpcclk.obj wrpcclk.obj wratclk.obj
 
-LIBOBJS= +floppy +getvec +rdpcclk +wrpcclk +wratclk
+LIBOBJS= +floppy +rdpcclk +wrpcclk +wratclk
 
 
 

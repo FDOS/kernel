@@ -208,7 +208,16 @@ STATIC void PSPInit(void)
 }
 
 #ifndef __WATCOMC__
-/* for WATCOMC we can use the one in task.c */
+/* for WATCOMC we can use the ones in task.c */
+intvec getvec(unsigned char intno)
+{
+  intvec iv;
+  disable();
+  iv = *(intvec FAR *)MK_FP(0,4 * (intno));
+  enable();
+  return iv;
+}
+
 void setvec(unsigned char intno, intvec vector)
 {
   disable();

@@ -71,7 +71,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
   {
     /* Set Interrupt Vector                                         */
     case 0x25:
-      setvec(irp->AL, MK_FP(irp->DS, irp->DX));
+      setvec(irp->AL, (intvec)MK_FP(irp->DS, irp->DX));
       break;
 
       /* DosVars - get/set dos variables                              */

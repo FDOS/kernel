@@ -65,6 +65,15 @@ static BYTE *RcsId =
            + 1 byte: '\0'
            -- 1999/04/21 ska */
 
+intvec getvec(unsigned char intno)
+{
+  intvec iv;
+  disable();
+  iv = *(intvec FAR *)MK_FP(0,4 * (intno));
+  enable();
+  return iv;
+}
+
 void setvec(unsigned char intno, intvec vector)
 {
   disable();
@@ -488,7 +497,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     psp FAR *p;
 
     /* point to the PSP so we can build it                  */
-    setvec(0x22, MK_FP(user_r->CS, user_r->IP));
+    setvec(0x22, (intvec)MK_FP(user_r->CS, user_r->IP));
     child_psp(mem, cu_psp, mem + asize);
 
     fcbcode = patchPSP(mem - 1, env, exp, namep);
@@ -739,7 +748,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     UWORD fcbcode;
 
     /* point to the PSP so we can build it                  */
-    setvec(0x22, MK_FP(user_r->CS, user_r->IP));
+    setvec(0x22, (intvec)MK_FP(user_r->CS, user_r->IP));
     child_psp(mem, cu_psp, mem + asize);
 
     fcbcode = patchPSP(mem - 1, env, exp, namep);

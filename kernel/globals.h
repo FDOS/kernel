@@ -375,12 +375,11 @@ VOID ASMCFUNC FAR restore_stack(VOID);
 ULONG ASMPASCAL ReadPCClock(VOID);
 VOID ASMPASCAL WriteATClock(BYTE *, BYTE, BYTE, BYTE);
 VOID ASMPASCAL WritePCClock(ULONG);
-intvec ASMPASCAL getvec(UWORD);
+intvec getvec(unsigned char);
 #ifdef __WATCOMC__
 #pragma aux (pascal) ReadPCClock modify exact [ax cx dx]
 #pragma aux (pascal) WriteATClock modify exact [ax bx cx dx]
 #pragma aux (pascal) WritePCClock modify exact [ax cx dx]
-#pragma aux (pascal) getvec modify exact [ax bx dx es]
 #endif
 
 /*                                                              */
