@@ -380,6 +380,8 @@
           - update to include all CONFIG.SYS options (except ANYDOS)
         * boot.asm
           - use static read buffer to avoid crossing 64KB boundary
+        * main.c
+          - treat block devices returning 0 units as load failure
         * oemboot.asm - add [optional] PC/MS DOS compatible boot sector
         * sys.c
           - incorporate changes from/for DR-DOS enhancement project

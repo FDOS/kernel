@@ -987,7 +987,7 @@ void correct_bpb(struct bootsectortype *default_bpb,
 }
 
 /* reads in boot sector (1st SEC_SIZE bytes) from file */
-void readBS(const char *bsFile, BYTE *bootsector)
+void readBS(const char *bsFile, UBYTE *bootsector)
 {
   if (bsFile != NULL)
   {
@@ -1018,7 +1018,7 @@ void readBS(const char *bsFile, BYTE *bootsector)
 /* write bs in bsFile to drive's boot record unmodified */
 void restoreBS(const char *bsFile, int drive)
 {
-  unsigned char bootsector[SEC_SIZE];
+  UBYTE bootsector[SEC_SIZE];
 
   if (bsFile == NULL)
   {
@@ -1047,7 +1047,7 @@ void restoreBS(const char *bsFile, int drive)
 }
 
 /* write bootsector to file bsFile */
-void saveBS(const char *bsFile, BYTE *bootsector)
+void saveBS(const char *bsFile, UBYTE *bootsector)
 {
   if (bsFile != NULL)
   {
