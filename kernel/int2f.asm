@@ -313,9 +313,9 @@ remote_getfattr:
                 jc      no_clear_ax
                 jmp     short no_neg_ax
 
-;int ASMPASCAL network_redirector_open(unsigned cmd, void far *s, unsigned arg)
-                global NETWORK_REDIRECTOR_OPEN
-NETWORK_REDIRECTOR_OPEN:
+;long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, unsigned arg)
+                global NETWORK_REDIRECTOR_MX
+NETWORK_REDIRECTOR_MX:
                 pop     bx             ; ret address
                 pop     cx             ; stack value (arg)
                 pop     dx             ; off s
@@ -326,9 +326,14 @@ call_int2f:
                 push    bp
                 push    si
                 push    di
-                mov     di, dx         ; es:di -> s
                 cmp     al, 0fh
                 je      remote_getfattr
+
+                mov     di, dx         ; es:di -> s
+                cmp     al, 08h
+                je      remote_rw
+                cmp     al, 09h
+                je      remote_rw
                 push    cx             ; arg
 
 int2f_call:
@@ -398,6 +403,17 @@ _remote_getfree:
                 xor     cx, cx
                 jmp     short clear_ax
 
+remote_rw:
+                clc                    ; set to succeed
+                int     2fh
+                jc      int2f_carry
+                mov     ax, cx
+                xor     dx, dx         ; dx:ax = bytes read
+                jmp     short no_neg_ax
+int2f_carry:    neg     ax
+                cwd
+                jmp     short no_neg_ax
+                
                 global  _QRemote_Fn
 _QRemote_Fn:
                 push    bp
@@ -414,27 +430,8 @@ _QRemote_Fn:
                 mov     ax,0xffff
                 jc      no_neg_ax
                 xor     cx, cx
-                jmp     short clear_ax
+                jmp     clear_ax
 
-                global  _network_redirector_rw
-_network_redirector_rw:
-                push    bp
-                mov     bp, sp
-                push    si
-                push    di
-                mov     ax, [bp+4]
-                les     di, [bp+6]
-                mov     cx, [bp+10]
-                clc                     ; set to succeed
-                int     2fh
-                jc      int2f_carry
-                xor     ax, ax
-int2f_carry:    neg     ax
-                mov     di, [bp+12]
-                mov     [di], ax
-                mov     ax, cx
-                jmp     no_neg_ax
-                
                 global  _remote_process_end
 _remote_process_end:                     ; Terminate process
                 mov     ds, [_cu_psp] 

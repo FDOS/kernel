@@ -381,9 +381,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT t);
 /* network.c */
 int network_redirector(unsigned cmd);
 int network_redirector_fp(unsigned cmd, void far *s);
-int ASMPASCAL network_redirector_open(unsigned cmd, void far *s, unsigned arg);
-unsigned ASMCFUNC network_redirector_rw(unsigned cmd, void far *s,
-                                         unsigned n, int *err);
+long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, unsigned arg);
 COUNT ASMCFUNC remote_doredirect(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                  UWORD i, VOID FAR * data);
 COUNT ASMCFUNC remote_printset(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,

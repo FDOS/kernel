@@ -225,18 +225,17 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
  */
   if (s->sft_flags & SFT_FSHARED)
   {
-    UCOUNT XferCount;
+    long XferCount;
     VOID FAR *save_dta;
-    int err;
 
     save_dta = dta;
     lpCurSft = s;
     current_filepos = s->sft_posit;     /* needed for MSCDEX */
     dta = bp;
-    XferCount = network_redirector_rw(mode == XFR_READ ? REM_READ : REM_WRITE,
-                                      s, n, &err);
+    XferCount = network_redirector_mx(mode == XFR_READ ? REM_READ : REM_WRITE,
+                                      s, n);
     dta = save_dta;
-    return err == SUCCESS ? (long)XferCount : err;
+    return XferCount;
   }
 
   /* Do a device transfer if device                   */
@@ -566,7 +565,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
       cmd = REM_OPEN;
       attrib = (BYTE)flags;
     }
-    status = network_redirector_open(cmd, sftp, attrib);
+    status = (int)network_redirector_mx(cmd, sftp, attrib);
     if (status >= SUCCESS)
     {
       if (sftp->sft_count == 0)
