@@ -30,6 +30,7 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -37,12 +38,6 @@ static BYTE *RcsId =
 #endif
 
 #define testbit(v,bit) ((UBYTE)((v) >> (UBYTE)(bit)) & 1)
-
-#ifdef DEBUG
-#define DebugPrintf(x) printf x
-#else
-#define DebugPrintf(x)
-#endif
 
 static UBYTE MenuColor BSS_INIT(0);
 
@@ -249,6 +244,8 @@ enum {	UMB_NONE,		/* do nothing */
 	UMB_REQ,		/* DOS=UMB detected */
 };
 
+enum {LOC_CONV=0, LOC_HMA=1};  /* dup in global.h */
+
 static UBYTE HMAState BSS_INIT(HMA_NONE);
 static UBYTE UmbState BSS_INIT(UMB_NONE);
 
@@ -258,20 +255,15 @@ void PreConfig(void)
 {
   /* Initialize the base memory pointers                          */
 
-#ifdef DEBUG
-  {
-    printf("SDA located at 0x%p\n", internal_data);
-  }
-#endif
+  CfgDbgPrintf(("SDA located at 0x%p\n", internal_data));
+
   /* Begin by initializing our system buffers                     */
-#ifdef DEBUG
-/*  printf("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers);*/
-#endif
 
   LoL->DPBp =
       DynAlloc("DPBp", blk_dev.dh_name[0], sizeof(struct dpb));
 
   /* Initialize the file table                                    */
+  CfgDbgPrintf(("Initializing fnodes\n"));
   config_init_fnodes(Config.cfgFiles);
 
   LoL->sfthead = MK_PTR(struct sfttbl, FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
@@ -284,19 +276,14 @@ void PreConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
 
-#ifdef DEBUG
-  printf("Preliminary:\n f_node 0x%p\n", LoL->f_nodes);
-/*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
-  printf(" sft table 0x%p\n", LoL->sfthead);
-  printf(" CDS table 0x%p\n", LoL->CDSp);
-  printf(" DPB table 0x%p\n", LoL->DPBp);
-#endif
+  CfgDbgPrintf(("Preliminary:\n f_node 0x%p\n", LoL->f_nodes));
+/*  CfgDbgPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
+  CfgDbgPrintf((" CDS table 0x%p\n", LoL->CDSp));
+  CfgDbgPrintf((" DPB table 0x%p\n", LoL->DPBp));
 
   /* Done.  Now initialize the MCB structure                      */
   /* This next line is 8086 and 80x86 real mode specific          */
-#ifdef DEBUG
-  printf("Preliminary allocation completed: top at %p\n", lpTop);
-#endif
+  CfgDbgPrintf(("Preliminary allocation completed: top at %p\n", lpTop));
 
   /* initialize environment */
   fmemcpy(MK_PTR(char, DOS_PSP + 8, 0), master_env, sizeof(master_env));
@@ -379,16 +366,14 @@ void PostConfig(void)
     LoL->lastdrive = drv;
   }
 
-  DebugPrintf(("starting FAR allocations at %x\n", base_seg));
+  CfgDbgPrintf(("starting FAR allocations at %x\n", base_seg));
 
   /* Initialize the file table                                    */
   config_init_fnodes(Config.cfgFiles);
 
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
-#ifdef DEBUG
-  /* printf("DMA scratchpad allocated at 0x%p\n", dma_scratch); */
-#endif
+  /* CfgDbgPrintf(("DMA scratchpad allocated at 0x%p\n", dma_scratch)); */
 
   config_init_buffers(Config.cfgBuffers);
 
@@ -404,13 +389,10 @@ void PostConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
-#ifdef DEBUG
-  printf("Final: \n f_node 0x%p\n", LoL->f_nodes);
+  CfgDbgPrintf(("Final: \n f_node 0x%p\n", LoL->f_nodes));
 /*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
-  printf(" sft table 0x%p\n", LoL->sfthead->sftt_next);
-  printf(" CDS table 0x%p\n", LoL->CDSp);
-  printf(" DPB table 0x%p\n", LoL->DPBp);
-#endif
+  CfgDbgPrintf((" CDS table 0x%p\n", LoL->CDSp));
+  CfgDbgPrintf((" DPB table 0x%p\n", LoL->DPBp));
 
   if (Config.cfgStacks)
   {
@@ -419,9 +401,9 @@ void PostConfig(void)
                     Config.cfgStacksHigh);
     init_stacks(stackBase, Config.cfgStacks, Config.cfgStackSize);
 
-    DebugPrintf(("Stacks allocated at %p\n", stackBase));
+    CfgDbgPrintf(("Stacks allocated at %p\n", stackBase));
   }
-  DebugPrintf(("Allocation completed: top at 0x%x\n", base_seg));
+  CfgDbgPrintf(("Allocation completed: top at 0x%x\n", base_seg));
 
 }
 
@@ -433,21 +415,17 @@ VOID configDone(VOID)
 
   if (HMAState != HMA_DONE)
   {
-#ifdef DEBUG
-    size_t hma_paras = (HMAFree + 15) / 16;
+    register size_t hma_paras = (HMAFree + 15) / 16;
     seg_t kernel_seg = allocmem(hma_paras);
-#else
-    seg_t kernel_seg = allocmem((HMAFree + 15) / 16);
-#endif
     mcb _seg *p = MK_SEG_PTR(mcb, kernel_seg - 1);
 
     p->m_name[0] = 'S';
     p->m_name[1] = 'C';
     p->m_psp = 8;
 
-    DebugPrintf(("HMA not available, moving text to %x\n", kernel_seg));
+    CfgDbgPrintf(("HMA not available, moving text to %x\n", kernel_seg));
     MoveKernel(kernel_seg);
-    DebugPrintf(("kernel is low, start alloc at %x\n",
+    CfgDbgPrintf(("kernel is low, start alloc at %x\n",
                  kernel_seg + hma_paras + 1));
   }
 
@@ -616,15 +594,15 @@ static void DoConfig_(void)
   /*strcpy (configfile, "FDCONFIG.SYS");*/
   if ((nFileDesc = open(configfile, 0)) < 0)
   {
-    DebugPrintf(("%s not found\n", configfile));
+    CfgDbgPrintf(("%s not found\n", configfile));
     strcpy (configfile, "CONFIG.SYS");
     if ((nFileDesc = open(configfile, 0)) < 0)
     {
-      DebugPrintf(("%s not found\n", configfile));
+      CfgDbgPrintf(("%s not found\n", configfile));
       return;
     }
   }
-  DebugPrintf(("Reading %s...\n", configfile));
+  CfgDbgPrintf(("Reading %s...\n", configfile));
 
   /* Read each line into the buffer and then parse the line,      */
   /* do the table lookup and execute the handler for that         */
@@ -1541,11 +1519,14 @@ void _seg * KernelAlloc(size_t nBytes, UBYTE type, int mode)
   {
     /* prealloc */
     /* note: lpTop is already para-aligned */
-    return alignNextPara(lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop)));
+    p = alignNextPara(lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop)));
   }
-
-  p = KernelAllocPara(nPara, type, NULL, mode);
-  fmemset(p, 0, nBytes);
+  else
+  {
+    p = KernelAllocPara(nPara, type, NULL, mode);
+  }
+  
+  fmemset(p, 0x0, nBytes);
   return p;
 }
 
