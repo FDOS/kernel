@@ -575,7 +575,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   {
     if ((sftp->sft_shroff =
          share_open_check(PriPathName, cu_psp,
-                          flags & 0x03, (flags >> 2) & 0x07)) < 0)
+                          flags & 0x03, (flags >> 4) & 0x07)) < 0)
       return sftp->sft_shroff;
   }
   
