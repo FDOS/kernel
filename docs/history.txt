@@ -1,10 +1,39 @@
 2002 Aug xx - Build 2027
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
-
+    * enable LBA FAT16 booting
+    * workaround for redirectors that do/do not set the opencount
+    * int25/26 should fail for redirectors
+    * set the number of sectors per track in the INT 1E table when
+      reading/writing floppies
+    * disabled fatal() in error.c
+    * Disable the A20 line upon exec (int21/ah=4B). This is necessary for some
+      brain-dead exepacked programs.
+    * removed unnecessary buffer fields
+    * proper check for network/non-existing drive for int25/26.
+    * save more bytes on the stack at various places
 + Changes Bart
     * patchobj makefile correction
     * printf uses va_list etc.
+    * quicker and more robust Watcom build
+    * use FS: and GS: for Watcom 386.
+    * workaround: don't use DL for floppy boots, but fixed A:
+    * disable unused functions in floppy.asm
+    * cleaner prototypes (thanks to gcc)
+    * reorganized ioctl.c; there was an uninitialized variable.
+    * inlined some functions of fattab.c
+    * added (f)strcmp, (f)memcmp and (f)memchr to asmsupt.asm
+    * initially suggested by Arkady: dsk.c FS_info copy optimization
+    * initialize a VDISK signature in the HMA
+    * sysclk.c: small size optimization
+    * small UMB fixes
+    * made the CDS into a proper array instead of a structure with
+      one member
+    * large task.c cleanups -
+      merge as much as possible from DosExeLoader and DosComLoader
+      (from Tom:) eliminate some structures in low memory
+    * main.c: slightly cleanup "SHELL=" line parsing.
+
 2002 May 9 - Build 2026b
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

@@ -267,7 +267,7 @@ FAR * ASM clock,                    /* CLOCK$ device                        */
 extern WORD ASM maxbksize;          /* Number of Drives in system           */
 extern struct buffer
 FAR *ASM firstbuf;                  /* head of buffers linked list          */
-extern cdstbl FAR * ASM CDSp;       /* Current Directory Structure          */
+extern struct cds FAR * ASM CDSp;   /* Current Directory Structure          */
 extern
 struct cds FAR * ASM current_ldt;
 extern LONG ASM current_filepos;    /* current file position                */

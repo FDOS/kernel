@@ -110,8 +110,8 @@ COUNT DosDevIOctl(iregs FAR * r)
         return DE_INVLDDRV;
       else
       {
-/*        cdsp = &CDSp->cds_table[CharReqHdr.r_unit];	*/
-        dpbp = CDSp->cds_table[CharReqHdr.r_unit].cdsDpb;
+/*        cdsp = &CDSp[CharReqHdr.r_unit];	*/
+        dpbp = CDSp[CharReqHdr.r_unit].cdsDpb;
       }
       break;
 
@@ -278,7 +278,7 @@ COUNT DosDevIOctl(iregs FAR * r)
       return DE_INVLDFUNC;
 
     case 0x09:
-      if (CDSp->cds_table[CharReqHdr.r_unit].cdsFlags & CDSNETWDRV)
+      if (CDSp[CharReqHdr.r_unit].cdsFlags & CDSNETWDRV)
       {
         r->DX = ATTR_REMOTE;
         r->AX = S_DONE | S_BUSY;

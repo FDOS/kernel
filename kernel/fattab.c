@@ -261,7 +261,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
   bp = getFATblock(ClusterNum, dpbp);
 
   if (bp == NULL)
-    return DE_BLKINVLD;
+    return 1; /* the only error code possible here */
 
   if (ISFAT12(dpbp))
   {

@@ -76,7 +76,7 @@ STATIC VOID setblkno(struct buffer FAR * bp, ULONG blkno)
     bp->b_blkno = blkno;
 /*    bp->b_dpbp = &blk_devices[bp->b_unit]; */
 
-    bp->b_dpbp = CDSp->cds_table[bp->b_unit].cdsDpb;
+    bp->b_dpbp = CDSp[bp->b_unit].cdsDpb;
 
   }
 }
@@ -416,13 +416,13 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
 {
 /*  REG struct dpb *dpbp = &blk_devices[dsk]; */
 
-  REG struct dpb FAR *dpbp = CDSp->cds_table[dsk].cdsDpb;
+  REG struct dpb FAR *dpbp = CDSp[dsk].cdsDpb;
 
   if ((UCOUNT) dsk >= lastdrive)
   {
     return 0x0201;              /* illegal command */
   }
-  if ((CDSp->cds_table[dsk].cdsFlags & (CDSPHYSDRV | CDSNETWDRV)) != CDSPHYSDRV)
+  if ((CDSp[dsk].cdsFlags & (CDSPHYSDRV | CDSNETWDRV)) != CDSPHYSDRV)
   {
     return 0x0201;              /* illegal command */
   }

@@ -70,7 +70,7 @@ VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
   if (DosGetFree((UBYTE) drive, spc, &navc, bps, nc))
   {
     struct cds FAR *cdsp =
-      &CDSp->cds_table[(drive == 0 ? default_drive : drive - 1)];
+      &CDSp[(drive == 0 ? default_drive : drive - 1)];
     /* Point to the media desctriptor for this drive               */
     if (cdsp->cdsFlags & CDSNETWDRV)
     {

@@ -64,7 +64,7 @@ COUNT lfn_allocate_inode(VOID)
     }
 
   /* Check that default drive is a block device */
-  cdsp = &CDSp->cds_table[default_drive];
+  cdsp = &CDSp[default_drive];
 
   if (cdsp->cdsDpb == 0)
     {

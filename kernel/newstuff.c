@@ -128,7 +128,7 @@ COUNT get_verify_drive(char FAR * src)
     drive = ((src[0] - 1) | 0x20) - ('a' - 1);
   else
     return default_drive;
-  if (drive < lastdrive && CDSp->cds_table[drive].cdsFlags & CDSVALID)
+  if (drive < lastdrive && CDSp[drive].cdsFlags & CDSVALID)
     return drive;
   else
     return DE_INVLDDRV;
@@ -246,7 +246,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   while ((src[0] == '.') && (src[1] == '\\'))
     src += 2;
 
-  current_ldt = &CDSp->cds_table[i];
+  current_ldt = &CDSp[i];
 
   /* Always give the redirector a chance to rewrite the filename */
   fmemcpy(bufp - 1, src, sizeof(buf) - (bufp - buf));

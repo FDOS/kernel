@@ -34,10 +34,6 @@ static BYTE *memmgrRcsId =
     "$Id$";
 #endif
 
-VOID mcb_init();
-VOID mcb_print();
-VOID show_chain();
-
 /*#define nxtMCBsize(mcb,size)	\
 	MK_FP(far2para((VOID FAR *) (mcb)) + (size) + 1, 0) */
 
@@ -102,6 +98,11 @@ VOID FAR * add_far(VOID FAR * fp, ULONG off)
   if (FP_SEG(fp) == 0xffff)
     return ((BYTE FAR *) fp) + FP_OFF(off);
 
+#ifndef I86
+  if (FP_SEG(fp) == 0)
+    return ((BYTE FAR *) fp) + FP_OFF(off);
+#endif
+
   off += FP_OFF(fp);
   off2 = ((off >> 16) << 12) + ((UWORD) off >> 4);
 
@@ -111,13 +112,18 @@ VOID FAR * add_far(VOID FAR * fp, ULONG off)
 /*
  * Return a normalized far pointer
  */
-VOID FAR * adjust_far(VOID FAR * fp)
+void FAR * adjust_far(const void FAR * fp)
 {
   /* and return an adddress adjusted to the nearest paragraph     */
   /* boundary.                                                    */
 
   if (FP_SEG(fp) == 0xffff)
-    return fp;
+    return (void FAR *)fp;
+
+#ifndef I86
+  if (FP_SEG(fp) == 0)
+    return (void FAR *)fp;
+#endif
 
   return MK_FP(FP_SEG(fp) + (FP_OFF(fp) >> 4), FP_OFF(fp) & 0xf);
 }
@@ -151,9 +157,13 @@ searchAgain:
 /*
     Hack to the Umb Region direct for now. Save time and program space.
 */
-  if ((mode != LARGEST) && (mode & (FIRST_FIT_UO | FIRST_FIT_U)) &&
-      uppermem_link && uppermem_root != 0xffff)
-    p = para2far(uppermem_root);
+  if (uppermem_link && uppermem_root != 0xffff)
+  {
+    COUNT tmpmode = (mode == LARGEST ? mem_access_mode : mode);
+    if ((mode != LARGEST || size == 0xffff) &&
+        (tmpmode & (FIRST_FIT_UO | FIRST_FIT_U)))
+      p = para2far(uppermem_root);
+  }
 
   /* Search through memory blocks                         */
   FOREVER
@@ -290,42 +300,6 @@ COUNT DosMemLargest(UWORD FAR * size)
   *size = 0;
   DosMemAlloc(0xffff, LARGEST, &dummy, size);
   return *size ? SUCCESS : DE_NOMEM;
-
-#if 0
-  REG mcb FAR *p;
-  /* Initialize                                           */
-  p = ((mem_access_mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link
-       && uppermem_root != 0xffff) ? para2far(uppermem_root) : para2far(first_mcb);
-
-  /* Cycle through the whole MCB chain to find the largest unused
-     area. Join all unused areas together. */
-  *size = 0;                    /* nothing found */
-  FOREVER
-  {
-    if (!mcbValid(p))           /* corrupted MCB chain */
-      return DE_MCBDESTRY;
-
-    if (mcbFree(p))
-    {                           /* test if this is the largest block */
-      /* first join this unused block with all following unused
-         blocks */
-      if (joinMCBs(p) != SUCCESS)
-        return DE_MCBDESTRY;
-
-      /* Now test */
-      if (*size < p->m_size)
-        *size = p->m_size;
-    }
-
-    if (p->m_type == MCB_LAST)  /* that was last one in chain */
-      break;
-    p = nxtMCB(p);
-  }
-
-  /* If *size is still zero, aka nothing had changed, either no unused
-     block was found at all or a zero-length block only.
-     Both is considered as a failure */
-#endif
 }
 
 /*

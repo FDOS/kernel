@@ -72,7 +72,7 @@ fl_rst1:        xor     ax,ax           ; FALSE on error
 ;  2     Drive present, can detect disk change
 ;  3     Fixed disk
 ;
-
+%if 0
 		global	_fl_readdasd
 _fl_readdasd:
                 push    bp
@@ -93,7 +93,7 @@ fl_rdasd1:      mov     ah,0            ; BIOS reset disketter & fixed disk
                 mov     ax,0FFh         ; 0xFF on error
                 pop     bp              ; C exit
                 ret
-
+%endif
 
 ;
 ;
@@ -138,7 +138,7 @@ fl_dc_error:    mov     ax,0FFh         ; 0xFF on error
 ;
 ; See Phoenix Bios Book for error code meanings
 ;
-
+%if 0
 		global	_fl_rd_status
 _fl_rd_status:
                 push    bp              ; C entry
@@ -153,7 +153,7 @@ _fl_rd_status:
 
                 pop     bp              ; C exit
                 ret
-
+%endif
 
 ;
 ; Format Sectors

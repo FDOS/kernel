@@ -655,8 +655,8 @@ dispatch:
           break;
         }
 
-        dpb = CDSp->cds_table[drv].cdsDpb;
-        if (dpb == 0 || CDSp->cds_table[drv].cdsFlags & CDSNETWDRV)
+        dpb = CDSp[drv].cdsDpb;
+        if (dpb == 0 || CDSp[drv].cdsFlags & CDSNETWDRV)
         {
           r->AL = 0xFF;
           CritErrCode = 0x0f;
@@ -1264,14 +1264,14 @@ dispatch:
         case 0x07:
           if (r->DL < lastdrive)
           {
-            CDSp->cds_table[r->DL].cdsFlags |= 0x100;
+            CDSp[r->DL].cdsFlags |= 0x100;
           }
           break;
 
         case 0x08:
           if (r->DL < lastdrive)
           {
-            CDSp->cds_table[r->DL].cdsFlags &= ~0x100;
+            CDSp[r->DL].cdsFlags &= ~0x100;
           }
           break;
 
@@ -1432,7 +1432,7 @@ dispatch:
       if (rc < lastdrive)
       {
         UWORD saveCX = r->CX;
-        if (CDSp->cds_table[rc].cdsFlags & CDSNETWDRV)
+        if (CDSp[rc].cdsFlags & CDSNETWDRV)
         {
           goto error_invalid;
         }
@@ -1842,8 +1842,8 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
   }
 
 #ifdef WITHFAT32
-  if (!(CDSp->cds_table[drv].cdsFlags & CDSNETWDRV) &&
-      ISFAT32(CDSp->cds_table[drv].cdsDpb))
+  if (!(CDSp[drv].cdsFlags & CDSNETWDRV) &&
+      ISFAT32(CDSp[drv].cdsDpb))
   {
     r->ax = 0x207;
     r->flags |= FLG_CARRY;
@@ -2017,7 +2017,7 @@ VOID ASMCFUNC int2F_12_handler(volatile struct int2f12regs r)
         else
         {
           r.ds = FP_SEG(CDSp);
-          r.si = FP_OFF(&CDSp->cds_table[drv]);
+          r.si = FP_OFF(&CDSp[drv]);
           r.flags &= ~FLG_CARRY;
         }
         break;

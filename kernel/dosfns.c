@@ -107,8 +107,8 @@ struct dpb FAR * GetDriveDPB(UBYTE drive, COUNT * rc)
     return 0;
   }
 
-  dpb = CDSp->cds_table[drive].cdsDpb;
-  if (dpb == 0 || CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
+  dpb = CDSp[drive].cdsDpb;
+  if (dpb == 0 || CDSp[drive].cdsFlags & CDSNETWDRV)
   {
     *rc = DE_INVLDDRV;
     return 0;
@@ -1020,7 +1020,7 @@ BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc,
   if (drive >= lastdrive)
     return FALSE;
 
-  cdsp = &CDSp->cds_table[drive];
+  cdsp = &CDSp[drive];
 
   if (!(cdsp->cdsFlags & CDSVALID))
     return FALSE;
@@ -1050,7 +1050,7 @@ BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc,
     return TRUE;
   }
 
-  dpbp = CDSp->cds_table[drive].cdsDpb;
+  dpbp = CDSp[drive].cdsDpb;
   if (dpbp == NULL)
     return FALSE;
 
@@ -1127,7 +1127,7 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
   if (drive >= lastdrive)
     return DE_INVLDDRV;
 
-  cdsp = &CDSp->cds_table[drive];
+  cdsp = &CDSp[drive];
 
   if (!(cdsp->cdsFlags & CDSVALID))
     return DE_INVLDDRV;
@@ -1143,7 +1143,7 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
   }
   else
   {
-    dpbp = CDSp->cds_table[drive].cdsDpb;
+    dpbp = CDSp[drive].cdsDpb;
     if (dpbp == NULL || media_check(dpbp) < 0)
       return DE_INVLDDRV;
     xfsp->xfs_secsize = dpbp->dpb_secsize;
@@ -1172,12 +1172,12 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   drive = (drive == 0 ? default_drive : drive - 1);
 
   /* first check for valid drive          */
-  if (drive >= lastdrive || !(CDSp->cds_table[drive].cdsFlags & CDSVALID))
+  if (drive >= lastdrive || !(CDSp[drive].cdsFlags & CDSVALID))
   {
     return DE_INVLDDRV;
   }
 
-  current_ldt = &CDSp->cds_table[drive];
+  current_ldt = &CDSp[drive];
   /* ensure termination of fstrcpy */
   cp[MAX_CDSPATH - 1] = '\0';
 
@@ -1223,7 +1223,7 @@ COUNT DosChangeDir(BYTE FAR * s)
     return result;
   }
 
-  current_ldt = &CDSp->cds_table[drive];
+  current_ldt = &CDSp[drive];
 
   if (strlen(PriPathName) > sizeof(current_ldt->cdsCurrentPath) - 1)
     return DE_PATHNOTFND;
@@ -1364,7 +1364,7 @@ COUNT DosFindNext(void)
   fmemset(dta, 0, sizeof(dmatch));
   p = dta;
   dta = (BYTE FAR *) TempBuffer;
-  current_ldt = &CDSp->cds_table[((dmatch *) TempBuffer)->dm_drive];
+  current_ldt = &CDSp[((dmatch *) TempBuffer)->dm_drive];
   rc = (((dmatch *) TempBuffer)->dm_drive & 0x80) ?
       remote_findnext((VOID FAR *) current_ldt) : dos_findnext();
 
@@ -1457,7 +1457,7 @@ COUNT DosGetFattr(BYTE FAR * name)
     return 0x10;
   }
 
-  current_ldt = &CDSp->cds_table[drive];
+  current_ldt = &CDSp[drive];
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     return remote_getfattr();
@@ -1518,7 +1518,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
     return result;
   }
 
-  current_ldt = &CDSp->cds_table[drive];
+  current_ldt = &CDSp[drive];
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     return remote_setfattr(attrp);
@@ -1543,7 +1543,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
 
 UBYTE DosSelectDrv(UBYTE drv)
 {
-  current_ldt = &CDSp->cds_table[drv];
+  current_ldt = &CDSp[drv];
 
   if ((drv < lastdrive) && (current_ldt->cdsFlags & CDSVALID))
 /*
@@ -1575,7 +1575,7 @@ COUNT DosDelete(BYTE FAR * path, int attrib)
   {
     return result;
   }
-  current_ldt = &CDSp->cds_table[drive];
+  current_ldt = &CDSp[drive];
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     return remote_delete();
@@ -1601,7 +1601,7 @@ COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
   {
     return DE_INVLDDRV;
   }
-  current_ldt = &CDSp->cds_table[drive1];
+  current_ldt = &CDSp[drive1];
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     return remote_rename();
@@ -1650,7 +1650,7 @@ COUNT DosMkdir(BYTE FAR * dir)
   {
     return result;
   }
-  current_ldt = &CDSp->cds_table[drive];
+  current_ldt = &CDSp[drive];
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     return remote_mkdir();
@@ -1680,8 +1680,8 @@ COUNT DosRmdir(BYTE FAR * dir)
   {
     return result;
   }
-  current_ldt = &CDSp->cds_table[drive];
-  if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
+  current_ldt = &CDSp[drive];
+  if (CDSp[drive].cdsFlags & CDSNETWDRV)
   {
     return remote_rmdir();
   }

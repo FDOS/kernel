@@ -113,7 +113,7 @@ f_node_ptr dir_open(BYTE * dirname)
     return NULL;
   }
 
-  cdsp = &CDSp->cds_table[drive];
+  cdsp = &CDSp[drive];
 
   /* Generate full path name                                      */
   /* not necessary anymore, since truename did that already
@@ -576,7 +576,7 @@ COUNT dos_findnext(void)
 
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
-  fnp->f_dpb = CDSp->cds_table[dmp->dm_drive].cdsDpb;
+  fnp->f_dpb = CDSp[dmp->dm_drive].cdsDpb;
   if (media_check(fnp->f_dpb) < 0)
   {
     release_f_node(fnp);

@@ -32,7 +32,7 @@
 #include "dyndata.h"
 #include "init-dat.h"
 
-GLOBAL BYTE copyright[] =
+char copyright[] =
     "(C) Copyright 1995-2002 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
@@ -58,7 +58,7 @@ GLOBAL BYTE DOSFAR os_release[];
 GLOBAL seg DOSFAR RootPsp;      /* Root process -- do not abort         */
 
 extern struct dpb FAR *DOSFAR ASM DPBp;     /* First drive Parameter Block          */
-extern cdstbl FAR *DOSFAR ASM CDSp; /* Current Directory Structure          */
+extern struct cds FAR *DOSFAR ASM CDSp; /* Current Directory Structure          */
 
 extern struct dhdr FAR *DOSFAR ASM clock,   /* CLOCK$ device                        */
   FAR * DOSFAR ASM syscon;          /* console device                       */
@@ -169,7 +169,7 @@ VOID ASMCFUNC FreeDOSmain(void)
   setvec(0, int0_handler);      /* zero divide */
   setvec(1, empty_handler);     /* single step */
   setvec(3, empty_handler);     /* debug breakpoint */
-  setvec(6, empty_handler);     /* invalid opcode */
+  setvec(6, int6_handler);      /* invalid opcode */
 
   /* clear the Init BSS area (what normally the RTL does */
   memset(_ib_start, 0, _ib_end - _ib_start);
@@ -315,7 +315,7 @@ STATIC VOID FsConfig(VOID)
   /* Initialize the current directory structures    */
   for (i = 0; i < lastdrive; i++)
   {
-    struct cds FAR *pcds_table = &CDSp->cds_table[i];
+    struct cds FAR *pcds_table = &CDSp[i];
 
     fmemcpy(pcds_table->cdsCurrentPath, "A:\\\0", 4);
 
@@ -371,6 +371,8 @@ STATIC VOID signon()
   printf(" - MSC");
 #elif defined(__WATCOMC__)
   printf(" - WATCOMC");
+#elif defined(__GNUC__)
+  printf(" - GNUC"); /* this is hypothetical only */
 #else
   generate some bullshit error here, as the compiler should be known
 #endif
@@ -443,20 +445,19 @@ STATIC void kernel()
     {
 
       /* insert /D, /Y as first argument */
-      int cmdEnd, i, slen = 3; /* strlen(insertString); */
+      char *p, *q;
 
-      for (cmdEnd = 0; cmdEnd < sizeof(Cmd.ctBuffer); cmdEnd++)
+      for (p = Cmd.ctBuffer; p < &Cmd.ctBuffer[Cmd.ctCount]; p++)
       {
-        if (Cmd.ctBuffer[cmdEnd] == ' ' ||
-            Cmd.ctBuffer[cmdEnd] == '\t' || Cmd.ctBuffer[cmdEnd] == '\r')
+        if (*p == ' ' || *p == '\t' || *p == '\r')
         {
-          for (i = sizeof(Cmd.ctBuffer) - slen - 1; i >= cmdEnd; i--)
-            Cmd.ctBuffer[i + slen] = Cmd.ctBuffer[i];
+          for (q = &Cmd.ctBuffer[Cmd.ctCount - 1]; q >= p; q--)
+            q[3] = q[0];
 
-          fmemcpy(&Cmd.ctBuffer[cmdEnd], insertString, slen);
+          fmemcpy(p, insertString, 3);
 
-          Cmd.ctCount += slen;
-
+          Cmd.ctCount += 3;
+          printf("%d %s\n", Cmd.ctCount, Cmd.ctBuffer);
           break;
         }
       }
@@ -529,8 +530,8 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
     dpb->dpb_flags = M_CHANGED;
     if ((CDSp != 0) && (nblkdev < lastdrive))
     {
-      CDSp->cds_table[nblkdev].cdsDpb = dpb;
-      CDSp->cds_table[nblkdev].cdsFlags = CDSPHYSDRV;
+      CDSp[nblkdev].cdsDpb = dpb;
+      CDSp[nblkdev].cdsFlags = CDSPHYSDRV;
     }
     ++dpb;
     ++nblkdev;

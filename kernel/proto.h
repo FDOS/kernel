@@ -228,7 +228,7 @@ COUNT DosDevIOctl(iregs FAR * r);
 seg far2para(VOID FAR * p);
 seg long2para(ULONG size);
 VOID FAR *add_far(VOID FAR * fp, ULONG off);
-VOID FAR *adjust_far(VOID FAR * fp);
+void FAR *adjust_far(const void FAR * fp);
 COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para,
                   UWORD FAR * asize);
 COUNT DosMemLargest(UWORD FAR * size);
@@ -328,12 +328,10 @@ const UWORD *is_leap_year_monthdays(UWORD year);
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
 
 /* task.c */
-COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg,
-               char far * pathname);
 VOID new_psp(psp FAR * p, int psize);
 VOID return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
-LONG DosGetFsize(COUNT hndl);
+ULONG DosGetFsize(COUNT hndl);
 VOID InitPSP(VOID);
 
 /* newstuff.c */

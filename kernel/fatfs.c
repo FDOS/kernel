@@ -227,7 +227,7 @@ f_node_ptr split_path(BYTE * path, BYTE * fname, BYTE * fext)
   {
     return (f_node_ptr) 0;
   }
-  cdsp = &CDSp->cds_table[nDrive];
+  cdsp = &CDSp[nDrive];
 
 /*  11/29/99 jt
    * Networking and Cdroms. You can put in here a return.
@@ -2187,7 +2187,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 #endif
       /* need to change to root directory if changed */
       if (status == M_CHANGED)
-        CDSp->cds_table[dpbp->dpb_unit].cdsCurrentPath[3] = '\0';
+        CDSp[dpbp->dpb_unit].cdsCurrentPath[3] = '\0';
       return SUCCESS;
   }
 }
@@ -2210,7 +2210,7 @@ struct dhdr FAR *select_unit(COUNT drive)
   /* Just get the header from the dhdr array                      */
 /*  return blk_devices[drive].dpb_device; */
 
-  return (struct dhdr FAR *)CDSp->cds_table[drive].cdsDpb;
+  return (struct dhdr FAR *)CDSp[drive].cdsDpb;
 
 }
 #endif
