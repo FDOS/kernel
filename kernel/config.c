@@ -141,6 +141,7 @@ STATIC VOID CmdInstallHigh(BYTE * pLine);
 
 
 STATIC VOID CfgSwitchar(BYTE * pLine);
+STATIC VOID CfgSwitches(BYTE * pLine);
 STATIC VOID CfgFailure(BYTE * pLine);
 STATIC VOID CfgIgnore(BYTE * pLine);
 STATIC VOID CfgMenu(BYTE * pLine);
@@ -162,11 +163,6 @@ STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
 
 STATIC VOID Stacks(BYTE * pLine);
 STATIC VOID StacksHigh(BYTE * pLine);
-
-STATIC VOID sysKbdRate(BYTE * pLine);
-STATIC VOID sysKbdBuf(BYTE * pLine);
-STATIC VOID sysVidMode(BYTE * pLine);
-STATIC VOID sysMenuColor(BYTE * pLine);
 
 STATIC VOID SetAnyDos(BYTE * pLine);
 STATIC VOID Numlock(BYTE * pLine);
@@ -202,6 +198,10 @@ struct table {
 };
 
 STATIC struct table commands[] = {
+  /* first = switches! this one is special since it is asked for but
+     also checked before F5/F8 */
+  {"SWITCHES", 0, CfgSwitches},
+  
   /* rem is never executed by locking out pass                    */
   {"REM", 0, CfgIgnore},
   {";", 0,   CfgIgnore},
@@ -209,6 +209,7 @@ STATIC struct table commands[] = {
   {"MENUDEFAULT", 0, CfgMenuDefault},   
   {"MENU", 0, CfgMenu},         /* lines to print in pass 0 */
   {"ECHO", 2, CfgMenu},         /* lines to print in pass 2 - install(high) */
+  {"EECHO", 2, CfgMenuEsc},     /* modified ECHO (ea) */
 
   {"BREAK", 1, CfgBreak},
   {"BUFFERS", 1, Config_Buffers},
@@ -230,10 +231,6 @@ STATIC struct table commands[] = {
   {"SCREEN", 1, sysScreenMode},   /* JPP */
   {"VERSION", 1, sysVersion},     /* JPP */
   {"ANYDOS", 1, SetAnyDos},       /* tom */
-  {"KBDRATE", 1, sysKbdRate},     /* ea */
-  {"KBDBUF", 1, sysKbdBuf},       /* ea */
-  {"VIDMODE", 1, sysVidMode},     /* ea */
-  {"MENUCOLOR", 1, sysMenuColor}, /* ea */
 
   {"DEVICE", 2, Device},
   {"DEVICEHIGH", 2, DeviceHigh},
@@ -604,9 +601,6 @@ VOID DoConfig(int pass)
         break;
       }
 
-      /* immediately convert to upper case */
-      *pLine = toupper(*pLine);
-
       if (pLine >= szLine + sizeof(szLine) - 3)
       {
         CfgFailure(pLine);
@@ -639,7 +633,7 @@ VOID DoConfig(int pass)
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
     
-    if (nPass == 0) /* pass 0 always executed (rem Menu prompt) */
+    if (nPass == 0) /* pass 0 always executed (rem Menu prompt switches) */
     {
       (*(pEntry->func)) (pLine);
       continue;
@@ -1018,6 +1012,44 @@ STATIC VOID CfgSwitchar(BYTE * pLine)
   init_switchar(*szBuf);
 }
 
+STATIC VOID CfgSwitches(BYTE * pLine)
+{
+  extern unsigned char FAR kbdType;
+  pLine = skipwh(pLine);
+  if (commands[0].pass == 0) {
+    if ('=' != *pLine)
+    {
+      CfgFailure(pLine);
+      return;
+    }
+    pLine = skipwh(pLine + 1);
+  }
+  while (*pLine)
+  {
+    if (*pLine == '/') {
+      pLine++;
+      switch(toupper(*pLine)) {
+      case 'K':
+        if (commands[0].pass == 1)
+          kbdType = 0; /* force conv keyb */
+        break;
+      case 'N':
+        InitKernelConfig.SkipConfigSeconds = -1;
+        break;
+      case 'F':
+        InitKernelConfig.SkipConfigSeconds = 0;
+        break;
+      default:
+        CfgFailure(pLine);
+      }
+    } else {
+      CfgFailure(pLine);
+    }
+    pLine = skipwh(pLine+1);
+  }               
+  commands[0].pass = 1;
+}
+
 STATIC VOID Fcbs(BYTE * pLine)
 {
   /*  Format:     FCBS = totalFcbs [,protectedFcbs]    */
@@ -1135,148 +1167,6 @@ STATIC VOID StacksHigh(BYTE * pLine)
   Config.cfgStacksHigh = 1;
 }
 
-STATIC VOID sysKbdRate(BYTE * pLine)
-{
-  COUNT krate = 16; /* default: medium rate */
-  COUNT kdelay = 3; /* default: maximum delay */
-
-  /* Format:  KBDRATE = ratecode [, delay] */
-  pLine = GetNumArg(pLine, &krate);
-
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
-    GetNumArg(++pLine, &kdelay);
-
-  if (krate < 0 || krate > 31 || kdelay < 0 || kdelay > 3) {
-    printf("KBDRATE arguments must be 0..31, 0..3 for rate, delay\n");
-    CfgFailure(pLine);
-    return;
-  }
-
-  /* could check if int 16.9 returns AL and 4 NZ before setting rates */
-
-#if defined(__TURBOC__)
-  _AX = 0x0305;
-  _BH = kdelay;
-  _BL = krate;
-  __int__(0x16);
-#elif defined(I86)
-  asm
-  {
-    mov ax, 0x0305;
-    mov bh, byte ptr kdelay;
-    mov bl, byte ptr krate;
-    int 0x16;
-  }
-#endif
-
-  printf("Set keyboard repeat rate=%d (0=fastest, 31=slowest), delay=%d\n",
-    krate, kdelay);
-}
-
-STATIC VOID sysKbdBuf(BYTE * pLine)
-{
-  COUNT kbuf1 = 0xb0; /* default - okay if no EDD/... BIOS */
-  COUNT kbuf2 = 0xfe; /* default - end of BIOS data */
-  WORD FAR *kbufstart = MK_FP(0x40, 0x80);
-  WORD FAR *kbufend = MK_FP(0x40, 0x82);
-  WORD FAR *kbufptr1 = MK_FP(0x40, 0x1a);
-  WORD FAR *kbufptr2 = MK_FP(0x40, 0x1c);
-
-  /* Format:  KBDBUF = start [, end] */
-  pLine = GetNumArg(pLine, &kbuf1);
-
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
-    GetNumArg(++pLine, &kbuf2);
-  kbuf1 &= 0xfffe;
-  kbuf2 &= 0xfffe;
-
-  if ((kbuf1 >= kbuf2) || (kbuf1 < 0xac) || (kbuf2 > 0xfe)) {
-    printf("KBDBUF start [, end] must be in BIOS data, not %x..%x\n",
-      kbuf1, kbuf2);
-    CfgFailure(pLine);
-    return;
-  }
-
-  printf("KBDBUF: setting buffer to 0x40:%2x..%2x\n", kbuf1, kbuf2);
-  /* CLI !? */
-  kbufstart[0] = kbufptr1[0] = kbufptr2[0] = kbuf1;
-  kbufend[0] = kbuf2;
-  /* STI !? */
-}
-
-STATIC VOID sysVidMode(BYTE * pLine)
-{
-  COUNT vmode = 3; /* default: 80x25 */
-
-  /* Format:  VIDMODE = modenumber */
-  pLine = GetNumArg(pLine, &vmode);
-
-  if (vmode < 0 || vmode > 0x10c || (vmode < 0x108 && vmode >= 0x100)) {
-    printf("VIDMODE argument must be 0..0xff or 0x108..0x10c\n");
-    /* 0x108..0x10c are normal VESA text modes. */
-    /* 0..0xff are all kinds of normal video modes, no sanity checks! */
-    CfgFailure(pLine);
-    return;
-  }
-
-  if (vmode < 0x100) {
-#if defined(__TURBOC__)
-    _AX = 0x0000 + vmode; /* CLASSIC video mode set */
-    __int__(0x10);
-#elif defined(I86)
-    asm
-    {
-      mov ah, 0;
-      mov al, byte ptr vmode
-      int 0x10;
-    }
-#endif
-  } else {
-#if defined(__TURBOC__)
-    _AX = 0x4f02; /* VESA video mode set */
-    _BX = vmode;
-    __int__(0x10); /* if AL not 4f now, no VESA. if AH 1 now, failed */
-#elif defined(I86)
-    asm
-    {
-      mov ax, 0x4f02;
-      mov bx, word ptr vmode
-      int 0x10;
-    }
-#endif
-  }
-  printf("Set video mode to %x (0x1??: VESA 0x0?? normal)\n", vmode);
-}
-
-STATIC VOID sysMenuColor(BYTE * pLine)
-{
-  COUNT fgcolor = 7; /* default grey */
-  COUNT bgcolor = 0; /* default black */
-
-  /* Format:  MENUCOLOR = foreground [, background] */
-  pLine = GetNumArg(pLine, &fgcolor);
-
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
-    GetNumArg(++pLine, &bgcolor);
-
-  if (fgcolor < 0 || fgcolor > 15 || bgcolor < 0 || bgcolor > 15) {
-    printf("MENUCOLOR fgcolor [, bgcolor] have 0..15 limit\n");
-    CfgFailure(pLine);
-    return;
-  }
-
-  printf("Not yet used: foreground=%d background=%d\n", fgcolor, bgcolor);
-  /* *** TODO: Either print ANSI sequence or make int 29h *** */
-  /* *** use colored int 10.02/09 (not 0e)...??? or only  *** */
-  /* *** use int 10.2/3/8/9 loop to recolor current text  *** */
-}
-
 STATIC VOID InitPgmHigh(BYTE * pLine)
 {
   InitPgm(pLine);
@@ -1348,6 +1238,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   struct dhdr FAR *next_dhp;
   BOOL result;
   seg base, start;
+  char *p;
 
   if (mode)
   {
@@ -1382,6 +1273,9 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   }
 
   strcpy(szBuf, pLine);
+  /* uppercase the device driver command */
+  for (p = szBuf; *p != '\0'; p++)
+    *p = toupper(*p);
 
   /* TE this fixes the loading of devices drivers with
      multiple devices in it. NUMEGA's SoftIce is such a beast
