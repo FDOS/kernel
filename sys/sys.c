@@ -26,16 +26,10 @@
 
 ***************************************************************/
 
-/* 
-    TE thinks, that the boot info storage should be done by FORMAT, noone else
-    unfortunately, that doesn't work ???
-*/
-#define STORE_BOOT_INFO
-
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.6"
+#define SYS_VERSION "v2.7"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -53,13 +47,25 @@
 #endif
 #define SYS_MAXPATH   260
 #include "portab.h"
+#include "algnbyte.h"
+#include "device.h"
+#include "dcb.h"
+#include "xstructs.h"
+#include "date.h"
+#include "../hdr/time.h"
+#include "fat.h"
+
+/* These definitions deliberately put here instead of
+ * #including <stdio.h> to make executable MUCH smaller
+ */
 extern WORD CDECL printf(CONST BYTE * fmt, ...);
 extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
-#include "b_fat12.h"
-#include "b_fat16.h"
+#include "fat12com.h"
+#include "fat16com.h"
 #ifdef WITHFAT32
-#include "b_fat32.h"
+#include "fat32chs.h"
+#include "fat32lba.h"
 #endif
 
 #ifndef __WATCOMC__
@@ -68,7 +74,9 @@ extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 #else
 
-int unlink(const char *pathname);
+extern long filelength(int __handle);
+extern int unlink(const char *pathname);
+
 /* some non-conforming functions to make the executable smaller */
 int open(const char *pathname, int flags, ...)
 {
@@ -134,17 +142,11 @@ char *getenv(const char *name)
 BYTE pgm[] = "SYS";
 
 void put_boot(COUNT, BYTE *, BOOL);
-BOOL check_space(COUNT, BYTE *);
+BOOL check_space(COUNT, ULONG);
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
-COUNT DiskRead(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
-COUNT DiskWrite(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 
 #define SEC_SIZE        512
 #define COPY_SIZE	0x7e00
-
-#ifdef _MSC_VER
-#pragma pack(1)
-#endif
 
 struct bootsectortype {
   UBYTE bsJump[3];
@@ -167,11 +169,6 @@ struct bootsectortype {
   ULONG bsVolumeID;
   char bsVolumeLabel[11];
   char bsFileSysType[8];
-  char unused[2];
-  UWORD sysRootDirSecs;         /* of sectors root dir uses */
-  ULONG sysFatStart;            /* first FAT sector */
-  ULONG sysRootDirStart;        /* first root directory sector */
-  ULONG sysDataStart;           /* first data sector */
 };
 
 struct bootsectortype32 {
@@ -203,13 +200,14 @@ struct bootsectortype32 {
   ULONG bsSerialNumber;
   char bsVolumeLabel[11];
   char bsFileSystemID[8];
-  ULONG sysFatStart;
-  ULONG sysDataStart;
-  UWORD sysFatSecMask;
-  UWORD sysFatSecShift;
 };
 
-UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
+/*
+ * globals needed by put_boot & check_space
+ */
+enum {FAT12 = 12, FAT16 = 16, FAT32 = 32} fs;  /* file system type */
+/* static */ struct xfreespace x; /* we make this static to be 0 by default -
+                                     this avoids FAT misdetections */
 
 #define SBOFFSET        11
 #define SBSIZE          (sizeof(struct bootsectortype) - SBOFFSET)
@@ -217,8 +215,9 @@ UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
 
 /* essentially - verify alignment on byte boundaries at compile time  */
 struct VerifyBootSectorSize {
-  char failure1[sizeof(struct bootsectortype) == 78 ? 1 : -1];
-  char failure2[sizeof(struct bootsectortype) == 78 ? 1 : 0];
+  char failure1[sizeof(struct bootsectortype) == 62 ? 1 : -1];
+  char failure2[sizeof(struct bootsectortype) == 62 ? 1 : 0];
+/* (Watcom has a nice warning for this, by the way) */
 };
 
 int FDKrnConfigMain(int argc, char **argv);
@@ -233,7 +232,7 @@ int main(int argc, char **argv)
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
   WORD slen;
 
-  printf("FreeDOS System Installer " SYS_VERSION "\n\n");
+  printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
   if (argc > 1 && memicmp(argv[1], "CONFIG", 6) == 0)
   {
@@ -263,18 +262,15 @@ int main(int argc, char **argv)
 
   if (drivearg == 0)
   {
-    printf("Usage: %s [source] drive: [bootsect [BOTH|BOOTONLY]]\n", pgm);
-    printf
-        ("  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n");
-    printf("  drive    = A,B,etc.\n");
-    printf
-        ("  bootsect = name of 512-byte boot sector file image for drive:\n");
-    printf("             to write to *instead* of real boot sector\n");
-    printf
-        ("  BOTH     : write to *both* the real boot sector and the image file\n");
-    printf
-        ("  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n");
-    printf("%s CONFIG /help\n", pgm);
+    printf(
+      "Usage: %s [source] drive: [bootsect [BOTH]] [BOOTONLY]\n"
+      "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
+      "  drive    = A,B,etc.\n"
+      "  bootsect = name of 512-byte boot sector file image for drive:\n"
+      "             to write to *instead* of real boot sector\n"
+      "  BOTH     : write to *both* the real boot sector and the image file\n"
+      "  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n"
+      "%s CONFIG /help\n", pgm, pgm);
     exit(1);
   }
   drive = toupper(argv[drivearg][0]) - 'A';
@@ -307,34 +303,25 @@ int main(int argc, char **argv)
   else
     sprintf(rootPath, "%c:\\", 'A' + srcDrive);
 
-  if ((argc <= drivearg + 2)
-      || (memicmp(argv[drivearg + 2], "BOOTONLY", 8) != 0))
-  {
-    if (!check_space(drive, oldboot))
-    {
-      printf("%s: Not enough space to transfer system files\n", pgm);
-      exit(1);
-    }
-
-    printf("\nCopying KERNEL.SYS...\n");
-    if (!copy(drive, srcPath, rootPath, "KERNEL.SYS"))
-    {
-      printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
-      exit(1);
-    }
-  } /* copy kernel */
-
-  if (argc > drivearg + 1)
-    bsFile = argv[drivearg + 1];
+  if (argc > drivearg + 1 && memicmp(argv[drivearg + 1], "BOOTONLY", 8) != 0)
+    bsFile = argv[drivearg + 1]; /* don't write to file "BOOTONLY" */
     
   printf("\nWriting boot sector...\n");
   put_boot(drive, bsFile,
            (argc > drivearg + 2)
            && memicmp(argv[drivearg + 2], "BOTH", 4) == 0);
 
-  if ((argc <= drivearg + 2)
-      || (memicmp(argv[drivearg + 2], "BOOTONLY", 8) != 0))
+  if (argc <= drivearg + (bsFile ? 2 : 1)
+      || memicmp(argv[drivearg + (bsFile ? 2 : 1)], "BOOTONLY", 8) != 0
+      && memicmp(argv[drivearg + (bsFile ? 3 : 2)], "BOOTONLY", 8) != 0)
   {
+    printf("\nCopying KERNEL.SYS...\n");
+    if (!copy(drive, srcPath, rootPath, "KERNEL.SYS"))
+    {
+      printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
+      exit(1);
+    } /* copy kernel */
+
     printf("\nCopying COMMAND.COM...\n");
     if (!copy(drive, srcPath, rootPath, "COMMAND.COM"))
     {
@@ -350,8 +337,8 @@ int main(int argc, char **argv)
         printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);      
         exit(1);
       }
-    }
-  } /* copy shell */
+    } /* copy shell */
+  } 
 
   printf("\nSystem transferred.\n");
   return 0;
@@ -372,7 +359,7 @@ VOID dump_sector(unsigned char far * sec)
     }
     for (y = 0; y < 16; y++)
     {
-      c = oldboot[x * 16 + y];
+      c = sec[x * 16 + y];
       if (isprint(c))
         printf("%c", c);
       else
@@ -523,16 +510,6 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
 
 #ifdef __WATCOMC__
 
-unsigned getdrivespace(COUNT drive, unsigned *total_clusters);
-#pragma aux getdrivespace =  \
-      "mov ah, 0x36"      \
-      "inc dx"            \
-      "int 0x21"          \
-      "mov [si], dx"      \
-      parm [dx] [si]      \
-      modify [bx cx dx]   \
-      value [ax];
-
 unsigned getextdrivespace(void far *drivename, void *buf, unsigned buf_size);
 #pragma aux getextdrivespace =  \
       "mov ax, 0x7303"    \
@@ -542,18 +519,7 @@ unsigned getextdrivespace(void far *drivename, void *buf, unsigned buf_size);
       parm [es dx] [di] [cx] \
       value [ax];
 
-#else
-
-unsigned getdrivespace(COUNT drive, unsigned *total_clusters)
-{
-  union REGS regs;
-
-  regs.h.ah = 0x36;             /* get drive free space */
-  regs.h.dl = drive + 1;        /* 1 = 'A',... */
-  intdos(&regs, &regs);
-  *total_clusters = regs.x.dx;
-  return regs.x.ax;
-} /* getdrivespace */
+#else /* !defined __WATCOMC__ */
 
 unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size)
 {
@@ -573,20 +539,47 @@ unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size)
   return regs.x.ax == 0x7300 || regs.x.cflag;
 } /* getextdrivespace */
 
+#endif /* defined __WATCOMC__ */
+
+#ifdef __WATCOMC__
+/*
+ * If BIOS has got LBA extensions, after the Int 13h call BX will be 0xAA55.
+ * If extended disk access functions are supported, bit 0 of CX will be set.
+ */
+BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
+#pragma aux haveLBA =  \
+      "mov ax, 0x4100"  /* IBM/MS Int 13h Extensions - installation check */ \
+      "mov bx, 0x55AA" \
+      "mov dl, 0x80"   \
+      "int 0x13"       \
+      "xor ax, ax"     \
+      "cmp bx, 0xAA55" \
+      "jne quit"       \
+      "and cx, 1"      \
+      "xchg cx, ax"    \
+"quit:"                \
+      modify [bx cx]   \
+      value [ax];
+#else
+
+BOOL haveLBA(void)
+{
+  union REGS r;
+  r.x.ax = 0x4100;
+  r.x.bx = 0x55AA;
+  r.h.dl = 0x80;
+  int86(0x13, &r, &r);
+  return r.x.bx == 0xAA55 && r.x.cx & 1;
+}
 #endif
 
 VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 {
-  ULONG temp;
-  struct bootsectortype *bs;
 #ifdef WITHFAT32
   struct bootsectortype32 *bs32;
 #endif
-  int fs;
-  char *drivename = "A:\\";
-  static unsigned char x[0x40]; /* we make this static to be 0 by default -
-				   this avoids FAT misdetections */
-  unsigned total_clusters;
+  struct bootsectortype *bs;
+  static unsigned char oldboot[SEC_SIZE], newboot[SEC_SIZE];
 
 #ifdef DEBUG
   printf("Reading old bootsector from drive %c:\n", drive + 'A');
@@ -606,87 +599,58 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 #endif
 
   bs = (struct bootsectortype *)&oldboot;
-  if ((bs->bsFileSysType[4] == '6') && (bs->bsBootSignature == 0x29))
+
   {
-    fs = 16;
-  }
-  else
-  {
-    fs = 12;
-  }
+   /* see "FAT: General Overview of On-Disk Format" v1.02, 5.V.1999
+    * (http://www.nondot.org/sabre/os/files/FileSystems/FatFormat.pdf)
+    */
+    ULONG fatSize, totalSectors, dataSectors, clusters;
+    UCOUNT rootDirSectors;
 
-/*
-    the above code is not save enough for me (TE), so we change the
-    FS detection method to GetFreeDiskSpace().
-    this should work, as the disk was writeable, so GetFreeDiskSpace should work.
-*/
-
-  /* would work different when reading from an image */
-  if (getdrivespace(drive, &total_clusters) == 0xffff)
-  {
-    printf("can't get free disk space for %c:\n", drive + 'A');
-    exit(1);
-  }
-
-  if (total_clusters <= 0xff6)
-  {
-    if (fs != 12)
-      printf("warning : new detection overrides old detection\a\n");
-    fs = 12;
-  }
-  else
-  {
-
-    if (fs != 16)
-      printf("warning : new detection overrides old detection\a\n");
-    fs = 16;
-
-    /* fs = 16/32.
-       we don't want to crash a FAT32 drive
-     */
-
-    drivename[0] = 'A' + drive;
-    /* would also work different when reading from an image */
-    if (getextdrivespace(drivename, x, sizeof(x)))
-    /* error --> no Win98 --> no FAT32 */
-    {
-      printf("get extended drive space not supported --> no FAT32\n");
-    }
+    bs32 = (struct bootsectortype32 *)&oldboot;
+    rootDirSectors = (bs->bsRootDirEnts * DIRENT_SIZE  /* 32 */
+                 + bs32->bsBytesPerSec - 1) / bs32->bsBytesPerSec;
+    fatSize      = bs32->bsFATsecs ? bs32->bsFATsecs : bs32->bsBigFatSize;
+    totalSectors = bs32->bsSectors ? bs32->bsSectors : bs32->bsHugeSectors;
+    dataSectors = totalSectors
+      - bs32->bsResSectors - (bs32->bsFATs * fatSize) - rootDirSectors;
+    clusters = dataSectors / bs32->bsSecPerClust;
+ 
+    if (clusters < FAT_MAGIC)        /* < 4085 */
+      fs = FAT12;
+    else if (clusters < FAT_MAGIC16) /* < 65525 */
+      fs = FAT16;
     else
-    {
-      if (*(unsigned long *)(x + 0x10)  /* total number of clusters */
-          > (unsigned)65526l)
-      {
-        fs = 32;
-      }
-    }
+      fs = FAT32;
   }
 
-  if (fs == 16)
+  if (bs->bsBytesPerSec != SEC_SIZE)
   {
-    memcpy(newboot, b_fat16, SEC_SIZE); /* copy FAT16 boot sector */
-    printf("FAT type: FAT16\n");
+    printf("Sector size is not 512 but %d bytes - not currently supported!\n",
+      bs->bsBytesPerSec);
+    exit(1); /* Japan?! */
   }
-  else if (fs == 12)
-  {
-    memcpy(newboot, b_fat12, SEC_SIZE); /* copy FAT12 boot sector */
-    printf("FAT type: FAT12\n");
-  }
-  else
+  
+  if (fs == FAT32)
   {
     printf("FAT type: FAT32\n");
-#ifdef WITHFAT32
-    memcpy(newboot, b_fat32, SEC_SIZE); /* copy FAT32 boot sector */
+#ifdef WITHFAT32                /* copy one of the FAT32 boot sectors */
+    memcpy(newboot, haveLBA() ? fat32lba : fat32chs, SEC_SIZE);
 #else
-    printf("SYS hasn't been compiled with FAT32 support.");
-    printf("Consider using -DWITHFAT32 option.\n");
+    printf("SYS hasn't been compiled with FAT32 support.\n"
+           "Consider using -DWITHFAT32 option.\n");
     exit(1);
 #endif
+  }
+  else
+  { /* copy the FAT12/16 CHS+LBA boot sector */
+    printf("FAT type: FAT1%c\n", fs + '0' - 10);
+    memcpy(newboot, fs == FAT16 ? fat16com : fat12com, SEC_SIZE);
   }
 
   /* Copy disk parameter from old sector to new sector */
 #ifdef WITHFAT32
-  if (fs == 32)
+  if (fs == FAT32)
     memcpy(&newboot[SBOFFSET], &oldboot[SBOFFSET], SBSIZE32);
   else
 #endif
@@ -697,70 +661,30 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
   memcpy(bs->OemName, "FreeDOS ", 8);
 
 #ifdef WITHFAT32
-  if (fs == 32)
+  if (fs == FAT32)
   {
     bs32 = (struct bootsectortype32 *)&newboot;
-
-    temp = bs32->bsHiddenSecs + bs32->bsResSectors;
-    bs32->sysFatStart = temp;
-
-    bs32->sysDataStart = temp + bs32->bsBigFatSize * bs32->bsFATs;
-    bs32->sysFatSecMask = bs32->bsBytesPerSec / 4 - 1;
-
-    temp = bs32->sysFatSecMask + 1;
-    for (bs32->sysFatSecShift = 0; temp != 1;
-         bs32->sysFatSecShift++, temp >>= 1) ;
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
     bs32->bsDriveNumber = drive < 2 ? 0 : 0xff;
-  }
 #ifdef DEBUG
-  if (fs == 32)
-  {
-    printf("FAT starts at sector %lx = (%lx + %x)\n", bs32->sysFatStart,
+    printf(" FAT starts at sector %lx + %x\n",
            bs32->bsHiddenSecs, bs32->bsResSectors);
-    printf("DATA starts at sector %lx\n", bs32->sysDataStart);
-  }
 #endif
+  }
   else
 #endif
   {
-#ifdef STORE_BOOT_INFO
-    /* TE thinks : never, see above */
-    /* temporary HACK for the load segment (0x0060): it is in unused */
-    /* only needed for older kernels */
-    *((UWORD *) (bs->unused)) =
-        *((UWORD *) (((struct bootsectortype *)&b_fat16)->unused));
-    /* end of HACK */
-    /* root directory sectors */
-
-    bs->sysRootDirSecs = bs->bsRootDirEnts / 16;
-
-    /* sector FAT starts on */
-    temp = bs->bsHiddenSecs + bs->bsResSectors;
-    bs->sysFatStart = temp;
-
-    /* sector root directory starts on */
-    temp = temp + bs->bsFATsecs * bs->bsFATs;
-    bs->sysRootDirStart = temp;
-
-    /* sector data starts on */
-    temp = temp + bs->sysRootDirSecs;
-    bs->sysDataStart = temp;
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
     bs->bsDriveNumber = drive < 2 ? 0 : 0xff;
   }
 
 #ifdef DEBUG /* add an option to display this on user request? */
   printf("Root dir entries = %u\n", bs->bsRootDirEnts);
-  printf("Root dir sectors = %u\n", bs->sysRootDirSecs);
 
-  printf("FAT starts at sector %lu = (%lu + %u)\n", bs->sysFatStart,
+  printf("FAT starts at sector (%lu + %u)\n",
          bs->bsHiddenSecs, bs->bsResSectors);
-  printf("Root directory starts at sector %lu = (PREVIOUS + %u * %u)\n",
-         bs->sysRootDirStart, bs->bsFATsecs, bs->bsFATs);
-  printf("DATA starts at sector %lu = (PREVIOUS + %u)\n", bs->sysDataStart,
-         bs->sysRootDirSecs);
-#endif
+  printf("Root directory starts at sector (PREVIOUS + %u * %u)\n",
+         bs->bsFATsecs, bs->bsFATs);
 #endif
 
 #ifdef DDEBUG
@@ -812,15 +736,34 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 } /* put_boot */
 
 
-BOOL check_space(COUNT drive, BYTE * BlkBuffer)
+/*
+ * Returns TRUE if `drive` has at least `bytes` free space, FALSE otherwise.
+ * put_sector() must have been already called to determine file system type.
+ */
+BOOL check_space(COUNT drive, ULONG bytes)
 {
-  /* this should check, if on destination is enough space
-     to hold command.com+ kernel.sys */
-
-  UNREFERENCED_PARAMETER(drive);
-  UNREFERENCED_PARAMETER(BlkBuffer);
-
-  return TRUE;
+#ifdef WITHFAT32
+  if (fs == FAT32)
+  {
+    char *drivename = "A:\\";
+    drivename[0] = 'A' + drive;
+    getextdrivespace(drivename, &x, sizeof(x));
+    return x.xfs_freeclusters > (bytes / (x.xfs_clussize * x.xfs_secsize));
+  }
+  else
+#endif
+  {
+#ifdef __TURBOC__
+    struct dfree df;
+    getdfree(drive + 1, &df);
+    return (ULONG)df.df_avail * df.df_sclus * df.df_bsec >= bytes;
+#else
+    struct _diskfree_t df;
+    _dos_getdiskfree(drive + 1, &df);
+    return (ULONG)df.avail_clusters * df.sectors_per_cluster
+      * df.bytes_per_sector >= bytes;
+#endif
+  }
 } /* check_space */
 
 
@@ -859,7 +802,7 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   truename(dest, source);
   strcpy(source, dest);
   sprintf(dest, "%c:\\%s", 'A' + drive, file);
-  if (strcmp(source, dest) == 0)
+  if (stricmp(source, dest) == 0)
   {
     printf("%s: source and destination are identical: skipping \"%s\"\n",
            pgm, source);
@@ -870,6 +813,13 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   {
     printf("%s: failed to open \"%s\"\n", pgm, source);
     return FALSE;
+  }
+
+  if (!check_space(drive, filelength(fdin)))
+  {
+    printf("%s: Not enough space to transfer %s\n", pgm, file);
+    close(fdin);
+    exit(1);
   }
 
   if ((fdout =
@@ -893,25 +843,22 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
     copied += ret;
   }
 
-#ifdef __TURBOC__
   {
-    struct ftime ftime;
-    getftime(fdin, &ftime);
-    setftime(fdout, &ftime);
-  }
-#endif
-#ifdef __WATCOMC__
-  {
+#if defined __WATCOMC__ || defined _MSC_VER /* || defined __BORLANDC__ */
     unsigned short date, time;	  
     _dos_getftime(fdin, &date, &time);
     _dos_setftime(fdout, date, time);
+#elif defined __TURBOC__
+    struct ftime ftime;
+    getftime(fdin, &ftime);
+    setftime(fdout, &ftime);
+#endif
   }
-#endif  
 
   close(fdin);
   close(fdout);
 
-#ifdef _MSV_VER
+#ifdef __SOME_OTHER_COMPILER__
   {
 #include <utime.h>
     struct utimbuf utimb;
@@ -920,7 +867,6 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
         utimb.modtime = fstatbuf.st_mtime;      /* modification time */
     utime(dest, &utimb);
   };
-
 #endif
 
   printf("%lu Bytes transferred", copied);

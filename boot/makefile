@@ -7,19 +7,22 @@
 
 !include "..\mkfiles\generic.mak"
 
-production:     b_fat12.bin b_fat16.bin b_fat32.bin
+production:     fat12com.bin fat16com.bin fat32chs.bin fat32lba.bin
 
-b_fat12.bin:    boot.asm
-		$(NASM) -dISFAT12 boot.asm -ob_fat12.bin
+fat12com.bin:    boot.asm
+		$(NASM) -dISFAT12 boot.asm -ofat12com.bin
 
-b_fat16.bin:    boot.asm
-		$(NASM) -dISFAT16 boot.asm -ob_fat16.bin
+fat16com.bin:    boot.asm
+		$(NASM) -dISFAT16 boot.asm -ofat16com.bin
 
-b_fat32.bin:    boot32.asm
-		$(NASM) boot32.asm -ob_fat32.bin
+fat32chs.bin:    boot32.asm
+		$(NASM) boot32.asm -ofat32chs.bin
+
+fat32lba.bin:    boot32lb.asm
+		$(NASM) boot32lb.asm -ofat32lba.bin
 
 clobber:        clean
-		-$(RM) b_fat12.bin b_fat16.bin b_fat32.bin status.me
+		-$(RM) *.bin status.me
 
 clean:
 		-$(RM) *.lst *.map *.bak *.obj

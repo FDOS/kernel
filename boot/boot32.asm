@@ -57,34 +57,33 @@ Entry:          jmp     short real_start
 %define xrootClst       bp+0x2c      ; Starting cluster of root directory
 %define drive           bp+0x40      ; Drive number
 
+		times	0x5a-$+$$ db 0
+
 %define LOADSEG         0x0060
 
 %define FATSEG          0x2000         
 
 %define fat_sector      bp+0x48         ; last accessed sector of the FAT
-                dd      0
 
-		times	0x5a-$+$$ db 0
-%define fat_start       bp+0x5a         ; first FAT sector
-                dd      0
-%define data_start      bp+0x5e         ; first data sector
-                dd      0
-%define fat_secmask     bp+0x62         ; number of clusters in a FAT sector - 1
+%define loadsegoff_60	bp+0x5a         ; FAR pointer = 60:0
                 dw      0
-%define fat_secshift    bp+0x64         ; fat_secmask+1 = 2^fat_secshift
-                dw      0
+%define loadseg_60	bp+0x5c
+                dw      LOADSEG
+
+%define fat_start       bp+0x5e         ; first FAT sector
+%define data_start      bp+0x62         ; first data sector
+%define fat_secmask     bp+0x66		; number of clusters in a FAT sector - 1
+%define fat_secshift    bp+0x68         ; fat_secmask+1 = 2^fat_secshift
 
 ;-----------------------------------------------------------------------
 ;   ENTRY
 ;-----------------------------------------------------------------------
 
 real_start:     cld
+		cli
                 sub	ax, ax
 		mov	ds, ax
                 mov     bp, 0x7c00
-                mov     ss, ax          ; initialize stack
-                lea     sp, [bp-0x20]		
-                int     0x13            ; reset drive
 
 		mov	ax, 0x1FE0
 		mov	es, ax
@@ -95,18 +94,59 @@ real_start:     cld
 		jmp     word 0x1FE0:cont
 
 cont:           mov     ds, ax
-		mov	ss, ax
+                mov     ss, ax
+                lea     sp, [bp-0x20]
+		sti
                 mov     [drive], dl     ; BIOS passes drive number in DL
 
-                call    print
-                db      "Loading FreeDOS ",0
+;                call    print
+;                db      "Loading ",0
 
+;      Calc Params
+;      Fat_Start
+		mov	si, word [nHidden]
+		mov	di, word [nHidden+2]
+		add	si, word [bsResSectors]
+		adc	di, byte 0
+
+		mov	word [fat_start], si
+		mov	word [fat_start+2], di
+ ;	Data_Start
+		mov	al, [bsFATs]
+		cbw
+		push	ax
+		mul	word [xsectPerFat+2]
+		add	di, ax
+		pop	ax
+		mul	word [xsectPerFat]
+		add	ax, si
+		adc	dx, di
+		mov	word[data_start], ax
+		mov	word[data_start+2], dx
+;      fat_secmask
+		mov	ax, word[bsBytesPerSec]
+		shr	ax, 1
+		shr	ax, 1
+		dec	ax
+		mov	word [fat_secmask], ax
+;      fat_secshift
+; cx = temp
+; ax = fat_secshift
+		xchg	ax, cx ; cx = 0 after movsw
+		inc	cx
+secshift:	inc	ax
+		shr	cx, 1
+		cmp	cx, 1
+		jne	secshift
+		mov	byte [fat_secshift], al
+		dec	cx
+ 
 ;       FINDFILE: Searches for the file in the root directory.
 ;
 ;       Returns:
 ;            DX:AX = first cluster of file
 
-                mov     word [fat_sector], cx           ; CX is 0 after movsw
+                mov     word [fat_sector], cx           ; CX is 0 after "dec"
                 mov     word [fat_sector + 2], cx
 
                 mov     ax, word [xrootClst]
@@ -120,9 +160,7 @@ ff_next_cluster:
 ff_next_sector:
                 push    bx                              ; save sector count
 
-                mov     bx, LOADSEG
-                mov     es, bx
-                sub     bx, bx
+                les     bx, [loadsegoff_60]
                 call    readDisk
                 push    dx                              ; save sector
                 push    ax
@@ -171,10 +209,7 @@ c6:
                 call    next_cluster
                 jmp     c5
                 
-
-boot_error:     call    print
-                db      13,10,"BOOT error!",13,10,0
-
+boot_error:
 		xor	ah,ah
 		int	0x16			; wait for a key
 		int	0x19			; reboot the machine
@@ -230,7 +265,7 @@ cn_exit:
 
 boot_success:   
                 mov     bl, [drive]
-		jmp	word LOADSEG:0
+		jmp	far [loadsegoff_60]
 
 ; Convert cluster to the absolute sector
 ;input:
@@ -263,7 +298,7 @@ c3:
                 add     ax, [data_start]
                 adc     dx, [data_start + 2]
                 ret
-                
+
 ; prints text after call to this function.
 
 print_1char:        
@@ -276,8 +311,7 @@ print1:         lodsb                          ; get token
                 cmp   al, 0                    ; end of string?
                 jne   print_1char              ; until done
                 ret                            ; and jump to it
-
-
+                
 ;input:
 ;   DX:AX - 32-bit DOS sector number
 ;   ES:BX - destination buffer
