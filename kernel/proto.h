@@ -210,7 +210,7 @@ const BYTE FAR *GetNameField(const BYTE FAR * lpFileName, BYTE FAR * lpDestField
 UBYTE FcbReadWrite(xfcb FAR *, UCOUNT, int);
 UBYTE FcbGetFileSize(xfcb FAR * lpXfcb);
 void FcbSetRandom(xfcb FAR * lpXfcb);
-UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, COUNT nRecords, int mode);
+UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode);
 UBYTE FcbRandomIO(xfcb FAR * lpXfcb, int mode);
 UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags);
 int FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);

@@ -337,19 +337,26 @@ void FcbCalcRec(xfcb FAR * lpXfcb)
   lpFcb->fcb_curec = lpFcb->fcb_rndm & 127;
 }
 
-UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, COUNT nRecords, int mode)
+UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode)
 {
-  UCOUNT recno = 0;
-  UBYTE nErrorCode;
+  unsigned recno;
+  UBYTE nErrorCode = FCB_SUCCESS;
 
   FcbCalcRec(lpXfcb);
 
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
 
-  do
-    nErrorCode = FcbReadWrite(lpXfcb, recno++, mode);
-  while ((--nRecords > 0) && (nErrorCode == 0));
+  for (recno = 0; recno < *nRecords; recno++)
+  {
+    nErrorCode = FcbReadWrite(lpXfcb, recno, mode);
+    /* end-of-file, partial read should count last record */
+    if (nErrorCode == FCB_ERR_EOF)
+      recno++;
+    if (nErrorCode != FCB_SUCCESS)
+      break;
+  }
+  *nRecords = recno;
 
   /* Now update the fcb                                           */
   lpFcb->fcb_rndm = FcbRec();

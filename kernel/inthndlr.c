@@ -658,12 +658,12 @@ dispatch:
 
       /* Read random record(s) using FCB */
     case 0x27:
-      lr.AL = FcbRandomBlockIO(FP_DS_DX, lr.CX, XFR_READ);
+      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_READ);
       break;
 
       /* Write random record(s) using FCB */
     case 0x28:
-      lr.AL = FcbRandomBlockIO(FP_DS_DX, lr.CX, XFR_WRITE);
+      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_WRITE);
       break;
 
       /* Parse File Name                                              */
