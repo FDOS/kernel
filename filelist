@@ -51,6 +51,7 @@
 */*/hdr/fnode.h
 */*/hdr/kbd.h
 */*/hdr/kconfig.h
+*/*/hdr/lol.h
 */*/hdr/mcb.h
 */*/hdr/network.h
 */*/hdr/nls.h
