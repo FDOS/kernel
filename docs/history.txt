@@ -1,3 +1,20 @@
+2001 Jun 2 - Build 2024
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Tom:
+    * small fixes again.
+    * one possible cause for data corruption (BFR_VALID) detected
+    * directories with 'ARCHIVE' attribute could not be deleted
+    * saved even more bytes (now 20 buffers in HMA :-)
+    * some issues with pathnames around PARSE_MAX removed
+    * blanks in filenames weren't proper handled
+    * there was (at rare circumstances) a buffer overflow 
+      while config.sys parsing.
++ Fixes  Bart:
+    * INT 21 0A - Dos Buffered Input reworked
++ Added  tom:
+    * slighly better buffer handling (search BFR_UNCACHE)
+      now go more FAT+DIR sectors, less DATA sectors into cache
+    * dos_mkdir tuned (was ~0.5 sec on 64K cluster partitions)
 2001 Apr 29 - Build 2024
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  Bart:
@@ -15,6 +32,30 @@
 	    floppy.asm (see also comments in sys.c) + a few fixes (also boot.asm related) 
 	    from Bart.
 	 * Hopefully fixed DateTime Changed + ATTRIB |= ARCHIVE bug.
+	 * cleaned up dsk.c and saved more bytes.
+	 Przemyslaw Czerpak:
+	 * Default lastdrive should be 5 (E) not 6 (F).
+	 * fixed not ignoring whitespace after '=' in config.sys
+	 * noted INT21/AX=3800 bug for getting the country. Put in a workaround for now.
+2001 Apr 29 - Build 2024
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Bart:
+	 * fixed the "TYPE > FOO.TXT" poor man's editor.
+	 * use "fast console output" (int 29) when applicable.
+	 * moved 5 FILES to DOS DS:00CC and fixed the SFT linked list.
+	 * cleaned up findfirst/findnext for redirected drives.
+	 * moved IO segments to 0x70 as this matches other DOS'es.
+	 Tom:
+	 * more VDISK changes (changed slightly by Bart)
+	 * check for presence of A:/B: (changed by Bart to use the BIOS equipment flag
+	    from INT11 instead of INT13).
+	 * added F5/F8 stepping through config.sys; default SHELL=COMMAND.COM /P/E:256
+	   Use ESC to stop single stepping, F5 to skip remaining config.sys/autoexec.bat.
+	 * new sys: uses INT25/26 instead of the low level INT13 related kernel code from
+	    floppy.asm (see also comments in sys.c) + a few fixes (also boot.asm related) 
+	    from Bart.
+	 * Hopefully fixed DateTime Changed + ATTRIB |= ARCHIVE bug.
+	 * Combined clk and blk driver entries as much as possible.
 	 * cleaned up dsk.c and saved more bytes.
 	 Przemyslaw Czerpak:
 	 * Default lastdrive should be 5 (E) not 6 (F).

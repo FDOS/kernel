@@ -90,12 +90,6 @@ intr?1:
                 ret
 
 
-                global	_int3
-_int3:
-                int 3
-                retf
-
-
 segment	INIT_TEXT
 ;
 ;       void init_call_intr(nr, rp)
@@ -265,6 +259,15 @@ _init_PSPInit:
         int 21h
         pop si
         ret
+
+;; VOID init_PSPSet(seg psp_seg)
+    global _init_PSPSet
+_init_PSPSet:
+	mov ah, 50h
+	mov bx, sp
+	mov bx, [bx+2]
+	int 21h
+	ret
 
 ;; COUNT init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
     global _init_DosExec

@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.8  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -421,8 +424,9 @@ VOID DosTrimPath(BYTE FAR * lpszPathNamep)
       lpszRoot = lpszNext + 1;
   }
 
+                                                /* NAMEMAX + 2, must include C: TE*/
   for (lpszLast = lpszNext = lpszPathNamep, nChars = 0;
-       *lpszNext != '\0' && nChars < NAMEMAX;)
+       *lpszNext != '\0' && nChars < NAMEMAX+2;)
   {
     /* Initialize flag for loop.                            */
     flDotDot = FALSE;

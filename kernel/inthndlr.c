@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.24  2001/06/03 14:16:18  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.23  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -486,7 +489,7 @@ dispatch:
     case 0x0a:
       ((keyboard FAR *) FP_DS_DX)->kb_count = 0;
       sti((keyboard FAR *) FP_DS_DX);
-      ((keyboard FAR *) FP_DS_DX)->kb_count -= 2;
+      ((keyboard FAR *) FP_DS_DX)->kb_count--;
       break;
 
       /* Check Stdin Status                                           */

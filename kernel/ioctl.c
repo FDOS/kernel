@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/06/03 14:16:18  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.8  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -110,11 +113,6 @@ static BYTE *RcsId = "$Id$";
  * Initial revision.
  */
 
-#ifdef PROTO
-sft FAR *get_sft(COUNT);
-#else
-sft FAR *get_sft();
-#endif
 
 /*
  * WARNING:  this code is non-portable (8086 specific).
@@ -243,12 +241,12 @@ COUNT DosDevIOctl(iregs FAR * r)
             r->AL = CharReqHdr.r_status & S_BUSY ? 00 : 0xff;
 
           }
-          if (r->AL == 0x02 || r->AL == 0x03)
+          else if (r->AL == 0x02 || r->AL == 0x03)
           {
             r->AX = CharReqHdr.r_count;
           }
 
-          if (r->AL == 0x0c || r->AL == 0x10)
+          else if (r->AL == 0x0c || r->AL == 0x10)
           {
             r->AX = CharReqHdr.r_status;
           }
@@ -300,12 +298,12 @@ COUNT DosDevIOctl(iregs FAR * r)
 
         }
 
-        if (r->AL == 0x04 || r->AL == 0x05)
+        else if (r->AL == 0x04 || r->AL == 0x05)
         {
             r->AX = CharReqHdr.r_count;
 
         }
-        if (r->AL == 0x0d || r->AL == 0x11)
+        else if (r->AL == 0x0d || r->AL == 0x11)
         {
             r->AX = CharReqHdr.r_status;
         }

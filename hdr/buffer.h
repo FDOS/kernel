@@ -34,6 +34,9 @@ static BYTE *buffer_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.2  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.1  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -68,6 +71,7 @@ struct buffer
 #define b_dpbp          _b._b_dpbp
 #define b_huge_blkno    _b._b_huge_blkno
 
+#define BFR_UNCACHE     0x80    /* indication, not really used  */
 #define BFR_DIRTY       0x40    /* buffer modified              */
 #define BFR_VALID       0x20    /* buffer contains valid data   */
 #define BFR_DATA        0x08    /* buffer is from data area     */

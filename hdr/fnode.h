@@ -36,6 +36,9 @@ static BYTE *fnode_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.5  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -126,3 +129,4 @@ struct f_node
   UWORD f_boff;                 /* the byte in the cluster      */
 };
 
+typedef struct f_node FAR * f_node_ptr;

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/06/03 14:16:18  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.13  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -234,7 +237,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* create a new environment for the process             */
   /* copy parent's environment if exec.env_seg == 0       */
 
-  pDest = pSrc = exp->exec.env_seg ?
+  pSrc = exp->exec.env_seg ?
       MK_FP(exp->exec.env_seg, 0) :
       MK_FP(ppsp->ps_environ, 0);
 
@@ -254,23 +257,18 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
      -- 1999/04/21 ska */
   if (pSrc)
   {                             /* if no environment is available, one byte is required */
-    while (*pSrc != '\0')
+  
+    for (nEnvSize = 0; ; nEnvSize++)
     {
-      while (*pSrc != '\0' && pSrc < pDest + MAXENV - ENV_KEEPFREE)
-      {
-        ++pSrc;
-        ++nEnvSize;
-      }
-      /* account for terminating null         */
-      ++nEnvSize;
-      ++pSrc;
+                                /* Test env size and abort if greater than max          */
+        if (nEnvSize >= MAXENV - ENV_KEEPFREE)
+            return DE_INVLDENV;
+        
+        if (*(UWORD FAR *)(pSrc+nEnvSize) == 0)
+            break;            
     }
-    pSrc = pDest;
+    nEnvSize += 2;              /* account for trailing \0\0 */
   }
-
-  /* Test env size and abort if greater than max          */
-  if (nEnvSize >= MAXENV)
-    return DE_INVLDENV;
 
   /* allocate enough space for env + path                 */
   if ((RetCode = DosMemAlloc(long2para(nEnvSize + ENV_KEEPFREE),
@@ -291,21 +289,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   else
     *pDest++ = '\0';            /* create an empty environment */
 
-#if 0
-  /* The size is already known, use a quicker copy function
-     -- 1999/04/21 ska */
-  for (; *pSrc != '\0';)
-  {
-    while (*pSrc)
-    {
-      *pDest++ = *pSrc++;
-    }
-    pSrc++;
-    *pDest++ = 0;
-  }
-  *pDest++ = 0;
-#endif
-  /* initialize 'extra strings' count */
+                                /* initialize 'extra strings' count */
   *((UWORD FAR *) pDest)++ = 1;
 
   /* copy complete pathname */

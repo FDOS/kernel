@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.13  2001/06/03 14:16:18  bartoldeman
+; BUFFERS tuning and misc bug fixes/cleanups (2024c).
+;
 ; Revision 1.12  2001/04/29 17:34:40  bartoldeman
 ; A new SYS.COM/config.sys single stepping/console output/misc fixes.
 ;
@@ -625,7 +628,7 @@ __ib_end:
         
 ; kernel startup stack
                 global  init_tos
-                resw 256
+                resw 384
 init_tos:
 ; the last paragraph of conventional memory might become an MCB
                 resb 16
@@ -915,8 +918,10 @@ __EnableA20:
 
 enableUsingXMSdriver:
     mov ah,3
-UsingXMSdriver:    
+UsingXMSdriver:
+    push bx
     call far [cs:_XMSDriverAddress]
+    pop bx
     retf
 
     global __DisableA20

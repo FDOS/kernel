@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.12  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -557,16 +560,20 @@ extern struct cds
 GLOBAL seg
   RootPsp;                      /* Root process -- do not abort         */
 
+/* don't know what it should do, but its no longer in use TE
 GLOBAL struct f_node
  *pDirFileNode;
+*/ 
 
+#ifdef DEBUG
 GLOBAL iregs error_regs;        /* registers for dump                   */
 
 GLOBAL WORD
   dump_regs;                    /* dump registers of bad call           */
 
-GLOBAL struct f_node FAR
-* f_nodes;                      /* pointer to the array                 */
+#endif
+
+GLOBAL f_node_ptr f_nodes;      /* pointer to the array                 */
 
 GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
@@ -574,8 +581,8 @@ GLOBAL struct buffer
 FAR *lastbuf;                   /* tail of ditto                        */
 /*  FAR * buffers;              /* pointer to array of track buffers    */
 
-GLOBAL BYTE                     /* scratchpad used for working around                                           */
-  FAR * dma_scratch;            /* DMA transfers during disk I/O                                                */
+/*GLOBAL BYTE FAR * dma_scratch;*/ /* scratchpad used for working around                                           */
+                                /* DMA transfers during disk I/O                                                */
 
 GLOBAL iregs
   FAR * ustackp,                /* user stack                           */

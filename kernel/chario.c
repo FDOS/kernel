@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.8  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -285,7 +288,7 @@ VOID KbdFlush(void)
 
 static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
 {
-  if (kp->kb_count > kp->kb_size)
+  if (kp->kb_count >= kp->kb_size)
   {
     cso(BELL);
     return;
@@ -349,8 +352,6 @@ UCOUNT sti(keyboard FAR * kp)
               for (i = kp->kb_count; local_buffer[i] != '\0'; i++)
               {
                 c = local_buffer[kp->kb_count];
-                if (c == '\r' || c == '\n')
-                  break;
                 kbfill(kp, c, FALSE, &virt_pos);
               }
               break;
@@ -358,8 +359,6 @@ UCOUNT sti(keyboard FAR * kp)
 
           case RIGHT:
             c = local_buffer[kp->kb_count];
-            if (c == '\r' || c == '\n')
-              break;
             kbfill(kp, c, FALSE, &virt_pos);
             break;
         }
@@ -397,21 +396,18 @@ UCOUNT sti(keyboard FAR * kp)
         break;
 
       case CR:
-        kbfill(kp, CR, TRUE, &virt_pos);
-        kbfill(kp, LF, TRUE, &virt_pos);
 #ifndef NOSPCL
         fbcopy((BYTE FAR *) kp->kb_buf,
                (BYTE FAR *) local_buffer, (COUNT) kp->kb_count);
         local_buffer[kp->kb_count] = '\0';
 #endif
+        kbfill(kp, CR, TRUE, &virt_pos);
         if (eof)
           return eof;
         else
           return kp->kb_count;
 
       case LF:
-        cso(CR);
-        cso(LF);
         break;
 
       case ESC:

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.5  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -122,6 +125,33 @@ UWORD next_cl16();
 /*                                                                      */
 /************************************************************************/
 
+struct buffer FAR *getFATblock(UWORD cluster, struct dpb FAR *dpbp)
+{
+  ULONG sector;  
+  struct buffer FAR *bp;
+    
+  if (ISFAT12(dpbp))
+    {
+        sector = ((cluster << 1) + cluster) >> 1;
+    }        
+  else /* FAT16 */
+    {
+        sector = (ULONG)cluster * SIZEOF_CLST16; 
+    }  
+  sector = sector / dpbp->dpb_secsize + dpbp->dpb_fatstrt; 
+  
+  bp = getblock(sector, dpbp->dpb_unit);
+  
+  if (bp)
+    {
+    bp->b_flag &= ~(BFR_DATA | BFR_DIR);
+    bp->b_flag |= BFR_FAT | BFR_VALID;
+    bp->b_copies = dpbp->dpb_fats;
+    bp->b_offset_lo = dpbp->dpb_fatsize;
+    bp->b_offset_hi = dpbp->dpb_fatsize >> 8;
+    }
+  return bp;  
+}
 /*                                                              */
 /* The FAT file system is difficult to trace through FAT table. */
 /* There are two kinds of FAT's, 12 bit and 16 bit. The 16 bit  */
@@ -152,30 +182,21 @@ UCOUNT link_fat16(struct dpb FAR *dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
 {
   UCOUNT idx;
   struct buffer FAR *bp;
-  UWORD Cl2 = Cluster2;
 
   /* Get the block that this cluster is in                */
-  bp = getblock((ULONG) (((ULONG) Cluster1) * SIZEOF_CLST16) / dpbp->dpb_secsize + dpbp->dpb_fatstrt,
-                dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-  printf("FAT (link_fat16)\n");
-#endif
+  bp = getFATblock( Cluster1, dpbp);
+
   if (bp == NULL)
     return DE_BLKINVLD;
-  bp->b_flag &= ~(BFR_DATA | BFR_DIR);
-  bp->b_flag |= BFR_FAT;
-  bp->b_copies = dpbp->dpb_fats;
-  bp->b_offset_lo = dpbp->dpb_fatsize;
-  bp->b_offset_hi = dpbp->dpb_fatsize >> 8;
 
   /* form an index so that we can read the block as a     */
   /* byte array                                           */
-  idx = (UWORD)((((LONG) Cluster1) * SIZEOF_CLST16) % dpbp->dpb_secsize);
+  idx = (UWORD)(( Cluster1 * SIZEOF_CLST16) % dpbp->dpb_secsize);
 
   /* Finally, put the word into the buffer and mark the   */
   /* buffer as dirty.                                     */
-  fputword((WORD FAR *) & Cl2, (VOID FAR *) & (bp->b_buffer[idx]));
-  bp->b_flag |= BFR_DIRTY;
+  fputword((WORD FAR *) & Cluster2, (VOID FAR *) & (bp->b_buffer[idx]));
+  bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
   /* Return successful.                                   */
   /* update the free space count                          */
@@ -206,18 +227,9 @@ UCOUNT link_fat12(struct dpb FAR *dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
     FAR * bp1;
 
   /* Get the block that this cluster is in                */
-  bp = getblock((ULONG) ((((Cluster1 << 1) + Cluster1) >> 1) / dpbp->dpb_secsize + dpbp->dpb_fatstrt),
-                dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-  printf("FAT (link_fat12)\n");
-#endif
+  bp = getFATblock(Cluster1 , dpbp);
   if (bp == NULL)
     return DE_BLKINVLD;
-  bp->b_flag &= ~(BFR_DATA | BFR_DIR);
-  bp->b_flag |= BFR_FAT;
-  bp->b_copies = dpbp->dpb_fats;
-  bp->b_offset_lo = dpbp->dpb_fatsize;
-  bp->b_offset_hi = dpbp->dpb_fatsize >> 8;
 
   /* form an index so that we can read the block as a     */
   /* byte array                                           */
@@ -229,26 +241,18 @@ UCOUNT link_fat12(struct dpb FAR *dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
   /* block.                                               */
   if (idx >= dpbp->dpb_secsize - 1)
   {
-    bp1 = getblock((ULONG) (dpbp->dpb_fatstrt +
-               ((((Cluster1 << 1) + Cluster1) >> 1) / dpbp->dpb_secsize))
-                   + 1,
-                   dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-    printf("FAT (link_fat12)\n");
-#endif
-    if (bp1 == (struct buffer *)0)
+    bp1 = getFATblock(Cluster1 + 1,dpbp);
+    if (bp1 == 0)
       return DE_BLKINVLD;
-    bp1->b_flag &= ~(BFR_DATA | BFR_DIR);
-    bp1->b_flag |= BFR_FAT | BFR_DIRTY;
-    bp1->b_copies = dpbp->dpb_fats;
-    bp1->b_offset_lo = dpbp->dpb_fatsize;
-    bp1->b_offset_hi = dpbp->dpb_fatsize >> 8;
+
+    bp1->b_flag |= BFR_DIRTY | BFR_VALID;
+
     fbp1 = (UBYTE FAR *) & (bp1->b_buffer[0]);
   }
   else
     fbp1 = (UBYTE FAR *) & (bp->b_buffer[idx + 1]);
   fbp0 = (UBYTE FAR *) & (bp->b_buffer[idx]);
-  bp->b_flag |= BFR_DIRTY;
+  bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
   /* Now pack the value in                                */
   if (Cluster1 & 0x01)
@@ -298,20 +302,10 @@ UWORD next_cl16(struct dpb FAR *dpbp, UCOUNT ClusterNum)
   struct buffer FAR *bp;
 
   /* Get the block that this cluster is in                */
-  bp = getblock((ULONG) (((ULONG) ClusterNum) * SIZEOF_CLST16) / dpbp->dpb_secsize + dpbp->dpb_fatstrt,
-                dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-  printf("FAT (next_cl16)\n");
-#endif
+  bp = getFATblock( ClusterNum, dpbp);
+
   if (bp == NULL)
     return DE_BLKINVLD;
-  bp->b_flag &= ~(BFR_DATA | BFR_DIR);
-  bp->b_flag |= BFR_FAT;
-  bp->b_copies = dpbp->dpb_fats;
-  bp->b_offset_lo = dpbp->dpb_fatsize;
-  bp->b_offset_hi = dpbp->dpb_fatsize >> 8;
-
-
 
 #ifndef I86
   UCOUNT idx;
@@ -330,7 +324,7 @@ UWORD next_cl16(struct dpb FAR *dpbp, UCOUNT ClusterNum)
 #else
     /* this saves 2 WORDS of stack :-) */
     
-    return *(WORD FAR *)&(bp->b_buffer[(ClusterNum * SIZEOF_CLST16) % dpbp->dpb_secsize]);
+    return *(UWORD FAR *)&(bp->b_buffer[(ClusterNum * SIZEOF_CLST16) % dpbp->dpb_secsize]);
     
 #endif    
   
@@ -345,18 +339,10 @@ UWORD next_cl12(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
     FAR * bp1;
 
   /* Get the block that this cluster is in                */
-  bp = getblock((ULONG) ((((ClusterNum << 1) + ClusterNum) >> 1) / dpbp->dpb_secsize + dpbp->dpb_fatstrt),
-                dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-  printf("FAT (next_cl12)\n");
-#endif
+  bp = getFATblock(ClusterNum , dpbp);
+  
   if (bp == NULL)
     return LONG_BAD;
-  bp->b_flag &= ~(BFR_DATA | BFR_DIR);
-  bp->b_flag |= BFR_FAT;
-  bp->b_copies = dpbp->dpb_fats;
-  bp->b_offset_lo = dpbp->dpb_fatsize;
-  bp->b_offset_hi = dpbp->dpb_fatsize >> 8;
 
   /* form an index so that we can read the block as a     */
   /* byte array                                           */
@@ -368,20 +354,11 @@ UWORD next_cl12(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
   /* block.                                               */
   if (idx >= dpbp->dpb_secsize - 1)
   {
-    bp1 = getblock((ULONG) (dpbp->dpb_fatstrt +
-           ((((ClusterNum << 1) + ClusterNum) >> 1) / dpbp->dpb_secsize))
-                   + 1,
-                   dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-    printf("FAT (next_cl12)\n");
-#endif
-    if (bp1 == (struct buffer *)0)
+    bp1 = getFATblock(ClusterNum +1, dpbp);
+
+    if (bp1 == 0)
       return LONG_BAD;
-    bp1->b_flag &= ~(BFR_DATA | BFR_DIR);
-    bp1->b_flag |= BFR_FAT;
-    bp1->b_copies = dpbp->dpb_fats;
-    bp1->b_offset_lo = dpbp->dpb_fatsize;
-    bp1->b_offset_hi = dpbp->dpb_fatsize >> 8;
+
     fbp1 = (UBYTE FAR *) & (bp1->b_buffer[0]);
   }
   else

@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.5  2001/06/03 14:16:18  bartoldeman
+# BUFFERS tuning and misc bug fixes/cleanups (2024c).
+#
 # Revision 1.4  2001/03/19 04:50:56  bartoldeman
 # See history.txt for overview: put kernel 2022beo1 into CVS
 #
@@ -37,7 +40,7 @@
 !include "..\config.mak"
 
 
-libm.lib:       $(CLIB)
+libm.lib:       $(CLIB) ..\config.mak
 	$(LIBUTIL) $(CLIB) $(MATH_EXTRACT)
 	$(LIBUTIL) libm $(MATH_INSERT)
 	$(RM) *.OBJ

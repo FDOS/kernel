@@ -34,6 +34,9 @@ static BYTE *errorRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.4  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -87,6 +90,7 @@ static BYTE *errorRcsId = "$Id$";
 
 #include "globals.h"
 
+#ifdef DEBUG
 /* error registers                                      */
 VOID dump(void)
 {
@@ -105,6 +109,7 @@ VOID dump(void)
          error_regs.DS,
          error_regs.ES);
 }
+#endif
 
 /* issue a panic message for corrupted data structures          */
 VOID panic(BYTE * s)
@@ -124,8 +129,8 @@ VOID fatal(BYTE * err_msg)
 /* issue an internal error message                              */
 VOID fatal(BYTE * err_msg)
 {
-  printf("\nInternal kernel error - %s\nSystem halted\n", err_msg);
-  for (;;) ;
+  printf("\nInternal kernel error - \n");
+  panic(err_msg);
 }
 
 #endif

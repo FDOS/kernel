@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.15  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -169,11 +172,11 @@ static BYTE *fatdirRcsId = "$Id$";
  * Initial revision.
  */
 
-VOID pop_dmp(dmatch FAR *, struct f_node FAR *);
+VOID pop_dmp(dmatch FAR *, f_node_ptr);
 
-struct f_node FAR *dir_open(BYTE FAR * dirname)
+f_node_ptr dir_open(BYTE FAR * dirname)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
   COUNT drive;
   BYTE *p;
   WORD i;
@@ -183,9 +186,9 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   BYTE *pszPath = &TempCDS.cdsCurrentPath[2];
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node()) == (struct f_node FAR *)0)
+  if ((fnp = get_f_node()) == (f_node_ptr)0)
   {
-    return (struct f_node FAR *)NULL;
+    return (f_node_ptr)0;
   }
 
   /* Force the fnode into read-write mode                         */
@@ -255,7 +258,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   if (media_check(TempCDS.cdsDpb) < 0)
   {
     release_f_node(fnp);
-    return (struct f_node FAR *)0;
+    return (f_node_ptr)0;
   }
 
   fnp->f_dsize = DIRENT_SIZE * TempCDS.cdsDpb->dpb_dirents;
@@ -329,7 +332,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     {
 
       release_f_node(fnp);
-      return (struct f_node FAR *)0;
+      return (f_node_ptr)0;
     }
     else
     {
@@ -354,7 +357,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   return fnp;
 }
 
-COUNT dir_read(REG struct f_node FAR * fnp)
+COUNT dir_read(REG f_node_ptr fnp)
 {
 /* REG i; */
 /* REG j; */
@@ -396,7 +399,7 @@ COUNT dir_read(REG struct f_node FAR * fnp)
                              + fnp->f_dpb->dpb_dirstrt),
                     fnp->f_dpb->dpb_unit);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR;
+      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_read)\n");
 #endif
@@ -447,7 +450,7 @@ COUNT dir_read(REG struct f_node FAR * fnp)
                     + fnp->f_sector,
                     fnp->f_dpb->dpb_unit);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR;
+      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_read)\n");
 #endif
@@ -478,7 +481,7 @@ COUNT dir_read(REG struct f_node FAR * fnp)
 }
 
 #ifndef IPL
-COUNT dir_write(REG struct f_node FAR * fnp)
+COUNT dir_write(REG f_node_ptr fnp)
 {
   struct buffer FAR *bp;
 
@@ -494,7 +497,7 @@ COUNT dir_write(REG struct f_node FAR * fnp)
                               + fnp->f_dpb->dpb_dirstrt),
                      fnp->f_dpb->dpb_unit);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR;
+      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_write)\n");
 #endif
@@ -546,7 +549,7 @@ COUNT dir_write(REG struct f_node FAR * fnp)
                     + fnp->f_sector,
                     fnp->f_dpb->dpb_unit);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR;
+      bp->b_flag |= BFR_DIR | BFR_VALID;
 #ifdef DISPLAY_GETBLOCK
       printf("DIR (dir_write)\n");
 #endif
@@ -561,13 +564,13 @@ COUNT dir_write(REG struct f_node FAR * fnp)
     }
     putdirent((struct dirent FAR *)&fnp->f_dir,
     (VOID FAR *) & bp->b_buffer[(UWORD)fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
-    bp->b_flag |= BFR_DIRTY;
+    bp->b_flag |= BFR_DIRTY | BFR_VALID;
   }
   return DIRENT_SIZE;
 }
 #endif
 
-VOID dir_close(REG struct f_node FAR * fnp)
+VOID dir_close(REG f_node_ptr fnp)
 {
   REG COUNT disk = fnp->f_dpb->dpb_unit;
 
@@ -590,7 +593,7 @@ VOID dir_close(REG struct f_node FAR * fnp)
 #ifndef IPL
 COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
   REG COUNT i;
   COUNT nDrive;
@@ -729,11 +732,11 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 COUNT dos_findnext(void)
 {
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   BOOL found = FALSE;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node()) == (struct f_node FAR *)0)
+  if ((fnp = get_f_node()) == (f_node_ptr)0)
   {
     return DE_NFILES;
   }
@@ -804,7 +807,7 @@ COUNT dos_findnext(void)
   return found ? SUCCESS : DE_NFILES;
 }
 
-static VOID pop_dmp(dmatch FAR * dmp, struct f_node FAR * fnp)
+static VOID pop_dmp(dmatch FAR * dmp, f_node_ptr fnp)
 {
 
   dmp->dm_attr_fnd = fnp->f_dir.dir_attrib;
@@ -824,6 +827,11 @@ static VOID pop_dmp(dmatch FAR * dmp, struct f_node FAR * fnp)
 /*
     this receives a name in 11 char field NAME+EXT and builds 
     a zeroterminated string
+
+    unfortunately, blanks are allowed in filenames. like 
+        "test e", " test .y z",...
+        
+    so we have to work from the last blank backward 
 */    
 void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName)
 {
@@ -835,24 +843,56 @@ void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName)
         noExtension = TRUE;
     }
     
+        
+
+    fmemcpy(destSZ,srcFCBName,FNAME_SIZE);
+
+    srcFCBName += FNAME_SIZE;
     
-    for (loop = FNAME_SIZE; --loop >= 0; srcFCBName++)
-    {
-        if (*srcFCBName != ' ')
-            *destSZ++ = *srcFCBName;     
-    }
+    for (loop = FNAME_SIZE; --loop >= 0; )
+        {
+        if (destSZ[loop] != ' ')
+            break;
+        }    
+    destSZ     += loop + 1;
+    
+    
     
     if (!noExtension)       /* not for ".", ".." */
     {
-        if (*srcFCBName != ' ')
+  
+        for (loop = FEXT_SIZE; --loop >= 0; )
         {
+            if (srcFCBName[loop] != ' ')
+                break;
+        }    
+        if (loop >= 0)
+        {        
             *destSZ++ = '.';
-            for (loop = FEXT_SIZE; --loop >= 0; srcFCBName++)
-            {
-                if (*srcFCBName != ' ')
-                    *destSZ++ = *srcFCBName;     
-            }
+            fmemcpy(destSZ,srcFCBName,loop+1);
+            destSZ += loop+1;
         }
     }
     *destSZ = '\0';
 }
+
+/*
+    returns the asciiSZ length of a 8.3 filename
+*/    
+
+int FileName83Length(BYTE *filename83)
+{
+    BYTE buff[13];
+
+    ConvertName83ToNameSZ(buff, filename83);
+    
+    return strlen(buff);
+ 
+}        
+            
+                
+    
+    
+
+
+

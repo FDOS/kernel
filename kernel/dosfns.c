@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.18  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.17  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -173,12 +176,12 @@ static BYTE *dosfnsRcsId = "$Id$";
 
 #include "globals.h"
 
-sft FAR *get_sft(COUNT);
+sft FAR *get_sft(UCOUNT);
 WORD get_free_hndl(VOID);
 sft FAR *get_free_sft(WORD FAR *);
 BOOL cmatch(COUNT, COUNT, COUNT);
 
-struct f_node FAR *xlt_fd(COUNT);
+f_node_ptr xlt_fd(COUNT);
 
 
 /* /// Added for SHARE.  - Ron Cemer */
@@ -248,7 +251,7 @@ static VOID DosGetFile(BYTE FAR * lpszPath, BYTE FAR * lpszDosFileName)
   fbcopy((BYTE FAR *) szLclExt, &lpszDosFileName[FNAME_SIZE], FEXT_SIZE);
 }
 
-sft FAR *get_sft(COUNT hndl)
+sft FAR *get_sft(UCOUNT hndl)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
   WORD sys_idx;
@@ -363,6 +366,11 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
       ReadCount = sti((keyboard FAR *) & kb_buf);
       if (ReadCount < kb_buf.kb_count)
         s->sft_flags &= ~SFT_FEOF;
+      else if (kb_buf.kb_count < kb_buf.kb_size) {
+        kb_buf.kb_buf[kb_buf.kb_count++] = LF;
+        cso(LF);
+        ReadCount++;
+      }
       fbcopy((BYTE FAR *) kb_buf.kb_buf, bp, kb_buf.kb_count);
       *err = SUCCESS;
       return ReadCount;
@@ -683,7 +691,7 @@ COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos)
 	return result;
 }
 
-static WORD get_free_hndl(void)
+STATIC WORD get_free_hndl(void)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
   WORD hndl;
@@ -1023,7 +1031,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
 
   if (sftp->sft_status >= 0)
   {
-    struct f_node FAR *fnp = xlt_fd(sftp->sft_status);
+    f_node_ptr fnp = xlt_fd(sftp->sft_status);
 
     sftp->sft_attrib = fnp->f_dir.dir_attrib;
 
@@ -1214,7 +1222,7 @@ COUNT DosChangeDir(BYTE FAR * s)
 	Some redirectors do not write back to the CDS.
 	SHSUCdX needs this. jt
 */
-	fscopy(&PriPathName[0], cdsp->cdsCurrentPath);
+    fstrncpy(cdsp->cdsCurrentPath,&PriPathName[0],sizeof(cdsp->cdsCurrentPath)-1);
 	if (PriPathName[7] == 0)
 		cdsp->cdsCurrentPath[8] = 0;	/* Need two Zeros at the end */
 
@@ -1224,7 +1232,7 @@ COUNT DosChangeDir(BYTE FAR * s)
 		result = dos_cd(cdsp, PriPathName);
 	}
 	if (result == SUCCESS) {
-		fscopy(&PriPathName[0], cdsp->cdsCurrentPath);
+        fstrncpy(cdsp->cdsCurrentPath,&PriPathName[0],sizeof(cdsp->cdsCurrentPath)-1);
 	}
 	return result;
 }
@@ -1411,8 +1419,28 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
        or cleanup, such as converting "c:\a\b\.\c\.." to "C:\A\B".
        - Ron Cemer
 */
+/*
           memcpy(SecPathName,PriPathName,sizeof(SecPathName));
           return dos_getfattr(SecPathName, attrp);
+*/
+    /* no longer true. dos_getfattr() is 
+       A) intelligent (uses dos_open) anyway
+       B) there are some problems with MAX_PARSE, i.e. if PATH ~= 64
+          and TRUENAME adds a C:, which leeds to trouble. 
+       
+       the problem was discovered, when VC did something like
+       
+            fd = DosOpen(filename,...)
+            jc can't_copy_dialog;
+
+            attr = DosGetAttrib(filename);
+            jc can't_copy_dialog;
+                                    and suddenly, the filehandle stays open
+                                    shit.
+          tom
+    */          
+          return dos_getfattr(name, attrp);
+
 	}
 }
 
@@ -1449,8 +1477,14 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
        to get trashed somewhere in transit.
        - Ron Cemer
 */
+/*
           memcpy(SecPathName,PriPathName,sizeof(SecPathName));
           return dos_setfattr(SecPathName, attrp);
+          
+          see DosGetAttr()
+*/          
+          return dos_setfattr(name, attrp);
+
         }
 }
 

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.10  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -157,32 +160,42 @@ VOID MoveDirInfo();
 
 static dmatch Dmatch;
 
-VOID FatGetDrvData(COUNT drive, COUNT FAR * spc, COUNT FAR * bps,
+VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
                    COUNT FAR * nc, BYTE FAR ** mdp)
 {
   struct dpb FAR *dpbp;
+  struct cds FAR *cdsp;
 
-  printf("FGDD\n");
+                	/* first check for valid drive          */
+  *spc = -1;
+  
+  drive = (drive == 0 ? default_drive : drive - 1);
 
-  /* first check for valid drive                                  */
-  if ((UCOUNT)drive >= lastdrive)
-  {
-    *spc = -1;
-    return;
-  }
+  if (drive >= lastdrive)
+      return;
+  
+  cdsp = &CDSp->cds_table[drive];
+
+  if (!(cdsp->cdsFlags & CDSVALID))
+      return;
 
   /* next - "log" in the drive                                    */
-  drive = (drive == 0 ? default_drive : drive - 1);
-	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
-		printf("FatGetDrvData not yet supported over network drives\n");
-		*spc = -1;
+	if (cdsp->cdsFlags & CDSNETWDRV) {
+                              /* Undoc DOS says, its not supported for 
+                                 network drives. so it's probably OK */
+		/*printf("FatGetDrvData not yet supported over network drives\n");*/
 		return;
 	}
   dpbp = CDSp->cds_table[drive].cdsDpb;
+  
+  if (dpbp == NULL)
+  {
+    return;
+  }
+  
   dpbp->dpb_flags = -1;
   if ((media_check(dpbp) < 0))
   {
-    *spc = -1;
     return;
   }
 

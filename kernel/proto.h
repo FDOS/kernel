@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/06/03 14:16:18  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.16  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -175,8 +178,8 @@ static BYTE *Proto_hRcsId = "$Id$";
 /* blockio.c */
 ULONG getblkno(struct buffer FAR *);
 VOID setblkno(struct buffer FAR *, ULONG);
-struct buffer FAR *getblock(ULONG blkno, COUNT dsk);
-BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk);
+struct buffer FAR *getblock    (ULONG blkno, COUNT dsk);
+struct buffer FAR *getblockOver(ULONG blkno, COUNT dsk);
 VOID setinvld(REG COUNT dsk);
 BOOL flush_buffers(REG COUNT dsk);
 BOOL flush1(struct buffer FAR * bp);
@@ -199,7 +202,7 @@ VOID KbdFlush(void);
 VOID Do_DosIdle_loop(void);
 UCOUNT sti(keyboard FAR * kp);
 
-sft FAR *get_sft(COUNT);
+sft FAR *get_sft(UCOUNT);
 
 /* dosfns.c */
 BYTE FAR *get_root(BYTE FAR *);
@@ -256,13 +259,14 @@ COUNT char_error(request * rq, struct dhdr FAR * lpDevice);
 COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice);
 
 /* fatdir.c */
-struct f_node FAR *dir_open(BYTE FAR * dirname);
-COUNT dir_read(REG struct f_node FAR * fnp);
-COUNT dir_write(REG struct f_node FAR * fnp);
-VOID dir_close(REG struct f_node FAR * fnp);
+f_node_ptr dir_open(BYTE FAR * dirname);
+COUNT dir_read(REG f_node_ptr fnp);
+COUNT dir_write(REG f_node_ptr fnp);
+VOID dir_close(REG f_node_ptr fnp);
 COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name);
 COUNT dos_findnext(void);
 void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName);
+int FileName83Length(BYTE *filename83);
 
 /* fatfs.c */
 COUNT dos_open(BYTE FAR * path, COUNT flag);
@@ -282,8 +286,8 @@ LONG dos_getcufsize(COUNT fd);
 LONG dos_getfsize(COUNT fd);
 BOOL dos_setfsize(COUNT fd, LONG size);
 COUNT dos_mkdir(BYTE FAR * dir);
-BOOL last_link(struct f_node FAR * fnp);
-COUNT map_cluster(REG struct f_node FAR * fnp, COUNT mode);
+BOOL last_link(f_node_ptr fnp);
+COUNT map_cluster(REG f_node_ptr fnp, COUNT mode);
 UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err);
 UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err);
 COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count);
@@ -295,14 +299,14 @@ VOID trim_path(BYTE FAR * s);
 
 COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR * PathName);
 
-struct f_node FAR *get_f_node(void);
-VOID release_f_node(struct f_node FAR * fnp);
+f_node_ptr get_f_node(void);
+VOID release_f_node(f_node_ptr fnp);
 VOID dos_setdta(BYTE FAR * newdta);
 COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp);
 COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp);
 COUNT media_check(REG struct dpb FAR *dpbp);
-struct f_node FAR *xlt_fd(COUNT fd);
-COUNT xlt_fnp(struct f_node FAR * fnp);
+f_node_ptr xlt_fd(COUNT fd);
+COUNT xlt_fnp(f_node_ptr fnp);
 struct dhdr FAR *select_unit(COUNT drive);
 VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp);
 
@@ -321,7 +325,7 @@ int DosCharInput(VOID);
 VOID DosDirectConsoleIO(iregs FAR * r);
 VOID DosCharOutput(COUNT c);
 VOID DosDisplayOutput(COUNT c);
-VOID FatGetDrvData(COUNT drive, COUNT FAR * spc, COUNT FAR * bps, COUNT FAR * nc, BYTE FAR ** mdp);
+VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps, COUNT FAR * nc, BYTE FAR ** mdp);
 WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb);
 BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName);
 BOOL TestCmnSeps(BYTE FAR * lpFileName);
@@ -385,7 +389,7 @@ VOID fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
 VOID fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
 
 /*VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n);*/
-void memcpy(REG BYTE * d, REG BYTE * s, REG COUNT n);
+void memcpy(REG void * d, REG VOID * s, REG COUNT n);
 #define bcopy(s,d,n) memcpy(d,s,n)
 
 void fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);

@@ -71,6 +71,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/06/03 14:16:18  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.16  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -300,6 +303,7 @@ INIT void init_kernel(void)
   setvec(0x2f, int2f_handler);
 #endif
 
+  init_PSPSet(DOS_PSP);
   init_PSPInit(DOS_PSP);
 
   /* Do first initialization of system variable buffers so that   */

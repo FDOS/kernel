@@ -36,6 +36,9 @@ static char *portab_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.8  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -194,6 +197,9 @@ typedef unsigned int BITS;      /* for use in bit fields(!)     */
 typedef int COUNT;
 typedef unsigned int UCOUNT;
 typedef unsigned long ULONG;
+
+#define STATIC                  /* local calls inside module */ 
+
 
 #ifdef UNIX
 typedef char FAR *ADDRESS;

@@ -7,4 +7,3 @@ struct REGPACK {
 };
 
 extern void intr(int intrnr, struct REGPACK *rp);
-extern void FAR int3();

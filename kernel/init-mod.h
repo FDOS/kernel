@@ -152,6 +152,7 @@ int close(int fd);
 int dup2(int oldfd, int newfd); 
 int allocmem(UWORD size, seg *segp);
 INIT VOID init_PSPInit(seg psp_seg);
+INIT VOID init_PSPSet(seg psp_seg);
 INIT COUNT init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
 INIT VOID keycheck(VOID);
 

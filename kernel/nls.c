@@ -44,6 +44,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/06/03 14:16:18  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.6  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -337,7 +340,9 @@ log( ("NLS: nlsGetData(): subfunction found\n") );
 		case NLS_DOS_38:	/* Normal Country Information */
 			return cpyBuf(buf, bufsize
 			 , &(((struct nlsExtCntryInfo FAR*)poi)->dateFmt)
-			 , 34);		/* standard cinfo has no more 34 _used_ bytes */
+			 , 24);	    	/* standard cinfo has no more 34 _used_ bytes */
+			                /* don't copy 34, copy only 0x18 instead, 
+                               see comment at DosGetCountryInformation	TE */
 		default:
 			/* All other subfunctions just return the found nlsPoinerInf
 				structure */
@@ -356,8 +361,7 @@ log( ("NLS: nlsGetData(): Subfunction not found\n") );
 VOID nlsCPchange(UWORD cp)
 {
 	UNREFERENCED_PARAMETER(cp);
-	printf("\7\nSorry, to change the codepage is not implemented, yet.\n\
-Hope it's OK to proceed ignoring this call.\n-- 2000/02/26 ska\n");
+	printf("\7\nchange codepage not yet done ska\n");
 }
 
 /*
@@ -564,9 +568,17 @@ log( ("NLS: GetData(): subfct=%x, cp=%u, cntry=%u, bufsize=%u\n",
  *	it is assumed the buffer is large enough as described in RBIL,
  *	which is 34 bytes _hardcoded_.
  */
+/* TE 05/04/01
+ * NETX calls Int 21 AX=3800
+ * and gives a buffer of (at most) 0x20 bytes
+ * MSDOS 6.2 copies only 0x18 bytes
+ * RBIL documents 0x18 bytes and calls 10 bytes 'reserved'
+ * so we change the amount of copied bytes to 0x18
+ */
+ 
 #ifndef DosGetCountryInformation
 COUNT DosGetCountryInformation(UWORD cntry, VOID FAR *buf)
-{	return DosGetData(NLS_DOS_38, NLS_DEFAULT, cntry, 34, buf);
+{	return DosGetData(NLS_DOS_38, NLS_DEFAULT, cntry, 0x18, buf);
 }
 #endif
 

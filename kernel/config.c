@@ -80,6 +80,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.23  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.22  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -590,9 +593,7 @@ INIT VOID configDone(VOID)
 INIT VOID DoConfig(VOID)
 {
   COUNT nFileDesc;
-  COUNT nRetCode;
-  BYTE *pLine,
-   *pTmp;
+  BYTE *pLine;
   BOOL bEof;
 
   /* Check to see if we have a config.sys file.  If not, just     */
@@ -627,97 +628,82 @@ INIT VOID DoConfig(VOID)
   /* Read each line into the buffer and then parse the line,      */
   /* do the table lookup and execute the handler for that         */
   /* function.                                                    */
-  while (!bEof)
+
+  for (;!bEof;nCfgLine++)
   {
     struct table *pEntry;
-    UWORD bytesLeft = 0;
 
-    if (pLine > szLine)
-      bytesLeft = LINESIZE - (pLine - szLine);
+    pLineStart = szLine;
+    
+                     /* read in a single line, \n or ^Z terminated */
+    
+    for (pLine = szLine;;)
+        {
+        if (read(nFileDesc, pLine, 1) <= 0)
+            {
+            bEof = TRUE;
+            break;
+            }
+        if (pLine >= szLine + sizeof(szLine)-3)
+            {
+            CfgFailure(pLine);
+            printf("error - line overflow line %d \n",nCfgLine);
+            break;
+            }    
 
-    if (bytesLeft)
-    {
-      fbcopy(pLine, szLine, LINESIZE - bytesLeft);
-      pLine = szLine + bytesLeft;
-    }
-
-    /* Read a line from config                              */
-    /* Interrupt processing if read error or no bytes read  */
-    if ((nRetCode = read(nFileDesc, pLine, LINESIZE - bytesLeft)) <= 0)
-      break;
-
-    /* If the buffer was not filled completely, append a
-       CTRL-Z character to mark where the file ends */
-
-    if (nRetCode + bytesLeft < LINESIZE)
-      szLine[nRetCode + bytesLeft] = EOF;
-
-    /* Process the buffer, line by line */
-    pLine = szLine;
-
-    while (!bEof && *pLine != EOF)
-    {
-
-/*
-    Do it here in the loop.
-*/
-
-                            /* shouldn't this go also AFTER the last line has been read?
-                               might be the UMB driver */
-    if(UmbState == 2){
-        if(!Umb_Test()){
-            UmbState = 1;
-            upBase = MK_FP(umb_start , 0);
-/* reset root */
-            uppermem_root = umb_start;
-/* setup the real mcb for the devicehigh block */
-            zumcb_init((mcb FAR *) upBase,  UMB_top - 1);
-            upBase += 16;
+        if (*pLine == '\n' ||
+            *pLine == EOF  )  /* end of line */
+            break;
+        
+        if (*pLine == '\r')  /* ignore */
+            ;
+        else
+            pLine++;
         }
-    }
-
-
-      for (pTmp = pLine; pTmp - szLine < LINESIZE; pTmp++)
-      {
-        if (*pTmp == '\r' || *pTmp == EOF)
-          break;
-      }
-
-      if (pTmp - szLine >= LINESIZE)
-        break;
-
-      if (*pTmp == EOF)
-        bEof = TRUE;
-
-      *pTmp = '\0';
-      pLineStart = pLine;
+        
+     *pLine = 0;
+     pLine = szLine;
+     
 
       /* Skip leading white space and get verb.               */
       pLine = scan(pLine, szBuf);
 
       /* If the line was blank, skip it.  Otherwise, look up  */
       /* the verb and execute the appropriate function.       */
-      if (*szBuf != '\0')
-      {
-        pEntry = LookUp(commands, szBuf);
+      if (*szBuf == '\0')
+        continue;
 
-        if (pEntry->pass < 0 || pEntry->pass == nPass)
-        {
-          if ( !SkipLine(pLineStart))
-          {
-            pLine = skipwh(pLine);
+      pEntry = LookUp(commands, szBuf);
 
-            if ('=' != *pLine)
+      if (pEntry->pass >= 0 && pEntry->pass != nPass)
+        continue;
+
+      if ( SkipLine(pLineStart))        /* F5/F8 processing */
+        continue;
+
+      pLine = skipwh(pLine);
+
+      if ('=' != *pLine)
               CfgFailure(pLine);
-            else
+      else                              /* YES. DO IT */
               (*(pEntry->func)) (skipwh(pLine+1));
-          }
+
+
+
+                            /* might have been the UMB driver */
+      if(UmbState == 2){
+            if(!Umb_Test()){
+                UmbState = 1;
+                upBase = MK_FP(umb_start , 0);
+/* reset root */
+            uppermem_root = umb_start;
+/* setup the real mcb for the devicehigh block */
+            zumcb_init((mcb FAR *) upBase,  UMB_top - 1);
+            upBase += 16;
+            }
         }
+
       }
-    nCfgLine++;
-      pLine += strlen(pLine) + 1;
-    }
-  }
   close(nFileDesc);
 }
 
@@ -825,7 +811,7 @@ INIT BOOL SkipLine(char *pLine)
     {
         case 'N':
         case 'n':
-            printf("N");
+            printf("N\n");
             return TRUE;
 
         case 0x1b:          /* don't know where documented
@@ -838,14 +824,14 @@ INIT BOOL SkipLine(char *pLine)
         case '\n':    
         case 'Y':    
         case 'y':    
-            printf("Y");
+            printf("Y\n");
             return FALSE;
             
     }
     
     if (key == 0x3f00)        /* YES, you may hit F5 here, too */
     {
-            printf("N");
+            printf("N\n");
             SkipAllConfig = TRUE;
             return TRUE;
     }
@@ -969,7 +955,7 @@ INIT static VOID Lastdrive(BYTE * pLine)
 */
 
 
-INIT static VOID Dosmem(BYTE * pLine)
+INIT STATIC VOID Dosmem(BYTE * pLine)
 {
     BYTE *pTmp;
     BYTE  UMBwanted = FALSE, HMAwanted = FALSE;
@@ -1515,7 +1501,11 @@ VOID config_init_buffers(COUNT anzBuffers)
   int HMAcount = 0;
   
   anzBuffers = max(anzBuffers,6);
-  anzBuffers = min(anzBuffers,64);
+  if (anzBuffers > 99)
+    {
+    printf("BUFFERS=%u not supported, reducing to 99\n",anzBuffers);
+    anzBuffers = 99;
+    }
   
   firstbuf = ConfigAlloc(sizeof (struct buffer));
   

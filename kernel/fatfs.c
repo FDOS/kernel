@@ -35,7 +35,13 @@ BYTE *RcsId = "$Id$";
 #endif
 
 /*
+ * the dos_mkdir/extenddir (with getblock() instead of getblockOver) was a real
+ * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
+ *
  * $Log$
+ * Revision 1.18  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.17  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -225,26 +231,26 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 /*      function prototypes                                             */
 /*                                                                      */
-struct f_node FAR *xlt_fd(COUNT);
-COUNT xlt_fnp(struct f_node FAR *);
-struct f_node FAR *split_path(BYTE FAR *, BYTE *, BYTE *, BYTE *);
-BOOL find_fname(struct f_node FAR *, BYTE *, BYTE *);
+f_node_ptrxlt_fd(COUNT);
+COUNT xlt_fnp(f_node_ptr);
+f_node_ptr split_path(BYTE FAR *, BYTE *, BYTE *, BYTE *);
+BOOL find_fname(f_node_ptr, BYTE *, BYTE *);
     /* /// Added - Ron Cemer */
-static void merge_file_changes(struct f_node FAR *fnp, int collect);
+STATIC void merge_file_changes(f_node_ptr fnp, int collect);
     /* /// Added - Ron Cemer */
-static int is_same_file(struct f_node FAR *fnp1, struct f_node FAR *fnp2);
+STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2);
     /* /// Added - Ron Cemer */
-static void copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst);
+STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
 date dos_getdate(VOID);
 time dos_gettime(VOID);
-BOOL find_free(struct f_node FAR *);
-UWORD find_fat_free(struct f_node FAR *);
-VOID wipe_out(struct f_node FAR *);
-BOOL last_link(struct f_node FAR *);
-BOOL extend(struct f_node FAR *);
-COUNT extend_dir(struct f_node FAR *);
-BOOL first_fat(struct f_node FAR *);
-COUNT map_cluster(struct f_node FAR *, COUNT);
+BOOL find_free(f_node_ptr);
+UWORD find_fat_free(f_node_ptr);
+VOID wipe_out(f_node_ptr);
+BOOL last_link(f_node_ptr);
+BOOL extend(f_node_ptr);
+COUNT extend_dir(f_node_ptr);
+BOOL first_fat(f_node_ptr);
+COUNT map_cluster(f_node_ptr, COUNT);
 
 /************************************************************************/
 /*                                                                      */
@@ -258,7 +264,7 @@ COUNT map_cluster(struct f_node FAR *, COUNT);
 
 COUNT dos_open(BYTE FAR * path, COUNT flag)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
 
   /* First test the flag to see if the user has passed a valid    */
   /* file mode...                                                 */
@@ -331,7 +337,7 @@ BOOL fcmp_wild(BYTE FAR * s1, BYTE FAR * s2, COUNT n)
 
 COUNT dos_close(COUNT fd)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
   /* Translate the fd into a useful pointer                       */
   fnp = xlt_fd(fd);
@@ -339,7 +345,7 @@ COUNT dos_close(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
   if (fnp->f_mode != RDONLY)
@@ -365,17 +371,17 @@ COUNT dos_close(COUNT fd)
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
-struct f_node FAR *
+f_node_ptr
   split_path(BYTE FAR * path, BYTE * dname, BYTE * fname, BYTE * fext)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   COUNT nDrive;
   struct cds FAR *cdsp;
 
   /* Start off by parsing out the components.                     */
   if (ParseDosName(adjust_far(path), &nDrive, &dname[2], fname, fext, FALSE)
       != SUCCESS)
-    return (struct f_node FAR *)0;
+    return (f_node_ptr)0;
   if (nDrive < 0)
     nDrive = default_drive;
 
@@ -387,7 +393,7 @@ struct f_node FAR *
   SpacePad(fext, FEXT_SIZE);
 
   if (nDrive >= lastdrive) {
-    return (struct f_node FAR *)0;
+    return (f_node_ptr)0;
   }
   cdsp = &CDSp->cds_table[nDrive];
 
@@ -413,7 +419,7 @@ struct f_node FAR *
   if (cdsp->cdsFlags & CDSNETWDRV) {
     printf("split path called for redirected file: `%s.%s'\n",
 	    fname, fext);
-    return (struct f_node FAR *)0;
+    return (f_node_ptr)0;
   }
 #endif
 
@@ -423,10 +429,10 @@ struct f_node FAR *
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit...     */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
   {
     dir_close(fnp);
-    return (struct f_node FAR *)0;
+    return (f_node_ptr)0;
   }
 
   /* Convert the name into an absolute name for comparison...     */
@@ -437,7 +443,7 @@ struct f_node FAR *
   return fnp;
 }
 
-static BOOL find_fname(struct f_node FAR * fnp, BYTE * fname, BYTE * fext)
+STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
 {
   BOOL found = FALSE;
 
@@ -469,14 +475,14 @@ static BOOL find_fname(struct f_node FAR * fnp, BYTE * fname, BYTE * fext)
        reasons, since DOS without SHARE does not share changes
        between two or more open instances of the same file
        unless these instances were generated by dup() or dup2(). */
-static void merge_file_changes(struct f_node FAR *fnp, int collect) {
-    struct f_node FAR *fnp2;
+STATIC void merge_file_changes(f_node_ptr fnp, int collect) {
+    f_node_ptr fnp2;
     int i;
 
     if (!IsShareInstalled()) return;
     for (i = 0; i < f_nodes_cnt; i++) {
-        fnp2 = &f_nodes[i];
-        if (   (fnp != (struct f_node FAR *)0)
+        fnp2 = (f_node_ptr)&f_nodes[i];
+        if (   (fnp != (f_node_ptr)0)
             && (fnp != fnp2)
             && (fnp->f_count > 0)
             && (is_same_file(fnp, fnp2))   ) {
@@ -501,7 +507,7 @@ static void merge_file_changes(struct f_node FAR *fnp, int collect) {
 }
 
     /* /// Added - Ron Cemer */
-static int is_same_file(struct f_node FAR *fnp1, struct f_node FAR *fnp2) {
+STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2) {
     return
            (fnp1->f_dpb->dpb_unit == fnp2->f_dpb->dpb_unit)
         && (fnp1->f_dpb->dpb_subunit == fnp2->f_dpb->dpb_subunit)
@@ -520,7 +526,7 @@ static int is_same_file(struct f_node FAR *fnp1, struct f_node FAR *fnp2) {
 }
 
     /* /// Added - Ron Cemer */
-static void copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst) {
+STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst) {
     dst->f_highwater = src->f_highwater;
     dst->f_dir.dir_start = src->f_dir.dir_start;
     dst->f_dir.dir_size = src->f_dir.dir_size;
@@ -530,7 +536,7 @@ static void copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst) {
 
 COUNT dos_creat(BYTE FAR * path, COUNT attrib)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
 
                                    /* NEVER EVER allow directories to be created */
   if (attrib & ~(D_RDONLY|D_HIDDEN|D_SYSTEM|D_ARCHIVE))
@@ -638,7 +644,7 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
 
 COUNT dos_delete(BYTE FAR * path)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
 
   /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
@@ -687,8 +693,8 @@ COUNT dos_delete(BYTE FAR * path)
 
 COUNT dos_rmdir(BYTE FAR * path)
 {
-  REG struct f_node FAR *fnp;
-  REG struct f_node FAR *fnp1;
+  REG f_node_ptr fnp;
+  REG f_node_ptr fnp1;
   BOOL found;
 
   /* first split the passed dir into comopnents (i.e. -   */
@@ -713,7 +719,13 @@ COUNT dos_rmdir(BYTE FAR * path)
     /* The only permissable attribute is directory, */
     /* check for any other bit set. If it is, give  */
     /* an access error.                             */
-    if (fnp->f_dir.dir_attrib & ~D_DIR)
+    /* if (fnp->f_dir.dir_attrib & ~D_DIR)          */
+    
+    /* directories may have attributes, too. at least my WinNT disk
+       has many 'archive' directories
+       we still don't allow SYSTEM or RDONLY directories to be deleted TE*/
+    
+    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE))
     {
       dir_close(fnp);
       return DE_ACCESS;
@@ -787,8 +799,8 @@ COUNT dos_rmdir(BYTE FAR * path)
 
 COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
 {
-  REG struct f_node FAR *fnp1;
-  REG struct f_node FAR *fnp2;
+  REG f_node_ptr fnp1;
+  REG f_node_ptr fnp2;
   BOOL is_free;
 
   /* first split the passed target into compnents (i.e. - path to */
@@ -886,7 +898,7 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
 /*                                                              */
 /* wipe out all FAT entries for create, delete, etc.            */
 /*                                                              */
-static VOID wipe_out(struct f_node FAR * fnp)
+STATIC VOID wipe_out(f_node_ptr fnp)
 {
   REG UWORD st,
     next;
@@ -926,7 +938,7 @@ static VOID wipe_out(struct f_node FAR * fnp)
   }
 }
 
-static BOOL find_free(struct f_node FAR * fnp)
+STATIC BOOL find_free(f_node_ptr fnp)
 {
   while (dir_read(fnp) == DIRENT_SIZE)
   {
@@ -995,7 +1007,7 @@ time dos_gettime()
 /*                                                              */
 COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
@@ -1004,7 +1016,7 @@ COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
   /* Get the date and time from the fnode and return              */
@@ -1019,7 +1031,7 @@ COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
 /*                                                              */
 COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
@@ -1028,7 +1040,7 @@ COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
   /* Set the date and time from the fnode and return              */
@@ -1043,7 +1055,7 @@ COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp)
 /*                                                              */
 LONG dos_getcufsize(COUNT fd)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
@@ -1052,7 +1064,7 @@ LONG dos_getcufsize(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return -1l;
 
   /* Return the file size                                         */
@@ -1064,7 +1076,7 @@ LONG dos_getcufsize(COUNT fd)
 /*                                                              */
 LONG dos_getfsize(COUNT fd)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
@@ -1073,7 +1085,7 @@ LONG dos_getfsize(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return -1l;
 
   /* Return the file size                                         */
@@ -1085,7 +1097,7 @@ LONG dos_getfsize(COUNT fd)
 /*                                                              */
 BOOL dos_setfsize(COUNT fd, LONG size)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
@@ -1094,7 +1106,7 @@ BOOL dos_setfsize(COUNT fd, LONG size)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return FALSE;
 
   /* Change the file size                                         */
@@ -1109,7 +1121,7 @@ BOOL dos_setfsize(COUNT fd, LONG size)
 /*                                                              */
 /* Find free cluster in disk FAT table                          */
 /*                                                              */
-static UWORD find_fat_free(struct f_node FAR * fnp)
+STATIC UWORD find_fat_free(f_node_ptr fnp)
 {
   REG UWORD idx;
 
@@ -1144,15 +1156,14 @@ static UWORD find_fat_free(struct f_node FAR * fnp)
 }
 
 /*                                                              */
-/* crate a directory - returns success or a negative error      */
+/* create a directory - returns success or a negative error     */
 /* number                                                       */
 /*                                                              */
 COUNT dos_mkdir(BYTE FAR * dir)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   REG COUNT idx;
   struct buffer FAR *bp;
-  BYTE FAR *p;
   UWORD free_fat;
   UWORD parent;
 
@@ -1163,6 +1174,28 @@ COUNT dos_mkdir(BYTE FAR * dir)
     dir_close(fnp);
     return DE_PATHNOTFND;
   }
+  
+  /* check that the resulting combined path does not exceed 
+     the 64 PARSE_MAX limit. this leeds to problems:
+     A) you can't CD to this directory later
+     B) you can't create files in this subdirectory
+     C) the created dir will not be found later, so you
+        can create an unlimited amount of same dirs. this space
+        is lost forever
+  */
+  if (2     /* "C" */
+        + strlen(szDirName)
+        + 1    /* "\\" */
+        + FileName83Length(szFileName)      /* the SZ is not SZ, of course */
+     > PARSE_MAX+2)
+  {
+    dir_close(fnp);
+    return DE_PATHNOTFND;
+  }
+     
+     
+  
+  
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
@@ -1244,7 +1277,8 @@ COUNT dos_mkdir(BYTE FAR * dir)
 
   /* Craft the new directory. Note that if we're in a new */
   /* directory just under the root, ".." pointer is 0.    */
-  bp = getblock((ULONG) clus2phys(free_fat,
+  /* as we are overwriting it completely, don't read first */
+  bp = getblockOver((ULONG) clus2phys(free_fat,
                                   (fnp->f_dpb->dpb_clsmask + 1),
                                   fnp->f_dpb->dpb_data),
                 fnp->f_dpb->dpb_unit);
@@ -1277,19 +1311,17 @@ COUNT dos_mkdir(BYTE FAR * dir)
   putdirent((struct dirent FAR *)&DirEntBuffer, (BYTE FAR *) & bp->b_buffer[DIRENT_SIZE]);
 
   /* fill the rest of the block with zeros                */
-  for (p = (BYTE FAR *) & bp->b_buffer[2 * DIRENT_SIZE];
-       p < &bp->b_buffer[BUFFERSIZE];)
-    *p++ = NULL;
+  fmemset( & bp->b_buffer[2 * DIRENT_SIZE],0, BUFFERSIZE - 2 * DIRENT_SIZE);
 
   /* Mark the block to be written out                     */
-  bp->b_flag |= BFR_DIRTY;
+  bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
   /* clear out the rest of the blocks in the cluster      */
   for (idx = 1; idx < (fnp->f_dpb->dpb_clsmask + 1); idx++)
   {
-    REG COUNT i;
 
-    bp = getblock((ULONG) clus2phys(fnp->f_dir.dir_start,
+  /* as we are overwriting it completely, don't read first */
+    bp = getblockOver((ULONG) clus2phys(fnp->f_dir.dir_start,
                                     (fnp->f_dpb->dpb_clsmask + 1),
                                     fnp->f_dpb->dpb_data) + idx,
                   fnp->f_dpb->dpb_unit);
@@ -1301,9 +1333,9 @@ COUNT dos_mkdir(BYTE FAR * dir)
       dir_close(fnp);
       return DE_BLKINVLD;
     }
-    for (i = 0, p = (BYTE FAR *) bp->b_buffer; i < BUFFERSIZE; i++)
-      *p++ = NULL;
-    bp->b_flag |= BFR_DIRTY;
+    fmemset(bp->b_buffer, 0, BUFFERSIZE);
+    bp->b_flag |= BFR_DIRTY | BFR_VALID;
+    bp->b_flag |= BFR_UNCACHE;          /* need not be cached */
   }
 
   /* flush the drive buffers so that all info is written  */
@@ -1316,12 +1348,12 @@ COUNT dos_mkdir(BYTE FAR * dir)
   return SUCCESS;
 }
 
-BOOL last_link(struct f_node FAR * fnp)
+BOOL last_link(f_node_ptr fnp)
 {
   return (((UWORD) fnp->f_cluster == (UWORD) LONG_LAST_CLUSTER));
 }
 
-static BOOL extend(struct f_node FAR * fnp)
+STATIC BOOL extend(f_node_ptr fnp)
 {
   UWORD free_fat;
 
@@ -1347,7 +1379,7 @@ static BOOL extend(struct f_node FAR * fnp)
   return TRUE;
 }
 
-static COUNT extend_dir(struct f_node FAR * fnp)
+STATIC COUNT extend_dir(f_node_ptr fnp)
 {
   REG COUNT idx;
 
@@ -1360,11 +1392,9 @@ static COUNT extend_dir(struct f_node FAR * fnp)
   /* clear out the rest of the blocks in the cluster              */
   for (idx = 0; idx < (fnp->f_dpb->dpb_clsmask + 1); idx++)
   {
-    REG COUNT i;
-    REG BYTE FAR *p;
     REG struct buffer FAR *bp;
 
-    bp = getblock((ULONG) clus2phys(fnp->f_cluster,
+    bp = getblockOver((ULONG) clus2phys(fnp->f_cluster,
                                     (fnp->f_dpb->dpb_clsmask + 1),
                                     fnp->f_dpb->dpb_data) + idx,
                   fnp->f_dpb->dpb_unit);
@@ -1376,9 +1406,11 @@ static COUNT extend_dir(struct f_node FAR * fnp)
       dir_close(fnp);
       return DE_BLKINVLD;
     }
-    for (i = 0, p = (BYTE FAR *) bp->b_buffer; i < BUFFERSIZE; i++)
-      *p++ = NULL;
-    bp->b_flag |= BFR_DIRTY;
+    fmemset(bp->b_buffer,0, BUFFERSIZE);
+    bp->b_flag |= BFR_DIRTY | BFR_VALID;
+    
+    if (idx != 0)
+        bp->b_flag |= BFR_UNCACHE;      /* needs not be cached */
   }
 
   if (!find_free(fnp))
@@ -1395,7 +1427,7 @@ static COUNT extend_dir(struct f_node FAR * fnp)
 }
 
 /* JPP: finds the next free cluster in the FAT */
-static BOOL first_fat(struct f_node FAR * fnp)
+STATIC BOOL first_fat(f_node_ptr fnp)
 {
   UWORD free_fat;
 
@@ -1424,10 +1456,10 @@ static BOOL first_fat(struct f_node FAR * fnp)
 /* JPP: new map_cluster.  If we are moving forward, then use the offset
    that we are at now (f_cluster_offset) to start, instead of starting
    at the beginning. */
-COUNT map_cluster(REG struct f_node FAR * fnp, COUNT mode)
+COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 {
   ULONG idx;
-  UWORD clssize;
+  ULONG clssize;                /* might be 64K (by WinNT) TE */
 
 #ifdef DISPLAY_GETBLOCK
   printf("map_cluster: current %lu, offset %lu, diff=%lu ",
@@ -1435,7 +1467,7 @@ COUNT map_cluster(REG struct f_node FAR * fnp, COUNT mode)
          fnp->f_offset - fnp->f_cluster_offset);
 #endif
   /* The variable clssize will be used later.             */
-  clssize = fnp->f_dpb->dpb_secsize * (fnp->f_dpb->dpb_clsmask + 1);
+  clssize = (ULONG)fnp->f_dpb->dpb_secsize * (fnp->f_dpb->dpb_clsmask + 1);
 
   /* If someone did a seek, but no writes have occured, we will   */
   /* need to initialize the fnode.                                */
@@ -1504,7 +1536,7 @@ COUNT map_cluster(REG struct f_node FAR * fnp, COUNT mode)
 /* Read block from disk */
 UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   REG struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   UCOUNT ret_cnt = 0;
@@ -1525,7 +1557,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
   {
     *err = DE_INVLDHNDL;
     return 0;
@@ -1650,7 +1682,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 #ifdef DISPLAY_GETBLOCK
     printf("DATA (readblock)\n");
 #endif
-    if (bp == (struct buffer *)0)
+    if (bp == NULL)         /* (struct buffer *)0 --> DS:0 !! */
     {
       *err = DE_BLKINVLD;
       return ret_cnt;
@@ -1669,6 +1701,15 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 
     fbcopy((BYTE FAR *) & bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
 
+                                        /* complete buffer read ? 
+                                           probably not reused later
+                                         */
+    if (xfr_cnt == sizeof(bp->b_buffer) ||
+            fnp->f_offset + xfr_cnt == fnp->f_dir.dir_size )
+        {    
+        bp->b_flag |= BFR_UNCACHE;   
+        }
+
     /* update pointers and counters                         */
     ret_cnt += xfr_cnt;
     to_xfer -= xfr_cnt;
@@ -1682,7 +1723,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 /* Write block to disk */
 UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   UCOUNT ret_cnt = 0;
@@ -1703,7 +1744,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
   {
     *err = DE_INVLDHNDL;
     return 0;
@@ -1872,19 +1913,22 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
            potential problems.
            - Ron Cemer */
     if ( (fnp->f_boff == 0) && (xfr_cnt == secsize) ) {
-        if (!getbuf(&bp, (ULONG) clus2phys(fnp->f_cluster,
+        bp = getblockOver((ULONG) clus2phys(fnp->f_cluster,
                                            (fnp->f_dpb->dpb_clsmask + 1),
                                        fnp->f_dpb->dpb_data) + fnp->f_sector,
-                    fnp->f_dpb->dpb_unit)) {
-          *err = DE_BLKINVLD;
-          return ret_cnt;
-        }
+                    fnp->f_dpb->dpb_unit);
+        
     } else {
         bp = getblock((ULONG) clus2phys(fnp->f_cluster,
                                   (fnp->f_dpb->dpb_clsmask + 1),
                                   fnp->f_dpb->dpb_data) + fnp->f_sector,
                 fnp->f_dpb->dpb_unit);
     }
+    if (bp == NULL) {
+      *err = DE_BLKINVLD;
+      return ret_cnt;
+      }
+    
 
     /* transfer a block                                     */
     /* Transfer size as either a full block size, or the    */
@@ -1898,6 +1942,12 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 */
     fbcopy(buffer, (BYTE FAR *) & bp->b_buffer[fnp->f_boff], xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
+
+    if (xfr_cnt == sizeof(bp->b_buffer)) /* probably not used later */
+        {    
+        bp->b_flag |= BFR_UNCACHE;   
+        }
+
 
     fnp->f_flags.f_dmod = TRUE;  /* mark file as modified */
 
@@ -1930,7 +1980,7 @@ COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count)
 #ifndef IPL
 COUNT dos_write(COUNT fd, VOID FAR * buffer, UCOUNT count)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
   COUNT err,
     xfr;
 
@@ -1943,7 +1993,7 @@ COUNT dos_write(COUNT fd, VOID FAR * buffer, UCOUNT count)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
   {
     return DE_INVLDHNDL;
   }
@@ -1975,7 +2025,7 @@ COUNT dos_write(COUNT fd, VOID FAR * buffer, UCOUNT count)
 /* Returns a long current offset or a negative error code               */
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 {
-  REG struct f_node FAR *fnp;
+  REG f_node_ptr fnp;
 
   /* Translate the fd into a useful pointer                       */
 
@@ -1985,7 +2035,7 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
   /* requested file was not open, tell the caller and exit                */
   /* note: an invalid fd is indicated by a 0 return               */
 
-  if (fnp == (struct f_node FAR *)0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return (LONG) DE_INVLDHNDL;
 
   /* now do the actual lseek adjustment to the file poitner       */
@@ -2043,7 +2093,7 @@ UWORD dos_free(struct dpb FAR *dpbp)
 #ifndef IPL
 COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR *PathName)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
 
 	/* first check for valid drive          */
 	if (cdsp->cdsDpb == 0)
@@ -2060,14 +2110,14 @@ COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR *PathName)
 
   cdsp->cdsStrtClst = fnp->f_dirstart;
   dir_close(fnp);
-	fscopy(&PathName[0], cdsp->cdsCurrentPath);
+  fstrncpy(cdsp->cdsCurrentPath,&PathName[0],sizeof(cdsp->cdsCurrentPath)-1);
   return SUCCESS;
 }
 #endif
 
 /* Try to allocate an f_node from the available files array */
 
-struct f_node FAR *get_f_node(void)
+f_node_ptr get_f_node(void)
 {
   REG i;
 
@@ -2079,10 +2129,10 @@ struct f_node FAR *get_f_node(void)
       return &f_nodes[i];
     }
   }
-  return (struct f_node FAR *)0;
+  return (f_node_ptr)0;
 }
 
-VOID release_f_node(struct f_node FAR * fnp)
+VOID release_f_node(f_node_ptr fnp)
 {
   if (fnp->f_count > 0)
     --fnp->f_count;
@@ -2098,7 +2148,7 @@ VOID dos_setdta(BYTE FAR * newdta)
 
 COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
   COUNT fd;
 
   /* Translate the fd into an fnode pointer, since all internal   */
@@ -2107,7 +2157,7 @@ COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp)
     return DE_FILENOTFND;
 
   /* note: an invalid fd is indicated by a 0 return               */
-  if ((fnp = xlt_fd(fd)) == (struct f_node FAR *)0)
+  if ((fnp = xlt_fd(fd)) == (f_node_ptr)0)
     return DE_TOOMANY;
 
   /* If the fd was invalid because it was out of range or the     */
@@ -2126,7 +2176,7 @@ COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp)
 
 COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp)
 {
-  struct f_node FAR *fnp;
+  f_node_ptr fnp;
   COUNT fd;
 
   /* Translate the fd into an fnode pointer, since all internal   */
@@ -2135,7 +2185,7 @@ COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp)
     return DE_FILENOTFND;
 
   /* note: an invalid fd is indicated by a 0 return               */
-  if ((fnp = xlt_fd(fd)) == (struct f_node FAR *)0)
+  if ((fnp = xlt_fd(fd)) == (f_node_ptr)0)
     return DE_TOOMANY;
 
   /* If the fd was invalid because it was out of range or the     */
@@ -2292,13 +2342,13 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 }
 
 /* translate the fd into an f_node pointer */
-struct f_node FAR *xlt_fd(COUNT fd)
+f_node_ptr xlt_fd(COUNT fd)
 {
-  return fd >= f_nodes_cnt ? (struct f_node FAR *)0 : &f_nodes[fd];
+  return fd >= f_nodes_cnt ? (f_node_ptr)0 : &f_nodes[fd];
 }
 
 /* translate the f_node pointer into an fd */
-COUNT xlt_fnp(struct f_node FAR * fnp)
+COUNT xlt_fnp(f_node_ptr fnp)
 {
   return (COUNT)(fnp - f_nodes);
 }

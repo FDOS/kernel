@@ -35,6 +35,9 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/06/03 14:16:17  bartoldeman
+ * BUFFERS tuning and misc bug fixes/cleanups (2024c).
+ *
  * Revision 1.5  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -312,19 +315,19 @@ typedef boot super;             /* Alias for boot structure             */
 
 typedef struct
 {
-  BYTE r_length;                /*  Request Header length               */
-  BYTE r_unit;                  /*  Unit Code                           */
-  BYTE r_command;               /*  Command Code                        */
+  UBYTE r_length;               /*  Request Header length               */
+  UBYTE r_unit;                 /*  Unit Code                           */
+  UBYTE r_command;              /*  Command Code                        */
   WORD r_status;                /*  Status                              */
   BYTE r_reserved[8];           /*  DOS Reserved Area                   */
   union
   {
     struct
     {
-      BYTE _r_nunits;           /*  number of units     */
+      UBYTE _r_nunits;          /*  number of units     */
       BYTE FAR *_r_endaddr;     /*  Ending Address      */
       bpb *FAR * _r_bpbptr;     /*  ptr to BPB array    */
-      BYTE _r_firstunit;
+      UBYTE _r_firstunit;
     }
     _r_init;
     struct
