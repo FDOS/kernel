@@ -273,24 +273,14 @@ SHARE_LOCK_UNLOCK:
 ; sumtimes return data *ptr is the push stack word
 ;        
 
-                global  NETWORK_REDIRECTOR
-NETWORK_REDIRECTOR:
+                global  NETWORK_REDIRECTOR_FP
+NETWORK_REDIRECTOR_FP:
                 push    bp
                 mov     bp, sp
-                mov     al, [bp+4]
+                mov     al, [bp+8]
                 pop     bp
                 call    call_int2f
-                ret     2
-
-                global  _remote_close
-_remote_close: 
-                mov     al, 06h
-                jmp     short call_int2f
-
-                global  _remote_commit
-_remote_commit: 
-                mov     al, 07h
-                jmp     short call_int2f
+                ret     6
 
                 global  _remote_read
 _remote_read:   mov     al, 08h
@@ -318,16 +308,6 @@ _remote_open:
                 global  _remote_creat
 _remote_creat: 
                 mov     al, 17h
-                jmp     short call_int2f
-
-                global  _remote_findfirst
-_remote_findfirst: 
-                mov     al, 1bh
-                jmp     short call_int2f
-
-                global  _remote_findnext
-_remote_findnext: 
-                mov     al, 1ch
                 jmp     short call_int2f
 
                 global  _remote_doredirect

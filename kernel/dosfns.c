@@ -733,7 +733,7 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
   if (sftp->sft_flags & SFT_FSHARED)
   {
     /* printf("closing SFT %d = %p\n",sft_idx,sftp); */
-    return (commitonly ? remote_commit(sftp) : remote_close(sftp));
+    return network_redirector_fp(commitonly ? REM_FLUSH: REM_CLOSE, sftp);
   }
 
   /* now just drop the count if a device, else    */
@@ -1058,7 +1058,7 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
   memset(&sda_tmp_dm, 0, sizeof(dmatch)+sizeof(struct dirent));
 
   if (rc & IS_NETWORK)
-    rc = remote_findfirst(current_ldt);
+    rc = network_redirector_fp(REM_FINDFIRST, current_ldt);
   else if (rc & IS_DEVICE)
   {
     const char *p;
@@ -1120,7 +1120,7 @@ COUNT DosFindNext(void)
   memset(&SearchDir, 0, sizeof(struct dirent));
   dta = &sda_tmp_dm;
   rc = (sda_tmp_dm.dm_drive & 0x80) ?
-    remote_findnext(&sda_tmp_dm) : dos_findnext();
+    network_redirector_fp(REM_FINDNEXT, &sda_tmp_dm) : dos_findnext();
 
   dta = dmp;
   if (rc == SUCCESS)

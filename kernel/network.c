@@ -51,3 +51,8 @@ VOID set_machine_name(BYTE FAR * netname, UWORD name_num)
   net_set_count++;
 }
 
+int network_redirector(unsigned cmd)
+{
+  return network_redirector_fp(cmd, NULL);
+}
+
