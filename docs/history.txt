@@ -1,3 +1,127 @@
+2004 May 30 - Build 2035
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Lucho + Tom
+	* config.c, fatfs.c, globals.h, init-mod.h: From Tom: must
+	  set r_bpfat for C_BLDBPB, otherwise USBASPI.SYS, DI1000DD.SYS
+	  won't like us. From Lucho: use DiskTransferBuffer for deblock_buf.
++ Changes Lucho
+	* docs/fdkernel.lsm, stacks.inc, version.h,
+	  entry.asm, inthndlr.c, io.asm, nlssupt.asm: no need to preserve
+	  high part of ecx for Borland, ebx for MSVC
+	* device.h, dsk.c, init-mod.h, ioctl.c:  MSC fixes and small cleanup
+	* ioctl.c: Cache attr and control flow optimizations (~120 bytes)
+	* device.h, dsk.c, ioctl.c: deal with the correct
+	  structure for generic and query ioctls. Fixes issues with
+	  3rd party device drivers (or ones that use dsk.c)
+	* dosfns.c, inthndlr.c, proto.h: Merge dosmkdir and dosrmdir
+	* config.c: strcasecmp and set_strategy common code optimizations.
+	* main.c: Add necessary cast for BC
+	* portab.h: Avoid problem with BC declaring __emit__, en/disable twice.
+	* dsk.c: DJ mechanism without memcpy.
+	* newstuff.c: replace loops by fmemset/fmemcpy (43 bytes)
+	* dosfns.c, fatdir.c, fcbfns.c, ioctl.c: Some small cleanups.
+	* config.c: GetNumArg and misc other cleanups
+	* time.h, fatfs.c: converted TM_ENCODE into a function.
+	* inthndlr.c, proto.h, fatfs.c: Inlined dos_setdta.
+	  Various bug fixes and cleanups from Lucho and Arkady.
+	* inithma.c: moved fmemcmp's into a checkHMA function.
+	* inithma.c: HMAFree == 0xfff0 - bytesToAllocate
+	  is valid and may happen if the buffers occupy exactly all HMA
+	  space up to and including the last byte at ffff:ffff. Failing
+	  caused all buffers to go low ...
+	* inthndlr.c: cleanups (merge common code into long_check and
+	  short_check). Made int21/3301,2e,54 consistent with MSDOS
+	  behaviour.
+	* globals.h, task.c, main.c: Convert setvec into a function
+	  for the resident code
++ Changes Arkady
+	* initdisk.c: initdisk optimizations (65 bytes) and is_suspect fix.
+	* config.c, init-mod.h, intr.asm: optimized allocmem()
+	* fattab.c, kernel.asm: optimizations
+	* main.c: Make signon one big printf function call.
+	* ioctl.c: bugfix for INT21/440b (change NetRetry if DX is _non_zero).
+	* inthndlr.c: cntry == 0 doesn't make sense for Set Country
+	  Information. Fix int21/5e02+
+	* sys/talloc.c: Turbo C really wants unsigned __brklvl. Only shows
+	  up if you enable stack checking.
++ Changes Bart
+	* memmgr.c, proto.h, inthndlr.c: DosUmbLink no longer
+	  tries to merge free blocks. Also cleaned up a bit.
+	* inthndlr.c: Fix int21/3302 (the swap was wrong, Lucho & Bart) 
+	* config.c: Pointer-ise specificCountriesSupported accesses.
+	* config.c: Reorganized GetBiosKey a bit -- inlining
+	  GetBiosTime saves a slight amount of code, converted timeout < 0
+	  to a blocking read instead of polling.
+	* config.c: Use strcaseequal instead of strcasecmp since we
+	  never care about order anyway.
+	* chario.c: Fix problem with redirected input and
+	  int21/ah=0a (debug < foo.txt) -- could get you an invalid opcode!
+	* console.asm, main.c, prf.c: Use int29 for kernel console
+	  output. Enables ansi escape sequences in config.sys once you load
+	  nansi.sys. It also saves a couple of bytes.
+	* newstuff.c, proto.h: made dosmktmp to return a long:
+	  consistent with DosOpen et al and avoids the cast.
+	* mkfiles/tc2.mak: Let TC2 warn for the utilities.
+	* config.c: Disabled EBDA moves by default. Automatic EBDA
+	  moves now happen using switches=/e:-1
+	* config.c: Pointer-ize MenuStruct[MenuSelected]... (from
+	  Lucho). and InstallCommands[i].  (from Bart). Some other small
+	  optimizations.
+	* memmgr.c: Some small optimizations (46 bytes) and dead
+	  code removal from Lucho and Bart
+	* init-mod.h: Need to define strchr to init_strchr otherwise
+	  the wrong one may be called.
+	* initdisk.c: Do a bit of printf merging.
+	* filelist, drivers/makefile, init-mod.h, inthndlr.c,
+	  task.c, globals.h, main.c: Convert getvec into a C function.
+	* int2f.asm: Clean up int2f assembly a bit (merge some
+	  common bits, clarify label names)
+	* fatfs.c, fattab.c: fattab.c now remembers if the old FAT
+	  entry was free or not, so the free space adjustment could be
+	  moved back to fattab.c.
+	* init-mod.h: Replaced setvec macro by a function.
+	* entry.asm, inthndlr.c: Made int21/ah=25,35 reentrant.
+	  Solves problem with Intel PRO/1000 driver.
+	* portab.h, globals.h, main.c: Initialise all int
+	  vectors except the ones at 70:xxxx using a table.  Convert setvec
+	  into a function that disables/enables ints (init code only for
+	  now, resident code will follow later); cli/sti (disable/enable)
+	  are now macros (inlined).
+	* fnode.h, fatdir.c, fatfs.c: dir_read() no longer updates the
+	  diroff counter. This eliminates the NEW field,
+	  simplifies remove_lfn_entries(), and avoids a bug if you delete
+	  the first entry in the root directory on FAT32.
+	* fattab.c: Stop abusing "idx". The OW optimizer likes this better,too.
+	* fattab.c: Clean up FAT12 handling -- there's a portable
+	  approach that's small too.
+	* fattab.c: Inlined much of getFATblock() into link_fat.
+	  Saves the idx reference.  The second call (for a FAT12 entry that
+	  is divided in two sectors) can be much simpler, no need to
+	  recalculate. Merged next_cluster and link_fat into one
+	  function depending on a special Cluster2 value.
+	* fattab.c: Calculate the nibble/word/dword index of the FAT
+	  entry in the sector centrally in getFATblock.
+	* fattab.c: "clussec" can be of CLUSTER size if we divide by
+	  an adjusted "words per sector"(FAT16), or "dwords per
+	  sector"(FAT32) value instead of multiplying it first. For FAT12
+	  the *3/2 works out a little differently: here we first multiply
+	  by 3 and then divide by the number of "nibbles per sector".
+	* main.c: Config.cfgInitTail is a pointer now so sizeof
+	  isn't good. Just using strcpy helps F5 and F8.
+	* main.c: "copyright" is near now so we have to use %s and not %S
+	* blockio.c, dosfns.c, int2f.asm, network.c, proto.h, task.c:
+	  reduced the number of network redirector functions in
+	  int2f.asm. The remote_ functions (with one far pointer
+	  argument) are now called with the help of a
+	  network_redirector() wrapper in C by one multiplex function
+	  using a generic void *arg argument to pass the third
+	  parameter which can be various things.
+	  Split int2f.asm functions, don't let them preserve as many
+	  registers, use pascal calling convention for the "open"
+	  (but really: multiplex) function.
+	* dsk.c: floppy determination type optimization for format -- 
+	  based on Arkady's suggestions a long time ago.
+	  + a few other small optimizations (~70 bytes total).
 2004 Apr 17 - Build 2034
 -------- Bart Oldeman (bart@dosemu.org)
     * break.c, chario.c, inthndlr.c, proto.h: Improve ctrl-c/ctrl-break
