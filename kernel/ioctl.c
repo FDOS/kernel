@@ -117,9 +117,11 @@ COUNT DosDevIOctl(lregs * r)
           
         case 0x06:
           if (s->sft_flags & SFT_FDEVICE)
-            r->AL = s->sft_flags & SFT_FEOF ? 0xFF : 0;
-          else
-            r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
+          {
+            nMode = C_ISTAT;
+            goto IoCharCommon;
+          }
+          r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
           break;
           
         case 0x07:
@@ -143,11 +145,12 @@ COUNT DosDevIOctl(lregs * r)
         case 0x10:
           nMode = C_IOCTLQRY;
         IoCharCommon:
-          if ((s->sft_flags & SFT_FDEVICE)
-              || ((r->AL == 0x02) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+          if ((s->sft_flags & SFT_FDEVICE) &&
+              (  ((r->AL == 0x02) && (s->sft_dev->dh_attr & SFT_FIOCTL))
               || ((r->AL == 0x03) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+              ||   r->AL == 0x06 || r->AL == 0x07
               || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
-              || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
+              || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL))))
           {
             CharReqHdr.r_unit = 0;
             CharReqHdr.r_command = nMode;
@@ -159,15 +162,14 @@ COUNT DosDevIOctl(lregs * r)
               return DE_DEVICE;
             }
             
-            if (r->AL == 0x07)
+            if (r->AL == 0x06 || r->AL == 0x07)
             {
-              r->AL = CharReqHdr.r_status & S_BUSY ? 00 : 0xff; 
+              r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
             }
             else if (r->AL == 0x02 || r->AL == 0x03)
             {
               r->AX = CharReqHdr.r_count;
             }
-            
             else if (r->AL == 0x0c || r->AL == 0x10)
             {
               r->AX = CharReqHdr.r_status;
