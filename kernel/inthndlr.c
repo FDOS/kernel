@@ -1229,13 +1229,13 @@ dispatch:
           /* Set Extended Error */
         case 0x0a:
           {
-            lregs er;
-            fmemcpy(&er, FP_DS_DX, sizeof(er));
+            #define er (* MK_PTR (lregs, lr.DS, lr.DX))
             CritErrCode        = er.AX;
             CritErrDev         = MK_FP(er.ES, er.DI);
             CritErrLocus       = er.CH;
             CritErrClass       = er.BH;
             CritErrAction      = er.BL;
+            #undef er
             CLEAR_CARRY_FLAG();
             break;
           }
