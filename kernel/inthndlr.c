@@ -1142,7 +1142,7 @@ dispatch:
         case 0x03:
 	  if (uppermem_root != 0xffff)	  /* always error if not exists */
           {
-            DosUmbLink(lr.BL);
+            DosUmbLink(lr.BX);
             break;
           }
           /* else fall through */

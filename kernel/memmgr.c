@@ -119,7 +119,7 @@ searchAgain:
 /*
     Hack to the Umb Region direct for now. Save time and program space.
 */
-  if (uppermem_link && uppermem_root != 0xffff)
+  if ((uppermem_link & 1) && uppermem_root != 0xffff)
   {
     COUNT tmpmode = (mode == LARGEST ? mem_access_mode : mode);
     if ((mode != LARGEST || size == 0xffff) &&
@@ -189,7 +189,7 @@ searchAgain:
   if (!foundSeg || !foundSeg->m_size)
   {                             /* no block to fullfill the request */
     if ((mode != LARGEST) && (mode & FIRST_FIT_U) &&
-	uppermem_link && uppermem_root != 0xffff)
+	(uppermem_link & 1) && uppermem_root != 0xffff)
     {
       mode &= ~FIRST_FIT_U;
       goto searchAgain;
@@ -401,7 +401,7 @@ COUNT DosMemCheck(void)
 COUNT FreeProcessMem(UWORD ps)
 {
   mcb FAR *p;
-  BYTE oldumbstate = uppermem_link;
+  BYTE oldumbstate = uppermem_link & 1;
 
   /* link in upper memory to free those , too */
   DosUmbLink(1);
@@ -455,7 +455,7 @@ VOID mcb_print(mcb FAR * mcbp)
 }
 #endif
 
-VOID DosUmbLink(BYTE n)
+void DosUmbLink(unsigned n)
 {
   REG mcb FAR *p;
   REG mcb FAR *q;
@@ -463,37 +463,26 @@ VOID DosUmbLink(BYTE n)
   if (uppermem_root == 0xffff)
     return;
 
-  q = p = para2far(first_mcb);
-/* like a xor thing! */
-  if ((uppermem_link == 1) && (n == 0))
+  p = para2far(first_mcb);
+  if (n > 1 || (uppermem_link & 1) == n)
+    return;
+  while (FP_SEG(p) != uppermem_root && p->m_type != MCB_LAST)
   {
-    while (FP_SEG(p) != uppermem_root)
-    {
-      if (mcbFree(p))
-        joinMCBs(FP_SEG(p));
-      if (!mcbValid(p))
-        return;
-      q = p;
-      p = nxtMCB(p);
-    }
-
-    if (q->m_type == MCB_NORMAL) 
+    if (!mcbValid(p))
+      return;
+    q = p;
+    p = nxtMCB(p);
+  }
+  if (n == 0)
+  {
+    if (q->m_type == MCB_NORMAL && FP_SEG(p) == uppermem_root)
       q->m_type = MCB_LAST;
-    uppermem_link = n;
-
   }
-  else if ((uppermem_link == 0) && (n == 1))
-  {
-    while (q->m_type != MCB_LAST)
-    {
-      if (!mcbValid(q))
-        return;
-      q = nxtMCB(q);
-    }
-
-    q->m_type = MCB_NORMAL;
-    uppermem_link = n;
-  }
+  else if (p->m_type == MCB_LAST)
+    p->m_type = MCB_NORMAL;
+  else
+    return;
+  uppermem_link = n;
 }
 
 #endif

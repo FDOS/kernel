@@ -248,7 +248,7 @@ COUNT DosMemCheck(void);
 COUNT FreeProcessMem(UWORD ps);
 COUNT DosGetLargestBlock(UWORD * block);
 VOID show_chain(void);
-VOID DosUmbLink(BYTE n);
+void DosUmbLink(unsigned n);
 VOID mcb_print(mcb FAR * mcbp);
 
 /* lfnapi.c */
