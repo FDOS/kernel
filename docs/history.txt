@@ -11,10 +11,18 @@
       (look for play_dj() in dsk.c)
     * Simplify Victor's FAT32 fixes a bit
     * More printer clean-ups
+    * fixed sys (thanks Jeremy)
+    * DosChangeDir fails for path name too long.
++ Fixes Jeremy
+    * Changed SYS so if no source given or only source drive (no path)
+      given, then checks for kernel.sys & command.com in current
+      path (of current drive or given drive) and if not there
+      uses root (but only if source & destination drive are different).
+      Fix printf to include count(ret) if copy can't write all requested bytes
 2001 Sep 22 - Build 2025 (test)
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Added Victor
-    * FAT32 support
+    * FAT32 support (credits to Martin Stromberg for boot32.asm optimizations)
     * Delete long file names if short file name given
 + Added Jeremy
     * modified SYS so it takes optional 2nd parameter (similar to PC DOS)
