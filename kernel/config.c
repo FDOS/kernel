@@ -267,7 +267,7 @@ typedef void config_sys_func_t(BYTE * pLine);
 
 struct table {
   BYTE *entry;
-  BYTE pass;
+  signed char pass;
   config_sys_func_t *func;
 };
 
@@ -365,11 +365,8 @@ void PreConfig(void)
       DynAlloc("DPBp", blk_dev.dh_name[0], sizeof(struct dpb));
 
   /* Initialize the file table                                    */
-/*  f_nodes = (f_node_ptr)
-      KernelAlloc(Config.cfgFiles * sizeof(struct f_node));*/
-
-  LoL->f_nodes = (f_node_ptr)
-      DynAlloc("f_nodes", Config.cfgFiles, sizeof(struct f_node));
+  LoL->f_nodes =
+      KernelAlloc(Config.cfgFiles * sizeof(struct f_node), 'F', 0);
 
   LoL->f_nodes_cnt = Config.cfgFiles;
   LoL->sfthead = MK_FP(FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
@@ -384,7 +381,7 @@ void PreConfig(void)
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
 
 #ifdef DEBUG
-  printf("Preliminary:\n f_node 0x%x", LoL->f_nodes);
+  printf("Preliminary:\n f_node 0x%p\n", LoL->f_nodes);
 /*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
   printf(" sft table 0x%p\n", LoL->sfthead);
   printf(" CDS table 0x%p\n", LoL->CDSp);
@@ -404,13 +401,6 @@ void PreConfig2(void)
   struct sfttbl FAR *sp;
 
   /* initialize NEAR allocated things */
-
-  /* Initialize the file table                                    */
-  DynFree(LoL->f_nodes);
-  LoL->f_nodes = (f_node_ptr)
-      DynAlloc("f_nodes", Config.cfgFiles, sizeof(struct f_node));
-
-  LoL->f_nodes_cnt = Config.cfgFiles;        /* and the number of allocated files */
 
   /* Initialize the base memory pointers from last time.          */
   /*
@@ -487,6 +477,11 @@ void PostConfig(void)
                 Config.cfgFilesHigh);
   sp->sftt_next = (sfttbl FAR *) - 1;
   sp->sftt_count = Config.cfgFiles - 8;
+
+  /* Initialize the file table                                    */
+  LoL->f_nodes = KernelAlloc(Config.cfgFiles * sizeof(struct f_node), 'F',
+                             Config.cfgFilesHigh);
+  LoL->f_nodes_cnt = Config.cfgFiles;        /* and the number of allocated files */
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 

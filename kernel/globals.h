@@ -349,7 +349,7 @@ GLOBAL WORD dump_regs;          /* dump registers of bad call           */
 
 #endif
 
-extern f_node_ptr ASM f_nodes;  /* pointer to the array                 */
+extern struct f_node FAR * ASM f_nodes;  /* pointer to the array        */
 extern UWORD ASM f_nodes_cnt;   /* number of allocated f_nodes          */
 
 /*                                                                      */
@@ -436,3 +436,5 @@ void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
 
+GLOBAL struct f_node fnode[2];
+GLOBAL int fnode_fd[2];

@@ -177,6 +177,7 @@ int dos_cd(char * PathName);
 
 f_node_ptr get_f_node(void);
 VOID release_f_node(f_node_ptr fnp);
+#define release_near_f_node(fnp) ((fnp)->f_count = 0)
 VOID dos_setdta(BYTE FAR * newdta);
 COUNT dos_getfattr_fd(COUNT fd);
 COUNT dos_getfattr(BYTE * name);

@@ -39,6 +39,7 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
+STATIC f_node_ptr get_near_f_node(void);
 STATIC f_node_ptr split_path(char *, char *);
 BOOL find_fname(f_node_ptr, char *, int);
     /* /// Added - Ron Cemer */
@@ -253,6 +254,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   fnp->f_cluster = getdstart(fnp->f_dpb, &fnp->f_dir);
   fnp->f_cluster_offset = 0;
 
+  save_far_f_node(fnp);
   return xlt_fnp(fnp) | ((long)status << 16);
 }
 
@@ -281,7 +283,7 @@ COUNT dos_close(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return DE_INVLDHNDL;
 
   if (fnp->f_flags.f_dmod)
@@ -310,15 +312,19 @@ COUNT dos_commit(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return DE_INVLDHNDL;
   fnp2 = get_f_node();
   if (fnp2 == (f_node_ptr) 0)
+  {
+    release_near_f_node(fnp);
     return DE_INVLDHNDL;
+  }
 
   /* a copy of the fnode is closed meaning that the directory info
      is updated etc, but we keep our old info */
   memcpy(fnp2, fnp, sizeof(*fnp));
+  release_near_f_node(fnp);
   return dos_close(xlt_fnp(fnp2));
 }
 
@@ -458,15 +464,18 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
 STATIC void merge_file_changes(f_node_ptr fnp, int collect)
 {
   f_node_ptr fnp2;
-  int i;
+  int i, fd;
 
   if (!IsShareInstalled())
     return;
+
+  fd = xlt_fnp(fnp);
+  fnp2 = get_near_f_node();
   for (i = 0; i < f_nodes_cnt; i++)
   {
-    fnp2 = (f_node_ptr) & f_nodes[i];
+    fmemcpy(fnp2, &f_nodes[i], sizeof(*fnp2));
     if ((fnp != (f_node_ptr) 0)
-        && (fnp != fnp2)
+        && (i != fd)
         && (fnp->f_count > 0) && (is_same_file(fnp, fnp2)))
     {
       if (collect)
@@ -485,9 +494,11 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
            distributing these changes to the other f_nodes
            which refer to this file. */
         copy_file_changes(fnp, fnp2);
+        fmemcpy(&f_nodes[i], fnp2, sizeof(*fnp2));
       }
     }
   }
+  release_near_f_node(fnp2);
 }
 
     /* /// Added - Ron Cemer */
@@ -889,13 +900,14 @@ COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return DE_INVLDHNDL;
 
   /* Get the date and time from the fnode and return              */
   *dp = fnp->f_dir.dir_date;
   *tp = fnp->f_dir.dir_time;
 
+  release_near_f_node(fnp);
   return SUCCESS;
 }
 
@@ -913,7 +925,7 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return DE_INVLDHNDL;
 
   /* Set the date and time from the fnode and return              */
@@ -922,6 +934,7 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
   fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
   fnp->f_flags.f_ddate = TRUE;  /* set this date upon closing */
 
+  save_far_f_node(fnp);
   return SUCCESS;
 }
 
@@ -939,10 +952,11 @@ ULONG dos_getfsize(COUNT fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return (ULONG)-1l;
 
   /* Return the file size                                         */
+  release_near_f_node(fnp);
   return fnp->f_dir.dir_size;
 }
 
@@ -960,13 +974,14 @@ BOOL dos_setfsize(COUNT fd, LONG size)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return FALSE;
 
   /* Change the file size                                         */
   fnp->f_dir.dir_size = size;
 
   merge_file_changes(fnp, FALSE);       /* /// Added - Ron Cemer */
+  save_far_f_node(fnp);
 
   return TRUE;
 }
@@ -1535,7 +1550,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
   {
     return 0;
   }
@@ -1547,7 +1562,10 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     fnp->f_flags.f_ddate = FALSE; /* set date not valid any more */
     
     if (dos_extend(fnp) != SUCCESS)
+    {
+      save_far_f_node(fnp);
       return 0;
+    }
   }
   
   /* Test that we are really about to do a data transfer. If the  */
@@ -1570,6 +1588,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
       fnp->f_dir.dir_size = fnp->f_offset;
       shrink_file(fnp);
     }
+    save_far_f_node(fnp);
     return 0;
   }
 
@@ -1589,6 +1608,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* but only for regular files.                          */
     if (mode == XFR_READ && !(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_dir.dir_size))
     {
+      save_far_f_node(fnp);
       return ret_cnt;
     }
 
@@ -1619,6 +1639,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 #endif
     if (map_cluster(fnp, mode) != SUCCESS)
     {
+      save_far_f_node(fnp);
       return ret_cnt;
     }
     if (mode == XFR_WRITE)
@@ -1690,6 +1711,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
                   mode == XFR_READ ? DSKREAD : DSKWRITE))
       {
         fnp->f_offset = startoffset;
+        save_far_f_node(fnp);
         return DE_ACCESS;
       }
 
@@ -1714,6 +1736,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 #endif
     if (bp == NULL)             /* (struct buffer *)0 --> DS:0 !! */
     {
+      save_far_f_node(fnp);
       return ret_cnt;
     }
 
@@ -1766,6 +1789,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
       merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
     }
   }
+  save_far_f_node(fnp);
   return ret_cnt;
 }
 
@@ -1783,29 +1807,34 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
   /* requested file was not open, tell the caller and exit                */
   /* note: an invalid fd is indicated by a 0 return               */
 
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0)
     return (LONG) DE_INVLDHNDL;
 
   /* now do the actual lseek adjustment to the file poitner       */
-
   switch (origin)
   {
       /* offset from beginning of file                                */
     case 0:
-      return fnp->f_offset = (ULONG) foffset;
+      fnp->f_offset = (ULONG) foffset;
+      break;
 
       /* offset from current location                                 */
     case 1:
-      return fnp->f_offset += foffset;
+      fnp->f_offset += foffset;
+      break;
 
       /* offset from eof                                              */
     case 2:
-      return fnp->f_offset = fnp->f_dir.dir_size + foffset;
+      fnp->f_offset = fnp->f_dir.dir_size + foffset;
+      break;
 
       /* default to an invalid function                               */
     default:
+      release_near_f_node(fnp);
       return (LONG) DE_INVLDFUNC;
   }
+  save_far_f_node(fnp);
+  return fnp->f_offset;
 }
 
 /* returns the number of unused clusters */
@@ -1867,18 +1896,46 @@ int dos_cd(char * PathName)
 }
 #endif
 
+/* try to allocate a near f_node                            */
+/* (there are just two of them, in the SDA)                 */
+
+f_node_ptr get_near_f_node(void)
+{
+  f_node_ptr fnp = fnode;
+
+  if (fnp->f_count == 0)
+    fnp->f_count++;
+  else
+  {
+    fnp++;
+    if (fnp->f_count == 0)
+      fnp->f_count++;
+    else
+    {
+      fnp = (f_node_ptr) 0;
+      panic("more than two near fnodes requested at the same time!\n");
+    }
+  }
+  return fnp;
+}
+
 /* Try to allocate an f_node from the available files array */
 
 f_node_ptr get_f_node(void)
 {
   REG int i;
+  f_node_ptr fnp = get_near_f_node();
 
-  for (i = 0; i < f_nodes_cnt; i++)
+  if (fnp != (f_node_ptr)0)
   {
-    if (f_nodes[i].f_count == 0)
+    for (i = 0; i < f_nodes_cnt; i++)
     {
-      ++f_nodes[i].f_count;
-      return &f_nodes[i];
+      if (f_nodes[i].f_count == 0)
+      {
+        ++f_nodes[i].f_count;
+        fnode_fd[fnp - fnode] = i;
+        return fnp;
+      }
     }
   }
   return (f_node_ptr) 0;
@@ -1886,10 +1943,13 @@ f_node_ptr get_f_node(void)
 
 VOID release_f_node(f_node_ptr fnp)
 {
-  if (fnp->f_count > 0)
-    --fnp->f_count;
+  struct f_node FAR *fp = &f_nodes[xlt_fnp(fnp)];
+
+  if (fp->f_count > 0)
+    --fp->f_count;
   else
-    fnp->f_count = 0;
+    fp->f_count = 0;
+  release_near_f_node(fnp);
 }
 
 #ifndef IPL
@@ -1902,15 +1962,13 @@ COUNT dos_getfattr_fd(COUNT fd)
 {
   f_node_ptr fnp = xlt_fd(fd);
 
+  /* If the fd was invalid because it was out of range or the     */
+  /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
   if (fnp == (f_node_ptr) 0)
     return DE_TOOMANY;
 
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  if (fnp->f_count <= 0)
-    return DE_FILENOTFND;
-
+  release_near_f_node(fnp);
   return fnp->f_dir.dir_attrib;
 }
 
@@ -1950,6 +2008,7 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
   fnp->f_flags.f_dmod = TRUE;
   fnp->f_flags.f_ddate = TRUE;
+  save_far_f_node(fnp);
   dos_close(fd);
   return SUCCESS;
 }
@@ -2112,16 +2171,42 @@ COUNT media_check(REG struct dpb FAR * dpbp)
   }
 }
 
-/* translate the fd into an f_node pointer */
-f_node_ptr xlt_fd(COUNT fd)
-{
-  return fd >= f_nodes_cnt ? (f_node_ptr) 0 : &f_nodes[fd];
-}
-
-/* translate the f_node pointer into an fd */
+/* translate the f_node pointer into an fd                  */
 COUNT xlt_fnp(f_node_ptr fnp)
 {
-  return (COUNT) (fnp - f_nodes);
+  return fnode_fd[fnp - fnode];
+}
+
+/* allocate a near fnode and copy the far fd fnode to it */
+f_node_ptr xlt_fd(int fd)
+{
+  f_node_ptr fnp = (f_node_ptr) 0;
+
+  /* If the fd was invalid because it was out of range or the     */
+  /* requested file was not open, tell the caller and exit        */
+  /* note: an invalid fd is indicated by a 0 return               */
+  if (fd < f_nodes_cnt)
+  {
+    fnp = get_near_f_node();
+    if (fnp != (f_node_ptr)0)
+    {
+      fmemcpy(fnp, &f_nodes[fd], sizeof(*fnp));
+      if (fnp->f_count <= 0)
+      {
+        release_near_f_node(fnp);
+        fnp = (f_node_ptr) 0;
+      } else
+        fnode_fd[fnp - fnode] = fd;
+    }
+  }
+  return fnp;
+}
+
+/* copy a near fnode to the corresponding far one and release it */
+void save_far_f_node(f_node_ptr fnp)
+{
+  fmemcpy(&f_nodes[xlt_fnp(fnp)], fnp, sizeof(*fnp));
+  release_near_f_node(fnp);
 }
 
 /* TE
