@@ -235,7 +235,7 @@ Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
 extern UWORD ASM NetBios;
 extern BYTE * ASM net_name;
 extern BYTE ASM net_set_count;
-extern BYTE ASM NetDelay, ASM NetRetry;
+extern UWORD ASM NetDelay, ASM NetRetry;
 
 extern UWORD ASM first_mcb,         /* Start of user memory                 */
   ASM uppermem_root;                /* Start of umb chain (usually 9fff)    */
@@ -360,8 +360,7 @@ extern UWORD ASM f_nodes_cnt;   /* number of allocated f_nodes          */
 
 /* Process related functions - not under automatic generation.  */
 /* Typically, these are in ".asm" files.                        */
-VOID ASMCFUNC FAR cpm_entry(VOID)
-/*INRPT FAR handle_break(VOID) */ ;
+VOID ASMCFUNC FAR cpm_entry(VOID);
 COUNT ASMCFUNC
     CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
                            struct dhdr FAR * lpDevice);
@@ -371,7 +370,6 @@ VOID ASMCFUNC FAR CharMapSrvc(VOID);
 VOID ASMCFUNC FAR set_stack(VOID);
 VOID ASMCFUNC FAR restore_stack(VOID);
 #endif
-/*VOID INRPT FAR handle_break(VOID); */
 
 ULONG ASMPASCAL ReadPCClock(VOID);
 VOID ASMPASCAL WriteATClock(BYTE *, BYTE, BYTE, BYTE);

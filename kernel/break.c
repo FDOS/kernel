@@ -53,13 +53,13 @@ unsigned char ctrl_break_pressed(void)
 
 unsigned char check_handle_break(struct dhdr FAR **pdev)
 {
-  unsigned char c = CTL_C;
-  if (!ctrl_break_pressed())
-    c = (unsigned char)ndread(&syscon);
-  if (c != CTL_C && *pdev != syscon)
-    c = (unsigned char)ndread(pdev);
-  if (c == CTL_C)
+  unsigned char c;
+  if (ctrl_break_pressed() ||
+                         (c = (unsigned char)ndread(&syscon)) == CTL_C ||
+      *pdev != syscon && (c = (unsigned char)ndread(pdev))    == CTL_C)
+  {
     handle_break(pdev, -1);
+  }
   return c;
 }
 
@@ -90,4 +90,3 @@ void handle_break(struct dhdr FAR **pdev, int sft_out)
 
   spawn_int23();                /* invoke user INT-23 and never come back */
 }
-

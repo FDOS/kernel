@@ -132,9 +132,14 @@ VOID ASMCFUNC DosIdle_int(void);
 int ParseDosName(const char *, char *, BOOL);
 
 /* error.c */
+
 VOID dump(void);
 VOID panic(BYTE * s);
 VOID fatal(BYTE * err_msg);
+#ifdef __WATCOMC__
+# pragma aux panic aborts
+# pragma aux fatal aborts
+#endif
 
 /* fatdir.c */
 VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart);
@@ -225,21 +230,20 @@ void FcbCloseAll(void);
 UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First);
 
 /* intr.asm */
-COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
-UCOUNT ASMPASCAL res_read(int fd, void *buf, UCOUNT count);
+
+int ASMPASCAL res_DosExec(int mode, exec_blk *, PCStr);
+unsigned ASMPASCAL res_read(int fd, void *buf, unsigned count);
 #ifdef __WATCOMC__
-#pragma aux (pascal) res_DosExec modify exact [ax bx dx es]
-#pragma aux (pascal) res_read modify exact [ax bx cx dx]
+# pragma aux (pascal) res_DosExec modify exact [ax bx dx es]
+# pragma aux (pascal) res_read modify exact [ax bx cx dx]
 #endif
 
 /* ioctl.c */
 COUNT DosDevIOctl(lregs * r);
 
 /* memmgr.c */
-seg far2para(VOID FAR * p);
-seg long2para(ULONG size);
-void FAR *add_far(void FAR * fp, unsigned off);
-VOID FAR *adjust_far(const void FAR * fp);
+
+VFP adjust_far(CVFP);
 COUNT DosMemAlloc(UWORD size, COUNT mode, seg * para, UWORD * asize);
 COUNT DosMemLargest(UWORD * size);
 COUNT DosMemFree(UWORD para);
@@ -364,12 +368,16 @@ const UWORD *is_leap_year_monthdays(UWORD year);
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
 
 /* task.c */
-VOID new_psp(seg para, seg cur_psp);
-VOID child_psp(seg para, seg cur_psp, int psize);
-VOID return_user(void);
+
+void new_psp(seg_t para, seg_t cur_psp);
+void child_psp(seg_t para, seg_t cur_psp, seg_t beyond);
+void return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
 ULONG SftGetFsize(int sft_idx);
 VOID InitPSP(VOID);
+#ifdef __WATCOMC__
+# pragma aux return_user aborts
+#endif
 
 /* newstuff.c */
 int SetJFTSize(UWORD nHandles);
@@ -391,7 +399,11 @@ UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 
 /* procsupt.asm */
-VOID ASMCFUNC exec_user(iregs FAR * irp, int disable_a20);
+
+void ASMCFUNC exec_user(iregs FAR *, int disable_a20);
+#ifdef __WATCOMC__
+# pragma aux (cdecl) exec_user aborts
+#endif
 
 /* new by TE */
 
@@ -403,5 +415,4 @@ VOID ASMCFUNC exec_user(iregs FAR * irp, int disable_a20);
         ASSERT_CONST( (BYTE FAR *)x->fcb_ext - (BYTE FAR *)x->fcbname == 8)
 */
 
-#define ASSERT_CONST(x) { typedef struct { char _xx[x ? 1 : -1]; } xx ; }
-
+#define ASSERT_CONST(x) { typedef struct { char _[(x) ? 1 : -1]; } _; }

@@ -36,292 +36,217 @@ static BYTE *RcsId =
     "$Id$";
 #endif
 
+#define testbit(v,bit) ((UBYTE)((v) >> (UBYTE)(bit)) & 1)
+
 #ifdef DEBUG
 #define DebugPrintf(x) printf x
 #else
 #define DebugPrintf(x)
 #endif
-#define para2far(seg) ((mcb FAR *)MK_FP((seg), 0))
 
-/**
-  Menu selection bar struct:
-  x pos, ypos, string
-*/
-#define MENULINEMAX 80
-#define MENULINESMAX 10
-struct MenuSelector
+static UBYTE MenuColor BSS_INIT(0);
+
+static unsigned screenwidth(void)
 {
-  int x;
-  int y;
-  BYTE bSelected;
-  BYTE Text[MENULINEMAX];
-};
+  return peek(0, 0x44a);
+}
 
-/** Structure below holds the menu-strings */
-STATIC struct MenuSelector MenuStruct[MENULINESMAX] BSS_INIT({0});
+static unsigned screenbottom(void)
+{
+  UBYTE row = peekb(0, 0x484);
+  if (row == 0)
+      row = 24;
+  return row;
+}
 
-int nMenuLine BSS_INIT(0);
-int MenuColor = -1;
-
-STATIC void WriteMenuLine(struct MenuSelector *menu)
+static unsigned screeny(void)
 {
   iregs r;
-  unsigned char attr = (unsigned char)MenuColor;
-  char *pText = menu->Text;
+  r.BH = peekb(0, 0x462);	/* active video page */
+  r.AH = 0x03;			/* get cursor pos */
+  init_call_intr(0x10, &r);
+  return r.DH;
+}
 
-  if (pText[0] == 0)
-    return;
+static void gotoxy(unsigned x, unsigned y)
+{
+  iregs r;
+  r.BH = peekb(0, 0x462);	/* active video page */
+  r.DL = x;
+  r.DH = y;
+  r.AH = 0x02;			/* set cursor pos */
+  init_call_intr(0x10, &r);
+}
 
-  if(menu->bSelected)
-    attr = ((attr << 4) | (attr >> 4));
-
-  /* clear line */
-  r.a.x   = 0x0600;
-  r.b.b.h = attr;
-  r.c.b.l = r.d.b.l = menu->x;
-  r.c.b.h = r.d.b.h = menu->y;
-  r.d.b.l += strlen(pText) - 1;
+static void ClearScreenArea(UBYTE attr, unsigned x, unsigned y, unsigned w, unsigned h)
+{
+  iregs r;
+  r.BH = attr;
+  r.CL = x; r.DL = x + w - 1;
+  r.CH = y; r.DH = y + h - 1;
+  r.AX = 0x0600;		/* clear rectangle */
   init_call_intr(0x10, &r);
 
-  /* set cursor position: */
-  r.a.b.h = 0x02;
-  r.b.b.h = 0;
-  r.d.b.l = menu->x;
-  r.d.b.h = menu->y;
-  init_call_intr(0x10, &r);
-
-  printf("%s", pText);
+  gotoxy(x, y);
 }
 
-/* Deselect the previously selected line */
-STATIC void DeselectLastLine(void)
+static void say(PCStr s)
 {
-  struct MenuSelector *menu;
-  for (menu = MenuStruct; menu < &MenuStruct[MENULINESMAX]; menu++)
-  {
-    if (menu->bSelected)
-    {
-      /* deselect it: */
-      menu->bSelected = 0;
-      WriteMenuLine(menu);
-      break;
-    }
-  }
+  printf(s);
 }
 
-STATIC void SelectLine(int MenuSelected)
+static void say2(PCStr f, PCStr s)
 {
-  struct MenuSelector *menu;
-
-  DeselectLastLine(); /* clear previous selection */
-  menu = &MenuStruct[MenuSelected];
-  menu->bSelected = 1;  /* set selection flag for this one */
-  WriteMenuLine(menu);
+  printf(f, s);
 }
 
-UWORD umb_start BSS_INIT(0), UMB_top BSS_INIT(0);
-UWORD ram_top BSS_INIT(0); /* How much ram in Kbytes               */
-size_t ebda_size BSS_INIT(0);
+static void clearrow(void)
+{
+  unsigned width;
+  say("\r");
+  for (width = screenwidth(); --width;)
+    say(" ");
+  say("\r");
+}
 
-static UBYTE ErrorAlreadyPrinted[128] BSS_INIT({0});
-
-char master_env[128] BSS_INIT({0});
-static char *envp = master_env;
+static seg_t umb_base_start BSS_INIT(0);
+static size_t ebda_size BSS_INIT(0);
 
 struct config Config = {
-  0,
-  NUMBUFF,
-  NFILES,
-  0,
-  NFCBS,
-  0,
-  "command.com",
-  " /P /E:256\r\n",
-  NLAST,
-  0,
-  NSTACKS,
-  0,
-  STACKSIZE
-      /* COUNTRY= is initialized within DoConfig() */
-      , 0                       /* country ID */
-      , 0                       /* codepage */
-      , 0                       /* amount required memory */
-      , 0                       /* pointer to loaded data */
-      , 0                       /* strategy for command.com is low by default */
-      , 0                       /* default value for switches=/E:nnnn */
+  /* UBYTE cfgDosDataUmb;    */ 0,
+  /* BYTE  cfgBuffers;       */ NUMBUFF,
+  /* UBYTE cfgFiles;         */ NFILES,
+  /* UBYTE cfgFilesHigh;     */ 0,
+  /* UBYTE cfgFcbs;          */ NFCBS,
+  /* UBYTE cfgProtFcbs;      */ 0,
+  /* char  cfgShell[256];    */ "command.com /P /E:256",
+  /* UBYTE cfgLastdrive;     */ NLAST,
+  /* UBYTE cfgLastdriveHigh; */ 0,
+  /* BYTE  cfgStacks;        */ NSTACKS,
+  /* BYTE  cfgStacksHigh;    */ 0,
+  /* UWORD cfgStackSize;     */ STACKSIZE,
+  /* UBYTE cfgP_0_startmode; */ 0, /* load command.com (low by default) */
+  /* unsigned ebda2move;     */ 0, /* value for SWITCHES=/E:nnnn */
 };
 
-STATIC seg base_seg BSS_INIT(0);
-STATIC seg umb_base_seg BSS_INIT(0);
-BYTE FAR *lpTop BSS_INIT(0);
+STATIC seg_t base_seg BSS_INIT(0);
+STATIC seg_t umb_base_seg BSS_INIT(0);
+VFP lpTop BSS_INIT(0);
 STATIC unsigned nCfgLine BSS_INIT(0);
-COUNT UmbState BSS_INIT(0);
-STATIC BYTE szLine[256] BSS_INIT({0});
-STATIC BYTE szBuf[256] BSS_INIT({0});
 
-BYTE singleStep BSS_INIT(FALSE);        /* F8 processing */
-BYTE SkipAllConfig BSS_INIT(FALSE);     /* F5 processing */
-BYTE askThisSingleCommand BSS_INIT(FALSE);      /* ?device=  device?= */
-BYTE DontAskThisSingleCommand BSS_INIT(FALSE);  /* !files=            */
+static unsigned nPass BSS_INIT(0);
+static char configfile [] = "FDCONFIG.SYS";
+STATIC char szLine[256] BSS_INIT({0});
+STATIC char szBuf[256] BSS_INIT({0});
 
-COUNT MenuTimeout = -1;
-BYTE  MenuSelected BSS_INIT(0);
-UCOUNT MenuLine BSS_INIT(0);
-UCOUNT Menus BSS_INIT(0);
+UBYTE askCommand BSS_INIT(0);
 
-STATIC VOID CfgMenuColor(BYTE * pLine);
+static int      MenuTimeout = -1;
+static unsigned last_choice = 10; /* =non existing choice */
+static unsigned line_choices BSS_INIT(0);
+static unsigned all_choices BSS_INIT(0);
 
-STATIC VOID Config_Buffers(BYTE * pLine);
-STATIC VOID sysScreenMode(BYTE * pLine);
-STATIC VOID sysVersion(BYTE * pLine);
-STATIC VOID CfgBreak(BYTE * pLine);
-STATIC VOID Device(BYTE * pLine);
-STATIC VOID DeviceHigh(BYTE * pLine);
-STATIC VOID Files(BYTE * pLine);
-STATIC VOID FilesHigh(BYTE * pLine);
-STATIC VOID Fcbs(BYTE * pLine);
-STATIC VOID CfgLastdrive(BYTE * pLine);
-STATIC VOID CfgLastdriveHigh(BYTE * pLine);
-STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode);
-STATIC VOID Dosmem(BYTE * pLine);
-STATIC VOID DosData(BYTE * pLine);
-STATIC VOID Country(BYTE * pLine);
-STATIC VOID InitPgm(BYTE * pLine);
-STATIC VOID InitPgmHigh(BYTE * pLine);
-STATIC VOID CmdInstall(BYTE * pLine);
-STATIC VOID CmdInstallHigh(BYTE * pLine);
-STATIC VOID CmdSet(BYTE * pLine);
-
-
-STATIC VOID CfgSwitchar(BYTE * pLine);
-STATIC VOID CfgSwitches(BYTE * pLine);
-STATIC VOID CfgFailure(BYTE * pLine);
-STATIC VOID CfgIgnore(BYTE * pLine);
-STATIC VOID CfgMenu(BYTE * pLine);
-
-STATIC VOID CfgMenuEsc(BYTE * pLine);
+STATIC BOOL LoadDevice(PCStr, VFP top, int mode);
+STATIC void CfgFailure(PCStr);
 
 STATIC VOID DoMenu(void);
-STATIC VOID CfgMenuDefault(BYTE * pLine);
-STATIC BYTE * skipwh(BYTE * s);
-STATIC BYTE * scan(BYTE * s, BYTE * d);
-STATIC BOOL isnum(char ch);
-#if 0
-STATIC COUNT tolower(COUNT c);
-#endif
+STATIC PCStr skipwh(PCStr);
+STATIC PCStr scanword(PCStr, PStr);
+STATIC PCStr scanverb(PCStr, PStr);
+#define isdigit(ch) ((UBYTE)((ch) - '0') <= 9)
 STATIC char toupper(char c);
-STATIC VOID strupr(char *s);
-STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type);
-STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
+static PStr strupr(PStr);
+static PStr strcat(PStr d, PCStr s);
+STATIC void mcb_init(seg_t, size_t, BYTE type);
+STATIC void mumcb_init(seg_t, size_t);
+#define mcb_next(seg) ((seg) + MK_SEG_PTR(mcb, seg)->m_size + 1)
 
-STATIC VOID Stacks(BYTE * pLine);
-STATIC VOID StacksHigh(BYTE * pLine);
-
-STATIC VOID SetAnyDos(BYTE * pLine);
-STATIC VOID Numlock(BYTE * pLine);
-STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg);
-BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
-STATIC int SkipLine(char *pLine);
-#if 0
-STATIC char * stristr(char *s1, char *s2);
-#endif
-STATIC char strcaseequal(const char * d, const char * s);
-STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
+STATIC PCStr GetNumArg(PCStr);
+STATIC BOOL GetNumArg1(PCStr);
+STATIC BOOL GetNumArg2(PCStr, int default2);
+static void hintSkipAll(void);
+static BOOL askSkipLine(void);
+STATIC char strcasediff(PCStr, PCStr);
+STATIC void LoadCountryInfoHardCoded(CStr filename, int ccode, int cpage);
 STATIC void umb_init(void);
 
-void HMAconfig(int finalize);
 STATIC void config_init_buffers(int anzBuffers);     /* from BLOCKIO.C */
 STATIC void config_init_fnodes(int f_nodes_cnt);
 
-#ifdef I86
-STATIC VOID FAR * AlignParagraph(VOID FAR * lpPtr);
-#else
-#define AlignParagraph(x) ((VOID *)x)
-#endif
-
 #define EOF 0x1a
 
-STATIC struct table * LookUp(struct table *p, BYTE * token);
+typedef void config_sys_func_t(PCStr);
 
-typedef void config_sys_func_t(BYTE * pLine);
+STATIC config_sys_func_t
+  CfgSwitches,
+  CfgMenuColor, CfgMenuDefault, CfgMenu, CfgMenuEsc,
+  CfgBreak, Config_Buffers, Country, Dosmem, DosData,
+  Fcbs, Files, FilesHigh, CfgLastdrive, CfgLastdriveHigh,
+  Numlock, CmdShell, CmdShellHigh,
+  Stacks, StacksHigh, CfgSwitchar,
+  sysScreenMode, sysVersion, SetAnyDos,
+  Device, DeviceHigh, CmdInstall, CmdInstallHigh, CmdSet;
 
-struct table {
-  BYTE *entry;
-  signed char pass;
-  config_sys_func_t *func;
-};
+STATIC struct table {
+  PCStr const entry;
+  UBYTE pass;
+  config_sys_func_t *const func;
 
-STATIC struct table commands[] = {
-  /* first = switches! this one is special since it is asked for but
-     also checked before F5/F8 */
+} commands [] = {
+
+  /* this one is special since it checked for /N/F before F5/F8 and
+     asked for /K/E after menu; DoConfig() changes commands[0].pass */
   {"SWITCHES", 0, CfgSwitches},
 
-  /* rem is never executed by locking out pass                    */
-  {"REM", 0, CfgIgnore},
-  {";", 0,   CfgIgnore},
+  {"REM", 100, NULL},
 
-  {"MENUCOLOR",0,CfgMenuColor},
-
+  {"MENUCOLOR", 0, CfgMenuColor},
   {"MENUDEFAULT", 0, CfgMenuDefault},
-  {"MENU", 0, CfgMenu},         /* lines to print in pass 0 */
-  {"ECHO", 2, CfgMenu},         /* lines to print in pass 2 - install(high) */
-  {"EECHO", 2, CfgMenuEsc},     /* modified ECHO (ea) */
+  {"MENU", 1, CfgMenu},			/* lines to print in pass 1 */
+  {"ECHO", 3, CfgMenu},			/* lines to print in pass 3 */
+  {"EECHO", 3, CfgMenuEsc},		/* modified ECHO (ea) */
 
-  {"BREAK", 1, CfgBreak},
-  {"BUFFERS", 1, Config_Buffers},
-  {"COMMAND", 1, InitPgm},
-  {"COUNTRY", 1, Country},
-  {"DOS", 1, Dosmem},
-  {"DOSDATA", 1, DosData},
-  {"FCBS", 1, Fcbs},
-  {"FILES", 1, Files},
-  {"FILESHIGH", 1, FilesHigh},
-  {"LASTDRIVE", 1, CfgLastdrive},
-  {"LASTDRIVEHIGH", 1, CfgLastdriveHigh},
-  {"NUMLOCK", 1, Numlock},
-  {"SHELL", 1, InitPgm},
-  {"SHELLHIGH", 1, InitPgmHigh},
-  {"STACKS", 1, Stacks},
-  {"STACKSHIGH", 1, StacksHigh},
-  {"SWITCHAR", 1, CfgSwitchar},
-  {"SCREEN", 1, sysScreenMode},   /* JPP */
-  {"VERSION", 1, sysVersion},     /* JPP */
-  {"ANYDOS", 1, SetAnyDos},       /* tom */
+  {"BREAK", 2, CfgBreak},
+  {"BUFFERS", 2, Config_Buffers},
+  {"BUFFERSHIGH", 2, Config_Buffers},	/* currently dummy */
+  {"COUNTRY", 2, Country},
+  {"DOS", 2, Dosmem},
+  {"DOSDATA", 2, DosData},
+  {"FCBS", 2, Fcbs},
+  {"FILES", 2, Files},
+  {"FILESHIGH", 2, FilesHigh},
+  {"LASTDRIVE", 2, CfgLastdrive},
+  {"LASTDRIVEHIGH", 2, CfgLastdriveHigh},
+  {"NUMLOCK", 2, Numlock},
+  {"STACKS", 2, Stacks},
+  {"STACKSHIGH", 2, StacksHigh},
+  {"SWITCHAR", 2, CfgSwitchar},
+  {"SCREEN", 2, sysScreenMode},		/* JPP */
+  {"VERSION", 2, sysVersion},		/* JPP */
+  {"ANYDOS", 2, SetAnyDos},		/* tom */
 
-  {"DEVICE", 2, Device},
-  {"DEVICEHIGH", 2, DeviceHigh},
-  {"INSTALL", 2, CmdInstall},
-  {"INSTALLHIGH", 2, CmdInstallHigh},
-  {"SET", 2, CmdSet},
-  
-  /* default action                                               */
-  {"", -1, CfgFailure}
+  {"DEVICE", 3, Device},
+  {"DEVICEHIGH", 3, DeviceHigh},
+
+  {"INSTALL", 4, CmdInstall},
+  {"INSTALLHIGH", 4, CmdInstallHigh},
+  {"SET", 4, CmdSet},
+  {"SHELL", 4, CmdShell},
+  {"SHELLHIGH", 4, CmdShellHigh},
 };
 
-/* RE function for menu. */
-int  findend(BYTE * s)
-{
-  int nLen = 0;
-  /* 'marks' end if at least ten spaces, 0, or newline is found. */
-  while (*s && (*s != 0x0d || *s != 0x0a) )
-  {
-    BYTE *p= skipwh(s);
-    /* ah, more than 9 whitespaces ? We're done here (hrmph!) */
-    if(p - s >= 10)
-      break;
-    nLen++;
-    ++s;
-  }
-  return nLen;
-}
+enum {	HMA_NONE,		/* do nothing */
+	HMA_REQ,		/* DOS=HIGH detected */
+	HMA_DONE,		/* Moved kernel to HMA */
+};
 
-BYTE *pLineStart BSS_INIT(0);
+enum {	UMB_NONE,		/* do nothing */
+	UMB_DONE,		/* UMB initialized */
+	UMB_REQ,		/* DOS=UMB detected */
+};
 
-BYTE HMAState BSS_INIT(0);
-#define HMA_NONE 0              /* do nothing */
-#define HMA_REQ 1               /* DOS = HIGH detected */
-#define HMA_DONE 2              /* Moved kernel to HMA */
-#define HMA_LOW 3               /* Definitely LOW */
+static UBYTE HMAState BSS_INIT(HMA_NONE);
+static UBYTE UmbState BSS_INIT(UMB_NONE);
 
 /* Do first time initialization.  Store last so that we can reset it    */
 /* later.                                                               */
@@ -345,7 +270,7 @@ void PreConfig(void)
   /* Initialize the file table                                    */
   config_init_fnodes(Config.cfgFiles);
 
-  LoL->sfthead = MK_FP(FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
+  LoL->sfthead = MK_PTR(struct sfttbl, FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
   /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
   /* LoL->FCBp = (sfttbl FAR *)
      KernelAlloc(sizeof(sftheader)
@@ -366,17 +291,26 @@ void PreConfig(void)
   /* Done.  Now initialize the MCB structure                      */
   /* This next line is 8086 and 80x86 real mode specific          */
 #ifdef DEBUG
-  printf("Preliminary  allocation completed: top at %p\n", lpTop);
+  printf("Preliminary allocation completed: top at %p\n", lpTop);
 #endif
 }
 
-/* Do second pass initialization: near allocation and MCBs              */
-void PreConfig2(void)
+static void KernelAllocSFT(sfttbl FAR *p, unsigned files, int high)
 {
-  struct sfttbl FAR *sp;
+  p = p->sftt_next = (sfttbl FAR *)KernelAlloc(sizeof(sftheader) +
+                                               files * sizeof(sft), 'F', high);
+  p->sftt_count = files;
+  p->sftt_next = (sfttbl FAR *)-1l;
+}
 
+#define EBDASEG 0x40e
+#define RAMSIZE 0x413
+#define RAM_size() peek(0, RAMSIZE)
+
+/* Do pre-drivers initialization: near allocation and MCBs              */
+static void PreConfig3(void)
+{
   /* initialize NEAR allocated things */
-
   /* Initialize the base memory pointers from last time.          */
   /*
      if the kernel could be moved to HMA, everything behind the dynamic
@@ -385,52 +319,58 @@ void PreConfig2(void)
      and allocation starts after the kernel.
    */
 
-  base_seg = LoL->first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
-
-  if (Config.ebda2move)
+  size_t ram_top = RAM_size(); /* how much conventional RAM, kb */
+  seg_t ebdaseg = peek(0, EBDASEG);
+  size_t ebdasz = peekb(ebdaseg, 0);
+  if (Config.ebda2move && ram_top * 64 == ebdaseg && ebdasz <= 63)
   {
-    ebda_size = ebdasize();
-    ram_top += ebda_size / 1024;
-    if (ebda_size > Config.ebda2move)
-      ebda_size = Config.ebda2move;
+    ram_top += ebdasz;
+    ebdasz *= 1024u;
+    if (ebdasz > Config.ebda2move)
+        ebdasz = (Config.ebda2move + 15) & -16;
+    ebda_size = ebdasz;
   }
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init(base_seg, ram_top * 64 - LoL->first_mcb - 1, MCB_LAST);
+  base_seg = LoL->first_mcb = FP_SEG(alignNextPara(DynLast()));
+  mcb_init(base_seg, ram_top * 64 - base_seg, MCB_LAST);
 
-  sp = LoL->sfthead;
-  sp = sp->sftt_next = KernelAlloc(sizeof(sftheader) + 3 * sizeof(sft), 'F', 0);
-  sp->sftt_next = (sfttbl FAR *) - 1;
-  sp->sftt_count = 3;
+  /* allocate space in low memory for 3 file handles
+     (SFT) in addition to 5 handles, builtin into LOL */
+  KernelAllocSFT(LoL->sfthead, 3, 0);
 
   if (ebda_size)  /* move the Extended BIOS Data Area from top of RAM here */
-    movebda(ebda_size, FP_SEG(KernelAlloc(ebda_size, 'I', 0)));
+  {
+    seg_t new_seg = FP_SEG(KernelAlloc(ebda_size, 'I', 0));
+    fmemcpy(MK_SEG_PTR(BYTE, new_seg), MK_SEG_PTR(const BYTE, ebdaseg), ebda_size);
+    poke(0, EBDASEG, new_seg);
+    poke(0, RAMSIZE, ram_top);
+  }
 
-  if (UmbState == 2)
-    umb_init();
+  umb_init();
 }
 
-/* Do third pass initialization.                                        */
-/* Also, run config.sys to load drivers.                                */
+/* Do last initialization.                                        */
 void PostConfig(void)
 {
-  sfttbl FAR *sp;
-
   /* We could just have loaded FDXMS or HIMEM */
   if (HMAState == HMA_REQ && MoveKernelToHMA())
     HMAState = HMA_DONE;
-  
+
   if (Config.cfgDosDataUmb)
   {
-    Config.cfgFilesHigh = TRUE;
-    Config.cfgLastdriveHigh = TRUE;
-    Config.cfgStacksHigh = TRUE;
+    Config.cfgFilesHigh =
+    Config.cfgStacksHigh =
+    Config.cfgLastdriveHigh = 1;
   }
-        
+
   /* compute lastdrive ... */
-  LoL->lastdrive = Config.cfgLastdrive;
-  if (LoL->lastdrive < LoL->nblkdev)
-    LoL->lastdrive = LoL->nblkdev;
+  {
+    UBYTE drv = Config.cfgLastdrive;
+    if (drv < LoL->nblkdev)
+        drv = LoL->nblkdev;
+    LoL->lastdrive = drv;
+  }
 
   DebugPrintf(("starting FAR allocations at %x\n", base_seg));
 
@@ -449,12 +389,11 @@ void PostConfig(void)
   /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
   /* LoL->FCBp = KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
-  sp = LoL->sfthead->sftt_next;
-  sp = sp->sftt_next = (sfttbl FAR *)
-    KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 8) * sizeof(sft), 'F',
-                Config.cfgFilesHigh);
-  sp->sftt_next = (sfttbl FAR *) - 1;
-  sp->sftt_count = Config.cfgFiles - 8;
+
+  /* allocate space for remaining file handles (SFT); 5 are
+     already builtin and 3 are allocated in PreConfig3() */
+  KernelAllocSFT(LoL->sfthead->sftt_next,
+                 Config.cfgFiles - 8, Config.cfgFilesHigh);
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
@@ -465,9 +404,10 @@ void PostConfig(void)
   printf(" CDS table 0x%p\n", LoL->CDSp);
   printf(" DPB table 0x%p\n", LoL->DPBp);
 #endif
+
   if (Config.cfgStacks)
   {
-    VOID FAR *stackBase =
+    void _seg *stackBase =
         KernelAlloc(Config.cfgStacks * Config.cfgStackSize, 'S',
                     Config.cfgStacksHigh);
     init_stacks(stackBase, Config.cfgStacks, Config.cfgStackSize);
@@ -481,17 +421,18 @@ void PostConfig(void)
 /* This code must be executed after device drivers has been loaded */
 VOID configDone(VOID)
 {
-  if (UmbState == 1)
-    para2far(base_seg)->m_type = MCB_LAST;
+  if (UmbState == UMB_DONE)
+    MK_SEG_PTR(mcb, base_seg)->m_type = MCB_LAST;
 
   if (HMAState != HMA_DONE)
   {
-    mcb FAR *p;
-    unsigned short kernel_seg;
-    unsigned short hma_paras = (HMAFree+0xf)/16;
-
-    kernel_seg = allocmem(hma_paras);
-    p = para2far(kernel_seg - 1);
+#ifdef DEBUG
+    size_t hma_paras = (HMAFree + 15) / 16;
+    seg_t kernel_seg = allocmem(hma_paras);
+#else
+    seg_t kernel_seg = allocmem((HMAFree + 15) / 16);
+#endif
+    mcb _seg *p = MK_SEG_PTR(mcb, kernel_seg - 1);
 
     p->m_name[0] = 'S';
     p->m_name[1] = 'C';
@@ -499,357 +440,417 @@ VOID configDone(VOID)
 
     DebugPrintf(("HMA not available, moving text to %x\n", kernel_seg));
     MoveKernel(kernel_seg);
-
-    kernel_seg += hma_paras + 1;
-
-    DebugPrintf(("kernel is low, start alloc at %x", kernel_seg));
+    DebugPrintf(("kernel is low, start alloc at %x\n",
+                 kernel_seg + hma_paras + 1));
   }
 
   /* The standard handles should be reopened here, because
      we may have loaded new console or printer drivers in CONFIG.SYS */
 }
 
-STATIC seg prev_mcb(seg cur_mcb, seg start)
-{
-  /* determine prev mcb */
-  seg mcb_prev, mcb_next;
-  mcb_prev = mcb_next = start;
-  while (mcb_next < cur_mcb && para2far(mcb_next)->m_type == MCB_NORMAL)
-  {
-    mcb_prev = mcb_next;
-    mcb_next += para2far(mcb_prev)->m_size + 1;
-  }
-  return mcb_prev;
-}
-
 STATIC void umb_init(void)
 {
-  UCOUNT umb_seg, umb_size;
-  seg umb_max;
-  void far *xms_addr;
+  CVFP xms_addr;
+  seg_t umb_seg;
+  size_t umb_size;
 
-  if ((xms_addr = DetectXMSDriver()) == NULL)
-    return;
-
-  if (UMB_get_largest(xms_addr, &umb_seg, &umb_size))
+  if (UmbState == UMB_REQ &&
+      (xms_addr = DetectXMSDriver()) != NULL &&
+      UMB_get_largest(xms_addr, &umb_seg, &umb_size))
   {
-    UmbState = 1;
+    seg_t umb_furthest = umb_seg;
+
+    /* SAFETY: new block may be too small or below memory top */
+    seg_t base_top = RAM_size() * 64 - 1;
+    if (umb_size < 2 || umb_furthest <= base_top)
+      return;
+
+    UmbState = UMB_DONE;
 
     /* reset root */
-    LoL->uppermem_root = ram_top * 64 - 1;
+    LoL->uppermem_root = base_top;
+    umb_base_seg = umb_furthest;
 
     /* create link mcb (below) */
-    para2far(base_seg)->m_type = MCB_NORMAL;
-    para2far(base_seg)->m_size--;
-    mumcb_init(LoL->uppermem_root, umb_seg - LoL->uppermem_root - 1);
+    /* (it prefixes hole between UMBs) */
+    MK_SEG_PTR(mcb, base_seg)->m_type = MCB_NORMAL;
+    MK_SEG_PTR(mcb, base_seg)->m_size--;
+    mumcb_init(base_top, umb_seg - base_top);
 
     /* setup the real mcb for the devicehigh block */
-    mcb_init(umb_seg, umb_size - 2, MCB_NORMAL); 
+    mcb_init(umb_seg, umb_size, MCB_NORMAL);
 
-    umb_base_seg = umb_max = umb_start = umb_seg;
-    UMB_top = umb_size;
-
-    /* there can be more UMB's ! 
-       this happens, if memory mapped devces are in between 
+    /* there can be more UMBs !
+       this happens, if memory mapped devices are in between
        like UMB memory c800..c8ff, d8ff..efff with device at d000..d7ff
        However some of the xxxHIGH commands still only work with
        the first UMB.
     */
-
     while (UMB_get_largest(xms_addr, &umb_seg, &umb_size))
     {
-      seg umb_prev, umb_next;
-
-      /* setup the real mcb for the devicehigh block */
-      mcb_init(umb_seg, umb_size - 2, MCB_NORMAL);
-
-      /* determine prev and next umbs */
-      umb_prev = prev_mcb(umb_seg, LoL->uppermem_root);
-      umb_next = umb_prev + para2far(umb_prev)->m_size + 1;
-
-      if (umb_seg < umb_max)
+      if (umb_furthest < umb_seg)
       {
-        if (umb_next - umb_seg - umb_size == 0)
+        seg_t umb_hole = mcb_next(umb_furthest);
+
+        /* SAFETY: new block may (1) be adjacent to old block,
+           (2) overlap it or (3) be inside. (2) and (3) are errors
+           and shouldn't happen, but handle them anyway. */
+        if (umb_hole >= umb_seg)
         {
-          /* should the UMB driver return
-             adjacent memory in several pieces */
-          umb_size += para2far(umb_next)->m_size + 1;
-          para2far(umb_seg)->m_size = umb_size;
+          size_t overlap = umb_hole - umb_seg;
+          if (overlap < umb_size)
+            /* join adjacent/overlapped new block to prev block */
+            MK_SEG_PTR(mcb, umb_furthest)->m_size += umb_size - overlap;
+          continue;
         }
+
+        /* SAFETY: new block may be too small */
+        if (umb_size < 2)
+          continue;
+
+        /* create link mcb (below) */
+        MK_SEG_PTR(mcb, umb_furthest)->m_size--;
+        umb_furthest = umb_seg;
+        umb_hole--;
+        mumcb_init(umb_hole, umb_seg - umb_hole);
+      }
+      else /* umb_seg <= umb_furthest */
+      {
+        seg_t umb_prev, umb_hole, umb_next, umb_cur_next;
+
+        /* SAFETY: umb_seg may point into base memory */
+        if (base_top >= umb_seg)
+          continue;
+
+        /* find previous block */
+        for (umb_hole = base_top;;)
+        {
+          umb_next = mcb_next(umb_hole);
+          /* ASSUME umb_hole->m_type == 'M' && umb_hole->m_psp == 8 &&
+                    umb_next->m_type == 'M' && umb_next->m_psp != 8 &&
+                    umb_hole < umb_next <= umb_furthest */
+          if (umb_seg <= umb_next)
+            break;
+          umb_prev = umb_next;
+          umb_hole = mcb_next(umb_next);
+        }
+        /* NOW base_top == umb_hole < umb_seg <= umb_next ||
+               base_top  < umb_prev < umb_seg <= umb_next */
+
+        /* SAFETY: new block may be inside previous block */
+        umb_cur_next = umb_seg + umb_size;
+        if (umb_cur_next <= umb_hole)
+          continue;
+
+        /* SAFETY: umb_seg may point below hole,
+           so, use ">=" instead "==" */
+        if (umb_hole + 1 >= umb_seg && umb_hole != base_top)
+          /* join adjacent/overlapped new block to prev block */
+          umb_size = umb_cur_next - (umb_seg = umb_prev);
         else
         {
-          /* create link mcb (above) */
-          mumcb_init(umb_seg + umb_size - 1, umb_next - umb_seg - umb_size);
+          /* SAFETY: new block may be too small */
+          if (umb_size < 2 && umb_cur_next < umb_next)
+            continue;
+          /* adjust link mcb below */
+          MK_SEG_PTR(mcb, umb_hole)->m_size = umb_seg - umb_hole - 1;
         }
-      }
-      else /* umb_seg >= umb_max */
-      {
-        umb_prev = umb_next;
-      }
 
-      if (umb_seg - umb_prev - 1 == 0)
-        /* should the UMB driver return
-           adjacent memory in several pieces */
-        para2far(prev_mcb(umb_prev, LoL->uppermem_root))->m_size += umb_size;
-      else
-      {
-        /* create link mcb (below) */
-        mumcb_init(umb_prev, umb_seg - umb_prev - 1);
-      }
+        /* SAFETY: new block may overlap next block,
+           so, use ">=" instead "==" */
+        if (umb_cur_next >= umb_next)
+        {
+          /* join adjacent/overlapped next block to new block */
+          if (umb_furthest == umb_next)
+              umb_furthest = umb_seg;
+          if (umb_base_seg == umb_next)
+              umb_base_seg = umb_seg;
+          umb_size = mcb_next(umb_next) - umb_seg;
+        }
+        else /* umb_cur_next < umb_next */
+        {
+          /* create link mcb (above) */
+          umb_size--, umb_cur_next--;
+          mumcb_init(umb_cur_next, umb_next - umb_cur_next);
+        }
+      } /* else */
 
-      if (umb_seg > umb_max)
-        umb_max = umb_seg;
-    }
-    para2far(umb_max)->m_size++;
-    para2far(umb_max)->m_type = MCB_LAST;
+      /* setup the real mcb for the devicehigh block */
+      mcb_init(umb_seg, umb_size, MCB_NORMAL);
+    } /* while */
+
+    MK_SEG_PTR(mcb, umb_furthest)->m_type = MCB_LAST;
+    umb_base_start = umb_base_seg;
+
     DebugPrintf(("UMB Allocation completed: start at 0x%x\n", umb_base_seg));
-  }
+  } /* if */
 }
 
-VOID DoConfig(int nPass)
+STATIC const struct table * LookUp(CStr token)
 {
-  COUNT nFileDesc;
-  BYTE *pLine;
-  BOOL bEof;
+  const struct table *p = commands;
+  do
+    if (!strcasediff(p->entry, token))
+      return p;
+  while (++p < ENDOF(commands));
+  p = NULL;
+  return p;
+}
 
+static void DoConfig_(void)
+{
+  int nFileDesc, done;
+
+  if (askCommand & ASK_SKIPALL)
+    return;
 
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
-  if ((nFileDesc = open("fdconfig.sys", 0)) >= 0)
+  /*strcpy (configfile, "FDCONFIG.SYS");*/
+  if ((nFileDesc = open(configfile, 0)) < 0)
   {
-    DebugPrintf(("Reading FDCONFIG.SYS...\n"));
-  }
-  else
-  {
-    DebugPrintf(("FDCONFIG.SYS not found\n"));
-    if ((nFileDesc = open("config.sys", 0)) < 0)
+    DebugPrintf(("%s not found\n", configfile));
+    strcpy (configfile, "CONFIG.SYS");
+    if ((nFileDesc = open(configfile, 0)) < 0)
     {
-      DebugPrintf(("CONFIG.SYS not found\n"));
+      DebugPrintf(("%s not found\n", configfile));
       return;
     }
-    DebugPrintf(("Reading CONFIG.SYS...\n"));
   }
-
-  /* Have one -- initialize.                                      */
-  nCfgLine = 0;
-  bEof = 0;
-  pLine = szLine;
+  DebugPrintf(("Reading %s...\n", configfile));
 
   /* Read each line into the buffer and then parse the line,      */
   /* do the table lookup and execute the handler for that         */
   /* function.                                                    */
-
-  for (; !bEof; nCfgLine++)
+  done = nCfgLine = 0;
+  do
   {
-    struct table *pEntry;
-
-    pLineStart = szLine;
+    PStr q;
+    PCStr p;
+    const struct table *pEntry;
 
     /* read in a single line, \n or ^Z terminated */
-
-    for (pLine = szLine;;)
+    nCfgLine++;
+    for (q = szLine;;)
     {
-      if (read(nFileDesc, pLine, 1) <= 0)
+      if (read(nFileDesc, q, 1) <= 0 || *q == EOF)
       {
-        bEof = TRUE;
+        done++;
         break;
       }
 
-      if (pLine >= szLine + sizeof(szLine) - 3)
+      if (*q == '\n')		/* end of line */
+        break;
+
+      if (*q != '\r')		/* ignore CR */
       {
-        CfgFailure(pLine);
-        printf("error - line overflow line %d \n", nCfgLine);
-        break;
+        q++;
+        if (q >= szLine + sizeof szLine - 1)
+        {
+          /* *q = 0; */ /* static memory already zeroed */
+          CfgFailure(q);
+          say("error - line overflow\n");
+          break;
+        }
       }
+    } /* for */
+    *q = 0;			/* terminate line - make ASCIIZ */
 
-      if (*pLine == '\n' || *pLine == EOF)      /* end of line */
-        break;
+    p = skipwh(szLine);
+    if (*p == '\0' || *p == ';')
+      continue;			/* skip empty line and comment */
 
-      if (*pLine != '\r')       /* ignore CR */
-        pLine++;
+    p = scanverb(p, szBuf);	/* extract verb */
+    pEntry = LookUp(szBuf);
+    if (pEntry == NULL)
+    {
+      if (nPass == 2)		/* only at pass 2 (after menu)... */
+        CfgFailure(p);		/* ...say error for wrong verb */
+      continue;
     }
 
-    *pLine = 0;
-    pLine = szLine;
-
-    /* Skip leading white space and get verb.               */
-    pLine = scan(pLine, szBuf);
-
-    /* If the line was blank, skip it.  Otherwise, look up  */
-    /* the verb and execute the appropriate function.       */
-    if (*szBuf == '\0')
+    if (nPass != pEntry->pass ||
+        nPass > 1 &&		/* after menu: check "123?device=" */
+         !testbit(line_choices, last_choice))
       continue;
 
-    pEntry = LookUp(commands, szBuf);
-
-    if (pEntry->pass >= 0 && pEntry->pass != nPass)
-      continue;
-    
-    if (nPass == 0) /* pass 0 always executed (rem Menu prompt switches) */
+    if (pEntry->func != CfgMenu && pEntry->func != CfgMenuEsc)
     {
-      pEntry->func(pLine);
-      continue;
-    }
-    else
-    {
-      if (SkipLine(pLineStart))   /* F5/F8 processing */
+      if (*p)
+      {
+        if (*p != ' ' && *p != '\t' && *p != '=')
+        {
+          CfgFailure(p);
+          continue;
+        }
+        p = skipwh(p);
+        if (*p == '=')		/* accept "device foo.sys" without '=' */
+          p = skipwh(p + 1);
+      }
+      if (nPass > 1 && askSkipLine()) /* after menu: processing "?" */
         continue;
     }
-
-    if ((pEntry->func != CfgMenu) && (pEntry->func != CfgMenuEsc))
-    {
-      /* compatibility "device foo.sys" */
-      if (' ' != *pLine && '\t' != *pLine && '=' != *pLine)
-      {
-        CfgFailure(pLine);
-        continue;
-      }
-      pLine = skipwh(pLine);
-    }
-    if ('=' == *pLine || pEntry->func == CfgMenu || pEntry->func == CfgMenuEsc)
-      pLine = skipwh(pLine+1);
+    if (*p == ' ' || *p == '\t')
+      p++;
 
     /* YES. DO IT */
-    pEntry->func(pLine);
-  }
-  close(nFileDesc); 
+    pEntry->func(p);
+  } while (!done && !(askCommand & ASK_SKIPALL));
 
-  if (nPass == 0)
-  {
-    DoMenu();
-  }
+  close(nFileDesc);
+  nPass++;
 }
 
-STATIC struct table * LookUp(struct table *p, BYTE * token)
+void DoConfig()
 {
-  while (p->entry[0] != '\0' && !strcaseequal(p->entry, token))
-    ++p;
-  return p;
+  DoConfig_();			/* switches=/f/n, menucolor=	*/
+  hintSkipAll();
+  if (!(askCommand & ASK_SKIPALL))
+  {
+    if (MenuColor)		/* color defined?		*/
+      ClearScreenArea(MenuColor, 0, 0, screenwidth(), screenbottom() + 1);
+    DoConfig_();		/* show MENU, find choices	*/
+    if (all_choices)
+    {
+      if (!testbit(all_choices, last_choice))
+      {
+        unsigned ac;
+        last_choice = 0;	/* find lowest existing choice	*/
+        for (ac = all_choices; !testbit(ac, 0); ac >>= 1)
+          last_choice++;
+      }
+      if ((all_choices - 1) & all_choices) /* more than one choice? */
+        DoMenu();
+      if (!(askCommand & ASK_SKIPALL))
+      {
+        static char choice[] = "CONFIG=0";
+        choice[7] = (UBYTE)'0' + last_choice;
+        CmdSet(choice);		/* show choice in environment	*/
+      }
+    }
+    commands[0].pass = 2;	/* switches=/k/e at pass 2	*/
+    DoConfig_();		/* break=, files=, etc.		*/
+  }
+  PreConfig3();
+  DoConfig_();			/* device=			*/
 }
 
 /*
     get BIOS key with timeout:
-    
-    timeout < 0: no timeout
+    timeout < 0: no timeout, remove returned key from keyboard buffer
     timeout = 0: poll only once
-    timeout > 0: timeout in seconds
-    
+    timeout > 0: timeout for poll in seconds
     return
-            0xffff : no key hit
-            
+            0      : no key hit (only for timeout >= 0)
             0xHH.. : scancode in upper  half
             0x..LL : asciicode in lower half
 */
 
 #define GetBiosTime() peekl(0, 0x46c)
 
-UWORD GetBiosKey(int timeout)
+#define ESC	27
+#define K_F5	0x3F00
+#define K_F8	0x4200
+#define K_Left	0x4B00
+#define K_Right	0x4D00
+#define K_Up	0x4800
+#define K_Down	0x5000
+
+unsigned GetBiosKey(int timeout)
 {
   iregs r;
-
-  ULONG startTime = GetBiosTime();
-
-  if (timeout >= 0) do
+  if (timeout >= 0)
   {
-    r.a.x = 0x0100;             /* are there keys available ? */
-    init_call_intr(0x16, &r);
-    if ((unsigned)(GetBiosTime() - startTime) >= timeout * 18u)
-      return 0xffff;
+    ULONG startTime = GetBiosTime();
+    do
+    {
+      r.AH = 0x01;		/* are there keys available ? */
+      init_call_intr(0x16, &r);
+      if (!(r.flags & FLG_ZERO))
+        return r.AX;
+    } while ((unsigned)(GetBiosTime() - startTime) < timeout * 18u);
+    return 0;
   }
-  while (r.flags & FLG_ZERO);
 
   /* key available or blocking wait (timeout < 0): fetch it */
-  r.a.x = 0x0000;
+  r.AH = 0x00;
   init_call_intr(0x16, &r);
-  return r.a.x;
+  return r.AX;
 }
 
-STATIC BOOL SkipLine(char *pLine)
+static void hintSkipAll(void)
 {
-  short key;
-
-  if (InitKernelConfig.SkipConfigSeconds >= 0)
+  int timeout = InitKernelConfig.SkipConfigSeconds;
+  if (timeout >= 0)
   {
+    unsigned key;
 
-    if (InitKernelConfig.SkipConfigSeconds > 0)
-      printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
+    if ((all_choices - 1) & all_choices) /* more than one choice? */
+      timeout = 0;
 
-    key = GetBiosKey(InitKernelConfig.SkipConfigSeconds);       /* wait 2 seconds */
-    
-    InitKernelConfig.SkipConfigSeconds = -1;
+    if (timeout > 0)
+      say2("Press F8 to trace or F5 to skip %s/AUTOEXEC.BAT", configfile);
+    key = GetBiosKey(timeout);
+    clearrow();			/* clear hint line		*/
 
-    if (key == 0x3f00)          /* F5 */
+    if (key == K_F8)		/* F8 */
     {
-      SkipAllConfig = TRUE;
+      askCommand |= ASK_TRACE;
+      GetBiosKey(-1);		/* remove key from buffer	*/
     }
-    else if (key == 0x4200)     /* F8 */
+    else if (key == K_F5)	/* F5 */
     {
-      singleStep = TRUE;
+      askCommand |= ASK_SKIPALL;
+      say2("Bypassing %s and AUTOEXEC.BAT files.\n", configfile);
+      GetBiosKey(-1);		/* remove key from buffer	*/
     }
-
-    printf("\r%79s\r", "");     /* clear line */
-
-    if (SkipAllConfig)
-      printf("Skipping CONFIG.SYS/AUTOEXEC.BAT\n");
   }
+}
 
-  if (SkipAllConfig)
-    return TRUE;
+static BOOL askSkipLine(void)
+{
+  /* !device= never ask / ?device= always ask / device= ask if ASK_TRACE */
+  /* "!device?=" will not be asked... */
+  if ((askCommand & (ASK_NOASK | ASK_YESALL)) || /* "!" or Esc */
+      !(askCommand & (ASK_ASK | ASK_TRACE)))	 /* not ("?" or trace) */
+    return FALSE; /* do not skip, and do not ask either */
 
-  /* 1?device=CDROM.SYS */
-  /* 12?device=OAKROM.SYS */
-  /* 123?device=EMM386.EXE NOEMS */
-  if ( MenuLine != 0 &&
-      (MenuLine & (1 << MenuSelected)) == 0)
-    return TRUE;
-
-  if (DontAskThisSingleCommand)     /* !files=30 */
-    return FALSE;
-
-  if (!askThisSingleCommand && !singleStep)
-    return FALSE;
-
-  printf("%s[Y,N]?", pLine);
-
+  say2("%s[Y,n]?", szLine);
   for (;;)
   {
-    key = GetBiosKey(-1);
-
-    switch (toupper(key & 0x00ff))
+    unsigned key = GetBiosKey(-1); /* wait keypress */
+    if (key == K_F5)		/* YES, you may hit F5 here, too */
+    {
+      askCommand |= ASK_SKIPALL;
+      key = 'N';
+    }
+    if (key == K_F8)		/* F8 */
+      key = ESC;
+    switch (toupper((UBYTE)key))
     {
       case 'N':
-      case 'n':
-        printf("N\n");
+        say("N\n");
         return TRUE;
 
-      case 0x1b:               /* don't know where documented
-                                   ESCAPE answers all following questions
-                                   with YES
-                                 */
-        singleStep = FALSE;     /* and fall through */
+      case ESC:			/* Esc answers all following questions YES */
+        askCommand &= ~ASK_TRACE;
+        askCommand |= ASK_YESALL;
+        /* and fall through */
 
       case '\r':
       case '\n':
       case 'Y':
-      case 'y':
-        printf("Y\n");
+        say("Y\n");
         return FALSE;
-
     }
-
-    if (key == 0x3f00)          /* YES, you may hit F5 here, too */
-    {
-      printf("N\n");
-      SkipAllConfig = TRUE;
-      return TRUE;
-    }
-  }
-
+  } /* for */
 }
+
+static int numarg BSS_INIT(0);
 
 /* JPP - changed so will accept hex number. */
 /* ea - changed to accept hex digits in hex numbers */
-STATIC char *GetNumArg(char *p, int *num)
+STATIC PCStr GetNumArg(PCStr p)
 {
   static char digits[] = "0123456789ABCDEF";
   unsigned char base = 10;
@@ -858,15 +859,15 @@ STATIC char *GetNumArg(char *p, int *num)
 
   /* look for NUMBER                               */
   p = skipwh(p);
-  if (*p == '-')
+  if (!isdigit(*p))
   {
-    p++;
+    if (*p != '-')
+    {
+      CfgFailure(p);
+      return NULL;
+    }
     sign = -1;
-  }
-  else if (!isnum(*p))
-  {
-    CfgFailure(p);
-    return NULL;
+    p++;
   }
 
   for( ; *p; p++)
@@ -876,277 +877,274 @@ STATIC char *GetNumArg(char *p, int *num)
       base = 16;
     else
     {
-      char *q = strchr(digits, ch);
+      PCStr q = strchr(digits, ch);
       if (q == NULL)
         break;
       n = n * base + (q - digits);
     }
   }
-  *num = n * sign;
+  numarg = n * sign;
   return p;
 }
 
-BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
+STATIC BOOL isEOL(PCStr p)
 {
-  /* look for STRING                               */
-  pLine = skipwh(pLine);
-
-  /* just return whatever string is there, including null         */
-  return scan(pLine, pszString);
+  if (*p) /* garbage at line end? */
+  {
+    CfgFailure(p);
+    return FALSE;
+  }
+  return TRUE;
 }
 
-STATIC void Config_Buffers(BYTE * pLine)
+/* Format: nnn EOL */
+STATIC BOOL GetNumArg1(PCStr p)
 {
-  COUNT nBuffers;
-
-  /* Get the argument                                             */
-  if (GetNumArg(pLine, &nBuffers))
-    Config.cfgBuffers = nBuffers;
-}
-
-/**
-  Set screen mode - rewritten to use init_call_intr() by RE / ICD
-*/
-STATIC VOID sysScreenMode(BYTE * pLine)
-{
-  iregs r;
-  COUNT nMode;
-  COUNT nFunc = 0x11;
-
-  /* Get the argument                                             */
-  if (GetNumArg(pLine, &nMode) == (BYTE *) 0)
-    return;
-
-  if(nMode<0x10)
-    nFunc = 0; /* set lower screenmode */
-  else if ((nMode != 0x11) && (nMode != 0x12) && (nMode != 0x14))
-    return; /* do nothing; invalid screenmode */
-
-/* Modes
-   0x11 (17)   28 lines
-   0x12 (18)   43/50 lines
-   0x14 (20)   25 lines
- */
-  /* move cursor to pos 0,0: */
-  r.a.b.h = nFunc; /* set videomode */
-  r.a.b.l = nMode;
-  r.b.b.l = 0;
-  init_call_intr(0x10, &r);
-}
-
-STATIC VOID sysVersion(BYTE * pLine)
-{
-  COUNT major, minor;
-  char *p = strchr(pLine, '.');
-
+  p = GetNumArg(p);
   if (p == NULL)
-    return;
-
-  p++;
-
-  /* Get major number */
-  if (GetNumArg(pLine, &major) == (BYTE *) 0)
-    return;
-
-  /* Get minor number */
-  if (GetNumArg(p, &minor) == (BYTE *) 0)
-    return;
-
-  printf("Changing reported version to %d.%d\n", major, minor);
-
-  LoL->os_major = major;
-  LoL->os_minor = minor;
+    return FALSE;
+  return isEOL(skipwh(p));
 }
 
-STATIC VOID Files(BYTE * pLine)
+static int numarg1 BSS_INIT(0);
+
+/* Format: nnn [, nnn] EOL */
+STATIC BOOL GetNumArg2(PCStr p, int default2)
 {
-  COUNT nFiles;
+  p = GetNumArg(p);
+  if (p == NULL)
+    return FALSE;
 
-  /* Get the argument                                             */
-  if (GetNumArg(pLine, &nFiles) == (BYTE *) 0)
-    return;
+  numarg1 = numarg;
+  numarg = default2;
+  p = skipwh(p);
+  if (*p == ',')
+    return GetNumArg1(p + 1);
 
-  /* Got the value, assign either default or new value            */
-  Config.cfgFiles = max(Config.cfgFiles, nFiles);
-  Config.cfgFilesHigh = 0;
+  return isEOL(p);
 }
 
-STATIC VOID FilesHigh(BYTE * pLine)
+/* Format: BUFFERS [=] nnn [, nnn] */
+STATIC void Config_Buffers(PCStr p)
 {
-  Files(pLine);
-  Config.cfgFilesHigh = 1;
+  if (GetNumArg2(p, 0))
+    Config.cfgBuffers = (UBYTE)numarg1;
+  /* Second argument (0..8 buffers for read-ahead) not supported */
 }
 
-STATIC VOID CfgLastdrive(BYTE * pLine)
+/* Set screen mode - rewritten to use init_call_intr() by RE / ICD */
+/* Format: SCREEN [=] nnn */
+STATIC void sysScreenMode(PCStr p)
 {
-  /* Format:   LASTDRIVE = letter         */
-  BYTE drv;
-
-  pLine = skipwh(pLine);
-  drv = toupper(*pLine);
-
-  if (drv < 'A' || drv > 'Z')
+  if (GetNumArg1(p))
   {
-    CfgFailure(pLine);
+    unsigned mode = numarg;
+    if (mode >= 0x10)
+    {
+      /* Modes
+         0x11 (17)   28 lines
+         0x12 (18)   43/50 lines
+         0x14 (20)   25 lines
+       */
+      if (mode != 0x11 && mode != 0x12 && mode != 0x14)
+        return; /* do nothing; invalid screenmode */
+      mode |= 0x1100;
+    }
+    {
+      iregs r;
+      r.BL = 0;			/* block to load for AH=0x11 */
+      r.AX = mode;		/* set videomode */
+      init_call_intr(0x10, &r);
+    }
+  }
+}
+
+/* Format: VERSION [=] nn.nn */
+STATIC void sysVersion(PCStr p)
+{
+  int major;
+  p = GetNumArg(p);
+  major = numarg;
+  if (p == NULL || *p != '.' || !GetNumArg1(p + 1))
+    return;
+
+  printf("Changing reported version to %d.%d\n",
+         LoL->os_setver_major = (UBYTE)major,
+         LoL->os_setver_minor = (UBYTE)numarg);
+}
+
+/* Format: FILES [=] nnn */
+/* Format: FILESHIGH [=] nnn */
+static void _Files(PCStr p, UBYTE high)
+{
+  if (GetNumArg1(p))
+  {
+    UBYTE nFiles = (UBYTE)numarg;
+    if (Config.cfgFiles < nFiles)
+        Config.cfgFiles = nFiles;
+    Config.cfgFilesHigh = high;
+  }
+}
+
+STATIC void Files(PCStr p)		{ _Files(p, 0); }
+
+STATIC void FilesHigh(PCStr p)		{ _Files(p, 1); }
+
+/* Format: LASTDRIVE [=] letter */
+/* Format: LASTDRIVEHIGH [=] letter */
+static void _CfgLastdrive(PCStr p, UBYTE high)
+{
+  BYTE drv = toupper(*p);
+  if (drv < 'A' || drv > 'Z' || p[1])
+  {
+    /* no or wrong character or garbage at line end? */
+    CfgFailure(p);
     return;
   }
-  drv -= 'A' - 1;               /* Make real number */
-  if (drv > Config.cfgLastdrive)
-    Config.cfgLastdrive = drv;
-  Config.cfgLastdriveHigh = 0;
+
+  drv -= 'A' - 1; /* Make real number */
+  if (Config.cfgLastdrive < drv)
+      Config.cfgLastdrive = drv;
+  Config.cfgLastdriveHigh = high;
 }
 
-STATIC VOID CfgLastdriveHigh(BYTE * pLine)
-{
-  /* Format:   LASTDRIVEHIGH = letter         */
-  CfgLastdrive(pLine);
-  Config.cfgLastdriveHigh = 1;
-}
+STATIC void CfgLastdrive(PCStr p)	{ _CfgLastdrive(p, 0); }
 
-/*
-    UmbState of confidence, 1 is sure, 2 maybe, 4 unknown and 0 no way.
+STATIC void CfgLastdriveHigh(PCStr p)	{ _CfgLastdrive(p, 1); }
+
+/* UmbState of confidence, UMB_DONE is sure, UMB_REQ maybe, UMB_NONE no way.
+   Transitions: UMB_NONE -> UMB_NONE/UMB_REQ depending on DOS=UMB, try init
+   (UMB_REQ -> UMB_DONE) after each driver load, as it could have been the
+   UMB driver.
+   If UMB really found, state UMB_DONE is reached and MCBs are adjusted.
 */
-
-STATIC VOID Dosmem(BYTE * pLine)
+/* opt = HIGH | UMB
+   Format: DOS [=] opt {, opt}
+*/
+STATIC void Dosmem(PCStr p)
 {
-  BYTE *pTmp;
-  BYTE UMBwanted = FALSE;
-
-  pLine = GetStringArg(pLine, szBuf);
-
-  strupr(szBuf);
-
-  /* printf("DOS called with %s\n", szBuf); */
-
-  for (pTmp = szBuf;;)
+  UBYTE UMBwanted = UMB_NONE, HMAwanted = HMA_NONE;
+  for (;;)
   {
-    if (memcmp(pTmp, "UMB", 3) == 0)
+    PCStr q = scanword(p, szBuf);
+    if (!strcasediff(szBuf, "UMB"))
+      UMBwanted = UMB_REQ;
+    else if (!strcasediff(szBuf, "HIGH"))
+      HMAwanted = HMA_REQ;
+/*  else if (!strcasediff(szBuf, "CLAIMINIT"))
+ *    INITDataSegmentClaimed = 0;
+ */
+    else
     {
-      UMBwanted = TRUE;
-      pTmp += 3;
+      CfgFailure(p);
+      return;
     }
-    if (memcmp(pTmp, "HIGH", 4) == 0)
+    p = skipwh(q);
+    if (*p != ',')
     {
-      HMAState = HMA_REQ;
-      pTmp += 4;
+      if (*p == '\0')
+        break;
+      CfgFailure(p);
+      return;
     }
-/*        if (memcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }*/
-    pTmp = skipwh(pTmp);
+    p++;
+  } /* for */
 
-    if (*pTmp != ',')
-      break;
-    pTmp++;
-  }
-
-  if (UmbState == 0)
+  if (UmbState == UMB_NONE)
   {
     LoL->uppermem_link = 0;
     LoL->uppermem_root = 0xffff;
-    UmbState = UMBwanted ? 2 : 0;
+    UmbState = UMBwanted;
   }
   /* Check if HMA is available straight away */
-  if (HMAState == HMA_REQ && MoveKernelToHMA())
-  {
-    HMAState = HMA_DONE;
-  }
+  if (HMAwanted == HMA_REQ)
+    HMAState = MoveKernelToHMA() ? HMA_DONE : HMA_REQ;
 }
 
-STATIC VOID DosData(BYTE * pLine)
+/* Format: DOSDATA [=] UMB */
+STATIC void DosData(PCStr p)
 {
-  pLine = GetStringArg(pLine, szBuf);
-  strupr(szBuf);
-
-  if (memcmp(szBuf, "UMB", 3) == 0)
+  if (!strcasediff(p, "UMB"))
     Config.cfgDosDataUmb = TRUE;
+  else
+    CfgFailure(p);
 }
 
-STATIC VOID CfgSwitchar(BYTE * pLine)
+/* Format: SWITCHAR [=] character */
+STATIC void CfgSwitchar(PCStr p)
 {
-  /* Format: SWITCHAR = character         */
-
-  GetStringArg(pLine, szBuf);
-  init_switchar(*szBuf);
-}
-
-STATIC VOID CfgSwitches(BYTE * pLine)
-{
-  pLine = skipwh(pLine);
-  if (*pLine == '=')
+  if (*p == '\0' || p[1])
   {
-    pLine = skipwh(pLine + 1);
+    /* no character or garbage at line end */
+    CfgFailure(p);
+    return;
   }
-  while (*pLine)
+  init_switchar(*p);
+}
+
+/* Format: SWITCHES [=] { /K | /N | /F | /E[[:]nnn] } */
+STATIC void CfgSwitches(PCStr p)
+{
+  do
   {
-    if (*pLine == '/') {
-      pLine++;
-      switch(toupper(*pLine)) {
+    if (*p != '/')
+    {
+      if (nPass)
+        CfgFailure(p);
+      return;
+    }
+    switch(toupper(*++p))
+    {
       case 'K':
-        if (commands[0].pass == 1)
+        if (nPass)
           kbdType = 0; /* force conv keyb */
+        p++;
         break;
       case 'N':
         InitKernelConfig.SkipConfigSeconds = -1;
+        p++;
         break;
       case 'F':
         InitKernelConfig.SkipConfigSeconds = 0;
+        p++;
         break;
       case 'E': /* /E[[:]nnnn]  Set the desired EBDA amount to move in bytes */
-        {       /* Note that if there is no EBDA, this will have no effect */
-          int n = 0;
-          if (*++pLine == ':')
-            pLine++;                    /* skip optional separator */
-          if (!isnum(*pLine))
-          {
-            pLine--;
-            break;
-          }
-          pLine = GetNumArg(pLine, &n) - 1;
+                /* Note that if there is no EBDA, this will have no effect */
+        if (*++p == ':')
+          p++;                  /* skip optional separator */
+        if (isdigit(*p))
+        {
+          p = GetNumArg(p);
+          if (p == NULL)
+            return;
           /* allowed values: [48..1024] bytes, multiples of 16
            * e.g. AwardBIOS: 48, AMIBIOS: 1024
            * (Phoenix, MRBIOS, Unicore = ????)
            */
-          if (n == -1)
-          {
-            Config.ebda2move = 0xffff;
-            break;
-          }
-          else if (n >= 48 && n <= 1024)
-          {
-            Config.ebda2move = (n + 15) & 0xfff0;
-            break;
-          }
-          /* else fall through (failure) */
+          if (nPass)
+            Config.ebda2move = numarg;
         }
+        break;
       default:
-        CfgFailure(pLine);
-      }
-    } else {
-      CfgFailure(pLine);
-    }
-    pLine = skipwh(pLine+1);
-  }
-  commands[0].pass = 1;
+        if (nPass)
+          CfgFailure(p);
+	return;
+    } /* switch */
+    p = skipwh(p);
+  } while (*p);
 }
 
-STATIC VOID Fcbs(BYTE * pLine)
+/* Format: FCBS [=] totalFcbs [, protectedFcbs] */
+STATIC void Fcbs(PCStr p)
 {
-  /*  Format:     FCBS = totalFcbs [,protectedFcbs]    */
-  COUNT fcbs;
-
-  if ((pLine = GetNumArg(pLine, &fcbs)) == 0)
-    return;
-  Config.cfgFcbs = fcbs;
-
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
+  if (GetNumArg2(p, Config.cfgProtFcbs))
   {
-    GetNumArg(++pLine, &fcbs);
-    Config.cfgProtFcbs = fcbs;
+    UBYTE fcbs = (UBYTE)numarg1, prot = (UBYTE)numarg;
+    Config.cfgFcbs = fcbs;
+    if (prot > fcbs)
+        prot = fcbs;
+    Config.cfgProtFcbs = prot;
   }
-
-  if (Config.cfgProtFcbs > Config.cfgFcbs)
-    Config.cfgProtFcbs = Config.cfgFcbs;
 }
 
 /*      LoadCountryInfo():
@@ -1159,212 +1157,190 @@ STATIC VOID Fcbs(BYTE * pLine)
  */
 
 #if 0
-STATIC BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
+STATIC void LoadCountryInfo(CStr filename, int ccode, int cpage)
 {
-  printf("Sorry, the COUNTRY= statement has been temporarily disabled\n");
+  say("Sorry, the COUNTRY= statement has been temporarily disabled\n");
 
-  UNREFERENCED_PARAMETER(codePage);
-  UNREFERENCED_PARAMETER(ctryCode);
+  UNREFERENCED_PARAMETER(cpage);
+  UNREFERENCED_PARAMETER(ccode);
   UNREFERENCED_PARAMETER(filename);
 
   return FALSE;
-} 
+}
 #endif
 
-STATIC VOID Country(BYTE * pLine)
+/* Format: COUNTRY [=] countryCode [, [codePage] [, filename]]   */
+STATIC void Country(PCStr p)
 {
-  /* Format: COUNTRY = countryCode, [codePage], filename   */
-  COUNT ctryCode;
-  COUNT codePage = NLS_DEFAULT;
-  char  *filename = "";
+  int ccode;
+  /*PCStr filename = "";*/
 
-  if ((pLine = GetNumArg(pLine, &ctryCode)) == 0)
-    goto error;
+  p = GetNumArg(p);
+  if (p == NULL)
+    return;
 
-
-    /*  currently 'implemented' 
-                 COUNTRY=49     */
+  ccode = numarg;
+  /* currently 'implemented' COUNTRY=nnn only */
 
 #if 0
-  pLine = skipwh(pLine);
-  if (*pLine == ',')
+  numarg = NLS_DEFAULT;
+  p = skipwh(p);
+  if (*p == ',')
   {
-    pLine = skipwh(pLine + 1);
-
-    if (*pLine != ',')
-      if ((pLine = GetNumArg(pLine, &codePage)) == 0)
-        goto error;
-
-    pLine = skipwh(pLine);
-    if (*pLine == ',')
+    p = skipwh(p + 1);
+    if (*p != ',')
     {
-      GetStringArg(++pLine, szBuf);
-      filename = szBuf;
+      p = GetNumArg(p);
+      if (p == NULL)
+        return;
+      p = skipwh(p);
     }
-  }  
-#endif
-      
-  if (!LoadCountryInfoHardCoded(filename, ctryCode, codePage))
+    if (*p == ',')
+      filename = p + 1;
+  }
+
+  if (*p && *p != ',') /* garbage at line end? */
+  {
+    CfgFailure(p);
     return;
-  
-error:  
-  CfgFailure(pLine);
-}
-
-STATIC VOID Stacks(BYTE * pLine)
-{
-  COUNT stacks;
-
-  /* Format:  STACKS = stacks [, stackSize]       */
-  pLine = GetNumArg(pLine, &stacks);
-  Config.cfgStacks = stacks;
-
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
-  {
-    GetNumArg(++pLine, &stacks);
-    Config.cfgStackSize = stacks;
   }
+#endif
 
-  if (Config.cfgStacks)
+  LoadCountryInfoHardCoded(/*filename*/"", ccode, /*numarg*/NLS_DEFAULT);
+}
+
+/* Format: STACKS [=] stacks [, stackSize] */
+/* Format: STACKSHIGH [=] stacks [, stackSize] */
+static void _Stacks(PCStr p, UBYTE high)
+{
+  if (GetNumArg2(p, Config.cfgStackSize))
   {
-    if (Config.cfgStackSize < 32)
-      Config.cfgStackSize = 32;
-    if (Config.cfgStackSize > 512)
-      Config.cfgStackSize = 512;
-    if (Config.cfgStacks > 64)
-      Config.cfgStacks = 64;
+    UBYTE stacks = (UBYTE)numarg1;
+    UWORD sz = numarg;
+    if (stacks > 64)
+        stacks = 64;
+    if (sz < 32)
+        sz = 32;
+    if (sz > 512)
+        sz = 512;
+    Config.cfgStacks = stacks;
+    Config.cfgStackSize = sz;
+    Config.cfgStacksHigh = high;
   }
-  Config.cfgStacksHigh = 0;
 }
 
-STATIC VOID StacksHigh(BYTE * pLine)
+STATIC void Stacks(PCStr p)		{ _Stacks(p, 0); }
+
+STATIC void StacksHigh(PCStr p)		{ _Stacks(p, 1); }
+
+/* Format: SHELL [=] command */
+STATIC void CmdShell(PCStr p)
 {
-  Stacks(pLine);
-  Config.cfgStacksHigh = 1;
-}
-
-STATIC VOID InitPgmHigh(BYTE * pLine)
-{
-  InitPgm(pLine);
-  Config.cfgP_0_startmode = 0x80;
-}
-
-STATIC VOID InitPgm(BYTE * pLine)
-{
-  static char init[NAMEMAX];
-  static char inittail[NAMEMAX];
-
-  Config.cfgInit = init;
-  Config.cfgInitTail = inittail;
-
-  /* Get the string argument that represents the new init pgm     */
-  pLine = GetStringArg(pLine, Config.cfgInit);
-
-  /* Now take whatever tail is left and add it on as a single     */
-  /* string.                                                      */
-  strcpy(Config.cfgInitTail, pLine);
-
-  /* and add a DOS new line just to be safe                       */
-  strcat(Config.cfgInitTail, "\r\n");
-
   Config.cfgP_0_startmode = 0;
+  /* assume strlen(p)+1 <= sizeof Config.cfgShell */
+  strcpy(Config.cfgShell, p);
 }
 
-STATIC VOID CfgBreak(BYTE * pLine)
+/* Format: SHELLHIGH [=] command */
+STATIC void CmdShellHigh(PCStr p)
 {
-  /* Format:      BREAK = (ON | OFF)      */
-  GetStringArg(pLine, szBuf);
-  break_ena = strcaseequal(szBuf, "OFF") ? 0 : 1;
+  Config.cfgP_0_startmode = 0x80;
+  /* assume strlen(p)+1 <= sizeof Config.cfgShell */
+  strcpy(Config.cfgShell, p);
 }
 
-STATIC VOID Numlock(BYTE * pLine)
+/* Format: BREAK [=] (ON | OFF) */
+STATIC void CfgBreak(PCStr p)
 {
-  /* Format:      NUMLOCK = (ON | OFF)      */
-  BYTE FAR *keyflags = (BYTE FAR *) MK_FP(0x40, 0x17);
+  if (!strcasediff(p, "ON"))
+    break_ena = 1;
+  else if (!strcasediff(p, "OFF"))
+    break_ena = 0;
+  else
+    CfgFailure(p);
+}
 
-  GetStringArg(pLine, szBuf);
-
-  *keyflags &= ~32;
-  if (!strcaseequal(szBuf, "OFF")) *keyflags |= 32;
+/* Format: NUMLOCK [=] (ON | OFF) */
+STATIC void Numlock(PCStr p)
+{
+  UBYTE FAR *keyflags = MK_PTR(UBYTE, 0, 0x417);
+  if (!strcasediff(p, "ON"))
+    *keyflags |= 32;
+  else if (!strcasediff(p, "OFF"))
+    *keyflags &= ~32;
+  else
+  {
+    CfgFailure(p);
+    return;
+  }
   keycheck();
 }
 
-STATIC VOID DeviceHigh(BYTE * pLine)
+/* Format: DEVICEHIGH [=] command */
+STATIC void DeviceHigh(PCStr p)
 {
-  if (UmbState == 1)
-  {
-    if (LoadDevice(pLine, MK_FP(umb_start + UMB_top, 0), TRUE) == DE_NOMEM)
-    {
-      printf("Not enough free memory in UMB's: loading low\n");
-      LoadDevice(pLine, lpTop, FALSE);
-    }
-  }
-  else
-  {
-    printf("UMB's unavailable!\n");
-    LoadDevice(pLine, lpTop, FALSE);
-  }
+  if (UmbState != UMB_DONE || /* UMB not initialized? */
+      LoadDevice(p, MK_SEG_PTR(void, mcb_next(umb_base_start)), TRUE) == DE_NOMEM)
+    Device(p);
 }
 
-STATIC void Device(BYTE * pLine)
+/* Format: DEVICE [=] command */
+STATIC void Device(PCStr p)
 {
-  LoadDevice(pLine, lpTop, FALSE);
+  LoadDevice(p, lpTop, FALSE);
 }
 
-STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
+STATIC BOOL LoadDevice(PCStr p, VFP top, int mode)
 {
-  exec_blk eb;
-  struct dhdr FAR *dhp;
-  struct dhdr FAR *next_dhp;
-  BOOL result;
-  seg base, start;
+  int ret;
 
+  seg_t base = base_seg;
+  seg_t start = LoL->first_mcb;
   if (mode)
   {
     base = umb_base_seg;
-    start = umb_start;
-  }
-  else
-  {
-    base = base_seg;
-    start = LoL->first_mcb;
+    start = umb_base_start;
   }
 
   if (base == start)
     base++;
   base++;
-  
+
   /* Get the device driver name                                   */
-  GetStringArg(pLine, szBuf);
+  {
+    PStr d = szBuf;
+    PCStr s = p;
+    for (; (UBYTE)*s > ' '; d++, s++)
+      *d = *s;
+    *d = '\0';
+  }
 
   /* The driver is loaded at the top of allocated memory.         */
   /* The device driver is paragraph aligned.                      */
-  eb.load.reloc = eb.load.load_seg = base;
+  {
+    exec_blk eb;
+    eb.load.reloc = eb.load.load_seg = base;
 
 #ifdef DEBUG
-  printf("Loading device driver %s at segment %04x\n", szBuf, base);
+    printf("Loading device driver %s at segment %04x\n", szBuf, base);
 #endif
 
-  if ((result = init_DosExec(3, &eb, szBuf)) != SUCCESS)
-  {
-    CfgFailure(pLine);
-    return result;
+    ret = init_DosExec(3, &eb, szBuf);
+    if (ret != SUCCESS)
+    {
+      CfgFailure(p);
+      return ret;
+    }
   }
 
-  strcpy(szBuf, pLine);
+  strcpy(szBuf, p);
   /* uppercase the device driver command */
-  strupr(szBuf);
+  /* add \r\n to the command line */
+  strcat(strupr(szBuf), " \r\n");
 
   /* TE this fixes the loading of devices drivers with
      multiple devices in it. NUMEGA's SoftIce is such a beast
    */
-
-  /* add \r\n to the command line */
-  strcat(szBuf, " \r\n");
-
-  dhp = MK_FP(base, 0);
 
   /* NOTE - Modification for multisegmented device drivers:          */
   /*   In order to emulate the functionallity experienced with other */
@@ -1373,44 +1349,37 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   /*   The updated end address is then used when issuing the next    */
   /*   INIT request for the following device driver within the file  */
 
-  for (next_dhp = NULL; FP_OFF(next_dhp) != 0xffff &&
-       (result = init_device(dhp, szBuf, mode, &top)) == SUCCESS;
-       dhp = next_dhp)
   {
-    next_dhp = MK_FP(FP_SEG(dhp), FP_OFF(dhp->dh_next));
-    /* Link in device driver and save LoL->nul_dev pointer to next */
-    dhp->dh_next = LoL->nul_dev.dh_next;
-    LoL->nul_dev.dh_next = dhp;
+    ofs_t next = 0;
+    do
+    {
+      struct dhdr FAR *dhp = MK_PTR(struct dhdr, base, next);
+      if ((ret = init_device(dhp, szBuf, mode, &top)) != SUCCESS)
+        break;
+
+      next = FP_OFF(dhp->dh_next);
+
+      /* Link in device driver and save LoL->nul_dev pointer to next */
+      dhp->dh_next = LoL->nul_dev.dh_next;
+      LoL->nul_dev.dh_next = dhp;
+    } while (next != 0xffff);
   }
 
-  /* might have been the UMB driver or DOS=UMB */
-  if (UmbState == 2)
-    umb_init();
+  /* might have been the UMB driver -> try UMB initialization */
+  umb_init();
 
-  return result;
+  return ret;
 }
 
-STATIC VOID CfgFailure(BYTE * pLine)
+STATIC void CfgFailure(PCStr p)
 {
-  BYTE *pTmp = pLineStart;
-
-  /* suppress multiple printing of same unrecognized lines */
-
-  if (nCfgLine < sizeof(ErrorAlreadyPrinted)*8)
-  {
-    if (ErrorAlreadyPrinted[nCfgLine/8] & (1 << (nCfgLine%8)))
-      return;
-        
-    ErrorAlreadyPrinted[nCfgLine/8] |= (1 << (nCfgLine%8));
-  }
-  printf("CONFIG.SYS error in line %d\n", nCfgLine);
-  printf(">>>%s\n   ", pTmp);
-  while (++pTmp != pLine)
-    printf(" ");
-  printf("^\n");
+  printf("Error in %s line %d:\n"
+         "%s\n", configfile, nCfgLine, szLine);
+  gotoxy(p - szLine, screeny());
+  say("^\n");
 }
 
-struct submcb 
+struct submcb
 {
   char type;
   unsigned short start;
@@ -1419,21 +1388,19 @@ struct submcb
   char name[8];
 };
 
-void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
+void _seg * KernelAllocPara(size_t nPara, UBYTE type, CStr name, int mode)
 {
-  seg base, start;
-  struct submcb FAR *p;
+  seg_t base, start;
+  struct submcb _seg *p;
 
-  if (UmbState != 1)
-    mode = 0;
-
-  if (mode)
+  if (mode && UmbState == UMB_DONE)
   {
     base = umb_base_seg;
-    start = umb_start;
+    start = umb_base_start;
   }
   else
   {
+    mode = 0;
     base = base_seg;
     start = LoL->first_mcb;
   }
@@ -1443,21 +1410,21 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
 
   if (base == start)
   {
-    mcb FAR *p = para2far(base);
-    base++;
-    mcb_init(base, p->m_size - 1, p->m_type);
-    mumcb_init(FP_SEG(p), 0);
+    mcb _seg *p = MK_SEG_PTR(mcb, base);
+    mcb_init(++base, p->m_size, p->m_type);
+    mumcb_init(FP_SEG(p), 1);
     p->m_name[1] = 'D';
   }
 
   nPara++;
-  mcb_init(base + nPara, para2far(base)->m_size - nPara, para2far(base)->m_type);
-  para2far(start)->m_size += nPara;
+  mcb_init(base + nPara, MK_SEG_PTR(mcb, base)->m_size - nPara + 1,
+                         MK_SEG_PTR(mcb, base)->m_type);
+  MK_SEG_PTR(mcb, start)->m_size += nPara;
 
-  p = (struct submcb FAR *)para2far(base);
+  p = MK_SEG_PTR(struct submcb, base);
   p->type = type;
   p->start = FP_SEG(p)+1;
-  p->size = nPara-1;
+  p->size = nPara - 1;
   if (name)
     fmemcpy(p->name, name, 8);
   base += nPara;
@@ -1465,24 +1432,22 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
     umb_base_seg = base;
   else
     base_seg = base;
-  return MK_FP(FP_SEG(p)+1, 0);
+  return MK_SEG_PTR(void, FP_SEG(p) + 1);
 }
 
-void FAR * KernelAlloc(size_t nBytes, char type, int mode)
+void _seg * KernelAlloc(size_t nBytes, UBYTE type, int mode)
 {
-  void FAR *p;
-  size_t nPara = (nBytes + 15)/16;
+  void _seg *p;
+  size_t nPara = (nBytes + 15) / 16;
 
   if (LoL->first_mcb == 0)
   {
     /* prealloc */
-    lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop));
-    return AlignParagraph(lpTop);
+    /* note: lpTop is already para-aligned */
+    return alignNextPara(lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop)));
   }
-  else
-  {
-    p = KernelAllocPara(nPara, type, NULL, mode);
-  }
+
+  p = KernelAllocPara(nPara, type, NULL, mode);
   fmemset(p, 0, nBytes);
   return p;
 }
@@ -1498,88 +1463,86 @@ STATIC BYTE FAR * KernelAllocDma(WORD bytes, char type)
 }
 #endif
 
-STATIC void FAR * AlignParagraph(VOID FAR * lpPtr)
+void _seg * alignNextPara(CVFP p)
 {
-  UWORD uSegVal;
-
   /* First, convert the segmented pointer to linear address       */
-  uSegVal = FP_SEG(lpPtr);
-  uSegVal += (FP_OFF(lpPtr) + 0xf) >> 4;
-  if (FP_OFF(lpPtr) > 0xfff0)
-    uSegVal += 0x1000;          /* handle overflow */
+  seg_t seg = FP_OFF(p);
+  if (seg)
+    seg = (seg - 1) / 16 + 1;
+  seg += FP_SEG(p);
 
-  /* and return an adddress adjusted to the nearest paragraph     */
-  /* boundary.                                                    */
-  return MK_FP(uSegVal, 0);
+  /* return an address adjusted to the nearest paragraph boundary */
+  return MK_SEG_PTR(void, seg);
 }
 #endif
 
-STATIC int iswh(unsigned char c)
+STATIC PCStr skipwh(PCStr s)
 {
-  return (c == '\r' || c == '\n' || c == '\t' || c == ' ');
-}
-
-STATIC BYTE * skipwh(BYTE * s)
-{
-  while (iswh(*s))
-    ++s;
+  s--;
+  do
+    s++;
+  while (*s == ' ' || *s == '\t');
   return s;
 }
 
-STATIC BYTE * scan(BYTE * s, BYTE * d)
+STATIC PCStr scanword(PCStr s, PStr d)
 {
-  askThisSingleCommand = FALSE;
-  DontAskThisSingleCommand = FALSE;
-
   s = skipwh(s);
-
-  MenuLine = 0;
-
-  /* does the line start with "123?" */
-
-  if (isnum(*s))
-  {
-    unsigned numbers = 0;
-    for ( ; isnum(*s); s++)
-        numbers |= 1 << (*s -'0');
-    
-    if (*s == '?')
-    {
-      MenuLine = numbers;
-      Menus |= numbers;    
-      s = skipwh(s+1);
-    }
-  }
-
-  
-  /* !dos=high,umb    ?? */
-  if (*s == '!')
-  {
-    DontAskThisSingleCommand = TRUE;
-    s = skipwh(s+1);
-  }
-
-  if (*s == ';')
-  {
-    /* semicolon is a synonym for rem */
+  while (*s >= 'a' && *s <= 'z' ||
+         *s >= 'A' && *s <= 'Z')
     *d++ = *s++;
-  }
-  else
-    while (*s && !iswh(*s) && *s != '=')
-    {
-      if (*s == '?')
-        askThisSingleCommand = TRUE;
-      else
-        *d++ = *s;
-      s++;
-    }
   *d = '\0';
   return s;
 }
 
-STATIC BOOL isnum(char ch)
+STATIC PCStr scanverb(PCStr s, PStr d)
 {
-  return (ch >= '0' && ch <= '9');
+  askCommand &= ~(ASK_ASK | ASK_NOASK);
+  line_choices = 0xffff;	/* statement in all menus	*/
+
+  for (;; s++)
+  {
+    s = skipwh(s);
+
+    if (*s == '!')		/* "!dos" ?			*/
+      askCommand |= ASK_NOASK;
+
+    else if (*s == '?')		/* "?device" ?			*/
+      askCommand |= ASK_ASK;
+
+    else
+    {
+      UBYTE ch = *s - (UBYTE)'0';
+      if (ch <= 9)		/* "123?device" ?		*/
+      {
+        PCStr p = s;
+        unsigned digits = 0;
+        do
+        {
+          digits |= 1 << ch;
+          ch = *++p - (UBYTE)'0';
+        } while (ch <= 9);
+
+        if (*p != '?')
+          break;
+
+        s = p;
+        line_choices = digits;
+        all_choices |= digits;
+      }
+      else
+        break;
+    } /* else */
+  } /* for */
+
+  s = scanword(s, d);
+
+  if (*s == '?')		/* "device?" ?			*/
+  {
+    askCommand |= ASK_ASK;
+    s++;
+  }
+  return s;
 }
 
 /* Yet another change for true portability (PJV) */
@@ -1591,31 +1554,36 @@ STATIC char toupper(char c)
 }
 
 /* Convert string s to uppercase */
-STATIC VOID strupr(char *s)
+static PStr strupr(PStr s)
 {
-  while (*s) {
-    *s = toupper(*s);
-    s++;
+  PStr d = s;
+  for (;; d++)
+  {
+    char ch = *d;
+    if (ch == '\0')
+      break;
+    *d = toupper(ch);
   }
+  return s;
 }
 
 /* The following code is 8086 dependant                         */
 
 #if 1                           /* ifdef KERNEL */
-STATIC VOID mcb_init_copy(UCOUNT seg, UWORD size, mcb *near_mcb)
+STATIC void mcb_init_copy(seg_t seg, size_t size, mcb *near_mcb)
 {
-  near_mcb->m_size = size;
-  fmemcpy(MK_FP(seg, 0), near_mcb, sizeof(mcb));
+  near_mcb->m_size = size - 1;
+  fmemcpy(MK_SEG_PTR(mcb, seg), near_mcb, sizeof(mcb));
 }
 
-STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type)
+STATIC void mcb_init(seg_t seg, size_t size, BYTE type)
 {
   static mcb near_mcb BSS_INIT({0});
   near_mcb.m_type = type;
   mcb_init_copy(seg, size, &near_mcb);
 }
 
-STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
+STATIC void mumcb_init(seg_t seg, size_t size)
 {
   static mcb near_mcb = {
     MCB_NORMAL,
@@ -1627,25 +1595,27 @@ STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 }
 #endif
 
-char *strcat(register char * d, register const char * s)
+static PStr strcat(PStr d, PCStr s)
 {
   strcpy(d + strlen(d), s);
   return d;
 }
 
 /* compare two ASCII strings ignoring case */
-STATIC char strcaseequal(const char * d, const char * s)
+STATIC char strcasediff(PCStr d, PCStr s)
 {
-  char ch;
-  while ((ch = toupper(*s++)) == toupper(*d++))
-    if (ch == '\0')
-      return 1;
-  return 0;
+  while (toupper(*s) == toupper(*d))
+  {
+    if (*s == '\0')
+      return 0;
+    s++, d++;
+  }
+  return 1;
 }
 
 /*
     moved from BLOCKIO.C here.
-    that saves some relocation problems    
+    that saves some relocation problems
 */
 
 STATIC void config_init_buffers(int wantedbuffers)
@@ -1653,29 +1623,27 @@ STATIC void config_init_buffers(int wantedbuffers)
   struct buffer FAR *pbuffer;
   unsigned buffers = 0;
 
-  /* fill HMA with buffers if BUFFERS count >=0 and DOS in HMA        */
+  /* fill HMA with buffers if BUFFERS count >=0 and DOS in HMA          */
   if (wantedbuffers < 0)
     wantedbuffers = -wantedbuffers;
   else if (HMAState == HMA_DONE)
     buffers = (0xfff0 - HMAFree) / sizeof(struct buffer);
 
-  if (wantedbuffers < 6)         /* min 6 buffers                     */
+  if (wantedbuffers < 6)                /* min 6 buffers                */
     wantedbuffers = 6;
-  if (wantedbuffers > 99)        /* max 99 buffers                    */
+  if (wantedbuffers > 99)               /* max 99 buffers               */
   {
     printf("BUFFERS=%u not supported, reducing to 99\n", wantedbuffers);
     wantedbuffers = 99;
   }
-  if (wantedbuffers > buffers)   /* more specified than available -> get em */
+  if (buffers < wantedbuffers)          /* not less than requested      */
     buffers = wantedbuffers;
 
   LoL->nbuffers = buffers;
   LoL->inforecptr = &LoL->firstbuf;
   {
     size_t bytes = sizeof(struct buffer) * buffers;
-    pbuffer = HMAalloc(bytes);
-
-    if (pbuffer == NULL)
+    if ((pbuffer = HMAalloc(bytes)) == NULL)
     {
       pbuffer = KernelAlloc(bytes, 'B', 0);
       if (HMAState == HMA_DONE)
@@ -1684,15 +1652,16 @@ STATIC void config_init_buffers(int wantedbuffers)
     else
     {
       LoL->bufloc = LOC_HMA;
-      /* space in HMA beyond requested buffers available as user space */
+
+      /* space in HMA beyond requested buffers available as user space  */
       firstAvailableBuf = pbuffer + wantedbuffers;
     }
   }
   LoL->deblock_buf = DiskTransferBuffer;
   LoL->firstbuf = pbuffer;
 
-  DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
-  DebugPrintf((" (%p)", LoL->firstbuf));
+  DebugPrintf(("init_buffers (size %u) at (%p)",
+               sizeof(struct buffer), pbuffer));
 
   buffers--;
   pbuffer->b_prev = FP_OFF(pbuffer + buffers);
@@ -1703,20 +1672,13 @@ STATIC void config_init_buffers(int wantedbuffers)
       pbuffer->b_next = FP_OFF(pbuffer + 1);
       pbuffer++;
       pbuffer->b_prev = FP_OFF(pbuffer - 1);
-    }
-    while (--i);
+    } while (--i);
   }
   pbuffer->b_next = FP_OFF(pbuffer - buffers);
 
-    /* now, we can have quite some buffers in HMA
-       -- up to 50 for KE38616.
-       so we fill the HMA with buffers
-       but not if the BUFFERS count is negative ;-)
-     */
-
   DebugPrintf((" done\n"));
 
-  if (FP_SEG(pbuffer) == 0xffff)
+  if (FP_SEG(pbuffer) == /*HMASEG*/0xFFFF)
   {
     buffers++;
     printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
@@ -1740,267 +1702,239 @@ STATIC void config_init_fnodes(int f_nodes_cnt)
 }
 
 /*
-    Undocumented feature: 
-    
-    ANYDOS 
+    Undocumented feature:
+    Format: ANYDOS [=]
         will report to MSDOS programs just the version number
         they expect. be careful with it!
 */
-
-STATIC VOID SetAnyDos(BYTE * pLine)
+STATIC void SetAnyDos(PCStr p)
 {
-  UNREFERENCED_PARAMETER(pLine);
+  if (*p) /* garbage at line end? */
+  {
+    CfgFailure(p);
+    return;
+  }
   ReturnAnyDosVersionExpected = TRUE;
 }
 
-STATIC VOID CfgIgnore(BYTE * pLine)
+/* Format: EECHO string */
+STATIC void CfgMenuEsc(PCStr p)
 {
-  UNREFERENCED_PARAMETER(pLine);
+  char ch;
+  do
+  {
+    ch = *p; p++;
+    if (ch == '\0')
+      ch = '\n';
+    if (ch == '$')		/* translate $ to ESC */
+      ch = ESC;
+    printf("%c", ch);
+  } while (ch != '\n');
 }
 
 /*
-   'MENU'ing stuff
-   
-   although it's worse then MSDOS's , its better then nothing 
-   
+  'MENU'ing stuff
+  although it's worse then MSDOS's , its better then nothing
+  Menu selection bar struct:
+  x pos, y pos, string
 */
 
-STATIC void ClearScreen(unsigned char attr);
-STATIC VOID CfgMenu(BYTE * pLine)
+static struct MenuSelector
 {
-  int nLen;
-  BYTE *pNumber = pLine;
+  unsigned x, y;
+  UBYTE len;
+  char text[80];
+} MenuStruct[10] BSS_INIT({0});
 
-  printf("%s\n",pLine);
-  if (MenuColor == -1)
-    return;
+static unsigned nextMenuRow BSS_INIT(0);
 
-  pLine = skipwh(pLine);
+/* Format: MENU string */
+/* Format: ECHO string */
+STATIC void CfgMenu(PCStr p)
+{
+  struct MenuSelector *menu;
+  UBYTE ch;
+  unsigned len;
+  int spaces;
 
-  /* skip drawing characters in cp437, which is what we'll have
-     just after booting! */
-  while ((unsigned char)*pLine >= 0xb0 && (unsigned char)*pLine < 0xe0)
-    pLine++;
+  say2("%s\n", p);
+  nextMenuRow++;
 
-  pLine = skipwh(pLine);  /* skip more whitespaces... */
-
-  /* now I'm expecting a number here if this is a menu-choice line. */
-  if (isnum(pLine[0]))
+  /* find digit */
+  for (len = 0;; p++, len++)
   {
-    struct MenuSelector *menu = &MenuStruct[pLine[0]-'0'];
-
-    menu->x = (pLine-pNumber);  /* xpos is at start of number */
-    menu->y = nMenuLine;
-    /* copy menu text: */
-    nLen = findend(pLine); /* length is until cr/lf, null or three spaces */
-
-    /* max 40 chars including nullterminator
-       (change struct at top of file if you want more...) */
-    if (nLen > MENULINEMAX-1)
-      nLen = MENULINEMAX-1;
-    memcpy(menu->Text, pLine, nLen);
-    menu->Text[nLen] = 0;  /* nullTerminate */
+    ch = *p;
+    if (ch == '\0')
+      return;
+    ch -= (UBYTE)'0';
+    if (ch <= 9)
+      break;
   }
-  nMenuLine++;
+
+  menu = &MenuStruct[ch];
+  menu->x = len; /* start position of digit */
+  menu->y = nextMenuRow - 1;
+
+  /* copy menu text (up to null or 10+ spaces) */
+  len = 0;
+  do
+  {
+    ch = *p;
+    if (ch == '\0')
+      break;
+    menu->text[len] = ch;
+    p++, len++;
+    if (ch > ' ')
+    {
+      menu->len = len;
+      spaces = 11;
+    }
+  } while (--spaces && len < sizeof menu->text - 1);
+  menu->text[menu->len] = '\0';
 }
 
-STATIC VOID CfgMenuEsc(BYTE * pLine)
+STATIC void SelectLine(unsigned i)
 {
-  BYTE * check;
-  for (check = pLine; check[0]; check++)
-    if (check[0] == '$') check[0] = 27;	/* translate $ to ESC */
-  printf("%s\n",pLine);
+  struct MenuSelector *menu = MenuStruct;
+  do
+  {
+    if (menu->len)
+    {
+      UBYTE attr = MenuColor;
+      if (i == 0)		/* selected line?		*/
+	/* swap colors and clear blinking attribute */
+	attr = ((attr << 4) | (attr >> 4)) & 0x7f;
+
+      /* redraw line */
+      ClearScreenArea(attr, menu->x, menu->y, menu->len, 1);
+      say2("%s", menu->text);
+    }
+    menu++, i--;
+  } while (menu < ENDOF(MenuStruct));
+}
+
+static unsigned show_choices(unsigned choicey)
+{
+  unsigned x;
+  UBYTE i;
+
+  gotoxy(2, choicey);
+  say("Enter a choice: [");
+  x = 19;			/* =strlen("  Enter a choice: [") */
+  i = 0;
+  do
+  {
+    if (testbit(all_choices, i))
+    {
+      if (i < last_choice)
+        x++;
+      printf("%c", (UBYTE)'0' + i);
+    }
+    i++;
+  } while (i <= 9);
+  say("]");
+  return x;
 }
 
 STATIC VOID DoMenu(void)
 {
-  iregs r;
-  int key = -1;
-  if (Menus == 0)
-    return;
+  unsigned choicey;
+  say("\n\n\n");		/* make sure there are 3 free lines */
+  choicey = screeny() - 2;
 
-  InitKernelConfig.SkipConfigSeconds = -1;
-
-  if (MenuColor == -1)
-    Menus |= 1 << 0;          /* '0' Menu always allowed */
-
-  nMenuLine+=2; /* use this to position "select menu" text (ypos): */
+  gotoxy(0, screenbottom());
+  say2("F5=Bypass startup files  F8=Confirm each line of %s/AUTOEXEC.BAT",
+       configfile);
 
   for (;;)
   {
-    int i, j;
+    unsigned key;
+    UBYTE c;
 
-RestartInput:
+    gotoxy(75, screenbottom());
+    say(askCommand & ASK_TRACE ? "[Y]" : "[N]");
 
-    if (MenuColor != -1)
-    {
-      SelectLine(MenuSelected); /* select current line. */
-
-      /* set new cursor position: */
-      r.a.b.h = 0x02;
-      r.b.b.h = 0;
-      r.d.b.l = 3;
-      r.d.b.h = nMenuLine;
-
-      init_call_intr(0x10, &r);  /* set cursor pos */
-    }
-
-    printf("Select from Menu [");
-
-    for (i = 0, j = 1; i <= 9; i++, j<<=1)
-      if (Menus & j)
-        printf("%c", '0' + i);
-    printf("], or press [ENTER]");
-
-    if (MenuColor != -1)
-      printf(" (Selection=%d) ", MenuSelected);
+    if (MenuColor && nextMenuRow + 1 == choicey)
+      SelectLine(last_choice);	/* invert color of selected line */
 
     if (MenuTimeout >= 0)
-      printf("- %d \b", MenuTimeout);
-    else
-      printf("    \b\b\b\b\b");
-
-    if (MenuColor != -1)
-      printf("\r\n\n  ");
-    else
-      printf(" -");
-
-    printf(" Singlestepping (F8) is: %s \r", singleStep ? "ON " : "OFF");
-
-    key = GetBiosKey(MenuTimeout >= 0 ? 1 : -1);
-
-    if (key == -1)              /* timeout, take default */
     {
-      if (MenuTimeout > 0)
+      show_choices(choicey);
+      printf("  Time remainig: %d ", MenuTimeout);
+
+      gotoxy(show_choices(choicey), choicey);
+      key = GetBiosKey(1);	/* poll keyboard 1 second	*/
+      if (key == 0)
       {
+        if (MenuTimeout == 0)
+          break;		/* timeout, take default	*/
         MenuTimeout--;
-        goto RestartInput;
+        continue;
       }
-      break;
-    }
-    else
+
       MenuTimeout = -1;
+      clearrow();		/* clear "Time remaining"	*/
+    }
 
-    if (key == 0x3f00)          /* F5 */
+    gotoxy(show_choices(choicey), choicey);
+    key = GetBiosKey(-1);	/* remove key from buffer	*/
+
+    if (key == K_F5)		/* F5 */
     {
-      SkipAllConfig = TRUE;
+      askCommand |= ASK_SKIPALL;
       break;
     }
-    if (key == 0x4200)          /* F8 */
+    if (key == K_F8)		/* F8 */
+      askCommand ^= ASK_TRACE;
+
+    c = last_choice;
+
+    if (key == K_Up || key == K_Left)
+      while (c > 0 && !testbit(all_choices, --c));
+
+    else if (key == K_Down || key == K_Right)
+      while (c < 9 && !testbit(all_choices, ++c));
+
+    else
     {
-      singleStep = !singleStep;
-    }
-    else if(key == 0x4800 && MenuColor != -1)      /* arrow up */
-    {
-      if(MenuSelected>=1 && (Menus & (1 << (MenuSelected-1))) )
-      {
-        MenuSelected--;
-      }
-    }
-    else if(key == 0x5000 && MenuColor != -1)      /* arrow down */
-    {
-      if(MenuSelected<MENULINESMAX-1 && (Menus & (1 << (MenuSelected+1))) )
-      {
-        MenuSelected++;
-      }
+      unsigned k = key;		/* hint for compiler optimizer	*/
+      c = (UBYTE)k;
+      if (c == '\r')		/* CR - use current choice	*/
+        break;
+      c -= (UBYTE)'0';
     }
 
-    key &= 0xff;
+    if (testbit(all_choices, c))
+      last_choice = c;
+  } /* for */
 
-    if (key == '\r' || key == 0x1b) /* CR/ESC - use default */
-      break;
-
-    if (isnum(key) && (Menus & (1 << (key - '0'))))
-    {
-      MenuSelected = key - '0';
-      break;
-    }
-  }
-  printf("\n");
-
-  /* export the current selected config  menu */
-  sprintf(envp, "CONFIG=%c", MenuSelected+'0');
-  envp += 9;
-  if (MenuColor != -1)
-    ClearScreen(0x7);
+  gotoxy(0, screenbottom());
+  clearrow();			/* clear hint line at bottom	*/
+  gotoxy(0, choicey + 2);
 }
 
-STATIC VOID CfgMenuDefault(BYTE * pLine)
+/* Format: MENUDEFAULT [=] menu [, waitsecs] */
+STATIC void CfgMenuDefault(PCStr p)
 {
-  COUNT num = 0;
-
-  pLine = skipwh(pLine);
-  
-  if ('=' != *pLine)
+  if (GetNumArg2(p, MenuTimeout))
   {
-    CfgFailure(pLine);
-    return;
-  }
-  pLine = skipwh(pLine + 1);
-  
-  /* Format:  STACKS = stacks [, stackSize]       */
-  pLine = GetNumArg(pLine, &num);
-  MenuSelected = num;
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
-  {
-    GetNumArg(++pLine, &MenuTimeout);
+    last_choice = numarg1;
+    /*if (last_choice > 10)
+          last_choice = 10;*/
+    MenuTimeout = numarg;
   }
 }
 
-STATIC void ClearScreen(unsigned char attr)
+/* Format: MENUCOLOR [=] foreground [, background] */
+STATIC void CfgMenuColor(PCStr p)
 {
-  /* scroll down (newlines): */
-  iregs r;
-  unsigned char rows;
-
-  /* clear */
-  r.a.x = 0x0600;
-  r.b.b.h = attr;
-  r.c.x = 0;
-  r.d.b.l = peekb(0x40, 0x4a) - 1; /* columns */
-  rows = peekb(0x40, 0x84);
-  if (rows == 0) rows = 24;
-  r.d.b.h = rows;
-  init_call_intr(0x10, &r);
-
-  /* move cursor to pos 0,0: */
-  r.a.b.h = 0x02; /* set cursorpos */
-  r.b.b.h = 0;    /* displaypage: */
-  r.d.x = 0;  /* pos 0,0 */
-  init_call_intr(0x10, &r);
-  MenuColor = attr;
-}
-
-/**
-  MENUCOLOR[=] fg[, bg]
-*/
-STATIC void CfgMenuColor(BYTE * pLine)
-{
-  int num = 0;
-  unsigned char fg, bg = 0;
-
-  pLine = skipwh(pLine);
-
-  if ('=' == *pLine)
-    pLine = skipwh(pLine + 1);
-
-  pLine = GetNumArg(pLine, &num);
-  if (pLine == 0)
-    return;
-  fg = (unsigned char)num;
-
-  pLine = skipwh(pLine);
-
-  if (*pLine == ',')
+  if (GetNumArg2(p, 0))
   {
-    pLine = GetNumArg(skipwh(pLine+1), &num);
-    if (pLine == 0)
-      return;
-    bg = (unsigned char)num;
+    UBYTE attr = (UBYTE)((numarg << 4) | numarg1);
+    if (attr == 0)
+        attr = 0x07; /* white on black */
+    MenuColor = attr;
   }
-  ClearScreen((bg << 4) | fg);
 }
 
 /*********************************************************************************
@@ -2010,606 +1944,231 @@ STATIC void CfgMenuColor(BYTE * pLine)
 *********************************************************************************/
 
 #define _DATE_MDY 0 /* mm/dd/yy */
-#define _DATE_DMY 1  /* dd.mm.yy */
-#define _DATE_YMD 2  /* yy/mm/dd */
+#define _DATE_DMY 1 /* dd.mm.yy */
+#define _DATE_YMD 2 /* yy/mm/dd */
 
 #define _TIME_12 0
 #define _TIME_24 1
 
 struct CountrySpecificInfo specificCountriesSupported[] = {
-    
-  /* US */ {
-    1,                          /*  = W1 W437   # Country ID & Codepage */
-    437,      
-    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Canadian French */ ,{
-    2,                          /*  = W1 W437   # Country ID & Codepage */
-    863,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Latin America */ ,{
-    3,                          /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Russia - by arkady */ ,{
-    7,                          /*  = W1 W437   # Country ID & Codepage */
-    866,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "RUB",                      /* '$' ,'EUR'   */
-                                /* should be "\xE0", but as no codepage
-                                   support exists (yet), better to leave it as 'Rubels'
-                                */       						
-    " ",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    3,                          /*  Currency format : currency follows, after blank */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* DUTCH */ ,{
-    31,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Belgium */ ,{
-    32,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* France */ ,{
-    33,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Spain */ ,{
-    33,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    "'",                        /*      Decimal point - by aitor       */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Hungary */ ,{
-    36,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$HU",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Yugoslavia */ ,{
-    38,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$YU",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Italy */ ,{
-    39,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Switzerland */ ,{
-    41,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "SF",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Czechoslovakia */ ,{
-    42,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$YU",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* UK */ ,{
-    44,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "\x9c",                      /* Pound sign    */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Denmark */ ,{
-    45,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "DKK",                      /*     */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  /* Sweden */ ,{
-    46,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "SEK",                      /*     */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Norway */ ,{
-    47,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "NOK",                      /*     */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Poland */ ,{
-    48,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "PLN",                      /*  michael tyc: PLN means PoLish New zloty, I think)   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* GERMAN */ ,{
-    49,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    1,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Argentina */ ,{
-    54,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$ar",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    1,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
 
-  /* Brazil */ ,{
-    55,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$ar",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    1,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* International English */ ,{
-    61,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
+/* table rewritten by Bernd Blaauw
+Country ID  : international numbering
+Codepage    : codepage to use by default
+Date format : M = Month, D = Day, Y = Year (4digit); 0=USA, 1=Europe, 2=Japan
+Currency    : $ = dollar, EUR = EURO (ALT-128), United Kingdom uses the pound sign
+Thousands   : separator for thousands (1,000,000 bytes; Dutch: 1.000.000 bytes)
+Decimals    : separator for decimals (2.5KB; Dutch: 2,5KB)
+Datesep     : Date separator (2/4/2004 or 2-4-2004 for example)
+Timesep     : usually ":" is used to separate hours, minutes and seconds
+Currencyf   : Currency format (bit array)
+Currencyp   : Currency precision
+Timeformat  : 0=12 hour format (AM/PM), 1=24 hour format (16:12 means 4:12 PM)
 
-  /* Japan - Yuki Mitsui */ ,{
-    81,                       /*  = W1 W437   # Country ID & Codepage */
-    932,      
-    _DATE_YMD,                  /*    Date format: 0/1/2:U.S.A./Europe/Japan */
-    "\x81\x8f",                 /* '$' ,'EUR'   */
-    ",",                        /* ','        # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision          */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres 
-                                 */
-  }
+  ID  CP   Date    currency   1000 0.1 date time C digit time        Locale/Country   contributor
+------------------------------------------------------------------------------------------------------------- */
+{  1,437,_DATE_MDY,"$"       ,",",".", "/", ":", 0 , 2,_TIME_12}, /* United States                            */
+{  2,863,_DATE_YMD,"$"       ,",",".", "-", ":", 0 , 2,_TIME_24}, /* Canadian French                          */
+{  3,850,_DATE_MDY,"$"       ,",",".", "/", ":", 0 , 2,_TIME_12}, /* Latin America                            */
+{  7,866,_DATE_DMY,"RUB"     ," ",",", ".", ":", 3 , 2,_TIME_24}, /* Russia           Arkady V. Belousov      */
+{ 31,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Dutch            Bart Oldeman            */
+{ 32,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Belgium                                  */
+{ 33,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* France                                   */
+{ 34,850,_DATE_DMY,"EUR"     ,".","'", "-", ":", 0 , 2,_TIME_24}, /* Spain            Aitor Santamaria Merino */
+{ 36,850,_DATE_DMY,"$HU"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Hungary                                  */
+{ 38,850,_DATE_DMY,"$YU"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Yugoslavia                               */
+{ 39,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Italy                                    */
+{ 41,850,_DATE_DMY,"SF"      ,".",",", ".", ":", 0 , 2,_TIME_24}, /* Switserland                              */
+{ 42,850,_DATE_YMD,"$YU"     ,".",",", ".", ":", 0 , 2,_TIME_24}, /* Czech & Slovakia                         */
+{ 44,850,_DATE_DMY,"\x9c"    ,".",",", "/", ":", 0 , 2,_TIME_24}, /* United Kingdom                           */
+{ 45,850,_DATE_DMY,"DKK"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Denmark                                  */
+{ 46,850,_DATE_YMD,"SEK"     ,",",".", "-", ":", 0 , 2,_TIME_24}, /* Sweden                                   */
+{ 47,850,_DATE_DMY,"NOK"     ,",",".", ".", ":", 0 , 2,_TIME_24}, /* Norway                                   */
+{ 48,850,_DATE_YMD,"PLN"     ,",",".", ".", ":", 0 , 2,_TIME_24}, /* Poland           Michael H.Tyc           */
+{ 49,850,_DATE_DMY,"EUR"     ,".",",", ".", ":", 1 , 2,_TIME_24}, /* German           Tom Ehlert              */
+{ 54,850,_DATE_DMY,"$ar"     ,".",",", "/", ":", 1 , 2,_TIME_12}, /* Argentina                                */
+{ 55,850,_DATE_DMY,"$ar"     ,".",",", "/", ":", 1 , 2,_TIME_24}, /* Brazil                                   */
+{ 61,850,_DATE_MDY,"$"       ,".",",", "/", ":", 0 , 2,_TIME_24}, /* Int. English                             */
+{ 81,932,_DATE_YMD,"\x81\x8f",",",".", "/", ":", 0 , 2,_TIME_12}, /* Japan            Yuki Mitsui             */
+{351,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Portugal                                 */
+{358,850,_DATE_DMY,"EUR"     ," ",",", ".", ":",0x3, 2,_TIME_24}, /* Finland          wolf                    */
+{359,855,_DATE_DMY,"BGL"     ," ",",", ".", ":", 3 , 2,_TIME_24}, /* Bulgaria         Luchezar Georgiev       */
+{380,848,_DATE_DMY,"UAH"     ," ",",", ".", ":", 3 , 2,_TIME_24}, /* Ukraine          Oleg Deribas            */
+};
 
-  /* Portugal */ ,{
-    351,                        /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                        /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-
-  /* Finland - by wolf */ ,{
-    358,                        /*  = W1 W437   # Country ID & Codepage */
-    850,
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    " ",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0x3,                        /*  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
-  }
-
-  /* Bulgaria - by Luchezar Georgiev */ ,{
-    359,                        /*  = W1 W437   # Country ID & Codepage */
-    855,
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "BGL",                      /* '$' ,'EUR'   */
-    " ",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    3,                          /*  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
-  }
-
-  /* Ukraine - by Oleg Deribas */ ,{
-    380,         /*  = W380 W848   # Country ID & Codepage  */
-    848,
-    _DATE_DMY,   /* Date format: 0/1/2: U.S.A./Europe/Japan */
-    "UAH",       /* Currency */
-    " ",         /* ' '  # Thousand's separator */
-    ",",         /* ','  # Decimal point        */
-    ".",         /* '.'  DateSeparator */
-    ":",         /* ':'  TimeSeparator */
-    3,           /* = 3  # Currency format (bit array)    */
-    2,           /* = 2  # Currency precision             */
-    _TIME_24     /* = 1  # time format: 0/1: 12/24 houres */
-  }
-
-};    
-
-
-/* contributors to above table:
-
-	tom ehlert (GER)
-	bart oldeman (NL)
-	wolf (FIN)
-	Michael H.Tyc (POL)
-	Oleg Deribas (UKR)
-	Arkady Belousov (RUS)
-        Luchezar Georgiev (BUL)
-	Yuki Mitsui (JAP)
-	Aitor Santamar­a Merino (SP)
-*/	
-
-STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage)
+STATIC void LoadCountryInfoHardCoded(CStr filename, int ccode, int cpage)
 {
   struct CountrySpecificInfo *country;
-  UNREFERENCED_PARAMETER(codePage);
+  UNREFERENCED_PARAMETER(cpage);
   UNREFERENCED_PARAMETER(filename);
 
-  /* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename);  */
-
-
+  /* printf("cntry: %u, CP%u, file=\"%s\"\n", ccode, cpage, filename); */
 
   for (country = specificCountriesSupported;
-       country < specificCountriesSupported + LENGTH(specificCountriesSupported);
+       country < ENDOF(specificCountriesSupported);
        country++)
   {
-    if (country->CountryID == ctryCode)
+    if (country->CountryID == ccode)
     {
       int codepagesaved = nlsCountryInfoHardcoded.C.CodePage;
-
-      fmemcpy(&nlsCountryInfoHardcoded.C.CountryID,
+      fmemcpy(&nlsCountryInfoHardcoded.C,
               country,
               min(nlsCountryInfoHardcoded.TableSize, sizeof *country));
-
       nlsCountryInfoHardcoded.C.CodePage = codepagesaved;
-
-      return 0;
+      return;
     }
   }
 
   printf("could not find country info for country ID %u\n"
-         "current supported countries are ", ctryCode);
+         "current supported countries are ", ccode);
 
   for (country = specificCountriesSupported;
-       country < specificCountriesSupported + LENGTH(specificCountriesSupported);
+       country < ENDOF(specificCountriesSupported);
        country++)
   {
     printf("%u ", country->CountryID);
   }
-  printf("\n");
-
-  return 1;
+  say("\n");
 }
-
 
 /* ****************************************************************
-** implementation of INSTALL=NANSI.COM /P /X /BLA 
+** implementation of INSTALL=NANSI.COM /P /X /BLA
 */
 
-int  numInstallCmds BSS_INIT(0);
-struct instCmds {
-  char buffer[128];
-  int mode;
-} InstallCommands[10] BSS_INIT({0});
-
-#ifdef DEBUG
-#define InstallPrintf(x) printf x
-#else
-#define InstallPrintf(x)
-#endif
-
-STATIC VOID _CmdInstall(BYTE * pLine,int mode)
-{
-  struct instCmds *cmd;
-
-  InstallPrintf(("Installcmd %d:%s\n",numInstallCmds,pLine));
-  
-  if (numInstallCmds > LENGTH(InstallCommands))
-  {
-    printf("Too many Install commands given (%d max)\n",LENGTH(InstallCommands));
-    CfgFailure(pLine);
-    return;
-  }
-  cmd = &InstallCommands[numInstallCmds];
-  memcpy(cmd->buffer,pLine,127);
-  cmd->buffer[127] = 0;
-  cmd->mode = mode;
-  numInstallCmds++;
-}
-STATIC VOID CmdInstall(BYTE * pLine)
-{
-  _CmdInstall(pLine,0);
-}
-STATIC VOID CmdInstallHigh(BYTE * pLine)
-{
-  _CmdInstall(pLine,0x80);	/* load high, if possible */
-}
-
-STATIC VOID InstallExec(struct instCmds *icmd)
-{                            
-  BYTE filename[128], *args, *d, *cmd = icmd->buffer;
-  exec_blk exb;
-
-  InstallPrintf(("installing %s\n",cmd));
-
-  cmd=skipwh(cmd);     
-
-  for (args = cmd, d = filename; ;args++,d++)
-  {
-    *d = *args;
-    if (*d <= 0x020 || *d == '/')
-      break;
-  }
-  *d = 0;
-
-  args--;
-  *args = strlen(&args[1]);
-  args[*args+1] = '\r';
-  args[*args+2] = 0;
-
-  exb.exec.env_seg  = 0;
-  exb.exec.cmd_line = (CommandTail FAR *) args;
-  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0xfffffffful;
-
-
-  InstallPrintf(("cmd[%s] args [%u,%s]\n",filename,*args,args+1));
-
-  if (init_DosExec(icmd->mode, &exb, filename) != SUCCESS)
-  {
-    CfgFailure(cmd);
-  }
-}		
-
-STATIC void free(seg segment)
+STATIC void free(seg_t seg)
 {
   iregs r;
-        
-  r.a.b.h = 0x49;				/* free memory	*/
-  r.es  = segment;
+  r.ES = seg;
+  r.AH = 0x49;			/* free memory */
   init_call_intr(0x21, &r);
 }
 
 /* set memory allocation strategy */
-STATIC void set_strategy(unsigned char strat)
+STATIC void set_strategy(UBYTE strat)
 {
   iregs r;
-
-  r.a.x = 0x5801;
-  r.b.b.l = strat;
+  r.BL = strat;
+  r.AX = 0x5801;
   init_call_intr(0x21, &r);
 }
 
+/* Format: INSTALL [=] command */
+/* Format: INSTALLHIGH [=] command */
+STATIC void _CmdInstall(PCStr p, int mode)
+{
+  CommandTail args;
+  PStr pf;
+  unsigned len;
+  exec_blk exb;
+
+  for (pf = szBuf;; p++, pf++)
+  {
+    UBYTE ch = *p;
+    if (ch <= ' ' || ch == '/')
+      break;
+    *pf = ch;
+  }
+  *pf = '\0';
+
+  len = strlen(p);
+  if (len > sizeof args.ctBuffer - 2)
+      len = sizeof args.ctBuffer - 2; /* trim too long line */
+  args.ctCount = (UBYTE)len;
+  args.ctBuffer[len] = '\r';
+  args.ctBuffer[len+1] = 0;
+  memcpy(args.ctBuffer, p, len);
+
+  set_strategy(mode);
+  exb.exec.env_seg = DOS_PSP + 8;
+  exb.exec.cmd_line = &args;
+  /*exb.exec.fcb_1 = exb.exec.fcb_2 = NULL;*/ /* unimportant */
+
+  DebugPrintf(("cmd[%s] args [%u,%s]\n", szBuf, args.ctCount, args.ctBuffer));
+
+  if (init_DosExec(mode, &exb, szBuf) != SUCCESS)
+    CfgFailure(p);
+}
+
+STATIC void CmdInstall(PCStr p)		{ _CmdInstall(p, 0); }
+
+STATIC void CmdInstallHigh(PCStr p)	{ _CmdInstall(p, 0x80); }
+
 VOID DoInstall(void)
 {
-  int i;
-  unsigned short installMemory; 
-  struct instCmds *cmd;
+  seg_t kernel;
 
-  if (numInstallCmds == 0)
-    return;
-  
-  InstallPrintf(("Installing commands now\n"));
-
-  /* grab memory for this install code 
-     we KNOW, that we are executing somewhere at top of memory
-     we need to protect the INIT_CODE from other programs
-     that will be executing soon
+  /* grab memory for this install code:
+     we are executing somewhere at top of memory and need to protect
+     the INIT_CODE from other programs that will be executing soon
   */
 
   set_strategy(LAST_FIT);
-  installMemory = allocmem(((unsigned)_init_end + ebda_size + 15) / 16);
+  kernel = allocmem(((unsigned)_init_end + ebda_size + 15) / 16);
 
-  InstallPrintf(("allocated memory at %x\n",installMemory));
+  DebugPrintf(("Installing commands now (kernel at %X)\n", kernel));
 
-  for (i = 0, cmd = InstallCommands; i < numInstallCmds; i++, cmd++)
-  {
-    InstallPrintf(("%d:%s\n",i,cmd->buffer));
-    set_strategy(cmd->mode);
-    InstallExec(cmd);
-  }
+  DoConfig_();
+
   set_strategy(FIRST_FIT);
-  free(installMemory);
-  
-  InstallPrintf(("Done with installing commands\n"));
-  return;
+  free(kernel);
+
+  DebugPrintf(("Done with installing commands\n"));
 }
 
-STATIC VOID CmdSet(BYTE *pLine)
+/* master_env copied over command line area in
+   DOS_PSP, thus its size limited to 128 bytes */
+static char master_env[128] BSS_INIT({0});
+static PStr envp = master_env;
+
+/* Format: SET var = string */
+STATIC void CmdSet(PCStr p)
 {
-  pLine = GetStringArg(pLine, szBuf);
-  pLine = skipwh(pLine);  /* scan() stops at the equal sign or space */
-  if (*pLine == '=')      /* equal sign is required */
+  PStr q;
+  p = skipwh(scanword(p, szBuf));
+  if (*p != '=')		/* equal sign is required	*/
   {
-    int size;
-    strupr(szBuf);        /* all environment variables must be uppercase */
-    strcat(szBuf, "=");
-    pLine = skipwh(++pLine);
-    strcat(szBuf, pLine); /* append the variable value (may include spaces) */
-    size = strlen(szBuf);
-    if (size < master_env + sizeof(master_env) - envp - 1)
-    {                     /* must end with two consequtive zeros */
-      strcpy(envp, szBuf);
-      envp += size + 1;   /* add next variables starting at the second zero */
-    }
-    else
-      printf("Master environment is full - can't add \"%s\"\n", szBuf);
+    CfgFailure(p);
+    return;
   }
-  else
-    printf("Invalid SET command: \"%s\"\n", szBuf);
+
+  /* environment variables must be uppercase			*/
+  strcat(strupr(szBuf), "=");
+
+  {
+    PStr pm = master_env;	/* find duplication		*/
+    for (q = pm; pm < envp; q = pm)
+    {
+      PCStr v = szBuf;
+      while (*v == *pm)		/* compare variables		*/
+	v++, pm++;
+      while (*++pm);		/* find end of definition	*/
+      pm++;
+      if (*v == '\0')		/* variable found?		*/
+      {
+	while (pm < envp)
+	  *q++ = *pm++;		/* remove duplication		*/
+	break;
+      }
+    } /* for */
+  }
+
+  p = skipwh(p + 1);
+  if (*p)			/* add new definition?		*/
+  {
+    size_t sz = strlen(strcat(szBuf, p)) + 1;
+
+    /* environment ends by empty ASCIIZ (one null character) */
+    if (sz >= master_env + sizeof master_env - q)
+    {
+      CfgFailure(p);
+      say("Out of environment space\n");
+      return;
+    }
+    strcpy(q, szBuf);
+    q += sz;
+  }
+
+  envp = q;
+  *q = '\0';			/* "add" empty ASCIIZ string	*/
+  fmemcpy(MK_PTR(char, DOS_PSP + 8, 0), master_env, q + 1 - master_env);
 }

@@ -35,6 +35,8 @@ static char *portab_hRcsId =
 #endif
 #endif
 
+#include <limits.h>
+
 /****************************************************************/
 /*                                                              */
 /* Machine dependant portable types. Note that this section is  */
@@ -256,55 +258,105 @@ typedef signed long LONG;
 #define LONG long
 #endif
 
+typedef UWORD ofs_t;
+typedef UWORD seg_t;
+
+#define lonibble(v) (0x0f & (v))
+#define hinibble(v) (0xf0 & (v))
+
+#if CHAR_BIT == 8
+# define lobyte(v) ((UBYTE)(v))
+#else
+# define lobyte(v) ((UBYTE)(0xff & (v)))
+#endif
+#define hibyte(v) lobyte ((UWORD)(v) >> 8u)
+
+#if USHRT_MAX == 0xFFFF
+# define loword(v) ((unsigned short)(v))
+#else
+# define loword(v) (0xFFFF & (unsigned)(v))
+#endif
+#define hiword(v) loword ((v) >> 16u)
+
+#define MK_UWORD(hib,lob) (((UWORD)(hib) <<  8u) | (UBYTE)(lob))
+#define MK_ULONG(hiw,low) (((ULONG)(hiw) << 16u) | (UWORD)(low))
+
 /* General far pointer macros                                           */
 #ifdef I86
 #ifndef MK_FP
 
-#if defined(__WATCOMC__)
+#if defined __WATCOMC__
 #define MK_FP(seg,ofs) 	      (((UWORD)(seg)):>((VOID *)(ofs)))
-#elif defined(__TURBOC__) && (__TURBOC__ > 0x202)
+#elif __TURBOC__ > 0x202
 #define MK_FP(seg,ofs)        ((void _seg *)(seg) + (void near *)(ofs))
 #else
-#define MK_FP(seg,ofs)        ((void FAR *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
+#define MK_FP(seg,ofs)        ((void FAR *)MK_ULONG(seg, ofs))
 #endif
 
-#define pokeb(seg, ofs, b) (*((unsigned char far *)MK_FP(seg,ofs)) = b)
-#define poke(seg, ofs, w) (*((unsigned far *)MK_FP(seg,ofs)) = w)
+#define pokeb(seg, ofs, b) (*(unsigned char far *)MK_FP(seg,ofs) = (b))
+#define poke(seg, ofs, w) (*(unsigned far *)MK_FP(seg,ofs) = (w))
 #define pokew poke
-#define pokel(seg, ofs, l) (*((unsigned long far *)MK_FP(seg,ofs)) = l)
-#define peekb(seg, ofs) (*((unsigned char far *)MK_FP(seg,ofs)))
-#define peek(seg, ofs) (*((unsigned far *)MK_FP(seg,ofs)))
+#define pokel(seg, ofs, l) (*(unsigned long far *)MK_FP(seg,ofs) = (l))
+#define peekb(seg, ofs) (*(unsigned char far *)MK_FP(seg,ofs))
+#define peek(seg, ofs) (*(unsigned far *)MK_FP(seg,ofs))
 #define peekw peek
-#define peekl(seg, ofs) (*((unsigned long far *)MK_FP(seg,ofs)))
+#define peekl(seg, ofs) (*(unsigned long far *)MK_FP(seg,ofs))
 
-#if defined(__TURBOC__) && (__TURBOC__ > 0x202)
+#if __TURBOC__ > 0x202
 #define FP_SEG(fp)            ((unsigned)(void _seg *)(void far *)(fp))
 #else
-#define FP_SEG(fp)            ((unsigned)((ULONG)(VOID FAR *)(fp)>>16))
+#define FP_SEG(fp)            hiword ((ULONG)(VOID FAR *)(fp))
 #endif
 
-#define FP_OFF(fp)            ((unsigned)(fp))
+#define FP_OFF(fp)            loword (fp)
 
 #endif
 #endif
 
 #ifdef MC68K
-#define MK_FP(seg,ofs)         ((VOID *)(&(((BYTE *)(size_t)(seg))[(ofs)])))
-#define FP_SEG(fp)             (0)
+#define MK_FP(seg,ofs)         ((VOID *)&(((BYTE *)(size_t)(seg))[ofs]))
+#define FP_SEG(fp)             0
 #define FP_OFF(fp)             ((size_t)(fp))
 #endif
 
 typedef VOID (FAR ASMCFUNC * intvec) (void);
+
+#define MK_PTR(type,seg,ofs) ((type FAR*) MK_FP (seg, ofs))
+#if __TURBOC__ > 0x202
+# define MK_SEG_PTR(type,seg) ((type _seg*) (seg))
+#else
+# define _seg FAR
+# define MK_SEG_PTR(type,seg) MK_PTR (type, seg, 0)
+#endif
 
 /*
 	this suppresses the warning
 	unreferenced parameter 'x'
 	and (hopefully) generates no code
 */
-#define UNREFERENCED_PARAMETER(x) (void)x;
+#define UNREFERENCED_PARAMETER(x) (void)(x)
 
 #ifdef I86                      /* commandline overflow - removing /DPROTO TE */
 #define PROTO
 #endif
 
-#define LENGTH(x) (sizeof(x)/sizeof(x[0]))
+typedef const char	CStr[], *PCStr;
+typedef char		Str[], *PStr;
+typedef const void	*CVP;
+typedef const void FAR	*CVFP;
+typedef void FAR	*VFP;
+
+#define LENGTH(x) (sizeof (x)/sizeof *(x))
+#define ENDOF(x) ((x) + LENGTH (x))
+
+/* (unsigned) modulo arithmetics trick: a<=b<=c equal to b-a<=c-a */
+#define inrange(type,v,lo,hi) ((type)((v) - (lo)) <= (type)((hi) - (lo)))
+#define _isdigit(c) inrange(UBYTE, c, '0', '9')
+#define _islower(c) inrange(UBYTE, c, 'a', 'z')
+#define _isupper(c) inrange(UBYTE, c, 'A', 'Z')
+
+/* Fast ASCII tolower/toupper */
+#define _fast_lower(ch)		((ch) | 0x20)
+#define _fast_dolower(var)	((var) |= 0x20)
+#define _fast_upper(ch)		((ch) & ~0x20)
+#define _fast_doupper(var)	((var) &= ~0x20)

@@ -106,10 +106,9 @@ DriverSysCal:
                 mov     di, _Dyn+2
                 jmp     short Int2f?iret
 
-
-;***********************************************************
-; internal doscalls INT2F/11xx - handled through C 
-;***********************************************************
+;**********************************************************************
+; internal dos calls INT2F/12xx and INT2F/4A01,4A02 - handled through C 
+;**********************************************************************
 IntDosCal:                
                         ; set up register frame
 ;struct int2f12regs

@@ -1,5 +1,5 @@
 #
-# MSCL8.MAK - kernel copiler options for MS CL8 = MS VC 1.52
+# MSC.MAK - kernel copiler options for MS VC 1.5x (MS CL 8.x)
 #
 
 TARGET=KMS
@@ -22,7 +22,7 @@ CPUOPT=-G1
 CPUOPT=-G3
 !endif
 
-ALLCFLAGS=@vc.cfg -I$(INCLUDEPATH) $(CPUOPT) $(ALLCFLAGS)
+ALLCFLAGS=@msc.cfg -I$(INCLUDEPATH) $(CPUOPT) $(ALLCFLAGS)
 INITCFLAGS=-NTINIT_TEXT
 CFLAGS    =-NTHMA_TEXT
 INITPATCH=..\utils\patchobj _DATA=IDATA DATA=ID BSS=ID DGROUP=I_GROUP CONST=IC

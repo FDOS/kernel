@@ -314,7 +314,7 @@ int21_2:        inc     byte [_InDOS]
                 or      ah,ah   
                 jz      int21_3
                 cmp     ah,0ch
-                jle     int21_normalentry
+                jbe     int21_normalentry
 
 int21_3:
                 call    dos_crit_sect

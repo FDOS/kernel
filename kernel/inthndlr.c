@@ -1240,13 +1240,12 @@ dispatch:
     case 0x5f:
       if (lr.AL == 7 || lr.AL == 8)
       {
-        struct cds FAR *cdsp;
-        if (lr.DL >= lastdrive)
+        struct cds FAR *cdsp = &CDSp[lr.DL];
+        if (lr.DL >= lastdrive || FP_OFF(cdsp->cdsDpb) == 0)
         {
           rc = DE_INVLDDRV;
           goto error_exit;
         }
-        cdsp = &CDSp[lr.DL];
         if (lr.AL == 7)
           cdsp->cdsFlags |= CDSPHYSDRV;
         else

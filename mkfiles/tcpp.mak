@@ -1,5 +1,5 @@
 #
-# TURBOCPP.MAK - kernel copiler options for Turbo C++ 1.01
+# TCPP.MAK - kernel copiler options for Turbo C++ 1.01
 #
 
 TARGET=KTP
@@ -36,8 +36,7 @@ MATH_INSERT =+H_LDIV +H_LLSH +H_LURSH +F_LXMUL
 #
 
 ALLCFLAGS=-I..\hdr;$(INCLUDEPATH) $(CPUOPT) $(ALLCFLAGS)
-INITCFLAGS=@..\mkfiles\tci.cfg
-CFLAGS    =-zCHMA_TEXT
+INITCFLAGS=@tci.cfg
 
-CFLAGST=-I..\hdr;$(INCLUDEPATH) -L$(LIBPATH) -mt -lt # -ff-
+CFLAGST=-I..\hdr;$(INCLUDEPATH) -L$(LIBPATH) -mt -lt
 CFLAGSC=-I..\hdr;$(INCLUDEPATH) -L$(LIBPATH) -mc

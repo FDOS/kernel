@@ -7,4 +7,3 @@ shift
 goto loop_commandline
 
 :done_with_commandline
-

@@ -1,19 +1,19 @@
 !include "../mkfiles/generic.mak"
 
-CFLAGS = -I$(INCLUDEPATH) -I..\hdr
+DEPENDS=$(DEPENDS) *.cfg
 
-production: patchobj.com exeflat.exe
+########################################################################
 
-patchobj.com: patchobj.c
-	$(CL) $(CFLAGST) $(TINY) $(CFLAGS) patchobj.c
+all:		patchobj.com exeflat.exe
 
-exeflat.exe: exeflat.c ../hdr/exe.h
-	$(CL) $(CFLAGSC) $(CFLAGS) exeflat.c
+patchobj.com:	patchobj.c $(DEPENDS)
 
+exeflat.exe:	exeflat.c ../hdr/exe.h $(DEPENDS)
 
-clobber: clean
+########################################################################
 
 clean:
-	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me
-	$(RM) exeflat.exe patchobj.com
+		-$(RM) *.bak *.cod *.crf *.err *.las *.lst *.map *.obj *.xrf
 
+clobber:	clean
+		-$(RM) patchobj.com exeflat.exe status.me

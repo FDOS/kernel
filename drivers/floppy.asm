@@ -32,7 +32,7 @@
 segment HMA_TEXT
 
 ;
-; BOOL ASMPASCAL fl_reset(WORD drive);
+; int ASMPASCAL fl_reset(UBYTE drive);
 ;
 ; Reset both the diskette and hard disk system.
 ; returns TRUE if successful.
@@ -41,189 +41,175 @@ segment HMA_TEXT
 		global	FL_RESET
 FL_RESET:
 		pop	ax		; return address
-		pop	dx		; drive (DL only)
+		pop	dx		; drive
 		push	ax		; restore address
-		mov	ah,0		; BIOS reset diskette & fixed disk
+		mov	ah,0		; reset disk
 		int	13h
-
-		sbb	ax,ax		; carry set indicates error, AX=-CF={-1,0}
+		sbb	ax,ax		; CF=1: error
 		inc	ax		; ...return TRUE (1) on success,
-		ret			; else FALSE (0) on failure
+		ret			;  FALSE (0) on error
 
 ;
-; COUNT ASMPASCAL fl_diskchanged(WORD drive);
+; int ASMPASCAL fl_diskchanged(UBYTE drive);
 ;
 ; Read disk change line status.
-; returns 1 if disk has changed, 0 if not, 0xFFFF if error.
+; returns 1 if disk has changed, 0 if not, 0xFF if error.
 ;
 
 		global	FL_DISKCHANGED
 FL_DISKCHANGED:
 		pop	ax		; return address
-		pop	dx		; drive (DL only, 00h-7Fh)
+		pop	dx		; drive
 		push	ax		; restore stack
 
-		push	si		; preserve value
-		mov	ah,16h	; read change status type
+		push	si
+		mov	ah,16h		; read change status type
 		xor	si,si		; RBIL: avoid crash on AT&T 6300
 		int	13h
-		pop	si		; restore
+		pop	si
 
-		sbb	al,al		; AL=-CF={-1,0} where 0==no change
-		jnc   fl_dc		; carry set on error or disk change
-		cmp	ah,6		; if AH==6 then disk change, else error
-		jne	fl_dc		; if error, return -1
-		mov	al, 1		; set change occurred
-fl_dc:	cbw			; extend AL into AX, AX={1,0,-1}
-		ret			; note: AH=0 on no change, AL set above
+		sbb	al,al		; CF=0 (disk has not changed)
+		jnc	ret_AH_0	; ...return 0
+		cmp	ah,6		; ah!=6 (error)
+		jne	ret_AH_0	; ...return 0xFF
+		mov	al,1		; ah=6 (disk has changed)
+		jmp	short ret_AH_0	; ...return 1
 
 ;
+; int ASMPASCAL fl_read  (UBYTE drive, WORD head, WORD track, WORD sector, WORD count, void FAR *buffer);
+; int ASMPASCAL fl_write (UBYTE drive, WORD head, WORD track, WORD sector, WORD count, void FAR *buffer);
+; int ASMPASCAL fl_verify(UBYTE drive, WORD head, WORD track, WORD sector, WORD count, void FAR *buffer);
+; int ASMPASCAL fl_format(UBYTE drive, WORD head, WORD track, WORD sector, WORD count, void FAR *buffer);
+;
+
 ; Format tracks (sector should be 0).
-; COUNT ASMPASCAL fl_format(WORD drive, WORD head, WORD track, WORD sector, WORD count, UBYTE FAR *buffer);
-; Reads one or more sectors.
-; COUNT ASMPASCAL fl_read  (WORD drive, WORD head, WORD track, WORD sector, WORD count, UBYTE FAR *buffer);
-; Writes one or more sectors.
-; COUNT ASMPASCAL fl_write (WORD drive, WORD head, WORD track, WORD sector, WORD count, UBYTE FAR *buffer);
-; COUNT ASMPASCAL fl_verify(WORD drive, WORD head, WORD track, WORD sector, WORD count, UBYTE FAR *buffer);
-;
-; Returns 0 if successful, error code otherwise.
-;
 
 		global	FL_FORMAT
 FL_FORMAT:
-                mov     ah,5            ; format track
-                jmp     short fl_common
+		mov	ah,5		; format track
+		jmp	short fl_common
+
+		global	FL_VERIFY
+FL_VERIFY:
+		mov	ah,4		; verify sector(s)
+		jmp	short fl_common
 
 		global	FL_READ
 FL_READ:
-                mov     ah,2            ; read sector(s)
-                jmp short fl_common
-                
-		global	FL_VERIFY
-FL_VERIFY:
-                mov     ah,4            ; verify sector(s)
-                jmp short fl_common
-                
+		mov	ah,2		; read sector(s)
+		jmp	short fl_common
+
 		global	FL_WRITE
 FL_WRITE:
-                mov     ah,3            ; write sector(s)
+		mov	ah,3		; write sector(s)
 
-fl_common:                
-                push    bp              ; setup stack frame
-                mov     bp,sp
+fl_common:
+		push	bp
+		mov	bp,sp
 
-                mov     cx,[bp+0Ch]     ; cylinder number
+		mov	cx,[bp+12]	; cylinder number
+		mov	al,1		; error code
+		cmp	ch,3
+		ja	fl_error	; can't write above 3FFh=1023
 
-                mov     al,1            ; this should be an error code                     
-                cmp     ch,3            ; this code can't write above 3FFh=1023
-                ja      fl_error        ; as cylinder # is limited to 10 bits.
+		xchg	ch,cl		; ch=low 8 bits of cylinder number
+		mov	dh,[bp+14]	; head number
+		ror	cl,1		; bits 8-9 of cylinder number...
+		 ror	cl,1		; ...to bits 6-7 in CL
+		or	cl,[bp+10]	; sector number (bits 0-5)
 
-                xchg    ch,cl           ; ch=low 8 bits of cyl number
-                ror     cl,1            ; bits 8-9 of cylinder number...
-                ror     cl,1            ; ...to bits 6-7 in CL
-                or      cl,[bp+0Ah]	; or in the sector number (bits 0-5)
-
-                mov     al,[bp+08h]     ; count of sectors to read/write/...
-                les     bx,[bp+04h]     ; Load 32 bit buffer ptr into ES:BX
-
-                mov     dl,[bp+10h]     ; drive (if or'ed 80h its a hard drive)
-                mov     dh,[bp+0Eh]     ; get the head number
-
-                int     13h             ; process sectors
+		mov	al,[bp+8]	; number of sectors
+		les	bx,[bp+4]	; 32-bit buffer ptr
+		mov	dl,[bp+16]	; drive (if or'ed 80h its hard drive)
+		int	13h		; process sectors
 
 		sbb	al,al		; carry: al=ff, else al=0
 		and	al,ah		; carry: error code, else 0
 fl_error:
-                mov     ah,0            ; extend AL into AX without sign extension
-                pop     bp
-                ret     14
+		mov	ah,0
+		pop	bp
+		ret	14
 
 ;
-; COUNT ASMPASCAL fl_lba_ReadWrite(BYTE drive, WORD mode, void FAR * dap_p);
+; int ASMPASCAL fl_lba_ReadWrite(UBYTE drive, WORD mode, void FAR * dap);
 ;
 ; Returns 0 if successful, error code otherwise.
 ;
 
-		global  FL_LBA_READWRITE
+		global	FL_LBA_READWRITE
 FL_LBA_READWRITE:
-		push    bp              ; setup stack frame
-		mov     bp,sp
-		
-		push    ds
-		push    si              ; wasn't in kernel < KE2024Bo6!!
-
-		mov     dl,[bp+10]      ; drive (if or'ed with 80h a hard drive)
-		mov     ax,[bp+8]       ; get the command
-		lds     si,[bp+4]       ; get far dap pointer
-		int     13h             ; read from/write to drive
-		
-		pop     si
-		pop     ds
-
-		pop     bp
-
-		mov     al,ah           ; place any error code into al
-		mov     ah,0            ; zero out ah           
-		ret     8
+		push	bp
+		mov	bp,sp
+		push	si
+		push	ds
+		mov	dl,[bp+10]	; drive (if or'ed 80h its hard drive)
+		mov	ax,[bp+8]	; command
+		lds	si,[bp+4]	; far dap pointer
+		int	13h		; process sectors
+		pop	ds
+		pop	si
+		pop	bp
+		mov	al,ah		; place error code into al
+		mov	ah,0
+		ret	8
 
 ;
 ; void ASMPASCAL fl_readkey (void);
 ;
 
 		global	FL_READKEY
-FL_READKEY:     xor	ah, ah
+FL_READKEY:
+		mov	ah,0
 		int	16h
 		ret
 
 ;
-; COUNT ASMPASCAL fl_setdisktype (WORD drive, WORD type);
+; int ASMPASCAL fl_setdisktype (UBYTE drive, WORD type);
 ;
 
 		global	FL_SETDISKTYPE
 FL_SETDISKTYPE:
 		pop	bx		; return address
-		pop	ax		; disk format type (al)
-		pop	dx		; drive number (dl)
+		pop	ax		; disk type
+		pop	dx		; drive
 		push	bx		; restore stack
-		mov	ah,17h	; floppy set disk type for format
+		mov	ah,17h		; set disk type for format
 		int	13h
 ret_AH:
-		mov     al,ah           ; place any error code into al
-		mov     ah,0            ; zero out ah           
+		mov	al,ah		; place error code into al
+ret_AH_0:
+		mov	ah,0
 		ret
-                        
+
 ;
-; COUNT ASMPASCAL fl_setmediatype (WORD drive, WORD tracks, WORD sectors);
+; int ASMPASCAL fl_setmediatype (UBYTE drive, WORD tracks, WORD sectors);
 ;
+
 		global	FL_SETMEDIATYPE
 FL_SETMEDIATYPE:
 		pop	ax		; return address
 		pop	bx		; sectors/track
 		pop	cx		; number of tracks
-		pop	dx		; drive number
+		pop	dx		; drive
 		push	ax		; restore stack
 		push	di
 
-		dec	cx		; number of cylinders - 1 (last cyl number)
+		dec	cx		; last cylinder number
 		xchg	ch,cl		; CH=low 8 bits of last cyl number
-               
-		ror	cl,1		; extract bits 8-9 of cylinder number...
-		ror	cl,1		; ...into cl bit 6-7
-                
-		or	cl,bl		; sectors/track (bits 0-5) or'd with high cyl bits 7-6
-
-		mov	ah,18h	; disk set media type for format
+		ror	cl,1		; bits 8-9 of cylinder number...
+		 ror	cl,1		; ...to bits 6-7 in CL
+		or	cl,bl		; sectors/track (bits 0-5)
+		mov	ah,18h		; set media type for format
 		int	13h
 		jc	skipint1e
 
 		push	es
-                xor     dx,dx
-                mov     es,dx
+		xor	dx,dx
+		mov	es,dx
 		cli
-                pop     word [es:0x1e*4+2] ; set int 0x1e table to es:di
-                mov     [es:0x1e*4  ], di
+		mov	[es:0x1e*4],di
+		pop	word [es:0x1e*4+2] ; set int 0x1e table to es:di
 		sti
-skipint1e:		
-                pop     di
+skipint1e:
+		pop	di
 		jmp	short ret_AH
-                

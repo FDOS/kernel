@@ -52,8 +52,6 @@ large portions copied from task.c
 
 #define BUFSIZE 32768u
 
-#define LENGTH(x) (sizeof(x)/sizeof(x[0]))
-
 typedef struct {
   UWORD off, seg;
 } farptr;
@@ -260,7 +258,7 @@ int main(int argc, char **argv)
     }
 
     /* this assumes <= 0xfe00 code in kernel */
-    *(short *)&JumpBehindCode[0x1e] += size;
+    *(short *)&JumpBehindCode[0x1e] += (short)size;
     fwrite(JumpBehindCode, 1, 0x20, dest);
   }
 
@@ -282,31 +280,33 @@ int main(int argc, char **argv)
   if (UPX)
   {
     /* UPX trailer */
-    /* hand assembled - so this remains ANSI C ;-)  */
-    static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
-      0xE8, 0x00, 0x00,         /* call 103                     */
-      0x59,                     /* pop cx                       */
-      0x0E,                     /* push cs                      */
-      0x1F,                     /* pop ds                       */
-      0x8c, 0xc8,               /* mov ax,cs            */
-      0x48,                     /* dec ax                       */
-      0x48,                     /* dec ax                       */
-      0x8e, 0xc0,               /* mov es,ax            */
-      0x31, 0xFF,               /* xor di,di            */
-      0xBE, 0x00, 0x00,         /* mov si,0x00              */
-      0xFC,                     /* cld                          */
-      0xF3, 0xA4,               /* rep movsb                */
-      0x26, 0x88, 0x1e, 0x00, 0x00,     /* mov es:[0],bl    */
-      0xB8, 0x00, 0x00,         /* mov ax,0000h             */
-      0x8E, 0xD0,               /* mov ss,ax                */
-      0xBC, 0x00, 0x00,         /* mov sp,0000h             */
-      0x31, 0xC0,               /* xor ax,ax                */
-      0x50,                     /* push ax                      */
-      0xC3                      /* ret                          */
+    /* hand assembled - so this remains ANSI C ;-)    */
+    /* move kernel down to place CONFIG-block, which added above,
+       at 0x5e:0 instead 0x60:0 and store there boot drive number
+       from BL; kernel.asm will then check presence of additional
+       CONFIG-block at this address. */
+    static char trailer[] = {
+      0x0E,			/*  0 push cs			*/
+      0x1F,			/*  1 pop  ds	; =0x60		*/
+      0xBF,0x5E,0x00,		/*  2 mov di,0x5E		*/
+      0x8E,0xC7,		/*  5 mov es,di			*/
+      0xFC,			/*  7 cld			*/
+      0x33,0xFF,		/*  8 xor di,di			*/
+      0x93,			/* 10 xchg ax,bx ; mov al,bl	*/
+      0xAA,			/* 11 stosb	 ; mov [es:0],al */
+      0x8B,0xF7,		/* 12 mov si,di			*/
+      0xB9,0x00,0x00,		/* 14 mov cx,offset trailer	*/
+      0xF3,0xA4,		/* 17 rep movsb			*/
+      0xBF,0x00,0x00,		/* 19 mov di,...		*/
+      0x8E,0xD7,		/* 22 mov ss,di			*/
+      0xBC,0x00,0x00,		/* 24 mov sp,...		*/
+      0x33,0xFF,		/* 27 xor di,di			*/
+      0xFF,0xE7,		/* 29 jmp di	; jmp 0		*/
     };
-    *(short *)&trailer[26] = start_seg + header.exInitSS;
-    *(short *)&trailer[31] = header.exInitSP;
-    fwrite(trailer, 1, sizeof(trailer), dest);
+    *(short *)&trailer[15] = (short)size + 0x20;
+    *(short *)&trailer[20] = start_seg + header.exInitSS;
+    *(short *)&trailer[25] = header.exInitSP;
+    fwrite(trailer, 1, sizeof trailer, dest);
   }
   fclose(dest);
   printf("\nProcessed %d relocations, %d not shown\n",

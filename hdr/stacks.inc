@@ -149,10 +149,10 @@ irp_hi    equ 26
 	%else
 		push eax
 		pop ax
-        %ifdef MSCL8
+        %ifdef MSC
 		push ecx
 		pop cx
-        %else ;BC5
+        %else ;BC
 		push ebx
 		pop bx
         %endif
@@ -170,10 +170,10 @@ irp_hi    equ 26
 	%else
 		push dx
 		pop edx
-        %ifdef MSCL8
+        %ifdef MSC
 		push cx
 		pop ecx
-        %else ;BC5
+        %else ;BC
 		push bx
 		pop ebx
         %endif

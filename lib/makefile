@@ -4,21 +4,23 @@
 # $Id$
 #
 
-
 !include "../mkfiles/generic.mak"
 
+########################################################################
 
-libm.lib:	$(CLIB)
-	-$(RM) libm.lib
-	$(LIBUTIL) $(CLIB) $(MATH_EXTRACT) $(LIBTERM)
-	$(COMSPEC) /c for %i in (*.obj) do ..\utils\patchobj CODE=LCODE %i
-	$(LIBUTIL) libm $(MATH_INSERT)     $(LIBTERM)
-	-$(RM) *.OBJ
+all:		libm.lib
 
+libm.lib:	$(CLIB) $(DEPENDS)
+		-$(RM) $*.lib
+		$(LIBUTIL) $(CLIB) $(MATH_EXTRACT) $(LIBTERM)
+		$(COMSPEC) /c for %i in (*.obj) do ..\utils\patchobj CODE=LCODE %i
+		$(LIBUTIL) $* $(MATH_INSERT) $(LIBTERM)
+		-$(RM) *.obj
 
-clobber:        clean
-	-$(RM) status.me
+########################################################################
 
 clean:
-	-$(RM) *.obj *.bak libm.lib
+		-$(RM) *.bak *.cod *.crf *.err *.las *.lst *.map *.obj *.xrf
 
+clobber:	clean
+		-$(RM) libm.lib status.me

@@ -1,43 +1,67 @@
 # These are generic definitions
 
-#**********************************************************************
-#* TARGET    : we create a %TARGET%.sys file
-#* TARGETOPT : options, handled down to the compiler
-#**********************************************************************
+# TARGET : we create a $(TARGET).sys file
 
-TARGETOPT=-1-
-
+!if $(XCPU)0 == 0
+XCPU=86
+!endif
+CPUOPT=
 !if $(XCPU) == 186
-TARGETOPT=-1
+CPUOPT=-1
 !endif
 !if $(XCPU) == 386
-TARGETOPT=-3
+CPUOPT=-3
 !endif
 
+!if $(XFAT)0 == 0
+XFAT=32
+!endif
 !if $(XFAT) == 32
-ALLCFLAGS=$(ALLCFLAGS) -DWITHFAT32
-NASMFLAGS=$(NASMFLAGS) -DWITHFAT32
+ALLCFLAGS=-DWITHFAT32 $(ALLCFLAGS)
+NASMFLAGS=-DWITHFAT32 $(NASMFLAGS)
 !endif
 
-NASM=$(XNASM)
-NASMFLAGS   = $(NASMFLAGS) -i../hdr/ -DXCPU=$(XCPU)
+NASMFLAGS=-fobj -i../hdr/ -D$(COMPILER) -DXCPU=$(XCPU) $(NASMFLAGS)
 
-LINK=$(XLINK)
-
+BINPATH=$(BASE)\bin
+INCLUDEPATH=$(BASE)\include
+LIBPATH=$(BASE)\lib
 INITPATCH=@rem
+
+UPXOPT=-U
+!if $(__MAKE__)0 == 0	# NMAKE/WMAKE
+!if "$(XUPX)" == ""	# TC doesn't supports this
+XUPX=rem		# NMAKE doesn't supports @ in macro
+UPXOPT=
+!endif
+!else			# TC/BC MAKE
+!if !$d(XUPX)		# NMAKE/WMAKE doesn't supports $d()
+XUPX=@rem
+UPXOPT=
+!endif
+!endif
 
 !include "..\mkfiles\$(COMPILER).mak"
 
 TARGET=$(TARGET)$(XCPU)$(XFAT)
+INITCFLAGS=$(INITCFLAGS) $(ALLCFLAGS)
+CFLAGS=$(CFLAGS) $(ALLCFLAGS)
 RM=..\utils\rmfiles
+DEPENDS=makefile ..\*.bat ..\mkfiles\*.*
 
-.asm.obj :
-	$(NASM) -D$(COMPILER) $(NASMFLAGS) -f obj $*.asm
+# Implicit Rules #######################################################
 
-#               *Implicit Rules*
-.c.obj :
-	$(CC) $(CFLAGS) $*.c
+.asm.obj:
+	$(NASM) $(NASMFLAGS) $<
 
-.cpp.obj :
-	$(CC) $(CFLAGS) $*.cpp
+.c.obj:
+	$(CC) $(CFLAGS) $<
 
+.cpp.obj:
+	$(CC) $(CFLAGS) $<
+
+.c.com:
+	$(CL) $(CFLAGST) $<
+
+.c.exe:
+	$(CL) $(CFLAGSC) $<

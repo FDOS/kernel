@@ -50,7 +50,7 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
 #define FAR far
 #include "kconfig.h"
 
-KernelConfig cfg = { 0 };
+KernelConfig cfg; /* static memory zeroed automatically */
 
 typedef unsigned char byte;
 typedef signed char sbyte;

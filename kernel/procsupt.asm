@@ -47,17 +47,12 @@ segment HMA_TEXT
 ;
 ;       void exec_user(iregs far *irp, int disable_a20)
 ;
-                global  _exec_user
+		global  _exec_user
 _exec_user:
-
-;                PUSH$ALL
-;                mov     ds,[_DGROUP_]
-;                cld
-;
-;
-;
-                pop     ax		      ; return address (unused)
-
+%ifndef WATCOM
+; exec_user declared with attribute `aborts'
+		pop	ax		; return address (unused)
+%endif
                 pop     ax		      ; irp (user ss:sp)
                 pop	dx
 		pop	cx		      ; disable A20?
@@ -280,10 +275,13 @@ _spawn_int23:
 
 ; prepare to call process 0 (the shell) from P_0() in C
 
-    global reloc_call_p_0
+	global reloc_call_p_0
 reloc_call_p_0:
+%ifndef WATCOM
+; reloc_call_p_0 declared with attribute `aborts'
         pop ax          ; return address (32-bit, unused)
         pop ax
+%endif
         pop ax          ; fetch parameter 0 (32-bit) from the old stack
         pop dx
         mov ds,[cs:_DGROUP_]
@@ -293,4 +291,9 @@ reloc_call_p_0:
         sti
         push dx         ; pass parameter 0 onto the new stack
         push ax
-        call _P_0       ; no return, allow parameter fetch from C
+%ifndef WATCOM
+	call	_P_0	; no return, allow parameter fetch from C
+%else
+; P_0 declared with attribute `aborts'
+	jmp	_P_0	; no return, allow parameter fetch from C
+%endif

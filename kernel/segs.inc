@@ -59,8 +59,12 @@ segment	_FIXED_DATA	class=FDATA align=16
 segment	_BSS		class=BSS align=2
 segment _DATA           class=DATA align=2
 segment _DATAEND        class=DATA align=1
-;for WATCOM
+%ifdef MSC
+segment CONST		class=CONST align=2
+%else
 segment CONST		class=DATA align=2
+%endif
+;for WATCOM
 segment CONST2		class=DATA align=2
 ;for MSC
 segment	DCONST      	class=DCONST   align=2     

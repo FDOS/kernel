@@ -56,17 +56,124 @@ static BYTE *RcsId =
 
 COUNT DosDevIOctl(lregs * r)
 {
-  sft FAR *s;
-  struct dpb FAR *dpbp;
-  COUNT nMode;
-  unsigned attr;
-  unsigned char al = r->AL;
+  static UBYTE cmds [] = {
+	0, 0,
+	/* 0x02 */ C_IOCTLIN,
+	/* 0x03 */ C_IOCTLOUT,
+	/* 0x04 */ C_IOCTLIN,
+	/* 0x05 */ C_IOCTLOUT,
+	/* 0x06 */ C_ISTAT,
+	/* 0x07 */ C_OSTAT,
+	/* 0x08 */ C_REMMEDIA,
+	0, 0, 0,
+	/* 0x0c */ C_GENIOCTL,
+	/* 0x0d */ C_GENIOCTL,
+	/* 0x0e */ C_GETLDEV,
+	/* 0x0f */ C_SETLDEV,
+	/* 0x10 */ C_IOCTLQRY,
+	/* 0x11 */ C_IOCTLQRY,
+  };
+  static UWORD required_attr [] = {
+	0, 0,
+	/* 0x02 */ ATTR_IOCTL,
+	/* 0x03 */ ATTR_IOCTL,
+	/* 0x04 */ ATTR_IOCTL,
+	/* 0x05 */ ATTR_IOCTL,
+	0, 0,
+	/* 0x08 */ ATTR_EXCALLS,
+	0, 0, 0,
+	/* 0x0c */ ATTR_GENIOCTL,
+	/* 0x0d */ ATTR_GENIOCTL,
+	/* 0x0e */ ATTR_GENIOCTL,
+	/* 0x0f */ ATTR_GENIOCTL,
+	/* 0x10 */ ATTR_QRYIOCTL,
+	/* 0x11 */ ATTR_QRYIOCTL,
+  };
 
-  if (al > 0x11)
+  sft FAR *s;
+  struct dhdr FAR *dev;
+  unsigned attr, flags;
+  UBYTE cmd;
+
+  switch (r->AL)
+  {
+    default: /* 0x12+ */
+      return DE_INVLDFUNC;
+
+    case 0x0b:
+      if (r->DX)		/* skip, it's a special case		*/
+        NetRetry = r->DX;
+      NetDelay = r->CX;
+      return SUCCESS;
+
+    case 0x00:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x06:
+    case 0x07:
+    case 0x0a:
+    case 0x0c:
+    case 0x10:
+      /* Test that the handle is valid and                    */
+      /* get the SFT block that contains the SFT              */
+      if ((s = get_sft(r->BX)) == (sft FAR *)-1)
+        return DE_INVLDHNDL;
+      flags = s->sft_flags;
+      dev = s->sft_dev;
+      attr = dev->dh_attr;
+      break;
+
+    case 0x04:
+    case 0x05:
+    case 0x08:
+    case 0x09:
+    case 0x0d:
+    case 0x0e:
+    case 0x0f:
+    case 0x11:
+    {
+      struct dpb FAR *dpbp;
+/*
+   Line below previously returned the deviceheader at r->bl. But,
+   DOS numbers its drives starting at 1, not 0. A=1, B=2, and so
+   on. Changed this line so it is now zero-based. --SRM
+ */
+/* changed to use default drive if drive=0. --JPP */
+/* Fixed it. --JT */
+
+#define NDN_HACK
+#ifdef NDN_HACK
+/* NDN feeds the actual ASCII drive letter to this function */
+      UBYTE unit = (r->BL & 0x1f) - 1;
+#else
+      UBYTE unit = r->BL - 1;
+#endif
+      if (unit == 0xff)
+          unit = default_drive;
+      CharReqHdr.r_unit = unit;
+
+      if ((dpbp = get_dpb(unit)) == NULL)
+      {
+        if (r->AL != 0x09)
+          return DE_INVLDDRV;
+        attr = ATTR_REMOTE;
+      }
+      else
+      {
+        dev = dpbp->dpb_device;
+        attr = dev->dh_attr;
+      }
+    }
+  } /* switch */
+
+  /* required_attr[] may be zero and in this case attr ignored */
+  if (~attr & required_attr [r->AL])
     return DE_INVLDFUNC;
 
   /* commonly used, shouldn't harm to do front up */
-  if (al == 0x0C || al == 0x0D || al >= 0x10) /* generic or query */
+  CharReqHdr.r_command = cmd = cmds [r->AL];
+  if (cmd == C_GENIOCTL || cmd == C_IOCTLQRY)
   {
     CharReqHdr.r_cat = r->CH;            /* category (major) code */
     CharReqHdr.r_fun = r->CL;            /* function (minor) code */
@@ -82,47 +189,16 @@ COUNT DosDevIOctl(lregs * r)
 
   switch (r->AL)
   {
-    case 0x0b:
-      /* skip, it's a special case.                           */
-      NetDelay = r->CX;
-      if (r->DX)
-        NetRetry = r->DX;
-      break;
-
     case 0x00:
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x06:
-    case 0x07:
-    case 0x0a:
-    case 0x0c:
-    case 0x10:
-    {
-      unsigned flags;
-
-      /* Test that the handle is valid and                    */
-      /* get the SFT block that contains the SFT              */
-      if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
-        return DE_INVLDHNDL;
-
-      attr = s->sft_dev->dh_attr;
-      flags = s->sft_flags;
-
-      switch (r->AL)
-      {
-        case 0x00:
           /* Get the flags from the SFT                           */
+          r->DX = flags;
           if (flags & SFT_FDEVICE)
-            r->AX = (attr & 0xff00) | (flags & 0xff);
-          else
-            r->AX = flags;
+            r->DH = attr >> 8;
           /* Undocumented result, Ax = Dx seen using Pcwatch */
-          r->DX = r->AX;
+          r->AX = r->DX;
           break;
 
-        case 0x01:
-          /* sft_flags is a file, return an error because you     */
+    case 0x01:
           /* can't set the status of a file.                      */
           if (!(flags & SFT_FDEVICE))
             return DE_INVLDFUNC;
@@ -132,205 +208,95 @@ COUNT DosDevIOctl(lregs * r)
           if (r->DH != 0)
             return DE_INVLDDATA;
 
-          /* Undocumented: AL should get the old value            */
-          r->AL = s->sft_flags_lo;
           /* Set it to what we got in the DL register from the    */
           /* user.                                                */
           s->sft_flags_lo = SFT_FDEVICE | r->DL;
+          /* Undocumented: AL should get the old value            */
+          r->AL = (UBYTE)flags;
           break;
 
-        case 0x02:
-          nMode = C_IOCTLIN;
-          goto IoCharCommon;
-          
-        case 0x03:
-          nMode = C_IOCTLOUT;
-          goto IoCharCommon;
-          
-        case 0x06:
-          if (flags & SFT_FDEVICE)
-          {
-            nMode = C_ISTAT;
-            goto IoCharCommon;
-          }
-          r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
-          break;
-          
-        case 0x07:
-          if (flags & SFT_FDEVICE)
-          {
-            nMode = C_OSTAT;
-            goto IoCharCommon;
-          }
-          r->AL = 0;
-          break;
-
-        case 0x0a:
+    case 0x0a:
           r->DX = flags;
-          r->AX = 0;
+          r->AX = 0; /* ??? RBIL doesn't says that AX changed --avb */
           break;
 
-        case 0x0c:
-          nMode = C_GENIOCTL;
-          goto IoCharCommon;
-          
-        default: /* 0x10 */
-          nMode = C_IOCTLQRY;
-        IoCharCommon:
-          if ((flags & SFT_FDEVICE) &&
-              (  (r->AL <= 0x03 && (attr & ATTR_IOCTL))
-              ||  r->AL == 0x06 || r->AL == 0x07
-              || (r->AL == 0x10 && (attr & ATTR_QRYIOCTL))
-              || (r->AL == 0x0c && (attr & ATTR_GENIOCTL))))
+    case 0x06:
+          if (!(flags & SFT_FDEVICE))
           {
-            CharReqHdr.r_unit = 0;
-            CharReqHdr.r_command = nMode;
-            execrh((request FAR *) & CharReqHdr, s->sft_dev);
-            
-            if (CharReqHdr.r_status & S_ERROR)
-            {
-              CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-              return DE_DEVICE;
-            }
-
-            if (r->AL <= 0x03)
-              r->AX = CharReqHdr.r_count;
-            else if (r->AL <= 0x07)
-              r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
-            else /* 0x0c or 0x10 */
-              r->AX = CharReqHdr.r_status;
+            r->AL = s->sft_posit >= s->sft_size ? (UBYTE)0 : (UBYTE)0xFF;
             break;
           }
-          return DE_INVLDFUNC;
-      }
-      break;
-    }
+          /* fall through */
 
-    default: /* block IOCTL: 4, 5, 8, 9, d, e, f, 11 */
-
-/*
-   This line previously returned the deviceheader at r->bl. But,
-   DOS numbers its drives starting at 1, not 0. A=1, B=2, and so
-   on. Changed this line so it is now zero-based.
-
-   -SRM
- */
-/* JPP - changed to use default drive if drive=0 */
-/* JT Fixed it */
-
-#define NDN_HACK
-/* NDN feeds the actual ASCII drive letter to this function */
-#ifdef NDN_HACK
-      CharReqHdr.r_unit = ((r->BL & 0x1f) == 0 ? default_drive :
-                           (r->BL & 0x1f) - 1);
-#else
-      CharReqHdr.r_unit = (r->BL == 0 ? default_drive : r->BL - 1);
-#endif
-
-      dpbp = get_dpb(CharReqHdr.r_unit);
-      if (dpbp)
-        attr = dpbp->dpb_device->dh_attr;
-      else if (r->AL != 9)
-        return DE_INVLDDRV;
-
-      switch (r->AL)
-      {
-        case 0x04:
-          nMode = C_IOCTLIN;
-          goto IoBlockCommon;
-        case 0x05:
-          nMode = C_IOCTLOUT;
-          goto IoBlockCommon;
-        case 0x08:
-          if (attr & ATTR_EXCALLS)
+    case 0x07:
+          if (!(flags & SFT_FDEVICE))
           {
-            nMode = C_REMMEDIA;
-            goto IoBlockCommon;
+            r->AL = 0;
+            break;
           }
-          return DE_INVLDFUNC;
-        case 0x09:
+          /* fall through */
+
+    case 0x02:
+    case 0x03:
+    case 0x0c:
+    case 0x10:
+          if (!(flags & SFT_FDEVICE))
+            return DE_INVLDFUNC;
+          CharReqHdr.r_unit = 0; /* ??? not used for devices --avb */
+          goto execrequest;
+
+    case 0x09:
         {
-          struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
-          r->AX = S_DONE | S_BUSY;
-          if (cdsp != NULL && dpbp == NULL)
-          {
-            r->DX = ATTR_REMOTE;
-          }
-          else
-          {
-            if (!dpbp)
-            {
-              return DE_INVLDDRV;
-            }
-            r->DX = attr;
-          }
+          const struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
+          if (cdsp == NULL)
+            return DE_INVLDDRV;
           if (cdsp->cdsFlags & CDSSUBST)
-          {
-            r->DX |= ATTR_SUBST;
-          }
+            attr |= ATTR_SUBST;
+          r->DX = attr;
+          r->AX = S_DONE | S_BUSY; /* ??? S_* values only for driver interface;
+                                      RBIL doesn't says that AX changed --avb */
           break;
         }
-        case 0x0d:
-          nMode = C_GENIOCTL;
-          goto IoBlockCommon;
-        case 0x11:
-          nMode = C_IOCTLQRY;
-        IoBlockCommon:
-          if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
+
+    case 0x0d:
+          if ((r->CX & ~0x4021) == 0x084A)
           {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
             break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
           }
-          if ((r->AL <= 0x05 && !(attr & ATTR_IOCTL))
-           || (r->AL == 0x11 && !(attr & ATTR_QRYIOCTL))
-           || (r->AL == 0x0d && !(attr & ATTR_GENIOCTL)))
-          {
-            return DE_INVLDFUNC;
-          }
+          /* fall through */
 
-          CharReqHdr.r_command = nMode;
-          execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
-
+    case 0x04:
+    case 0x05:
+    case 0x08:
+    case 0x11:
+    execrequest:
+          execrh(&CharReqHdr, dev);
           if (CharReqHdr.r_status & S_ERROR)
           {
             CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
             return DE_DEVICE;
           }
-          if (r->AL <= 0x05)
+
+          if (r->AL <= 0x05)		/* 0x02, 0x03, 0x04, 0x05 */
             r->AX = CharReqHdr.r_count;
-          else if (r->AL == 0x08)
-            r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
-          else /* 0x0d or 0x11 */
+          else if (r->AL <= 0x07)	/* 0x06, 0x07 */
+            r->AX = (CharReqHdr.r_status & S_BUSY) ? 0000 : 0x00ff;
+          else if (r->AL == 0x08)	/* 0x08 */
+            r->AX = (CharReqHdr.r_status / S_BUSY) & 1u;
+          else				/* 0x0c, 0x0d, 0x10, 0x11 */
             r->AX = CharReqHdr.r_status;
           break;
 
-        case 0x0e:
-          nMode = C_GETLDEV;
-          goto IoLogCommon;
-        default: /* 0x0f */
-          nMode = C_SETLDEV;
-        IoLogCommon:
-          if (attr & ATTR_GENIOCTL)
+    case 0x0e:
+    default: /* 0x0f */
+          execrh(&CharReqHdr, dev);
+          if (CharReqHdr.r_status & S_ERROR)
           {
-            
-            CharReqHdr.r_command = nMode;
-            execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
-            
-            if (CharReqHdr.r_status & S_ERROR)
-            {
-              CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-              return DE_ACCESS;
-            }
-            else
-            {
-              r->AL = CharReqHdr.r_unit;
-              return SUCCESS;
-            }
+            CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
+            return DE_ACCESS;
           }
-          return DE_INVLDFUNC;
-      }
-      break;
-  }
+          r->AL = CharReqHdr.r_unit;
+  } /* switch */
   return SUCCESS;
 }
-

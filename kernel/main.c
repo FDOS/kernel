@@ -45,12 +45,12 @@ static char copyright[] =
 
 struct _KernelConfig InitKernelConfig BSS_INIT({0});
 
-STATIC VOID InitIO(void);
+STATIC VOID init_internal_devices(void);
 
 STATIC VOID update_dcb(struct dhdr FAR *);
 STATIC VOID init_kernel(VOID);
 STATIC VOID signon(VOID);
-STATIC VOID kernel(VOID);
+STATIC VOID init_shell(VOID);
 STATIC VOID FsConfig(VOID);
 STATIC VOID InitPrinters(VOID);
 STATIC VOID InitSerialPorts(VOID);
@@ -69,11 +69,8 @@ __segment DosTextSeg = 0;
 
 struct lol FAR *LoL = &DATASTART;
 
-VOID ASMCFUNC FreeDOSmain(void)
+void ASMCFUNC FreeDOSmain(void)
 {
-  unsigned char drv;
-  unsigned char FAR *p;
-
 #ifdef _MSC_VER
   extern FAR prn_dev;
   DosDataSeg = (__segment) & DATASTART;
@@ -89,24 +86,25 @@ VOID ASMCFUNC FreeDOSmain(void)
                             at 50:e0
                         */
 
-  drv = LoL->BootDrive + 1;
-  p = MK_FP(0, 0x5e0);
-  if (fmemcmp(p+2,"CONFIG",6) == 0)      /* UPX */
   {
-    fmemcpy(&InitKernelConfig, p+2, sizeof(InitKernelConfig));
+    UBYTE drv;
+    UBYTE FAR *p = MK_PTR(UBYTE, 0, 0x5e2);
+    if (fmemcmp(p, "CONFIG", 6) == 0) /* UPXed */
+      drv = p[-2]; /* boot drive was stored there by stub from exeflat.c */
+    else
+    {
+      drv = LoL->BootDrive;
+      p[-2] = drv; /* used by initdisk.c:ReadAllPartitionTables() */
+      p = (UBYTE FAR*)&LowKernelConfig;
+    }
 
-    drv = *p + 1;
-    *(DWORD FAR *)(p+2) = 0;
-  }
-  else
-  {
-    *p = drv - 1;
-    fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
-  }
+    drv++;
+    if (drv > 0x80)
+      drv = 3; /* C: */
+    LoL->BootDrive = drv;
 
-  if (drv >= 0x80)
-    drv = 3; /* C: */
-  LoL->BootDrive = drv;
+    fmemcpy(&InitKernelConfig, p, sizeof InitKernelConfig);
+  }
 
   setup_int_vectors();
 
@@ -114,22 +112,14 @@ VOID ASMCFUNC FreeDOSmain(void)
 
   signon();
   init_kernel();
+  init_shell();
 
-#ifdef DEBUG
-  /* Non-portable message kludge alert!   */
-  printf("KERNEL: Boot drive = %c\n", 'A' + LoL->BootDrive - 1);
-#endif
-
-  DoInstall();
-
-  kernel();
+  init_call_p_0(&Config); /* execute process 0 (the shell) */
 }
 
 /*
     InitializeAllBPBs()
-    
     or MakeNortonDiskEditorHappy()
-
     it has been determined, that FDOS's BPB tables are initialized,
     only when used (like DIR H:).
     at least one known utility (norton DE) seems to access them directly.
@@ -149,62 +139,47 @@ void InitializeAllBPBs(VOID)
 
 STATIC void PSPInit(void)
 {
-  psp far *p = MK_FP(DOS_PSP, 0);
+  psp _seg *p = MK_SEG_PTR(psp, DOS_PSP);
 
-  /* Clear out new psp first                              */
-  fmemset(p, 0, sizeof(psp));
+  fmemset(p, 0, sizeof(psp));	/* Clear out new psp first	*/
 
-  /* initialize all entries and exits                     */
-  /* CP/M-like exit point                                 */
-  p->ps_exit = 0x20cd;
-
-  /* CP/M-like entry point - call far to special entry    */
-  p->ps_farcall = 0x9a;
-  p->ps_reentry = MK_FP(0, 0x30 * 4);
-  /* unix style call - 0xcd 0x21 0xcb (int 21, retf)      */
-  p->ps_unix[0] = 0xcd;
-  p->ps_unix[1] = 0x21;
+  /* initialize all entries and exits				*/
+  p->ps_exit = 0x20cd;		/* CP/M-like exit point:	*/
+				/* INT 20 opcode		*/
+				/* CP/M-like entry point:	*/
+  p->ps_farcall = 0x9a;		/* FAR CALL opcode...		*/
+  p->ps_reentry = MK_FP(0, 0x30 * 4); /* ...entry address	*/
+  p->ps_unix[0] = 0xcd;		/* unix style call:		*/
+  p->ps_unix[1] = 0x21;		/* INT 21/RETF opcodes		*/
   p->ps_unix[2] = 0xcb;
 
-  /* Now for parent-child relationships                   */
-  /* parent psp segment                                   */
-  p->ps_parent = FP_SEG(p);
-  /* previous psp pointer                                 */
-  p->ps_prevpsp = MK_FP(0xffff,0xffff);
+  /* parent-child relationships					*/
+  /*p->ps_parent = 0;*/		/* parent psp segment		*/
+  p->ps_prevpsp = (VFP)-1l;	/* previous psp address		*/
 
-  /* Environment and memory useage parameters             */
-  /* memory size in paragraphs                            */
-  /*  p->ps_size = 0; clear from above                    */
-  /* environment paragraph                                */
-  p->ps_environ = DOS_PSP + 8;
-  /* terminate address                                    */
-  p->ps_isv22 = getvec(0x22);
-  /* break address                                        */
-  p->ps_isv23 = getvec(0x23);
-  /* critical error address                               */
-  p->ps_isv24 = getvec(0x24);
+  /* Environment and memory useage parameters			*/
+  /*p->ps_size = 0;*/		/* segment of memory beyond	*/
+				/* memory allocated to program	*/
+  /*p->ps_environ = 0;*/	/* environment paragraph	*/
 
-  /* user stack pointer - int 21                          */
-  /* p->ps_stack = NULL; clear from above                 */
+  /*p->ps_isv22 = NULL;*/	/* terminate handler		*/
+  /*p->ps_isv23 = NULL;*/	/* break handler		*/
+  /*p->ps_isv24 = NULL;*/	/* critical error handler	*/
 
-  /* File System parameters                               */
-  /* maximum open files                                   */
-  p->ps_maxfiles = 20;
-  fmemset(p->ps_files, 0xff, 20);
+  /*p->ps_stack = NULL;*/	/* user stack pointer - int 21	*/
 
-  /* open file table pointer                              */
-  p->ps_filetab = p->ps_files;
+  /* File System parameters					*/
+  p->ps_maxfiles = sizeof p->ps_files; /* size of file table	*/
+  fmemset(p->ps_filetab = p->ps_files, 0xff, sizeof p->ps_files);
 
-  /* first command line argument                          */
-  /* p->ps_fcb1.fcb_drive = 0; already set                */
-  fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
-  /* second command line argument                         */
-  /* p->ps_fcb2.fcb_drive = 0; already set                */
-  fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
+  /*p->ps_fcb1.fcb_drive = 0;*/ /* 1st command line argument	*/
+  /*fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);*/
+  /*p->ps_fcb2.fcb_drive = 0;*/ /* 2nd command line argument	*/
+  /*fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);*/
 
-  /* local command line                                   */
-  /* p->ps_cmd.ctCount = 0;     command tail, already set */
-  p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
+  /* this area reused for master environment			*/
+  /*p->ps_cmd.ctCount = 0;*/	/* local command line		*/
+  /*p->ps_cmd.ctBuffer[0] = '\r';*/ /* command tail		*/
 }
 
 #ifndef __WATCOMC__
@@ -255,7 +230,7 @@ STATIC void setup_int_vectors(void)
 
   for (i = 0x23; i <= 0x3f; i++)
     setvec(i, empty_handler);
-  for (pvec = vectors; pvec < vectors + (sizeof vectors/sizeof *pvec); pvec++)
+  for (pvec = vectors; pvec < ENDOF(vectors); pvec++)
     setvec(pvec->intno, (intvec)MK_FP(FP_SEG(empty_handler), pvec->handleroff));
   pokeb(0, 0x30 * 4, 0xea);
   pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
@@ -272,9 +247,6 @@ STATIC void init_kernel(void)
   LoL->os_setver_major = LoL->os_major = MAJOR_RELEASE;
   LoL->os_setver_minor = LoL->os_minor = MINOR_RELEASE;
 
-  /* Init oem hook - returns memory size in KB    */
-  ram_top = init_oem();
-
   /* move kernel to high conventional RAM, just below the init code */
 #ifdef __WATCOMC__
   lpTop = MK_FP(_CS, 0);
@@ -283,16 +255,17 @@ STATIC void init_kernel(void)
 #endif
 
   MoveKernel(FP_SEG(lpTop));
+  /* lpTop should be para-aligned				*/
   lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
 
   /* Initialize IO subsystem                                      */
-  InitIO();
+  init_internal_devices();
   InitPrinters();
   InitSerialPorts();
 
-  init_PSPSet(DOS_PSP);
   set_DTA(MK_FP(DOS_PSP, 0x80));
   PSPInit();
+  init_PSPSet(DOS_PSP);
 
   Init_clk_driver();
 
@@ -300,7 +273,6 @@ STATIC void init_kernel(void)
   /* we can read config.sys later.  */
   LoL->lastdrive = Config.cfgLastdrive;
 
-  /*  init_device((struct dhdr FAR *)&blk_dev, NULL, 0, &ram_top); */
   blk_dev.dh_name[0] = dsk_init();
 
   PreConfig();
@@ -313,14 +285,7 @@ STATIC void init_kernel(void)
   FsConfig();
 
   /* Now process CONFIG.SYS     */
-  DoConfig(0);
-  DoConfig(1);
-
-  /* initialize near data and MCBs */
-  PreConfig2();
-  /* and process CONFIG.SYS one last time for device drivers */
-  DoConfig(2);
-
+  DoConfig();
 
   /* Close all (device) files */
   for (i = 0; i < 20; i++)
@@ -331,10 +296,12 @@ STATIC void init_kernel(void)
 
   /* Init the file system one more time     */
   FsConfig();
-  
+
   configDone();
 
   InitializeAllBPBs();
+
+  DoInstall();
 }
 
 STATIC VOID FsConfig(VOID)
@@ -346,20 +313,14 @@ STATIC VOID FsConfig(VOID)
   for (i = 0; i < LoL->lastdrive; i++)
   {
     struct cds FAR *pcds_table = &LoL->CDSp[i];
-
     fmemcpy(pcds_table->cdsCurrentPath, "A:\\\0", 4);
-
     pcds_table->cdsCurrentPath[0] += i;
-
-    if (i < LoL->nblkdev && (ULONG) dpb != 0xffffffffl)
+    pcds_table->cdsFlags = 0;
+    if (i < LoL->nblkdev && (LONG) dpb != -1l)
     {
       pcds_table->cdsDpb = dpb;
       pcds_table->cdsFlags = CDSPHYSDRV;
       dpb = dpb->dpb_next;
-    }
-    else
-    {
-      pcds_table->cdsFlags = 0;
     }
     pcds_table->cdsStrtClst = 0xffff;
     pcds_table->cdsParam = 0xffff;
@@ -428,135 +389,89 @@ STATIC VOID signon()
          MAJOR_RELEASE, MINOR_RELEASE, copyright);
 }
 
-STATIC void kernel()
+STATIC void init_shell()
 {
-  CommandTail Cmd;
-
-  if (master_env[0] == '\0')   /* some shells panic on empty master env. */
-    strcpy(master_env, "PATH=.");
-  fmemcpy(MK_FP(DOS_PSP + 8, 0), master_env, sizeof(master_env));
-
-  /* process 0       */
-  /* Execute command.com from the drive we just booted from    */
-  memset(Cmd.ctBuffer, 0, sizeof(Cmd.ctBuffer));
-  strcpy(Cmd.ctBuffer, Config.cfgInitTail);
-
-  for (Cmd.ctCount = 0; Cmd.ctCount < sizeof(Cmd.ctBuffer); Cmd.ctCount++)
-    if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
-      break;
-
-  /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it */
-
-  /* 3 for string + 2 for "\r\n" */
-  if (Cmd.ctCount < sizeof(Cmd.ctBuffer) - 5)
+  /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it	*/
+  /* (insert /D, /Y as first argument)				*/
+  if (askCommand & (ASK_TRACE | ASK_SKIPALL))
   {
-    char *insertString = NULL;
+    PStr p = Config.cfgShell - 1; /* find end of command name	*/
 
-    if (singleStep)
-      insertString = " /Y";     /* single step AUTOEXEC */
+    /* too long line -> truncate it to make space for "/Y \0"	*/
+    Config.cfgShell[sizeof Config.cfgShell - 4] = '\0';
 
-    if (SkipAllConfig)
-      insertString = " /D";     /* disable AUTOEXEC */
+    do p++; while ((UBYTE)*p > ' ' && *p != '/');
 
-    if (insertString)
+    if (*p == ' ' || *p == '\t')
+      p++;			/* place option after space	*/
+
     {
-
-      /* insert /D, /Y as first argument */
-      char *p, *q;
-
-      for (p = Cmd.ctBuffer; p < &Cmd.ctBuffer[Cmd.ctCount]; p++)
+      PStr q = p;
+      while (*q++);		/* find end of command line	*/
+      /* shift tail to right by 3 to make room for option	*/
+      do
       {
-        if (*p == ' ' || *p == '\t' || *p == '\r')
-        {
-          for (q = &Cmd.ctBuffer[Cmd.ctCount + 1]; q >= p; q--)
-            q[3] = q[0];
-          memcpy(p, insertString, 3);
-          break;
-        }
-      }
-      /* save buffer -- on the stack it's fine here */
-      Config.cfgInitTail = Cmd.ctBuffer;
+        q--;
+        q[3] = q[0];
+      } while (q > p);
     }
+
+    p[0] = '/', p[1] = 'Y', p[2] = ' ';	/* single step AUTOEXEC	*/
+    if (askCommand & ASK_SKIPALL)
+      p[1] = 'D';			/* disable AUTOEXEC	*/
   }
-  init_call_p_0(&Config); /* go execute process 0 (the shell) */
 }
 
-/* check for a block device and update  device control block    */
+/* check for a block device and update device control block	*/
 STATIC VOID update_dcb(struct dhdr FAR * dhp)
 {
-  REG COUNT Index;
-  COUNT nunits = dhp->dh_name[0];
-  struct dpb FAR *dpb;
+  int nunits = dhp->dh_name[0];
+  struct dpb FAR *dpb = LoL->DPBp;
 
-  if (LoL->nblkdev == 0)
-    dpb = LoL->DPBp;
-  else
+  if (LoL->nblkdev)
   {
-    for (dpb = LoL->DPBp; (ULONG) dpb->dpb_next != 0xffffffffl;
-         dpb = dpb->dpb_next)
-      ;
+    while ((LONG) dpb->dpb_next != -1l)
+      dpb = dpb->dpb_next;
     dpb = dpb->dpb_next =
       KernelAlloc(nunits * sizeof(struct dpb), 'E', Config.cfgDosDataUmb);
   }
 
-  for (Index = 0; Index < nunits; Index++)
   {
-    dpb->dpb_next = dpb + 1;
-    dpb->dpb_unit = LoL->nblkdev;
-    dpb->dpb_subunit = Index;
-    dpb->dpb_device = dhp;
-    dpb->dpb_flags = M_CHANGED;
-    if ((LoL->CDSp != 0) && (LoL->nblkdev < LoL->lastdrive))
+    int i = 0;
+    do
     {
-      LoL->CDSp[LoL->nblkdev].cdsDpb = dpb;
-      LoL->CDSp[LoL->nblkdev].cdsFlags = CDSPHYSDRV;
-    }
-    ++dpb;
-    ++LoL->nblkdev;
+      dpb->dpb_next = dpb + 1;
+      dpb->dpb_unit = LoL->nblkdev;
+      if (LoL->nblkdev < LoL->lastdrive && LoL->CDSp)
+      {
+        LoL->CDSp[LoL->nblkdev].cdsDpb = dpb;
+        LoL->CDSp[LoL->nblkdev].cdsFlags = CDSPHYSDRV;
+      }
+      LoL->nblkdev++;
+      dpb->dpb_subunit = i;
+      dpb->dpb_device = dhp;
+      dpb->dpb_flags = M_CHANGED;
+      dpb++;
+      i++;
+    } while (i < nunits);
   }
-  (dpb - 1)->dpb_next = (void FAR *)0xFFFFFFFFl;
+  (dpb - 1)->dpb_next = (VFP)-1l;
 }
 
-/* If cmdLine is NULL, this is an internal driver */
-
-BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
-                 char FAR **r_top)
+/* If r_top is NULL, this is an internal driver */
+BOOL init_device(struct dhdr FAR * dhp, PCStr cmdLine, int mode, VFP *r_top)
 {
   request rq;
-  char name[8];
-
-  if (cmdLine) {
-    char *p, *q, ch;
-    int i;
-
-    p = q = cmdLine;
-    for (;;)
-    {
-      ch = *p;
-      if (ch == '\0' || ch == ' ' || ch == '\t')
-        break;
-      p++;
-      if (ch == '\\' || ch == '/' || ch == ':')
-        q = p; /* remember position after path */
-    }
-    for (i = 0; i < 8; i++) {
-      ch = '\0';
-      if (p != q && *q != '.')
-        ch = *q++;
-      /* copy name, without extension */
-      name[i] = ch;
-    }
-  }
 
   rq.r_unit = 0;
   rq.r_status = 0;
   rq.r_command = C_INIT;
   rq.r_length = sizeof(request);
-  rq.r_endaddr = *r_top;
-  rq.r_bpbptr = (void FAR *)(cmdLine ? cmdLine : "\n");
+  rq.r_endaddr = r_top ? *r_top : lpTop;
+  rq.r_bpbptr = (VFP)cmdLine;
   rq.r_firstunit = LoL->nblkdev;
 
-  execrh((request FAR *) & rq, dhp);
+  execrh(&rq, dhp);
 
 /*
  *  Added needed Error handle
@@ -564,7 +479,7 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
   if ((rq.r_status & (S_ERROR | S_DONE)) == S_ERROR)
     return TRUE;
 
-  if (cmdLine)
+  if (r_top)
   {
     /* Don't link in device drivers which do not take up memory */
     if (rq.r_endaddr == (BYTE FAR *) dhp)
@@ -578,8 +493,35 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
 
     if (FP_OFF(dhp->dh_next) == 0xffff)
     {
-      KernelAllocPara(FP_SEG(rq.r_endaddr) + (FP_OFF(rq.r_endaddr) + 15)/16
-                      - FP_SEG(dhp), 'D', name, mode);
+      char name[8];
+      PCStr q;
+      {
+        UBYTE ch;
+        PCStr p = cmdLine;
+        q = p;			/* position after path		*/
+        do			/* find driver name after path	*/
+        {
+          ch = *p;
+          p++;
+          if (ch == ':' || ch == '\\' || ch == '/')
+            q = p;
+        } while (ch > ' ');
+      }
+      {
+        int i = 0;
+        do			/* extract driver name		*/
+        {
+          UBYTE ch = *q;
+          if (ch <= ' ' || ch == '.')
+            ch = '\0';		/* copy name, without extension	*/
+          name[i] = ch;
+          if (ch == '\0')
+            break;
+          i++, q++;
+        } while (i < sizeof name);
+      }
+      KernelAllocPara(FP_SEG(alignNextPara(rq.r_endaddr)) - FP_SEG(dhp),
+                      'D', name, mode);
     }
 
     /* Another fix for multisegmented device drivers:                  */
@@ -589,7 +531,7 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
     /*   last INIT call which will then be passed as the end address   */
     /*   for the next INIT call.                                       */
 
-    *r_top = (char FAR *)rq.r_endaddr;
+    *r_top = rq.r_endaddr;
   }
 
   if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
@@ -606,28 +548,21 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
   return FALSE;
 }
 
-STATIC void InitIO(void)
+STATIC void init_internal_devices(void)
 {
   struct dhdr far *device = &LoL->nul_dev;
 
   /* Initialize driver chain                                      */
   do {
-    init_device(device, NULL, 0, &lpTop);
+    /* ??? is cmdLine "\n" for internal devices required? --avb	*/
+    init_device(device, "\n", 0, NULL);
     device = device->dh_next;
   }
   while (FP_OFF(device) != 0xffff);
 }
 
-/* issue an internal error message                              */
-VOID init_fatal(BYTE * err_msg)
-{
-  printf("\nInternal kernel error - %s\nSystem halted\n", err_msg);
-  for (;;) ;
-}
-
 /*
        Initialize all printers
- 
        this should work. IMHO, this might also be done on first use
        of printer, as I never liked the noise by a resetting printer, and
        I usually much more often reset my system, then I print :-)
@@ -674,50 +609,43 @@ STATIC VOID InitSerialPorts(VOID)
 	remove the floppy/bootable CD from the drive.
 	
 	user has some seconds to hit ANY key to continue
-	to boot from floppy/cd, else the system is 
+	to boot from floppy/cd, else the system is
 	booted from HD
 */
 
-EmulatedDriveStatus(int drive,char statusOnly)
+static int EmulatedDriveStatus(int drive,char statusOnly)
 {
   iregs r;
   char buffer[0x13];
   buffer[0] = 0x13;
 
-  r.a.b.h = 0x4b;               /* bootable CDROM - get status */
-  r.a.b.l = statusOnly;
-  r.d.b.l = (char)drive;          
-  r.si  = (int)buffer;
-  init_call_intr(0x13, &r);     
-  
-  if (r.flags & 1)
-  	return FALSE;
-  
-  return TRUE;	
+  r.AH = 0x4b;			/* bootable CDROM - get status	*/
+  r.AL = statusOnly;
+  r.DL = (char)drive;
+  r.SI = (int)buffer;
+  init_call_intr(0x13, &r);
+  return r.FLAGS & 1;		/* carry flag */
 }
 
 STATIC void CheckContinueBootFromHarddisk(void)
 {
   char *bootedFrom = "Floppy/CD";
-  iregs r;
-  int key;
 
-  if (InitKernelConfig.BootHarddiskSeconds == 0)
+  if (InitKernelConfig.BootHarddiskSeconds <= 0)
     return;
 
   if (LoL->BootDrive >= 3)
   {
 #if 0
-    if (!EmulatedDriveStatus(0x80,1))
+    if (EmulatedDriveStatus(0x80,1))
 #endif
-    {
       /* already booted from HD */
       return;
-    }
   }
-  else {
+  else
+  {
 #if 0
-    if (!EmulatedDriveStatus(0x00,1))
+    if (EmulatedDriveStatus(0x00,1))
 #endif
       bootedFrom = "Floppy";
   }
@@ -729,34 +657,30 @@ STATIC void CheckContinueBootFromHarddisk(void)
          "     Hit 'H' or    wait %d seconds to boot from Harddisk\n",
          InitKernelConfig.BootHarddiskSeconds,
          bootedFrom,
-         InitKernelConfig.BootHarddiskSeconds
-    );
+         InitKernelConfig.BootHarddiskSeconds);
 
-  key = GetBiosKey(InitKernelConfig.BootHarddiskSeconds);
-  
-  if (key != -1 && (key & 0xff) != 'h' && (key & 0xff) != 'H')
+  if (GetBiosKey(InitKernelConfig.BootHarddiskSeconds))
   {
-    /* user has hit a key, continue to boot from floppy/CD */
-    printf("\n");
-    return;
+    unsigned key = GetBiosKey(-1); /* remove key from buffer	*/
+    if ((UBYTE)key != 'h' && (UBYTE)key != 'H')
+      /* user has hit a key, continue to boot from floppy/CD	*/
+      return;
   }
 
   /* reboot from harddisk */
   EmulatedDriveStatus(0x00,0);
   EmulatedDriveStatus(0x80,0);
 
-  /* now jump and run */
-  r.a.x = 0x0201;
-  r.c.x = 0x0001;
-  r.d.x = 0x0080;
-  r.b.x = 0x7c00;
-  r.es  = 0;
-
-  init_call_intr(0x13, &r);
-
   {
-    void (far *reboot)(void) = (void (far*)(void)) MK_FP(0x0,0x7c00);
-
-    (*reboot)();
+    iregs r;
+    r.AX = 0x0201;
+    r.CX = 0x0001;
+    r.DX = 0x0080;
+    r.BX = 0x7c00;
+    r.ES = 0;
+    init_call_intr(0x13, &r);
   }
+
+  /* now jump and run */
+  ((void (far*)(void)) MK_FP(0,0x7c00))(); /* jump to boot sector */
 }

@@ -4,26 +4,28 @@
 # $Id$
 #
 
-
 !include "../mkfiles/generic.mak"
 
-production:     fat12com.bin fat16com.bin fat32chs.bin fat32lba.bin
+########################################################################
 
-fat12com.bin:    boot.asm
-		$(NASM) -dISFAT12 boot.asm -ofat12com.bin
+all:		fat12.bin fat16.bin fat32chs.bin fat32lba.bin
 
-fat16com.bin:    boot.asm
-		$(NASM) -dISFAT16 boot.asm -ofat16com.bin
+fat12.bin:	boot.asm $(DEPENDS)
+		$(NASM) -DISFAT12 boot.asm -o$*.bin
 
-fat32chs.bin:    boot32.asm
-		$(NASM) boot32.asm -ofat32chs.bin
+fat16.bin:	boot.asm $(DEPENDS)
+		$(NASM) -DISFAT16 boot.asm -o$*.bin
 
-fat32lba.bin:    boot32lb.asm
-		$(NASM) boot32lb.asm -ofat32lba.bin
+fat32chs.bin:	boot32.asm $(DEPENDS)
+		$(NASM) boot32.asm -o$*.bin
 
-clobber:        clean
-		-$(RM) *.bin status.me
+fat32lba.bin:	boot32lb.asm $(DEPENDS)
+		$(NASM) boot32lb.asm -o$*.bin
+
+########################################################################
 
 clean:
-		-$(RM) *.lst *.map *.bak *.obj
+		-$(RM) *.bak *.cod *.crf *.err *.las *.lst *.map *.obj *.xrf
 
+clobber:	clean
+		-$(RM) *.bin status.me

@@ -502,7 +502,7 @@ VOID DosUpFString(char FAR * str)
 COUNT DosGetData(int subfct, UWORD cp, UWORD cntry, UWORD bufsize,
                  VOID FAR * buf)
 {
-  struct nlsPackage FAR *nls;   /* NLS package to use to return the info from */
+  struct nlsPackage FAR *nls; /* NLS package to use to return the info from */
 
   log(("NLS: GetData(): subfct=%x, cp=%u, cntry=%u, bufsize=%u\n",
        subfct, cp, cntry, bufsize));
@@ -513,19 +513,21 @@ COUNT DosGetData(int subfct, UWORD cp, UWORD cntry, UWORD bufsize,
     return DE_INVLDFUNC;
 
   /* nls := NLS package of cntry/codepage */
-  if ((nls = searchPackage(cp, cntry)) == NULL
-      || (nls->flags & NLS_FLAG_DIRECT_GETDATA) == 0)
+  if ((nls = searchPackage(cp, cntry)) != NULL)
   {
-    /* If the NLS pkg is not loaded into memory or the
-       direct-access flag is disabled, the request must
-       be passed through MUX */
-    return (subfct == NLS_DOS_38)
-        ? mux38(nls->cp, nls->cntry, bufsize, buf)
-        : mux65(subfct, nls->cp, nls->cntry, bufsize, buf);
+    /* matching NLS package found */
+    if (nls->flags & NLS_FLAG_DIRECT_GETDATA)
+      /* Direct access to the data */
+      return nlsGetData(nls, subfct, buf, bufsize);
+    cp = nls->cp;
+    cntry = nls->cntry;
   }
 
-  /* Direct access to the data */
-  return nlsGetData(nls, subfct, buf, bufsize);
+  /* If the NLS pkg is not loaded into memory or the direct-access
+     flag is disabled, the request must be passed through MUX */
+  return (subfct == NLS_DOS_38)
+        ? mux38(cp, cntry, bufsize, buf)
+        : mux65(subfct, cp, cntry, bufsize, buf);
 }
 
 /*

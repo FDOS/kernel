@@ -4,46 +4,25 @@
 # $Id$
 #
 
-
 !include "../mkfiles/generic.mak"
 
+OBJS=floppy.obj rdpcclk.obj wrpcclk.obj wratclk.obj
+LIBOBJS=+floppy +rdpcclk +wrpcclk +wratclk
 
-# MICROSOFT C
-# -----------
-#MODEL  = s
-#CFLAGS = /c /Gs /A$(MODEL)
-#AFLAGS = /Mx /Dmem$(MODEL)=1
-#TERM   = ;
+# Build the LIBRARY ####################################################
 
-# BORLAND C
-# -----------
-#MODEL  = s
-#CFLAGS = -c -m$(MODEL)
-#AFLAGS = /Mx /Dmem$(MODEL)=1
-#LIBFLAGS = /c
+all:		..\lib\device.lib
 
-OBJS   = floppy.obj rdpcclk.obj wrpcclk.obj wratclk.obj
+..\lib\device.lib: $(OBJS)
+		-$(RM) $*.lib
+		$(LIBUTIL) $(LIBFLAGS) $* $(LIBOBJS) $(LIBTERM)
 
-LIBOBJS= +floppy +rdpcclk +wrpcclk +wratclk
+$(OBJS):	$(DEPENDS)
 
-
-
-# Build the LIBRARY
-# -----------------
-all:            production
-
-production:     ..\lib\device.lib
-
-..\lib\device.lib: device.lib
-	copy device.lib ..\lib
-
-clobber:        clean
-	-$(RM) device.lib status.me ..\lib\device.lib
+########################################################################
 
 clean:
-	-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err
+		-$(RM) *.bak *.cod *.crf *.err *.las *.lst *.map *.obj *.xrf
 
-device.lib : $(OBJS)
-	-$(RM) device.lib
-	$(LIBUTIL) $(LIBFLAGS) device $(LIBOBJS) $(LIBTERM)
-
+clobber:	clean
+		-$(RM) ..\lib\device.lib status.me
