@@ -1756,9 +1756,8 @@ STATIC VOID StartTrace(VOID)
 }
 #endif
 
-/* 
-    this function is called from an assembler wrapper function 
-    and serves the internal dos calls - int2f/12xx
+/* this function is called from an assembler wrapper function
+   and serves the internal dos calls - int2f/12xx and int2f/4a01,4a02.
 */
 struct int2f12regs {
 #ifdef I386
@@ -1769,7 +1768,8 @@ struct int2f12regs {
 #endif
 #endif
   UWORD es, ds;
-  UWORD di, si, bp, bx, dx, cx, ax;
+  UWORD di, si, bp;
+  xreg b, d, c, a;
   UWORD ip, cs, flags;
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
@@ -1777,71 +1777,65 @@ struct int2f12regs {
 extern short AllocateHMASpace (size_t lowbuffer, size_t highbuffer);
 
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
- * On input r.ax==0x12xx, 0x4A01 or 0x4A02
+ * On input r.AX==0x12xx, 0x4A01 or 0x4A02
  */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 {
-  UWORD function = r.ax & 0xff;
-
   /* dont use
      QueryFreeHMASpace(&p);
      here; DS !=SS
   */
-  if ((r.ax & 0xff00) == 0x4a00)
+  if (r.AH == 0x4a)
   {
     size_t wantedBytes, offs;
 
-    if (function != 1 && function != 2)
+    if (r.AL != 1 && r.AL != 2)
       return;
 
-    wantedBytes = r.bx;
-    r.es = r.di = 0xffff;
-    r.bx = 0;
+    wantedBytes = r.BX;
+    r.ES = r.DI = 0xffff;
+    r.BX = 0;
     if (FP_SEG(firstAvailableBuf) != 0xffff)
       return;
 
     offs = FP_OFF(firstAvailableBuf);
     r.di = offs;
 
-    if (function == 0x02)
+    if (r.AL == 0x02)
     {
       if (wantedBytes > ~offs)
         return;
       AllocateHMASpace(FP_OFF(firstAvailableBuf),
                        FP_OFF(firstAvailableBuf)+wantedBytes);
       firstAvailableBuf += wantedBytes;
-      r.bx = wantedBytes;
+      r.BX = wantedBytes;
     }
     return;
   }
 
-  if (function > 0x31)
-    return;
-
-  switch (function)
+  switch (r.AL)
   {
     case 0x00:                 /* installation check */
-      r.ax |= 0x00ff;
+      r.AL = 0xff;
       break;
 
     case 0x03:                 /* get DOS data segment */
-      r.ds = FP_SEG(&nul_dev);
+      r.DS = FP_SEG(&nul_dev);
       break;
 
     case 0x06:                 /* invoke critical error */
 
       /* code, drive number, error, device header */
-      r.ax &= 0xff00;
-      r.ax |= CriticalError(r.callerARG1 >> 8,
-                            (r.callerARG1 & (EFLG_CHAR << 8)) ? 0 : r.
-                            callerARG1 & 0xff, r.di, MK_FP(r.bp, r.si));
+      r.AL = CriticalError(r.callerARG1 >> 8,
+                           (r.callerARG1 & (EFLG_CHAR << 8)) ? 0 :
+                           r.callerARG1 & 0xff, r.DI, MK_FP(r.BP, r.SI));
       break;
 
     case 0x08:                 /* decrease SFT reference count */
       {
-        sft FAR *p = MK_FP(r.es, r.di);
+        sft FAR *p = MK_FP(r.ES, r.DI);
 
-        r.ax = p->sft_count;
+        r.AX = p->sft_count;
 
         if (--p->sft_count == 0)
           --p->sft_count;
@@ -1867,15 +1861,15 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 
     case 0x0d:                 /* get dos date/time */
 
-      r.ax = dos_getdate();
-      r.dx = dos_gettime();
+      r.AX = dos_getdate();
+      r.DX = dos_gettime();
       break;
 
     case 0x11:                 /* normalise ASCIIZ filename */
     {
       char c;
-      char FAR *s = MK_FP(r.ds, r.si);
-      char FAR *t = MK_FP(r.es, r.di);
+      char FAR *s = MK_FP(r.DS, r.SI);
+      char FAR *t = MK_FP(r.ES, r.DI);
 
       do
       {
@@ -1894,16 +1888,16 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 
     case 0x12:                 /* get length of asciiz string */
 
-      r.cx = fstrlen(MK_FP(r.es, r.di)) + 1;
+      r.CX = fstrlen(MK_FP(r.ES, r.DI)) + 1;
 
       break;
 
     case 0x13:
       /* uppercase character */  
       /* for now, ASCII only because nls.c cannot handle DS!=SS */
-      r.ax = (unsigned char)r.callerARG1;
-      if (r.ax >= 'a' && r.ax <= 'z')
-        r.ax -= 'a' - 'A';
+      r.AX = (unsigned char)r.callerARG1;
+      if (r.AX >= 'a' && r.AX <= 'z')
+        r.AX -= 'a' - 'A';
       break;
 
     case 0x16:
@@ -1913,17 +1907,17 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
          ES:DI pointer to SFT entry
          BX relative entry number within SFT */
       {
-        int rel_idx = idx_to_sft_(r.bx);
+        int rel_idx = idx_to_sft_(r.BX);
 
         if (rel_idx == -1)
         {
-          r.flags |= FLG_CARRY;
+          r.FLAGS |= FLG_CARRY;
           break;
         }
-        r.flags &= ~FLG_CARRY;
-        r.bx = rel_idx;
-        r.es = FP_SEG(lpCurSft);
-        r.di = FP_OFF(lpCurSft);
+        r.FLAGS &= ~FLG_CARRY;
+        r.BX = rel_idx;
+        r.ES = FP_SEG(lpCurSft);
+        r.DI = FP_OFF(lpCurSft);
         break;
       }
 
@@ -1944,25 +1938,25 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         struct cds FAR *cdsp = get_cds(r.callerARG1 & 0xff);
 
         if (cdsp == NULL)
-          r.flags |= FLG_CARRY;
-        else
         {
-          r.ds = FP_SEG(cdsp);
-          r.si = FP_OFF(cdsp);
-          r.flags &= ~FLG_CARRY;
+          r.FLAGS |= FLG_CARRY;
+          break;
         }
+        r.DS = FP_SEG(cdsp);
+        r.SI = FP_OFF(cdsp);
+        r.FLAGS &= ~FLG_CARRY;
         break;
       }
 
     case 0x18:                 /* get caller's registers */
 
-      r.ds = FP_SEG(user_r);
-      r.si = FP_OFF(user_r);
+      r.DS = FP_SEG(user_r);
+      r.SI = FP_OFF(user_r);
       break;
 
     case 0x1b:                 /* #days in February - valid until 2099. */
 
-      r.ax = (r.ax & 0xff00) | (r.cx & 3 ? 28 : 29);
+      r.AL = (r.CL & 3) ? 28 : 29;
       break;
 
     case 0x20:                 /* get job file table entry */
@@ -1970,22 +1964,22 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         psp FAR *p = MK_FP(cu_psp, 0);
         unsigned char FAR *idx;
 
-        if (r.bx >= p->ps_maxfiles)
+        if (r.BX >= p->ps_maxfiles)
         {
-          r.ax = (r.ax & 0xff00) | (-DE_INVLDHNDL);
-          r.flags |= FLG_CARRY;
+          r.AL = -DE_INVLDHNDL;
+          r.FLAGS |= FLG_CARRY;
           break;
         }
-        idx = &p->ps_filetab[r.bx];
-        r.flags &= ~FLG_CARRY;
-        r.es = FP_SEG(idx);
-        r.di = FP_OFF(idx);
+        idx = &p->ps_filetab[r.BX];
+        r.FLAGS &= ~FLG_CARRY;
+        r.ES = FP_SEG(idx);
+        r.DI = FP_OFF(idx);
       }
       break;
 
     case 0x21:                 /* truename */
 
-      DosTruename(MK_FP(r.ds, r.si), MK_FP(r.es, r.di));
+      DosTruename(MK_FP(r.DS, r.SI), MK_FP(r.ES, r.DI));
 
       break;
 
@@ -1995,36 +1989,32 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 
         dhp = IsDevice((BYTE FAR *) DirEntBuffer.dir_name);
 
-        if (dhp)
+        if (dhp == NULL)
         {
-          r.bx = (r.bx & 0xff) | (dhp->dh_attr << 8);
-          r.flags &= ~FLG_CARRY;
+          r.FLAGS |= FLG_CARRY;
+          break;
         }
-        else
-        {
-          r.flags |= FLG_CARRY;
-        }
-
+        r.BH = dhp->dh_attr;
+        r.FLAGS &= ~FLG_CARRY;
       }
-
       break;
 
     case 0x25:                 /* get length of asciiz string */
 
-      r.cx = fstrlen(MK_FP(r.ds, r.si)) + 1;
+      r.CX = fstrlen(MK_FP(r.DS, r.SI)) + 1;
       break;
 
     case 0x2a:                 /* Set FastOpen but does nothing. */
 
-      r.flags &= ~FLG_CARRY;
+      r.FLAGS &= ~FLG_CARRY;
       break;
 
     case 0x2c:                 /* added by James Tabor For Zip Drives
                                    Return Null Device Pointer          */
       /* by UDOS+RBIL: get header of SECOND device driver in device chain, 
          omitting the NUL device TE */
-      r.bx = FP_SEG(nul_dev.dh_next);
-      r.ax = FP_OFF(nul_dev.dh_next);
+      r.BX = FP_SEG(nul_dev.dh_next);
+      r.AX = FP_OFF(nul_dev.dh_next);
 
       break;
 
@@ -2034,14 +2024,15 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       break;
 
     default:
-      put_string("unimplemented internal dos function INT2F/12");
-      put_unsigned(function, 16, 2);
-      put_string("\n");
-      r.flags |= FLG_CARRY;
-      break;
-
+      if (r.AL <= 0x31)
+      {
+        put_string("unimplemented internal dos function INT2F/12");
+        put_unsigned(r.AL, 16, 2);
+        put_string("\n");
+        r.FLAGS |= FLG_CARRY;
+        break;
+      }
   }
-
 }
 
 /*
