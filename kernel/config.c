@@ -1235,8 +1235,8 @@ err:printf("%s has invalid format\n", filename);
         continue;
       if (lseek(fd, hdr[i].offset) == 0xffffffffL
        || read(fd, &subf_data, 10) < 10
-       || memcmp(subf_data.signature, table[hdr[i].id].sig, 8) && hdr[i].id == 4
-       && memcmp(subf_data.signature, table[2].sig, 8)  /* UCASE for FUCASE ^*/
+       || memcmp(subf_data.signature, table[hdr[i].id].sig, 8) && (hdr[i].id !=4
+       || memcmp(subf_data.signature, table[2].sig, 8))  /* UCASE for FUCASE ^*/
        || read(fd, subf_data.buffer, subf_data.length) < subf_data.length)
         goto err;
       if (hdr[i].id == 1)
