@@ -383,6 +383,7 @@ int int21_fat32(lregs *r)
 VOID ASMCFUNC int21_service(iregs FAR * r)
 {
   COUNT rc = 0;
+  long lrc;
   lregs lr; /* 8 local registers (ax, bx, cx, dx, si, di, ds, es) */
 
 #define FP_DS_DX (MK_FP(lr.DS, lr.DX))
@@ -476,8 +477,7 @@ dispatch:
         break;
 
       r->FLAGS &= ~FLG_ZERO;
-      lr.AL = read_char_stdin(FALSE);
-      break;
+      /* fall through */
 
       /* Direct Console Input                                         */
     case 0x07:
@@ -860,110 +860,64 @@ dispatch:
 
       /* Dos Create Directory                                         */
     case 0x39:
-      rc = DosMkdir((BYTE FAR *) FP_DS_DX);
-      if (rc != SUCCESS)
-        goto error_exit;
-      break;
+      rc = DosMkdir(FP_DS_DX);
+      goto short_check;
 
       /* Dos Remove Directory                                         */
     case 0x3a:
-      rc = DosRmdir((BYTE FAR *) FP_DS_DX);
-      if (rc != SUCCESS)
-        goto error_exit;
-      break;
+      rc = DosRmdir(FP_DS_DX);
+      goto short_check;
 
       /* Dos Change Directory                                         */
     case 0x3b:
-      if ((rc = DosChangeDir((BYTE FAR *) FP_DS_DX)) < 0)
-        goto error_exit;
-      break;
+      rc = DosChangeDir(FP_DS_DX);
+      goto short_check;
 
       /* Dos Create File                                              */
     case 0x3c:
-      {
-        long lrc = DosOpen(FP_DS_DX, O_LEGACY | O_RDWR | O_CREAT | O_TRUNC, lr.CL);
-        
-        if (lrc < 0)
-        {
-          rc = (COUNT)lrc;
-          goto error_exit;
-        }
-        lr.AX = (UWORD)lrc;
-        break;
-      }
+      lrc = DosOpen(FP_DS_DX, O_LEGACY | O_RDWR | O_CREAT | O_TRUNC, lr.CL);
+      goto long_check;
 
       /* Dos Open                                                     */
     case 0x3d:
-      {
-        long lrc = DosOpen(FP_DS_DX, O_LEGACY | O_OPEN | lr.AL, 0);
-
-        if (lrc < 0)
-        {
-          rc = (COUNT)lrc;
-          goto error_exit;
-        }
-        lr.AX = (UWORD)lrc;
-        break;
-      }
+      lrc = DosOpen(FP_DS_DX, O_LEGACY | O_OPEN | lr.AL, 0);
+      goto long_check;
 
       /* Dos Close                                                    */
     case 0x3e:
-      if ((rc = DosClose(lr.BX)) < 0)
-        goto error_exit;
-      break;
+      rc = DosClose(lr.BX);
+      goto short_check;
 
       /* Dos Read                                                     */
-      case 0x3f:
-      {
-        long lrc = DosRead(lr.BX, lr.CX, FP_DS_DX);
-        if (lrc < SUCCESS)
-        {
-          rc = (int)lrc;
-          goto error_exit;
-        }
-        lr.AX = (UWORD)lrc;
-      }
-      break;
+    case 0x3f:
+      lrc = DosRead(lr.BX, lr.CX, FP_DS_DX);
+      goto long_check;
 
       /* Dos Write                                                    */
     case 0x40:
-      {
-        long lrc = DosWrite(lr.BX, lr.CX, FP_DS_DX);
-        if (lrc < SUCCESS)
-        {
-          rc = (int)lrc;
-          goto error_exit;
-        }
-        lr.AX = (UWORD)lrc;
-      }
-      break;
+      lrc = DosWrite(lr.BX, lr.CX, FP_DS_DX);
+      goto long_check;
 
       /* Dos Delete File                                              */
     case 0x41:
       rc = DosDelete((BYTE FAR *) FP_DS_DX, D_ALL);
-      if (rc < 0)
-        goto error_exit;
-      break;
+      goto short_check;
 
       /* Dos Seek                                                     */
     case 0x42:
+      if (lr.AL > 2)
+        goto error_invalid;
+      lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL);
+      if (lrc == -1)
       {
-        ULONG lrc;
-        if (lr.AL > 2)
-          goto error_invalid;
-        lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL);
-        if (lrc == (ULONG)-1)
-        {
-          rc = -DE_INVLDHNDL;
-          goto error_exit;
-        }
-        else
-        {
-          lr.DX = (UWORD)(lrc >> 16);
-          lr.AX = (UWORD) lrc;
-        }
+        lrc = -DE_INVLDHNDL;
       }
-      break;
+      else
+      {
+        lr.DX = (UWORD)(lrc >> 16);
+        lrc = (UWORD) lrc;
+      }
+      goto long_check;
 
       /* Get/Set File Attributes                                      */
     case 0x43:
@@ -984,9 +938,7 @@ dispatch:
         default:
           goto error_invalid;
       }
-      if (rc < SUCCESS)
-        goto error_exit;
-      break;
+      goto short_check;
 
       /* Device I/O Control                                           */
     case 0x44:
@@ -1003,31 +955,21 @@ dispatch:
 
       /* Duplicate File Handle                                        */
     case 0x45:
-      { 
-        long lrc = DosDup(lr.BX);
-        if (lrc < SUCCESS)
-        {
-          rc = (COUNT)lrc;
-          goto error_exit;
-        }
-        lr.AX = (UWORD)lrc;
-      }
-      break;
+      lrc = DosDup(lr.BX);
+      goto long_check;
 
       /* Force Duplicate File Handle                                  */
     case 0x46:
       rc = DosForceDup(lr.BX, lr.CX);
-      if (rc < SUCCESS)
-        goto error_exit;
+      goto short_check;
       break;
 
       /* Get Current Directory                                        */
     case 0x47:
-      if ((rc = DosGetCuDir(lr.DL, MK_FP(lr.DS, lr.SI))) < 0)
-        goto error_exit;
-      else
+      rc = DosGetCuDir(lr.DL, MK_FP(lr.DS, lr.SI));
+      if (rc >= SUCCESS)
         lr.AX = 0x0100;         /*jpp: from interrupt list */
-      break;
+      goto short_check;
 
       /* Allocate memory */
     case 0x48:
@@ -1082,9 +1024,8 @@ dispatch:
     case 0x4b:
       break_flg = FALSE;
 
-      if ((rc = DosExec(lr.AL, MK_FP(lr.ES, lr.BX), FP_DS_DX)) != SUCCESS)
-        goto error_exit;
-      break;
+      rc = DosExec(lr.AL, MK_FP(lr.ES, lr.BX), FP_DS_DX);
+      goto short_check;
 
       /* Terminate Program                                            */
     case 0x00:
@@ -1129,19 +1070,19 @@ dispatch:
     case 0x4e:
       /* dta for this call is set on entry.  This     */
       /* needs to be changed for new versions.        */
-      if ((rc = DosFindFirst((UCOUNT) lr.CX, (BYTE FAR *) FP_DS_DX)) < 0)
-        goto error_exit;
-      lr.AX = 0;
-      break;
+      rc = DosFindFirst(lr.CX, FP_DS_DX);
+      if (rc >= SUCCESS)
+        lr.AX = 0;
+      goto short_check;
 
       /* Dos Find Next                                                */
     case 0x4f:
       /* dta for this call is set on entry.  This     */
       /* needs to be changed for new versions.        */
-      if ((rc = DosFindNext()) < 0)
-        goto error_exit;
-      lr.AX = -SUCCESS;
-      break;
+      rc = DosFindNext();
+      if (rc >= SUCCESS)
+        lr.AX = 0;
+      goto short_check;
 /*
     case 0x50:  
     case 0x51:
@@ -1178,11 +1119,8 @@ dispatch:
 
       /* Dos Rename                                                   */
     case 0x56:
-      rc = DosRename((BYTE FAR *) FP_DS_DX,
-                     (BYTE FAR *) FP_ES_DI);
-      if (rc < SUCCESS)
-        goto error_exit;
-      break;
+      rc = DosRename(FP_DS_DX, FP_ES_DI);
+      goto short_check;
 
       /* Get/Set File Date and Time                                   */
     case 0x57:
@@ -1192,22 +1130,18 @@ dispatch:
           rc = DosGetFtime((COUNT) lr.BX,       /* Handle               */
                            &lr.DX,        /* FileDate             */
                            &lr.CX);       /* FileTime             */
-          if (rc < SUCCESS)
-            goto error_exit;
           break;
 
         case 0x01:
           rc = DosSetFtime((COUNT) lr.BX,       /* Handle               */
                            (date) lr.DX,        /* FileDate             */
                            (time) lr.CX);       /* FileTime             */
-          if (rc < SUCCESS)
-            goto error_exit;
           break;
 
         default:
           goto error_invalid;
       }
-      break;
+      goto short_check;
 
       /* Get/Set Allocation Strategy                                  */
     case 0x58:
@@ -1266,16 +1200,8 @@ dispatch:
 
       /* Create New File */
     case 0x5b:
-      {
-        long lrc = DosOpen(FP_DS_DX, O_LEGACY | O_RDWR | O_CREAT, lr.CX);
-        if (lrc < 0)
-        {
-          rc = (COUNT)lrc;
-          goto error_exit;
-        }
-        lr.AX = (UWORD)lrc;
-        break;
-      }
+      lrc = DosOpen(FP_DS_DX, O_LEGACY | O_RDWR | O_CREAT, lr.CX);
+      goto long_check;
 
 /* /// Added for SHARE.  - Ron Cemer */
       /* Lock/unlock file access */
@@ -1378,9 +1304,8 @@ dispatch:
       break;
 
     case 0x60:                 /* TRUENAME */
-      if ((rc = DosTruename(MK_FP(lr.DS, lr.SI), adjust_far(FP_ES_DI))) < SUCCESS)
-        goto error_exit;
-      break;
+      rc = DosTruename(MK_FP(lr.DS, lr.SI), adjust_far(FP_ES_DI));
+      goto short_check;
 
 #ifdef TSC
       /* UNDOCUMENTED: no-op                                          */
@@ -1453,19 +1378,18 @@ dispatch:
           lr.AX = DosYesNo(lr.DL);
           break;
         default:
-          if ((rc = DosGetData(lr.AL, lr.BX, lr.DX, lr.CX,
-                               FP_ES_DI)) < 0)
-          {
 #ifdef NLS_DEBUG
+          if ((rc = DosGetData(lr.AL, lr.BX, lr.DX, lr.CX, FP_ES_DI)) < 0)
+          {
             printf("DosGetData() := %d\n", rc);
-#endif
             goto error_exit;
           }
-#ifdef NLS_DEBUG
           printf("DosGetData() returned successfully\n", rc);
-#endif
-
           break;
+#else
+          rc = DosGetData(lr.AL, lr.BX, lr.DX, lr.CX, FP_ES_DI);
+          goto short_check;
+#endif
       }
       break;
 
@@ -1489,16 +1413,14 @@ dispatch:
 
       /* Set Max file handle count */
     case 0x67:
-      if ((rc = SetJFTSize(lr.BX)) != SUCCESS)
-        goto error_exit;
-      break;
+      rc = SetJFTSize(lr.BX);
+      goto short_check;
 
       /* Flush file buffer -- COMMIT FILE.  */
     case 0x68:
     case 0x6a:
-      if ((rc = DosCommit(lr.BX)) < 0)
-        goto error_exit;
-      break;
+      rc = DosCommit(lr.BX);
+      goto short_check;
 
       /* Get/Set Serial Number */
     case 0x69:
@@ -1516,9 +1438,7 @@ dispatch:
           lr.AL = 0x0d;
           rc = DosDevIOctl(&lr);
           lr.CX = saveCX;
-          if (rc != SUCCESS)
-            goto error_exit;
-          break;
+          goto short_check;
         }
       }
       else
@@ -1530,28 +1450,16 @@ dispatch:
 */
       /* Extended Open-Creat, not fully functional. (bits 4,5,6 of BH) */
     case 0x6c:
-      {
-        long lrc;
-
-        /* high nibble must be <= 1, low nibble must be <= 2 */
-        if ((lr.DL & 0xef) > 0x2)
-          goto error_invalid;
-        lrc = DosOpen(MK_FP(lr.DS, lr.SI),
-                      (lr.BX & 0x70ff) | ((lr.DL & 3) << 8) |
-                      ((lr.DL & 0x10) << 6), lr.CL);
-        if (lrc < 0)
-        {
-          rc = (COUNT)lrc;
-          goto error_exit;
-        }
-        else
-        {
-          lr.AX = (UWORD)lrc;
-          /* action */
-          lr.CX = (UWORD)(lrc >> 16);
-        }
-        break;
-      }
+      /* high nibble must be <= 1, low nibble must be <= 2 */
+      if ((lr.DL & 0xef) > 0x2)
+        goto error_invalid;
+      lrc = DosOpen(MK_FP(lr.DS, lr.SI),
+                    (lr.BX & 0x70ff) | ((lr.DL & 3) << 8) |
+                    ((lr.DL & 0x10) << 6), lr.CL);
+      if (lrc >= SUCCESS)
+        /* action */
+        lr.CX = (UWORD)(lrc >> 16);
+      goto long_check;
 
       /* case 0x6d and above not implemented : see default; return AL=0 */
 
@@ -1566,11 +1474,9 @@ dispatch:
       CLEAR_CARRY_FLAG();
       CritErrCode = SUCCESS;
       rc = int21_fat32(&lr);
-      if (rc != SUCCESS)
-        goto error_exit;
-      break;
+      goto short_check;
 #endif
-      
+
 #ifdef WITHLFNAPI
       /* FreeDOS LFN helper API functions */
     case 0x74:
@@ -1612,7 +1518,18 @@ dispatch:
 #endif
   }
   goto exit_dispatch;
-  
+long_check:
+  if (lrc < SUCCESS)
+  {
+    rc = (int)lrc;
+    goto error_exit;
+  }
+  lr.AX = (UWORD)lrc;
+  goto exit_dispatch;
+short_check:
+  if (rc < SUCCESS)
+    goto error_exit;
+  goto exit_dispatch;
 error_invalid:
   rc = DE_INVLDFUNC;
 error_exit:
