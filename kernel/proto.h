@@ -380,6 +380,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT t);
 int network_redirector(unsigned cmd);
 int network_redirector_fp(unsigned cmd, void far *s);
 long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg);
+#define remote_rw(cmd,s,arg) (int)network_redirector_mx(cmd, s, (void *)arg)
 #define remote_getfree(s,d) (int)network_redirector_mx(REM_GETSPACE, s, d)
 #define remote_lseek(s,new_pos) network_redirector_mx(REM_LSEEK, s, &new_pos)
 #define remote_setfattr(attr) (int)network_redirector_mx(REM_SETATTR, NULL, (void *)attr)

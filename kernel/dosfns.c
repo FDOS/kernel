@@ -231,8 +231,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     lpCurSft = s;
     current_filepos = s->sft_posit;     /* needed for MSCDEX */
     dta = bp;
-    XferCount = network_redirector_mx(mode == XFR_READ ? REM_READ : REM_WRITE,
-                                      s, (void *)n);
+    XferCount = remote_rw(mode == XFR_READ ? REM_READ : REM_WRITE, s, n);
     dta = save_dta;
     return XferCount;
   }
