@@ -650,17 +650,14 @@ void DosDefinePartition(struct DriveParamS *driveParam,
 }
 
 /* Get the parameters of the hard disk */
-int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
+STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
 {
   iregs regs;
-
   struct _bios_LBA_disk_parameterS lba_bios_parameters;
 
-  if (driveParam->driveno)
-    return driveParam->driveno;
+  ExtLBAForce = FALSE;
 
-  driveParam->descflags = 0;
-
+  memset(driveParam, 0, sizeof *driveParam);
   drive |= 0x80;
 
   /* for tests - disable LBA support,
@@ -817,11 +814,18 @@ BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
 
 BOOL is_suspect(struct CHS *chs, struct CHS *pEntry_chs)
 {
-  return !((chs->Cylinder & 0x3ff) == pEntry_chs->Cylinder ||
-           1023 == pEntry_chs->Cylinder ||
-           (chs->Cylinder == pEntry_chs->Cylinder &&
-            chs->Head == pEntry_chs->Head &&
-            chs->Sector == pEntry_chs->Sector));
+  /* Valid entry:
+     entry == chs ||           // partition entry equal to computed values
+     (chs->Cylinder > 1023 &&  // or LBA partition
+      (entry->Cylinder == 1023 ||
+       entry->Cylinder == (0x3FF & chs->Cylinder)))
+  */
+  return !((pEntry_chs->Cylinder == chs->Cylinder &&
+            pEntry_chs->Head     == chs->Head     &&
+            pEntry_chs->Sector   == chs->Sector)        ||
+           chs->Cylinder > 1023u &&
+           (pEntry_chs->Cylinder == 1023 ||
+            pEntry_chs->Cylinder == (0x3ff & chs->Cylinder)));
 }
 
 void print_warning_suspect(char *partitionName, UBYTE fs, struct CHS *chs,
@@ -1040,12 +1044,8 @@ int ProcessDisk(int scanType, unsigned drive, int PartitionsToIgnore)
 
   struct DriveParamS driveParam;
 
-  ExtLBAForce = FALSE;
-
   /* Get the hard drive parameters and ensure that the drive exists. */
   /* If there was an error accessing the drive, skip that drive. */
-
-  memset(&driveParam, 0, sizeof(driveParam));
 
   if (!LBA_Get_Drive_Parameters(drive, &driveParam))
   {
@@ -1250,15 +1250,28 @@ I don't know, if I did it right, but I tried to do it that way. TE
 
 ***********************************************************************/
 
+STATIC void make_ddt (ddt *pddt, int Unit, int driveno, int flags)
+{
+  pddt->ddt_next = MK_FP(0, 0xffff);
+  pddt->ddt_logdriveno = Unit;
+  pddt->ddt_driveno = driveno;
+  pddt->ddt_type = init_getdriveparm(driveno, &pddt->ddt_defbpb);
+  pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
+  pddt->ddt_descflags = init_readdasd(driveno) | flags;
+
+  pddt->ddt_offset = 0;
+  pddt->ddt_serialno = 0x12345678l;
+  memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+  push_ddt(pddt);
+}
+
 void ReadAllPartitionTables(void)
 {
   UBYTE foundPartitions[MAX_HARD_DRIVE];
 
   int HardDrive;
-  int nHardDisk = BIOS_nrdrives();
-  int Unit;
+  int nHardDisk;
   ddt nddt;
-  ddt *pddt = &nddt;
   static iregs regs;
 
   /* quick adjustment of diskette parameter table */
@@ -1270,59 +1283,44 @@ void ReadAllPartitionTables(void)
   setvec(0x1e, (intvec)int1e_table);
 
   /* Setup media info and BPBs arrays for floppies */
-  for (Unit = 0; Unit < 2; Unit++)
-  {
-    pddt->ddt_next = MK_FP(0, 0xffff);
-    pddt->ddt_driveno = 0;
-    pddt->ddt_logdriveno = Unit;
-    pddt->ddt_type = init_getdriveparm(0, &pddt->ddt_defbpb);
-    pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
-    pddt->ddt_descflags = init_readdasd(0);
-
-    pddt->ddt_offset = 0l;
-    pddt->ddt_serialno = 0x12345678l;
-    memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
-
-    if (Unit == 0)
-      push_ddt(pddt);
-  }
-
-  /* Initial number of disk units                                 */
-  nUnits = 2;
+  make_ddt(&nddt, 0, 0, 0);
 
   /*
      this is a quick patch - see if B: exists
      test for A: also, need not exist
    */
   init_call_intr(0x11, &regs);  /* get equipment list */
-  if ((regs.a.x & 1) && (regs.a.x & 0xc0))
+/*if ((regs.AL & 1)==0)*//* no floppy drives installed  */
+  if ((regs.AL & 1) && (regs.AL & 0xc0))
   {
-    pddt->ddt_driveno = 1;
-    pddt->ddt_type = init_getdriveparm(1, &pddt->ddt_defbpb);
-    pddt->ddt_descflags = init_readdasd(1);
-    pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
     /* floppy drives installed and a B: drive */
-/*if ((r.a.x & 1)==0) *//* no floppy drives installed  */
+    make_ddt(&nddt, 1, 1, 0);
   }
   else
-  {                             /* set up the DJ method : multiple logical drives */
-    pddt->ddt_descflags |= DF_MULTLOG;
+  {
+    /* set up the DJ method : multiple logical drives */
+    make_ddt(&nddt, 1, 0, DF_MULTLOG);
   }
 
-  push_ddt(pddt);
-  nHardDisk = min(nHardDisk, MAX_HARD_DRIVE - 1);
+  /* Initial number of disk units                                 */
+  nUnits = 2;
 
-  memset(foundPartitions, 0, sizeof(foundPartitions));
+  nHardDisk = BIOS_nrdrives();
+  if (nHardDisk > LENGTH(foundPartitions))
+    nHardDisk = LENGTH(foundPartitions);
 
   DebugPrintf(("DSK init: found %d disk drives\n", nHardDisk));
 
   /* Reset the drives                                             */
   for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+  {
     BIOS_drive_reset(HardDrive);
+    foundPartitions[HardDrive] = 0;
+  }
 
   if (InitKernelConfig.DLASortByDriveNo == 0)
   {
-    /* printf("Drive Letter Assignment - DOS order \n"); */
+    /* printf("Drive Letter Assignment - DOS order\n"); */
 
     /* Process primary partition table   1 partition only      */
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
@@ -1349,37 +1347,34 @@ void ReadAllPartitionTables(void)
   }
   else
   {
-    UBYTE bootdrv;
-    struct DriveParamS driveParam;
+    UBYTE bootdrv = peekb(0,0x5e0);
 
     /* printf("Drive Letter Assignment - sorted by drive\n"); */
 
     /* Process primary partition table   1 partition only      */
-    bootdrv = *(UBYTE FAR *)MK_FP(0,0x5e0);
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
     {
-      memset(&driveParam, 0, sizeof(driveParam));
-      ExtLBAForce = FALSE;
-      if (LBA_Get_Drive_Parameters(HardDrive, &driveParam))
+      struct DriveParamS driveParam;
+      if (LBA_Get_Drive_Parameters(HardDrive, &driveParam) &&
+          driveParam.driveno == bootdrv)
       {
-        if (driveParam.driveno == bootdrv)
-        {
-          foundPartitions[HardDrive] =
-            ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
-          break;
-        }
+        foundPartitions[HardDrive] =
+          ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
+        break;
       }
     }
 
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
     {
       if (foundPartitions[HardDrive] == 0)
+      {
         foundPartitions[HardDrive] =
           ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
 
-      if (foundPartitions[HardDrive] == 0)
-        foundPartitions[HardDrive] =
+        if (foundPartitions[HardDrive] == 0)
+          foundPartitions[HardDrive] =
             ProcessDisk(SCAN_PRIMARY, HardDrive, 0);
+      }
 
       /* Process extended partition table                      */
       ProcessDisk(SCAN_EXTENDED, HardDrive, 0);
