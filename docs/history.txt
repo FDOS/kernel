@@ -319,6 +319,10 @@
           - optimisation and clean-up
         * fattab.c: ISFAT32 function removed (now macro), "wasfree" optimised
         * globals.h: __TIME__ removed - no two kernels released on same day
+        * initdisk.c:
+          - if no floppy drives present, don't initialise DDT for drive A:
+          - " - Initdisk" no longer shifts text if no FAT partitions found
+          - converted cdiv() from macro to function; optimise and clean-up
         * intr.asm: lseek() added (necessary for COUNTRY.SYS processing)
         * ioctl.c:
           - r_si/r_di contents added as documented in PC-DOS Technical Update

@@ -59,10 +59,10 @@ STATIC COUNT joinMCBs(seg para)
   while (p->m_type == MCB_NORMAL)
   {
     q = nxtMCB(p);
-    if (!mcbFree(q))
-      break;
     if (!mcbValid(q))
       return DE_MCBDESTRY;
+    if (!mcbFree(q))
+      break;
     /* join both MCBs */
     p->m_type = q->m_type;      /* possibly the next MCB is the last one */
     p->m_size += q->m_size + 1; /* one for q's MCB itself */
@@ -119,7 +119,7 @@ searchAgain:
 /*
     Hack to the Umb Region direct for now. Save time and program space.
 */
-  if ((uppermem_link & 1) && uppermem_root != 0xffff)
+  if (uppermem_link && uppermem_root != 0xffff)
   {
     COUNT tmpmode = (mode == LARGEST ? mem_access_mode : mode);
     if ((mode != LARGEST || size == 0xffff) &&
@@ -147,9 +147,9 @@ searchAgain:
         /* this block has a "match" size, try the rule set */
         switch (mode)
         {
-          case LAST_FIT:       /* search for last possible */
-          case LAST_FIT_U:
-          case LAST_FIT_UO:
+       /* case LAST_FIT: */    /* search for last possible */
+       /* case LAST_FIT_U: */
+       /* case LAST_FIT_UO: */
           default:
             foundSeg = p;
             break;
@@ -189,7 +189,7 @@ searchAgain:
   if (!foundSeg || !foundSeg->m_size)
   {                             /* no block to fullfill the request */
     if ((mode != LARGEST) && (mode & FIRST_FIT_U) &&
-	(uppermem_link & 1) && uppermem_root != 0xffff)
+	uppermem_link && uppermem_root != 0xffff)
     {
       mode &= ~FIRST_FIT_U;
       goto searchAgain;
@@ -401,7 +401,7 @@ COUNT DosMemCheck(void)
 COUNT FreeProcessMem(UWORD ps)
 {
   mcb FAR *p;
-  BYTE oldumbstate = uppermem_link & 1;
+  BYTE oldumbstate = uppermem_link;
 
   /* link in upper memory to free those , too */
   DosUmbLink(1);
@@ -464,7 +464,7 @@ void DosUmbLink(unsigned n)
     return;
 
   p = para2far(first_mcb);
-  if (n > 1 || (uppermem_link & 1) == n)
+  if (n > 1 || uppermem_link == n)
     return;
   while (FP_SEG(p) != uppermem_root && p->m_type != MCB_LAST)
   {
