@@ -282,7 +282,7 @@ VOID FAR * HMAalloc(COUNT bytesToAllocate)
   if (!DosLoadedInHMA)
     return NULL;
 
-  if (HMAFree >= 0xfff0 - bytesToAllocate)
+  if (HMAFree > 0xfff0 - bytesToAllocate)
     return NULL;
 
   HMAptr = MK_FP(0xffff, HMAFree);
