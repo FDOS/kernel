@@ -270,6 +270,11 @@ COUNT DosDevIOctl(lregs * r)
           {
             return DE_INVLDFUNC;
           }
+          if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
+          {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
+            r->AX = 0;  /* (lock/unlock logical/physical volume) */
+            break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
+          }
 
           CharReqHdr.r_command = nMode;
           execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
