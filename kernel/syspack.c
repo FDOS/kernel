@@ -121,34 +121,3 @@ VOID putdirent(struct dirent FAR * dp, UBYTE FAR * vp)
 }
 #endif
 
-/*
- * Log: syspack.c,v - for newer entries see "cvs log syspack.c"
- *
- * Revision 1.1.1.1  1999/03/29 15:42:21  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:15:12   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:42   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:05:34   patv
- * Initial revision.
- */

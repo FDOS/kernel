@@ -236,7 +236,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   {
     fnp->f_cluster = FREE;
     setdstart(fnp->f_dir, FREE);
-    fnp->f_cluster_offset = 0l;   /*JPP */
+    fnp->f_cluster_offset = 0;
   }
   
   fnp->f_flags.f_dmod = (status != S_OPENED);
@@ -247,7 +247,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   merge_file_changes(fnp, status == S_OPENED); /* /// Added - Ron Cemer */
   /* /// Moved from above.  - Ron Cemer */
   fnp->f_cluster = getdstart(fnp->f_dir);
-  fnp->f_cluster_offset = 0l;   /*JPP */
+  fnp->f_cluster_offset = 0;
 
   return xlt_fnp(fnp) | ((long)status << 16);
 }
@@ -1318,23 +1318,20 @@ STATIC BOOL first_fat(f_node_ptr fnp)
  *  DE_SEEK        - [XFR_READ mode only] byte at f_offset lies outside of
  *                   the FAT chain. The fnode is not released.
  * Notes.
- *  JPP: new map_cluster. If we are moving forward, then use the offset
+ *  If we are moving forward, then use the relative cluster number offset
  *  that we are at now (f_cluster_offset) to start, instead of starting
  *  at the beginning. */
 
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 {
-  ULONG idx;
-  ULONG clssize;                /* might be 64K (by WinNT) TE */
+  CLUSTER relcluster = (CLUSTER)((fnp->f_offset / fnp->f_dpb->dpb_secsize) >>
+                                 fnp->f_dpb->dpb_shftcnt);
 
 #ifdef DISPLAY_GETBLOCK
   printf("map_cluster: current %lu, offset %lu, diff=%lu ",
-         fnp->f_cluster_offset, fnp->f_offset,
+         (ULONG)fnp->f_cluster_offset, fnp->f_offset,
          fnp->f_offset - fnp->f_cluster_offset);
 #endif
-
-  /* The variable clssize will be used later.             */
-  clssize = (ULONG) fnp->f_dpb->dpb_secsize << fnp->f_dpb->dpb_shftcnt;
 
   /* If someone did a seek, but no writes have occured, we will   */
   /* need to initialize the fnode.                                */
@@ -1347,16 +1344,9 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     }
   }
 
-  if (fnp->f_offset >= fnp->f_cluster_offset)   /*JPP */
+  if (relcluster < fnp->f_cluster_offset)
   {
     /* Set internal index and cluster size.                 */
-    idx = fnp->f_offset - fnp->f_cluster_offset;
-  }
-  else
-  {
-    /* Set internal index and cluster size.                 */
-    idx = fnp->f_offset;
-
     fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
         getdstart(fnp->f_dir);
     fnp->f_cluster_offset = 0;
@@ -1386,15 +1376,14 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
       }
     }
 
-    if (idx < clssize)
+    if (fnp->f_cluster_offset == relcluster)
       break;
 
     fnp->f_back = fnp->f_cluster;
 
     /* get next cluster in the chain */
     fnp->f_cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
-    fnp->f_cluster_offset += clssize;
-    idx -= clssize;
+    fnp->f_cluster_offset++;
     if (fnp->f_cluster == 1)
       return DE_SEEK;
   }
@@ -2236,138 +2225,4 @@ done:
  *
  * the dos_mkdir/extenddir (with getblock() instead of getblockOver) was a real
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
- *
- * Log: fatfs.c,v - for newer log entries do "cvs log fatfs.c"
- *
- * ///  2000/08/12 22:49:00  Ron Cemer
- * Fixed writeblock() to only use getbuf() if writing a
- * complete sector; otherwise use getbloc() and do a
- * read-modify-write to prevent writing garbage back
- * over pre-existing data in the file.
- * This was a major BUG.
- *
- * Revision 1.23  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.19  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.18  2000/03/17 04:13:12  kernel
- * Added Change for media_check
- *
- * Revision 1.17  2000/03/17 04:01:20  kernel
- * Added Change for media_check
- *
- * Revision 1.16  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.15  1999/09/23 04:40:46  jprice
- * *** empty log message ***
- *
- * Revision 1.12  1999/09/14 01:01:54  jprice
- * Fixed bug where you could write over directories.
- *
- * Revision 1.11  1999/08/25 03:18:08  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.10  1999/08/10 18:03:42  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.9  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.8  1999/05/03 05:00:24  jprice
- * Fixed bug in map_cluster function
- *
- * Revision 1.7  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.6  1999/04/12 23:41:54  jprice
- * Using getbuf to write data instead of getblock
- * using getblock made it read the block before it wrote it
- *
- * Revision 1.5  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.4  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:42:07  jprice
- * New version without IPL.SYS
- *
- * Revision 1.8  1999/03/23 23:37:39  jprice
- * Fixed mkdir DOS function so it will create a directory with same name as the volument label
- *
- * Revision 1.7  1999/03/02 07:00:51  jprice
- * Fixed bugs with dos set attribute function.  Now returns correct
- * error code, and errors if user tries to set bits 6 & 7.
- *
- * Revision 1.6  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.5  1999/02/04 03:18:37  jprice
- * Formating.  Added comments.
- *
- * Revision 1.4  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.3  1999/01/30 08:25:34  jprice
- * Clean up; Fixed bug with set attribute function.  If you tried to
- * change the attributes of a directory, it would erase it.
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.14   06 Dec 1998  8:44:26   patv
- * Bug fixes.
- *
- *    Rev 1.13   09 Feb 1998  5:43:30   patv
- * Eliminated FAT12 EOF and error useage.
- *
- *    Rev 1.12   03 Feb 1998 11:28:04   patv
- * Fixed lseek bug.
- *
- *    Rev 1.11   22 Jan 1998  5:38:08   patv
- * Corrected remaining file name and extension copies that did not
- * account for far file nodes due to allocated FILES= spec.
- *
- *    Rev 1.10   22 Jan 1998  4:09:00   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.9   04 Jan 1998 23:14:40   patv
- * Changed Log for strip utility
- *
- *    Rev 1.8   04 Jan 1998 17:24:14   patv
- * Corrected subdirectory bug
- *
- *    Rev 1.7   03 Jan 1998  8:36:04   patv
- * Converted data area to SDA format
- *
- *    Rev 1.6   22 Jan 1997 13:00:30   patv
- * pre-0.92 bug fixes
- *
- *    Rev 1.5   16 Jan 1997 12:46:24   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.4   29 May 1996 21:15:16   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:20:10   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:48:40   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:24   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:04:46   patv
- * Initial revision.
  */

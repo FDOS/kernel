@@ -67,7 +67,7 @@ extern struct dhdr
 DOSTEXTFAR ASM blk_dev,             /* Block device (Disk) driver           */
   DOSFAR ASM nul_dev;
 extern struct buffer FAR *DOSFAR ASM firstbuf;      /* head of buffers linked list          */
-
+extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
 extern struct dpb FAR *DOSFAR ASM DPBp;
 /* First drive Parameter Block          */
 extern struct cds FAR *DOSFAR ASM CDSp;
@@ -1511,14 +1511,16 @@ VOID config_init_buffers(COUNT anzBuffers)
 {
   REG WORD i;
   struct buffer FAR *pbuffer;
-  int HMAcount = 0;
   BYTE FAR *tmplpBase = lpBase;
-  BOOL fillhma = TRUE;
+  unsigned wantedbuffers = anzBuffers;
 
   if (anzBuffers < 0)
   {
-    anzBuffers = -anzBuffers;
-    fillhma = FALSE;
+    wantedbuffers = anzBuffers = -anzBuffers;
+  }
+  else if (HMAState == HMA_DONE)
+  {
+    anzBuffers = (0xfff0 - HMAFree) / sizeof(struct buffer);
   }
 
   anzBuffers = max(anzBuffers, 6);
@@ -1528,63 +1530,42 @@ VOID config_init_buffers(COUNT anzBuffers)
     anzBuffers = 99;
   }
   LoL_nbuffers = anzBuffers;
-
+  
   lpTop = lpOldTop;
 
   if (HMAState == HMA_NONE || HMAState == HMA_REQ)
-    lpTop = lpBase = lpTop - anzBuffers * (sizeof(struct buffer) + 0xf);
-
-  firstbuf = ConfigAlloc(sizeof(struct buffer));
-
+    lpTop = lpBase = lpTop - (anzBuffers * sizeof(struct buffer) + 0xf);
+  
+  firstbuf = ConfigAlloc(sizeof(struct buffer) * anzBuffers);
   pbuffer = firstbuf;
 
   DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
+  DebugPrintf((" (%p)", firstbuf));
 
-  for (i = 0;; ++i)
+  pbuffer->b_prev = FP_OFF(pbuffer + (anzBuffers-1));
+  for (i = 1; i < anzBuffers; ++i)
   {
-    if (FP_SEG(pbuffer) == 0xffff)
-      HMAcount++;
-
-    pbuffer->b_dummy = FP_OFF(pbuffer);
-    pbuffer->b_unit = 0;
-    pbuffer->b_flag = 0;
-    pbuffer->b_blkno = 0;
-    pbuffer->b_next = NULL;
-
-    DebugPrintf((" (%d,%p)", i, pbuffer));
+    if (i == wantedbuffers)
+    {
+      firstAvailableBuf = pbuffer;
+    }      
+    pbuffer->b_next = FP_OFF(pbuffer + 1);
+    pbuffer++;
+    pbuffer->b_prev = FP_OFF(pbuffer - 1);
+  }
+  pbuffer->b_next = FP_OFF(pbuffer - (anzBuffers-1));
 
     /* now, we can have quite some buffers in HMA
-       -- up to 37 for KE38616.
+       -- up to 50 for KE38616.
        so we fill the HMA with buffers
        but not if the BUFFERS count is negative ;-)
      */
 
-    if (i < (anzBuffers - 1))
-    {
-      pbuffer->b_next = HMAalloc(sizeof(struct buffer));
-
-      if (pbuffer->b_next == NULL)
-      {
-        /* if more buffer requested then fit into HMA, allocate
-           some from low memory as rewuested
-         */
-        pbuffer->b_next = ConfigAlloc(sizeof(struct buffer));
-      }
-    }
-    else if (fillhma)
-      pbuffer->b_next = HMAalloc(sizeof(struct buffer));
-
-    if (pbuffer->b_next == NULL)
-      break;
-
-    pbuffer = pbuffer->b_next;
-  }
-
   DebugPrintf((" done\n"));
 
-  if (HMAcount)
+  if (FP_SEG(pbuffer) == 0xffff)
     printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
-           HMAcount, HMAcount * sizeof(struct buffer));
+           anzBuffers, anzBuffers * sizeof(struct buffer));
 
   if (HMAState == HMA_NONE || HMAState == HMA_REQ)
     lpBase = tmplpBase;
@@ -1711,82 +1692,3 @@ STATIC VOID CfgMenuDefault(BYTE * pLine)
 }
 
 
-/*
- * Log: config.c,v - for newer log entries see "cvs log config.c"
- *
- * Revision 1.15  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.14  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.13  2000/03/09 06:07:10  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.12  1999/09/23 04:40:46  jprice
- * *** empty log message ***
- *
- * Revision 1.10  1999/08/25 03:18:07  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.9  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.8  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.7  1999/04/16 12:21:21  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.6  1999/04/16 00:53:32  jprice
- * Optimized FAT handling
- *
- * Revision 1.5  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.4  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 22:57:47  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:40:46  jprice
- * New version without IPL.SYS
- *
- * Revision 1.6  1999/03/23 23:38:15  jprice
- * Now checks for a reads fdconfig.sys file, if exists
- *
- * Revision 1.5  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.3  1999/01/30 08:28:11  jprice
- * Clean up; Fixed bug with set attribute function.
- *
- * Revision 1.2  1999/01/22 04:13:25  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.6   22 Jan 1998  4:09:24   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.5   04 Jan 1998 23:15:18   patv
- * Changed Log for strip utility
- *
- *    Rev 1.4   04 Jan 1998 17:26:14   patv
- * Corrected subdirectory bug
- *
- *    Rev 1.3   16 Jan 1997 12:46:50   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.1   29 May 1996 21:03:44   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.0   19 Feb 1996  3:22:16   patv
- * Added NLS, int2f and config.sys processing
- */

@@ -1,0 +1,931 @@
+13 Nov 2002 tom 
+initclk.c:
+Initial revision
+
+2001/11/04 bartoldeman
+install.bat:
+Text files need to be LF ended at the server. So be it...
+
+2001/04/29           brianreifsnyder
+dsk.c:
+Added phase 1 support for LBA hard drives
+
+20 Apr 2001  Bart Oldeman
+buffer.h:
+Initial revision.
+
+2001/04/16 bartoldeman
+dsk.c:
+Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+
+2001/04/15 bartoldeman
+dsk.c:
+See history.txt for the list of fixes.
+
+2001/03/27 bartoldeman
+dsk.c:
+dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+
+2001/03/24 bartoldeman
+dsk.c:
+See history.txt: dsk.c changes, warning removal and int21 entry handling.
+
+2001/03/22 bartoldeman
+install.bat:
+Change LF to CR/LF in batch files.
+
+2001/03/21 bartoldeman
+dsk.c:
+See history.txt for changes. Bug fixes and HMA support are the main ones.
+
+2001/03/16 tom ehlert
+inithma.c:
+initial creation
+
+2001/03/08 bartoldeman
+dsk.c:
+Space saving fixes from Tom Ehlert
+
+2001/03/07 10:00:00 tomehlert
+prf.c:
+recoded for smaller object footprint, added main() for testing+QA
+
+2000/10/29 jimtabor
+inthndlr.c:
+Adding Share Support by Ron Cemer
+
+2000/08/15 jhall1
+build.txt:
+update to the build.txt file to remove references to the now-defunct
+web site at gcfl.net (John's old site).
+
+2000/08/06 jimtabor
+inthndlr.c, nls_load.c:
+Add new files and update cvs with patches and changes
+
+2000/06/21 jimtabor
+dsk.c, inthndlr.c:
+Add UMB code, patch, and code fixes
+
+2000/06/01 jimtabor
+dsk.c:
+Read History for Changes
+
+2000/05/26 jimtabor
+dsk.c:
+Read History file for Change info
+
+2000/05/25 jimtabor
+dsk.c, inthndlr.c:
+Fixed project history
+
+2000/05/17 jimtabor
+dsk.c, inthndlr.c:
+Cleanup, add and fix source.
+
+2000/05/11 jimtabor
+inthndlr.c:
+Removed #if statement
+
+2000/05/11 jimtabor
+dsk.c, inthndlr.c:
+Added code for DOS FN 69 & 6C
+
+2000/05/11 jimtabor
+install.bat, inthndlr.c:
+Clean up and Release
+
+2000/05/08 jimtabor
+inthndlr.c, dosnames.c, dsk.c, dosnames.h, build.txt:
+Update CVS to 2020
+
+2000/05/06 jhall1
+getvec.asm, dsk.c, inthndlr.c:
+The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+MS-DOS.  Distributed under the GNU GPL.
+
+2000/04/29 jtabor
+device.h, blockio.c, dsk.c, fatfs.c, inthndlr.c, ioctl.c:
+Added new functions and clean up code
+
+2000/04/02 jtabor
+newstuff.c:
+Fix ChgDir Code
+
+2000/04/02 jtabor
+dosfns.c:
+Replaced ChgDir Code
+
+2000/04/02 jtabor
+dosfns.c:
+Fix to DosChgDir
+
+2000/03/31 jprice
+sys.c:
+Added discription of program.
+
+2000/03/31 jtabor
+config.c, dosfns.c, dosnames.c, fatdir.c, fcbfns.c, int2f.asm, main.c,
+makefile, network.c, newstuff.c, proto.h, task.c:
+Added Eric W. Biederman Patches
+
+2000/03/23 ska
+nls.c:
+Initial revision
+
+2000/03/20 kernel
+entry.asm:
+Change in Entry.asm
+
+2000/03/18 kernel
+intfns.txt:
+changes in supported functions
+
+2000/03/17 kernel
+config.c, fatdir.c, fatfs.c, fcbfns.c, inthndlr.c, makefile,
+network.c, nlssupt.asm, proto.h:
+Steffen Kaiser's NLS changes
+
+2000/03/17 kernel
+inthndlr.c:
+Fixed Func 0x32
+
+2000/03/17 kernel
+fatfs.c:
+Added Change for media_check
+
+2000/03/16 kernel
+globals.h, inthndlr.c:
+*** empty log message ***
+
+2000/03/09 kernel
+dosfns.c, dosnames.c, dsk.c, error.c, execrh.asm, fatdir.c, fatfs.c,
+fcbfns.c, globals.h, initoem.c, int2f.asm, inthndlr.c, io.asm,
+ioctl.c, kernel.asm, main.c, makefile, memmgr.c, misc.c, network.c,
+newstuff.c, prf.c, proto.h, strings.c, sysclk.c, task.c, blockio.c,
+break.c, chario.c, config.c, console.asm, cds.h, dcb.h, device.h,
+dirmatch.h, fnode.h, mcb.h, sft.h, stacks.inc:
+2017f updates by James Tabor
+
+1999/09/25 jprice
+boot.asm:
+Optimize boot loader.  Documentation.
+
+1999/09/24 jprice
+boot.asm:
+Added changes recommended by Jens Horstmeier
+to make their bootable CD work.
+
+1999/09/23 jprice
+main.c, network.c, proto.h, globals.h, inthndlr.c, kernel.asm,
+makefile, config.c, console.asm, dosfns.c, entry.asm, fatfs.c,
+fcbfns.c, chario.c, boot.asm, fcb.h, sys/makefile, sys.c:
+*** empty log message ***
+
+1999/09/20 jprice
+sys.c:
+Changed open/creat to fopen to make TC2 happy.
+
+1999/09/15 jprice
+sys.c:
+Changed boot sector writing code so easier to read.
+
+1999/09/14 jprice
+lib/makefile:
+no message
+
+1999/09/14 jprice
+sys.c:
+Added debug log creation to sys.com.
+
+1999/09/14 jprice
+console.asm:
+no message
+
+1999/09/14 jprice
+inthndlr.c:
+ror4: fix int25 & 26 are not cached.
+
+1999/09/14 jprice
+fatfs.c, dosfns.c:
+Fixed bug where you could write over directories.
+
+1999/09/13 jprice
+inthndlr.c, console.asm:
+Fix 210B function
+
+1999/09/13 jprice
+console.asm:
+Changes from Helmut Fritsch to fix INT21 func B
+
+1999/09/13 jprice
+makefile:
+Some clean up.
+
+1999/09/13 jprice
+config.b, config.b:
+Added COMPILER variable
+
+1999/09/13 jprice
+lib/makefile:
+Added !if so we can use TC2 or TC3 to compile.
+
+1999/08/25 jprice
+build.txt:
+update
+
+1999/08/25 jprice
+config.b, clobber.bat, clean.bat, config.b, build.bat:
+New build batch files.
+
+1999/08/25 jprice
+intfns.txt, build.txt, build.bat:
+New build config
+
+1999/08/25 jprice
+config.b, sys/makefile, sys.c, lib/makefile, task.c, main.c, makefile,
+memmgr.c, newstuff.c, proto.h, strings.c, fatfs.c, globals.h,
+initoem.c, inthndlr.c, blockio.c, chario.c, config.c, dosfns.c,
+fatdir.c, date.h, dirmatch.h, portab.h, time.h, drivers/makefile,
+install.bat:
+ror4 patches to allow TC 2.01 compile.
+
+1999/08/10 jprice
+clobber.bat:
+case
+
+1999/08/10 jprice
+dsk.c, inthndlr.c:
+ror4 2011-04 patch
+
+1999/08/10 jprice
+globals.h, inthndlr.c, fatfs.c, fattab.c, blockio.c:
+ror4 2011-03 patch
+
+1999/08/10 jprice
+irqstack.asm, kernel.asm, makefile, nlssupt.asm, printer.asm,
+procsupt.asm, segs.inc, apisupt.asm, asmsupt.asm, console.asm, entry.asm, execrh.asm, fatdir.c,
+int2f.asm, io.asm, io.inc, stacks.inc:
+ror4 2011-02 patch
+
+1999/08/10 jprice
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, drivers/makefile, getvec.asm, floppy.asm:
+ror4 2011-01 patch
+
+1999/05/04 jprice
+systime.c:
+ror4 date fix
+
+1999/05/03 jprice
+fat.h:
+Changed some variables from signed to unsigned.
+
+1999/05/03 jprice
+blockio.c, config.c, dosfns.c, fatdir.c, fatfs.c, fattab.c, globals.h,
+inthndlr.c, misc.c, proto.h:
+Patches from ror4 and many changed of signed to unsigned variables.
+
+1999/05/03 jprice
+sys/makefile:
+no message
+
+1999/05/03 jprice
+fatfs.c:
+Fixed bug in map_cluster function
+
+1999/05/03 jprice
+blockio.c:
+Changed getblock & getbuf so that they leave at least 3 buffer for FAT data.
+
+1999/04/23 jprice
+procsupt.asm:
+Fixed got_cbreak function.
+
+1999/04/23 jprice
+makefile:
+no message
+
+1999/04/23 jprice
+asmsupt.asm, inthndlr.c, memmgr.c, misc.c, proto.h, task.c:
+Memory manager changes made by ska
+
+1999/04/23 jprice
+clobber.bat:
+Initial include
+
+1999/04/23 jprice
+clean.bat, build.bat, sys/makefile, lib/makefile, makefile, drivers/makefile:
+Improved by jprice
+
+1999/04/23 jprice
+boot/makefile:
+Ported to NASM by ror4. Improvements
+
+1999/04/23 jprice
+boot.asm:
+Ported to NASM by ror4
+
+1999/04/21 jprice
+blockio.c:
+no message
+
+1999/04/18 jprice
+blockio.c:
+no message
+
+1999/04/17 jprice
+sys.c, boot.asm:
+Fixed multi-sector code
+
+1999/04/17 jprice
+build.bat:
+ror4 patches
+
+1999/04/17 jprice
+boot.asm:
+Changed so multi-sector IO is optional.
+
+1999/04/16 jprice
+blockio.c, config.c, dsk.c, globals.h, main.c, proto.h, floppy.asm:
+ror4 multi-sector IO
+
+1999/04/16 jprice
+break.c:
+Steffen contributed.
+
+1999/04/16 jprice
+dosfns.c, globals.h, inthndlr.c, irqstack.asm, main.c, makefile, procsupt.asm,
+proto.h, chario.c, config.c:
+Steffen c-break handler changes
+
+1999/04/16 jprice
+fatfs.c, fattab.c, globals.h, main.c, task.c, blockio.c, config.c,
+dsk.c, fatdir.c, fnode.h, dcb.h:
+Optimized FAT handling
+
+1999/04/13 jprice
+kernel.asm:
+changes for boot loader
+
+1999/04/13 jprice
+boot.asm:
+Moves boot sector to top of mem
+
+1999/04/13 jprice
+makefile, fatdir.c, drivers/makefile:
+no message
+
+1999/04/12 jprice
+fatfs.c, blockio.c:
+Using getbuf to write data instead of getblock
+using getblock made it read the block before it wrote it
+
+1999/04/12 jprice
+systime.c, config.c, dosfns.c, fatfs.c, globals.h, main.c, proto.h,
+sysclk.c:
+more ror4 patches.  Changes for multi-block IO
+
+1999/04/12 jprice
+rdpcclk.asm, rdatclk.asm:
+more ror4 patches
+
+1999/04/11 jprice
+blockio.c:
+Working on multi-block IO
+
+1999/04/11 jprice
+globals.h, inthndlr.c, main.c, newstuff.c, proto.h, task.c, blockio.c,
+config.c, dosfns.c, fatdir.c, fatfs.c, fattab.c:
+ror4 patches
+
+1999/04/06 jprice
+boot.asm:
+Put back code to read multiple sectors at a time.
+
+1999/04/04 jprice
+config.c, globals.h, inthndlr.c, main.c, dosfns.c, dosnames.c,
+fatdir.c, fatfs.c, fcbfns.c, globals.h, inthndlr.c, ioctl.c, main.c,
+newstuff.c, prf.c, proto.h, strings.c, chario.c, sft.h, device.h:
+no message
+
+1999/04/01 jprice
+sys.c:
+SYS modified for new boot loader
+
+1999/04/01 jprice
+boot/makefile, boot.asm:
+New boot loader
+
+1999/04/01 jprice
+install.bat:
+no message
+
+1999/03/29 jprice
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, rdatclk.asm, drivers/makefile,
+getvec.asm, floppy.asm, globals.h, io.inc, task.c:
+ror4 changes
+
+1999/03/29 jprice
+sys.c:
+Fixed error message
+
+1999/03/29 jprice
+sys.c, syspack.c, prf.c, misc.c, fcbfns.c, fattab.c, fatfs.c,
+fatdir.c, error.c, dosnames.c, dosfns.c, chario.c, blockio.c, task.c,
+systime.c, sysclk.c, strings.c, proto.h, segs.inc, procsupt.asm,
+printer.asm, nlssupt.asm, newstuff.c, memmgr.c, main.c, makefile,
+kernel.asm, irqstack.asm, ioctl.c, io.inc, io.asm, inthndlr.c,
+int2f.asm, globals.h, initoem.c, execrh.asm, entry.asm, dsk.c,
+console.asm, config.c, asmsupt.asm, apisupt.asm, wrpcclk.asm,
+wratclk.asm, rdpcclk.asm, rdatclk.asm, getvec.asm, floppy.asm,
+drivers/makefile, install.bat, boot/makefile, boot.asm, tail.h,
+time.h, sft.h, stacks.inc, process.h, portab.h, pcb.h, kbd.h, mcb.h,
+file.h, fnode.h, fcb.h, exe.h, fat.h, dosnames.h, error.h, device.h,
+date.h, dcb.h, cds.h, clock.h, dirmatch.h, intfns.txt, clean.bat,
+build.bat:
+New version without IPL.SYS
+
+1999/03/25 jprice
+fatdir.c:
+Fixed findfirst & findnext functions to treat the attributes like MSDOS does.
+
+1999/03/23 jprice
+inthndlr.c:
+Now sets carry when we don't support a function
+
+1999/03/23 jprice
+config.c:
+Now checks for a reads fdconfig.sys file, if exists
+
+1999/03/23 jprice
+fatfs.c:
+Fixed mkdir DOS function so it will create a directory with same name as the volument label
+
+1999/03/02 jprice
+inthndlr.c:
+Added some comments.  Fixed some minor bugs.
+
+1999/03/02 jprice
+fatfs.c:
+Fixed bugs with dos set attribute function.  Now returns correct
+error code, and errors if user tries to set bits 6 & 7.
+
+1999/03/02 jprice
+boot.asm:
+Added entry address for more recent versions of TLINK
+
+1999/03/02 jprice
+intfns.txt:
+Updated interrupt list
+
+1999/03/01 jprice
+makefile:
+Fixed so it'll work with config.mak
+
+1999/03/01 jprice
+makefile:
+Turned off DEBUG define.
+
+1999/03/01 jprice
+inthndlr.c:
+Added some DEBUG ifdef's so that it will compile without DEBUG defined.
+
+1999/02/14 jprice
+fatdir.c, dsk.c:
+Changed check media so that it checks if a floppy disk has been changed.
+
+1999/02/14 jprice
+floppy.asm:
+Added functions to check if a floppy disk has been changed.
+
+1999/02/09 jprice
+makefile, drivers/makefile, boot/makefile, clean.bat, build.bat:
+Make makefile use common config.mak file
+
+1999/02/09 jprice
+blockio.c, chario.c, dosfns.c, error.c, fatdir.c, fatfs.c, fattab.c,
+fcbfns.c, device.h, error.h, sysclk.c, systime.c, task.c, apisupt.asm,
+asmsupt.asm, config.c, console.asm, dsk.c, entry.asm, execrh.asm,
+globals.h, initoem.c, int2f.asm, inthndlr.c, io.asm, io.inc, ioctl.c,
+irqstack.asm, kernel.asm, main.c, makefile, memmgr.c, newstuff.c,
+nlssupt.asm, printer.asm, procsupt.asm, proto.h, segs.inc, floppy.asm:
+Added Pat's 1937 kernel patches
+
+1999/02/04 jprice
+chario.c, fatfs.c, fcbfns.c, strings.c, sysclk.c, systime.c, task.c:
+Formating.  Added comments.
+
+1999/02/04 jprice
+inthndlr.c:
+Formating
+
+1999/02/04 jprice
+makefile:
+Added option to share constants (-d).
+
+1999/02/04 jprice
+device.h:
+no message
+
+1999/02/02 jprice
+dosnames.c:
+Steve Miller fixed a bug with doing "cd ." would lock the machine.
+
+1999/02/01 jprice
+apisupt.asm, asmsupt.asm, config.c, dsk.c, entry.asm, execrh.asm, globals.h,
+initoem.c, int2f.asm, inthndlr.c, ioctl.c, irqstack.asm, kernel.asm,
+main.c, memmgr.c, newstuff.c, nlssupt.asm, procsupt.asm, proto.h,
+strings.c, sysclk.c, systime.c, task.c:
+Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+
+1999/02/01 jprice
+chario.c, dosfns.c, dosnames.c, error.c, fatdir.c, fatfs.c, fattab.c,
+fcbfns.c, misc.c, prf.c, syspack.c, blockio.c:
+Fixed findfirst function to find volume label with Windows long filenames
+
+1999/02/01 jprice
+cds.h, clock.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, error.h,
+exe.h, fat.h, fcb.h, file.h, fnode.h, kbd.h, mcb.h, pcb.h, portab.h, process.h,
+sft.h, stacks.inc, tail.h, time.h:
+Clean up
+
+1999/01/30 jprice
+clean.bat, build.bat:
+Clean up
+
+1999/01/30 jprice
+main.c, config.c, initoem.c, inthndlr.c:
+Clean up; Fixed bug with set attribute function.
+
+1999/01/30 jprice
+globals.h:
+Clean up; commented out copyright messages while we debug.
+
+1999/01/30 jprice
+blockio.c, fatdir.c, fatfs.c:
+Clean up; Fixed bug with set attribute function.  If you tried to
+change the attributes of a directory, it would erase it.
+
+1999/01/30 jprice
+cds.h, clock.h, error.h, fat.h, fnode.h, build.bat:
+Clean up
+
+1999/01/22 jprice
+cds.h, clock.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, error.h,
+exe.h, fat.h, fcb.h, file.h, fnode.h, kbd.h, mcb.h, pcb.h, portab.h, process.h,
+sft.h, stacks.inc, tail.h, time.h, wrpcclk.asm, wratclk.asm,
+rdpcclk.asm, rdatclk.asm, drivers/makefile, getvec.asm, floppy.asm,
+blockio.c, chario.c, dosfns.c, dosnames.c, error.c, fatdir.c, fatfs.c,
+fattab.c, fcbfns.c, misc.c, prf.c, syspack.c, procsupt.asm, proto.h,
+strings.c, sysclk.c, systime.c, task.c, globals.h, initoem.c,
+int2f.asm, inthndlr.c, ioctl.c, irqstack.asm, kernel.asm, main.c,
+makefile, memmgr.c, newstuff.c, nlssupt.asm, apisupt.asm, asmsupt.asm,
+config.c, dsk.c, entry.asm, execrh.asm, boot/makefile, boot.asm:
+Formating.
+
+1999/01/21 jprice Fixed comments.
+sys.c:
+Added indent program
+
+1999/01/21 jprice Added messages to sys.  Also made
+sys.c:
+it create a .COM file.
+
+1999/01/20 jprice
+cds.h, clock.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, error.h,
+exe.h, fat.h, fcb.h, file.h, fnode.h, kbd.h, mcb.h, pcb.h, portab.h, process.h,
+sft.h, stacks.inc, tail.h, time.h, apisupt.asm, asmsupt.asm, config.c, dsk.c,
+entry.asm, execrh.asm, globals.h, initoem.c, int2f.asm, ioctl.c, irqstack.asm,
+kernel.asm, main.c, makefile, memmgr.c, newstuff.c, nlssupt.asm,
+procsupt.asm, proto.h, strings.c, sysclk.c, systime.c, task.c:
+Imported sources
+
+1999/01/20 jprice
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, rdatclk.asm, drivers/makefile,
+getvec.asm, floppy.asm, boot/makefile, boot.asm, blockio.c, chario.c, dosfns.c,
+dosnames.c, error.c, fatdir.c, fatfs.c, fattab.c, fcbfns.c,
+inthndlr.c, misc.c, prf.c, syspack.c:
+Imported sources
+
+10 Jan 1999            SRM
+makefile:
+Took out "/P-" from TLINK
+Changed "bcc" to "tcc"
+
+06 Dec 1998  patv
+entry.asm:
+New int 21h handler code.
+
+06 Dec 1998  patv
+inthndlr.c:
+Expanded due to improved int 21h handler code.
+
+06 Dec 1998  patv
+ioctl.c, proto.h, apisupt.asm, globals.h:
+Expanded due to new I/O subsystem.
+
+06 Dec 1998  patv
+makefile:
+Added new files for I/O subsystem.
+
+06 Dec 1998  patv
+main.c, dsk.c:
+Changed due to new I/O subsystem.
+
+06 Dec 1998  patv
+irqstack.asm, newstuff.c, int2f.asm, kernel.asm, systime.c,
+nlssupt.asm, asmsupt.asm, procsupt.asm, task.c, execrh.asm, fatdir.c,
+fatfs.c:
+Bug fixes.
+
+06 Dec 1998  patv
+dosfns.c:
+Expanded dos functions due to new I/O subsystem.
+
+06 Dec 1998  patv
+fcbfns.c:
+Expanded fcb functions for new I/O subsystem.
+
+06 Dec 1998  patv
+error.c:
+Now handles errors like MS-DOS.
+
+06 Dec 1998  patv
+chario.c:
+changes in character I/O because of new I/O subsystem.
+
+06 Dec 1998  patv
+blockio.c:
+Changes in block I/O because of new I/O subsystem.
+
+06 Dec 1998  patv
+floppy.asm:
+New floppy support functions.
+
+06 Dec 1998  patv
+device.h:
+Changed for new I/O subsystem
+
+06 Dec 1998  patv
+error.h:
+Added new errors for new I/O subsystem.
+
+06 Dec 1998  patv
+io.inc, segs.inc:
+Initial revision.
+
+09 Feb 1998  patv
+fatfs.c, fattab.c:
+Eliminated FAT12 EOF and error returns.
+
+07 Feb 1998  patv
+stacks.inc, pcb.h, entry.asm, procsupt.asm, inthndlr.c, task.c,
+globals.h, proto.h:
+Modified stack fram to match DOS standard
+
+03 Feb 1998  patv
+kernel.asm:
+Added a start-up stack for loadable device drivers.  Need the separate
+stack so that all int 21h functions can be called.
+
+03 Feb 1998  patv
+fatfs.c:
+Fixed lseek bug.
+
+02 Feb 1998  patv
+globals.h:
+Fixed size of default_drive.  Caused failures when break_ena was not zero.
+
+31 Jan 1998  patv
+task.c:
+Corrected type in load high code.
+
+31 Jan 1998  patv
+task.c:
+Added load high in memory option in DosExeLoader.
+
+22 Jan 1998  patv
+task.c:
+Eliminated warnings.
+
+22 Jan 1998  patv
+process.h:
+Had to change ps_prevps to VOID FAR * due to BC++ error.
+
+22 Jan 1998  patv
+process.h:
+Corrected ps_prevpsp declaration.
+
+22 Jan 1998  patv
+task.c:
+Corrected short .COM problem.
+
+22 Jan 1998  patv
+makefile:
+Outdated stacks.asm.
+
+22 Jan 1998  patv
+fatfs.c:
+Corrected remaining file name and extension copies that did not
+account for far file nodes due to allocated FILES= spec.
+
+22 Jan 1998  patv
+inthndlr.c, proto.h, config.c, globals.h, kernel.asm, main.c,
+blockio.c, dosnames.c, fatdir.c, fatfs.c:
+Fixed pointer problems affecting SDA
+
+11 Jan 1998  patv
+ioctl.c, proto.h, chario.c, device.h:
+Added functionality to ioctl.
+
+08 Jan 1998  patv
+chario.c:
+Changed automatic requestic packets to static to save stack space.
+
+06 Jan 1998  patv
+inthndlr.c:
+Broke apart int21_system from int21_handler.
+
+06 Jan 1998  patv
+kernel.asm:
+Reduced device driver stack sizes.
+
+04 Jan 1998  patv
+globals.h, proto.h, inthndlr.c, newstuff.c, systime.c, main.c,
+config.c, ioctl.c, memmgr.c, dsk.c, initoem.c, strings.c, sysclk.c,
+task.c, fatfs.c, chario.c, dosfns.c, dosnames.c, fattab.c, fcbfns.c,
+prf.c, syspack.c, blockio.c, error.c, fatdir.c, misc.c, device.h,
+cds.h, clock.h, date.h, dcb.h, fat.h, file.h, fnode.h, kbd.h, mcb.h,
+pcb.h, sft.h, dirmatch.h, error.h, exe.h, fcb.h, portab.h, process.h,
+tail.h, time.h:
+Changed Log for strip utility
+
+04 Jan 1998  patv
+kernel.asm, inthndlr.c, main.c, config.c, newstuff.c, fatfs.c:
+Corrected subdirectory bug
+
+03 Jan 1998  patv
+globals.h, kernel.asm, makefile, systime.c, inthndlr.c, main.c,
+proto.h, asmsupt.asm, dosfns.c, dosnames.c, fatfs.c, blockio.c,
+fatdir.c, fcbfns.c:
+Converted data area to SDA format
+
+31 Dec 1997  patv
+strings.c:
+Added new far string functions.
+
+30 Dec 1997  patv
+chario.c:
+Modified to support SDA
+
+01 Aug 1997  patv
+inthndlr.c:
+COMPATIBILITY: Added return '$' in AL for function int 21h fn 09h
+
+06 Feb 1997  patv
+kernel.asm:
+Reduced stack sizes for block and clock devices.
+
+06 Feb 1997  patv
+globals.h:
+Changed version format string
+
+06 Feb 1997  patv
+main.c:
+Modified to support new version format and changed debug message to
+output drive letter instead of number.
+
+06 Feb 1997  patv
+globals.h:
+Modified to support new version format
+
+06 Feb 1997  patv
+inthndlr.c, kernel.asm:
+Added hooks for tsc command
+
+30 Jan 1997  patv
+makefile:
+Added TSC flag for trace support.
+
+22 Jan 1997  patv
+newstuff.c, inthndlr.c, task.c, irqstack.asm:
+pre-0.92 Svante Frey bug fixes.
+
+22 Jan 1997  patv
+globals.h:
+Changed to support version.h and pre-0.92 Svante Frey bug fixes.
+
+22 Jan 1997  patv
+main.c:
+Now does correct default drive initialization.
+
+22 Jan 1997  patv
+fatfs.c, dosfns.c:
+pre-0.92 bug fixes
+
+16 Jan 1997  patv
+irqstack.asm:
+Initial revision.
+
+16 Jan 1997  patv
+globals.h, main.c, memmgr.c, task.c, ioctl.c, config.c, inthndlr.c,
+apisupt.asm, nlssupt.asm, proto.h, makefile, fcbfns.c, chario.c,
+dosnames.c, blockio.c, dosfns.c, fatdir.c, fatfs.c, fattab.c,
+device.h, fcb.h, sft.h, dsk.c, boot.asm:
+Corrected copyright
+
+10 Jan 1997  patv
+boot.asm:
+Re-written to support C drive and eliminate restrictions on IPL.SYS
+
+10 Jan 1997  patv
+boot/makefile:
+Changed to use FreeDOS exe2bin and support new boot code
+
+17 Dec 1996  patv
+boot/makefile:
+Converted to FreeDOS exe2bin.
+
+13 Sep 1996  patv
+globals.h:
+Fixed boot for hard drive
+
+29 Aug 1996  patv
+makefile, globals.h, task.c, floppy.asm, wrpcclk.asm, wratclk.asm,
+drivers/makefile, rdpcclk.asm, rdatclk.asm, getvec.asm, boot/makefile,
+boot.asm:
+Bug fixes for v0.91b
+
+29 May 1996  patv
+clock.h, date.h, dcb.h, kbd.h, dirmatch.h, error.h, exe.h, sft.h,
+tail.h, time.h, fnode.h, mcb.h, pcb.h, portab.h, process.h,
+dosnames.h, fat.h, fcb.h, file.h, device.h, dosfns.c, fatdir.c,
+misc.c, fatfs.c, fattab.c, fcbfns.c, chario.c, dosnames.c, syspack.c,
+blockio.c, error.c, prf.c, initoem.c, sysclk.c, int2f.asm, config.c,
+kernel.asm, inthndlr.c, proto.h, systime.c, apisupt.asm, asmsupt.asm,
+nlssupt.asm, procsupt.asm, task.c, globals.h, memmgr.c, dsk.c, main.c,
+makefile, execrh.asm, ioctl.c, strings.c:
+bug fixes for v0.91a
+
+19 Feb 1996  patv
+int2f.asm:
+Initial revision.
+
+19 Feb 1996  patv
+makefile, kernel.asm, nlssupt.asm, proto.h, globals.h, config.c,
+inthndlr.c, task.c, dsk.c, main.c, memmgr.c, strings.c, initoem.c,
+ioctl.c, sysclk.c, systime.c, fatdir.c, misc.c, fatfs.c, dosfns.c,
+dosnames.c, fattab.c, drivers/makefile, cds.h, dirmatch.h, exe.h,
+sft.h, tail.h, time.h, fcb.h, file.h, fnode.h, mcb.h, pcb.h, portab.h,
+process.h, clock.h, date.h, dcb.h, device.h, dosnames.h, fat.h,
+error.h, kbd.h:
+Added NLS, int2f and config.sys processing
+
+01 Sep 1995  patv
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, rdatclk.asm, getvec.asm,
+floppy.asm, boot.asm, apisupt.asm, asmsupt.asm, proto.h, kernel.asm,
+procsupt.asm, execrh.asm, strings.c, task.c, inthndlr.c, memmgr.c,
+dsk.c, main.c, sysclk.c, globals.h, initoem.c, ioctl.c, systime.c,
+dosfns.c, blockio.c, error.c, misc.c, dosnames.c, fcbfns.c, chario.c,
+fattab.c, prf.c, syspack.c, fatfs.c, fatdir.c, time.h, pcb.h,
+portab.h, process.h, sft.h, tail.h, fat.h, fcb.h, file.h, fnode.h,
+mcb.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, clock.h,
+error.h, exe.h, kbd.h: 
+First GPL release.
+
+30 Jul 1995  patv
+dsk.c, memmgr.c, proto.h, strings.c, task.c, blockio.c, misc.c, chario.c,
+dosnames.c, error.c, fattab.c, fcbfns.c, prf.c, syspack.c, dosfns.c,
+fatdir.c, fatfs.c, mcb.h, pcb.h, portab.h, process.h, sft.h, tail.h,
+time.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, fat.h, fcb.h,
+file.h, fnode.h, clock.h:
+Eliminated version strings in ipl
+
+30 Jul 1995  patv
+error.h, kbd.h, exe.h:
+Fixed ipl
+
+30 Jul 1995  patv
+boot.asm:
+Initialized stack before use.
+
+05 Jul 1995  patv
+asmsupt.asm, proto.h:
+Initial revision.
+
+02 Jul 1995  patv
+boot.asm, time.h, tail.h, process.h, sft.h, portab.h, pcb.h, kbd.h,
+mcb.h, fnode.h, file.h, fat.h, fcb.h, exe.h, error.h, dirmatch.h,
+dosnames.h, dcb.h, device.h, date.h, clock.h, boot/makefile,
+procsupt.asm, kernel.asm, execrh.asm, apisupt.asm, task.c, strings.c,
+inthndlr.c, main.c, memmgr.c, dsk.c, sysclk.c, systime.c, ioctl.c,
+initoem.c, globals.h, makefile, misc.c, error.c, fcbfns.c, dosnames.c,
+chario.c, syspack.c, prf.c, fattab.c, fatfs.c, fatdir.c, dosfns.c,
+blockio.c, wrpcclk.asm, wratclk.asm, getvec.asm, rdpcclk.asm,
+rdatclk.asm, floppy.asm, drivers/makefile:
+Initial revision.
+
+25 May 1993  patv
+dirmatch.h:
+Initial revision.
+

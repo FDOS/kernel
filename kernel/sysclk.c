@@ -44,12 +44,12 @@ STATIC int ByteToBcd(int x)
 {
   return ((x / 10) << 4) | (x % 10);
 }
-
+/*
 STATIC int BcdToByte(int x)
 {
   return ((x >> 4) & 0xf) * 10 + (x & 0xf);
 }
-
+*/
 STATIC void DayToBcd(BYTE * x, unsigned mon, unsigned day, unsigned yr)
 {
   x[1] = ByteToBcd(mon);
@@ -65,6 +65,8 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
   switch (rp->r_command)
   {
     case C_INIT:
+    
+#if 0    
       /* If AT clock exists, copy AT clock time to system clock */
       if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
       {
@@ -89,6 +91,7 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
           BcdToByte(bcd_seconds);
         WritePCClock(seconds * 0x12 + ((seconds * 0x34dc) >> 16));
       }
+#endif      
       /* rp->r_endaddr = device_end(); not needed - bart */
       rp->r_nunits = 0;
       return S_DONE;
@@ -156,14 +159,14 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
           else
             break;
         }
-        
+            
         /* Day contains the days left and count the number of   */
         /* days for that year.  Use this to index the table.    */
         for (Month = 1; Month < 13; ++Month)
         {
           if (pdays[Month] > Day)
           {
-            Day -= pdays[Month - 1] + 1;
+            Day = Day - pdays[Month - 1] + 1;
             break;
           }
         }
@@ -189,46 +192,3 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
   }
 }
 
-/*
- * Log: sysclk.c,v - for newer entries do "cvs log sysclk.c"
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.1.1.1  1999/03/29 15:41:33  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:58  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:14:07  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:03:48   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   19 Feb 1996  3:21:34   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.1   01 Sep 1995 17:54:18   patv
- * First GPL release.
- *
- *    Rev 1.0   02 Jul 1995  8:32:30   patv
- * Initial revision.
- */

@@ -73,13 +73,3 @@ void handle_break(int sft_idx)
   spawn_int23();                /* invoke user INT-23 and never come back */
 }
 
-/*
- * Log: break.c,v - for newer entries see "cvs log break.c"
- *
- * Revision 1.2  2000/03/09 06:07:10  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.1  1999/04/16 21:18:17  jprice
- * Steffen contributed.
- *
- */

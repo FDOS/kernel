@@ -31,10 +31,10 @@
 		%include "segs.inc"
                 %include "stacks.inc"
 
-segment	HMA_TEXT
-                extern   _int21_syscall:wrt HGROUP
-                extern   _int21_service:wrt HGROUP
-                extern   _int2526_handler:wrt HGROUP
+segment	_TEXT
+                extern   _int21_syscall:wrt TGROUP
+                extern   _int21_service:wrt TGROUP
+                extern   _int2526_handler:wrt TGROUP
                 extern   _error_tos:wrt DGROUP
                 extern   _char_api_tos:wrt DGROUP
                 extern   _disk_api_tos:wrt DGROUP
@@ -123,21 +123,19 @@ cpm_error:      mov     al,0
 ;       int20_handler(iregs UserRegs)
 ;
 
-print_hex:	mov cx, 404h
-hex_loop:	
-		rol dx, cl
-		mov al, dl
-		and al, 0fh
-		add al, 30h
-		cmp al, 39h
-		jbe no_letter
-		add al, 7
-no_letter:
-                mov bx, 0070h
-                mov ah, 0eh
-                int  10h
-		dec ch
-		jnz hex_loop
+print_hex:	mov	cl, 12
+hex_loop:
+		mov	ax, dx                             
+		shr	ax, cl
+		and	al, 0fh
+		cmp	al, 10
+		sbb	al, 69h
+		das
+                mov 	bx, 0070h
+                mov	ah, 0eh
+                int	10h
+		sub 	cl, 4
+		jae 	hex_loop
 		ret
 
 divide_by_zero_message db 0dh,0ah,'Interrupt divide by zero, stack:',0dh,0ah,0
@@ -639,35 +637,3 @@ CritErrAbort:
                 mov     [bp+reg_ax],ax
                 sti
                 jmp     int21_reentry              ; restart the system call
-
-; Log: entry.asm,v 
-; Revision 1.5  2000/03/20 03:15:49  kernel
-; Change in Entry.asm
-;
-; Revision 1.4  1999/09/23 04:40:46  jprice
-; *** empty log message ***
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:40:53  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:25  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;     Rev 1.1   06 Dec 1998  8:48:40   patv
-;  New int 21h handler code.
-;
-;     Rev 1.0   07 Feb 1998 20:42:08   patv
-;  Modified stack frame to match DOS standard
-; EndLog

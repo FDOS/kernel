@@ -204,9 +204,9 @@ extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
  * the problem with fff0-fff6 is that they might be interpreted as BAD *
  * even though the standard BAD value is ...ff7                        */
 
-#define FAT12MAX	(FAT_MAGIC-7)
-#define FAT16MAX	(FAT_MAGIC16-7)
-#define FAT32MAX	(FAT_MAGIC32-7)
+#define FAT12MAX	(FAT_MAGIC-6)
+#define FAT16MAX	(FAT_MAGIC16-6)
+#define FAT32MAX	(FAT_MAGIC32-6)
 
 #define IsExtPartition(parttyp) ((parttyp) == EXTENDED || \
                                  (parttyp) == EXTENDED_LBA )
@@ -354,15 +354,14 @@ COUNT init_getdriveparm(UBYTE drive, bpb FAR * pbpbarray)
 void init_LBA_to_CHS(struct CHS *chs, ULONG LBA_address,
                      struct DriveParamS *driveparam)
 {
-  unsigned long cylinder;
+  unsigned hs = driveparam->chs.Sector * driveparam->chs.Head;
+  unsigned hsrem = (unsigned)(LBA_address % hs);
   
-  chs->Sector = LBA_address % driveparam->chs.Sector + 1;
+  LBA_address /= hs;
 
-  LBA_address /= driveparam->chs.Sector;
-
-  chs->Head = LBA_address % driveparam->chs.Head;
-  cylinder = LBA_address / driveparam->chs.Head;
-  chs->Cylinder = cylinder >= 0x10000ul ? 0xffffu : cylinder;
+  chs->Cylinder = LBA_address >= 0x10000ul ? 0xffffu : (unsigned)LBA_address;
+  chs->Head = hsrem / driveparam->chs.Sector;
+  chs->Sector = hsrem % driveparam->chs.Sector + 1;
 }
 
 void printCHS(char *title, struct CHS *chs)

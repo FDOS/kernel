@@ -862,3 +862,43 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   return TRUE;
 }
 
+/* version 2.2 jeremyd 2001/9/20
+   Changed so if no source given or only source drive (no path)
+   given, then checks for kernel.sys & command.com in current
+   path (of current drive or given drive) and if not there
+   uses root (but only if source & destination drive are different).
+   Fix printf to include count(ret) if copy can't write all requested bytes
+*/
+/* version 2.1a jeremyd 2001/8/19
+   modified so takes optional 2nd parameter (similar to PC DOS)
+   where if only 1 argument is given, assume to be destination drive,
+   but if two arguments given, 1st is source (drive and/or path)
+   and second is destination drive
+*/
+
+/* Revision 2.1 tomehlert 2001/4/26
+
+    changed the file system detection code.
+    
+
+*/
+
+/* Revision 2.0 tomehlert 2001/4/26
+   
+   no direct access to the disk any more, this is FORMAT's job
+   no floppy.asm anymore, no segmentation problems.
+   no access to partition tables
+   
+   instead copy boot sector using int25/int26 = absdiskread()/write
+   
+   if xxDOS is able to handle the disk, SYS should work
+   
+   additionally some space savers:
+   
+   replaced fopen() by open() 
+   
+   included (slighly modified) PRF.c from kernel
+   
+   size is no ~7500 byte vs. ~13690 before
+
+*/

@@ -34,10 +34,9 @@ static BYTE *Proto_hRcsId =
 #endif
 
 /* blockio.c */
-ULONG getblkno(struct buffer FAR *);
-VOID setblkno(struct buffer FAR *, ULONG);
-struct buffer FAR *getblock(ULONG blkno, COUNT dsk);
-struct buffer FAR *getblockOver(ULONG blkno, COUNT dsk);
+struct buffer FAR *getblk(ULONG blkno, COUNT dsk, BOOL overwrite);
+#define getblock(blkno, dsk) getblk(blkno, dsk, FALSE);
+#define getblockOver(blkno, dsk) getblk(blkno, dsk, TRUE);
 VOID setinvld(REG COUNT dsk);
 BOOL flush_buffers(REG COUNT dsk);
 BOOL flush(void);
@@ -391,94 +390,3 @@ VOID ASMCFUNC exec_user(iregs FAR * irp);
 
 #define ASSERT_CONST(x) { typedef struct { char _xx[x ? 1 : -1]; } xx ; }
 
-/*
- * Log: proto.h,v 
- *
- * Revision 1.17  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.16  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.15  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.14  1999/09/23 04:40:48  jprice
- * *** empty log message ***
- *
- * Revision 1.10  1999/08/25 03:18:09  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.9  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.8  1999/04/23 04:24:39  jprice
- * Memory manager changes made by ska
- *
- * Revision 1.7  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.6  1999/04/16 12:21:22  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.5  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.4  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:30  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *   Rev 1.11   06 Dec 1998  8:47:18   patv
- *Expanded due to new I/O subsystem.
- *
- *   Rev 1.10   07 Feb 1998 20:38:00   patv
- *Modified stack fram to match DOS standard
- *
- *   Rev 1.9   22 Jan 1998  4:09:26   patv
- *Fixed pointer problems affecting SDA
- *
- *   Rev 1.8   11 Jan 1998  2:06:22   patv
- *Added functionality to ioctl.
- *
- *   Rev 1.7   04 Jan 1998 23:16:22   patv
- *Changed Log for strip utility
- *
- *   Rev 1.6   03 Jan 1998  8:36:48   patv
- *Converted data area to SDA format
- *
- *   Rev 1.5   16 Jan 1997 12:46:44   patv
- *pre-Release 0.92 feature additions
- *
- *   Rev 1.4   29 May 1996 21:03:40   patv
- *bug fixes for v0.91a
- *
- *   Rev 1.3   19 Feb 1996  3:23:06   patv
- *Added NLS, int2f and config.sys processing
- *
- *   Rev 1.2   01 Sep 1995 17:54:26   patv
- *First GPL release.
- *
- *   Rev 1.1   30 Jul 1995 20:51:58   patv
- *Eliminated version strings in ipl
- *
- *   Rev 1.0   05 Jul 1995 11:32:16   patv
- *Initial revision.
- */

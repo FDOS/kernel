@@ -110,8 +110,6 @@ ddt *getddt(int dev)
   return &(((ddt *) Dyn.Buffer)[dev]);
 }
 
-ULONG dsk_lasttime = 0;
-
 STATIC VOID tmark(ddt *pddt)
 {
   pddt->ddt_fh.ddt_lasttime = ReadPCClock();
@@ -200,7 +198,7 @@ COUNT ASMCFUNC FAR blk_driver(rqptr rp)
 }
 
 STATIC char template_string[] = "XXXXXX diskette in drive X:\n";
-#define DRIVE_POS (sizeof(template_string) - 2)
+#define DRIVE_POS (sizeof(template_string) - 4)
 
 STATIC WORD play_dj(ddt * pddt)
 {
@@ -870,33 +868,31 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-STATIC int LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
+STATIC int LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
 {
   /* we need the defbpb values since those are taken from the
      BIOS, not from some random boot sector, except when
      we're dealing with a floppy */
-  unsigned long cylinder;
-    
-  bpb *pbpb = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
 
-  chs->Sector = LBA_address % pbpb->bpb_nsecs + 1;
+  const bpb *pbpb = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
+  unsigned hs = pbpb->bpb_nsecs * pbpb->bpb_nheads;
+  unsigned hsrem = (unsigned)(LBA_address % hs);
 
-  LBA_address /= pbpb->bpb_nsecs;
+  LBA_address /= hs;
 
-  chs->Head = LBA_address % pbpb->bpb_nheads;
-
-  cylinder = LBA_address / pbpb->bpb_nheads;
-
-  if (cylinder > 1023ul)
+  if (LBA_address > 1023ul)
   {
 #ifdef DEBUG
-    printf("LBA-Transfer error : cylinder %lu > 1023\n", cylinder);
+    printf("LBA-Transfer error : cylinder %lu > 1023\n", LBA_address);
 #else
     put_string("LBA-Transfer error : cylinder > 1023\n");
 #endif
     return 1;
   }
-  chs->Cylinder = cylinder;
+
+  chs->Cylinder = LBA_address;
+  chs->Head = hsrem / pbpb->bpb_nsecs;
+  chs->Sector =  hsrem % pbpb->bpb_nsecs + 1;
   return 0;
 }
 
@@ -956,6 +952,8 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
   int num_retries;
 
+  *transferred = 0;
+  
   /* only low-level format floppies for now ! */
   if (mode == LBA_FORMAT && hd(pddt->ddt_descflags))
     return 0;
@@ -974,7 +972,6 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
     }
   }
         
-  *transferred = 0;
 /*    
     if (LBA_address+totaltodo > pddt->total_sectors)
         {
@@ -1036,7 +1033,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
       else
       {                         /* transfer data, using old bios functions */
 
-        if (LBA_to_CHS(&chs, LBA_address, pddt))
+        if (LBA_to_CHS(LBA_address, &chs, pddt))
           return 1;
 
         /* avoid overflow at end of track */
@@ -1098,111 +1095,4 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
  * Added full support for LBA hard drives
  * initcode moved (mostly) to initdisk.c
  * lower interface partly redesigned
- */
-
-/* Log: dsk.c,v - for newer log entries: "cvs log dsk.c"
- *
- * Revision 1.16  2001/04/29           brianreifsnyder
- * Added phase 1 support for LBA hard drives
- *
- * Revision 1.15  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.14  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.13  2001/03/27 20:27:43  bartoldeman
- * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
- *
- * Revision 1.12  2001/03/24 22:13:05  bartoldeman
- * See history.txt: dsk.c changes, warning removal and int21 entry handling.
- *
- * Revision 1.11  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.9  2001/03/08 21:15:00  bartoldeman
- * Space saving fixes from Tom Ehlert
- *
- * Revision 1.8  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.7  2000/06/01 06:37:38  jimtabor
- * Read History for Changes
- *
- * Revision 1.6  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.5  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.4  2000/05/17 19:15:12  jimtabor
- * Cleanup, add and fix source.
- *
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.6  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.5  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.4  1999/08/10 18:07:57  jprice
- * ror4 2011-04 patch
- *
- * Revision 1.3  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.2  1999/04/16 00:53:32  jprice
- * Optimized FAT handling
- *
- * Revision 1.1.1.1  1999/03/29 15:40:51  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/14 04:26:46  jprice
- * Changed check media so that it checks if a floppy disk has been changed.
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:25  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.7   06 Dec 1998  8:45:18   patv
- * Changed due to new I/O subsystem.
- *
- *    Rev 1.6   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   10 Jan 1997  5:41:48   patv
- * Modified for extended partition support
- *
- *    Rev 1.4   29 May 1996 21:03:32   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:21:36   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:54:18   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:52:00   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:32:42   patv
- * Initial revision.
  */

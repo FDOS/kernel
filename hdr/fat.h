@@ -65,9 +65,29 @@ static BYTE *fat_hRcsId =
 /* Test for 16 bit or 12 bit FAT                                        */
 #define SIZEOF_CLST16   2
 #define SIZEOF_CLST32   4
-#define FAT_MAGIC       4086
-#define FAT_MAGIC16     ((unsigned)65526l)
-#define FAT_MAGIC32     268435456l
+
+/* FAT cluster special flags                                            */
+#define FREE                    0x000
+
+#ifdef WITHFAT32
+#define LONG_LAST_CLUSTER       0x0FFFFFFFl
+#define LONG_BAD                0x0FFFFFF7l
+#else
+#define LONG_LAST_CLUSTER       0xFFFF
+#define LONG_BAD                0xFFF7
+#endif
+#define MASK16                  0xFFF8
+#define BAD16                   0xFFF7
+#define MASK12                  0xFF8
+#define BAD12                   0xFF7
+
+/* magic constants: even though FF7 is BAD so FF6 could be a valid cluster
+   no., MS docs specify that FF5 is the maximal possible cluster number
+   for FAT12; similar for 16 and 32 */
+
+#define FAT_MAGIC       4085
+#define FAT_MAGIC16     ((unsigned)65525l)
+#define FAT_MAGIC32     268435455l
 
 /* int ISFAT32(struct dpb FAR *dpbp);*/
 #define ISFAT32(x) _ISFAT32(x)
@@ -77,6 +97,7 @@ static BYTE *fat_hRcsId =
 */
 #define _ISFAT32(dpbp)  (((dpbp)->dpb_fatsize)==0)
 #define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC   && ((dpbp)->dpb_size)<=FAT_MAGIC16 )
+#define ELSE_ISFAT16(dpbp) (((dpbp)->dpb_size)<=FAT_MAGIC16 )
 #define ISFAT12(dpbp)   ((((dpbp)->dpb_size)-1)<FAT_MAGIC)
 /* dpb_size == 0 for FAT32, hence doing -1 here */
 
@@ -141,43 +162,3 @@ struct lfn_entry {
 
 #define DIRENT_SIZE     32
 
-/*
- * Log: fat.h,v 
- *
- * Revision 1.2  1999/05/03 06:28:00  jprice
- * Changed some variables from signed to unsigned.
- *
- * Revision 1.1.1.1  1999/03/29 15:39:28  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.3  1999/01/30 08:21:43  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.5   04 Jan 1998 23:14:18   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.4   29 May 1996 21:25:14   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:30   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:42   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:48   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:40   patv
- *      Initial revision.
- */

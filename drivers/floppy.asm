@@ -30,7 +30,7 @@
 
 %ifndef SYS
      %include "..\kernel\segs.inc"
-     segment HMA_TEXT
+     segment _TEXT
 %else
      segment _TEXT class=CODE
 %endif

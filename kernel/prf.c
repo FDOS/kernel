@@ -58,7 +58,6 @@ static char buff[MAX_BUFSIZE];
 #define printf init_printf
 #define sprintf init_sprintf
 #define charp init_charp
-#define hexDigits init_hexDigits
 #endif
 
 #ifdef VERSION_STRINGS
@@ -564,43 +563,3 @@ main()
 }
 #endif
 
-/*
- * Log: prf.c,v - see "cvs log prf.c" for newer entries
- *
- * Revision 1.4  2001/03/07 10:00:00 tomehlert
- * recoded for smaller object footprint, added main() for testing+QA
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:42:20  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:15:10   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:42   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:05:10   patv
- * Initial revision.
- */

@@ -31,9 +31,9 @@
 		%include "segs.inc"
         %include "stacks.inc"
 
-segment	HMA_TEXT
+segment	_TEXT
             extern  _cu_psp:wrt DGROUP
-            extern _syscall_MUX14:wrt HMA_TEXT
+            extern _syscall_MUX14:wrt _TEXT
 
                 global  reloc_call_int2f_handler
 reloc_call_int2f_handler:
@@ -56,6 +56,12 @@ Int2f3:
                 je      FarTabRetn              ; Win Hook return fast
                 cmp     ah,12h
                 je      IntDosCal               ; Dos Internal calls
+
+                cmp     ax,4a01h
+                je      IntDosCal               ; Dos Internal calls
+                cmp     ax,4a02h
+                je      IntDosCal               ; Dos Internal calls
+                                        
                 cmp     ah,10h                  ; SHARE.EXE interrupt?
                 je      Int2f1                  ; yes, do installation check
                 cmp     ah,08h
@@ -130,7 +136,7 @@ IntDosCal:
 
     mov ax,DGROUP
     mov ds,ax    
-    extern   _int2F_12_handler:wrt HGROUP
+    extern   _int2F_12_handler:wrt TGROUP
     call _int2F_12_handler
 
 %IFDEF I386
@@ -319,14 +325,14 @@ int2f_call:
                 xor     cx, cx         ; set to succeed; clear carry and CX
                 int     2fh
                 pop     bx
-                jc      no_clear_ax
-clear_ax:       
-                mov     ax, cx         ; extended open -> status from CX in AX
-                                       ; otherwise CX was set to zero above
-                jmp     short no_neg_ax
+                jnc     clear_ax
 no_clear_ax:
                 neg     ax
-no_neg_ax:              
+                xchg    cx, ax
+clear_ax:       
+                xchg    ax, cx         ; extended open -> status from CX in AX
+                                       ; otherwise CX was set to zero above
+no_neg_ax:
                 pop     bx
                 pop     cx
                 pop     di
@@ -573,40 +579,3 @@ umbt_ret:
 
 umbt_error:     xor 	ax,ax
                 jmp 	short umbt_ret
-
-; Log: int2f.asm,v
-; Revision 1.4  2000/03/31 05:40:09  jtabor
-; Added Eric W. Biederman Patches
-;
-; Revision 1.3  2000/03/09 06:07:11  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:40:59  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:26  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;
-;    Rev 1.2   06 Dec 1998  8:48:12   patv
-; Bug fixes.
-;
-;    Rev 1.1   29 May 1996 21:03:46   patv
-; bug fixes for v0.91a
-;
-;    Rev 1.0   19 Feb 1996  3:34:38   patv
-; Initial revision.
-; EndLog
-;

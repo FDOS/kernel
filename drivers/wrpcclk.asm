@@ -29,7 +29,7 @@
 ;
         %include "..\kernel\segs.inc"
 
-segment HMA_TEXT
+segment _TEXT
 
 
 ;

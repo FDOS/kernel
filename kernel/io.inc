@@ -49,30 +49,12 @@
 %define E_FAILURE       12      ; General Failure
 
 
-	extern	_IOExit:wrt TGROUP
-	extern	_IOSuccess:wrt TGROUP
-	extern	_IOErrorExit:wrt TGROUP
-	extern	_IOErrCnt:wrt TGROUP
-	extern	_IODone:wrt TGROUP
-	extern	_IOCommandError:wrt TGROUP
-	extern	GetUnitNum:wrt TGROUP
-	extern	_ReqPktPtr:wrt TGROUP
-; Log: io.inc,v 
-;
-; Revision 1.3  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.2  1999/03/29 17:05:09  jprice
-; ror4 changes
-;
-; Revision 1.1.1.1  1999/03/29 15:41:08  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; 
-;    Rev 1.0   06 Dec 1998  8:13:02   patv
-; Initial revision.
-; EndLog
-;
+	extern	_IOExit:wrt LGROUP
+	extern	_IOSuccess:wrt LGROUP
+	extern	_IOErrorExit:wrt LGROUP
+	extern	_IOErrCnt:wrt LGROUP
+	extern	_IODone:wrt LGROUP
+	extern	_IOCommandError:wrt LGROUP
+	extern	GetUnitNum:wrt LGROUP
+        extern  _ReqPktPtr:wrt LGROUP
+

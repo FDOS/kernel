@@ -29,7 +29,7 @@
 
 		%include "segs.inc"
 
-segment HMA_TEXT
+segment _TEXT
 %if 0
 
                 extern  _api_sp:wrt DGROUP      ; api stacks - for context
@@ -128,40 +128,3 @@ _restore_stack:
 
                 ret
 %endif
-
-; Log: apisupt.asm,v 
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:40:38  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:25  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;   Rev 1.4   06 Dec 1998  8:47:02   patv
-;Expanded due to new I/O subsystem.
-;
-;   Rev 1.3   16 Jan 1997 12:46:44   patv
-;pre-Release 0.92 feature additions
-;
-;   Rev 1.2   29 May 1996 21:03:38   patv
-;bug fixes for v0.91a
-;
-;   Rev 1.1   01 Sep 1995 17:54:26   patv
-;First GPL release.
-;
-;   Rev 1.0   02 Jul 1995  9:04:50   patv
-;Initial revision.
-; EndLog
-;

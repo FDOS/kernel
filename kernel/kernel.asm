@@ -34,7 +34,7 @@
 
 segment	PSP
 
-                extern  _ReqPktPtr:wrt TGROUP
+                extern  _ReqPktPtr:wrt LGROUP
 
 STACK_SIZE      equ     384/2           ; stack allocated in words
 
@@ -300,7 +300,7 @@ _nblkdev        db      0               ; 0020 number of block devices
 _lastdrive      db      0               ; 0021 value of last drive
                 global  _nul_dev
 _nul_dev:           ; 0022 device chain root
-                extern  _con_dev:wrt TGROUP
+                extern  _con_dev:wrt LGROUP
                 dw      _con_dev, seg _con_dev
                                         ; next is con_dev at init time.  
                 dw      8004h           ; attributes = char device, NUL bit set
@@ -329,12 +329,11 @@ _BootDrive      db      1               ; 0043 drive we booted from
 buf_info:		
 		global	_firstbuf
 _firstbuf       dd      0               ; 0047 disk buffer chain
-                dw      0               ; 004B 0 (DOS 4 = # hashing chains)
+                dw      0               ; 004B Number of dirty buffers
                 dd      0               ; 004D pre-read buffer
-                dw      0               ; 0051 # of sectors
+                dw      0               ; 0051 number of look-ahead buffers
                 db      0               ; 0053 00=conv 01=HMA
-                dw      0               ; 0054 deblock buf in conv
-deblock_seg     dw      0               ; 0056 (offset always zero)
+deblock_buf     dd      0               ; 0054 deblock buffer
                 times 3 db 0            ; 0058 unknown
                 dw      0               ; 005B unknown
                 db      0, 0FFh, 0      ; 005D unknown
@@ -574,7 +573,7 @@ _prev_user_r:
 prev_int21regs_off      dw      0       ;2D0 - pointer to prev int 21 frame
 prev_int21regs_seg      dw      0
 
-                ; Pad to 02ddh
+                ; Pad to 05fdh
                 times (2ddh - ($ - _internal_data)) db 0
                 global  _ext_open_action
                 global  _ext_open_attrib
@@ -654,6 +653,10 @@ blk_stk_top:
                 global  clk_stk_top
                 times 64 dw 0
 clk_stk_top:
+
+; have a jump to the real thing here for AARD compliance
+                global  _CharMapSrvc ; in _DATA (see AARD)
+_CharMapSrvc:   jmp far CharMapSrvc2
             
 ; Dynamic data:
 ; member of the DOS DATA GROUP
@@ -701,7 +704,7 @@ __HMATextStart:
 ; the HMA area is filled with 1eh+3(=sizeof VDISK) = 33 byte dummy data,
 ; so nothing will ever be below 0xffff:0031
 ;
-segment HMA_TEXT
+segment _TEXT
 begin_hma:              
                 times 10h db 0   ; filler [ffff:0..ffff:10]
                 times 20h db 0
@@ -733,7 +736,7 @@ segment	_STACK	class=STACK stack
 
     
 
-segment	_TEXT
+segment	_LOWTEXT
         ; dummy interrupt return handlers
 
 		global _int22_handler
@@ -753,7 +756,7 @@ _DGROUP_:
          dw DGROUP    
 
 
-segment _TEXT
+segment _LOWTEXT
 
 global _initforceEnableA20
 initforceEnableA20:
@@ -821,13 +824,13 @@ _reloc_call_clk_driver:
                 jmp far _clk_driver
                 call near forceEnableA20
 
-                global  _CharMapSrvc
+;               global  _CharMapSrvc ; in _DATA (see AARD)
                 extern  _reloc_call_CharMapSrvc
-_CharMapSrvc: jmp far _reloc_call_CharMapSrvc
+CharMapSrvc2:   jmp far _reloc_call_CharMapSrvc
                 call near forceEnableA20
 
-		
-    global __HMARelocationTableEnd
+
+   global __HMARelocationTableEnd
 __HMARelocationTableEnd:    
 
 ;
@@ -928,7 +931,7 @@ noNeedToDisable:
     iret        
 
 
-segment _TEXT
+segment _LOWTEXT
 ;
 ; Default Int 24h handler -- always returns fail
 ; so we have not to relocate it (now)
@@ -943,7 +946,7 @@ _int24_handler: mov     al,FAIL
 ; this makes some things easier
 ;
 
-segment _TEXT
+segment _LOWTEXT
                 global _TEXT_DGROUP
 _TEXT_DGROUP dw DGROUP
 
@@ -951,71 +954,3 @@ segment INIT_TEXT
                 global _INIT_DGROUP
 _INIT_DGROUP dw DGROUP
 
-
-; Log: kernel.asm,v
-; Revision 1.6  2000/03/09 06:07:11  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.5  1999/09/23 04:40:47  jprice
-; *** empty log message ***
-;
-; Revision 1.3  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.2  1999/04/13 15:52:57  jprice
-; changes for boot loader
-;
-; Revision 1.1.1.1  1999/03/29 15:41:14  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:26  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;   Rev 1.11   06 Dec 1998  8:48:04   patv
-;Bug fixes.
-;
-;   Rev 1.10   03 Feb 1998 23:30:08   patv
-;Added a start-up stack for loadable device drivers.  Need the separate
-;stack so that all int 21h functions can be called.
-;
-;   Rev 1.9   22 Jan 1998  4:09:24   patv
-;Fixed pointer problems affecting SDA
-;
-;   Rev 1.8   06 Jan 1998 20:12:32   patv
-;Reduced device driver stack sizes.
-;
-;   Rev 1.7   04 Jan 1998 17:26:18   patv
-;Corrected subdirectory bug
-;
-;   Rev 1.6   03 Jan 1998  8:36:50   patv
-;Converted data area to SDA format
-;
-;   Rev 1.5   06 Feb 1997 22:43:18   patv
-;Reduced stack sizes for block and clock devices.
-;
-;   Rev 1.4   06 Feb 1997 19:05:48   patv
-;Added hooks for tsc command
-;
-;   Rev 1.3   29 May 1996 21:03:44   patv
-;bug fixes for v0.91a
-;
-;   Rev 1.2   19 Feb 1996  3:24:06   patv
-;Added NLS, int2f and config.sys processing
-;
-;   Rev 1.1   01 Sep 1995 17:54:24   patv
-;First GPL release.
-;
-;   Rev 1.0   02 Jul 1995  9:05:44   patv
-;Initial revision.
-;
-; EndLog
-;

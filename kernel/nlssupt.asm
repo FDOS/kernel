@@ -30,9 +30,9 @@
 
 		%include "segs.inc"
 
-segment	HMA_TEXT
+segment	_TEXT
                 global  _reloc_call_CharMapSrvc
-                extern  _DosUpChar:wrt HGROUP
+                extern  _DosUpChar:wrt TGROUP
 ;
 ; CharMapSrvc:
 ;       User callable character mapping service.
@@ -72,39 +72,3 @@ _reloc_call_CharMapSrvc:
                 pop     ds
                 Restore386Registers
                 retf                            ; Return far
-; Log: nlssupt.asm,v
-;
-; Revision 1.3  2000/03/17 22:59:04  kernel
-; Steffen Kaiser's NLS changes
-;
-; Revision 1.2  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:41:25  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:26  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;     Rev 1.3   06 Dec 1998  8:46:56   patv
-;  Bug fixes.
-;
-;     Rev 1.2   16 Jan 1997 12:46:44   patv
-;  pre-Release 0.92 feature additions
-;
-;     Rev 1.1   29 May 1996 21:03:38   patv
-;  bug fixes for v0.91a
-;
-;     Rev 1.0   19 Feb 1996  3:24:04   patv
-;  Added NLS, int2f and config.sys processing
-; EndLog
-;

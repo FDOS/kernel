@@ -46,8 +46,8 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_flags.f_droot = FALSE;
   fnp->f_flags.f_ddir = TRUE;
   fnp->f_flags.f_dnew = TRUE;
-  fnp->f_diroff = fnp->f_offset = fnp->f_cluster_offset =
-      fnp->f_highwater = 0l;
+  fnp->f_diroff = fnp->f_offset = fnp->f_highwater = 0l;
+  fnp->f_cluster_offset = 0;
 
   /* root directory */
   if (dirstart == 0)
@@ -319,7 +319,7 @@ BOOL dir_write(REG f_node_ptr fnp)
       fnp->f_offset = fnp->f_diroff;
       fnp->f_back = LONG_LAST_CLUSTER;
       fnp->f_cluster = fnp->f_dirstart;
-      fnp->f_cluster_offset = 0l;       /*JPP */
+      fnp->f_cluster_offset = 0;
 
       /* Search through the FAT to find the block     */
       /* that this entry is in.                       */
@@ -641,92 +641,3 @@ int FileName83Length(BYTE * filename83)
 }
 #endif
 
-/*
- * Log: fatdir.c,v - for newer log entries do a "cvs log fatdir.c"
- *
- * Revision 1.12  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.11  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.10  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.9  1999/08/25 03:18:07  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.8  1999/08/10 17:57:12  jprice
- * ror4 2011-02 patch
- *
- * Revision 1.7  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.6  1999/04/16 00:53:32  jprice
- * Optimized FAT handling
- *
- * Revision 1.5  1999/04/13 15:48:20  jprice
- * no message
- *
- * Revision 1.4  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:58  jprice
- * New version without IPL.SYS
- *
- * Revision 1.7  1999/03/25 05:06:57  jprice
- * Fixed findfirst & findnext functions to treat the attributes like MSDOS does.
- *
- * Revision 1.6  1999/02/14 04:27:09  jprice
- * Changed check media so that it checks if a floppy disk has been changed.
- *
- * Revision 1.5  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.3  1999/01/30 08:25:34  jprice
- * Clean up; Fixed bug with set attribute function.  If you tried to
- * change the attributres of a directory, it would erase it.
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.10   06 Dec 1998  8:44:36   patv
- * Bug fixes.
- *
- *    Rev 1.9   22 Jan 1998  4:09:00   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.8   04 Jan 1998 23:14:36   patv
- * Changed Log for strip utility
- *
- *    Rev 1.7   03 Jan 1998  8:36:02   patv
- * Converted data area to SDA format
- *
- *    Rev 1.6   16 Jan 1997 12:46:30   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.5   29 May 1996 21:15:18   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.4   19 Feb 1996  3:20:12   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:48:38   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:24   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:04:34   patv
- * Initial revision.
- */

@@ -30,18 +30,18 @@
 
                 %include "segs.inc"
 
-                extern   ConTable:wrt TGROUP
-                extern   LptTable:wrt TGROUP
-                extern   ComTable:wrt TGROUP
-                extern   uPrtNo:wrt TGROUP
-                extern   CommonNdRdExit:wrt TGROUP
+                extern   ConTable:wrt LGROUP
+                extern   LptTable:wrt LGROUP
+                extern   ComTable:wrt LGROUP
+                extern   uPrtNo:wrt LGROUP
+                extern   CommonNdRdExit:wrt LGROUP
 ;!!                extern   _NumFloppies:wrt DGROUP
                 extern   blk_stk_top:wrt DGROUP
                 extern   clk_stk_top:wrt DGROUP
                 extern   _reloc_call_blk_driver
                 extern   _reloc_call_clk_driver
 
-                extern   _TEXT_DGROUP:wrt TGROUP                
+                extern   _TEXT_DGROUP:wrt LGROUP                
 
 ;---------------------------------------------------
 ;
@@ -81,7 +81,7 @@ segment	_IO_FIXED_DATA
                 ;
                 global  _con_dev
 _con_dev        equ     $
-                dw      _prn_dev,TGROUP
+                dw      _prn_dev,LGROUP
                 dw      8013h           ; con device (stdin & stdout)
                 dw      GenStrategy
                 dw      ConIntr
@@ -91,7 +91,7 @@ _con_dev        equ     $
                 ; Generic prn device that can be redirected via mode
                 ;
                 global  _prn_dev
-_prn_dev        dw      _aux_dev,TGROUP
+_prn_dev        dw      _aux_dev,LGROUP
                 dw      0A040h
                 dw      GenStrategy
                 dw      PrnIntr
@@ -101,7 +101,7 @@ _prn_dev        dw      _aux_dev,TGROUP
                 ; Generic aux device that can be redirected via mode
                 ;
                 global  _aux_dev
-_aux_dev        dw      _Lpt1Dev,TGROUP
+_aux_dev        dw      _Lpt1Dev,LGROUP
                 dw      8000h
                 dw      GenStrategy
                 dw      AuxIntr
@@ -110,17 +110,17 @@ _aux_dev        dw      _Lpt1Dev,TGROUP
                 ;
                 ; Printer device drivers
                 ;
-_Lpt1Dev        dw      _Lpt2Dev,TGROUP
+_Lpt1Dev        dw      _Lpt2Dev,LGROUP
                 dw      0A040h
                 dw      GenStrategy
                 dw      Lpt1Intr
                 db      'LPT1    '
-_Lpt2Dev        dw      _Lpt3Dev,TGROUP
+_Lpt2Dev        dw      _Lpt3Dev,LGROUP
                 dw      0A040h
                 dw      GenStrategy
                 dw      Lpt2Intr
                 db      'LPT2    '
-_Lpt3Dev        dw      _Com1Dev,TGROUP
+_Lpt3Dev        dw      _Com1Dev,LGROUP
                 dw      0A040h
                 dw      GenStrategy
                 dw      Lpt3Intr
@@ -129,22 +129,22 @@ _Lpt3Dev        dw      _Com1Dev,TGROUP
                 ;
                 ; Com device drivers
                 ;
-_Com1Dev        dw      _Com2Dev,TGROUP
+_Com1Dev        dw      _Com2Dev,LGROUP
                 dw      8000h
                 dw      GenStrategy
                 dw      AuxIntr
                 db      'COM1    '
-_Com2Dev        dw      _Com3Dev,TGROUP
+_Com2Dev        dw      _Com3Dev,LGROUP
                 dw      8000h
                 dw      GenStrategy
                 dw      Com2Intr
                 db      'COM2    '
-_Com3Dev        dw      _Com4Dev,TGROUP
+_Com3Dev        dw      _Com4Dev,LGROUP
                 dw      8000h
                 dw      GenStrategy
                 dw      Com3Intr
                 db      'COM3    '
-_Com4Dev        dw      _clk_dev,TGROUP
+_Com4Dev        dw      _clk_dev,LGROUP
                 dw      8000h
                 dw      GenStrategy
                 dw      Com4Intr
@@ -155,7 +155,7 @@ _Com4Dev        dw      _clk_dev,TGROUP
                 ;
                 global  _clk_dev
 _clk_dev        equ     $
-                dw      _blk_dev,TGROUP
+                dw      _blk_dev,LGROUP
                 dw      8008h           ; clock device
                 dw      GenStrategy
                 dw      clk_entry
@@ -596,19 +596,3 @@ clk_and_blk_common:
                 pop     bx
                 popf
                 retf
-
-; Log: io.asm,v 
-; Revision 1.3  2000/03/09 06:07:11  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:41:07  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; EndLog
-;

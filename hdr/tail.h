@@ -42,37 +42,3 @@ typedef struct {
   char ctBuffer[CTBUFFERSIZE];  /* the buffer itself            */
 } CommandTail;
 
-/*
- * Log: tail.h,v 
- *
- * Revision 1.1.1.1  1999/03/29 15:39:36  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.5   04 Jan 1998 23:14:16   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.4   29 May 1996 21:25:18   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:34   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:44   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:50   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:54   patv
- *      Initial revision.
- */

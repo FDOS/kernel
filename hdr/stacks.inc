@@ -185,28 +185,3 @@ irp_hi    equ 26
 	%endmacro
 
 %ENDIF
-
-; Log: stacks.inc,v 
-; Revision 1.3  2000/03/09 06:06:38  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.2  1999/08/10 17:56:26  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:39:35  jprice
-; New version without IPL.SYS
-;
-; Revision 1.3  1999/02/01 01:40:06  jprice
-; Clean up
-;
-; Revision 1.2  1999/01/22 04:17:40  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;
-;   Rev 1.0   07 Feb 1998 20:59:16   patv
-;Modified stack frame to match DOS standard
-; EndLog
-

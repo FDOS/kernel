@@ -1,3 +1,30 @@
+2002 Dec 9 - Build 2028
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * move clock driver initialization to inittext
+    * new ELSE_ISFAT16 macro to save some bytes
+    * use _TEXT for old HMA_TEXT, _LOWTEXT for old _TEXT to get
+      a slightly less complicated memory model from the C compiler's
+      point of view.
+    * add support for int2f/4a01,4a02: query/allocate HMA space.
++ Changes Arkady V. Belousov
+    * slightly improved asm for print_hex and int2f clear_ax stuff
+    * use #error for unknown compilers
+    * remove hexDigits reference
+    * correct comment in kernel.asm (pad to 05fdh)
++ Changes Bart
+    * fix ss:sp init bug for int21/ax=4b01 (visible in DEBUG)
+    * fix redirection problem for character output routines
+    * fix press the any key message for floppy swaps
+    * correct cluster value for BAD cluster
+    * correct FAT12/16/32 cutoff magic values as per the MS spec
+    * the BUFFERS structure is now the same as in MSDOS 5+ and uses
+      a circular double-linked list using near pointers.
+    * move all old RCS log messages into one seperate file
+    * divide the fnode f_cluster_offset field by the size of a cluster: 
+      this gives a more efficient map_cluster().
+    * point the CharMapSrvc pointer to the DOS DS for AARD compliance.
+    * nls.c: set CX to cooperate with load_unf.exe
 2002 Nov 9 - Build 2027
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

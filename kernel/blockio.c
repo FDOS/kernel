@@ -36,6 +36,10 @@ static BYTE *blockioRcsId =
     "$Id$";
 #endif
 
+#define b_next(bp) ((struct buffer FAR *)(MK_FP(FP_SEG(bp), bp->b_next)))
+#define b_prev(bp) ((struct buffer FAR *)(MK_FP(FP_SEG(bp), bp->b_prev)))
+#define bufptr(fbp) ((struct buffer FAR *)(MK_FP(FP_SEG(bp), fbp)))
+
 /************************************************************************/
 /*                                                                      */
 /*                      block cache routines                            */
@@ -45,71 +49,43 @@ static BYTE *blockioRcsId =
 
 STATIC BOOL flush1(struct buffer FAR * bp);
 
-/*                                                                      */
-/* Initialize the buffer structure                                      */
-/*                                                                      */
-
-/* Extract the block number from a buffer structure. */
-
-#if 0 /*TE*/
-STATIC ULONG getblkno(struct buffer FAR * bp)
-{
-  if (bp->b_blkno == 0xffffu)
-    return bp->b_huge_blkno;
-  else
-    return bp->b_blkno;
-}
-#else
-#define getblkno(bp) (bp)->b_blkno
-#endif
-
-/*  Set the block number of a buffer structure. (The caller should  */
-/*  set the unit number before calling this function.)     */
-#if 0 /*TE*/
-STATIC VOID setblkno(struct buffer FAR * bp, ULONG blkno)
-{
-  if (blkno >= 0xffffu)
-  {
-    bp->b_blkno = 0xffffu;
-    bp->b_huge_blkno = blkno;
-  }
-  else
-  {
-    bp->b_blkno = blkno;
-/*    bp->b_dpbp = &blk_devices[bp->b_unit]; */
-
-    bp->b_dpbp = get_cds(bp->b_unit)->cdsDpb;
-
-  }
-}
-#else
-#define setblkno(bp, blkno) (bp)->b_blkno = (blkno)
-#endif
-
 /*
     this searches the buffer list for the given disk/block.
     
     returns:
-    TRUE:
-        the buffer is found
-    FALSE:
-        the buffer is not found
-        *Buffp contains a block to flush and reuse later        
+    a far pointer to the buffer.
+
+    If the buffer is found the UNCACHE bit is not set and else it is set.
         
     new:
         upper layer may set UNCACHE attribute
         UNCACHE buffers are recycled first.
-        intended to be used for full sector reads into application buffer        
-    
+        intended to be used for full sector reads into application buffer
+        resets UNCACHE upon a "HIT" -- so then this buffer will not be
+        recycled anymore.
 */
 
-STATIC BOOL searchblock(ULONG blkno, COUNT dsk, struct buffer FAR ** pBuffp)
+STATIC void move_buffer(struct buffer FAR *bp, size_t firstbp)
+{
+  /* connect bp->b_prev and bp->b_next */
+  b_next(bp)->b_prev = bp->b_prev;
+  b_prev(bp)->b_next = bp->b_next;
+
+  /* insert bp between firstbp and firstbp->b_prev */
+  bp->b_prev = bufptr(firstbp)->b_prev;
+  bp->b_next = firstbp;
+  b_next(bp)->b_prev = FP_OFF(bp);
+  b_prev(bp)->b_next = FP_OFF(bp);
+}
+
+STATIC struct buffer FAR *searchblock(ULONG blkno, COUNT dsk)
 {
   int fat_count = 0;
   struct buffer FAR *bp;
-  struct buffer FAR *lbp = NULL;
-  struct buffer FAR *lastNonFat = NULL;
-  struct buffer FAR *uncacheBuf = NULL;
+  size_t lastNonFat = 0;
+  size_t uncacheBuf = 0;
+  seg bufseg = FP_SEG(firstbuf);
+  size_t firstbp = FP_OFF(firstbuf);
 
 #ifdef DISPLAY_GETBLOCK
   printf("[searchblock %d, blk %ld, buf ", dsk, blkno);
@@ -118,33 +94,34 @@ STATIC BOOL searchblock(ULONG blkno, COUNT dsk, struct buffer FAR ** pBuffp)
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-  for (bp = firstbuf; bp != NULL; lbp = bp, bp = bp->b_next)
+  bp = MK_FP(bufseg, firstbp);
+  do
   {
-    if ((getblkno(bp) == blkno) &&
+    if ((bp->b_blkno == blkno) &&
         (bp->b_flag & BFR_VALID) && (bp->b_unit == dsk))
     {
       /* found it -- rearrange LRU links      */
-      if (lbp != NULL)
-      {
-        lbp->b_next = bp->b_next;
-        bp->b_next = firstbuf;
-        firstbuf = bp;
-      }
 #ifdef DISPLAY_GETBLOCK
       printf("HIT %04x:%04x]\n", FP_SEG(bp), FP_OFF(bp));
 #endif
-      *pBuffp = bp;
-      return TRUE;
+      bp->b_flag &= ~BFR_UNCACHE;  /* reset uncache attribute */
+      if (FP_OFF(bp) != firstbp)
+      {
+        *(UWORD *)&firstbuf = FP_OFF(bp);
+        move_buffer(bp, firstbp);
+      }
+      return bp;
     }
 
     if (bp->b_flag & BFR_UNCACHE)
-      uncacheBuf = bp;
+      uncacheBuf = FP_OFF(bp);
 
     if (bp->b_flag & BFR_FAT)
       fat_count++;
     else
-      lastNonFat = bp;
-  }
+      lastNonFat = FP_OFF(bp);
+    bp = b_next(bp);
+  } while (FP_OFF(bp) != firstbp);
 
   /*
      now take either the last buffer in chain (not used recently)
@@ -153,52 +130,49 @@ STATIC BOOL searchblock(ULONG blkno, COUNT dsk, struct buffer FAR ** pBuffp)
 
   if (uncacheBuf)
   {
-    lbp = uncacheBuf;
+    bp = bufptr(uncacheBuf);
+  }
+  else if (bp->b_flag & BFR_FAT && fat_count < 3 && lastNonFat)
+  {
+    bp = bufptr(lastNonFat);
   }
   else
   {
-    if (lbp->b_flag & BFR_FAT && fat_count < 3 && lastNonFat)
-    {
-      lbp = lastNonFat;
-    }
+    bp = b_prev(bufptr(firstbp));
   }
 
-  lbp->b_flag &= ~BFR_UNCACHE;  /* reset uncache attribute */
-
-  *pBuffp = lbp;
+  bp->b_flag |= BFR_UNCACHE;  /* set uncache attribute */
 
 #ifdef DISPLAY_GETBLOCK
-  printf("MISS, replace %04x:%04x]\n", FP_SEG(lbp), FP_OFF(lbp));
+  printf("MISS, replace %04x:%04x]\n", FP_SEG(bp), FP_OFF(bp));
 #endif
 
-  if (lbp != firstbuf)          /* move to front */
+  if (FP_OFF(bp) != firstbp)          /* move to front */
   {
-    for (bp = firstbuf; bp->b_next != lbp; bp = bp->b_next)
-      ;
-    bp->b_next = bp->b_next->b_next;
-    lbp->b_next = firstbuf;
-    firstbuf = lbp;
+    move_buffer(bp, firstbp);
+    *(UWORD *)&firstbuf = FP_OFF(bp);
   }
-
-  return FALSE;
+  return bp;
 }
 
 BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk)
 {
-  struct buffer FAR *bp;
-
+  struct buffer FAR *bp = firstbuf;
+        
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-  for (bp = firstbuf; bp != NULL; bp = bp->b_next)
+  do
   {
-    if (blknolow <= getblkno(bp) &&
-        getblkno(bp) <= blknohigh &&
+    if (blknolow <= bp->b_blkno &&
+        bp->b_blkno <= blknohigh &&
         (bp->b_flag & BFR_VALID) && (bp->b_unit == dsk))
     {
       flush1(bp);
     }
+    bp = b_next(bp);
   }
+  while (FP_OFF(bp) != FP_OFF(firstbuf));
 
   return FALSE;
 }
@@ -206,40 +180,43 @@ BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk)
 #if TOM
 void dumpBufferCache(void)
 {
-  struct buffer FAR *bp;
+  struct buffer FAR *bp = firstbuf;
   int printed = 0;
 
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-  for (bp = firstbuf; bp != NULL; bp = bp->b_next)
+  do
   {
-    printf("%8lx %02x ", getblkno(bp), bp->b_flag);
+    printf("%8lx %02x ", bp->b_blkno, bp->b_flag);
     if (++printed % 6 == 0)
       printf("\n");
+    bp = b_next(bp);
   }
+  while (FP_OFF(bp) != FP_OFF(firstbuf));
   printf("\n");
 }
 #endif
 /*                                                                      */
 /*      Return the address of a buffer structure containing the         */
 /*      requested block.                                                */
+/*      if overwrite is set, then no need to read first                 */
 /*                                                                      */
 /*      returns:                                                        */
 /*              requested block with data                               */
 /*      failure:                                                        */
 /*              returns NULL                                            */
 /*                                                                      */
-struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
+struct buffer FAR *getblk(ULONG blkno, COUNT dsk, BOOL overwrite)
 {
-  struct buffer FAR *bp;
-
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-  if (searchblock(blkno, dsk, &bp))
+  struct buffer FAR *bp = searchblock(blkno, dsk);
+
+  if (!(bp->b_flag & BFR_UNCACHE))
   {
-    return (bp);
+    return bp;
   }
 
   /* The block we need is not in a buffer, we must make a buffer  */
@@ -251,51 +228,16 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
 
   /* Fill the indicated disk buffer with the current track and sector */
 
-  if (dskxfer(dsk, blkno, (VOID FAR *) bp->b_buffer, 1, DSKREAD))
+  if (!overwrite && dskxfer(dsk, blkno, bp->b_buffer, 1, DSKREAD))
   {
     return NULL;
   }
 
   bp->b_flag = BFR_VALID | BFR_DATA;
   bp->b_unit = dsk;
-  setblkno(bp, blkno);
+  bp->b_blkno = blkno;
 
   return bp;
-
-}
-
-/*
-    exactly the same as getblock(), but the data will be completely
-    overwritten. so there is no need to read from disk first
- */
-struct buffer FAR *getblockOver(ULONG blkno, COUNT dsk)
-{
-  struct buffer FAR *bp;
-
-  /* Search through buffers to see if the required block  */
-  /* is already in a buffer                               */
-
-  if (searchblock(blkno, dsk, &bp))
-  {
-    return bp;
-  }
-
-  /* The block we need is not in a buffer, we must make a buffer  */
-  /* available. */
-
-  /* take the buffer than lbp points to and flush it, then make it available. */
-  if (flush1(bp))               /* success              */
-  {
-    bp->b_flag = 0;
-    bp->b_unit = dsk;
-    setblkno(bp, blkno);
-    return bp;
-  }
-  else
-    /* failure              */
-  {
-    return NULL;
-  }
 }
 
 /*                                                                      */
@@ -303,15 +245,15 @@ struct buffer FAR *getblockOver(ULONG blkno, COUNT dsk)
 /*                                                                      */
 VOID setinvld(REG COUNT dsk)
 {
-  REG struct buffer FAR *bp;
+  struct buffer FAR *bp = firstbuf;
 
-  bp = firstbuf;
-  while (bp)
+  do
   {
     if (bp->b_unit == dsk)
       bp->b_flag = 0;
-    bp = bp->b_next;
+    bp = b_next(bp);
   }
+  while (FP_OFF(bp) != FP_OFF(firstbuf));
 }
 
 /*                                                                      */
@@ -322,17 +264,18 @@ VOID setinvld(REG COUNT dsk)
 /*                                                                      */
 BOOL flush_buffers(REG COUNT dsk)
 {
-  REG struct buffer FAR *bp;
+  struct buffer FAR *bp = firstbuf;
   REG BOOL ok = TRUE;
 
   bp = firstbuf;
-  while (bp)
+  do
   {
     if (bp->b_unit == dsk)
       if (!flush1(bp))
         ok = FALSE;
-    bp = bp->b_next;
+    bp = b_next(bp);
   }
+  while (FP_OFF(bp) != FP_OFF(firstbuf));
   return ok;
 }
 
@@ -347,25 +290,24 @@ STATIC BOOL flush1(struct buffer FAR * bp)
 
   if ((bp->b_flag & BFR_VALID) && (bp->b_flag & BFR_DIRTY))
   {
-    result = dskxfer(bp->b_unit, getblkno(bp), (VOID FAR *) bp->b_buffer, 1, DSKWRITE); /* BER 9/4/00  */
+    /* BER 9/4/00  */
+    result = dskxfer(bp->b_unit, bp->b_blkno, bp->b_buffer, 1, DSKWRITE);
     if (bp->b_flag & BFR_FAT)
     {
-      struct dpb FAR *dpbp = bp->b_dpbp;
-      UWORD b_copies = dpbp->dpb_fats;
-      ULONG b_offset = dpbp->dpb_fatsize;
-      ULONG blkno = getblkno(bp);
+      UWORD b_copies = bp->b_copies;
+      ULONG blkno = bp->b_blkno;
 #ifdef WITHFAT32
-      if (ISFAT32(dpbp))
-      {
-        if (dpbp->dpb_xflags & FAT_NO_MIRRORING)
-          b_copies = 1;
-        b_offset = dpbp->dpb_xfatsize;
-      }
+      ULONG b_offset = bp->b_offset;
+      if (b_offset == 0) /* FAT32 FS */
+        b_offset = bp->b_dpbp->dpb_xfatsize;
+#else
+      UWORD b_offset = bp->b_offset;
 #endif
       while (--b_copies > 0)
       {
         blkno += b_offset;
-        result = dskxfer(bp->b_unit, blkno, bp->b_buffer, 1, DSKWRITE);    /* BER 9/4/00 */
+        /* BER 9/4/00 */
+        result = dskxfer(bp->b_unit, blkno, bp->b_buffer, 1, DSKWRITE);
       }
     }
   }
@@ -384,18 +326,18 @@ STATIC BOOL flush1(struct buffer FAR * bp)
 /*                                                                      */
 BOOL flush(void)
 {
-  REG struct buffer FAR *bp;
+  REG struct buffer FAR *bp = firstbuf;
   REG BOOL ok;
 
   ok = TRUE;
-  bp = firstbuf;
-  while (bp)
+  do
   {
     if (!flush1(bp))
       ok = FALSE;
     bp->b_flag &= ~BFR_VALID;
-    bp = bp->b_next;
+    bp = b_next(bp);
   }
+  while (FP_OFF(bp) != FP_OFF(firstbuf));
 
   remote_flushall();
 
@@ -508,98 +450,29 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
 }
 
 /*
- * 2000/9/04   Brian Reifsnyder
- * Modified dskxfer() such that error codes are now returned.
- * Functions that rely on dskxfer() have also been modified accordingly.
- */
+       this removes any (additionally allocated) buffers 
+       from the HMA buffer chain, because they get allocated to the 'user'
+*/     
+     
+void AllocateHMASpace (size_t lowbuffer, size_t highbuffer)
+{
+  REG struct buffer FAR *bp = firstbuf;
+  int n = LoL_nbuffers;
 
-/*
- * Log: blockio.c,v - for newer entries do "cvs log blockio.c"
- *
- * Revision 1.15  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.14  2000/03/09 06:07:10  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.13  1999/08/25 03:18:07  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.12  1999/08/10 18:03:39  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.11  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.10  1999/05/03 04:55:35  jprice
- * Changed getblock & getbuf so that they leave at least 3 buffer for FAT data.
- *
- * Revision 1.9  1999/04/21 01:44:40  jprice
- * no message
- *
- * Revision 1.8  1999/04/18 05:28:39  jprice
- * no message
- *
- * Revision 1.7  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.6  1999/04/16 00:53:32  jprice
- * Optimized FAT handling
- *
- * Revision 1.5  1999/04/12 23:41:53  jprice
- * Using getbuf to write data instead of getblock
- * using getblock made it read the block before it wrote it
- *
- * Revision 1.4  1999/04/11 05:28:10  jprice
- * Working on multi-block IO
- *
- * Revision 1.3  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.1.1.1  1999/03/29 15:41:43  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:43:27  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.3  1999/01/30 08:25:34  jprice
- * Clean up; Fixed bug with set attribute function.  If you tried to
- * change the attributes of a directory, it would erase it.
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.8   06 Dec 1998  8:43:16   patv
- * Changes in block I/O because of new I/O subsystem.
- *
- *    Rev 1.7   22 Jan 1998  4:09:00   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.6   04 Jan 1998 23:14:36   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   03 Jan 1998  8:36:02   patv
- * Converted data area to SDA format
- *
- *    Rev 1.4   16 Jan 1997 12:46:34   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.3   29 May 1996 21:15:10   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:46   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:28   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:04:06   patv
- * Initial revision.
- */
+  do
+  {
+    if (FP_OFF(bp) < highbuffer && FP_OFF(bp+1) >= lowbuffer)
+    {
+      flush1(bp);
+      /* unlink bp from buffer chain */
+
+      b_prev(bp)->b_next = bp->b_next;
+      b_next(bp)->b_prev = bp->b_prev;
+      if (bp == firstbuf)
+        firstbuf = b_next(bp);
+      LoL_nbuffers--;
+    }
+    bp = b_next(bp);
+  }
+  while (n--);
+}

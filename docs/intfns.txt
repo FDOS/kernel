@@ -193,18 +193,3 @@ See COPYING in DOS-C root directory for license.
 ---------------------------------------------------------------------
 
 $Id$
-
-Log: intfns.txt,v 
-
-Revision 1.2  2000/03/18 05:51:55  kernel
-changes in supported functions
-
-Revision 1.1  1999/08/25 03:46:42  jprice
-New build config
-
-Revision 1.1.1.1  1999/03/29 15:39:16  jprice
-New version without IPL.SYS
-
-Revision 1.2  1999/03/02 06:55:51  jprice
-Updated interrupt list
-

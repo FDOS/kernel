@@ -34,13 +34,13 @@
                 extern  _user_r:wrt DGROUP
 
                 extern  _break_flg:wrt DGROUP   ; break detected flag
-                extern  _int21_handler:wrt TGROUP ; far call system services
+                extern  _int21_handler:wrt LGROUP ; far call system services
 
                 %include "stacks.inc"
 
-segment HMA_TEXT
+segment _TEXT
 
-                extern   _DGROUP_:wrt TGROUP
+                extern   _DGROUP_:wrt LGROUP
 
 ;
 ;       Special call for switching processes
@@ -70,7 +70,7 @@ _exec_user:
                 extern _ExecUserDisableA20
                 jmp far _ExecUserDisableA20
 
-segment _TEXT
+segment _LOWTEXT
 
 
 ;; Called whenever the BIOS detects a ^Break state
@@ -85,7 +85,7 @@ _got_cbreak:
 	pop ds
 	iret
 
-segment	HMA_TEXT
+segment	_TEXT
 
 ;
 ;       Special call for switching processes during break handling
@@ -273,46 +273,3 @@ _spawn_int23:
 ;                cli
 ;                ret
 ;_disable        endp
-
-; Log: procsupt.asm,v
-; Revision 1.4  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.3  1999/04/23 22:38:36  jprice
-; Fixed got_cbreak function.
-;
-; Revision 1.2  1999/04/16 12:21:22  jprice
-; Steffen c-break handler changes
-;
-; Revision 1.1.1.1  1999/03/29 15:41:27  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:27  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;   Rev 1.4   06 Dec 1998  8:46:44   patv
-;Bug fixes.
-;
-;   Rev 1.3   07 Feb 1998 20:42:08   patv
-;Modified stack fram to match DOS standard
-;
-;   Rev 1.2   29 May 1996 21:03:36   patv
-;bug fixes for v0.91a
-;
-;   Rev 1.1   01 Sep 1995 17:54:24   patv
-;First GPL release.
-;
-;   Rev 1.0   02 Jul 1995  9:05:58   patv
-;Initial revision.
-; EndLog
-;
-

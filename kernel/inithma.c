@@ -186,7 +186,6 @@ int EnableHMA(VOID)
 
 int MoveKernelToHMA()
 {
-
   if (DosLoadedInHMA)
   {
     return TRUE;
@@ -366,7 +365,8 @@ void MoveKernel(unsigned NewKernelSegment)
       d[i] = s[i];
   }
 
-  HMAFree = FP_OFF(HMADest) + len;      /* first free byte after HMA_TEXT */
+  HMAFree = (FP_OFF(HMADest) + len + 0xf) & 0xfff0;
+  /* first free byte after HMA_TEXT on 16 byte boundary */
 
   {
     /* D) but it only makes sense, if we can relocate 
@@ -446,9 +446,3 @@ errorReturn:
   for (;;) ;
 }
 
-/*
- * Log: inithma.c,v - for newer entries do "cvs log inithma.c"
- *
- * Revision 0.1 2001/03/16 12:00:00  tom ehlert
- * initial creation
- */

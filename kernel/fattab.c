@@ -82,6 +82,15 @@ struct buffer FAR *getFATblock(ULONG clussec, struct dpb FAR * dpbp)
     bp->b_flag &= ~(BFR_DATA | BFR_DIR);
     bp->b_flag |= BFR_FAT | BFR_VALID;
     bp->b_dpbp = dpbp;
+    bp->b_copies = dpbp->dpb_fats;
+    bp->b_offset = dpbp->dpb_fatsize;
+#ifdef WITHFAT32
+    if (ISFAT32(dpbp))
+    {
+      if (dpbp->dpb_xflags & FAT_NO_MIRRORING)
+        bp->b_copies = 1;
+    }
+#endif
   }
   return bp;
 }
@@ -183,7 +192,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
       *fbp1 = (*fbp1 & 0xf0) | ((Cluster2 >> 8) & 0x0f);
     }
   }
-  else if (ISFAT16(dpbp))
+  else if (ELSE_ISFAT16(dpbp))
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
@@ -319,7 +328,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
       return LONG_BAD;
     return idx;
   }
-  else if (ISFAT16(dpbp))
+  else if (ELSE_ISFAT16(dpbp))
   {
     UWORD res;
 
@@ -353,58 +362,3 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
   return LONG_LAST_CLUSTER;
 }
 
-/*
- * Log: fattab.c,v - for newer log entries do "cvs log fattab.c"
- *
- * Revision 1.6  1999/08/10 18:03:42  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.5  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.4  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.3  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.1.1.1  1999/03/29 15:42:09  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.7   09 Feb 1998  5:41:08   patv
- * Eliminated FAT12 EOF and error returns.
- *
- *    Rev 1.6   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   16 Jan 1997 12:46:22   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.4   29 May 1996 21:15:14   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:20:08   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:48:42   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:04:56   patv
- * Initial revision.
- */

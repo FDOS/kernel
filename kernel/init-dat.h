@@ -27,7 +27,6 @@ extern __segment DosTextSeg;
 
 #else
 
-#pragma error("unknown compiler - please adjust")
-this should simply not compile ! !
+#error("unknown compiler - please adjust")
 #endif
 extern BYTE DOSFAR version_flags;       /* minor version number                 */

@@ -50,7 +50,7 @@ ComTable        db      0Ah
 
 segment	_IO_TEXT
 
-                extern   CommonNdRdExit:wrt TGROUP
+                extern   CommonNdRdExit:wrt LGROUP
 
 ComRead:
                 jcxz    ComRd3

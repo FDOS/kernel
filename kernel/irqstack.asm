@@ -30,9 +30,9 @@
 
 ;       Code for stack switching during hardware interrupts.
 
-group	TGROUP	_TEXT
+group	LGROUP	_LOWTEXT
 
-segment	_TEXT	class=CODE
+segment	_LOWTEXT	class=LCODE
 
 old_vectors     times 16 dd 0
 stack_size      dw      0
@@ -168,7 +168,7 @@ _init_stacks:
                 push    si
 
 
-		mov	ax,_TEXT
+		mov	ax,_LOWTEXT
 		mov	ds,ax
 
                 mov     bx, [bp+4]
@@ -187,7 +187,7 @@ _init_stacks:
                 xor     ax, ax
                 mov     ds, ax
 
-		mov	ax, _TEXT
+		mov	ax, _LOWTEXT
 		mov	es, ax
 
                 mov     di, old_vectors
@@ -221,44 +221,10 @@ set_vect:
 set_next:       mov     ax, dx
                 cli
                 stosw
-                mov     ax, _TEXT
+                mov     ax, _LOWTEXT
                 stosw
                 sti
                 add     dx, irq_1 - irq_0
                 loop    set_next
 
                 ret
-
-; Log: irqstack.asm,v
-; Revision 1.3  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.2  1999/04/16 12:21:22  jprice
-; Steffen c-break handler changes
-;
-; Revision 1.1.1.1  1999/03/29 15:41:10  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:26  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;
-;     Rev 1.2   06 Dec 1998  8:49:08   patv
-;  Bug fixes.
-;
-;     Rev 1.1   22 Jan 1997 13:15:34   patv
-;  pre-0.92 Svante Frey bug fixes
-;
-;     Rev 1.0   16 Jan 1997 21:43:44   patv
-;  Initial revision.
-; EndLog
-;

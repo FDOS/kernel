@@ -30,7 +30,6 @@
 
 #include "portab.h"
 #include "init-mod.h"
-//#include "pcb.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -407,10 +406,3 @@ BOOL LoadCountryInfo(char *fnam)
   return 0;
 }
 
-/*
- * Log: nls_load.c,v  for newer entries do "cvs log nls_load.c"
- *
- * Revision 1.1  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- */

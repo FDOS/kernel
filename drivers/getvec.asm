@@ -30,7 +30,7 @@
 
                 %include "..\kernel\segs.inc"
 
-segment	HMA_TEXT
+segment	_TEXT
 
 		global	_getvec
 _getvec:

@@ -150,21 +150,6 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 #define DSKWRITEINT26   3
 #define DSKREADINT25    4
 
-/* FAT cluster special flags                                            */
-#define FREE                    0x000
-
-#ifdef WITHFAT32
-#define LONG_LAST_CLUSTER       0x0FFFFFFFl
-#define LONG_BAD                0x0FFFFFF7l
-#else
-#define LONG_LAST_CLUSTER       0xFFFF
-#define LONG_BAD                0xFFF8
-#endif
-#define MASK16                  0xFFF8
-#define BAD16                   0xFFF0
-#define MASK12                  0xFF8
-#define BAD12                   0xFF0
-
 /* NLS character table type                                             */
 typedef BYTE *UPMAP;
 
@@ -270,6 +255,7 @@ FAR * ASM clock,                    /* CLOCK$ device                        */
 extern WORD ASM maxbksize;          /* Number of Drives in system           */
 extern struct buffer
 FAR *ASM firstbuf;                  /* head of buffers linked list          */
+GLOBAL char FAR *firstAvailableBuf;
 extern struct cds FAR * ASM CDSp;   /* Current Directory Structure          */
 extern
 struct cds FAR * ASM current_ldt;
@@ -453,115 +439,3 @@ void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
 
-/*
- * Log: globals.h,v 
- *
- * Revision 1.17  2000/03/16 03:28:49  kernel
- * *** empty log message ***
- *
- * Revision 1.16  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.15  1999/09/23 04:40:47  jprice
- * *** empty log message ***
- *
- * Revision 1.13  1999/08/25 03:18:08  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.12  1999/08/10 18:03:43  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.11  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.10  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.9  1999/04/16 12:21:22  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.8  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.7  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.6  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.4  1999/04/04 22:57:47  jprice
- * no message
- *
- * Revision 1.3  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.2  1999/03/29 17:05:09  jprice
- * ror4 changes
- *
- * Revision 1.1.1.1  1999/03/29 15:40:58  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.3  1999/01/30 08:26:46  jprice
- * Clean up; commented out copyright messages while we debug.
- *
- * Revision 1.2  1999/01/22 04:13:26  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
-
- Rev 1.16   06 Dec 1998  8:45:56   patv
- Expanded due to new I/O subsystem.
-
- Rev 1.15   07 Feb 1998 20:38:00   patv
- Modified stack fram to match DOS standard
-
- Rev 1.14   02 Feb 1998 22:33:46   patv
- Fixed size of default_drive.  Caused failures when break_ena was not zero.
-
- Rev 1.13   22 Jan 1998  4:09:24   patv
- Fixed pointer problems affecting SDA
-
- Rev 1.12   04 Jan 1998 23:16:22   patv
- Changed Log for strip utility
-
- Rev 1.11   03 Jan 1998  8:36:50   patv
- Converted data area to SDA format
-
- Rev 1.10   06 Feb 1997 21:57:04   patv
- Changed version format string
-
- Rev 1.9   06 Feb 1997 21:35:08   patv
- Modified to support new version format
-
- Rev 1.8   22 Jan 1997 13:17:14   patv
- Changed to support version.h and pre-0.92 Svante Frey bug fixes.
-
- Rev 1.6   16 Jan 1997 12:47:00   patv
- pre-Release 0.92 feature additions
-
- Rev 1.5   13 Sep 1996 19:26:32   patv
- Fixed boot for hard drive
-
- Rev 1.4   29 Aug 1996 13:07:22   patv
- Bug fixes for v0.91b
-
- Rev 1.3   29 May 1996 21:03:34   patv
- bug fixes for v0.91a
-
- Rev 1.2   19 Feb 1996  3:23:04   patv
- Added NLS, int2f and config.sys processing
-
- Rev 1.1   01 Sep 1995 17:54:16   patv
- First GPL release.
-
- Rev 1.0   02 Jul 1995  8:31:00   patv
- Initial revision.
- */

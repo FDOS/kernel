@@ -45,6 +45,7 @@ EXE_dependencies =  \
  dosnames.obj \
  dsk.obj      \
  initdisk.obj      \
+ initclk.obj      \
  entry.obj    \
  error.obj    \
  execrh.obj   \
@@ -108,7 +109,7 @@ kernel.res: $(EXE_dependencies) $(LIBS)
 	-$(RM) kernel.res
 	..\utils\echoto kernel.res kernel.obj iprf.obj+
 	..\utils\echoto kernel.res entry.obj io.obj blockio.obj chario.obj dosfns.obj console.obj+
-	..\utils\echoto kernel.res printer.obj serial.obj dsk.obj initdisk.obj error.obj fatdir.obj fatfs.obj+
+	..\utils\echoto kernel.res printer.obj serial.obj dsk.obj initdisk.obj initclk.obj error.obj fatdir.obj fatfs.obj+
 	..\utils\echoto kernel.res fattab.obj fcbfns.obj initoem.obj initHMA.obj inthndlr.obj ioctl.obj nls_hc.obj+
 	..\utils\echoto kernel.res main.obj config.obj memmgr.obj misc.obj newstuff.obj nls.obj intr.obj+
 	..\utils\echoto kernel.res dosnames.obj prf.obj strings.obj network.obj sysclk.obj syspack.obj+
@@ -253,101 +254,11 @@ initdisk.obj: initdisk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
+initclk.obj: initclk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
+	$(CC) $(INITCFLAGS) $*.c
+	$(INITPATCH) $*.obj
+
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
 iprf.obj: iprf.c prf.c $(HDR)\portab.h $(CONFIGURATION)
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
-
-# Log: makefile,v 
-#
-# Revision 1.14  2000/03/31 05:40:09  jtabor
-# Added Eric W. Biederman Patches
-#
-# Revision 1.13  2000/03/17 22:59:04  kernel
-# Steffen Kaiser's NLS changes
-#
-# Revision 1.12  2000/03/09 06:07:11  kernel
-# 2017f updates by James Tabor
-#
-# Revision 1.11  1999/09/23 04:40:47  jprice
-# *** empty log message ***
-#
-# Revision 1.8  1999/09/13 20:41:41  jprice
-# Some clean up.
-#
-# Revision 1.7  1999/08/25 03:18:09  jprice
-# ror4 patches to allow TC 2.01 compile.
-#
-# Revision 1.6  1999/08/10 17:57:13  jprice
-# ror4 2011-02 patch
-#
-# Revision 1.5  1999/04/23 04:25:15  jprice
-# no message
-#
-# Revision 1.4  1999/04/23 03:45:11  jprice
-# Improved by jprice
-#
-# Revision 1.3  1999/04/16 12:21:22  jprice
-# Steffen c-break handler changes
-#
-# Revision 1.2  1999/04/13 15:48:21  jprice
-# no message
-#
-# Revision 1.1.1.1  1999/03/29 15:41:15  jprice
-# New version without IPL.SYS
-#
-# Revision 1.7  1999/03/01 06:04:37  jprice
-# Fixed so it'll work with config.mak
-#
-# Revision 1.6  1999/03/01 05:46:43  jprice
-# Turned off DEBUG define.
-#
-# Revision 1.5  1999/02/09 04:49:43  jprice
-# Make makefile use common config.mak file
-#
-# Revision 1.4  1999/02/08 05:55:57  jprice
-# Added Pat's 1937 kernel patches
-#
-# Revision 1.3  1999/02/04 03:09:59  jprice
-# Added option to share constants (-d).
-#
-# Revision 1.2  1999/01/22 04:13:26  jprice
-# Formating
-#
-# Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-# Imported sources
-#
-#
-#   Rev 1.8.1 10 Jan 1999            SRM
-#Took out "/P-" from TLINK
-#Changed "bcc" to "tcc"
-#
-#   Rev 1.9   06 Dec 1998  8:45:40   patv
-#Added new files for I/O subsystem.
-#
-#   Rev 1.8   22 Jan 1998 14:50:06   patv
-#Outdated stacks.asm.
-#
-#   Rev 1.6   03 Jan 1998  8:36:50   patv
-#Converted data area to SDA format
-#
-#   Rev 1.5   30 Jan 1997  7:55:54   patv
-#Added TSC flag for trace support.
-#
-#   Rev 1.4   16 Jan 1997 12:46:42   patv
-#pre-Release 0.92 feature additions
-#
-#   Rev 1.3   29 Aug 1996 13:07:34   patv
-#Bug fixes for v0.91b
-#
-#   Rev 1.2   29 May 1996 21:03:32   patv
-#bug fixes for v0.91a
-#
-#   Rev 1.1   19 Feb 1996  3:35:38   patv
-#Added NLS, int2f and config.sys processing
-#
-#   Rev 1.0   02 Jul 1995  8:30:22   patv
-#Initial revision.
-#
-# EndLog
-#

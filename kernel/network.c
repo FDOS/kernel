@@ -51,19 +51,3 @@ VOID set_machine_name(BYTE FAR * netname, UWORD name_num)
   net_set_count++;
 }
 
-/*
- * Log: network.c,v - for newer entries see "cvs log network.c"
- *
- * Revision 1.5  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.4  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/09/23 04:40:48  jprice
- * *** empty log message ***
- *
- */

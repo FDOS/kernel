@@ -320,6 +320,8 @@ int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
        fatal("KERNEL RETURNED!!!");                    */
   }
   /* mode == LOAD */
+  exp->exec.stack -= 2;
+  *((UWORD FAR *)(exp->exec.stack)) = fcbcode;
   return SUCCESS;
 }
 
@@ -767,91 +769,3 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   return rc;
 }
 
-/*
- * Log: task.c,v - for newer log entries do "cvs log task.c"
- *
- * Revision 1.8  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.7  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.6  1999/08/25 03:18:10  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.5  1999/04/23 04:24:39  jprice
- * Memory manager changes made by ska
- *
- * Revision 1.4  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.3  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/03/29 17:05:09  jprice
- * ror4 changes
- *
- * Revision 1.1.1.1  1999/03/29 15:41:41  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:58  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:14:07  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.15   06 Dec 1998  8:46:28   patv
- * Bug fixes.
- *
- *    Rev 1.14   07 Feb 1998 20:38:32   patv
- * Modified stack fram to match DOS standard
- *
- *    Rev 1.13   31 Jan 1998 14:39:20   patv
- * Corrected type in load high code.
- *
- *    Rev 1.12   31 Jan 1998 14:02:52   patv
- * Added load high in memory option in DosExeLoader.
- *
- *    Rev 1.11   22 Jan 1998 22:17:14   patv
- * Eliminated warnings.
- *
- *    Rev 1.10   22 Jan 1998 21:31:36   patv
- * Corrected short .COM problem.
- *
- *    Rev 1.9   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.8   22 Jan 1997 13:18:14   patv
- * pre-0.92 Svante Frey bug fixes.
- *
- *    Rev 1.7   16 Jan 1997 12:46:56   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.5   29 Aug 1996 13:07:22   patv
- * Bug fixes for v0.91b
- *
- *    Rev 1.4   29 May 1996 21:03:36   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:21:48   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:54:22   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:51:58   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:34:06   patv
- * Initial revision.
- */

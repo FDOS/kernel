@@ -131,6 +131,7 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /*          0x14FF == installed                                 */
 
   r.BX = 0;                     /* make sure the NLSFUNC ID is updated */
+  r.CX = NLS_FREEDOS_NLSFUNC_ID;
   if (muxGo(0, &r) != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
   if (r.BX != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
@@ -676,10 +677,3 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
   return DE_INVLDFUNC;          /* no such function */
 }
 
-/*
- * Log: nls.c,v - for newer log entries see "cvs log nls.c"
- *
- * Revision 1.1  2000/03/23 02:44:21  ska
- * Initial revision
- *
- */

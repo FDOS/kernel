@@ -57,7 +57,7 @@ struct f_node {
   ULONG f_offset;               /* byte offset for next op      */
   ULONG f_highwater;            /* the largest offset ever      */
   CLUSTER f_back;               /* the cluster we were at       */
-  ULONG f_cluster_offset;       /* byte offset that the next 3 point to */
+  CLUSTER f_cluster_offset;     /* relative cluster number within file */
   CLUSTER f_cluster;            /* the cluster we are at        */
   UWORD f_sector;               /* the sector in the cluster    */
   UWORD f_boff;                 /* the byte in the cluster      */
@@ -74,46 +74,3 @@ struct lfn_inode {
 };
   
 typedef struct lfn_inode FAR * lfn_inode_ptr;
-/*
- * Log: fnode.h,v 
- *
- * Revision 1.3  2000/03/09 06:06:38  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/16 00:52:10  jprice
- * Optimized FAT handling
- *
- * Revision 1.1.1.1  1999/03/29 15:39:30  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.3  1999/01/30 08:21:43  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.5   04 Jan 1998 23:14:18   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.4   29 May 1996 21:25:16   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:32   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:42   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:48   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:44   patv
- *      Initial revision.
- */

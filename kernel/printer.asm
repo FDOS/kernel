@@ -242,18 +242,3 @@ PrtGnIoctl3:
 ; you must not simply print without asking for status
 ; as the BIOS has a LARGE timeout before aborting
 ;
-
-; Log: printer.asm,v
-;
-; Revision 1.2  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:41:26  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; EndLog
-;
-

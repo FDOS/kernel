@@ -28,15 +28,15 @@
 ;
 
 group   PGROUP          PSP
-group   TGROUP          _TEXT _IO_TEXT _IO_FIXED_DATA
+group   LGROUP          _LOWTEXT _IO_TEXT _IO_FIXED_DATA
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA
-group   I_GROUP         INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA I_BSS IB_B IB IB_E
-group   HGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END
+group   I_GROUP         INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA IB_B I_BSS IB IB_E
+group   TGROUP          HMA_TEXT_START _TEXT HMA_TEXT_END
 
 segment PSP             class=PSP
-segment	_TEXT		class=CODE
-segment	_IO_TEXT	class=CODE
-segment	_IO_FIXED_DATA	class=CODE align=2
+segment	_LOWTEXT	class=LCODE
+segment	_IO_TEXT	class=LCODE
+segment	_IO_FIXED_DATA	class=LCODE align=2
 segment	_FIXED_DATA	class=FDATA align=16
 segment	_BSS		class=BSS align=2
 segment _DATA           class=DATA align=2
@@ -47,9 +47,9 @@ segment CONST2		class=DATA align=2
 ;for MSC
 segment	DCONST      	class=DCONST   align=2     
 segment	DYN_DATA        class=DYN_DATA
-segment	HMA_TEXT_START	class=HMA align=16
-segment	HMA_TEXT	class=HMA
-segment HMA_TEXT_END	class=HMA
+segment	HMA_TEXT_START	class=CODE align=16
+segment	_TEXT		class=CODE
+segment HMA_TEXT_END	class=CODE
 segment INIT_TEXT_START class=INIT align=16
 segment	INIT_TEXT	class=INIT
 segment	INIT_TEXT_END   class=INIT	
@@ -63,25 +63,8 @@ segment	IC      	class=IC   align=2
 segment ICONST          class=FAR_DATA align=2
 segment ICONST2         class=FAR_DATA align=2
 segment I_DATA          class=FAR_DATA align=2
-segment I_BSS           class=FAR_DATA align=2
 
 segment	IB_B      	class=IB   align=2
+segment I_BSS           class=FAR_DATA align=2
 segment	IB      	class=IB   align=2     
 segment	IB_E      	class=IB   align=2
-
-; Log: segs.inc,v 
-;
-; Revision 1.2  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:41:30  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-;
-;    Rev 1.0   06 Dec 1998  8:12:36   patv
-; Initial revision.
-; EndLog
-;

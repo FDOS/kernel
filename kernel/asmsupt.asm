@@ -36,7 +36,7 @@
 
 		%include "segs.inc"
 
-segment HMA_TEXT
+segment _TEXT
 
 ;*********************************************************************
 ; this implements some of the common string handling functions
@@ -518,43 +518,3 @@ domemcmp:
                 repe cmpsb
                 jne  strncmp_done
                 jmp short strncmp_retzero
-
-; Log: asmsupt.asm,v 
-;
-; Revision 1.3  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.2  1999/04/23 04:24:39  jprice
-; Memory manager changes made by ska
-;
-; Revision 1.1.1.1  1999/03/29 15:40:41  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:25  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;    Rev 1.4   06 Dec 1998  8:46:50   patv
-; Bug fixes.
-;
-;    Rev 1.3   03 Jan 1998  8:36:44   patv
-; Converted data area to SDA format
-;
-;    Rev 1.2   29 May 1996 21:03:38   patv
-; bug fixes for v0.91a
-;
-;    Rev 1.1   01 Sep 1995 17:54:26   patv
-; First GPL release.
-;
-;    Rev 1.0   05 Jul 1995 11:38:42   patv
-; Initial revision.
-; EndLog
-;
