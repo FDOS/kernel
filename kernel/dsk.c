@@ -227,6 +227,7 @@ STATIC WORD play_dj(ddt * pddt)
     fl_readkey();
     pddt2->ddt_descflags &= ~DF_CURLOG;
     pddt->ddt_descflags |= DF_CURLOG;
+    pokeb(0, 0x504, pddt->ddt_logdriveno);
     return M_CHANGED;
   }
   return M_NOT_CHANGED;
