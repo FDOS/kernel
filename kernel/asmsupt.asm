@@ -118,8 +118,8 @@ MEMCPY:
 domemcpy:
                 ; And do the built-in byte copy, but do a 16-bit transfer
                 ; whenever possible.
-                shr     cx,1
 		jcxz	memcpy_return
+                shr     cx,1
                 rep     movsw
                 jnc     memcpy_return
                 movsb
@@ -183,8 +183,8 @@ FMEMSET:
 domemset:                
                 mov	ah, al
 
-                shr	cx,1
                 jcxz	pascal_return
+                shr	cx,1
                 rep     stosw
                 jnc     pascal_return
                 stosb
