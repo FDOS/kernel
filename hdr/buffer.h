@@ -38,6 +38,9 @@ static BYTE *buffer_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/08/19 12:58:34  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.3  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -54,6 +57,7 @@ static BYTE *buffer_hRcsId = "$Id$";
 #define BUFFERSIZE 512
 struct buffer
 {
+  WORD b_dummy;                 /* dummy self pointing word to keep MFT from crashing */	
   struct buffer
   FAR *b_next;                  /* form linked list for LRU     */
   BYTE b_unit;                  /* disk for this buffer         */

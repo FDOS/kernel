@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.15  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -884,6 +887,10 @@ BOOL FcbClose(xfcb FAR * lpXfcb)
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
 
+  /* An already closed FCB can be closed again without error */
+  if (lpFcb->fcb_sftno == (BYTE)0xff)
+    return TRUE;
+
   /* Get the SFT block that contains the SFT      */
   if ((s = idx_to_sft(lpFcb->fcb_sftno)) == (sft FAR *) - 1)
     return FALSE;
@@ -892,8 +899,12 @@ BOOL FcbClose(xfcb FAR * lpXfcb)
   s->sft_size = lpFcb->fcb_fsize;
   if (!(s->sft_flags & SFT_FSHARED))
     dos_setfsize(s->sft_status, lpFcb->fcb_fsize);
-  DosSetFtimeSft(lpFcb->fcb_sftno, (date FAR *) &lpFcb->fcb_date, (time FAR *) &lpFcb->fcb_time);
-  return DosCloseSft(lpFcb->fcb_sftno) == SUCCESS;
+  DosSetFtimeSft(lpFcb->fcb_sftno, lpFcb->fcb_date, lpFcb->fcb_time);
+  if (DosCloseSft(lpFcb->fcb_sftno) == SUCCESS) {
+    lpFcb->fcb_sftno = (BYTE)0xff;
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /* close all files opened by FCBs

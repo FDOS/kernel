@@ -36,6 +36,9 @@ static BYTE *fnode_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/08/19 12:58:34  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.7  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -112,6 +115,7 @@ struct f_node
     BITS f_ddir:1;              /* fnode is assigned to dir     */
     BITS f_dfull:1;             /* directory is full            */
     BITS f_dremote:1;           /* Remote Fake FNode            */
+    BITS f_ddate:1;             /* date set using setdate       */
   }
   f_flags;                      /* file flags                   */
 

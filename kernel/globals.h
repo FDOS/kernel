@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.15  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -263,6 +266,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #define HT              0x09
 #define LF              0x0a
 #define CR              0x0d
+#define CTL_P           0x10
 #define CTL_Q           0x11
 #define CTL_S           0x13
 #define CTL_Z           0x1a
@@ -443,7 +447,12 @@ extern WORD
 extern UBYTE
   nblkdev,                      /* number of block devices              */
   lastdrive,                    /* value of last drive                  */
-  uppermem_link;                /* UMB Link flag */
+  uppermem_link,                /* UMB Link flag */
+  PrinterEcho;			/* Printer Echo Flag                    */
+
+extern UWORD
+  LoL_nbuffers;                 /* Number of buffers                    */
+  
 extern struct dhdr
   nul_dev;
 extern UBYTE

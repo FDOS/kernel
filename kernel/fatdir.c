@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.22  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.21  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -655,7 +658,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
   /* volume id bit set.                                           */
-  if (attr & D_VOLID)
+  if (attr == D_VOLID)
   {
     szDirName[2] = '\\';
     szDirName[3] = '\0';
@@ -679,7 +682,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
          FNAME_SIZE + FEXT_SIZE);
 
-  if (attr & D_VOLID)
+  if (attr == D_VOLID)
   {
     /* Now do the search                                    */
     while (dir_read(fnp) == DIRENT_SIZE)
@@ -799,7 +802,8 @@ COUNT dos_findnext(void)
          */
          
         /* Test the attribute as the final step */
-        if (!(~dmp->dm_attr_srch & (fnp->f_dir.dir_attrib & ~(D_RDONLY|D_ARCHIVE))))
+        if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
+           ((~dmp->dm_attr_srch & fnp->f_dir.dir_attrib & (D_DIR | D_SYSTEM | D_HIDDEN)) == 0))
         {
           found = TRUE;
           break;

@@ -81,6 +81,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.8  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -407,7 +410,8 @@ VOID FAR *HMAalloc(COUNT bytesToAllocate)
     
     HMAptr = MK_FP(0xffff, HMAFree);
     
-    HMAFree += bytesToAllocate;
+    /* align on 16 byte boundary */
+    HMAFree = (HMAFree + bytesToAllocate + 0xf) & 0xfff0;
 
     /*printf("HMA allocated %d byte at %x\n", bytesToAllocate, HMAptr); */
     

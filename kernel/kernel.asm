@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.17  2001/08/19 12:58:36  bartoldeman
+; Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+;
 ; Revision 1.16  2001/07/28 18:13:06  bartoldeman
 ; Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
 ;
@@ -326,8 +329,8 @@ _clock          dd      0               ; 0008 CLOCK$ device
 _syscon         dd      0               ; 000c console device
                 global  _maxbksize
 _maxbksize      dw      512             ; 0010 maximum bytes/sector of any block device
-                global  _firstbuf;
-_firstbuf       dd      0               ; 0012 head of buffers linked list
+		dw	buf_info        ; 0012 pointer to buffers info structure
+		dw	seg buf_info
                 global  _CDSp
 _CDSp           dd      0               ; 0016 Current Directory Structure
                 global  _FCBp
@@ -353,13 +356,16 @@ _njoined        db      0               ; 0034 number of joined devices
 setverPtr       dw      0,0             ; 0037 setver list
                 dw      0               ; 003B cs offset for fix a20
                 dw      0               ; 003D psp of last umb exec
-                dw      1               ; 003F number of buffers
+                global _LoL_nbuffers
+_LoL_nbuffers   dw      1               ; 003F number of buffers
                 dw      1               ; 0041 size of pre-read buffer
                 global  _BootDrive
 _BootDrive      db      1               ; 0043 drive we booted from
                 db      0               ; 0044 cpu type (1 if >=386)
                 dw      0               ; 0045 Extended memory in KBytes
-buf_info        dd      0               ; 0047 disk buffer chain
+buf_info:		
+		global	_firstbuf
+_firstbuf       dd      0               ; 0047 disk buffer chain
                 dw      0               ; 004B 0 (DOS 4 = # hashing chains)
                 dd      0               ; 004D pre-read buffer
                 dw      0               ; 0051 # of sectors

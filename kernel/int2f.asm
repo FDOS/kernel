@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.12  2001/08/19 12:58:36  bartoldeman
+; Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+;
 ; Revision 1.11  2001/07/28 18:13:06  bartoldeman
 ; Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
 ;
@@ -154,34 +157,155 @@ Int2f?14?1:        or BYTE [bp-6], 1
 Int2f?iret:
                iret
 
+
+FarTabRetnBX:   pop     bx
+                jmp     FarTabRetn
 ;
 ;return dos data seg.
 IntDosCal:
-                cmp     al,03
-                jne     IntDosCal_1
+                cmp     al, 31h
+                ja      FarTabRetn
+                push    bx
+                mov     bl, al
+                mov     bh, 0
+                shl     bx, 1
+                jmp     [cs:bx+DosCalTbl]
+
+DosCalTbl:
+dw retff, IntDosCal_1, IntDosCal_2, IntDosCal_3, IntDosCal_4, IntDosCal_5,
+dw IntDosCal_6, IntDosCal_7, IntDosCal_8, IntDosCal_9, IntDosCal_a,
+dw IntDosCal_b, IntDosCal_c, IntDosCal_d, IntDosCal_e, IntDosCal_f,
+dw IntDosCal_10, IntDosCal_11, IntDosCal_12, IntDosCal_13, IntDosCal_14,
+dw IntDosCal_15, IntDosCal_16, IntDosCal_17, IntDosCal_18, IntDosCal_19,
+dw IntDosCal_1a, IntDosCal_1b, IntDosCal_1c, IntDosCal_1d, IntDosCal_1e,
+dw IntDosCal_1f, IntDosCal_20, IntDosCal_21, IntDosCal_22, IntDosCal_23,
+dw IntDosCal_24, IntDosCal_25, IntDosCal_26, IntDosCal_27, IntDosCal_28,
+dw IntDosCal_29, IntDosCal_2a, IntDosCal_2b, IntDosCal_2c, IntDosCal_2d,
+dw IntDosCal_2e, IntDosCal_2f, IntDosCal_30, IntDosCal_31
+
+retff:          mov     al,0ffh
+                jmp     FarTabRetnBX
+                
+IntDosCal_3:                    
                 push    ax
                 mov     ax, seg _nul_dev
                 mov     ds,ax
                 pop     ax
                 clc
-                jmp     FarTabRetn
+                jmp     FarTabRetnBX
+
+IntDosCal_8:
+                ; decrease SFT reference count
+                dec     word [es:di]
+                jnz     .skip
+                dec     word [es:di]
+.skip:        
+                jmp     FarTabRetnBX
+
+IntDosCal_1:
+IntDosCal_2:
+IntDosCal_4:
+IntDosCal_5:
+IntDosCal_6:
+IntDosCal_7:
+IntDosCal_9:
+IntDosCal_a:
+IntDosCal_b:
+IntDosCal_c:
+IntDosCal_d:
+IntDosCal_e:
+IntDosCal_f:
+IntDosCal_10:
+IntDosCal_11:
+IntDosCal_13:
+IntDosCal_14:
+IntDosCal_15:
+IntDosCal_16:
+IntDosCal_17:
+IntDosCal_19:
+IntDosCal_1a:
+IntDosCal_1c:
+IntDosCal_1d:
+IntDosCal_1e:
+IntDosCal_1f:
+IntDosCal_20:
+IntDosCal_22:
+IntDosCal_23:
+IntDosCal_24:
+IntDosCal_26:
+IntDosCal_27:
+IntDosCal_28:
+IntDosCal_29:
+IntDosCal_2b:
+IntDosCal_2d:
+IntDosCal_2e:
+IntDosCal_2f:
+IntDosCal_30:
+IntDosCal_31:
+                jmp     FarTabRetnBX
+
+; get length of asciiz string
+IntDosCal_12:
+                push    di
+                push    es
+		extern  _fstrlen
+                call    _fstrlen
+                add     sp, byte 4
+                mov     cx, ax
+                inc     cx
+                jmp     FarTabRetnBX
+
+; get caller's registers
+IntDosCal_18:
+		extern	_user_r
+                lds     si, [_user_r]
+                jmp     FarTabRetnBX
+
+; #days in February - valid until 2099.
+IntDosCal_1b:
+                mov     al, 28
+                test    cl, 3
+                jnz     .noleap
+                inc     al
+.noleap:        jmp     FarTabRetnBX 
+
+; truename
+IntDosCal_21:   
+                xor     bx, bx
+                push    bx
+                push    es
+                push    di
+                push    ds
+                push    si
+		extern  _truename
+                call    _truename
+                add     sp, byte 10
+                jmp     FarTabRetnBX
+
+; get length of asciiz string
+IntDosCal_25:
+                push    si
+                push    ds
+                call    _fstrlen
+                add     sp, byte 4
+                mov     cx, ax
+                inc     cx
+                jmp     FarTabRetnBX                
+
 ;
 ;Set FastOpen but does nothing.
-IntDosCal_1:
-                cmp     al,02ah
-                jne     IntDosCal_2
+IntDosCal_2a:
                 clc
                 jmp     FarTabRetn
 ;
 ;   added by James Tabor For Zip Drives
 ;Return Null Device Pointer
-IntDosCal_2:
-                cmp     al,02ch
-                jne     Int2f2
+IntDosCal_2c:
                 mov     ax,_nul_dev
                 mov     bx,seg _nul_dev
                 clc
                 jmp     FarTabRetn
+        
 
 ; Int 2F Multipurpose Remote System Calls
 ;

@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.24  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.23  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -374,22 +377,16 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
     else if (s->sft_flags & SFT_FCONIN)
     {
       kb_buf.kb_size = LINESIZE - 1;
-      kb_buf.kb_count = 0;
-      ReadCount = sti((keyboard FAR *) & kb_buf);
+      ReadCount = sti(&kb_buf);
       if (ReadCount < kb_buf.kb_count)
         s->sft_flags &= ~SFT_FEOF;
-      else if (kb_buf.kb_count < kb_buf.kb_size) {
-        kb_buf.kb_buf[kb_buf.kb_count++] = LF;
-        cso(LF);
-        ReadCount++;
-      }
       fbcopy((BYTE FAR *) kb_buf.kb_buf, bp, kb_buf.kb_count);
       *err = SUCCESS;
       return ReadCount;
     }
     else
     {
-      *bp = _sti();
+      *bp = _sti(FALSE);
       *err = SUCCESS;
       return 1;
     }
@@ -529,25 +526,8 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
 
       while(cnt-- != 0 && *bp != CTL_Z){
         if (s->sft_flags & SFT_FCONOUT)
-        {
-          switch (*bp)
-          {
-            case CR:
-              scr_pos = 0;
-              break;
-            case LF:
-            case BELL:
-              break;
-            case BS:
-              scr_pos = scr_pos ? scr_pos - 1 : 0;
-              break;
-            case HT:
-              do cso(' '); while ((++scr_pos) & 7);
-              break;
-            default:
-              scr_pos++;
-          }
-          if (*bp != HT) cso(*bp);
+	{	
+	  cso(*bp);
         }
         else
         {
@@ -562,7 +542,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
         }
         ++bp;
         ++xfer;
-        if (break_ena && control_break())
+        if (control_break())
         {
           handle_break();
           break;
@@ -1406,7 +1386,7 @@ COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
   return dos_getftime(s->sft_status, dp, tp);
 }
 
-COUNT DosSetFtimeSft(WORD sft_idx, date FAR * dp, time FAR * tp)
+COUNT DosSetFtimeSft(WORD sft_idx, date dp, time tp)
 {
   /* Get the SFT block that contains the SFT      */
   sft FAR *s = idx_to_sft(sft_idx);
@@ -1422,12 +1402,12 @@ COUNT DosSetFtimeSft(WORD sft_idx, date FAR * dp, time FAR * tp)
   if (s->sft_flags & SFT_FDEVICE)
     return SUCCESS;
 
+  s->sft_flags |= SFT_FDATE;
+  s->sft_date = dp;
+  s->sft_time = tp;
+
   if (s->sft_flags & SFT_FSHARED)
-  {
-    s->sft_date = *dp;
-    s->sft_time = *tp;
     return SUCCESS;
-  }
 
   /* call file system handler                     */
   return dos_setftime(s->sft_status, dp, tp);

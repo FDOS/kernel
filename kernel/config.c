@@ -75,7 +75,8 @@ extern BYTE FAR VgaSet,
 extern UWORD FAR ram_top,                /* How much ram in Kbytes               */
     FAR UMB_top,
     FAR umb_start,
-    FAR uppermem_root;
+    FAR uppermem_root,
+    FAR LoL_nbuffers;
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -89,6 +90,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.27  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.26  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -1566,6 +1570,7 @@ VOID config_init_buffers(COUNT anzBuffers)
     printf("BUFFERS=%u not supported, reducing to 99\n",anzBuffers);
     anzBuffers = 99;
     }
+  LoL_nbuffers = anzBuffers;
   
   lpTop = lpOldTop;
 
@@ -1581,7 +1586,8 @@ VOID config_init_buffers(COUNT anzBuffers)
     if (FP_SEG(pbuffer) == 0xffff) HMAcount++;
     
     lastbuf = pbuffer;
-    
+
+    pbuffer->b_dummy = FP_OFF(pbuffer);
     pbuffer->b_unit = 0;
     pbuffer->b_flag = 0;
     pbuffer->b_blkno = 0;

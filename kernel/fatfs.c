@@ -47,6 +47,9 @@ BYTE *RcsId = "$Id$";
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
  *
  * $Log$
+ * Revision 1.23  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.22  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -368,11 +371,14 @@ COUNT dos_close(COUNT fd)
   if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
-  if (fnp->f_mode != RDONLY && fnp->f_flags.f_dmod)
+  if (fnp->f_flags.f_dmod)
   {
     fnp->f_dir.dir_attrib |= D_ARCHIVE;
-    fnp->f_dir.dir_time = dos_gettime();
-    fnp->f_dir.dir_date = dos_getdate();
+    if (fnp->f_flags.f_ddate == FALSE)
+    {
+      fnp->f_dir.dir_time = dos_gettime();
+      fnp->f_dir.dir_date = dos_getdate();
+    }  
 
     shrink_file(fnp);               /* reduce allocated filesize in FAT */
     fnp->f_dir.dir_size = fnp->f_highwater;
@@ -631,6 +637,7 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
   fnp->f_dir.dir_date = dos_getdate();
 
   fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags.f_ddate = FALSE;
   fnp->f_flags.f_dnew = FALSE;
   fnp->f_flags.f_ddir = TRUE;
   if (dir_write(fnp) != DIRENT_SIZE)
@@ -647,6 +654,7 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
   fnp->f_cluster = fnp->f_dir.dir_start = FREE;
   fnp->f_cluster_offset = 0l;   /*JPP */
   fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags.f_ddate = FALSE;
   fnp->f_flags.f_dnew = FALSE;
   fnp->f_flags.f_ddir = FALSE;
 
@@ -1037,7 +1045,7 @@ COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
 /*                                                              */
 /* dos_setftime for the file time                               */
 /*                                                              */
-COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp)
+COUNT dos_setftime(COUNT fd, date dp, time tp)
 {
   f_node_ptr fnp;
 
@@ -1052,8 +1060,10 @@ COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp)
     return DE_INVLDHNDL;
 
   /* Set the date and time from the fnode and return              */
-  fnp->f_dir.dir_date = *dp;
-  fnp->f_dir.dir_time = *tp;
+  fnp->f_dir.dir_date = dp;
+  fnp->f_dir.dir_time = tp;
+  fnp->f_flags.f_dmod = TRUE;         /* mark file as modified */
+  fnp->f_flags.f_ddate = TRUE;        /* set this date upon closing */
 
   return SUCCESS;
 }
@@ -1770,6 +1780,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   }
 
   fnp->f_flags.f_dmod = TRUE;         /* mark file as modified */
+  fnp->f_flags.f_ddate = FALSE;       /* set date not valid any more */
 
 
   /* Test that we are really about to do a data transfer. If the  */
@@ -2245,6 +2256,7 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;	/* JPP */
   fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags.f_ddate = TRUE;
   dos_close(fd);
   return SUCCESS;
 }

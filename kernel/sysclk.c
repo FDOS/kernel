@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.7  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -119,7 +122,7 @@ VOID DayToBcd();
 /*                                                                      */
 /* WARNING - THIS DRIVER IS NON-PORTABLE!!!!                            */
 /*                                                                      */
-extern WORD days[2][13];    /* this is defined by SYSTIME.C */
+extern UWORD days[2][13];    /* this is defined by SYSTIME.C */
 
 
 static struct ClockRecord clk;
@@ -135,8 +138,8 @@ static BYTE bcdHours;
 static BYTE bcdSeconds;
 
 static ULONG Ticks;
-UWORD DaysSinceEpoch = 0;
 */
+UWORD DaysSinceEpoch = 0;
 
 BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
 
@@ -149,13 +152,12 @@ WORD FAR clk_driver(rqptr rp)
 {
   COUNT 
     c;
-  WORD *pdays;
+  UWORD *pdays;
   BYTE bcd_days[4],
     bcd_minutes,
     bcd_hours,
     bcd_seconds;
   ULONG Ticks;
-  UWORD DaysSinceEpoch;
   UWORD Month,
     Day,
     Year;

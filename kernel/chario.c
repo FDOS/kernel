@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.10  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -168,7 +171,7 @@ struct dhdr FAR *finddev(UWORD attr_mask)
 }
 #endif
 
-VOID cso(COUNT c)
+VOID _cso(COUNT c)
 {
    if (syscon->dh_attr & ATTR_FASTCON) {
      _AL = c;
@@ -185,13 +188,40 @@ VOID cso(COUNT c)
      char_error(&CharReqHdr, syscon);
 }
 
+VOID cso(COUNT c)
+{
+  /* Test for hold char */
+  con_hold();
+
+  if (PrinterEcho)
+    DosWrite(STDPRN, 1, (BYTE FAR *) & c, (COUNT FAR *) &UnusedRetVal);
+
+  switch (c)
+  {
+    case CR:
+      scr_pos = 0;
+      break;
+    case LF:
+    case BELL:
+      break;
+    case BS:
+      if (scr_pos > 0) scr_pos--;
+      break;
+    case HT:
+      do _cso(' '); while ((++scr_pos) & 7);
+      break;
+    default:
+      scr_pos++;
+  }
+  if (c != HT) _cso(c);
+}
 
 VOID sto(COUNT c)
 {
   DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) &UnusedRetVal);
 }
 
-VOID mod_sto(REG UCOUNT c)
+VOID mod_cso(REG UCOUNT c)
 {
   if (c < ' ' && c != HT)
   {
@@ -223,19 +253,7 @@ VOID Do_DosIdle_loop(void)
   }
 }
 
-UCOUNT _sti(void)
-{
-  UBYTE c;
-  /*
-   * XXX: If there's a read error, this will just keep retrying the read until
-   * the error disappears. Maybe it should do something else instead. -- ror4
-   */
-  while (GenericRead(STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal, TRUE)
-         != 1) ;
-  return c;
-}
-
-BOOL con_break(void)
+COUNT ndread(void)
 {
   CharReqHdr.r_unit = 0;
   CharReqHdr.r_status = 0;
@@ -243,10 +261,61 @@ BOOL con_break(void)
   CharReqHdr.r_length = sizeof(request);
   execrh((request FAR *) & CharReqHdr, syscon);
   if (CharReqHdr.r_status & S_BUSY)
-    return FALSE;
-  if (CharReqHdr.r_ndbyte == CTL_C)
+    return -1;
+  return CharReqHdr.r_ndbyte;
+}
+
+COUNT con_read(void)
+{
+  BYTE c;
+    
+  CharReqHdr.r_length = sizeof(request);
+  CharReqHdr.r_command = C_INPUT;
+  CharReqHdr.r_count = 1;
+  CharReqHdr.r_trans = (BYTE FAR *)&c;
+  CharReqHdr.r_status = 0;
+  execrh((request FAR *) & CharReqHdr, syscon);
+  if (CharReqHdr.r_status & S_ERROR)
+    char_error(&CharReqHdr, syscon);
+  if (c == CTL_C)
+    handle_break();
+  return c;
+}
+
+VOID con_hold(void)
+{
+  UBYTE c = ndread();
+  if(c == CTL_S)
   {
-    _sti();
+    con_read();
+    Do_DosIdle_loop();
+    /* just wait */
+    c = con_read();
+  }
+  if (c == CTL_C)
+    handle_break();
+}
+
+UCOUNT _sti(BOOL check_break)
+{
+  UBYTE c;
+  /*
+   * XXX: If there's a read error, this will just keep retrying the read until
+   * the error disappears. Maybe it should do something else instead. -- ror4
+   */
+  Do_DosIdle_loop();
+  if (check_break)
+    con_hold();
+  while (GenericRead(STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal, TRUE)
+         != 1) ;
+  return c;
+}
+
+BOOL con_break(void)
+{
+  if (ndread() == CTL_C)
+  {
+    con_read();
     return TRUE;
   }
   else
@@ -296,7 +365,7 @@ static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
   kp->kb_buf[kp->kb_count++] = c;
   if (!ctlf)
   {
-    mod_sto(c);
+    mod_cso(c);
     *vp += 2;
   }
   else
@@ -310,13 +379,13 @@ static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
 }
 
 /* return number of characters before EOF if there is one, else just the total */
-UCOUNT sti(keyboard FAR * kp)
+UCOUNT sti_0a(keyboard FAR * kp)
 {
   REG UWORD c,
     cu_pos = scr_pos;
   UWORD
       virt_pos = scr_pos;
-  WORD init_count = kp->kb_count;
+  UWORD init_count = 0; /* kp->kb_count; */
   BOOL eof = FALSE;
 #ifndef NOSPCL
   static BYTE local_buffer[LINESIZE];
@@ -324,14 +393,11 @@ UCOUNT sti(keyboard FAR * kp)
 
   if (kp->kb_size == 0)
     return eof;
-  if (kp->kb_size <= kp->kb_count || kp->kb_buf[kp->kb_count] != CR)
-    kp->kb_count = 0;
+  /* if (kp->kb_size <= kp->kb_count || kp->kb_buf[kp->kb_count] != CR) */
+  kp->kb_count = 0;
   FOREVER
   {
-
-    Do_DosIdle_loop();
-
-    switch (c = _sti())
+    switch (c = _sti(TRUE))
     {
       case CTL_C:
         handle_break();
@@ -340,7 +406,7 @@ UCOUNT sti(keyboard FAR * kp)
 
 #ifndef NOSPCL
       case SPCL:
-        switch (c = _sti())
+        switch (c = _sti(TRUE))
         {
           case LEFT:
             goto backspace;
@@ -405,8 +471,8 @@ UCOUNT sti(keyboard FAR * kp)
         if (eof)
           return eof;
         else
-          return kp->kb_count;
-
+          return kp->kb_count--;
+        
       case LF:
         break;
 
@@ -428,4 +494,18 @@ UCOUNT sti(keyboard FAR * kp)
         break;
     }
   }
+}
+
+UCOUNT sti(keyboard * kp)
+{
+  UCOUNT ReadCount = sti_0a(kp);
+  kp->kb_count++;
+
+  if (ReadCount >= kp->kb_count && kp->kb_count < kp->kb_size) 
+  {
+    kp->kb_buf[kp->kb_count++] = LF;
+    cso(LF);
+    ReadCount++;
+  }
+  return ReadCount;
 }

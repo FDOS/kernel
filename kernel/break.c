@@ -38,6 +38,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.5  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -87,6 +90,7 @@ int control_break(void)
  */
 void handle_break(void)
 {
+  mod_cso(CTL_C);
   CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
   KbdFlush();                   /* Er, this is con_flush() */
   if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */

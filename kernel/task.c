@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.16  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -352,7 +355,7 @@ VOID new_psp(psp FAR * p, int psize)
 
   /* File System parameters                               */
   /* user stack pointer - int 21                          */
-  p->ps_stack = (BYTE FAR *) - 1;
+  p->ps_stack = q->ps_stack;
   /* file table - 0xff is unused                          */
   for (i = 0; i < 20; i++)
     p->ps_files[i] = 0xff;

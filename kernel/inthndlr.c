@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.30  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.29  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -429,8 +432,7 @@ dispatch:
 
       /* Read Keyboard with Echo                      */
     case 0x01:
-      Do_DosIdle_loop();
-      r->AL = _sti();
+      r->AL = _sti(TRUE);
       sto(r->AL);
       break;
 
@@ -474,16 +476,18 @@ dispatch:
       else
       {
         r->FLAGS &= ~FLG_ZERO;
-        r->AL = _sti();
+        r->AL = _sti(FALSE);
       }
       break;
 
       /* Direct Console Input                                         */
     case 0x07:
+      r->AL = _sti(FALSE);
+      break;
+
       /* Read Keyboard Without Echo                                   */
     case 0x08:
-      Do_DosIdle_loop();
-      r->AL = _sti();
+      r->AL = _sti(TRUE);
       break;
 
       /* Display String                                               */
@@ -500,9 +504,7 @@ dispatch:
 
       /* Buffered Keyboard Input                                      */
     case 0x0a:
-      ((keyboard FAR *) FP_DS_DX)->kb_count = 0;
-      sti((keyboard FAR *) FP_DS_DX);
-      ((keyboard FAR *) FP_DS_DX)->kb_count --;
+      sti_0a((keyboard FAR *) FP_DS_DX);
       break;
 
       /* Check Stdin Status                                           */
@@ -1294,8 +1296,8 @@ dispatch:
         case 0x01:
           rc = DosSetFtime(
                             (COUNT) r->BX,	/* Handle               */
-                            (date FAR *) & r->DX,	/* FileDate             */
-                            (time FAR *) & r->CX);	/* FileTime             */
+                            (date) r->DX,	/* FileDate             */
+                            (time) r->CX);	/* FileTime             */
           if (rc < SUCCESS)
             goto error_exit;
           break;

@@ -37,6 +37,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.5  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -101,7 +104,7 @@ static BYTE *RcsId = "$Id$";
  */
 
     
-WORD days[2][13] =
+UWORD days[2][13] =
 {
   {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365},
   {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
@@ -114,7 +117,7 @@ extern request
     return a pointer to an array with the days for that year
 */      
 
-WORD *is_leap_year_monthdays(int y)
+UWORD *is_leap_year_monthdays(UWORD y)
 {
  /* this is correct in a strict mathematical sense   
     return ((y) & 3 ? days[0] : (y) % 100 ? days[1] : (y) % 400 ? days[0] : days[1]); */
@@ -126,7 +129,7 @@ WORD *is_leap_year_monthdays(int y)
     return days[1];
 }
 
-WORD DaysFromYearMonthDay(WORD Year, WORD Month, WORD DayOfMonth)
+UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth)
 {
   if (Year < 1980) return 0;
     
@@ -190,9 +193,9 @@ BYTE FAR *wdp,
   FAR * mdp;
 COUNT FAR *yp;
 {
-  WORD c;
-  WORD *pdays;  
-  WORD Year,Month;
+  UWORD c;
+  UWORD *pdays;  
+  UWORD Year,Month;
 
   ExecuteClockDriverRequest(C_INPUT);
 
@@ -234,7 +237,7 @@ BYTE FAR *mp,
   FAR * mdp;
 COUNT FAR *yp;
 {
-  WORD *pdays, Month, DayOfMonth,Year;
+  UWORD *pdays, Month, DayOfMonth,Year;
   Month = *mp;
   DayOfMonth = *mdp;
   Year = *yp;

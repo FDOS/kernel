@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.21  2001/08/19 12:58:36  bartoldeman
+ * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
+ *
  * Revision 1.20  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -199,17 +202,18 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
 /* *** End of change
 
 /* chario.c */
-VOID cso(COUNT c);
 VOID sto(COUNT c);
-VOID mod_sto(REG UCOUNT c);
+VOID cso(COUNT c);
+VOID mod_cso(REG UCOUNT c);
 VOID destr_bs(void);
-UCOUNT _sti(void);
+UCOUNT _sti(BOOL check_break);
 VOID con_hold(void);
 BOOL con_break(void);
 BOOL StdinBusy(void);
 VOID KbdFlush(void);
 VOID Do_DosIdle_loop(void);
-UCOUNT sti(keyboard FAR * kp);
+UCOUNT sti_0a(keyboard FAR * kp);
+UCOUNT sti(keyboard * kp);
 
 sft FAR *get_sft(UCOUNT);
 
@@ -239,7 +243,7 @@ COUNT DosChangeDir(BYTE FAR * s);
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name);
 COUNT DosFindNext(void);
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp);
-COUNT DosSetFtimeSft(WORD sft_idx, date FAR * dp, time FAR * tp);
+COUNT DosSetFtimeSft(WORD sft_idx, date dp, time tp);
 #define DosSetFtime(hndl, dp, tp) DosSetFtimeSft(get_sft_idx(hndl), (dp), (tp))
 COUNT DosGetFattr(BYTE FAR * name);
 COUNT DosSetFattr(BYTE FAR * name, UWORD attrp);
@@ -296,7 +300,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2);
 date dos_getdate(void);
 time dos_gettime(void);
 COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp);
-COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp);
+COUNT dos_setftime(COUNT fd, date dp, time tp);
 LONG dos_getcufsize(COUNT fd);
 LONG dos_getfsize(COUNT fd);
 BOOL dos_setfsize(COUNT fd, LONG size);
@@ -478,8 +482,8 @@ COUNT DosSetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp);
 VOID DosGetDate(BYTE FAR * wdp, BYTE FAR * mp, BYTE FAR * mdp, COUNT FAR * yp);
 COUNT DosSetDate(BYTE FAR * mp, BYTE FAR * mdp, COUNT FAR * yp);
 
-WORD  *is_leap_year_monthdays(int year);
-WORD DaysFromYearMonthDay(WORD Year, WORD Month, WORD DayOfMonth);
+UWORD  *is_leap_year_monthdays(UWORD year);
+UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
 
 
 
