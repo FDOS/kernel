@@ -268,6 +268,11 @@ COUNT DosDevIOctl(lregs * r)
           {
             return DE_INVLDDRV;
           }
+          if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
+          {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
+            r->AX = 0;  /* (lock/unlock logical/physical volume) */
+            break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
+          }
           if (((r->AL == 0x04) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
               || ((r->AL == 0x05) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
               || ((r->AL == 0x11)
@@ -276,11 +281,6 @@ COUNT DosDevIOctl(lregs * r)
                   && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
           {
             return DE_INVLDFUNC;
-          }
-          if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
-          {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
-            r->AX = 0;  /* (lock/unlock logical/physical volume) */
-            break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
           }
 
           CharReqHdr.r_command = nMode;
