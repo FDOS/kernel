@@ -47,8 +47,9 @@ int ISFAT32(struct dpb FAR * dpbp)
 }
 #endif
 
-struct buffer FAR *getFATblock(ULONG clussec, struct dpb FAR * dpbp)
+struct buffer FAR *getFATblock(CLUSTER clussec, struct dpb FAR * dpbp)
 {
+  unsigned secdiv;
   struct buffer FAR *bp;
   CLUSTER max_cluster = dpbp->dpb_size;
 
@@ -68,21 +69,22 @@ struct buffer FAR *getFATblock(ULONG clussec, struct dpb FAR * dpbp)
     return NULL;
   }
 
+  secdiv = dpbp->dpb_secsize;
   if (ISFAT12(dpbp))
   {
-    clussec = (((unsigned)clussec << 1) + (unsigned)clussec) >> 1;
+    clussec = (unsigned)clussec * 3;
+    secdiv *= 2;
   }
+  else /* FAT16 or FAT32 */
+  {
+    secdiv /= 2;
 #ifdef WITHFAT32
-  else if (ISFAT32(dpbp))
-  {
-    clussec = clussec * SIZEOF_CLST32;
-  }
+    if (ISFAT32(dpbp))
+      secdiv /= 2;
 #endif
-  else
-  {
-    clussec = clussec * SIZEOF_CLST16;
   }
-  clussec = clussec / dpbp->dpb_secsize + dpbp->dpb_fatstrt;
+  clussec /= secdiv;
+  clussec += dpbp->dpb_fatstrt;
 #ifdef WITHFAT32
   if (ISFAT32(dpbp) && (dpbp->dpb_xflags & FAT_NO_MIRRORING))
   {
