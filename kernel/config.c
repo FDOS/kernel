@@ -1672,8 +1672,10 @@ STATIC COUNT toupper(COUNT c)
 /* Convert string s to uppercase */
 STATIC VOID strupr(char *s)
 {
-  while (*s)
-    *s++ = toupper(*s);
+  while (*s) {
+    *s = toupper(*s);
+    s++;
+  }
 }
 
 /* The following code is 8086 dependant                         */
