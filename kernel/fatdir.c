@@ -383,9 +383,15 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* Special handling - the volume id is only in the root         */
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
-  /* volume id bit set.                                           */
-  if ((attr & (D_VOLID|D_DIR))==D_VOLID)
+  /* volume id bit set (while ignoring LFN entries).              */
+  /* RBIL: ignore ReaDONLY and ARCHIVE bits                       */
+  /* For compatibility with bad search requests, only treat as    */
+  /*   volume search if only volume bit set, else ignore it.      */
+  if ((attr & ~(D_RDONLY | D_ARCHIVE))==D_VOLID)
     i = 3;
+  else
+    attr &= ~D_VOLID;  /* ignore volume mask */
+
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
 
@@ -406,7 +412,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* Copy the raw pattern from our data segment to the DTA. */
   fmemcpy(dmp->dm_name_pat, SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
-  if ((attr & (D_VOLID|D_DIR))==D_VOLID)
+  if ((attr & D_VOLID)==D_VOLID) /* search for VOL label ignore RDONLY & ARCHIVE */
   {
     /* Now do the search                                    */
     while (dir_read(fnp) == 1)
