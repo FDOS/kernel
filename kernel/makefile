@@ -168,43 +168,43 @@ HEADERS=\
 # XXX: I generated these using `gcc -MM' and `sed', so they may not be
 # completely correct... -- ror4
 
-#blockio.obj: blockio.c    $(HEADERS) $(CONFIGURATION)  
+blockio.obj: blockio.c    $(HEADERS) $(CONFIGURATION)  
 
-#break.obj: break.c        $(HEADERS) $(CONFIGURATION)  
+break.obj: break.c        $(HEADERS) $(CONFIGURATION)  
 
-#chario.obj: chario.c      $(HEADERS) $(CONFIGURATION)  
+chario.obj: chario.c      $(HEADERS) $(CONFIGURATION)  
 
-#dosfns.obj: dosfns.c      $(HEADERS) $(CONFIGURATION)  
+dosfns.obj: dosfns.c      $(HEADERS) $(CONFIGURATION)  
 
-#dosnames.obj: dosnames.c  $(HEADERS) $(CONFIGURATION)  
+dosnames.obj: dosnames.c  $(HEADERS) $(CONFIGURATION)  
 
-#dsk.obj: dsk.c            $(HEADERS) $(CONFIGURATION)  
+dsk.obj: dsk.c            $(HEADERS) $(CONFIGURATION)  
 
-#error.obj: error.c        $(HEADERS) $(CONFIGURATION)  
+error.obj: error.c        $(HEADERS) $(CONFIGURATION)  
 
-#fatdir.obj: fatdir.c      $(HEADERS) $(CONFIGURATION)  
+fatdir.obj: fatdir.c      $(HEADERS) $(CONFIGURATION)  
 
-#fatfs.obj: fatfs.c        $(HEADERS) $(CONFIGURATION)  
+fatfs.obj: fatfs.c        $(HEADERS) $(CONFIGURATION)  
 
-#fattab.obj: fattab.c      $(HEADERS) $(CONFIGURATION)  
+fattab.obj: fattab.c      $(HEADERS) $(CONFIGURATION)  
 
-#fcbfns.obj: fcbfns.c      $(HEADERS) $(CONFIGURATION)  
+fcbfns.obj: fcbfns.c      $(HEADERS) $(CONFIGURATION)  
 
-#inthndlr.obj: inthndlr.c  $(HEADERS) $(CONFIGURATION)  
+inthndlr.obj: inthndlr.c  $(HEADERS) $(CONFIGURATION)  
 
-#ioctl.obj: ioctl.c        $(HEADERS) $(CONFIGURATION)  
+ioctl.obj: ioctl.c        $(HEADERS) $(CONFIGURATION)  
 
-#memmgr.obj: memmgr.c      $(HEADERS) $(CONFIGURATION)  
+memmgr.obj: memmgr.c      $(HEADERS) $(CONFIGURATION)  
 
-#misc.obj: misc.c          $(HEADERS) $(CONFIGURATION)  
+misc.obj: misc.c          $(HEADERS) $(CONFIGURATION)  
 
-#lfnapi.obj: lfnapi.c      $(HEADERS) $(CONFIGURATION)
+lfnapi.obj: lfnapi.c      $(HEADERS) $(CONFIGURATION)
 
-#newstuff.obj: newstuff.c  $(HEADERS) $(CONFIGURATION)  
+newstuff.obj: newstuff.c  $(HEADERS) $(CONFIGURATION)  
 
-#network.obj: network.c    $(HEADERS) $(CONFIGURATION)  
+network.obj: network.c    $(HEADERS) $(CONFIGURATION)  
 
-#nls.obj: nls.c            $(HEADERS) $(CONFIGURATION)  
+nls.obj: nls.c            $(HEADERS) $(CONFIGURATION)  
 
 # \
 # 001-437.nls

@@ -206,7 +206,7 @@ cont:           mov     ds, ax
                 mov     [drive], dl     ; BIOS passes drive number in DL
 
                 call    print
-                db      "Loading FreeDOS...",13,10,"ROOT",0
+                db      "Loading FreeDOS ",0
 
 %ifdef CALCPARAMS
                 GETDRIVEPARMS
@@ -370,7 +370,7 @@ boot_error:     call    print
 		int	0x19			; reboot the machine
 
 boot_success:   call    print
-                db      " GO!",13,10,0
+                db      " GO! ",0
                 mov     bl, [drive]
 		jmp	word LOADSEG:0
 

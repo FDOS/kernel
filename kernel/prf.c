@@ -366,15 +366,20 @@ COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
 
 void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
 {
-  int loop;
-  printf("%s%04x|", title, FP_SEG(p));
-  for (loop = 0; loop < numBytes; loop++)
-    printf("%02x ", p[loop]);
-  printf("|");
+  int loop, start = 0;
+  printf("%s", title);
+  if (numBytes > 16)
+    printf("\n");
 
-  for (loop = 0; loop < numBytes; loop++)
-    printf("%c", p[loop] < 0x20 ? '.' : p[loop]);
-  printf("\n");
+  for (start = 0; start < numBytes; start += 16)
+  {
+    printf("%p|", p+start);
+    for (loop = start; loop < numBytes && loop < start+16;loop++)
+      printf("%02x ", p[loop]);
+    for (loop = start; loop < numBytes && loop < start+16;loop++)
+      printf("%c", p[loop] < 0x20 ? '.' : p[loop]);
+    printf("\n");
+  }
 }
 
 #ifdef TEST

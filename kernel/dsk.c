@@ -114,14 +114,12 @@ ULONG dsk_lasttime = 0;
 
 STATIC VOID tmark(ddt *pddt)
 {
-  ReadPCClock(&pddt->ddt_fh.ddt_lasttime);
+  pddt->ddt_fh.ddt_lasttime = ReadPCClock();
 }
 
 STATIC BOOL tdelay(ddt *pddt, ULONG ticks)
 {
-  ULONG now;
-  ReadPCClock(&now);
-  return now - pddt->ddt_fh.ddt_lasttime >= ticks;
+  return ReadPCClock() - pddt->ddt_fh.ddt_lasttime >= ticks;
 }
 
 #define N_PART 4                /* number of partitions per
@@ -141,6 +139,7 @@ STATIC dsk_proc _dsk_init, mediachk, bldbpb, blockio, IoctlQueblk,
     Genblkdev, Getlogdev, Setlogdev, blk_Open, blk_Close,
     blk_Media, blk_noerr, blk_nondr, blk_error;
 
+STATIC WORD getbpb(ddt * pddt);
 #ifdef PROTO
 STATIC WORD dskerr(COUNT);
 #else
@@ -278,6 +277,16 @@ STATIC WORD mediachk(rqptr rp, ddt * pddt)
   else
   {
     rp->r_mcretcode = diskchange(pddt);
+    if (rp->r_mcretcode == M_DONT_KNOW)
+    {
+      /* don't know but can check serial number ... */
+      ULONG serialno = pddt->ddt_serialno;
+      COUNT result = getbpb(pddt);
+      if (result != 0)
+        return (result);
+      if (serialno != pddt->ddt_serialno)
+        rp->r_mcretcode = M_CHANGED;
+    }
   }
   return S_DONE;
 }
@@ -395,8 +404,7 @@ STATIC WORD getbpb(ddt * pddt)
   if (ret != 0)
     return (dskerr(ret));
 
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[0]),
-          &pbpbarray->bpb_nbyte);
+  pbpbarray->bpb_nbyte = getword(&DiskTransferBuffer[BT_BPB]);
 
   if (DiskTransferBuffer[0x1fe] != 0x55
       || DiskTransferBuffer[0x1ff] != 0xaa || pbpbarray->bpb_nbyte != 512)
@@ -426,23 +434,20 @@ STATIC WORD getbpb(ddt * pddt)
   if (pbpbarray->bpb_nfsect != 0)
   {
     /* FAT16/FAT12 boot sector */
-    getlong(&((((BYTE *) & DiskTransferBuffer[0x27])[0])),
-            &pddt->ddt_serialno);
+    pddt->ddt_serialno = getlong(&DiskTransferBuffer[0x27]);
     memcpy(pddt->ddt_volume, &DiskTransferBuffer[0x2B], 11);
     memcpy(pddt->ddt_fstype, &DiskTransferBuffer[0x36], 8);
   }
   else
   {
     /* FAT32 boot sector */
-    getlong(&((((BYTE *) & DiskTransferBuffer[0x43])[0])),
-            &pddt->ddt_serialno);
+    pddt->ddt_serialno = getlong(&DiskTransferBuffer[0x43]);
     memcpy(pddt->ddt_volume, &DiskTransferBuffer[0x47], 11);
     memcpy(pddt->ddt_fstype, &DiskTransferBuffer[0x52], 8);
     pbpbarray->bpb_ndirent = 512;
   }
 #else
-  getlong(&((((BYTE *) & DiskTransferBuffer[0x27])[0])),
-          &pddt->ddt_serialno);
+  pddt->ddt_serialno = getlong(&DiskTransferBuffer[0x27]);
   memcpy(pddt->ddt_volume, &DiskTransferBuffer[0x2B], 11);
   memcpy(pddt->ddt_fstype, &DiskTransferBuffer[0x36], 8);
 #endif

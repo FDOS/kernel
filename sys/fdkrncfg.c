@@ -28,6 +28,7 @@ extern int CDECL printf(CONST BYTE * fmt, ...);
 extern int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 #ifdef __WATCOMC__
+unsigned _dos_close(int handle);
 #define close _dos_close
 #define SEEK_SET 0
 int open(const char *pathname, int flags, ...);

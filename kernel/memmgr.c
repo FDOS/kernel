@@ -286,8 +286,13 @@ stopIt:                        /* reached from FIRST_FIT on match */
  */
 COUNT DosMemLargest(UWORD FAR * size)
 {
-  REG mcb FAR *p;
+  seg dummy;
+  *size = 0;
+  DosMemAlloc(0xffff, LARGEST, &dummy, size);
+  return *size ? SUCCESS : DE_NOMEM;
 
+#if 0
+  REG mcb FAR *p;
   /* Initialize                                           */
   p = ((mem_access_mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link
        && uppermem_root != 0xffff) ? para2far(uppermem_root) : para2far(first_mcb);
@@ -320,7 +325,7 @@ COUNT DosMemLargest(UWORD FAR * size)
   /* If *size is still zero, aka nothing had changed, either no unused
      block was found at all or a zero-length block only.
      Both is considered as a failure */
-  return *size ? SUCCESS : DE_NOMEM;
+#endif
 }
 
 /*

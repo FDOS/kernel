@@ -98,18 +98,13 @@ VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp,
 
 COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd)
 {
-  BYTE Month, DayOfMonth, DayOfWeek;
-  COUNT Year;
-
-  DosGetDate((BYTE FAR *) & DayOfWeek, (BYTE FAR *) & Month,
-             (BYTE FAR *) & DayOfMonth, (COUNT FAR *) & Year);
+  /* for ClkRecord.clkDays */
+  ExecuteClockDriverRequest(C_INPUT);
 
   ClkRecord.clkHours = h;
   ClkRecord.clkMinutes = m;
   ClkRecord.clkSeconds = s;
   ClkRecord.clkHundredths = hd;
-
-  ClkRecord.clkDays = DaysFromYearMonthDay(Year, Month, DayOfMonth);
 
   ExecuteClockDriverRequest(C_OUTPUT);
 
@@ -172,10 +167,7 @@ UWORD Month, DayOfMonth, Year;
       || DayOfMonth < 1 || DayOfMonth > pdays[Month] - pdays[Month - 1])
     return DE_INVLDDATA;
 
-  DosGetTime((BYTE FAR *) & ClkRecord.clkHours,
-             (BYTE FAR *) & ClkRecord.clkMinutes,
-             (BYTE FAR *) & ClkRecord.clkSeconds,
-             (BYTE FAR *) & ClkRecord.clkHundredths);
+  ExecuteClockDriverRequest(C_INPUT);
 
   ClkRecord.clkDays = DaysFromYearMonthDay(Year, Month, DayOfMonth);
 

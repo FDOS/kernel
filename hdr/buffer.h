@@ -58,7 +58,7 @@ struct buffer {
     LONG _b_huge_blkno;         /* DOS-C: actual block number if >= 0xffff */
   } _b;
 #endif
-  BYTE b_buffer[BUFFERSIZE];    /* 512 byte sectors for now     */
+  UBYTE b_buffer[BUFFERSIZE];   /* 512 byte sectors for now     */
 };
 
 #define b_dpbp          _b._b_dpbp

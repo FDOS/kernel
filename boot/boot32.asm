@@ -99,7 +99,7 @@ cont:           mov     ds, ax
                 mov     [drive], dl     ; BIOS passes drive number in DL
 
                 call    print
-                db      "Loading FreeDOS...",13,10,0
+                db      "Loading FreeDOS ",0
 
 ;       FINDFILE: Searches for the file in the root directory.
 ;

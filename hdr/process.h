@@ -80,12 +80,12 @@ typedef struct {
   UBYTE FAR *ps_filetab;        /* 34 open file table pointer      */
   VOID FAR *ps_prevpsp;         /* 38 previous psp pointer         */
   BYTE FAR *ps_dta;             /* 3c process dta address          */
-  BYTE ps_fill2[16];
-  UBYTE ps_unix[3];             /* unix style call - 0xcd 0x21 0xcb */
-  BYTE ps_fill3[9];
+  BYTE ps_fill2[16];            /* 40 */
+  UBYTE ps_unix[3];             /* 50 unix style call - 0xcd 0x21 0xcb */
+  BYTE ps_fill3[9];             /* 53 */
   union {
     struct {
-      fcb _ps_fcb1;             /* first command line argument */
+      fcb _ps_fcb1;             /* 5c first command line argument */
     } _u1;
     struct {
       BYTE fill4[16];

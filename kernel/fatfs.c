@@ -163,7 +163,6 @@ COUNT dos_close(COUNT fd)
 
   if (fnp->f_flags.f_dmod)
   {
-    fnp->f_dir.dir_attrib |= D_ARCHIVE;
     if (fnp->f_flags.f_ddate == FALSE)
     {
       fnp->f_dir.dir_time = dos_gettime();
@@ -279,25 +278,17 @@ f_node_ptr split_path(BYTE * path, BYTE * fname, BYTE * fext)
 
 STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext, int attr)
 {
-  BOOL found = FALSE;
-
   while (dir_read(fnp) == 1)
   {
-    if (fnp->f_dir.dir_name[0] != '\0')
+    if (fnp->f_dir.dir_name[0] != DELETED
+        && fcmp(fname, (BYTE *) fnp->f_dir.dir_name, FNAME_SIZE)
+        && fcmp(fext, (BYTE *) fnp->f_dir.dir_ext, FEXT_SIZE)
+        && (fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
     {
-      if (fnp->f_dir.dir_name[0] == DELETED)
-        continue;
-
-      if (fcmp(fname, (BYTE *) fnp->f_dir.dir_name, FNAME_SIZE)
-          && fcmp(fext, (BYTE *) fnp->f_dir.dir_ext, FEXT_SIZE)
-          && (fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
-      {
-        found = TRUE;
-        break;
-      }
+      return TRUE;
     }
   }
-  return found;
+  return FALSE;
 }
 
 /* Description.
@@ -836,7 +827,6 @@ STATIC BOOL find_free(f_node_ptr fnp)
 /*                                                              */
 date dos_getdate()
 {
-#ifndef NOTIME
   BYTE WeekDay, Month, MonthDay;
   COUNT Year;
   date Date;
@@ -848,12 +838,6 @@ date dos_getdate()
              (BYTE FAR *) & MonthDay, (COUNT FAR *) & Year);
   Date = DT_ENCODE(Month, MonthDay, Year - EPOCH_YEAR);
   return Date;
-
-#else
-
-  return 0;
-
-#endif
 }
 
 /*                                                              */
@@ -861,7 +845,6 @@ date dos_getdate()
 /*                                                              */
 time dos_gettime()
 {
-#ifndef NOTIME
   BYTE Hour, Minute, Second, Hundredth;
 
   /* First - get the system time set by either the user   */
@@ -870,9 +853,6 @@ time dos_gettime()
              (BYTE FAR *) & Minute,
              (BYTE FAR *) & Second, (BYTE FAR *) & Hundredth);
   return TM_ENCODE(Hour, Minute, Second / 2);
-#else
-  return 0;
-#endif
 }
 
 /*                                                              */
@@ -1391,7 +1371,6 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     /* If there are no more free fat entries, then we are full! */
     if (!first_fat(fnp))
     {
-      dir_close(fnp);
       return DE_HNDLDSKFULL;
     }
   }
@@ -1451,300 +1430,6 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 #endif
 
   return SUCCESS;
-}
-
-/*
-  comments read optimization for large reads: read total clusters in one piece
-
-  running a program like 
-  
-  while (1) {
-    read(fd, header, sizeof(header));   // small read 
-    read(fd, buffer, header.size);      // where size is large, up to 63K 
-                                        // with average ~32K
-    }                                        
-
-    FreeDOS 2025 is really slow. 
-    on a P200 with modern 30GB harddisk, doing above for a 14.5 MB file
-    
-    MSDOS 6.22 clustersize 8K  ~2.5 sec (accumulates over clusters, reads for 63 sectors seen),
-    IBM PCDOS 7.0          8K  ~4.3 
-    IBM PCDOS 7.0          16K ~2.8 
-    FreeDOS ke2025             ~17.5
-
-    with the read optimization (ke2025a),    
-    
-        clustersize 8K  ~6.5 sec
-        clustersize 16K ~4.2 sec
-        
-    it was verified with IBM feature tool,
-    that the drive read ahead cache (says it) is on. still this huge difference ;-)
-        
-
-    it's coded pretty conservative to avoid all special cases, 
-    so it shouldn't break anything :-)
-
-    possible further optimization:
-    
-        collect read across clusters (if file is not fragmented).
-        MSDOS does this (as readcounts up to 63 sectors where seen)
-        specially important for diskettes, where clustersize is 1 sector 
-        
-        the same should be done for writes as well
-
-    the time to compile the complete kernel (on some P200) is 
-    reduced from 67 to 56 seconds - in an otherwise identical configuration.
-
-    it's not clear if this improvement shows up elsewhere, but it shouldn't harm either
-    
-
-    TE 10/18/01 14:00
-    
-    collect read across clusters (if file is not fragmented) done.
-        
-    seems still to work :-))
-    
-    no large performance gains visible, but should now work _much_
-    better for the people, that complain about slow floppy access
-
-    the 
-        fnp->f_offset +to_xfer < fnp->f_highwater &&  avoid EOF problems 
-
-    condition can probably _carefully_ be dropped    
-    
-    
-    TE 10/18/01 19:00
-    
-*/
-
-/* Read block from disk */
-UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
-{
-  REG f_node_ptr fnp;
-  REG struct buffer FAR *bp;
-  UCOUNT xfr_cnt = 0;
-  UCOUNT ret_cnt = 0;
-  UWORD secsize;
-  UCOUNT to_xfer = count;
-  ULONG currentblock;
-
-#if defined( DEBUG ) && 0
-  if (bDumpRdWrParms)
-  {
-    printf("readblock:fd %02x  buffer %04x:%04x count %x\n",
-           fd, FP_SEG(buffer), FP_OFF(buffer), count);
-  }
-#endif
-  /* Translate the fd into an fnode pointer, since all internal   */
-  /* operations are achieved through fnodes.                      */
-  fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
-  {
-    *err = DE_INVLDHNDL;
-    return 0;
-  }
-
-  /* Test that we are really about to do a data transfer. If the
-     count is zero, just exit. (Any read with a count of zero is a nop). */
-
-  /* NOTE: doing this up front saves a lot of headaches later.    */
-  if (count == 0)
-  {
-    *err = SUCCESS;
-    return 0;
-  }
-
-  /* Another test is to check for a seek past EOF  */
-/*  if (!fnp->f_flags.f_ddir && (fnp->f_offset >= fnp->f_dir.dir_size)) BUG :-< */
-  if (!fnp->f_flags.f_ddir && (fnp->f_offset >= fnp->f_highwater))
-  {
-    *err = SUCCESS;
-    return 0;
-  }
-
-  /* test that we have a valid mode for this fnode                */
-  if (fnp->f_mode != RDONLY && fnp->f_mode != RDWR)
-  {
-    *err = DE_INVLDACC;
-    return 0;
-  }
-
-  /* The variable secsize will be used later.                     */
-  secsize = fnp->f_dpb->dpb_secsize;
-
-  /* Adjust the far pointer from user space to supervisor space   */
-  buffer = adjust_far((VOID FAR *) buffer);
-
-  /* Do the data transfer. Use block transfer methods so that we  */
-  /* can utilize memory management in future DOS-C versions.      */
-  while (ret_cnt < count)
-  {
-    /* Do an EOF test and return whatever was transferred   */
-    /* but only for regular files.                          */
-    if (!(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_highwater))
-    {
-      *err = SUCCESS;
-      return ret_cnt;
-    }
-
-    /* Position the file to the fnode's pointer position. This is   */
-    /* done by updating the fnode's cluster, block (sector) and     */
-    /* byte offset so that read becomes a simple data move          */
-    /* out of the block data buffer.                                */
-
-    /* The more difficult scenario is the (more common)     */
-    /* file offset case. Here, we need to take the fnode's  */
-    /* offset pointer (f_offset) and translate it into a    */
-    /* relative cluster position, cluster block (sector)    */
-    /* offset (f_sector) and byte offset (f_boff). Once we  */
-    /* have this information, we need to translate the      */
-    /* relative cluster position into an absolute cluster   */
-    /* position (f_cluster). This is unfortunate because it */
-    /* requires a linear search through the file's FAT      */
-    /* entries. It made sense when DOS was originally       */
-    /* designed as a simple floppy disk operating system    */
-    /* where the FAT was contained in core, but now         */
-    /* requires a search through the FAT blocks.            */
-    /*                                                      */
-    /* The algorithm in this function takes advantage of    */
-    /* the blockio block buffering scheme to simplify the   */
-    /* task.                                                */
-#ifdef DISPLAY_GETBLOCK
-    printf("readblock: ");
-#endif
-    if (map_cluster(fnp, XFR_READ) != SUCCESS)
-    {
-      *err = DE_SEEK;
-      dir_close(fnp);
-      return ret_cnt;
-    }
-
-    /* Compute the block within the cluster and the offset  */
-    /* within the block.                                    */
-    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset % secsize;
-
-    currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
-
-    /* see comments above */
-
-    if (!fnp->f_flags.f_ddir && /* don't experiment with directories yet */
-        fnp->f_boff == 0)       /* complete sectors only */
-    {
-      static ULONG startoffset;
-      UCOUNT sectors_to_read, sectors_wanted;
-
-      startoffset = fnp->f_offset;
-
-      /* avoid EOF problems */
-      sectors_wanted =
-          ((UCOUNT) min(fnp->f_highwater - fnp->f_offset, to_xfer)) /
-          secsize;
-
-      if (sectors_wanted < 2)
-        goto normal_read;
-
-      sectors_to_read = fnp->f_dpb->dpb_clsmask + 1 - fnp->f_sector;
-
-      sectors_to_read = min(sectors_to_read, sectors_wanted);
-
-      fnp->f_offset += sectors_to_read * secsize;
-
-      while (sectors_to_read < sectors_wanted)
-      {
-        if (map_cluster(fnp, XFR_READ) != SUCCESS)
-          break;
-
-        if (clus2phys(fnp->f_cluster, fnp->f_dpb) !=
-            currentblock + sectors_to_read)
-          break;
-
-        sectors_to_read += fnp->f_dpb->dpb_clsmask + 1;
-
-        sectors_to_read = min(sectors_to_read, sectors_wanted);
-
-        fnp->f_offset = startoffset + sectors_to_read * secsize;
-
-      }
-
-      xfr_cnt = sectors_to_read * secsize;
-
-      /* avoid caching trouble */
-
-      DeleteBlockInBufferCache(currentblock,
-                               currentblock + sectors_to_read - 1,
-                               fnp->f_dpb->dpb_unit);
-
-      if (dskxfer(fnp->f_dpb->dpb_unit,
-                  currentblock,
-                  (VOID FAR *) buffer, sectors_to_read, DSKREAD))
-      {
-        fnp->f_offset = startoffset;
-        *err = DE_BLKINVLD;
-        return ret_cnt;
-      }
-
-      goto update_pointers;
-    }
-
-    /* normal read: just the old, buffer = sector based read */
-  normal_read:
-
-#ifdef DSK_DEBUG
-    printf("read %d links; dir offset %ld, cluster %lx\n",
-           fnp->f_count, fnp->f_diroff, fnp->f_cluster);
-#endif
-
-    /* Get the block we need from cache                     */
-    bp = getblock(currentblock
-                  /*clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector */
-                  , fnp->f_dpb->dpb_unit);
-
-#ifdef DISPLAY_GETBLOCK
-    printf("DATA (readblock)\n");
-#endif
-    if (bp == NULL)             /* (struct buffer *)0 --> DS:0 !! */
-    {
-      *err = DE_BLKINVLD;
-      return ret_cnt;
-    }
-
-    /* transfer a block                                     */
-    /* Transfer size as either a full block size, or the    */
-    /* requested transfer size, whichever is smaller.       */
-    /* Then compare to what is left, since we can transfer  */
-    /* a maximum of what is left.                           */
-    if (fnp->f_flags.f_ddir)
-      xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
-    else
-      xfr_cnt = (UWORD) min(min(to_xfer, secsize - fnp->f_boff),
-                            fnp->f_highwater - fnp->f_offset);
-
-    fmemcpy(buffer, &bp->b_buffer[fnp->f_boff], xfr_cnt);
-
-    /* complete buffer read ? 
-       probably not reused later
-     */
-    if (xfr_cnt == sizeof(bp->b_buffer) ||
-        fnp->f_offset + xfr_cnt == fnp->f_highwater)
-    {
-      bp->b_flag |= BFR_UNCACHE;
-    }
-
-    /* update pointers and counters                         */
-    fnp->f_offset += xfr_cnt;
-
-  update_pointers:
-    ret_cnt += xfr_cnt;
-    to_xfer -= xfr_cnt;
-    buffer = add_far((VOID FAR *) buffer, (ULONG) xfr_cnt);
-  }
-  *err = SUCCESS;
-  return ret_cnt;
 }
 
 /* extends a file from f_highwater to f_offset                 */
@@ -1827,24 +1512,90 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
   return SUCCESS;
 }
 
-/* Write block to disk */
-UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
+/*
+  comments read optimization for large reads: read total clusters in one piece
+
+  running a program like 
+  
+  while (1) {
+    read(fd, header, sizeof(header));   // small read 
+    read(fd, buffer, header.size);      // where size is large, up to 63K 
+                                        // with average ~32K
+    }                                        
+
+    FreeDOS 2025 is really slow. 
+    on a P200 with modern 30GB harddisk, doing above for a 14.5 MB file
+    
+    MSDOS 6.22 clustersize 8K  ~2.5 sec (accumulates over clusters, reads for 63 sectors seen),
+    IBM PCDOS 7.0          8K  ~4.3 
+    IBM PCDOS 7.0          16K ~2.8 
+    FreeDOS ke2025             ~17.5
+
+    with the read optimization (ke2025a),    
+    
+        clustersize 8K  ~6.5 sec
+        clustersize 16K ~4.2 sec
+        
+    it was verified with IBM feature tool,
+    that the drive read ahead cache (says it) is on. still this huge difference ;-)
+        
+
+    it's coded pretty conservative to avoid all special cases, 
+    so it shouldn't break anything :-)
+
+    possible further optimization:
+    
+        collect read across clusters (if file is not fragmented).
+        MSDOS does this (as readcounts up to 63 sectors where seen)
+        specially important for diskettes, where clustersize is 1 sector 
+        
+        the same should be done for writes as well
+
+    the time to compile the complete kernel (on some P200) is 
+    reduced from 67 to 56 seconds - in an otherwise identical configuration.
+
+    it's not clear if this improvement shows up elsewhere, but it shouldn't harm either
+    
+
+    TE 10/18/01 14:00
+    
+    collect read across clusters (if file is not fragmented) done.
+        
+    seems still to work :-))
+    
+    no large performance gains visible, but should now work _much_
+    better for the people, that complain about slow floppy access
+
+    the 
+        fnp->f_offset +to_xfer < fnp->f_highwater &&  avoid EOF problems 
+
+    condition can probably _carefully_ be dropped    
+    
+    
+    TE 10/18/01 19:00
+    
+*/
+
+/* Read/write block from disk */
+/* checking for valid access was already done by the functions in
+   dosfns.c */
+UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 {
   REG f_node_ptr fnp;
-  struct buffer FAR *bp;
+  REG struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   UCOUNT ret_cnt = 0;
   UWORD secsize;
   UCOUNT to_xfer = count;
+  ULONG currentblock;
 
-#ifdef DEBUG
+#if 0 /*DSK_DEBUG*/
   if (bDumpRdWrParms)
   {
-    printf("writeblock: fd %02d buffer %04x:%04x count %d\n",
-           fd, (COUNT) FP_SEG(buffer), (COUNT) FP_OFF(buffer), count);
+    printf("rwblock:fd %02x  buffer %04x:%04x count %x\n",
+           fd, FP_SEG(buffer), FP_OFF(buffer), count);
   }
 #endif
-
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
   fnp = xlt_fd(fd);
@@ -1854,25 +1605,19 @@ UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* note: an invalid fd is indicated by a 0 return               */
   if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
   {
-    *err = DE_INVLDHNDL;
     return 0;
   }
 
-  /* test that we have a valid mode for this fnode                */
-  if (fnp->f_mode != WRONLY && fnp->f_mode != RDWR)
+  if (mode==XFR_WRITE)
   {
-    *err = DE_INVLDACC;
-    return 0;
+    fnp->f_dir.dir_attrib |= D_ARCHIVE;
+    fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
+    fnp->f_flags.f_ddate = FALSE; /* set date not valid any more */
+    
+    if (dos_extend(fnp) != SUCCESS)
+      return 0;
   }
-
-  fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
-  fnp->f_flags.f_ddate = FALSE; /* set date not valid any more */
-
-  /* extend file from fnp->f_highwater to fnp->f_offset */
-  *err = dos_extend(fnp);
-  if (*err != SUCCESS)
-    return 0;
-
+  
   /* Test that we are really about to do a data transfer. If the  */
   /* count is zero and the mode is XFR_READ, just exit. (Any      */
   /* read with a count of zero is a nop).                         */
@@ -1888,8 +1633,11 @@ UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* FAT allocation has to be extended if necessary              TE */
     /* Now done in dos_extend                                      BO */
     /* remove all the following allocated clusters in shrink_file     */
-    fnp->f_highwater = fnp->f_offset;
-    shrink_file(fnp);
+    if (mode == XFR_WRITE)
+    {
+      fnp->f_highwater = fnp->f_offset;
+      shrink_file(fnp);
+    }
     return 0;
   }
 
@@ -1903,35 +1651,17 @@ UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* can utilize memory management in future DOS-C versions.      */
   while (ret_cnt < count)
   {
+    /* Do an EOF test and return whatever was transferred   */
+    /* but only for regular files.                          */
+    if (mode == XFR_READ && !(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_highwater))
+    {
+      return ret_cnt;
+    }
+
     /* Position the file to the fnode's pointer position. This is   */
     /* done by updating the fnode's cluster, block (sector) and     */
     /* byte offset so that read or write becomes a simple data move */
     /* into or out of the block data buffer.                        */
-    if (fnp->f_offset == 0l)
-    {
-      /* For the write case, a newly created file     */
-      /* will have a start cluster of FREE. If we're  */
-      /* doing a write and this is the first time     */
-      /* through, allocate a new cluster to the file. */
-      if (checkdstart(fnp->f_dir, FREE))
-        if (!first_fat(fnp))    /* get a free cluster */
-        {                       /* error means disk full */
-          dir_close(fnp);
-          *err = DE_HNDLDSKFULL;
-          return ret_cnt;
-        }
-      /* complete the common operations of            */
-      /* initializing to the starting cluster and     */
-      /* setting all offsets to zero.                 */
-      fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
-          getdstart(fnp->f_dir);
-
-      fnp->f_cluster_offset = 0l;
-      fnp->f_back = LONG_LAST_CLUSTER;
-      fnp->f_sector = 0;
-      fnp->f_boff = 0;
-      merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
-    }
 
     /* The more difficult scenario is the (more common)     */
     /* file offset case. Here, we need to take the fnode's  */
@@ -1950,16 +1680,15 @@ UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* The algorithm in this function takes advantage of    */
     /* the blockio block buffering scheme to simplify the   */
     /* task.                                                */
-    else
-    {
 #ifdef DISPLAY_GETBLOCK
-      printf("writeblock: ");
+    printf("rwblock: ");
 #endif
-      if (map_cluster(fnp, XFR_WRITE) != SUCCESS)
-      {
-        *err = DE_HNDLDSKFULL;
-        return ret_cnt;
-      }
+    if (map_cluster(fnp, mode) != SUCCESS)
+    {
+      return ret_cnt;
+    }
+    if (mode == XFR_WRITE)
+    {
       merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
     }
 
@@ -1968,46 +1697,89 @@ UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
     fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
     fnp->f_boff = fnp->f_offset % secsize;
 
+    currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
+
+    /* see comments above */
+
+    if (!fnp->f_flags.f_ddir && /* don't experiment with directories yet */
+        fnp->f_boff == 0)       /* complete sectors only */
+    {
+      static ULONG startoffset;
+      UCOUNT sectors_to_xfer, sectors_wanted;
+
+      startoffset = fnp->f_offset;
+      sectors_wanted = to_xfer;
+
+      /* avoid EOF problems */
+      if (mode == XFR_READ && to_xfer > fnp->f_highwater - fnp->f_offset)
+        sectors_wanted = (UCOUNT)(fnp->f_highwater - fnp->f_offset);
+      
+      sectors_wanted /= secsize;
+
+      if (sectors_wanted == 0)
+        goto normal_xfer;
+
+      sectors_to_xfer = fnp->f_dpb->dpb_clsmask + 1 - fnp->f_sector;
+
+      sectors_to_xfer = min(sectors_to_xfer, sectors_wanted);
+
+      fnp->f_offset += sectors_to_xfer * secsize;
+
+      while (sectors_to_xfer < sectors_wanted)
+      {
+        if (map_cluster(fnp, mode) != SUCCESS)
+          break;
+
+        if (clus2phys(fnp->f_cluster, fnp->f_dpb) !=
+            currentblock + sectors_to_xfer)
+          break;
+
+        sectors_to_xfer += fnp->f_dpb->dpb_clsmask + 1;
+
+        sectors_to_xfer = min(sectors_to_xfer, sectors_wanted);
+
+        fnp->f_offset = startoffset + sectors_to_xfer * secsize;
+
+      }
+
+      xfr_cnt = sectors_to_xfer * secsize;
+
+      /* avoid caching trouble */
+
+      DeleteBlockInBufferCache(currentblock,
+                               currentblock + sectors_to_xfer - 1,
+                               fnp->f_dpb->dpb_unit);
+
+      if (dskxfer(fnp->f_dpb->dpb_unit,
+                  currentblock,
+                  (VOID FAR *) buffer, sectors_to_xfer,
+                  mode == XFR_READ ? DSKREAD : DSKWRITE))
+      {
+        fnp->f_offset = startoffset;
+        return ret_cnt;
+      }
+
+      goto update_pointers;
+    }
+
+    /* normal read: just the old, buffer = sector based read */
+  normal_xfer:
+
 #ifdef DSK_DEBUG
-    printf("write %d links; dir offset %ld, cluster %d\n",
-           fnp->f_count, fnp->f_diroff, fnp->f_cluster);
+    printf("r/w %d links; dir offset %ld, cluster %d, mode %x\n",
+           fnp->f_count, fnp->f_diroff, fnp->f_cluster, mode);
 #endif
 
-/* /// Moved xfr_cnt calculation from below so we can
-       use it to help decide how to get the block:
-           read-modify-write using getblock() if we are only
-               going to write part of the block, or
-           write using getbuf() if we are going to write
-               the entire block.
-       - Ron Cemer */
-    xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
-
-    /* get a buffer to store the block in */
-    /* /// BUG!!! Added conditional to only use getbuf() if we're going
-       to write the entire block, which is faster because it does
-       not first read the block from disk.  However, if we are
-       going to only write part of the block, we MUST use the
-       getblock() call, which first reads the block from disk.
-       Without this modification, the kernel was writing garbage
-       to the file when sequential writes were attempted at less
-       than the block size.  This was causing problems with
-       piping and redirection in FreeCOM, as well as many other
-       potential problems.
-       - Ron Cemer */
-    if ((fnp->f_boff == 0) && (xfr_cnt == secsize))
+    /* Get the block we need from cache                     */
+    bp = getblock(currentblock
+                    /*clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector */
+                    , fnp->f_dpb->dpb_unit);
+    
+#ifdef DISPLAY_GETBLOCK
+    printf("DATA (rwblock)\n");
+#endif
+    if (bp == NULL)             /* (struct buffer *)0 --> DS:0 !! */
     {
-      bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) +
-                        fnp->f_sector, fnp->f_dpb->dpb_unit);
-
-    }
-    else
-    {
-      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) +
-                    fnp->f_sector, fnp->f_dpb->dpb_unit);
-    }
-    if (bp == NULL)
-    {
-      *err = DE_BLKINVLD;
       return ret_cnt;
     }
 
@@ -2016,32 +1788,51 @@ UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* requested transfer size, whichever is smaller.       */
     /* Then compare to what is left, since we can transfer  */
     /* a maximum of what is left.                           */
-/* /// Moved xfr_cnt calculation to above getbuf/getblock calls so we can
-       use it to help decide which one to call.
-       - Ron Cemer
     xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
-*/
-    fmemcpy(&bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
-    bp->b_flag |= BFR_DIRTY | BFR_VALID;
+    if (!fnp->f_flags.f_ddir && mode == XFR_READ)
+      xfr_cnt = (UWORD) min(xfr_cnt, fnp->f_highwater - fnp->f_offset);
 
-    if (xfr_cnt == sizeof(bp->b_buffer))        /* probably not used later */
+    /* transfer a block                                     */
+    /* Transfer size as either a full block size, or the    */
+    /* requested transfer size, whichever is smaller.       */
+    /* Then compare to what is left, since we can transfer  */
+    /* a maximum of what is left.                           */
+    if (mode == XFR_WRITE)
+    {
+      fmemcpy(&bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
+      bp->b_flag |= BFR_DIRTY | BFR_VALID;
+    }
+    else
+    {
+      fmemcpy(buffer, &bp->b_buffer[fnp->f_boff], xfr_cnt);
+    }
+
+    /* complete buffer transferred ? 
+       probably not reused later
+     */
+    if (xfr_cnt == sizeof(bp->b_buffer) ||
+        (mode == XFR_READ && fnp->f_offset + xfr_cnt == fnp->f_highwater))
     {
       bp->b_flag |= BFR_UNCACHE;
     }
 
     /* update pointers and counters                         */
+    fnp->f_offset += xfr_cnt;
+
+  update_pointers:
     ret_cnt += xfr_cnt;
     to_xfer -= xfr_cnt;
-    fnp->f_offset += xfr_cnt;
     buffer = add_far((VOID FAR *) buffer, (ULONG) xfr_cnt);
-    if (fnp->f_offset > fnp->f_highwater)
+    if (mode == XFR_WRITE)
     {
-      fnp->f_highwater = fnp->f_offset;
-      fnp->f_dir.dir_size = fnp->f_highwater;
+      if (fnp->f_offset > fnp->f_highwater)
+      {
+        fnp->f_highwater = fnp->f_offset;
+        fnp->f_dir.dir_size = fnp->f_highwater;
+      }
+      merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
     }
-    merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
-  *err = SUCCESS;
   return ret_cnt;
 }
 
@@ -2310,6 +2101,8 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
 
 COUNT media_check(REG struct dpb FAR * dpbp)
 {
+  BYTE status;
+  
   /* First test if anyone has changed the removable media         */
   FOREVER
   {
@@ -2343,7 +2136,8 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     }
   }
 
-  switch (MediaReqHdr.r_mcretcode | dpbp->dpb_flags)
+  status = MediaReqHdr.r_mcretcode | dpbp->dpb_flags;
+  switch (status)
   {
     case M_NOT_CHANGED:
       /* It was definitely not changed, so ignore it          */
@@ -2392,10 +2186,15 @@ COUNT media_check(REG struct dpb FAR * dpbp)
         }
       }
 #ifdef WITHFAT32
-      bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp, TRUE);
+      /* extend dpb only for internal or FAT32 devices */
+      bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp,
+                 ISFAT32(dpbp) || FP_SEG(dpbp) == FP_SEG(&os_major));
 #else
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp);
 #endif
+      /* need to change to root directory if changed */
+      if (status == M_CHANGED)
+        CDSp->cds_table[dpbp->dpb_unit].cdsCurrentPath[3] = '\0';
       return SUCCESS;
   }
 }

@@ -33,7 +33,7 @@
 #include "init-dat.h"
 
 GLOBAL BYTE copyright[] =
-    "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n"
+    "(C) Copyright 1995-2002 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
     "GNU General Public License as published by the Free Software Foundation;\n"
@@ -174,13 +174,13 @@ VOID ASMCFUNC FreeDOSmain(void)
   /* clear the Init BSS area (what normally the RTL does */
   memset(_ib_start, 0, _ib_end - _ib_start);
 
+  signon();
   init_kernel();
 
 #ifdef DEBUG
   /* Non-portable message kludge alert!   */
   printf("KERNEL: Boot drive = %c\n", 'A' + BootDrive - 1);
 #endif
-  signon();
   kernel();
 }
 
@@ -361,9 +361,9 @@ STATIC VOID FsConfig(VOID)
 
 STATIC VOID signon()
 {
-  printf("\n%S", (void FAR *)os_release);
+  printf("\r%S", (void FAR *)os_release);
 
-  printf("Kernel compatibility %d.%d", os_major, os_minor);
+  printf("Kernel compatibility %d.%d", MAJOR_RELEASE, MINOR_RELEASE);
 
 #if defined(__TURBOC__)
   printf(" - TURBOC");
@@ -393,6 +393,7 @@ STATIC void kernel()
   int rc;
 
   extern char MenuSelected;
+  extern unsigned Menus;
 
   BYTE master_env[32];
   char *masterenv_ptr = master_env;
@@ -405,9 +406,9 @@ STATIC void kernel()
   masterenv_ptr += sprintf(masterenv_ptr, "PATH=.");
 
   /* export the current selected config  menu */
-  if (MenuSelected)
+  if (Menus)
     {
-    masterenv_ptr += sprintf(masterenv_ptr, "CONFIG=%c", MenuSelected);
+    masterenv_ptr += sprintf(masterenv_ptr, "CONFIG=%c", MenuSelected+'0');
     }
 
   exb.exec.env_seg = DOS_PSP + 8;
@@ -463,8 +464,8 @@ STATIC void kernel()
   }
 
   exb.exec.cmd_line = (CommandTail FAR *) & Cmd;
-  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0;
-
+  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0xfffffffful;
+  
 #ifdef DEBUG
   printf("Process 0 starting: %s\n\n", Config.cfgInit);
 #endif

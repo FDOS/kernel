@@ -4,8 +4,7 @@
 
 # Use these for WATCOM 11.0c
 COMPILERPATH=$(WATCOM)
-COMPILERBIN=$(WATCOM)\binw
-CC=$(COMPILERBIN)\wcl
+CC=wcl
 INCLUDEPATH=$(COMPILERPATH)\H
 INCLUDE=$(COMPILERPATH)\h 
 EDPATH=$(COMPILERPATH)\EDDAT
@@ -17,12 +16,12 @@ TARGETOPT=-0
 !endif
 
 LIBPATH=$(COMPILERPATH)\lib286
-LIBUTIL=$(COMPILERBIN)\wlib 
+LIBUTIL=wlib 
 LIBPLUS=
 LIBTERM=
 
-CFLAGST=-zp=1 -mt -os -s -we -e=3 -w=2
-CFLAGSC=-zp=1 -mc -os -s -we -e=3 -w=2
+CFLAGST=-zp=1 -mt -os -s -we -e=3 -wx
+CFLAGSC=-zp=1 -mc -os -s -we -e=3 -wx
 
 TARGET=KWC
 
@@ -60,7 +59,7 @@ MATH_INSERT= +i4d +i4m
 # -3		optimization for 386 - given in CONFIG.MAK, not here
 #
 
-ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -zq -os -s -e=5 -j -zl -zp=1 -we
+ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -zq -os -s -e=5 -j -zl -zp=1 -wx -we
 INITCFLAGS=$(ALLCFLAGS) -nt=INIT_TEXT -nc=INIT -nd=I -g=I_GROUP
 CFLAGS=$(ALLCFLAGS) -nt=HMA_TEXT -nc=HMA -g=HGROUP
 INITPATCH=..\utils\patchobj __U4D=_IU4D __U4M=_IU4M

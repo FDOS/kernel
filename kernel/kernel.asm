@@ -230,7 +230,9 @@ _nul_intr:
                 pop     es
                 retf
 
-
+                ; floppy parameter table
+                global _int1e_table
+_int1e_table:   times 0eh db 0
 
 ;************************************************************	    
 ; KERNEL FIXED DATA AREA 

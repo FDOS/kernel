@@ -36,90 +36,89 @@ static BYTE *syspackRcsId =
 #endif
 
 #ifdef NONNATIVE
-VOID getlong(REG VOID * vp, LONG * lp)
+UDWORD getlong(REG VOID * vp)
 {
-  *lp = (((BYTE *) vp)[0] & 0xff) +
-      ((((BYTE *) vp)[1] & 0xff) << 8) +
-      ((((BYTE *) vp)[2] & 0xff) << 16) +
-      ((((BYTE *) vp)[3] & 0xff) << 24);
+  return (((UBYTE *) vp)[0] & 0xff) +
+      ((((UBYTE *) vp)[1] & 0xff) << 8) +
+      ((((UBYTE *) vp)[2] & 0xff) << 16) +
+      ((((UBYTE *) vp)[3] & 0xff) << 24);
 }
 
-VOID getword(REG VOID * vp, WORD * wp)
+UWORD getword(REG VOID * vp)
 {
-  *wp = (((BYTE *) vp)[0] & 0xff) + ((((BYTE *) vp)[1] & 0xff) << 8);
+  return (((UBYTE *) vp)[0] & 0xff) + ((((UBYTE *) vp)[1] & 0xff) << 8);
 }
 
-VOID getbyte(VOID * vp, BYTE * bp)
+UBYTE getbyte(VOID * vp)
 {
-  *bp = *((BYTE *) vp);
+  return *((BYTE *) vp);
 }
 
-VOID fgetword(REG VOID FAR * vp, WORD FAR * wp)
+UWORD fgetword(REG VOID FAR * vp)
 {
-  *wp =
-      (((BYTE FAR *) vp)[0] & 0xff) + ((((BYTE FAR *) vp)[1] & 0xff) << 8);
+  return (((UBYTE FAR *) vp)[0] & 0xff) + ((((UBYTE FAR *) vp)[1] & 0xff) << 8);
 }
 
-VOID fgetlong(REG VOID FAR * vp, LONG FAR * lp)
+UDWORD fgetlong(REG VOID FAR * vp)
 {
-  *lp = (((BYTE *) vp)[0] & 0xff) +
-      ((((BYTE *) vp)[1] & 0xff) << 8) +
-      ((((BYTE *) vp)[2] & 0xff) << 16) +
-      ((((BYTE *) vp)[3] & 0xff) << 24);
+  return (((UBYTE *) vp)[0] & 0xff) +
+      ((((UBYTE *) vp)[1] & 0xff) << 8) +
+      ((((UBYTE *) vp)[2] & 0xff) << 16) +
+      ((((UBYTE *) vp)[3] & 0xff) << 24);
 }
 
-VOID fgetbyte(VOID FAR * vp, BYTE FAR * bp)
+UBYTE fgetbyte(VOID FAR * vp)
 {
-  *bp = *((BYTE FAR *) vp);
+  return *((UBYTE FAR *) vp);
 }
 
-VOID fputlong(LONG FAR * lp, VOID FAR * vp)
+VOID fputlong(VOID FAR * vp, UDWORD l)
 {
-  REG BYTE FAR *bp = (BYTE FAR *) vp;
+  REG UBYTE FAR *bp = (UBYTE FAR *) vp;
 
-  bp[0] = *lp & 0xff;
-  bp[1] = (*lp >> 8) & 0xff;
-  bp[2] = (*lp >> 16) & 0xff;
-  bp[3] = (*lp >> 24) & 0xff;
+  bp[0] = l & 0xff;
+  bp[1] = (l >> 8) & 0xff;
+  bp[2] = (l >> 16) & 0xff;
+  bp[3] = (l >> 24) & 0xff;
 }
 
-VOID fputword(WORD FAR * wp, VOID FAR * vp)
+VOID fputword(VOID FAR * vp, UWORD w)
 {
-  REG BYTE FAR *bp = (BYTE FAR *) vp;
+  REG UBYTE FAR *bp = (UBYTE FAR *) vp;
 
-  bp[0] = *wp & 0xff;
-  bp[1] = (*wp >> 8) & 0xff;
+  bp[0] = w & 0xff;
+  bp[1] = (w >> 8) & 0xff;
 }
 
-VOID fputbyte(BYTE FAR * bp, VOID FAR * vp)
+VOID fputbyte(VOID FAR * vp, UBYTE b)
 {
-  *(BYTE FAR *) vp = *bp;
+  *(UBYTE FAR *) vp = b;
 }
 
-VOID getdirent(BYTE FAR * vp, struct dirent FAR * dp)
+VOID getdirent(UBYTE FAR * vp, struct dirent FAR * dp)
 {
   fmemcpy(dp->dir_name, &vp[DIR_NAME], FNAME_SIZE);
   fmemcpy(dp->dir_ext, &vp[DIR_EXT], FEXT_SIZE);
-  fgetbyte(&vp[DIR_ATTRIB], (BYTE FAR *) & dp->dir_attrib);
-  fgetword(&vp[DIR_TIME], (WORD FAR *) & dp->dir_time);
-  fgetword(&vp[DIR_DATE], (WORD FAR *) & dp->dir_date);
-  fgetword(&vp[DIR_START], (WORD FAR *) & dp->dir_start);
-  fgetlong(&vp[DIR_SIZE], (LONG FAR *) & dp->dir_size);
+  dp->dir_attrib = fgetbyte(&vp[DIR_ATTRIB]);
+  dp->dir_time = fgetword(&vp[DIR_TIME]);
+  dp->dir_date = fgetword(&vp[DIR_DATE]);
+  dp->dir_start = fgetword(&vp[DIR_START]);
+  dp->dir_size = fgetlong(&vp[DIR_SIZE]);
 }
 
-VOID putdirent(struct dirent FAR * dp, BYTE FAR * vp)
+VOID putdirent(struct dirent FAR * dp, UBYTE FAR * vp)
 {
   REG COUNT i;
   REG BYTE FAR *p;
 
   fmemcpy(&vp[DIR_NAME], dp->dir_name, FNAME_SIZE);
   fmemcpy(&vp[DIR_EXT], dp->dir_ext, FEXT_SIZE);
-  fputbyte((BYTE FAR *) & dp->dir_attrib, &vp[DIR_ATTRIB]);
-  fputword((WORD FAR *) & dp->dir_time, &vp[DIR_TIME]);
-  fputword((WORD FAR *) & dp->dir_date, &vp[DIR_DATE]);
-  fputword((WORD FAR *) & dp->dir_start, &vp[DIR_START]);
-  fputlong((LONG FAR *) & dp->dir_size, &vp[DIR_SIZE]);
-  for (i = 0, p = (BYTE FAR *) & vp[DIR_RESERVED]; i < 10; i++)
+  fputbyte(&vp[DIR_ATTRIB], dp->dir_attrib);
+  fputword(&vp[DIR_TIME], dp->dir_time);
+  fputword(&vp[DIR_DATE], dp->dir_date);
+  fputword(&vp[DIR_START], dp->dir_start);
+  fputlong(&vp[DIR_SIZE], dp->dir_size);
+  for (i = 0, p = (UBYTE FAR *) & vp[DIR_RESERVED]; i < 10; i++)
     *p++ = NULL;
 }
 #endif

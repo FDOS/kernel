@@ -269,8 +269,6 @@ UCOUNT GenericReadSft(sft FAR * s, UCOUNT n, BYTE FAR * bp,
   else
     /* a block read                            */
   {
-    COUNT rc;
-
     /* /// Added for SHARE - Ron Cemer */
     if (IsShareInstalled())
     {
@@ -290,9 +288,9 @@ UCOUNT GenericReadSft(sft FAR * s, UCOUNT n, BYTE FAR * bp,
     }
     /* /// End of additions for SHARE - Ron Cemer */
 
-    ReadCount = readblock(s->sft_status, bp, n, &rc);
-    *err = rc;
-    return (rc == SUCCESS ? ReadCount : 0);
+    ReadCount = rwblock(s->sft_status, bp, n, XFR_READ);
+    *err = SUCCESS;
+    return ReadCount;
   }
   *err = SUCCESS;
   return 0;
@@ -445,8 +443,6 @@ UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, const BYTE FAR * bp, COUNT FAR * err)
   else
     /* a block write                           */
   {
-    COUNT rc;
-
     /* /// Added for SHARE - Ron Cemer */
     if (IsShareInstalled())
     {
@@ -466,20 +462,10 @@ UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, const BYTE FAR * bp, COUNT FAR * err)
     }
     /* /// End of additions for SHARE - Ron Cemer */
 
-    WriteCount = writeblock(s->sft_status, bp, n, &rc);
+    WriteCount = rwblock(s->sft_status, (BYTE FAR *)bp, n, XFR_WRITE);
     s->sft_size = dos_getcufsize(s->sft_status);
-/*    if (rc < SUCCESS) */
-    if (rc == DE_ACCESS ||      /* -5  Access denied                */
-        rc == DE_INVLDHNDL)     /* -6  Invalid handle               */
-    {
-      *err = rc;
-      return 0;
-    }
-    else
-    {
-      *err = SUCCESS;
-      return WriteCount;
-    }
+    *err = SUCCESS;
+    return WriteCount;
   }
   *err = SUCCESS;
   return 0;
@@ -1041,20 +1027,26 @@ BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc,
 
   if (cdsp->cdsFlags & CDSNETWDRV)
   {
-    if (*nc == 0xffff)
-    {
-      /* Undoc DOS says, its not supported for 
-         network drives. so it's probably OK */
-      /*printf("FatGetDrvData not yet supported over network drives\n"); */
+    if (remote_getfree(cdsp, rg) != SUCCESS)
       return FALSE;
-    }
 
-    remote_getfree(cdsp, rg);
+    /* for int21/ah=1c:
+       Undoc DOS says, its not supported for
+       network drives. so it's probably OK */
+    /* some programs such as RHIDE want it though and
+       the redirector can provide all info
+       - Bart, 2002 Apr 1 */
+
+    if (*nc != 0xffff)
+    {
+      *navc = (COUNT) rg[3];
+      rg[0] &= 0xff;
+      /* zero media ID (high part) */
+    }
 
     *spc = (COUNT) rg[0];
     *nc = (COUNT) rg[1];
     *bps = (COUNT) rg[2];
-    *navc = (COUNT) rg[3];
     return TRUE;
   }
 
@@ -1186,6 +1178,15 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   }
 
   current_ldt = &CDSp->cds_table[drive];
+
+  if ((current_ldt->cdsFlags & CDSNETWDRV) == 0)
+  {
+    if (current_ldt->cdsDpb == 0)
+      return DE_INVLDDRV;
+
+    if ((media_check(current_ldt->cdsDpb) < 0))
+      return DE_INVLDDRV;
+  }
 
   cp = &current_ldt->cdsCurrentPath[current_ldt->cdsJoinOffset];
   if (*cp == '\0')
@@ -1361,6 +1362,7 @@ COUNT DosFindNext(void)
   fmemset(dta, 0, sizeof(dmatch));
   p = dta;
   dta = (BYTE FAR *) TempBuffer;
+  current_ldt = &CDSp->cds_table[((dmatch *) TempBuffer)->dm_drive];
   rc = (((dmatch *) TempBuffer)->dm_drive & 0x80) ?
       remote_findnext((VOID FAR *) current_ldt) : dos_findnext();
 

@@ -241,8 +241,10 @@ VOID new_psp(psp FAR * p, int psize)
 
   /* first command line argument                          */
   p->ps_fcb1.fcb_drive = 0;
+  fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
   /* second command line argument                         */
   p->ps_fcb2.fcb_drive = 0;
+  fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
 
   /* local command line                                   */
   p->ps_cmd_count = 0;          /* command tail                 */
@@ -265,8 +267,11 @@ STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR * exb,
 
   /* complete the psp by adding the command line and FCBs     */
   fmemcpy(psp->ps_cmd, exb->exec.cmd_line->ctBuffer, 127);
-  fmemcpy(&psp->ps_fcb1, exb->exec.fcb_1, 16);
-  fmemcpy(&psp->ps_fcb2, exb->exec.fcb_2, 16);
+  if (FP_OFF(exb->exec.fcb_1) != 0xffff)
+  {
+    fmemcpy(&psp->ps_fcb1, exb->exec.fcb_1, 16);
+    fmemcpy(&psp->ps_fcb2, exb->exec.fcb_2, 16);
+  }
   psp->ps_cmd_count = exb->exec.cmd_line->ctCount;
 
   /* identify the mcb as this functions'                  */

@@ -393,6 +393,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     char c, *bufend = buf + (sizeof(buf) - 1);
     int gotAnyWildcards = 0;
     int seglen, copylen, state;
+    int error = DE_PATHNOTFND;
     while ((*src) && (bufp < bufend))
     {
       /* Skip duplicated slashes. */
@@ -404,7 +405,12 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
       for (seglen = 0;; seglen++)
       {
         c = src[seglen];
-        if ((c == '\0') || (c == '/') || (c == '\\'))
+        if (c == '\0')
+        {
+          error = DE_FILENOTFND;
+          break;
+        }
+        else if ((c == '/') || (c == '\\'))
           break;
       }
       if (seglen > 0)
@@ -426,7 +432,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
             else
             {
               /* .. in root dir illegal */
-              return DE_PATHNOTFND;
+              return error;
             }
           }
           else
@@ -434,7 +440,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
             /* New segment.  If any wildcards in previous
                segment(s), this is an invalid path. */
             if (gotAnyWildcards || src[0] == '.')
-              return DE_PATHNOTFND;
+              return error;
             /* Append current path segment to result. */
             *(bufp++) = '\\';
             if (bufp >= bufend)
@@ -456,8 +462,6 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
                         break;
                       copylen++;
                     }
-                    copylen = 0;
-                    state = 1;  /* Go wait for dot */
                     break;
                   }
                   if (c == '.')
@@ -465,26 +469,17 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
                     if (src[i + 1] != '.' && i + 1 < seglen)
                       *(bufp++) = '.';
                     copylen = 0;
-                    state = 2;  /* Copy extension next */
+                    state = 1;  /* Copy extension next */
                     break;
                   }
-                  *(bufp++) = c;
-                  copylen++;
-                  if (copylen >= FNAME_SIZE)
+                  if (copylen < FNAME_SIZE)
                   {
-                    copylen = 0;
-                    state = 1;  /* Go wait for dot */
+                    *(bufp++) = c;
+                    copylen++;
                     break;
                   }
                   break;
-                case 1:        /* Looking for dot so we can copy exten */
-                  if (src[i] == '.' && src[i + 1] != '.' && i + 1 < seglen)
-                  {
-                    *(bufp++) = '.';
-                    state = 2;
-                  }
-                  break;
-                case 2:        /* Copying extension */
+                case 1:        /* Copying extension */
                   if (c == '*')
                   {
                     while (copylen < FEXT_SIZE)
@@ -494,20 +489,13 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
                         break;
                       copylen++;
                     }
-                    i = seglen; /* Done with segment */
-                    break;
                   }
                   if (c == '.')
+                    return error;
+                  if (copylen < FEXT_SIZE)
                   {
-                    i = seglen; /* Done with segment */
-                    break;
-                  }
-                  *(bufp++) = c;
-                  copylen++;
-                  if (copylen >= FEXT_SIZE)
-                  {
-                    i = seglen; /* Done with segment */
-                    break;
+                    *(bufp++) = c;
+                    copylen++;
                   }
                   break;
               }

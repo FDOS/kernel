@@ -62,13 +62,27 @@ static dmatch Dmatch;
 VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
                    UCOUNT FAR * nc, BYTE FAR ** mdp)
 {
+  static BYTE mdb;
   UCOUNT navc;
 
   /* get the data available from dpb                       */
   *nc = 0xffff;                 /* pass 0xffff to skip free count */
   if (DosGetFree((UBYTE) drive, spc, &navc, bps, nc))
+  {
+    struct cds FAR *cdsp =
+      &CDSp->cds_table[(drive == 0 ? default_drive : drive - 1)];
     /* Point to the media desctriptor for this drive               */
-    *mdp = (BYTE FAR *) & (CDSp->cds_table[drive].cdsDpb->dpb_mdb);
+    if (cdsp->cdsFlags & CDSNETWDRV)
+    {
+      mdb = *spc >> 8;
+      *mdp = &mdb;
+      *spc &= 0xff;
+    }
+    else
+    {
+      *mdp = (BYTE FAR *) & (cdsp->cdsDpb->dpb_mdb);
+    }
+  }
 }
 
 #define PARSE_SEP_STOP          0x01

@@ -42,6 +42,9 @@ extern COUNT DOSFAR nUnits;
 
 extern UWORD DOSFAR LBA_WRITE_VERIFY;
 
+/* floppy parameter table, at 70:xxxx */
+extern unsigned char DOSTEXTFAR int1e_table[0xe];
+
 /*
  *    Rev 1.0   13 May 2001  tom ehlert
  * Initial revision.
@@ -611,7 +614,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   {
     LBA_to_CHS(&chs, StartSector, driveParam);
 
-    printf("%c: HD%d", 'A' + nUnits, (driveParam->driveno & 0x7f) + 1);
+    printf("\r%c: HD%d", 'A' + nUnits, (driveParam->driveno & 0x7f) + 1);
 
     if (extendedPartNo)
       printf(" Ext:%d", extendedPartNo);
@@ -1237,6 +1240,14 @@ void ReadAllPartitionTables(void)
   ddt FAR *pddt;
   static iregs regs;
 
+  /* quick adjustment of diskette parameter table */
+  fmemcpy(int1e_table, *(char FAR * FAR *)MK_FP(0, 0x1e*4), sizeof(int1e_table));
+  /* enforce min. 9 sectors per track */
+  if (int1e_table[4] < 9)
+    int1e_table[4] = 9;
+  /* and adjust int1e */
+  setvec(0x1e, (intvec)int1e_table);
+
   /* Setup media info and BPBs arrays for floppies */
   for (Unit = 0; Unit < nUnits; Unit++)
   {
@@ -1339,7 +1350,7 @@ void ReadAllPartitionTables(void)
 /* disk initialization: returns number of units */
 COUNT dsk_init()
 {
-  printf(" - InitDisk\n");
+  printf(" - InitDisk");
 
 #ifdef DEBUG
   {

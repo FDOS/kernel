@@ -58,6 +58,10 @@ struct HugeSectorBlock {
   BYTE FAR *buf;
 };
 
+/* must be global/file scope, Turbo C uses the wrong segment for 
+ * function scope */
+STATIC const char dbcsTable[] = {0, 0, 0, 0};
+
 /* Normal entry.  This minimizes user stack usage by avoiding local     */
 /* variables needed for the rest of the handler.                        */
 /* this here works on the users stack !! and only very few functions 
@@ -1325,7 +1329,6 @@ dispatch:
       /* UNDOCUMENTED: Double byte and korean tables                  */
     case 0x63:
       {
-        static char *dbcsTable = "\0\0\0\0";
         r->DS = FP_SEG(dbcsTable);
         r->SI = FP_OFF(dbcsTable);
 #if 0

@@ -177,7 +177,7 @@ _spawn_int23:
   		;; complete the jump to INT-23 via RETF and restore BP
   		xchg word [bp-4], bp
 
-                stc			;; set default action --> terminate
+                clc			;; set default action --> resume
                 ; invoke the int 23 handler its address has been constructed
                 ;; on the stack
                 retf

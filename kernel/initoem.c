@@ -37,7 +37,7 @@ static BYTE *RcsId =
 
 UWORD init_oem(void)
 {
-  UWORD top_k;
+  UWORD top_k = 0;
 
 #ifndef __TURBOC__
   asm

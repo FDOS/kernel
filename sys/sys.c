@@ -66,6 +66,7 @@ extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 #ifndef __WATCOMC__
 #include <io.h>
 #else
+int unlink(const char *pathname);
 /* some non-conforming functions to make the executable smaller */
 int open(const char *pathname, int flags, ...)
 {
@@ -819,7 +820,7 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   return TRUE;
 }
 
-/* Log: sys.c,v see "cvs log sys.c" for newer entries.
+/* Log: sys.c,v see "cvs log sys.c" for newer entries. */
 
 /* version 2.2 jeremyd 2001/9/20
    Changed so if no source given or only source drive (no path)

@@ -158,8 +158,7 @@ BOOL dos_setfsize(COUNT fd, LONG size);
 COUNT dos_mkdir(BYTE * dir);
 BOOL last_link(f_node_ptr fnp);
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode);
-UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err);
-UCOUNT writeblock(COUNT fd, const VOID FAR * buffer, UCOUNT count, COUNT * err);
+UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode);
 COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count);
 COUNT dos_write(COUNT fd, const VOID FAR * buffer, UCOUNT count);
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin);
@@ -184,16 +183,7 @@ void read_fsinfo(struct dpb FAR * dpbp);
 void write_fsinfo(struct dpb FAR * dpbp);
 UCOUNT link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
                 REG CLUSTER Cluster2);
-UCOUNT link_fat32(struct dpb FAR * dpbp, CLUSTER Cluster1,
-                  CLUSTER Cluster2);
-UCOUNT link_fat16(struct dpb FAR * dpbp, CLUSTER Cluster1,
-                  CLUSTER Cluster2);
-UCOUNT link_fat12(struct dpb FAR * dpbp, CLUSTER Cluster1,
-                  CLUSTER Cluster2);
 CLUSTER next_cluster(struct dpb FAR * dpbp, REG CLUSTER ClusterNum);
-CLUSTER next_cl32(struct dpb FAR * dpbp, REG CLUSTER ClusterNum);
-CLUSTER next_cl16(struct dpb FAR * dpbp, REG CLUSTER ClusterNum);
-CLUSTER next_cl12(struct dpb FAR * dpbp, REG CLUSTER ClusterNum);
 
 /* fcbfns.c */
 VOID DosOutputString(BYTE FAR * s);

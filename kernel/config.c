@@ -128,8 +128,8 @@ BYTE askThisSingleCommand = FALSE;      	/* ?device=  device?= */
 BYTE DontAskThisSingleCommand = FALSE;      /* !files=	          */
 
 COUNT MenuTimeout = -1;
-BYTE MenuSelected = 0;
-BYTE MenuLine     = 0;
+BYTE  MenuSelected = 0;
+UCOUNT MenuLine     = 0;
 UCOUNT Menus      = 0;
 
 STATIC VOID zumcb_init(UCOUNT seg, UWORD size);
@@ -633,7 +633,7 @@ VOID DoConfig(int pass)
 
   }
   close(nFileDesc); 
-  
+
   if (nPass == 0)
   {
     DoMenu();
@@ -703,20 +703,15 @@ STATIC BOOL SkipLine(char *pLine)
 {
   short key;
 
-  static char initialized = FALSE;
-
-  if (!initialized)
+  if (InitKernelConfig.SkipConfigSeconds >= 0)
   {
-
-    initialized = TRUE;
-
-    if (InitKernelConfig.SkipConfigSeconds < 0)
-      return FALSE;
 
     if (InitKernelConfig.SkipConfigSeconds > 0)
       printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
 
     key = GetBiosKey(InitKernelConfig.SkipConfigSeconds);       /* wait 2 seconds */
+    
+    InitKernelConfig.SkipConfigSeconds = -1;
 
     if (key == 0x3f00)          /* F5 */
     {
@@ -737,10 +732,10 @@ STATIC BOOL SkipLine(char *pLine)
     return TRUE;
 
   /* 1?device=CDROM.SYS */
-  /* 2?device=OAKROM.SYS */
-  /* 3?device=EMM386.EXE NOEMS */
-  if (MenuLine != 0 && 
-      MenuSelected != MenuLine)
+  /* 12?device=OAKROM.SYS */
+  /* 123?device=EMM386.EXE NOEMS */
+  if ( MenuLine != 0 && 
+      (MenuLine & (1 << MenuSelected)) == 0)
     return TRUE;
 
   if (DontAskThisSingleCommand)		/* !files=30 */
@@ -924,7 +919,7 @@ STATIC VOID Dosmem(BYTE * pLine)
   for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
     *pTmp = toupper(*pTmp);
 
-  printf("DOS called with %s\n", szBuf);
+  /* printf("DOS called with %s\n", szBuf); */
 
   for (pTmp = szBuf;;)
   {
@@ -1295,14 +1290,22 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
 
   MenuLine = 0;
 
-  /* does the line start with "1?" */
+  /* does the line start with "123?" */
 
-  if (s[1] == '?' && s[0] >= '0' && s[0] <= '9')
+  if (isnum(s))
   {
-    MenuLine = s[0];  
-    Menus |= 1 << (MenuLine - '0');
-    s = skipwh(s+2);
+	unsigned numbers = 0;
+	for ( ; isnum(s); s++)
+	 	numbers |= 1 << (*s -'0');
+	
+	if (*s == '?')
+	{
+	  MenuLine = numbers;
+	  Menus |= numbers;    
+      s = skipwh(s+1);
+    }
   }
+
   
   /* !dos=high,umb    ?? */
   if (*s == '!')
@@ -1613,7 +1616,9 @@ STATIC VOID CfgMenu(BYTE * pLine)
 STATIC VOID DoMenu(void)
 {   
   if (Menus == 0)
-    return;
+    return;      
+    
+  InitKernelConfig.SkipConfigSeconds = -1;  
 
   Menus |= 1 << 0;			/* '0' Menu always allowed */
 
@@ -1667,7 +1672,7 @@ STATIC VOID DoMenu(void)
     if (key >= '0' && key <= '9')
       if (Menus & (1 << (key - '0')))
       { 
-        MenuSelected = key; break; 
+        MenuSelected = key - '0'; break; 
       }
   }  
   printf("\n");
@@ -1688,7 +1693,7 @@ STATIC VOID CfgMenuDefault(BYTE * pLine)
   
   /* Format:  STACKS = stacks [, stackSize]       */
   pLine = GetNumArg(pLine, &num);
-  MenuSelected = '0' + num;
+  MenuSelected = num;
   pLine = skipwh(pLine);
 
   if (*pLine == ',')

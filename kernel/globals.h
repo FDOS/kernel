@@ -399,7 +399,10 @@ VOID ASMCFUNC FAR CharMapSrvc(VOID);
 VOID ASMCFUNC FAR set_stack(VOID);
 VOID ASMCFUNC FAR restore_stack(VOID);
 /*VOID INRPT FAR handle_break(VOID); */
-VOID ASMCFUNC ReadPCClock(ULONG *);
+BOOL ASMCFUNC ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
+ULONG ASMCFUNC ReadPCClock(VOID);
+VOID ASMCFUNC WriteATClock(BYTE *, BYTE, BYTE, BYTE);
+VOID ASMCFUNC WritePCClock(ULONG);
 BYTE FAR * ASMCFUNC device_end(VOID);
 COUNT ASMCFUNC kb_data(VOID);
 COUNT ASMCFUNC kb_input(VOID);
@@ -427,25 +430,25 @@ COUNT con();
 /* special word packing prototypes                              */
 /*                                                              */
 #ifdef NATIVE
-#define getlong(vp, lp) (*(LONG *)(lp)=*(LONG *)(vp))
-#define getword(vp, wp) (*(WORD *)(wp)=*(WORD *)(vp))
-#define getbyte(vp, bp) (*(BYTE *)(bp)=*(BYTE *)(vp))
-#define fgetlong(vp, lp) (*(LONG FAR *)(lp)=*(LONG FAR *)(vp))
-#define fgetword(vp, wp) (*(WORD FAR *)(wp)=*(WORD FAR *)(vp))
-#define fgetbyte(vp, bp) (*(BYTE FAR *)(bp)=*(BYTE FAR *)(vp))
-#define fputlong(lp, vp) (*(LONG FAR *)(vp)=*(LONG FAR *)(lp))
-#define fputword(wp, vp) (*(WORD FAR *)(vp)=*(WORD FAR *)(wp))
-#define fputbyte(bp, vp) (*(BYTE FAR *)(vp)=*(BYTE FAR *)(bp))
+#define getlong(vp) (*(UDWORD *)(vp))
+#define getword(vp) (*(UWORD *)(vp))
+#define getbyte(vp) (*(UBYTE *)(vp))
+#define fgetlong(vp) (*(UDWORD FAR *)(vp))
+#define fgetword(vp) (*(UWORD FAR *)(vp))
+#define fgetbyte(vp) (*(UBYTE FAR *)(vp))
+#define fputlong(vp, l) (*(UDWORD FAR *)(vp)=l)
+#define fputword(vp, w) (*(UWORD FAR *)(vp)=w)
+#define fputbyte(vp, b) (*(UBYTE FAR *)(vp)=b)
 #else
 #ifdef PROTO
-VOID getword(VOID *, WORD *);
-VOID getbyte(VOID *, BYTE *);
-VOID fgetlong(VOID FAR *, LONG FAR *);
-VOID fgetword(VOID FAR *, WORD FAR *);
-VOID fgetbyte(VOID FAR *, BYTE FAR *);
-VOID fputlong(LONG FAR *, VOID FAR *);
-VOID fputword(WORD FAR *, VOID FAR *);
-VOID fputbyte(BYTE FAR *, VOID FAR *);
+WORD getword(VOID *);
+BYTE getbyte(VOID *);
+LONG fgetlong(VOID FAR *);
+WORD fgetword(VOID FAR *);
+BYTE fgetbyte(VOID FAR *);
+VOID fputlong(VOID FAR *, UDWORD);
+VOID fputword(VOID FAR *, UWORD);
+VOID fputbyte(VOID FAR *, UBYTE);
 #else
 VOID getword();
 VOID getbyte();

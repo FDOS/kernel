@@ -30,61 +30,37 @@
 #include "globals.h"
 
 #ifdef VERSION_STRINGS
-static BYTE *RcsId =
+static char *RcsId =
     "$Id$";
-#endif
-
-#ifdef PROTO
-VOID ASMCFUNC WriteATClock(BYTE *, BYTE, BYTE, BYTE);
-VOID ASMCFUNC WritePCClock(ULONG);
-COUNT BcdToByte(COUNT);
-COUNT BcdToWord(BYTE *, UWORD *, UWORD *, UWORD *);
-COUNT ByteToBcd(COUNT);
-VOID DayToBcd(BYTE *, UWORD *, UWORD *, UWORD *);
-#else
-VOID WriteATClock();
-VOID WritePCClock();
-COUNT BcdToByte();
-COUNT BcdToWord();
-COUNT ByteToBcd();
-VOID DayToBcd();
 #endif
 
 /*                                                                      */
 /* WARNING - THIS DRIVER IS NON-PORTABLE!!!!                            */
 /*                                                                      */
-extern UWORD days[2][13];       /* this is defined by SYSTIME.C */
-
-static struct ClockRecord clk;
-
-/*
-static BYTE bcdDays[4];
-static UWORD Month,
-  Day,
-  Year;
-static BYTE bcdMinutes;
-static BYTE bcdHours;
-/ ** static BYTE bcdHundredths;* /
-static BYTE bcdSeconds;
-
-static ULONG Ticks;
-*/
 UWORD ASM DaysSinceEpoch = 0;
+typedef UDWORD ticks_t;
 
-BOOL ASMCFUNC ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
-
-STATIC COUNT BcdToByte(COUNT x)
+STATIC int ByteToBcd(int x)
 {
-  return ((((x) >> 4) & 0xf) * 10 + ((x) & 0xf));
+  return ((x / 10) << 4) | (x % 10);
+}
+
+STATIC int BcdToByte(int x)
+{
+  return ((x >> 4) & 0xf) * 10 + (x & 0xf);
+}
+
+STATIC void DayToBcd(BYTE * x, unsigned mon, unsigned day, unsigned yr)
+{
+  x[1] = ByteToBcd(mon);
+  x[0] = ByteToBcd(day);
+  x[3] = ByteToBcd(yr / 100);
+  x[2] = ByteToBcd(yr % 100);
 }
 
 WORD ASMCFUNC FAR clk_driver(rqptr rp)
 {
-  COUNT c;
-  const UWORD *pdays;
   BYTE bcd_days[4], bcd_minutes, bcd_hours, bcd_seconds;
-  ULONG Ticks;
-  UWORD Month, Day, Year;
 
   switch (rp->r_command)
   {
@@ -92,6 +68,8 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
       /* If AT clock exists, copy AT clock time to system clock */
       if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
       {
+        ticks_t seconds;
+        
         DaysSinceEpoch =
             DaysFromYearMonthDay(100 * BcdToByte(bcd_days[3]) +
                                  BcdToByte(bcd_days[2]),
@@ -100,16 +78,16 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
 
         /*
          * This is a rather tricky calculation. The number of timer ticks per
-         * second is not exactly 18.2, but rather 0x1800b0 / 86400 = 19663 / 1080
-         * (the timer interrupt updates the midnight flag when the tick count
-         * reaches 0x1800b0). Fortunately, 86400 * 19663 = 1698883200 < ULONG_MAX,
-         * so we can simply multiply the number of seconds by 19663 without
-         * worrying about overflow. :) -- ror4
+         * second is not exactly 18.2, but rather 1193180 / 65536
+         * where 1193180 = 0x1234dc
+         * The timer interrupt updates the midnight flag when the tick count
+         * reaches 0x1800b0 -- ror4.
          */
-        Ticks = (3600ul * BcdToByte(bcd_hours) +
-                 60ul * BcdToByte(bcd_minutes) +
-                 BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
-        WritePCClock(Ticks);
+
+        seconds =
+          60 * (ticks_t)(60 * BcdToByte(bcd_hours) + BcdToByte(bcd_minutes)) +
+          BcdToByte(bcd_seconds);
+        WritePCClock(seconds * 0x12 + ((seconds * 0x34dc) >> 16));
       }
       /* rp->r_endaddr = device_end(); not needed - bart */
       rp->r_nunits = 0;
@@ -117,170 +95,86 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
 
     case C_INPUT:
       {
-        ULONG remainder, hs;
-        ReadPCClock(&Ticks);
+        struct ClockRecord clk;
+        int tmp;
+        ticks_t ticks;
+        
         clk.clkDays = DaysSinceEpoch;
-        /*
-         * Another tricky calculation (after the one in `main.c'). This time
-         * we do have a problem with overflow, because we need to extract the
-         * 1/100s portion too. The scaling factor is now
-         * (100 x 86400) / 0x1800b0 = 108000 / 19663. -- ror4
-         */
-        hs = 0;
-#if 0
-        if (Ticks >= 64 * 19663ul)
-        {
-          hs += 64 * 108000ul;
-          Ticks -= 64 * 19663ul;
-        }
-        if (Ticks >= 32 * 19663ul)
-        {
-          hs += 32 * 108000ul;
-          Ticks -= 32 * 19663ul;
-        }
-        if (Ticks >= 16 * 19663ul)
-        {
-          hs += 16 * 108000ul;
-          Ticks -= 16 * 19663ul;
-        }
-        if (Ticks >= 8 * 19663ul)
-        {
-          hs += 8 * 108000ul;
-          Ticks -= 8 * 19663ul;
-        }
-        if (Ticks >= 4 * 19663ul)
-        {
-          hs += 4 * 108000ul;
-          Ticks -= 4 * 19663ul;
-        }
-        if (Ticks >= 2 * 19663ul)
-        {
-          hs += 2 * 108000ul;
-          Ticks -= 2 * 19663ul;
-        }
-        if (Ticks >= 19663ul)
-        {
-          hs += 108000ul;
-          Ticks -= 19663ul;
-        }
-#else
-        {
-          UWORD q1 = Ticks / 19663ul;
+        
+        /* The scaling factor is now
+           6553600/1193180 = 327680/59659 = 65536*5/59659 */
+        
+        ticks = 5 * ReadPCClock();     
+        ticks = ((ticks / 59659u) << 16) + ((ticks % 59659u) << 16) / 59659u;
+        
+        tmp = (int)(ticks / 6000);
+        clk.clkHours = tmp / 60;
+        clk.clkMinutes = tmp % 60;
 
-          Ticks -= q1 * 19663ul;
-          hs = q1 * 108000ul;
-        }
-
-#endif
-        /*
-         * Now Ticks < 19663, so Ticks * 108000 < 2123604000 < ULONG_MAX.
-         * *phew* -- ror4
-         */
-        hs += Ticks * 108000ul / 19663ul;
-        clk.clkHours = hs / 360000ul;
-        remainder = hs % 360000ul;
-        clk.clkMinutes = remainder / 6000ul;
-        remainder %= 6000ul;
-        clk.clkSeconds = remainder / 100ul;
-        clk.clkHundredths = remainder % 100ul;
-      }
-
-      fmemcpy(rp->r_trans, &clk,
-              min(sizeof(struct ClockRecord), rp->r_count));
+        tmp = (int)(ticks % 6000);
+        clk.clkSeconds = tmp / 100;
+        clk.clkHundredths = tmp % 100;        
+                
+        fmemcpy(rp->r_trans, &clk,
+                min(sizeof(struct ClockRecord), rp->r_count));
+      }        
       return S_DONE;
 
     case C_OUTPUT:
-      rp->r_count = min(rp->r_count, sizeof(struct ClockRecord));
-      fmemcpy(&clk, rp->r_trans, rp->r_count);
-
-      /* Set PC Clock first                                   */
-      DaysSinceEpoch = clk.clkDays;
       {
-        ULONG hs;
-        hs = 360000ul * clk.clkHours +
-            6000ul * clk.clkMinutes +
-            100ul * clk.clkSeconds + clk.clkHundredths;
-        Ticks = 0;
-#if 0
-        if (hs >= 64 * 108000ul)
-        {
-          Ticks += 64 * 19663ul;
-          hs -= 64 * 108000ul;
-        }
-        if (hs >= 32 * 108000ul)
-        {
-          Ticks += 32 * 19663ul;
-          hs -= 32 * 108000ul;
-        }
-        if (hs >= 16 * 108000ul)
-        {
-          Ticks += 16 * 19663ul;
-          hs -= 16 * 108000ul;
-        }
-        if (hs >= 8 * 108000ul)
-        {
-          Ticks += 8 * 19663ul;
-          hs -= 8 * 108000ul;
-        }
-        if (hs >= 4 * 108000ul)
-        {
-          Ticks += 4 * 19663ul;
-          hs -= 4 * 108000ul;
-        }
-        if (hs >= 2 * 108000ul)
-        {
-          Ticks += 2 * 19663ul;
-          hs -= 2 * 108000ul;
-        }
-        if (hs >= 108000ul)
-        {
-          Ticks += 19663ul;
-          hs -= 108000ul;
-        }
-#else
-        {
-          UWORD q1 = hs / 108000ul;
+        int c;
+        const unsigned short *pdays;
+        unsigned Month, Day, Year;
+        struct ClockRecord clk;
+        ticks_t hs, Ticks;
+        
+        rp->r_count = min(rp->r_count, sizeof(struct ClockRecord));
+        fmemcpy(&clk, rp->r_trans, rp->r_count);
 
-          hs -= q1 * 108000ul;
-          Ticks = q1 * 19663ul;
+        /* Set PC Clock first                                   */
+        DaysSinceEpoch = clk.clkDays;
+        hs = 6000 * (ticks_t)(60 * clk.clkHours + clk.clkMinutes) +
+          (ticks_t)(100 * clk.clkSeconds + clk.clkHundredths);
+
+        /* The scaling factor is now
+           1193180/6553600 = 59659/327680 = 59659/65536/5 */
+        
+        Ticks = ((hs >> 16) * 59659u + (((hs & 0xffff) * 59659u) >> 16)) / 5;
+
+        WritePCClock(Ticks);
+
+        /* Now set AT clock                                     */
+        /* Fix year by looping through each year, subtracting   */
+        /* the appropriate number of days for that year.        */
+        for (Year = 1980, c = clk.clkDays;;)
+        {
+          pdays = is_leap_year_monthdays(Year);
+          if (c >= pdays[12])
+          {
+            ++Year;
+            c -= pdays[12];
+          }
+          else
+            break;
+        }
+        
+        /* c contains the days left and count the number of     */
+        /* days for that year.  Use this to index the table.    */
+        for (Month = 1; Month < 13; ++Month)
+        {
+          if (pdays[Month] > c)
+          {
+            Day = c - pdays[Month - 1] + 1;
+            break;
+          }
         }
 
-#endif
-        Ticks += hs * 19663ul / 108000ul;
+        DayToBcd(bcd_days, Month, Day, Year);
+        bcd_minutes = ByteToBcd(clk.clkMinutes);
+        bcd_hours = ByteToBcd(clk.clkHours);
+        bcd_seconds = ByteToBcd(clk.clkSeconds);
+        WriteATClock(bcd_days, bcd_hours, bcd_minutes, bcd_seconds);
       }
-      WritePCClock(Ticks);
-
-      /* Now set AT clock                                     */
-      /* Fix year by looping through each year, subtracting   */
-      /* the appropriate number of days for that year.        */
-      for (Year = 1980, c = clk.clkDays;;)
-      {
-        pdays = is_leap_year_monthdays(Year);
-        if (c >= pdays[12])
-        {
-          ++Year;
-          c -= pdays[12];
-        }
-        else
-          break;
-      }
-
-      /* c contains the days left and count the number of     */
-      /* days for that year.  Use this to index the table.    */
-      for (Month = 1; Month < 13; ++Month)
-      {
-        if (pdays[Month] > c)
-        {
-          Day = c - pdays[Month - 1] + 1;
-          break;
-        }
-      }
-
-      DayToBcd((BYTE *) bcd_days, &Month, &Day, &Year);
-      bcd_minutes = ByteToBcd(clk.clkMinutes);
-      bcd_hours = ByteToBcd(clk.clkHours);
-      bcd_seconds = ByteToBcd(clk.clkSeconds);
-      WriteATClock(bcd_days, bcd_hours, bcd_minutes, bcd_seconds);
       return S_DONE;
 
     case C_OFLUSH:
@@ -294,19 +188,6 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
     default:
       return failure(E_FAILURE);        /* general failure */
   }
-}
-
-COUNT ByteToBcd(COUNT x)
-{
-  return ((x / 10) << 4) | (x % 10);
-}
-
-VOID DayToBcd(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr)
-{
-  x[1] = ByteToBcd(*mon);
-  x[0] = ByteToBcd(*day);
-  x[3] = ByteToBcd(*yr / 100);
-  x[2] = ByteToBcd(*yr % 100);
 }
 
 /*

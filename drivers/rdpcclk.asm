@@ -40,16 +40,15 @@ segment	HMA_TEXT
 _ReadPCClock:
                 xor     ah,ah
                 int     1ah
-		mov	bx,sp
-		mov	bx,[bx+2]
-                mov     [bx],dx
-                mov     [bx+2],cx
 		extern  _DaysSinceEpoch   ;            ; update days if necessary
 
                 mov     ah,0
 
                 add     word [_DaysSinceEpoch  ],ax    ;   *some* BIOS's accumulate several days
                 adc     word [_DaysSinceEpoch+2],0     ;
+
+                mov     ax,dx                          ; set return value
+                mov     dx,cx 
 
                 ret
 
