@@ -79,15 +79,6 @@
 %endmacro
 
 segment	HMA_TEXT
-;
-;       void intr(nr, rp)
-;       REG int nr
-;       REG struct REGPACK *rp
-;
-;
-		global	_intr
-_intr:
-		INTR
 
 ;; COUNT ASMCFUNC res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
     global _res_DosExec
@@ -125,7 +116,6 @@ segment	INIT_TEXT
 ;       REG int nr
 ;       REG struct REGPACK *rp
 ;
-; same stuff as above, but in INIT_SEGMENT
 		global	_init_call_intr
 _init_call_intr:
 		INTR

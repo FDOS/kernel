@@ -165,7 +165,105 @@ IntDosCal:
     pop ax
     
     iret
-                    
+
+		global	SHARE_CHECK
+SHARE_CHECK:
+		mov	ax, 0x1000
+		int	0x2f
+		ret
+           
+;           DOS calls this to see if it's okay to open the file.
+;           Returns a file_table entry number to use (>= 0) if okay
+;           to open.  Otherwise returns < 0 and may generate a critical
+;           error.  If < 0 is returned, it is the negated error return
+;           code, so DOS simply negates this value and returns it in
+;           AX.
+; STATIC int share_open_check(char * filename,
+;				/* pointer to fully qualified filename */
+;                            unsigned short pspseg,
+;				/* psp segment address of owner process */
+;			     int openmode,
+;				/* 0=read-only, 1=write-only, 2=read-write */
+;			     int sharemode) /* SHARE_COMPAT, etc... */
+		global SHARE_OPEN_CHECK
+SHARE_OPEN_CHECK:
+		mov	es, si		; save si
+		pop	ax		; return address
+		pop	dx		; sharemode;
+		pop	cx		; openmode;
+		pop	bx		; pspseg;
+		pop	si		; filename
+		push	ax		; return address
+		mov	ax, 0x10a0
+		int	0x2f	     	; returns ax
+		mov	si, es		; restore si
+		ret
+
+;          DOS calls this to record the fact that it has successfully
+;          closed a file, or the fact that the open for this file failed.
+; STATIC void share_close_file(int fileno)  /* file_table entry number */
+
+		global	SHARE_CLOSE_FILE
+SHARE_CLOSE_FILE:
+		pop	ax
+		pop	bx
+		push	ax
+		mov	ax, 0x10a1
+		int	0x2f
+		ret
+
+;          DOS calls this to determine whether it can access (read or
+;          write) a specific section of a file.  We call it internally
+;          from lock_unlock (only when locking) to see if any portion
+;          of the requested region is already locked.  If pspseg is zero,
+;          then it matches any pspseg in the lock table.  Otherwise, only
+;          locks which DO NOT belong to pspseg will be considered.
+;          Returns zero if okay to access or lock (no portion of the
+;          region is already locked).  Otherwise returns non-zero and
+;          generates a critical error (if allowcriter is non-zero).
+;          If non-zero is returned, it is the negated return value for
+;          the DOS call.
+;STATIC int share_access_check(unsigned short pspseg,
+;				/* psp segment address of owner process */
+;                              int fileno,       /* file_table entry number */
+;                              unsigned long ofs,        /* offset into file */
+;                              unsigned long len,        /* length (in bytes) of region to access */
+;                              int allowcriter)          /* allow a critical error to be generated */
+		global SHARE_ACCESS_CHECK
+SHARE_ACCESS_CHECK:
+		mov	ax, 0x10a2
+share_common:
+		push	bp
+		mov	bp, sp
+		push	si
+		push	di
+		mov	bx, [bp + 16]	; pspseg
+		mov	cx, [bp + 14]	; fileno
+		mov	si, [bp + 12]	; high word of ofs
+		mov	di, [bp + 10]	; low word of ofs
+		les	dx, [bp + 6]	; len
+		or	ax, [bp + 4]	; allowcriter/unlock
+		int	0x2f
+		pop	di
+		pop	si
+		pop	bp
+		ret	14		; returns ax
+
+;          DOS calls this to lock or unlock a specific section of a file.
+;          Returns zero if successfully locked or unlocked.  Otherwise
+;          returns non-zero.
+;          If the return value is non-zero, it is the negated error
+;          return code for the DOS 0x5c call. */
+;STATIC int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
+;                             int fileno,        /* file_table entry number */
+;                             unsigned long ofs, /* offset into file */
+;                             unsigned long len, /* length (in bytes) of region to lock or unlock */
+;                             int unlock)       /* one to unlock; zero to lock */
+		global	SHARE_LOCK_UNLOCK
+SHARE_LOCK_UNLOCK:
+		mov	ax,0x10a4
+		jmp	short share_common
+
 ; Int 2F Multipurpose Remote System Calls
 ;
 ; added by James Tabor jimtabor@infohwy.com
@@ -429,6 +527,59 @@ _remote_process_end:                     ; Terminate process
                 push    ss
                 pop     ds
                 ret
+
+;STATIC int ASMCFUNC remote_lock_unlock(sft FAR *sftp,     /* SFT for file */
+;                             unsigned long ofs, /* offset into file */
+;                             unsigned long len, /* length (in bytes) of region to lock or unlock */
+;                            int unlock)
+;                               one to unlock; zero to lock
+		global _remote_lock_unlock
+_remote_lock_unlock:
+		push	bp
+		mov	bp, sp
+		push	di
+		les	di, [bp + 4]	; sftp
+		lea	dx, [bp + 8]	; parameter block on the stack!
+		mov	bl, [bp + 16]	; unlock
+		mov	ax, 0x110a
+		mov	cx, 1
+		int	0x2f
+		mov	ah, 0
+		jc	lock_error
+		mov	al, 0
+lock_error:
+		neg	al
+		pop	di
+		pop	bp
+		ret
+
+; extern UWORD ASMCFUNC call_nls(UWORD subfct, struct nlsInfoBlock *nlsinfo,
+; UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize, UWORD FAR *buf, UWORD *id);
+
+		global _call_nls
+_call_nls:
+		push	bp
+		mov	bp, sp
+		push	si
+		mov	al, [bp + 4]	; subfct
+		mov	ah, 0x14
+		mov	si, [bp + 6]	; nlsinfo
+		mov	bx, [bp + 10]	; cp
+		mov	dx, [bp + 12]	; cntry
+		mov	cx, [bp + 14]	; bufsize
+		les	di, [bp + 16]	; buf
+		push	bp
+		mov	bp, [bp + 8]	; bp
+		int	0x2f
+		pop	bp
+		mov	bp, [bp + 20]	; store id (in SS:) unless it's NULL
+		or	bp, bp
+		jz	nostore
+		mov	[bp], bx
+nostore:
+		pop	si
+		pop	bp
+		ret
 
 %if 0
 ; int_2f_111e_call(iregs FAR *iregs)

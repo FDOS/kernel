@@ -43,22 +43,10 @@ static BYTE *RcsId =
     "$Id$";
 #endif
 
-/*
- *	assertDSeqSS() - test if DS == SS
- *	Otherwise pointers to local variables (that ones on the stack) will
- *	be referenced via DS, which will cause to use wrong values.
- */
 #ifdef NLS_DEBUG
-#define assertDSeqSS() if(_DS != _SS)	assertDSneSS();
-void assertDSneSS(void)
-{
-  panic("DS unequal to SS");
-}
-
 #define log(a)	printf a
 #define log1(a)	printf a
 #else
-#define assertDSeqSS()
 #define log(a)
 #ifdef NDEBUG
 #define log1(a)
@@ -103,18 +91,19 @@ struct nlsInfoBlock nlsInfo = {
  ***** MUX calling functions ****************************************
  ********************************************************************/
 
+extern int ASMCFUNC call_nls(UWORD, struct nlsInfoBlock *, UWORD, UWORD, UWORD,
+                      UWORD, void FAR *, UWORD *);
 /*== DS:SI _always_ points to global NLS info structure <-> no
  * subfct can use these registers for anything different. ==ska*/
-STATIC COUNT muxGo(int subfct, iregs * rp)
+STATIC COUNT muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
+                   void FAR *buf, UWORD *id)
 {
-  log(("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%04x:%04x\n",
-       subfct, rp->DX, rp->BX, rp->ES, rp->DI));
-  rp->SI = FP_OFF(&nlsInfo);
-  rp->DS = FP_SEG(&nlsInfo);
-  rp->AX = 0x1400 | subfct;
-  intr(0x2f, rp);
-  log(("NLS: muxGo(): return value = %d\n", rp->AX));
-  return rp->AX;
+  int ret;
+  log(("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%p\n",
+       subfct, cntry, cp, buf));
+  ret = call_nls(subfct, &nlsInfo, bp, cp, cntry, bufsize, buf, id);
+  log(("NLS: muxGo(): return value = %d\n", ret));
+  return ret;
 }
 
 /*
@@ -122,49 +111,36 @@ STATIC COUNT muxGo(int subfct, iregs * rp)
  */
 COUNT muxLoadPkg(UWORD cp, UWORD cntry)
 {
-  iregs r;
-
-  assertDSeqSS();               /* because "&r" */
+  UWORD id; /* on stack, call_nls in int2f.asm takes care of this
+             * if DS != SS */
 
   /*          0x1400 == not installed, ok to install              */
   /*          0x1401 == not installed, not ok to install          */
   /*          0x14FF == installed                                 */
 
-  r.BX = NLS_FREEDOS_NLSFUNC_VERSION;		/* What version of nlsInfo */
 #if NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID
   /* make sure the NLSFUNC ID is updated */
 #error "NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID"
 #endif
-  r.CX = NLS_FREEDOS_NLSFUNC_ID;
-  if (muxGo(0, &r) != 0x14ff)
+  if (muxGo(0, 0, NLS_FREEDOS_NLSFUNC_VERSION, 0, NLS_FREEDOS_NLSFUNC_ID, 0,
+            (UWORD *)&id) != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
-  if (r.BX != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
+  if (id != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
     return DE_INVLDACC;         /* This magic number */
 
   /* OK, the correct NLSFUNC is available --> load pkg */
-  /* If BX == -1 on entry, NLSFUNC updates BX to the codepage loaded
+  /* If cp == -1 on entry, NLSFUNC updates cp to the codepage loaded
      into memory. The system must then change to this one later */
-  r.DX = cntry;
-  r.BX = cp;
-  return muxGo(NLSFUNC_LOAD_PKG, &r);
+  return muxGo(NLSFUNC_LOAD_PKG, 0, cp, cntry, 0, 0, 0);
 }
 
 STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry,
                     UWORD bufsize, VOID FAR * buf)
 {
-  iregs r;
+  log(("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%p\n",
+       subfct, bp, cp, cntry, bufsize, buf));
 
-  assertDSeqSS();               /* because "&r" */
-
-  log(("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%04x:%04x\n", subfct, bp, cp, cntry, bufsize, FP_SEG(buf), FP_OFF(buf)));
-
-  r.DX = cntry;
-  r.BX = cp;
-  r.ES = FP_SEG(buf);
-  r.DI = FP_OFF(buf);
-  r.CX = bufsize;
-  r.BP = bp;
-  return muxGo(subfct, &r);
+  return muxGo(subfct, bp, cp, cntry, bufsize, buf, 0);
 }
 
 #define mux65(s,cp,cc,bs,b)	muxBufGo(2, (s), (cp), (cc), (bs), (b))
@@ -427,11 +403,9 @@ STATIC VOID xUpMem(struct nlsPackage FAR * nls, VOID FAR * str,
 
 STATIC int nlsYesNo(struct nlsPackage FAR * nls, unsigned char ch)
 {
-  assertDSeqSS();               /* because "&ch" */
-
   log(("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
 
-  xUpMem(nls, &ch, 1);          /* Upcase character */
+  xUpMem(nls, MK_FP(_SS, &ch), 1);          /* Upcase character */
   /* Cannot use DosUpChar(), because
      maybe: nls != current NLS pkg
      However: Upcase character within lowlevel
@@ -507,8 +481,7 @@ VOID DosUpFMem(VOID FAR * str, unsigned len)
 unsigned char DosUpFChar(unsigned char ch)
  /* upcase a single character for file names */
 {
-  assertDSeqSS();               /* because "&ch" */
-  DosUpFMem((UBYTE FAR *) & ch, 1);
+  DosUpFMem(MK_FP(_SS, & ch), 1);
   return ch;
 }
 

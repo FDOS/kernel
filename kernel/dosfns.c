@@ -45,14 +45,16 @@ BYTE share_installed = 0;
            error.  If < 0 is returned, it is the negated error return
            code, so DOS simply negates this value and returns it in
            AX. */
-STATIC int share_open_check(char * filename,            /* pointer to fully qualified filename */
+extern int ASMPASCAL
+           share_open_check(char * filename,            /* pointer to fully qualified filename */
                             unsigned short pspseg,      /* psp segment address of owner process */
                             int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
                             int sharemode);     /* SHARE_COMPAT, etc... */
 
         /* DOS calls this to record the fact that it has successfully
            closed a file, or the fact that the open for this file failed. */
-STATIC void share_close_file(int fileno);       /* file_table entry number */
+extern void ASMPASCAL
+            share_close_file(int fileno);       /* file_table entry number */
 
         /* DOS calls this to determine whether it can access (read or
            write) a specific section of a file.  We call it internally
@@ -65,7 +67,8 @@ STATIC void share_close_file(int fileno);       /* file_table entry number */
            generates a critical error (if allowcriter is non-zero).
            If non-zero is returned, it is the negated return value for
            the DOS call. */
-STATIC int share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
+extern int ASMPASCAL
+            share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
                               int fileno,       /* file_table entry number */
                               unsigned long ofs,        /* offset into file */
                               unsigned long len,        /* length (in bytes) of region to access */
@@ -76,18 +79,20 @@ STATIC int share_access_check(unsigned short pspseg,    /* psp segment address o
            returns non-zero.
            If the return value is non-zero, it is the negated error
            return code for the DOS 0x5c call. */
-STATIC int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
+extern int ASMPASCAL
+            share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
                              int fileno,        /* file_table entry number */
                              unsigned long ofs, /* offset into file */
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
-                             int unlock);       /* non-zero to unlock; zero to lock */
+                             int unlock);       /* one to unlock; zero to lock */
 
 /* /// End of additions for SHARE.  - Ron Cemer */
 
-STATIC int remote_lock_unlock(sft FAR *sftp,  /* SFT for file */
+extern int ASMCFUNC
+          remote_lock_unlock(sft FAR *sftp,  /* SFT for file */
                              unsigned long ofs, /* offset into file */
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
-                             int unlock);       /* non-zero to unlock; zero to lock */
+                             int unlock);       /* one to unlock; zero to lock */
 
 /* get current directory structure for drive
    return NULL if the CDS is not valid or the
@@ -1437,126 +1442,13 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
 
 BOOL IsShareInstalled(void)
 {
-  if (!share_installed)
-  {
-    iregs regs;
-
-    regs.a.x = 0x1000;
-    intr(0x2f, &regs);
-    share_installed = ((regs.a.x & 0xff) == 0xff);
-  }
+  extern unsigned char ASMPASCAL share_check(void);
+  if (!share_installed && share_check() == 0xff)
+    share_installed = TRUE;
   return share_installed;
 }
 
-        /* DOS calls this to see if it's okay to open the file.
-           Returns a file_table entry number to use (>= 0) if okay
-           to open.  Otherwise returns < 0 and may generate a critical
-           error.  If < 0 is returned, it is the negated error return
-           code, so DOS simply negates this value and returns it in
-           AX. */
-STATIC int share_open_check(char * filename,            /* pointer to fully qualified filename */
-                            unsigned short pspseg,      /* psp segment address of owner process */
-                            int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
-                            int sharemode)
-{                               /* SHARE_COMPAT, etc... */
-  iregs regs;
-
-  regs.a.x = 0x10a0;
-  regs.ds = FP_SEG(filename);
-  regs.si = FP_OFF(filename);
-  regs.b.x = pspseg;
-  regs.c.x = openmode;
-  regs.d.x = sharemode;
-  intr(0x2f, &regs);
-  return (int)regs.a.x;
-}
-
-        /* DOS calls this to record the fact that it has successfully
-           closed a file, or the fact that the open for this file failed. */
-STATIC void share_close_file(int fileno)
-{                               /* file_table entry number */
-  iregs regs;
-
-  regs.a.x = 0x10a1;
-  regs.b.x = fileno;
-  intr(0x2f, &regs);
-}
-
-        /* DOS calls this to determine whether it can access (read or
-           write) a specific section of a file.  We call it internally
-           from lock_unlock (only when locking) to see if any portion
-           of the requested region is already locked.  If pspseg is zero,
-           then it matches any pspseg in the lock table.  Otherwise, only
-           locks which DO NOT belong to pspseg will be considered.
-           Returns zero if okay to access or lock (no portion of the
-           region is already locked).  Otherwise returns non-zero and
-           generates a critical error (if allowcriter is non-zero).
-           If non-zero is returned, it is the negated return value for
-           the DOS call. */
-STATIC int share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
-                              int fileno,       /* file_table entry number */
-                              unsigned long ofs,        /* offset into file */
-                              unsigned long len,        /* length (in bytes) of region to access */
-                              int allowcriter)
-{                               /* allow a critical error to be generated */
-  iregs regs;
-
-  regs.a.x = 0x10a2 | (allowcriter ? 0x01 : 0x00);
-  regs.b.x = pspseg;
-  regs.c.x = fileno;
-  regs.si = (unsigned short)((ofs >> 16) & 0xffffL);
-  regs.di = (unsigned short)(ofs & 0xffffL);
-  regs.es = (unsigned short)((len >> 16) & 0xffffL);
-  regs.d.x = (unsigned short)(len & 0xffffL);
-  intr(0x2f, &regs);
-  return (int)regs.a.x;
-}
-
-        /* DOS calls this to lock or unlock a specific section of a file.
-           Returns zero if successfully locked or unlocked.  Otherwise
-           returns non-zero.
-           If the return value is non-zero, it is the negated error
-           return code for the DOS 0x5c call. */
-STATIC int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
-                             int fileno,        /* file_table entry number */
-                             unsigned long ofs, /* offset into file */
-                             unsigned long len, /* length (in bytes) of region to lock or unlock */
-                             int unlock)
-{                               /* non-zero to unlock; zero to lock */
-  iregs regs;
-
-  regs.a.x = 0x10a4 | (unlock ? 0x01 : 0x00);
-  regs.b.x = pspseg;
-  regs.c.x = fileno;
-  regs.si = (unsigned short)((ofs >> 16) & 0xffffL);
-  regs.di = (unsigned short)(ofs & 0xffffL);
-  regs.es = (unsigned short)((len >> 16) & 0xffffL);
-  regs.d.x = (unsigned short)(len & 0xffffL);
-  intr(0x2f, &regs);
-  return (int)regs.a.x;
-}
-
 /* /// End of additions for SHARE.  - Ron Cemer */
-STATIC int remote_lock_unlock(sft FAR *sftp,     /* SFT for file */
-                             unsigned long ofs, /* offset into file */
-                             unsigned long len, /* length (in bytes) of region to lock or unlock */
-                             int unlock)
-{                               /* non-zero to unlock; zero to lock */
-  iregs regs;
-  unsigned long param_block[2];
-  param_block[0] = ofs;
-  param_block[1] = len;
-
-  regs.a.x = 0x110a;
-  regs.b.b.l = (unlock ? 0x01 : 0x00);
-  regs.c.x = 1;
-  regs.ds = FP_SEG(param_block);
-  regs.d.x = FP_OFF(param_block);
-  regs.es = FP_SEG(sftp);
-  regs.di = FP_OFF(sftp);
-  intr(0x2f, &regs);
-  return ((regs.flags & 1) ? -(int)regs.a.b.l : 0);
-}
 
 COUNT DosTruename(const char FAR *src, char FAR *dest)
 {
