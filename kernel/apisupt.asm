@@ -27,6 +27,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/04/15 02:23:43  bartoldeman
+; apisupt.asm is not necessary anymore.
+;
 ; Revision 1.5  2001/03/22 20:46:46  bartoldeman
 ; cli/sti corrections (Bart) and int25, 26 stack corrections (Tom)
 ;
@@ -86,6 +89,7 @@
                 extern  _usr_ss:wrt DGROUP
 
 segment	HMA_TEXT
+%if 0
                 global  _set_stack
 ;
 ; void set_stack(void) -
@@ -176,3 +180,4 @@ _restore_stack:
                 popf
 
                 ret
+%endif
