@@ -379,14 +379,9 @@ VOID ASMCFUNC int21_service(iregs FAR * r)
 
   ((psp FAR *) MK_FP(cu_psp, 0))->ps_stack = (BYTE FAR *) r;
 
-	lr.AX = r->AX;
-	lr.BX = r->BX;
-	lr.CX = r->CX;
-	lr.DX = r->DX;
-	lr.SI = r->SI;
-	lr.DI = r->DI;
-	lr.DS = r->DS;
-	lr.ES = r->ES;
+  fmemcpy(&lr, r, sizeof(lregs) - 4);
+  lr.DS = r->DS;
+  lr.ES = r->ES;
 
 dispatch:
 
@@ -612,9 +607,6 @@ dispatch:
         p = FatGetDrvData(lr.DL, &lr.AX, &lr.CX, &lr.DX);
         lr.DS = FP_SEG(p);
         lr.BX = FP_OFF(p);
-        lr.CX = lr.CX;
-        lr.DX = lr.DX;
-        lr.AX = lr.AX;
       }
       break;
 
@@ -1644,12 +1636,7 @@ error_exit:
 error_carry:
   SET_CARRY_FLAG();
 exit_dispatch:
-  r->AX = lr.AX;
-  r->BX = lr.BX;
-  r->CX = lr.CX;
-  r->DX = lr.DX;
-  r->SI = lr.SI;
-  r->DI = lr.DI;
+  fmemcpy(r, &lr, sizeof(lregs) - 4);
   r->DS = lr.DS;
   r->ES = lr.ES;
 real_exit:  
