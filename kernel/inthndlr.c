@@ -997,6 +997,7 @@ dispatch:
           panic("after 4a: MCB chain corrupted");
         goto error_exit;
       }
+      lr.AX = lr.ES; /* Undocumented MS-DOS behaviour expected by BRUN45! */
       break;
 
       /* Load and Execute Program */
@@ -1238,17 +1239,19 @@ dispatch:
     case 0x5f:
       if (lr.AL == 7 || lr.AL == 8)
       {
-        struct cds FAR *cdsp;
-        if (lr.DL >= lastdrive)
+        if (lr.DL < lastdrive)
         {
-          rc = DE_INVLDDRV;
-          goto error_exit;
+          struct cds FAR *cdsp = CDSp + lr.DL;
+          if (FP_OFF(cdsp->cdsDpb))	/* letter of physical drive?	*/
+          {
+            cdsp->cdsFlags &= ~CDSPHYSDRV;
+            if (lr.AL == 7)
+              cdsp->cdsFlags |= CDSPHYSDRV;
+            break;
+          }
         }
-        cdsp = &CDSp[lr.DL];
-        if (lr.AL == 7)
-          cdsp->cdsFlags |= CDSPHYSDRV;
-        else
-          cdsp->cdsFlags &= ~CDSPHYSDRV;
+        rc = DE_INVLDDRV;
+        goto error_exit;
       }
       else
       {
@@ -1263,7 +1266,6 @@ dispatch:
         r->AX = -rc;
         goto real_exit;
       }
-      break;
 
     case 0x60:                 /* TRUENAME */
       rc = DosTruename(MK_FP(lr.DS, lr.SI), adjust_far(FP_ES_DI));
@@ -1654,6 +1656,9 @@ struct int2f12regs {
  */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 {
+  COUNT rc;
+  long lrc;
+
   if (r.AH == 0x4a)
   {
     size_t size = 0, offs = 0xffff;
@@ -1867,6 +1872,46 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       r.CX = fstrlen(MK_FP(r.DS, r.SI)) + 1;
       break;
 
+    case 0x26:                 /* open file */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      lrc = DosOpen(MK_FP(r.DS, r.DX), O_LEGACY | O_OPEN | r.CL, 0);
+      goto long_check;
+
+    case 0x27:                 /* close file */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      rc = DosClose(r.BX);
+      goto short_check;
+
+#if 0
+    case 0x28:                 /* move file pointer */
+      /*
+       * RBIL says: "sets user stack frame pointer to dummy buffer,
+       * moves BP to AX, performs LSEEK, and restores frame pointer"
+       * We obviously don't do it like that. Does this do any harm?! --L.G.
+       */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      if (r.BP < 0x4200 || r.BP > 0x4202)
+        goto error_invalid;
+      {
+        sft FAR *s = get_sft(r.BX);
+        if ((rc = _SftSeek(s, MK_ULONG(r.CX, r.DX), r.BP & 0xff)) >= SUCCESS)
+        {
+          r.DX = hiword (s->sft_posit);
+          r.AX = loword (s->sft_posit);
+        }
+      }
+      goto short_check;
+#endif
+
+    case 0x29:                 /* read from file */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      lrc = DosRead(r.BX, r.CX, MK_FP(r.DS, r.DX));
+      goto long_check;
+
     case 0x2a:                 /* Set FastOpen but does nothing. */
 
       r.FLAGS &= ~FLG_CARRY;
@@ -1886,6 +1931,19 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                                    doesn't work!! */
       break;
 
+    case 0x2f:
+      if (r.DX)
+      {
+        os_setver_major = r.DL;
+        os_setver_minor = r.DH;
+      }
+      else
+      {
+        os_setver_major = os_major;
+        os_setver_minor = os_minor;
+      }
+      break;
+
     default:
       if (r.AL <= 0x31)
       {
@@ -1895,6 +1953,25 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         r.FLAGS |= FLG_CARRY;
       }
   }
+  return;
+long_check:
+  if (lrc >= SUCCESS)
+  {
+    r.AX = (UWORD)lrc;
+    return;
+  }
+  rc = (int)lrc;
+short_check:
+  if (rc < SUCCESS)
+    goto error_exit;
+  return;
+error_invalid:
+  rc = DE_INVLDFUNC;
+error_exit:
+  r.AX = -rc;
+  if (CritErrCode == SUCCESS)
+    CritErrCode = r.AX;      /* Maybe set */
+  r.FLAGS |= FLG_CARRY;
 }
 
 /*

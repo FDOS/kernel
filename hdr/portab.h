@@ -260,6 +260,9 @@ typedef signed long LONG;
 #define LONG long
 #endif
 
+#define MK_UWORD(hib,lob) (((UWORD)(hib) <<  8u) | (UBYTE)(lob))
+#define MK_ULONG(hiw,low) (((ULONG)(hiw) << 16u) | (UWORD)(low))
+
 /* General far pointer macros                                           */
 #ifdef I86
 #ifndef MK_FP

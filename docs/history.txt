@@ -8,9 +8,21 @@
 	* entry.asm: use unsigned comparision instead of signed
 + Changes Lucho
 	* dsk.c: text in play_dj
-        * fatfs.c:
+	* fatfs.c:
           - zero creation/access stamp on directory entry write as MS-DOS 7.10
           - prevent removal or renaming of the current directory of that drive
+	* ioctl.c:
+	  - r_si/r_di contents added as documented in PC-DOS Technical Update
+	* inthndlr.c
+	  - fix: for INT21/5F07 and 5F08, before changing bit CDSPHYSDRV,
+	    MS-DOS checks if physical device associated with drive letter. Without
+	    this check MS-FORMAT under FreeDOS was destroys RAMDISK.
+	  - zero serial number of Int 21h/30h (else buggy 32RTM thrashed stack) [& Bart]
+	  - set AX = ES after Int 21h/4Ah (undocumented but expected by BRUN45)
+	    (the last 2 changes needed to fix bugs discovered by Michael Devore)
+	  - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
++ Changes Eduardo
+	* inthndlr.c: added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
 2004 May 30 - Build 2035
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Lucho + Tom
