@@ -673,6 +673,10 @@ _swap_indos:
 ; _swap_indos but only if int2a ah=80/81 (critical section start/end)
 ; are called upon entry and exit of the device drivers
 
+                times 96 dw 0x9090 ; Process 0 Stack
+                global  _p_0_tos
+_p_0_tos:
+
 segment DYN_DATA
 
         global _Dyn
@@ -828,6 +832,11 @@ _reloc_call_clk_driver:
                 global  _CharMapSrvc ; in _DATA (see AARD)
                 extern  _reloc_call_CharMapSrvc
 _CharMapSrvc:   jmp 0:_reloc_call_CharMapSrvc
+                call near forceEnableA20
+
+                global _init_call_p_0
+                extern reloc_call_p_0
+_init_call_p_0: jmp  0:reloc_call_p_0
                 call near forceEnableA20
 
 

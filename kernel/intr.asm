@@ -89,6 +89,36 @@ segment	HMA_TEXT
 _intr:
 		INTR
 
+;; COUNT ASMCFUNC res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
+    global _res_DosExec
+_res_DosExec:        
+        mov ah, 4bh
+        mov bx, sp
+        mov al, [bx+2]
+        push ds
+        pop es
+        mov dx, [bx+6]          ; filename
+        mov bx, [bx+4]          ; exec block
+        int 21h
+        jc short no_exec_error
+        xor ax, ax
+no_exec_error:
+        ret
+
+;; UCOUNT ASMCFUNC res_read(int fd, void *buf, UCOUNT count); 
+    global _res_read
+_res_read: 
+        mov bx, sp
+        mov cx, [bx+6]
+        mov dx, [bx+4]
+        mov bx, [bx+2]
+        mov ah, 3fh
+        int 21h
+        jnc no_read_error
+        mov ax, -1
+no_read_error:
+        ret
+
 segment	INIT_TEXT
 ;
 ;       void init_call_intr(nr, rp)

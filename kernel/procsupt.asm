@@ -275,3 +275,22 @@ _spawn_int23:
 ;                cli
 ;                ret
 ;_disable        endp
+
+        extern _p_0_tos,_P_0
+
+; prepare to call process 0 (the shell) from P_0() in C
+
+    global reloc_call_p_0
+reloc_call_p_0:
+        pop ax          ; return address (32-bit, unused)
+        pop ax
+        pop ax          ; fetch parameter 0 (32-bit) from the old stack
+        pop dx
+        mov ds,[cs:_DGROUP_]
+        cli
+        mov ss,[cs:_DGROUP_]
+        mov sp,_p_0_tos ; load the dedicated process 0 stack
+        sti
+        push dx         ; pass parameter 0 onto the new stack
+        push ax
+        call _P_0       ; no return, allow parameter fetch from C

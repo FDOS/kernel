@@ -220,6 +220,10 @@ UBYTE FcbClose(xfcb FAR * lpXfcb);
 void FcbCloseAll(void);
 UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First);
 
+/* intr.asm */
+COUNT ASMCFUNC res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
+UCOUNT ASMCFUNC res_read(int fd, void *buf, UCOUNT count);
+
 /* ioctl.c */
 COUNT DosDevIOctl(lregs * r);
 

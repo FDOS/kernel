@@ -336,17 +336,14 @@ STATIC VOID signon()
 
 STATIC void kernel()
 {
-  exec_blk exb;
   CommandTail Cmd;
-  int rc;
 
-  exb.exec.env_seg = DOS_PSP + 8;
   if (master_env[0] == '\0')   /* some shells panic on empty master env. */
     strcpy(master_env, "PATH=.");
-  fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
+  fmemcpy(MK_FP(DOS_PSP + 8, 0), master_env, sizeof(master_env));
 
   /* process 0       */
-  /* Execute command.com /P from the drive we just booted from    */
+  /* Execute command.com from the drive we just booted from    */
   memset(Cmd.ctBuffer, 0, sizeof(Cmd.ctBuffer));
   memcpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail));
 
@@ -356,7 +353,8 @@ STATIC void kernel()
 
   /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it */
 
-  if (Cmd.ctCount < sizeof(Cmd.ctBuffer) - 3)
+  /* 3 for string + 2 for "\r\n" */
+  if (Cmd.ctCount < sizeof(Cmd.ctBuffer) - 5)
   {
     char *insertString = NULL;
 
@@ -376,55 +374,16 @@ STATIC void kernel()
       {
         if (*p == ' ' || *p == '\t' || *p == '\r')
         {
-          for (q = &Cmd.ctBuffer[Cmd.ctCount - 1]; q >= p; q--)
+          for (q = &Cmd.ctBuffer[Cmd.ctCount + 1]; q >= p; q--)
             q[3] = q[0];
-
           memcpy(p, insertString, 3);
-
-          Cmd.ctCount += 3;
           break;
         }
       }
+      strcpy(Config.cfgInitTail, Cmd.ctBuffer); /* save buffer */
     }
   }
-
-  exb.exec.cmd_line = (CommandTail FAR *) & Cmd;
-  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0xfffffffful;
-  
-#ifdef DEBUG
-  printf("Process 0 starting: %s\n\n", Config.cfgInit);
-#endif
-
-  while ((rc =
-          init_DosExec(Config.cfgP_0_startmode, &exb,
-                       Config.cfgInit)) != SUCCESS)
-  {
-    BYTE *pLine;
-    printf("\nBad or missing Command Interpreter: %d - %s\n", rc,
-           Cmd.ctBuffer);
-    printf
-        ("\nPlease enter the correct location (for example C:\\COMMAND.COM):\n");
-    rc = read(STDIN, Cmd.ctBuffer, sizeof(Cmd.ctBuffer) - 1);
-    Cmd.ctBuffer[rc] = '\0';
-
-    /* Get the string argument that represents the new init pgm     */
-    pLine = GetStringArg(Cmd.ctBuffer, Config.cfgInit);
-
-    /* Now take whatever tail is left and add it on as a single     */
-    /* string.                                                      */
-    strcpy(Cmd.ctBuffer, pLine);
-
-    /* and add a DOS new line just to be safe                       */
-    strcat(Cmd.ctBuffer, "\r\n");
-
-    Cmd.ctCount = rc - (pLine - Cmd.ctBuffer);
-
-#ifdef DEBUG
-    printf("Process 0 starting: %s\n\n", Config.cfgInit);
-#endif
-  }
-  printf("\nSystem shutdown complete\nReboot now.\n");
-  for (;;) ;
+  init_call_p_0(&Config); /* go execute process 0 (the shell) */
 }
 
 /* check for a block device and update  device control block    */

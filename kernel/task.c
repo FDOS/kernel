@@ -48,6 +48,13 @@ static BYTE *RcsId =
 
 #define ExeHeader (*(exe_header *)(SecPathName + 0))
 #define TempExeBlock (*(exec_blk *)(SecPathName + sizeof(exe_header)))
+#define Shell (SecPathName + sizeof(exe_header) + sizeof(exec_blk))
+
+#ifdef __TURBOC__ /* this is a Borlandism and doesn't work elsewhere */
+ #if sizeof(SecPathName) < sizeof(exe_header) + sizeof(exec_blk) + NAMEMAX
+  #error No room in SecPathName to be recycled!
+ #endif
+#endif
 
 #define CHUNK 32256
 #define MAXENV 32768u
@@ -792,3 +799,46 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   return rc;
 }
 
+#include "config.h" /* config structure definition */
+
+/* start process 0 (the shell) */
+VOID ASMCFUNC P_0(struct config FAR *Config)
+{
+  BYTE *tailp, *endp;
+  exec_blk exb;
+  UBYTE mode = Config->cfgP_0_startmode;
+
+  /* build exec block and save all parameters here as init part will vanish! */
+  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *)-1L;
+  exb.exec.env_seg = DOS_PSP + 8;
+  fstrcpy(Shell, Config->cfgInit);
+  fstrcpy(Shell + strlen(Shell), Config->cfgInitTail); /* join name and tail */
+  endp =  Shell + strlen(Shell);
+
+  for ( ; ; )   /* endless shell load loop - reboot or shut down to exit it! */
+  {
+    BYTE *p;
+    /* if there are no parameters, point to end without "\r\n" */
+    if((tailp = strchr(Shell,'\t')) == NULL &&
+       (tailp = strchr(Shell, ' ')) == NULL)
+        tailp = endp - 2;
+    /* shift tail to right by 2 to make room for '\0', ctCount */
+    for (p = endp - 1; p >= tailp; p--)
+      *(p + 2) = *p;
+    /* terminate name and tail */
+    *tailp =  *(endp + 2) = '\0';
+    /* ctCount: just past '\0' do not count the "\r\n" */
+    exb.exec.cmd_line = (CommandTail *)(tailp + 1);
+    exb.exec.cmd_line->ctCount = endp - tailp - 2;
+#ifdef DEBUG
+    printf("Process 0 starting: %s%s\n\n", Shell, tailp + 2);
+#endif
+    res_DosExec(mode, &exb, Shell);
+    put_string("Bad or missing Command Interpreter: "); /* failure _or_ exit */
+    put_string(Shell);
+    put_string(tailp + 2);
+    put_string(" Enter the full shell command line: ");
+    endp = Shell + res_read(STDIN, Shell, NAMEMAX);
+    *endp = '\0';                             /* terminate string for strchr */
+  }
+}

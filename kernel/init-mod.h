@@ -152,6 +152,9 @@ VOID ASMCFUNC FAR int2a_handler(void);
 VOID ASMCFUNC FAR int2f_handler(void);
 VOID ASMCFUNC FAR cpm_entry(void);
 
+/* kernel.asm */
+VOID ASMCFUNC FAR init_call_p_0(struct config FAR *Config); /* P_0, actually */
+
 /* main.c */
 VOID ASMCFUNC FreeDOSmain(void);
 BOOL init_device(struct dhdr FAR * dhp, char * cmdLine,
