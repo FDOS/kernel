@@ -23,8 +23,8 @@
 /*                                                              */
 /* You should have received a copy of the GNU General Public    */
 /* License along with DOS-C; see the file COPYING.  If not,     */
-/* write to the Free Software Foundation, 675 Mass Ave,         */
-/* Cambridge, MA 02139, USA.                                    */
+/* write to the Free Software Foundation, Inc.,                 */
+/* 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.     */
 /****************************************************************/
 
 #include "portab.h"
@@ -114,14 +114,16 @@ VOID ASMCFUNC FreeDOSmain(void)
                         
   if (fmemcmp(MK_FP(0x50,0xe0+2),"CONFIG",6) == 0)      /* UPX */
   {
-    fmemcpy(&InitKernelConfig, MK_FP(0x50,0xe0+2), sizeof(InitKernelConfig));
+    UBYTE drv;
+
+    fmemcpy(&InitKernelConfig, MK_FP(0,0x5e0+2), sizeof(InitKernelConfig));
+
+    drv = *(UBYTE FAR *)MK_FP(0,0x5e0) + 1;
+    if (drv >= 0x80)
+      drv = 3; /* C: */
+    LoL->BootDrive = drv;
     
-    LoL->BootDrive = *(BYTE FAR *)MK_FP(0x50,0xe0) + 1;
-        
-    if (LoL->BootDrive >= 0x80)
-      LoL->BootDrive = 3; /* C: */
-    
-    *(DWORD FAR *)MK_FP(0x50,0xe0+2) = 0; 
+    *(DWORD FAR *)MK_FP(0,0x5e0+2) = 0; 
   } 
   else
   {
@@ -500,14 +502,21 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
   request rq;
   int i;
   char name[8];
-  char *p;
+  char *p, *q;
 
-  fmemset(name, 0, 8);
-  for (p = cmdLine; *p && *p != ' ' && *p != '\t'; p++);
-  while (p >= cmdLine && *p != '\\' && *p != '/' && *p != ':') p--;
-  p++;
-  for (i = 0; i < 8 && p[i] && p[i] != '.'; i++)
-    name[i] = p[i];
+  for (p = q = cmdLine; *p && *p != ' ' && *p != '\t'; p++)
+  {
+    if (*p == '\\' || *p == '/' && *p == ':')
+      q = p + 1;
+  }
+  for (i = 0; i < 8; i++) {
+    char ch = *q;
+    if (ch != '\0')
+      q++;
+    if (ch == '.')
+      ch = 0;
+    name[i] = ch;
+  }
   
   rq.r_unit = 0;
   rq.r_status = 0;
