@@ -216,8 +216,10 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
     }
   }
 
-  /* force r/o open for FCBs if the file is read-only */
-  if ((flags & O_FCB) && (fnp->f_dir.dir_attrib & D_RDONLY))
+  /* force r/o open for FCB and legacy creat if the file is read-only */
+  if (((flags & O_FCB)
+       || (flags & (O_CREAT | O_LEGACY)) == (O_CREAT | O_LEGACY))
+      && (fnp->f_dir.dir_attrib & D_RDONLY))
     fnp->f_mode = O_RDONLY;
 
   /* Check permissions. -- JPP */
