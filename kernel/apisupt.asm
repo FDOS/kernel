@@ -27,6 +27,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/03/22 20:46:46  bartoldeman
+; cli/sti corrections (Bart) and int25, 26 stack corrections (Tom)
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -85,7 +88,7 @@
 segment	HMA_TEXT
                 global  _set_stack
 ;
-; void far set_stack(void) -
+; void set_stack(void) -
 ;       save current stack and setup our local stack
 ;
 _set_stack:
@@ -95,7 +98,6 @@ _set_stack:
                 ; we need to get the return values from the stack
                 ; since the current stack will change
                 pop     ax                      ;get return offset
-                pop     bx                      ;get return segment
 
                 ; Save the flags so that we can restore correct interrupt
                 ; state later. We need to disable interrupts so that we
@@ -125,17 +127,16 @@ _set_stack:
                 add     bp, cx
 
                 ; setup for ret
-                push    bx
                 push    ax
 
                 ; now restore interrupt state
                 push    dx
                 popf
 
-                retf
+                ret
 
 ;
-; void far restore_stack(void) -
+; void restore_stack(void) -
 ;       restore foreground stack, throw ours away
 ;
                 global  _restore_stack
@@ -144,7 +145,6 @@ _restore_stack:
         ; we need to get the return values from the stack
         ; since the current stack will change
                 pop     cx                      ;get return offset
-                pop     bx                      ;get return segment
 
                 ; Save the flags so that we can restore correct interrupt
                 ; state later. We need to disable interrupts so that we
@@ -169,11 +169,10 @@ _restore_stack:
                 ;mov     bp,sp
 
                 ; setup for ret
-                push    bx
                 push    cx
 
                 ; now restore interrupt state
                 push    dx
                 popf
 
-                retf
+                ret

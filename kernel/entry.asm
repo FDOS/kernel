@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/03/22 20:46:46  bartoldeman
+; cli/sti corrections (Bart) and int25, 26 stack corrections (Tom)
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -79,7 +82,7 @@ segment	HMA_TEXT
                 extern   _int21_syscall:wrt HGROUP
                 extern   _int25_handler:wrt HGROUP
                 extern   _int26_handler:wrt HGROUP
-                extern   _set_stack:wrt HMA_TEXT
+                extern   _set_stack:wrt HGROUP
                 extern   _restore_stack:wrt HGROUP
                 extern   _error_tos:wrt DGROUP
                 extern   _char_api_tos:wrt DGROUP
@@ -260,21 +263,22 @@ int21_reentry:
                 cmp     ah,62h
                 jne     int21_1
 
-int21_user:     push    word [_user_r+2]
+int21_user:     sti
+                push    word [_user_r+2]
                 push    word [_user_r]
                 call    _int21_syscall
                 pop     cx
                 pop     cx
                 jmp     int21_ret
 
-int21_1:        sti
+int21_1:        cli
                 cmp     byte [_ErrorMode],0
                 je      int21_2
                 mov     bp,ds
                 mov     ss,bp
                 mov     bp,_error_tos
                 mov     sp,bp
-                cli
+                sti
                 push    word [_user_r+2]
                 push    word [_user_r]
                 call    _int21_syscall
@@ -293,7 +297,7 @@ int21_2:        inc     byte [_InDOS]
                 mov     ss,bp
                 mov     bp,_char_api_tos
                 mov     sp,bp
-                cli
+                sti
                 push    word [_user_r+2]
                 push    word [_user_r]
                 call    _int21_syscall
@@ -306,7 +310,7 @@ int21_3:
                 mov     ss,bp
                 mov     bp,_disk_api_tos
                 mov     sp,bp
-                cli
+                sti
                 ;
                 ; Push the far pointer to the register frame for
                 ; int21_syscall and remainder of kernel.
@@ -395,14 +399,14 @@ reloc_call_low_int25_handler:
                 mov     word [_api_sp], _disk_api_tos
                 mov     word [_api_ss], ds
 
-                call    far _set_stack
+                call    _set_stack
 
                 push    word [cs:stkframe+2]
                 push    word [cs:stkframe]
                 call    _int25_handler
                 add     sp, byte 4
 
-                call    far _restore_stack
+                call    _restore_stack
 
                 pop     es
                 pop     ds
@@ -444,14 +448,14 @@ reloc_call_low_int26_handler:
                 mov     word [_api_sp], _disk_api_tos
                 mov     word [_api_ss], ds
 
-                call    far _set_stack
+                call    _set_stack
 
                 push    word [cs:stkframe+2]
                 push    word [cs:stkframe]
                 call    _int26_handler
                 add     sp, 4
 
-                call    far _restore_stack
+                call    _restore_stack
 
                 pop     es
                 pop     ds
