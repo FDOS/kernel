@@ -470,8 +470,10 @@ dispatch:
 
       lr.AL = 0x00;
       r->FLAGS |= FLG_ZERO;
-      if (StdinBusy())
+      if (StdinBusy()) {
+        DosIdle_int();
         break;
+      }
 
       r->FLAGS &= ~FLG_ZERO;
       /* fall through */
