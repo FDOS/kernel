@@ -57,17 +57,17 @@ STATIC void CheckContinueBootFromHarddisk(void);
 
 #ifdef _MSC_VER
 BYTE _acrtused = 0;
-#endif
 
-#ifdef _MSC_VER
 __segment DosDataSeg = 0;       /* serves for all references to the DOS DATA segment 
                                    necessary for MSC+our funny linking model
                                  */
 __segment DosTextSeg = 0;
 
-#endif
+struct lol FAR *LoL;
 
+#else
 struct lol FAR *LoL = &DATASTART;
+#endif
 
 /* little functions - could be ASM but does not really matter in this context */
 void memset(void *s, int c, unsigned n)
@@ -99,10 +99,10 @@ void fmemcpy(void far *dest, const void far *src, unsigned n)
 VOID ASMCFUNC FreeDOSmain(void)
 {
 #ifdef _MSC_VER
-  extern FAR DATASTART;
   extern FAR prn_dev;
   DosDataSeg = (__segment) & DATASTART;
   DosTextSeg = (__segment) & prn_dev;
+  LoL = &DATASTART;
 #endif
 
                         
