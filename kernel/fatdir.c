@@ -42,31 +42,18 @@ static BYTE *fatdirRcsId =
 VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
 {
   /* reset the directory flags    */
-  fnp->f_flags.f_dmod = FALSE;
-  fnp->f_flags.f_droot = FALSE;
-  fnp->f_flags.f_ddir = TRUE;
-  fnp->f_flags.f_dnew = TRUE;
+  fnp->f_flags = F_DDIR | F_DNEW;
   fnp->f_diroff = 0;
   fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
 
   /* root directory */
-  if (dirstart == 0)
-  {
 #ifdef WITHFAT32
+  if (dirstart == 0)
     if (ISFAT32(fnp->f_dpb))
-    {
-      fnp->f_cluster = fnp->f_dirstart = fnp->f_dpb->dpb_xrootclst;
-    }
-    else
+      dirstart = fnp->f_dpb->dpb_xrootclst;
 #endif
-    {
-      fnp->f_dirstart = 0;
-      fnp->f_flags.f_droot = TRUE;
-    }
-  }
-  else                          /* non-root */
-    fnp->f_cluster = fnp->f_dirstart = dirstart;
+  fnp->f_cluster = fnp->f_dirstart = dirstart;
 }
 
 f_node_ptr dir_open(register const char *dirname)
@@ -216,7 +203,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* can't have more than 65535 directory entries
      remove lfn entries may call us with new_diroff == -1
      for root directories though */
-  if (!fnp->f_flags.f_droot && new_diroff >= 65535U)
+  if (fnp->f_dirstart != 0 && new_diroff >= 65535U)
       return DE_SEEK;
 
   /* Directories need to point to their current offset, not for   */
@@ -224,7 +211,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* directory entry, we will update the offset on entry rather   */
   /* than wait until exit. If it was new, clear the special new   */
   /* flag.                                                        */
-  if (!fnp->f_flags.f_dnew)
+  if (!(fnp->f_flags & F_DNEW))
     new_diroff++;
 
   /* Determine if we hit the end of the directory. If we have,    */
@@ -232,7 +219,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* dirent portion of the fnode, clear the f_dmod bit and leave, */
   /* but only for root directories                                */
 
-  if (fnp->f_flags.f_droot)
+  if (fnp->f_dirstart == 0)
   {
     if (new_diroff >= fnp->f_dpb->dpb_dirents)
       return DE_SEEK;
@@ -277,8 +264,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   swap_deleted(fnp->f_dir.dir_name);
 
   /* Update the fnode's directory info                    */
-  fnp->f_flags.f_dmod = FALSE;
-  fnp->f_flags.f_dnew = FALSE;
+  fnp->f_flags &= ~(F_DMOD | F_DNEW);
   fnp->f_diroff = new_diroff;
 
   /* and for efficiency, stop when we hit the first       */
@@ -291,8 +277,8 @@ COUNT dir_read(REG f_node_ptr fnp)
  *  Writes directory entry pointed by fnp to disk. In case of erroneous
  *  situation fnode is released.
  *  The caller should set
- *    1. f_dmod flag if original directory entry was modified.
- *    2. f_dmod & f_dnew flags if new directory entry is created. In this
+ *    1. F_DMOD flag if original directory entry was modified.
+ *    2. F_DMOD & F_DNEW flags if new directory entry is created. In this
  *       case the reserved fields is cleared, but only if new dentry isn't
  *       a LFN entry (has D_LFN attribute). 
  * Return value.
@@ -305,15 +291,15 @@ BOOL dir_write(REG f_node_ptr fnp)
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
-  if (!fnp->f_flags.f_ddir)
+  if (!(fnp->f_flags & F_DDIR))
     return FALSE;
 
   /* Update the entry if it was modified by a write or create...  */
-  if (fnp->f_flags.f_dmod)
+  if (fnp->f_flags & F_DMOD)
   {
     /* Root is a consecutive set of blocks, so handling is  */
     /* simple.                                              */
-    if (fnp->f_flags.f_droot)
+    if (fnp->f_dirstart == 0)
     {
       bp = getblock(fnp->f_diroff / (secsize / DIRENT_SIZE)
                              + fnp->f_dpb->dpb_dirstrt,
@@ -362,7 +348,7 @@ BOOL dir_write(REG f_node_ptr fnp)
       return FALSE;
     }
 
-    if (fnp->f_flags.f_dnew && fnp->f_dir.dir_attrib != D_LFN)
+    if ((fnp->f_flags & F_DNEW) && fnp->f_dir.dir_attrib != D_LFN)
       fmemset(&fnp->f_dir.dir_case, 0, 8);
 
     swap_deleted(fnp->f_dir.dir_name);
@@ -382,7 +368,7 @@ BOOL dir_write(REG f_node_ptr fnp)
 VOID dir_close(REG f_node_ptr fnp)
 {
   /* Test for invalid f_nodes                                     */
-  if (fnp == NULL || !fnp->f_flags.f_ddir)
+  if (fnp == NULL || !(fnp->f_flags & F_DDIR))
     return;
 
 #ifndef IPL
@@ -479,10 +465,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   else
   {
     dmp->dm_entry = 0;
-    if (!fnp->f_flags.f_droot)
-      dmp->dm_dircluster = fnp->f_dirstart;
-    else
-      dmp->dm_dircluster = 0;
+    dmp->dm_dircluster = fnp->f_dirstart;
     dir_close(fnp);
     return dos_findnext();
   }
@@ -526,11 +509,11 @@ COUNT dos_findnext(void)
 
   /* Search through the directory to find the entry, but do a     */
   /* seek first.                                                  */
-  fnp->f_flags.f_dnew = TRUE;
+  fnp->f_flags |= F_DNEW;
   if (dmp->dm_entry > 0)
   {
     fnp->f_diroff = dmp->dm_entry - 1;
-    fnp->f_flags.f_dnew = FALSE;
+    fnp->f_flags &= ~F_DNEW;
   }
 
   /* Loop through the directory                                   */

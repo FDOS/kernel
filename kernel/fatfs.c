@@ -225,10 +225,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   if (status != S_OPENED)
   {
     init_direntry(&fnp->f_dir, attrib, FREE);
-    fnp->f_flags.f_dmod = TRUE;
-    fnp->f_flags.f_ddate = FALSE;
-    fnp->f_flags.f_dnew = FALSE;
-    fnp->f_flags.f_ddir = TRUE;
+    fnp->f_flags = F_DMOD | F_DDIR;
     if (!dir_write(fnp))
     {
       release_f_node(fnp);
@@ -245,12 +242,11 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
     setdstart(fnp->f_dpb, &fnp->f_dir, FREE);
     fnp->f_cluster_offset = 0;
   }
-  
-  fnp->f_flags.f_dmod = (status != S_OPENED);
-  fnp->f_flags.f_ddate = FALSE;
-  fnp->f_flags.f_dnew = FALSE;
-  fnp->f_flags.f_ddir = FALSE;
-    
+
+  fnp->f_flags = 0;
+  if (status != S_OPENED)
+    fnp->f_flags = F_DMOD;
+
   merge_file_changes(fnp, status == S_OPENED); /* /// Added - Ron Cemer */
   /* /// Moved from above.  - Ron Cemer */
   fnp->f_cluster = getdstart(fnp->f_dpb, &fnp->f_dir);
@@ -288,9 +284,9 @@ COUNT dos_close(COUNT fd)
   if (fnp == (f_node_ptr) 0)
     return DE_INVLDHNDL;
 
-  if (fnp->f_flags.f_dmod)
+  if (fnp->f_flags & F_DMOD)
   {
-    if (fnp->f_flags.f_ddate == FALSE)
+    if (!(fnp->f_flags & F_DDATE))
     {
       fnp->f_dir.dir_time = dos_gettime();
       fnp->f_dir.dir_date = dos_getdate();
@@ -298,7 +294,7 @@ COUNT dos_close(COUNT fd)
 
     merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
-  fnp->f_flags.f_ddir = TRUE;
+  fnp->f_flags |= F_DDIR;
 
   dir_close(fnp);
   return SUCCESS;
@@ -443,7 +439,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     if (fnp->f_dir.dir_attrib != D_LFN)
       break;
     fnp->f_dir.dir_name[0] = DELETED;
-    fnp->f_flags.f_dmod = TRUE;
+    fnp->f_flags |= F_DMOD;
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
   fnp->f_diroff = original_diroff - 1;
@@ -546,7 +542,7 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   /* The directory has been modified, so set the  */
   /* bit before closing it, allowing it to be     */
   /* updated                                      */
-  fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags |= F_DMOD;
   dir_close(fnp);
 
   /* SUCCESSful completion, return it             */
@@ -631,7 +627,7 @@ COUNT dos_rmdir(BYTE * path)
 
     /* Check that the directory is empty. Only the  */
     /* "." and ".." are permissable.                */
-    fnp->f_flags.f_dmod = FALSE;
+    fnp->f_flags &= ~F_DMOD;
     fnp1 = dir_open(path);
     if (fnp1 == NULL)
     {
@@ -749,9 +745,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* The directory has been modified, so set the bit before       */
   /* closing it, allowing it to be updated.                       */
-  fnp1->f_flags.f_dmod = fnp2->f_flags.f_dmod = TRUE;
-  fnp1->f_flags.f_dnew = fnp2->f_flags.f_dnew = FALSE;
-  fnp1->f_flags.f_ddir = fnp2->f_flags.f_ddir = TRUE;
+  fnp1->f_flags = fnp2->f_flags = F_DMOD | F_DDIR;
 
   /* Ok, so we can delete this one. Save the file info.           */
   *(fnp1->f_dir.dir_name) = DELETED;
@@ -833,7 +827,7 @@ STATIC BOOL find_free(f_node_ptr fnp)
 /* available, tries to extend the directory.                      */
 STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
 {
-  fnp->f_flags.f_dmod = FALSE;
+  fnp->f_flags &= ~F_DMOD;
   dir_close(fnp);
   fnp = split_path(path, fcbname);
 
@@ -843,9 +837,9 @@ STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
   /* find an empty slot, we need to abort.        */
   if (find_free(fnp) == 0)
   {
-    if (fnp->f_flags.f_droot)
+    if (fnp->f_dirstart == 0)
     {
-      fnp->f_flags.f_dmod = FALSE;
+      fnp->f_flags &= ~F_DMOD;
       dir_close(fnp);
       return DE_TOOMANY;
     }
@@ -934,8 +928,8 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
   /* Set the date and time from the fnode and return              */
   fnp->f_dir.dir_date = dp;
   fnp->f_dir.dir_time = tp;
-  fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
-  fnp->f_flags.f_ddate = TRUE;  /* set this date upon closing */
+  /* mark file as modified and set this date upon closing */
+  fnp->f_flags |= F_DMOD | F_DDATE;
 
   save_far_f_node(fnp);
   return SUCCESS;
@@ -1130,9 +1124,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat);
 
-  fnp->f_flags.f_dmod = TRUE;
-  fnp->f_flags.f_dnew = FALSE;
-  fnp->f_flags.f_ddir = TRUE;
+  fnp->f_flags = F_DMOD | F_DDIR;
 
   fnp->f_offset = 0l;
 
@@ -1205,7 +1197,7 @@ COUNT dos_mkdir(BYTE * dir)
   flush_buffers(dpbp->dpb_unit);
 
   /* Close the directory so that the entry is updated     */
-  fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags |= F_DMOD;
   dir_close(fnp);
 
   return SUCCESS;
@@ -1232,7 +1224,7 @@ STATIC CLUSTER extend(f_node_ptr fnp)
   link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Mark the directory so that the entry is updated              */
-  fnp->f_flags.f_dmod = TRUE;
+  fnp->f_flags |= F_DMOD;
   return free_fat;
 }
 
@@ -1337,7 +1329,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   if (relcluster < fnp->f_cluster_offset)
   {
     /* Set internal index and cluster size.                 */
-    fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
+    fnp->f_cluster = (fnp->f_flags & F_DDIR) ? fnp->f_dirstart :
         getdstart(fnp->f_dpb, &fnp->f_dir);
     fnp->f_cluster_offset = 0;
   }
@@ -1561,8 +1553,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   if (mode==XFR_WRITE)
   {
     fnp->f_dir.dir_attrib |= D_ARCHIVE;
-    fnp->f_flags.f_dmod = TRUE;   /* mark file as modified */
-    fnp->f_flags.f_ddate = FALSE; /* set date not valid any more */
+    fnp->f_flags |= F_DMOD;       /* mark file as modified */
+    fnp->f_flags &= ~F_DDATE;     /* set date not valid any more */
     
     if (dos_extend(fnp) != SUCCESS)
     {
@@ -1609,7 +1601,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
     /* Do an EOF test and return whatever was transferred   */
     /* but only for regular files.                          */
-    if (mode == XFR_READ && !(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_dir.dir_size))
+    if (mode == XFR_READ && !(fnp->f_flags & F_DDIR) && (fnp->f_offset >= fnp->f_dir.dir_size))
     {
       save_far_f_node(fnp);
       return ret_cnt;
@@ -1659,7 +1651,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
     /* see comments above */
 
-    if (!fnp->f_flags.f_ddir && /* don't experiment with directories yet */
+    if (!(fnp->f_flags & F_DDIR) && /* don't experiment with directories yet */
         boff == 0)              /* complete sectors only */
     {
       static ULONG startoffset;
@@ -1749,7 +1741,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* Then compare to what is left, since we can transfer  */
     /* a maximum of what is left.                           */
     xfr_cnt = min(to_xfer, secsize - boff);
-    if (!fnp->f_flags.f_ddir && mode == XFR_READ)
+    if (!(fnp->f_flags & F_DDIR) && mode == XFR_READ)
       xfr_cnt = (UWORD) min(xfr_cnt, fnp->f_dir.dir_size - fnp->f_offset);
 
     /* transfer a block                                     */
@@ -2010,8 +2002,7 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
     
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
-  fnp->f_flags.f_dmod = TRUE;
-  fnp->f_flags.f_ddate = TRUE;
+  fnp->f_flags |= F_DMOD | F_DDATE;
   save_far_f_node(fnp);
   dos_close(fd);
   return SUCCESS;

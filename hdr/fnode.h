@@ -39,13 +39,7 @@ struct f_node {
   UWORD f_count;                /* number of uses of this file  */
   COUNT f_mode;                 /* read, write, read-write, etc */
 
-  struct {
-    BITS f_dmod:1;              /* directory has been modified  */
-    BITS f_droot:1;             /* directory is the root        */
-    BITS f_dnew:1;              /* fnode is new and needs fill  */
-    BITS f_ddir:1;              /* fnode is assigned to dir     */
-    BITS f_ddate:1;             /* date set using setdate       */
-  } f_flags;                    /* file flags                   */
+  UWORD f_flags;                /* file flags                   */
 
   struct dirent f_dir;          /* this file's dir entry image  */
 
@@ -59,6 +53,11 @@ struct f_node {
   CLUSTER f_cluster;            /* the cluster we are at        */
 };
 
+#define F_DMOD  1               /* directory has been modified  */
+#define F_DNEW  2               /* fnode is new and needs fill  */
+#define F_DDIR  4               /* fnode is assigned to dir     */
+#define F_DDATE 8               /* date set using setdate       */
+
 typedef struct f_node *f_node_ptr;
 
 struct lfn_inode {
@@ -66,7 +65,7 @@ struct lfn_inode {
                                 /* If the string is empty,        */
                                 /* then file has the 8.3 name     */
   struct dirent l_dir;          /* Directory entry image          */
-  ULONG l_diroff;               /* Current directory entry offset */
+  UWORD l_diroff;               /* Current directory entry offset */
 };
   
 typedef struct lfn_inode FAR * lfn_inode_ptr;
