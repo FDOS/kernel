@@ -142,10 +142,12 @@ int EnableHMA(VOID)
 
   _DisableA20();
 
+#ifdef DEBUG
   if (fmemcmp(MK_FP(0x0000, 0x0000), MK_FP(0xffff, 0x0010), 128) != 0)
   {
     printf("HMA can't be disabled - no problem for us\n");
   }
+#endif
 
   _EnableA20();
   if (fmemcmp(MK_FP(0x0000, 0x0000), MK_FP(0xffff, 0x0010), 128) == 0)
