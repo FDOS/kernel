@@ -76,11 +76,11 @@ entry.obj:	entry.asm   segs.inc $(HDR)stacks.inc	$(TARGET).lnk
 execrh.obj:	execrh.asm  segs.inc 			$(TARGET).lnk
 int2f.obj:	int2f.asm   segs.inc $(HDR)stacks.inc	$(TARGET).lnk
 intr.obj:	intr.asm    segs.inc			$(TARGET).lnk
-io.obj:		io.asm	    segs.inc			$(TARGET).lnk
+io.obj:		io.asm	    segs.inc $(HDR)stacks.inc   $(TARGET).lnk
 irqstack.obj:   irqstack.asm segs.inc			$(TARGET).lnk
 kernel.obj:	kernel.asm  segs.inc ludivmul.inc 	$(TARGET).lnk
 nls_hc.obj:	nls_hc.asm  segs.inc			$(TARGET).lnk
-nlssupt.obj:	nlssupt.asm segs.inc			$(TARGET).lnk
+nlssupt.obj:	nlssupt.asm segs.inc $(HDR)stacks.inc   $(TARGET).lnk
 printer.obj:	printer.asm io.inc			$(TARGET).lnk
 procsupt.obj:	procsupt.asm segs.inc $(HDR)stacks.inc  $(TARGET).lnk
 serial.obj:	serial.asm  io.inc			$(TARGET).lnk
