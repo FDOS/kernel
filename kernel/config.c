@@ -490,7 +490,7 @@ VOID configDone(VOID)
     unsigned short kernel_seg;
     unsigned short hma_paras = (HMAFree+0xf)/16;
 
-    allocmem(hma_paras, &kernel_seg);
+    kernel_seg = allocmem(hma_paras);
     p = para2far(kernel_seg - 1);
 
     p->m_name[0] = 'S';
@@ -2589,7 +2589,7 @@ VOID DoInstall(void)
   */
 
   set_strategy(LAST_FIT);
-  allocmem(((unsigned)_init_end + ebda_size + 15) / 16, &installMemory);
+  installMemory = allocmem(((unsigned)_init_end + ebda_size + 15) / 16);
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
 

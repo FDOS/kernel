@@ -199,7 +199,6 @@ INIT_DOSOPEN:
 common_int21:
         int 21h
         jnc common_no_error
-common_error:
         mov ax, -1
 common_no_error:
         ret
@@ -278,19 +277,18 @@ INIT_SWITCHAR:
 	mov ax, 0x3701
 	jmp short common_dl_int21
 
-;; int allocmem(UWORD size, seg *segp)
+;
+; seg ASMPASCAL allocmem(UWORD size);
+;
     global ALLOCMEM
 ALLOCMEM:
         pop ax           ; ret address
-        pop dx           ; segp
         pop bx           ; size
         push ax          ; ret address
         mov ah, 48h
         int 21h
-        jc short common_error
-        mov bx, dx       ; segp
-        mov [bx], ax
-        xor ax, ax
+        sbb bx, bx       ; carry=1 -> ax=-1
+        or  ax, bx       ; segment
         ret
                         
 ;; void set_DTA(void far *dta)        

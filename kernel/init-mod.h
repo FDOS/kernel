@@ -161,8 +161,8 @@ unsigned ASMPASCAL init_call_intr(int nr, iregs * rp);
 unsigned ASMPASCAL read(int fd, void *buf, unsigned count);
 int ASMPASCAL open(const char *pathname, int flags);
 int ASMPASCAL close(int fd);
-int ASMPASCAL dup2(int oldfdk, int newfd);
-int ASMPASCAL allocmem(UWORD size, seg * segp);
+int ASMPASCAL dup2(int oldfd, int newfd);
+seg ASMPASCAL allocmem(UWORD size);
 void ASMPASCAL init_PSPSet(seg psp_seg);
 int ASMPASCAL init_DosExec(int mode, exec_blk * ep, char * lp);
 int ASMPASCAL init_setdrive(int drive);
@@ -175,7 +175,7 @@ void ASMPASCAL set_DTA(void far *dta);
 #pragma aux (pascal) init_DosOpen modify exact [ax bx dx]
 #pragma aux (pascal) close modify exact [ax bx]
 #pragma aux (pascal) dup2 modify exact [ax bx cx]
-#pragma aux (pascal) allocmem modify exact [ax bx dx]
+#pragma aux (pascal) allocmem modify exact [ax bx]
 #pragma aux (pascal) init_PSPSet modify exact [ax bx]
 #pragma aux (pascal) init_DosExec modify exact [ax bx dx es]
 #pragma aux (pascal) init_setdrive modify exact [ax bx dx]
