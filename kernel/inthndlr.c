@@ -615,7 +615,7 @@ dispatch:
       {
         BYTE FAR *p;
 
-        p = FatGetDrvData(lr.DL, &lr.AX, &lr.CX, &lr.DX);
+        p = FatGetDrvData(lr.DL, &lr.AL, &lr.CX, &lr.DX);
         lr.DS = FP_SEG(p);
         lr.BX = FP_OFF(p);
       }
@@ -795,7 +795,7 @@ dispatch:
 
       /* Dos Get Disk Free Space                                      */
     case 0x36:
-      DosGetFree(lr.DL, &lr.AX, &lr.BX, &lr.CX, &lr.DX);
+      lr.AX = DosGetFree(lr.DL, &lr.BX, &lr.CX, &lr.DX);
       break;
 
       /* Undocumented Get/Set Switchar                                */

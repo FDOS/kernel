@@ -776,28 +776,28 @@ COUNT DosClose(COUNT hndl)
   return ret;
 }
 
-BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
-                UWORD * bps, UWORD * nc)
+UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
 {
   /* navc==NULL means: called from FatGetDrvData, fcbfns.c */
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
   COUNT rg[4];
+  UWORD spc;
 
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
 
   /* first check for valid drive          */
-  *spc = -1;
+  spc = -1;
   cdsp = get_cds(drive);
 
   if (cdsp == NULL)
-    return FALSE;
+    return spc;
 
   if (cdsp->cdsFlags & CDSNETWDRV)
   {
     if (remote_getfree(cdsp, rg) != SUCCESS)
-      return FALSE;
+      return spc;
 
     /* for int21/ah=1c:
        Undoc DOS says, its not supported for
@@ -806,21 +806,21 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
        the redirector can provide all info
        - Bart, 2002 Apr 1 */
 
+    spc = rg[0];
     if (navc != NULL)
     {
       *navc = (COUNT) rg[3];
-      *spc &= 0xff; /* zero out media ID byte */
+      spc &= 0xff; /* zero out media ID byte */
     }
 
-    *spc = (COUNT) rg[0];
     *nc = (COUNT) rg[1];
     *bps = (COUNT) rg[2];
-    return TRUE;
+    return spc;
   }
 
   dpbp = cdsp->cdsDpb;
   if (dpbp == NULL)
-    return FALSE;
+    return spc;
 
   if (navc == NULL)
   {
@@ -830,9 +830,9 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
   }
 
   if (media_check(dpbp) < 0)
-    return FALSE;
+    return spc;
   /* get the data available from dpb      */
-  *spc = (dpbp->dpb_clsmask + 1);
+  spc = (dpbp->dpb_clsmask + 1);
   *bps = dpbp->dpb_secsize;
 
   /* now tell fs to give us free cluster  */
@@ -850,7 +850,7 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
     while (ntotal > FAT_MAGIC16 && cluster_size < 0x8000)
     {
       cluster_size <<= 1;
-      *spc <<= 1;
+      spc <<= 1;
       ntotal >>= 1;
       nfree >>= 1;
     }
@@ -861,7 +861,7 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
     /* count                                */
     if (navc != NULL)
       *navc = nfree > FAT_MAGIC16 ? FAT_MAGIC16 : (UCOUNT) nfree;
-    return TRUE;
+    return spc;
   }
 #endif
   /* a passed navc of NULL means: skip free; see FatGetDrvData
@@ -869,15 +869,17 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
   if (navc != NULL)
     *navc = (COUNT) dos_free(dpbp);
   *nc = dpbp->dpb_size - 1;
-  if (*spc > 64)
+  if (spc > 64)
   {
     /* fake for 64k clusters do confuse some DOS programs, but let
        others work without overflowing */
-    *spc >>= 1;
-    *navc = ((unsigned)*navc < FAT_MAGIC16 / 2) ? ((unsigned)*navc << 1) : FAT_MAGIC16;
+    spc >>= 1;
+    if (navc != NULL)
+      *navc = ((unsigned)*navc < FAT_MAGIC16 / 2) ?
+        ((unsigned)*navc << 1) : FAT_MAGIC16;
     *nc = ((unsigned)*nc < FAT_MAGIC16 / 2) ? ((unsigned)*nc << 1) : FAT_MAGIC16;
   }
-  return TRUE;
+  return spc;
 }
 
 #ifdef WITHFAT32

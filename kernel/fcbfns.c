@@ -52,19 +52,22 @@ STATIC void FcbCalcRec(xfcb FAR * lpXfcb);
 
 static dmatch Dmatch;
 
-BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps, UWORD * nc)
+BYTE FAR *FatGetDrvData(UBYTE drive, UBYTE * pspc, UWORD * bps, UWORD * nc)
 {
   static BYTE mdb;
+  UWORD spc;
 
   /* get the data available from dpb                       */
-  if (DosGetFree(drive, spc, NULL, bps, nc))
+  spc = DosGetFree(drive, NULL, bps, nc);
+  if (spc != 0xffff)
   {
     struct dpb FAR *dpbp = get_dpb(drive == 0 ? default_drive : drive - 1);
     /* Point to the media desctriptor for this drive               */
+    *pspc = (UBYTE)spc;
     if (dpbp == NULL)
     {
-      mdb = *spc >> 8;
-      *spc &= 0xff;
+      mdb = spc >> 8;
+      spc &= 0xff;
       return &mdb;
     }
     else

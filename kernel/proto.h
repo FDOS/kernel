@@ -97,8 +97,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib);
 COUNT DosClose(COUNT hndl);
 COUNT DosCloseSft(int sft_idx, BOOL commitonly);
 #define DosCommit(hndl) DosCloseSft(get_sft_idx(hndl), TRUE)
-BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
-                UWORD * bps, UWORD * nc);
+UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc);
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s);
 COUNT DosChangeDir(BYTE FAR * s);
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name);
@@ -204,7 +203,7 @@ int DosCharInput(VOID);
 VOID DosDirectConsoleIO(iregs FAR * r);
 VOID DosCharOutput(COUNT c);
 VOID DosDisplayOutput(COUNT c);
-BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps,
+BYTE FAR *FatGetDrvData(UBYTE drive, UBYTE * spc, UWORD * bps,
                    UWORD * nc);
 UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR *lpFileName, fcb FAR * lpFcb);
 const BYTE FAR *ParseSkipWh(const BYTE FAR * lpFileName);
