@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/11 06:14:45  jimtabor
+ * Removed #if statement
+ *
  * Revision 1.4  2000/05/11 04:26:26  jimtabor
  * Added code for DOS FN 69 & 6C
  *
@@ -46,6 +49,9 @@ BYTE *RcsId = "$Id$";
  * Update CVS to 2020
  *
  * $Log$
+ * Revision 1.5  2000/05/11 06:14:45  jimtabor
+ * Removed #if statement
+ *
  * Revision 1.4  2000/05/11 04:26:26  jimtabor
  * Added code for DOS FN 69 & 6C
  *
@@ -1589,7 +1595,7 @@ dispatch:
         r->AL = 0xFF;
       break;
 
-#if 0
+
     /* Extended Open-Creat, not fully functional.*/
     case 0x6c:
         switch(r->DL) {
@@ -1674,9 +1680,10 @@ dispatch:
                 r->FLAGS &= ~FLG_CARRY;
             }
             break;
-#endif
+
         default:
             goto error_invalid;
+
         }
   }
 
