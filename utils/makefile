@@ -2,17 +2,17 @@
 
 CFLAGS = -I$(INCLUDEPATH) -I..\hdr
 
-production: patchobj.exe exeflat.exe
+production: patchobj.com exeflat.exe
 
-patchobj.exe: patchobj.c
-	$(CC) $(CFLAGST) $(CFLAGS) patchobj.c
+patchobj.com: patchobj.c
+	$(CL) $(CFLAGST) $(TINY) $(CFLAGS) patchobj.c
 
 exeflat.exe: exeflat.c ..\hdr\exe.h
-	$(CC) $(CFLAGSC) $(CFLAGS) exeflat.c
+	$(CL) $(CFLAGSC) $(CFLAGS) exeflat.c
 
 
 clobber: clean
-	$(RM) bin2c.com exeflat.exe patchobj.exe patchobj.com
+	$(RM) bin2c.com exeflat.exe patchobj.com
 
 clean:
 	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me

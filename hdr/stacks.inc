@@ -130,16 +130,17 @@ irp_hi    equ 26
 	; no need to save/restore  anything
 
 ;	error 1 2 3
-	%macro  ProtectHighPartOfRegistersOn386 0
+	%macro  Protect386Registers 0
 	%endmacro
 	
-	%macro  RestoreHighPartOfRegistersOn386 0
+	%macro  Restore386Registers 0
 	%endmacro
 
 
 %ELSE           
-	%macro  ProtectHighPartOfRegistersOn386  0
+	%macro  Protect386Registers  0
 
+	%ifdef WATCOM
 		ror eax,16
 		push ax
 		ror eax,16
@@ -152,10 +153,16 @@ irp_hi    equ 26
 		ror edx,16
 		push dx
 		ror edx,16
+	%else
+		push fs
+		push gs
+	%endif
 
 	%endmacro
 
-	%macro  RestoreHighPartOfRegistersOn386  0
+	%macro  Restore386Registers  0
+
+	%ifdef WATCOM
 		ror edx,16
 		pop  dx
 		ror edx,16
@@ -168,6 +175,11 @@ irp_hi    equ 26
 		ror eax,16
 		pop  ax
 		ror eax,16
+	%else
+		pop gs
+		pop fs
+	%endif
+
 	%endmacro
 
 %ENDIF

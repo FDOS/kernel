@@ -244,9 +244,7 @@ reloc_call_int21_handler:
                 sti
                 PUSH$ALL
                 mov bp,sp
-				
-				ProtectHighPartOfRegistersOn386
-
+                Protect386Registers
                 ;
                 ; Create kernel reference frame.
                 ;
@@ -378,17 +376,16 @@ int21_exit_nodec:
                 pop si
 
 %IFDEF I386
-				sub bp,8
+		sub bp,8
 %endif				
 
                 cli
                 mov     ss,si
                 mov     sp,bp
 
-int21_ret:      
-				RestoreHighPartOfRegistersOn386
-
-				POP$ALL
+int21_ret:
+                Restore386Registers
+		POP$ALL
 
                 ;
                 ; ... and return.
@@ -452,7 +449,6 @@ int2526:
                 push    ds
                 push    es
 
-               
                 mov     cx, sp     ; save stack frame
                 mov     dx, ss
 
@@ -466,6 +462,8 @@ int2526:
                 mov     sp,_disk_api_tos
                 sti
 
+                Protect386Registers
+        
 		push	dx
 		push	cx			; save user stack
 
@@ -477,6 +475,8 @@ int2526:
 
 		pop	cx
 		pop	dx			; restore user stack
+
+                Restore386Registers
 
                 ; restore foreground stack here
                 cli

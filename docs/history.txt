@@ -1,3 +1,10 @@
+2002 Aug xx - Build 2027
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+
++ Changes Bart
+    * patchobj makefile correction
+    * printf uses va_list etc.
 2002 May 9 - Build 2026b
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

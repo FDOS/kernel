@@ -11,9 +11,6 @@ NASMFLAGS = -DSYS=1
 
 #		*List Macros*
 
-BIN2C_EXE_dependencies =  \
- bin2c.obj
-
 SYS_EXE_dependencies =  \
  sys.obj \
  fdkrncfg.obj \
@@ -22,8 +19,8 @@ SYS_EXE_dependencies =  \
 #		*Explicit Rules*
 production:     bin2c.com ..\bin\sys.com
 
-bin2c.com:      $(BIN2C_EXE_dependencies)
-		$(CC) $(CFLAGST) $(BIN2C_EXE_dependencies)
+bin2c.com:      bin2c.c
+		$(CL) $(CFLAGST) $(TINY) bin2c.c
 
 ..\bin\sys.com: sys.com
 		copy sys.com ..\bin
@@ -38,12 +35,12 @@ b_fat32.h:	..\boot\b_fat32.bin bin2c.com
 		.\bin2c ..\boot\b_fat32.bin b_fat32.h b_fat32
 
 prf.obj:	..\kernel\prf.c
-		$(CC) $(CFLAGS) -c ..\kernel\prf.c
+		$(CC) $(CFLAGS) ..\kernel\prf.c
 
 fdkrncfg.obj:   fdkrncfg.c ..\hdr\kconfig.h
 
 sys.com:        $(SYS_EXE_dependencies)
-		$(CC) $(CFLAGST) $(SYS_EXE_dependencies)
+		$(CL) $(CFLAGST) $(TINY) $(SYS_EXE_dependencies)
 
 clobber:	clean
 		-$(RM) bin2c.com sys.com b_fat12.h b_fat16.h b_fat32.h
@@ -52,11 +49,8 @@ clean:
 		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me
 
 #		*Individual File Dependencies*
-bin2c.obj: bin2c.c
-		$(CC) $(CFLAGS) -c $*.c
-
 sys.obj: sys.c ..\hdr\portab.h ..\hdr\device.h b_fat12.h b_fat16.h b_fat32.h
-		$(CC) $(CFLAGS) -c $*.c
+		$(CC) $(CFLAGS) $*.c
 
 # Log: makefile,v 
 #

@@ -106,6 +106,7 @@ IntDosCal:
 ;  UWORD ip,cs,flags;
 ;  UWORD callerARG1; 
 ;};
+    Protect386Registers
     push ax
     push cx
     push dx
@@ -118,7 +119,7 @@ IntDosCal:
 
     mov ax,DGROUP
     mov ds,ax    
-                extern   _int2F_12_handler:wrt HGROUP
+    extern   _int2F_12_handler:wrt HGROUP
     call _int2F_12_handler
     
     pop es
@@ -130,6 +131,7 @@ IntDosCal:
     pop dx
     pop cx
     pop ax
+    Restore386Registers
     
     iret
                     

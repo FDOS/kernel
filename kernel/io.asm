@@ -559,6 +559,7 @@ clk_and_blk_common:
                 push    si
                 push    di
                 push    es
+                Protect386Registers
 
                 mov     ds,[cs:_TEXT_DGROUP]        ; 
                 
@@ -573,6 +574,7 @@ clk_and_blk_common:
                 mov     word [es:bx+status],ax  ; mark operation complete
                 
                 
+                Restore386Registers
                 pop     es
                 pop     di
                 pop     si

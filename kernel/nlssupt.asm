@@ -39,6 +39,8 @@ segment	HMA_TEXT
 ;       Part of Function 38h
 ;
 _reloc_call_CharMapSrvc:
+
+                Protect386Registers
                 push    ds
                 push    es
                 push    bp
@@ -68,6 +70,7 @@ _reloc_call_CharMapSrvc:
                 pop     bp
                 pop     es
                 pop     ds
+                Restore386Registers
                 retf                            ; Return far
 ; Log: nlssupt.asm,v
 ;

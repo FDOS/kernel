@@ -26,7 +26,7 @@ HDR=../hdr/
 #     'standard' compiles
 
 .c.obj :
-	$(CC) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) $<
 	$(STDPATCH) $*.obj
 
 #               *List Macros*
@@ -228,32 +228,32 @@ task.obj: task.c        $(HEADERS) $(CONFIGURATION)
 #   patchobj $*.obj $(INITPATCH)
 
 config.obj:   config.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 initoem.obj:  initoem.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 main.obj:     main.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION) 
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 inithma.obj:  inithma.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 dyninit.obj:  dyninit.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 initdisk.obj: initdisk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
 iprf.obj: iprf.c prf.c $(HDR)\portab.h $(CONFIGURATION)
-	$(CC) $(INITCFLAGS) -c $*.c
+	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 # Log: makefile,v 
