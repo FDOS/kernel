@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -109,17 +112,16 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
 /*
 
  */
-COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dmp)
+COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dmp )
 {
-  COUNT i,
-    x;
-  char FAR *p,
-   *q;
+  COUNT i, x;
+  char FAR *p, *q;
+  VOID FAR * test;
   struct dirent FAR *SDp = (struct dirent FAR *) &SearchDir;
 
   if (func == REM_FINDFIRST)
   {
-    SAttr = (BYTE) attrib;
+    test = (VOID FAR *) current_ldt;
     i = truename(name, PriPathName, FALSE);
     if (i != SUCCESS) {
 	    return i;
@@ -132,11 +134,13 @@ COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dm
     printf("'\n");
 #endif
   }
+  else
+    test = (VOID FAR *) &TempBuffer;
 
   fsncopy(dta, (BYTE FAR *) &TempBuffer, 21);
   p = dta;
   dta = (BYTE FAR *) &TempBuffer;
-  i = int2f_Remote_call(func, 0, 0, 0, 0, 0, 0);
+  i = int2f_Remote_call(func, 0, 0, 0, test, 0, 0);
   dta = p;
   fsncopy((BYTE FAR *) &TempBuffer[0], &dta[0], 21);
 

@@ -39,6 +39,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -188,6 +191,9 @@ INIT static VOID init_kernel(void)
 
 /* Fake int 21h stack frame */
   user_r = (iregs FAR *) DOS_PSP + 0xD0;
+
+/* Set Init DTA to Tempbuffer */
+    dta = (BYTE FAR *) &TempBuffer;
 
 #ifndef KDB
   for (i = 0x20; i <= 0x3f; i++)
@@ -425,7 +431,7 @@ extern BYTE FAR *lpBase;
 
 /* If cmdLine is NULL, this is an internal driver */
 
-VOID init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
+BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
 {
   request rq;
   ULONG memtop = ((ULONG) ram_top) << 10;
@@ -443,6 +449,11 @@ VOID init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
   rq.r_firstunit = nblkdev;
 
   execrh((request FAR *) & rq, dhp);
+/*
+ *  Added needed Error handle
+ */
+  if (rq.r_status & S_ERROR)
+    return TRUE;
 
   if (cmdLine)
     lpBase = rq.r_endaddr;
@@ -471,14 +482,9 @@ VOID init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
     }
   }
   DPBp = &blk_devices[0];
+  return FALSE;
 }
 
-struct dhdr FAR *link_dhdr(struct dhdr FAR * lp, struct dhdr FAR * dhp, BYTE FAR * cmdLine)
-{
-  lp->dh_next = dhp;
-  init_device(dhp, cmdLine);
-  return dhp;
-}
 
 INIT static void InitIO(void)
 {

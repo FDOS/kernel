@@ -33,6 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.5  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -158,6 +161,12 @@ static struct FS_info
   ULONG fs_serialno;
   BYTE  fs_volume[11];
   BYTE  fs_fstype[8];
+};
+
+static struct Access_info
+{
+  BYTE  AI_spec;
+  BYTE  AI_Flag;
 };
 
 static struct media_info miarray[NDEV]; /* Internal media info structs  */
@@ -603,8 +612,10 @@ static WORD IoctlQueblk(rqptr rp)
 {
     switch(rp->r_count){
         case 0x0846:
+        case 0x0847:
         case 0x0860:
         case 0x0866:
+        case 0x0867:
             break;
         default:
             return S_ERROR;
@@ -667,8 +678,6 @@ static WORD Genblkdev(rqptr rp)
                 gioc->ioc_fstype[i] = fs->fs_fstype[i];
         }
         break;
-
-
         case 0x0846:        /* set volume serial number */
         {
         struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
@@ -685,6 +694,14 @@ static WORD Genblkdev(rqptr rp)
             if (ret != 0)
                 return (dskerr(ret));
         }
+        break;
+        case 0x0867:        /* get access flag, always on*/
+        {
+        struct Access_info FAR * ai = (struct Access_info FAR *) rp->r_trans;
+        ai->AI_Flag = 1;
+        }
+        break;
+        case 0x0847:        /* set access flag, no real use*/
         break;
         default:
             return S_ERROR;

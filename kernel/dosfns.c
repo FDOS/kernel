@@ -34,6 +34,9 @@ static BYTE *dosfnsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -134,9 +137,7 @@ static BYTE *dosfnsRcsId = "$Id$";
 sft FAR *get_sft(COUNT);
 WORD get_free_hndl(VOID);
 sft FAR *get_free_sft(WORD FAR *);
-BYTE FAR *get_root(BYTE FAR *);
 BOOL cmatch(COUNT, COUNT, COUNT);
-BOOL fnmatch(BYTE FAR *, BYTE FAR *, COUNT, COUNT);
 
 struct f_node FAR *xlt_fd(COUNT);
 
@@ -220,8 +221,8 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
   }
 
 /*
-   *   Do remote first or return error.
-   *   must have been opened from remote.
+ *   Do remote first or return error.
+ *   must have been opened from remote.
  */
   if (s->sft_flags & SFT_FSHARED)
   {
@@ -338,6 +339,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     *err = DE_ACCESS;
     return 0;
   }
+
   if (s->sft_flags & SFT_FSHARED)
   {
     WriteCount = Remote_RW(REM_WRITE, n, bp, s, err);
@@ -510,40 +512,57 @@ COUNT SftSeek(sft FAR *s, LONG new_pos, COUNT mode)
 
   if (s->sft_flags & SFT_FSHARED)
   {
-		if (mode == 2)	{ 
-			/* seek from end of file */
-      int2f_Remote_call(REM_LSEEK, 0, (UWORD) FP_SEG(new_pos), (UWORD) FP_OFF(new_pos), (VOID FAR *) s, 0, (VOID FAR *)&data);
-      s->sft_posit = data;
-
-      return SUCCESS;
+    /* seek from end of file */
+    if (mode == 2)  {
+/*
+ *  RB list has it as Note:
+ *  this function is called by the DOS 3.1+ kernel, but only when seeking
+ *  from the end of a file opened with sharing modes set in such a manner
+ *  that another process is able to change the size of the file while it
+ *  is already open
+ *  Tested this with Shsucdx ver 0.06 and 1.0. Both now work.
+ *  Lredir via mfs.c from DosEMU works when writing appended files.
+ *  Mfs.c looks for these mode bits set, so here is my best guess.;^)
+ */
+        if ((s->sft_mode & SFT_MDENYREAD) || (s->sft_mode & SFT_MDENYNONE))
+        {
+            int2f_Remote_call(REM_LSEEK, 0, (UWORD) FP_SEG(new_pos), (UWORD) FP_OFF(new_pos), (VOID FAR *) s, 0, (VOID FAR *)&data);
+            s->sft_posit = data;
+            return SUCCESS;
+        }
+        else
+        {
+            s->sft_posit = s->sft_size - new_pos;
+            return SUCCESS;
+        }
     }
-		if (mode == 0) {
-      s->sft_posit = new_pos;
-      return SUCCESS;
+    if (mode == 0) {
+        s->sft_posit = new_pos;
+        return SUCCESS;
     }
-		if (mode == 1) {
-      s->sft_posit += new_pos;
-      return SUCCESS;
+    if (mode == 1) {
+        s->sft_posit += new_pos;
+        return SUCCESS;
     }
     return DE_INVLDFUNC;
-  }
+    }
 
-  /* Do special return for character devices      */
-  if (s->sft_flags & SFT_FDEVICE)
-  {
+    /* Do special return for character devices      */
+    if (s->sft_flags & SFT_FDEVICE)
+    {
 		s->sft_posit = 0l;
-    return SUCCESS;
-  }
-  else
-  {
+        return SUCCESS;
+    }
+    else
+    {
 		LONG result = dos_lseek(s->sft_status, new_pos, mode);
 		if (result < 0l)
 			return (int)result;
 		else {
 			s->sft_posit = result;
-      return SUCCESS;
-  }
-	}
+            return SUCCESS;
+        }
+    }
 }
 
 COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos)
@@ -603,7 +622,7 @@ static sft FAR *get_free_sft(WORD FAR * sft_idx)
   return (sft FAR *) - 1;
 }
 
-static BYTE FAR *get_root(BYTE FAR * fname)
+BYTE FAR *get_root(BYTE FAR * fname)
 {
   BYTE FAR *froot;
   REG WORD length;
@@ -629,7 +648,7 @@ static BOOL cmatch(COUNT s, COUNT d, COUNT mode)
   return s == d;
 }
 
-static BOOL fnmatch(BYTE FAR * s, BYTE FAR * d, COUNT n, COUNT mode)
+BOOL fnmatch(BYTE FAR * s, BYTE FAR * d, COUNT n, COUNT mode)
 {
   while (n--)
   {
@@ -649,7 +668,7 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
   WORD i;
 	COUNT result, drive;
 
-  /* get a free handle                            */
+  /* get a free handle  */
   if ((hndl = get_free_hndl()) == 0xff)
     return DE_TOOMANY;
 
@@ -657,25 +676,9 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
   if ((sftp = get_free_sft((WORD FAR *) & sft_idx)) == (sft FAR *) - 1)
     return DE_TOOMANY;
 
-  /* check for a device                           */
-  froot = get_root(fname);
-  for (i = 0; i < FNAME_SIZE; i++)
-  {
-    if (*froot != '\0' && *froot != '.')
-      PriPathName[i] = *froot++;
-    else
-      break;
-  }
-
-  for (; i < FNAME_SIZE; i++)
-    PriPathName[i] = ' ';
-
-  /* if we have an extension, can't be a device   */
-  if (*froot != '.')
-  {
-    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
-    {
-      if (fnmatch((BYTE FAR *) PriPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
+    /* check for a device   */
+    dhp = IsDevice(fname);
+    if ( dhp )
       {
         sftp->sft_count += 1;
         sftp->sft_mode = SFT_MRDWR;
@@ -683,13 +686,11 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
         sftp->sft_flags =
             ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
         sftp->sft_psp = cu_psp;
-        fbcopy((BYTE FAR *) PriPathName, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
+        fbcopy((BYTE FAR *) SecPathName, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
         sftp->sft_dev = dhp;
         p->ps_filetab[hndl] = sft_idx;
         return hndl;
       }
-    }
-  }
 
     drive = get_verify_drive(fname);
     if(drive < 0) {
@@ -834,24 +835,8 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
     return DE_TOOMANY;
 
   /* check for a device                           */
-  froot = get_root(fname);
-  for (i = 0; i < FNAME_SIZE; i++)
-  {
-    if (*froot != '\0' && *froot != '.')
-      PriPathName[i] = *froot++;
-    else
-      break;
-  }
-
-  for (; i < FNAME_SIZE; i++)
-    PriPathName[i] = ' ';
-
-  /* if we have an extension, can't be a device   */
-  if (*froot != '.')
-  {
-    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
-    {
-      if (fnmatch((BYTE FAR *) PriPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
+    dhp = IsDevice(fname);
+    if ( dhp )
       {
         sftp->sft_count += 1;
         sftp->sft_mode = mode;
@@ -859,18 +844,15 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
         sftp->sft_flags =
             ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
         sftp->sft_psp = cu_psp;
-        fbcopy((BYTE FAR *) PriPathName, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
+        fbcopy((BYTE FAR *) SecPathName, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
         sftp->sft_dev = dhp;
         sftp->sft_date = dos_getdate();
         sftp->sft_time = dos_gettime();
-
         p->ps_filetab[hndl] = sft_idx;
         return hndl;
       }
-    }
-  }
 
-     	drive = get_verify_drive(fname);
+    drive = get_verify_drive(fname);
 	if (drive < 0) {
 		return drive;
 	}
@@ -988,9 +970,9 @@ VOID DosGetFree(COUNT drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
   {
 		int2f_Remote_call(REM_GETSPACE, 0, 0, 0, cdsp, 0, &rg);
 		
-		*spc = (COUNT) rg[0]; 
-		*nc = (COUNT) rg[1];
-		*bps = (COUNT) rg[2];
+        *spc  = (COUNT) rg[0];
+        *nc   = (COUNT) rg[1];
+        *bps  = (COUNT) rg[2];
 		*navc = (COUNT) rg[3]; 
     return;
   }
@@ -1031,7 +1013,7 @@ COUNT DosGetCuDir(COUNT drive, BYTE FAR * s)
 	}
 
 	cdsp = &CDSp->cds_table[drive];
-  current_ldt = cdsp;
+    current_ldt = cdsp;
 
 	if (!(cdsp->cdsFlags & CDSNETWDRV) && (cdsp->cdsDpb == 0)) {
 		return DE_INVLDDRV;
@@ -1067,7 +1049,7 @@ COUNT DosChangeDir(BYTE FAR * s)
   {
 #if defined(CHDIR_DEBUG)
         printf("Remote Chdir: n='");
-        p = s; while(*p)    print("%c", *p++);
+        p = s; while(*p)    printf("%c", *p++);
         printf("' p='");
         p = PriPathName; while(*p) printf("%c", *p++);
         printf("'\n");
@@ -1076,7 +1058,7 @@ COUNT DosChangeDir(BYTE FAR * s)
 #if defined(CHDIR_DEBUG)
         printf("status = %04x, new_path='", result);
         p = cdsd->cdsCurrentPath; while(p) printf("%c", *p++)
-        print("'\n");
+        printf("'\n");
 #endif
         result = -result;
 		if (result != SUCCESS) {
@@ -1103,7 +1085,6 @@ COUNT DosChangeDir(BYTE FAR * s)
 
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 {
-  SAttr = (BYTE) attr;
   return dos_findfirst(attr, name);
 }
 
@@ -1180,13 +1161,11 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
 	struct cds FAR *last_cds;
 	BYTE FAR * p;
 
-#if 0
-	if (IsDevice(name)) {
+    if (IsDevice(name)) {
 		return DE_PATHNOTFND;
 	}
-#endif
 
-     	drive = get_verify_drive(name);
+    drive = get_verify_drive(name);
 	if (drive < 0) {
 		return drive;
 	}
@@ -1216,12 +1195,12 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 	struct cds FAR *last_cds;
 	BYTE FAR *p;
 
-#if 0
-	if (IsDevice(name)) {
+    if (IsDevice(name) ) {
+        printf("SetAtt\n");
 		return DE_PATHNOTFND;
 	}
-#endif
-     	drive = get_verify_drive(name);
+
+    drive = get_verify_drive(name);
 	if (drive < 0) {
 		return drive;
 	}
@@ -1258,11 +1237,11 @@ BYTE DosSelectDrv(BYTE drv)
 COUNT DosDelete(BYTE FAR *path)
 {
 	COUNT result, drive;
-/*
-	if (IsDevice(path)) {
+
+    if (IsDevice(path)) {
 		return DE_PATHNOTFND;
 	}
- */
+
     drive = get_verify_drive(path);
 	if (drive < 0) {
 		return drive;
@@ -1284,11 +1263,11 @@ COUNT DosDelete(BYTE FAR *path)
 COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
 {
 	COUNT result, drive1, drive2;
-/*
+
     if (IsDevice(path1) || IsDevice(path2)) {
-		return DE_PATHNOTFND;
+        return DE_PATHNOTFND;
 	}
- */
+
     drive1 = get_verify_drive(path1);
     result = truename(path1, PriPathName, FALSE);
 	if (result != SUCCESS) {
@@ -1315,11 +1294,11 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
 COUNT DosMkdir(BYTE FAR * dir)
 {
 	COUNT result, drive;
-/*
-	if (IsDevice(dir)) {
+
+    if (IsDevice(dir)) {
 		return DE_PATHNOTFND;
 	}
- */
+
     drive = get_verify_drive(dir);
 	if (drive < 0) {
 		return drive;
@@ -1341,11 +1320,11 @@ COUNT DosMkdir(BYTE FAR * dir)
 COUNT DosRmdir(BYTE FAR * dir)
 {
 	COUNT result, drive;
-/*
-	if (IsDevice(dir)) {
+
+    if (IsDevice(dir)) {
 		return DE_PATHNOTFND;
 	}
- */
+
     drive = get_verify_drive(dir);
 	if (drive < 0) {
 		return drive;
@@ -1363,3 +1342,42 @@ COUNT DosRmdir(BYTE FAR * dir)
 	}
 	return result;
 }
+
+/*
+ * This seems to work well.
+ */
+
+struct dhdr FAR * IsDevice(BYTE FAR * fname)
+{
+  struct dhdr FAR *dhp;
+  BYTE FAR *froot;
+  WORD i;
+
+  /* check for a device  */
+  froot = get_root(fname);
+  for (i = 0; i < FNAME_SIZE; i++)
+  {
+    if (*froot != '\0' && *froot != '.')
+      SecPathName[i] = *froot++;
+    else
+      break;
+  }
+
+  for (; i < FNAME_SIZE; i++)
+    SecPathName[i] = ' ';
+
+  SecPathName[i] = 0;
+  /* if we have an extension, can't be a device   */
+  if (*froot != '.')
+  {
+    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
+    {
+      if (fnmatch((BYTE FAR *) SecPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
+      {
+        return dhp;
+      }
+    }
+  }
+  return (struct dhdr FAR *)0;
+}
+

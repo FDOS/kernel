@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.4  2000/05/26 19:25:19  jimtabor
+; Read History file for Change info
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -216,16 +219,16 @@ IntRetn:
                 iret
 
 
-                global  _cso
-_cso
-                push    bp
-                mov     bp,sp
-                push    ax
-                mov     ax,[bp+4]
-                int     29h
-                pop     ax
-                pop     bp
-                retn
+;                global  _cso
+;_cso
+;                push    bp
+;                mov     bp,sp
+;                push    ax
+;                mov     ax,[bp+4]
+;                int     29h
+;                pop     ax
+;                pop     bp
+;                retn
 
                 global  _int29_handler
 _int29_handler:

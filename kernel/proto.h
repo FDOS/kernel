@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -186,6 +189,8 @@ INIT VOID mcb_init(mcb FAR * mcbp, UWORD size);
 INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 
 /* dosfns.c */
+BYTE FAR *get_root(BYTE FAR *);
+BOOL fnmatch(BYTE FAR *, BYTE FAR *, COUNT, COUNT);
 BOOL check_break(void);
 UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
                    BOOL force_binary);
@@ -213,6 +218,7 @@ COUNT DosDelete(BYTE FAR *path);
 COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
 COUNT DosMkdir(BYTE FAR * dir);
 COUNT DosRmdir(BYTE FAR * dir);
+struct dhdr FAR * IsDevice(BYTE FAR * FileName);
 
 /*dosidle.asm */
 VOID DosIdle_int(void);
@@ -221,7 +227,6 @@ VOID DosIdle_int(void);
 VOID SpacePad(BYTE *, COUNT);
 COUNT ParseDosName(BYTE FAR *, COUNT *, BYTE *, BYTE *, BYTE *, BOOL);
 COUNT ParseDosPath(BYTE FAR *, COUNT *, BYTE *, BYTE FAR *);
-BOOL IsDevice(BYTE FAR * FileName);
 
 /* dsk.c */
 COUNT blk_driver(rqptr rp);
@@ -349,8 +354,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err);
 
 /* main.c */
 INIT VOID main(void);
-INIT VOID init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine);
-INIT struct dhdr FAR *link_dhdr(struct dhdr FAR * lp, struct dhdr FAR * dhp, BYTE FAR * cmdLine);
+INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine);
 
 /* memmgr.c */
 seg far2para(VOID FAR * p);

@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -45,6 +48,9 @@ static BYTE *dosnamesRcsId = "$Id$";
  * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
  * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
  * MS-DOS.  Distributed under the GNU GPL.
+ *
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
  *
  * Revision 1.4  2000/03/31 05:40:09  jtabor
  * Added Eric W. Biederman Patches
@@ -339,44 +345,6 @@ COUNT ParseDosPath(BYTE FAR * lpszFileName,
   return SUCCESS;
 }
 
-BOOL IsDevice(BYTE FAR * pszFileName)
-{
-  REG struct dhdr FAR *dhp = (struct dhdr FAR *)&nul_dev;
-  BYTE szName[FNAME_SIZE];
-
-  /* break up the name first                              */
-  if (ParseDosName(pszFileName,
-                   (COUNT *) 0, TempBuffer, szName, (BYTE *) 0, FALSE)
-      != SUCCESS)
-    return FALSE;
-  SpacePad(szName, FNAME_SIZE);
-
-  /* Test 1 - does it start with a \dev or /dev           */
-  if ((strcmp(szName, "/dev") == 0)
-      || (strcmp(szName, "\\dev") == 0))
-    return TRUE;
-
-  /* Test 2 - is it on the device chain?                  */
-  for (; -1l != (LONG) dhp; dhp = dhp->dh_next)
-  {
-    COUNT nIdx;
-
-    /* Skip if not char device                      */
-    if (!(dhp->dh_attr & ATTR_CHAR))
-      continue;
-
-    /* now compare                                  */
-    for (nIdx = 0; nIdx < FNAME_SIZE; ++nIdx)
-    {
-      if (dhp->dh_name[nIdx] != szName[nIdx])
-        break;
-    }
-    if (nIdx >= FNAME_SIZE)
-      return TRUE;
-  }
-
-  return FALSE;
-}
 
 VOID DosTrimPath(BYTE FAR * lpszPathNamep)
 {

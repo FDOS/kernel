@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -142,9 +145,9 @@ struct dhdr FAR *finddev(UWORD attr_mask)
   /* return dev/null if no matching driver found */
   return &nul_dev;
 }
-/*
-   VOID cso(COUNT c)
-   {
+
+VOID cso(COUNT c)
+{
    BYTE buf = c;
    struct dhdr FAR *lpDevice;
 
@@ -157,14 +160,14 @@ struct dhdr FAR *finddev(UWORD attr_mask)
    lpDevice = (struct dhdr FAR *)finddev(ATTR_CONOUT));
    if (CharReqHdr.r_status & S_ERROR)
    char_error(&CharReqHdr, lpDevice);
-   }
- */
+}
+
 
 VOID sto(COUNT c)
 {
   static COUNT scratch;         /* make this static to save stack space */
 
-  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) scratch);
+  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) &scratch);
 }
 
 VOID mod_sto(REG UCOUNT c)

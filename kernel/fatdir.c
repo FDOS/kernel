@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -198,11 +201,14 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   /* Generate full path name                                      */
   ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[x]);
 
+/* for testing only for now */
+#if 0
   if ((cdsp->cdsFlags & CDSNETWDRV))
   {
     printf("FailSafe %x \n", Int21AX);
     return fnp;
   }
+#endif
 
   if (TempCDS.cdsDpb == 0)
   {
@@ -210,12 +216,6 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     return NULL;
   }
 
-/*  if (drive > lastdrive)
-   {
-   release_f_node(fnp);
-   return NULL;
-   }
- */
   fnp->f_dpb = (struct dpb *)TempCDS.cdsDpb;
 
   /* Perform all directory common handling after all special      */
@@ -565,7 +565,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   REG COUNT i;
   COUNT nDrive;
   BYTE *p;
-  struct cds FAR *cdsp;
   BYTE FAR *ptr;
 
   static BYTE local_name[FNAME_SIZE + 1],
@@ -600,9 +599,10 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   if (nDrive > lastdrive) {
     return DE_INVLDDRV;
   }
-  cdsp = &CDSp->cds_table[nDrive];
+  current_ldt = &CDSp->cds_table[nDrive];
+  SAttr = (BYTE) attr;
 
-  if (cdsp->cdsFlags & CDSNETWDRV)
+  if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     if (Remote_find(REM_FINDFIRST, attr, name, dmp) != 0)
       return DE_FILENOTFND;
@@ -718,7 +718,6 @@ COUNT dos_findnext(void)
   BYTE FAR *p;
   BYTE FAR *q;
   COUNT nDrive;
-  struct cds FAR *cdsp;
 
   /* assign our match parameters pointer.                         */
   dmp = (dmatch FAR *) dta;
@@ -726,26 +725,27 @@ COUNT dos_findnext(void)
 /*
  *  The new version of SHSUCDX 1.0 looks at the dm_drive byte to
  *  test 40h. I used RamView to see location MSD 116:04be and
- *  FD f61:04be, the byte set with 0xc4 = Remote/Network drive 4.
+ *  FD f??:04be, the byte set with 0xc4 = Remote/Network drive 4.
  *  Ralf Brown docs for dos 4eh say bit 7 set == remote so what is
  *  bit 6 for? SHSUCDX Mod info say "test redir not network bit".
+ *  Just to confuse the rest, MSCDEX sets bit 5 too.
  *
  *  So, assume bit 6 is redirector and bit 7 is network.
  *  jt
  */
-  nDrive = dmp->dm_drive & 0x3f;
+  nDrive = dmp->dm_drive & 0x1f;
 
   if (nDrive > lastdrive) {
     return DE_INVLDDRV;
   }
-  cdsp = &CDSp->cds_table[nDrive];
+  current_ldt = &CDSp->cds_table[nDrive];
 
 #if 0
   printf("findnext: %c %s\n", 
 	  nDrive + 'A', (cdsp->cdsFlags & CDSNETWDRV)?"remote":"local");
 #endif
 
-  if (cdsp->cdsFlags & CDSNETWDRV)
+  if (current_ldt->cdsFlags & CDSNETWDRV)
   {
     if (Remote_find(REM_FINDNEXT, 0, 0, dmp) != 0)
       return DE_FILENOTFND;

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -475,7 +478,7 @@ static COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     if (mode == OVERLAY)        /* memory already allocated */
       sp = MK_FP(mem, 0);
     else
-    {                           /* test the filesize against the allocated memory */
+    {                 /* test the filesize against the allocated memory */
       sp = MK_FP(mem, sizeof(psp));
 
       /* This is a potential problem, what to do with .COM files larger than
@@ -890,6 +893,11 @@ COUNT FAR init_call_DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
 VOID InitPSP(VOID)
 {
   psp FAR *p = MK_FP(DOS_PSP, 0);
+/*
+    Fixed Device Driver Print output.
+ */
+  if(p->ps_exit == 0x000020cd)
+    return;
   new_psp(p, 0);
 }
 

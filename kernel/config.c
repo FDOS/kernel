@@ -39,6 +39,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -790,12 +793,12 @@ INIT static VOID Device(BYTE * pLine)
 
   if (DosExec(3, &eb, szBuf) == SUCCESS)
   {
-    while (FP_OFF(dhp) != 0xFFFF)
-    {
-      next_dhp = MK_FP(FP_SEG(dhp), FP_OFF(dhp->dh_next));
-      dhp->dh_next = nul_dev.dh_next;
-      link_dhdr(&nul_dev, dhp, pLine);
-      dhp = next_dhp;
+    /* Link in device driver and save nul_dev pointer to next */
+    next_dhp = dhp->dh_next = nul_dev.dh_next;
+    nul_dev.dh_next = dhp;
+
+    if(init_device(dhp, pLine)){
+        nul_dev.dh_next = next_dhp;     /* return orig pointer if error */
     }
   }
   else

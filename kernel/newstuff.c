@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -224,9 +227,13 @@ COUNT get_verify_drive(char FAR *src)
 COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
+  static char Name[8] = "        ";
   char *bufp = buf + 3;
   COUNT i, n, x = 2;
   struct cds FAR *cdsp;
+  struct dhdr FAR *dhp;
+  BYTE FAR *froot;
+  WORD d;
 
   dest[0] = '\0';
 
@@ -247,6 +254,37 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     buf[0] = default_drive + 'A';
 
   i = buf[0] - 'A';
+/*
+    Code repoff from dosfns.c
+    MSD returns X:/CON for truename con. Not X:\CON
+*/
+  /* check for a device  */
+  froot = get_root(src);
+  for (d = 0; d < FNAME_SIZE; d++)
+  {
+    if (*froot != '\0' && *froot != '.')
+      Name[d] = *froot++;
+    else
+      break;
+  }
+  
+  for (; d < FNAME_SIZE; d++)
+    Name[d] = ' ';
+
+  /* if we have an extension, can't be a device   */
+  if (*froot != '.')
+  {
+    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
+    {
+      if (fnmatch((BYTE FAR *) &Name, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
+      {
+        buf[2] ='/';
+        for (d = 0; d < FNAME_SIZE || Name[d] == ' '; d++)
+            *bufp++ = Name[d];
+        goto exit_tn;
+      }
+    }
+  }
 
   cdsp = &CDSp->cds_table[i];
   current_ldt = cdsp;
@@ -278,6 +316,8 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   }
   else
     src++;
+
+move_name:
 /*
  *  The code here is brain dead. It works long as the calling
  *  function are operating with in normal parms.
@@ -370,6 +410,8 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 
   if (bufp == buf + 2)
     ++bufp;
+
+exit_tn:
 
   *bufp++ = 0;
 

@@ -1,3 +1,32 @@
+2000 May 26 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
+         Code Clean up and Now the Release.
+
+2000 May 26 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  IsDevice is used in FcbFns.c and DosFns.c. I removed IsDevice
+         from DosNames.c an placed it in DosFns.c. FcbFns had dup code
+         and it was removed. This fixed all the functions using IsDevice.
+
+         Truename works now. I consider it dangerous and brain damaged.
+         Note: 
+          truename X:\DIR\con -> X:/CON, note the '/'.
+          truename foo*.* -> X:\DIR\FOO?????.???
+          truename *.*\*.*\*.* -> ????????.???\????????.???\????????.???
+          truename *.*\*.**\*.* -> endless Loop
+             I will fix this later ;^)
+
+         Found InitPSP running 3 time. On the 2'nd run the standard handles
+         were closed with out DosClose. Now Device Drivers can Print out
+         there startup info.
+
++ Added  New IOCTL code in Dsk.c.
+
+2000 May 26 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix    Kolyan Ksenev (7207@mx.csd.tsu.ru) (nik0la@acm.org)
+         found Major bugs in Task.c and chario.c.
+
 2000 May 25 - Build 2020
 -------- James Tabor (jimtabor@infohwy.com)
 + Fixed  Project history.

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -117,8 +120,6 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 sft FAR *FcbGetSft(COUNT SftIndex);
 VOID FcbNextRecord(fcb FAR * lpFcb);
 sft FAR *FcbGetFreeSft(WORD FAR * sft_idx);
-BOOL FcbFnameMatch(BYTE FAR * s, BYTE FAR * d, COUNT n, COUNT mode);
-BOOL FcbCharMatch(COUNT s, COUNT d, COUNT mode);
 BOOL FcbCalcRec(xfcb FAR * lpXfcb);
 VOID MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir);
 #else
@@ -128,8 +129,6 @@ void FcbNameInit();
 sft FAR *FcbGetSft();
 VOID FcbNextRecord();
 sft FAR *FcbGetFreeSft();
-BOOL FcbFnameMatch();
-BOOL FcbCharMatch();
 BOOL FcbCalcRec();
 VOID MoveDirInfo();
 #endif
@@ -644,12 +643,9 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
 
   /* check for a device                                           */
   /* if we have an extension, can't be a device                   */
-  if (IsDevice(PriPathName))
+  dhp = IsDevice(PriPathName);
+  if (dhp)
   {
-    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
-    {
-      if (FcbFnameMatch((BYTE FAR *) PriPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
-      {
         sftp->sft_count += 1;
         sftp->sft_mode = O_RDWR;
         sftp->sft_attrib = 0;
@@ -666,8 +662,6 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
         lpFcb->fcb_time = dos_gettime();
         lpFcb->fcb_rndm = 0;
         return TRUE;
-      }
-    }
   }
   sftp->sft_status = dos_creat(PriPathName, 0);
   if (sftp->sft_status >= 0)
@@ -769,28 +763,6 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive)
   pszBuffer[nDrvIdx + nFnameIdx + nFextIdx] = '\0';
 }
 
-/* Ascii only file name match routines                  */
-static BOOL FcbCharMatch(COUNT s, COUNT d, COUNT mode)
-{
-  if (s >= 'a' && s <= 'z')
-    s -= 'a' - 'A';
-  if (d >= 'a' && d <= 'z')
-    d -= 'a' - 'A';
-  if (mode && s == '?' && (d >= 'A' && s <= 'Z'))
-    return TRUE;
-  return s == d;
-}
-
-static BOOL FcbFnameMatch(BYTE FAR * s, BYTE FAR * d, COUNT n, COUNT mode)
-{
-  while (n--)
-  {
-    if (!FcbCharMatch(*s++, *d++, mode))
-      return FALSE;
-  }
-  return TRUE;
-}
-
 BOOL FcbOpen(xfcb FAR * lpXfcb)
 {
   WORD sft_idx;
@@ -807,12 +779,9 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
 
   /* check for a device                                           */
   /* if we have an extension, can't be a device                   */
-  if (IsDevice(PriPathName))
+  dhp = IsDevice(PriPathName);
+  if (dhp )
   {
-    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
-    {
-      if (FcbFnameMatch((BYTE FAR *) PriPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
-      {
         sftp->sft_count += 1;
         sftp->sft_mode = O_RDWR;
         sftp->sft_attrib = 0;
@@ -829,8 +798,6 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
         lpFcb->fcb_time = dos_gettime();
         lpFcb->fcb_rndm = 0;
         return TRUE;
-      }
-    }
   }
   fbcopy((BYTE FAR *) & lpFcb->fcb_fname, (BYTE FAR *) & sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
   if ((FcbDrive < 0) || (FcbDrive > lastdrive)) {
