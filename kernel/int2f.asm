@@ -273,17 +273,6 @@ SHARE_LOCK_UNLOCK:
 ; sumtimes return data *ptr is the push stack word
 ;
 
-                global  _remote_printredir
-_remote_printredir:
-                push    bp
-                mov     bp,sp
-                push    si
-                push    di
-                mov     ax, 1125h
-                mov     dx, [bp+4]
-                push    word [bp+6]
-                jmp     short int2f_call
-
 remote_lseek:   ; arg is a pointer to the long seek value
                 mov     bx, cx
                 mov     dx, [bx]
@@ -295,6 +284,17 @@ remote_getfattr:
                 int     2fh
                 jc      no_clear_ax
                 jmp     short no_neg_ax
+
+remote_lock_unlock:
+		mov	dx, cx   	; parameter block (dx) in arg
+		mov	bx, cx
+		mov	bl, [bx + 8]	; unlock or not
+		mov	cx, 1
+		int	0x2f
+		mov	ah, 0
+		jc	lock_error
+		mov	al, 0
+lock_error:     jmp     no_clear_ax
 
 ;long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg)
                 global NETWORK_REDIRECTOR_MX
@@ -317,13 +317,22 @@ call_int2f:
                 je      remote_rw
                 cmp     al, 09h
                 je      remote_rw
-                cmp     al, 0ch
-                je      remote_getfree
+                cmp     al, 0ah
+                je      remote_lock_unlock
+                cmp     al, 21h
+                je      remote_lseek
+                cmp     al, 22h
+                je      remote_process_end
                 cmp     al, 23h
                 je      qremote_fn
-                cmp     al, 25h
-                je      remote_lseek
+
                 push    cx             ; arg
+                cmp     al, 0ch
+                je      remote_getfree
+                cmp     al, 1eh
+                je      remote_print_doredir
+                cmp     al, 1fh
+                je      remote_print_doredir
 
 int2f_call:
                 xor     cx, cx         ; set to succeed; clear carry and CX
@@ -342,32 +351,18 @@ no_neg_ax:
                 pop     bp
                 ret
 
-                global  _remote_doredirect
-_remote_doredirect:
-                mov     al, 1eh
-                jmp     short print_doredir
+remote_print_doredir:                  ; di points to an lregs structure
+                mov     es,[di+0xe]
+                mov     bx,[di+2]
+                mov     cx,[di+4]
+                mov     dx,[di+6]
+                mov     si,[di+8]
+                lds     di,[di+0xa]
 
-                global  _remote_printset
-_remote_printset:
-                mov     al, 1fh
-print_doredir:  
-                push    bp
-                mov     bp,sp
-                push    si
-                push    di
-                push    ds
-                mov     ah, 11h
-                mov     si,[bp+14]
-                les     di,[bp+10]
-                mov     dx,[bp+8]
-                mov     cx,[bp+6]
-                mov     bx,[bp+4]
-
-                mov     ds, [bp+18]
-                push    word [bp+16]    ; very fakey, HaHa ;)
                 clc                     ; set to succeed
                 int     2fh
-                pop     bx
+                pop     bx              ; restore stack and ds=ss
+                push    ss
                 pop     ds
                 jc      no_clear_ax
                 xor     cx, cx
@@ -375,9 +370,8 @@ print_doredir:
 
 remote_getfree:
                 clc                     ; set to succeed
-                push    cx              ; pointer arg
                 int     2fh
-                pop     di
+                pop     di              ; retrieve pushed pointer arg
                 jc      no_clear_ax
                 mov     [di],ax
                 mov     [di+2],bx
@@ -409,39 +403,12 @@ qremote_fn:
                 xor     cx, cx
                 jmp     short clear_ax
 
-                global  _remote_process_end
-_remote_process_end:                     ; Terminate process
+remote_process_end:                   ; Terminate process
                 mov     ds, [_cu_psp] 
-                mov     ax, 1122h
-                call    call_int2f
+                int     2fh
                 push    ss
                 pop     ds
-                ret
-
-;STATIC int ASMCFUNC remote_lock_unlock(sft FAR *sftp,     /* SFT for file */
-;                             unsigned long ofs, /* offset into file */
-;                             unsigned long len, /* length (in bytes) of region to lock or unlock */
-;                            int unlock)
-;                               one to unlock; zero to lock
-		global _remote_lock_unlock
-_remote_lock_unlock:
-		push	bp
-		mov	bp, sp
-		push	di
-		les	di, [bp + 4]	; sftp
-		lea	dx, [bp + 8]	; parameter block on the stack!
-		mov	bl, [bp + 16]	; unlock
-		mov	ax, 0x110a
-		mov	cx, 1
-		int	0x2f
-		mov	ah, 0
-		jc	lock_error
-		mov	al, 0
-lock_error:
-		neg	al
-		pop	di
-		pop	bp
-		ret
+                jmp     short no_neg_ax
 
 ; extern UWORD ASMCFUNC call_nls(UWORD subfct, struct nlsInfoBlock *nlsinfo,
 ; UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize, UWORD FAR *buf, UWORD *id);

@@ -382,15 +382,10 @@ COUNT truename(const char FAR * src, char * dest, COUNT t);
 int network_redirector(unsigned cmd);
 int network_redirector_fp(unsigned cmd, void far *s);
 long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg);
-COUNT ASMCFUNC remote_doredirect(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
-                                 UWORD i, VOID FAR * data);
-COUNT ASMCFUNC remote_printset(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
-                               UWORD i, VOID FAR * data);
-COUNT ASMCFUNC remote_process_end(VOID);
 #define remote_getfree(s,d) (int)network_redirector_mx(REM_GETSPACE, s, d)
 #define remote_lseek(s,new_pos) network_redirector_mx(REM_LSEEK, s, &new_pos)
 #define remote_setfattr(attr) (int)network_redirector_mx(REM_SETATTR, NULL, (void *)attr)
-COUNT ASMCFUNC remote_printredir(UCOUNT dx, UCOUNT ax);
+#define remote_printredir(dx,ax) (int)network_redirector_mx(REM_PRINTREDIR, MK_FP(0,dx),(void *)ax)
 #define QRemote_Fn(d,s) (int)network_redirector_mx(REM_FILENAME, d, &s)
 
 UWORD get_machine_name(BYTE FAR * netname);

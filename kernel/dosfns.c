@@ -88,8 +88,7 @@ extern int ASMPASCAL
 
 /* /// End of additions for SHARE.  - Ron Cemer */
 
-extern int ASMCFUNC
-          remote_lock_unlock(sft FAR *sftp,  /* SFT for file */
+STATIC int remote_lock_unlock(sft FAR *sftp,    /* SFT for file */
                              unsigned long ofs, /* offset into file */
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
                              int unlock);       /* one to unlock; zero to lock */
@@ -908,7 +907,8 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
 
   if (cdsp->cdsFlags & CDSNETWDRV)
   {
-    remote_getfree(cdsp, rg);
+    if (remote_getfree(cdsp, rg) != SUCCESS)
+      return DE_INVLDDRV;
 
     xfsp->xfs_clussize = rg[0];
     xfsp->xfs_totalclusters = rg[1];
@@ -1467,3 +1467,19 @@ COUNT DosTruename(const char FAR *src, char FAR *dest)
   return rc;
 }
 
+STATIC int remote_lock_unlock(sft FAR *sftp,     /* SFT for file */
+                              unsigned long ofs, /* offset into file */
+                              unsigned long len, /* length (in bytes) of region to lock or unlock */
+                              int unlock)
+                                 /* one to unlock; zero to lock */
+{
+  struct
+  {
+    unsigned long ofs, len;
+    int unlock;
+  } param_block;
+  param_block.ofs = ofs;
+  param_block.len = len;
+  param_block.unlock = unlock;
+  return (int)network_redirector_mx(REM_LOCK, sftp, &param_block);
+}

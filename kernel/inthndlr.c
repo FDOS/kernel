@@ -1326,8 +1326,7 @@ dispatch:
           break;
 
         default:
-          rc = remote_printset(lr.BX, lr.CX, lr.DX, (FP_ES_DI),
-                               lr.SI, (MK_FP(lr.DS, Int21AX)));
+          rc = (int)network_redirector_mx(REM_PRINTSET, &lr, (void *)Int21AX);
           if (rc != SUCCESS)
             goto error_exit;
           lr.AX = SUCCESS;
@@ -1359,14 +1358,7 @@ dispatch:
       }
       else
       {
-/*              
-            void int_2f_111e_call(iregs FAR *r);
-            int_2f_111e_call(r);          
-          break;*/
-
-        rc = remote_doredirect(lr.BX, lr.CX, lr.DX,
-                                 (FP_ES_DI), lr.SI,
-                                 (MK_FP(lr.DS, Int21AX)));
+        rc = (int)network_redirector_mx(REM_DOREDIRECT, &lr, (void *)Int21AX);
         /* the remote function manipulates *r directly !,
            so we should not copy lr to r here            */
         if (rc != SUCCESS)
