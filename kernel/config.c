@@ -1526,9 +1526,14 @@ STATIC void FAR * AlignParagraph(VOID FAR * lpPtr)
 }
 #endif
 
+STATIC int iswh(unsigned char c)
+{
+  return (c == '\r' || c == '\n' || c == '\t' || c == ' ');
+}
+
 STATIC BYTE * skipwh(BYTE * s)
 {
-  while (*s && (*s == 0x0d || *s == 0x0a || *s == ' ' || *s == '\t'))
+  while (iswh(*s))
     ++s;
   return s;
 }
@@ -1572,32 +1577,17 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
     *d++ = *s++;
   }
   else
-    while (*s &&
-           !(*s == 0x0d
-             || *s == 0x0a || *s == ' ' || *s == '\t' || *s == '='))
+    while (*s && !iswh(*s) && *s != '=')
     {
       if (*s == '?')
-      {
         askThisSingleCommand = TRUE;
-        s++;
-      }
       else
-        *d++ = *s++;
+        *d++ = *s;
+      s++;
     }
   *d = '\0';
   return s;
 }
-
-#if 0
-BYTE *scan_seperator(BYTE * s, BYTE * d)
-{
-  s = skipwh(s);
-  if (*s)
-    *d++ = *s++;
-  *d = '\0';
-  return s;
-}
-#endif
 
 STATIC BOOL isnum(char ch)
 {
@@ -1642,17 +1632,6 @@ STATIC char * GetNumber(REG const char *p, int *num)
   *num = n * sign;
   return (char *)p;
 }
-
-/* Yet another change for true portability (WDL)                        */
-#if 0
-STATIC COUNT tolower(COUNT c)
-{
-  if (c >= 'A' && c <= 'Z')
-    return (c + ('a' - 'A'));
-  else
-    return c;
-}
-#endif
 
 /* Yet another change for true portability (PJV) */
 STATIC COUNT toupper(COUNT c)
@@ -1705,27 +1684,6 @@ char *strcat(register char * d, register const char * s)
   strcpy(d + strlen(d), s);
   return d;
 }
-
-#if 0
-/* see if the second string is contained in the first one, ignoring case */
-STATIC char * stristr(char *s1, char *s2)
-{
-  int loop;
-
-  for (; *s1; s1++)
-    for (loop = 0;; loop++)
-    {
-      if (s2[loop] == 0)        /* found end of string 2 -> success */
-      {
-        return s1;              /* position where s2 was found */
-      }
-      if (toupper(s1[loop]) != toupper(s2[loop]))
-        break;
-    }
-
-  return NULL;
-}
-#endif
 
 /* compare two ASCII strings ignoring case */
 STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s)
