@@ -3,7 +3,8 @@
 + Changes Luchezar Georgiev
     * (with Bart) add extra low disk buffer to avoid HMA
       problems with certain device drivers.
-    * Add an extra space for the device driver command line
+    * Add an extra space character at the end of the command line
+      for device drivers to prevent wrong behavior at empty command line.
     * point to a correct environment for INSTALL=
       (fixes problems with xmsdsk).
     * change device driver error code check (using S_ERROR | S_DONE)
