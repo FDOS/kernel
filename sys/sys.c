@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v3.0"
+#define SYS_VERSION "v3.1"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -471,28 +471,20 @@ void reset_drive(int DosDrive);
       parm [dx] \
       modify [ax bx];
 
-void lock_drive(int DosDrive);
-#pragma aux lock_drive = \
-      "mov ax,0x440d" \
-      "mov cx,0x84a" \
-      "xor dx,dx" \
-      "inc bx" \
-      "int 0x21" \
-      parm [bx];
-
-void unlock_drive(int DosDrive);
-#pragma aux unlock_drive = \
-      "mov ax,0x440d" \
-      "mov cx,0x86a" \
-      "inc bx" \
-      "int 0x21" \
-      parm [bx];
-
 void truename(char far *dest, const char *src);
 #pragma aux truename = \
       "mov ah,0x60"	  \
       "int 0x21"          \
       parm [es di] [si];
+
+int generic_block_ioctl(unsigned char drive, unsigned cx, unsigned char *par);
+#pragma aux generic_block_ioctl = \
+      "mov ax, 0x440d" \
+      "int 0x21" \
+      "sbb ax, ax" \
+      value [ax] \
+      parm [bl] [cx] [dx];
+
 #else
 
 #ifndef __TURBOC__
@@ -543,26 +535,17 @@ void reset_drive(int DosDrive)
   intdos(&regs, &regs);
 } /* reset_drive */
 
-void lock_drive(int DosDrive)
+int generic_block_ioctl(unsigned char drive, unsigned cx, unsigned char *par)
 {
   union REGS regs;
 
   regs.x.ax = 0x440d;
-  regs.x.cx = 0x84a;
-  regs.x.dx = 0;
-  regs.h.bl = DosDrive + 1;
+  regs.x.cx = cx;
+  regs.x.dx = (unsigned)par;
+  regs.h.bl = drive + 1;
   intdos(&regs, &regs);
-} /* lock_drive */
-
-void unlock_drive(int DosDrive)
-{
-  union REGS regs;
-
-  regs.x.ax = 0x440d;
-  regs.x.cx = 0x86a;
-  regs.h.bl = DosDrive + 1;
-  intdos(&regs, &regs);
-} /* unlock_drive */
+  return regs.x.cflag;
+} /* generic_block_ioctl */
 
 void truename(char *dest, const char *src)
 {
@@ -669,6 +652,26 @@ BOOL haveLBA(void)
 }
 #endif
 
+void correct_bpb(struct bootsectortype *default_bpb,
+                 struct bootsectortype *oldboot)
+{
+  /* don't touch partitions (floppies most likely) that don't have hidden
+     sectors */
+  if (default_bpb->bsHiddenSecs == 0)
+    return;
+#ifdef DEBUG
+  printf("Old boot sector values: sectors/track: %u, heads: %u, hidden: %lu\n",
+         oldboot->bsSecPerTrack, oldboot->bsHeads, oldboot->bsHiddenSecs);
+  printf("Default and new boot sector values: sectors/track: %u, heads: %u, "
+         "hidden: %lu\n", default_bpb->bsSecPerTrack, default_bpb->bsHeads,
+         default_bpb->bsHiddenSecs);
+#endif
+
+  oldboot->bsSecPerTrack = default_bpb->bsSecPerTrack;
+  oldboot->bsHeads = default_bpb->bsHeads;
+  oldboot->bsHiddenSecs = default_bpb->bsHiddenSecs;
+}
+
 void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both)
 {
 #ifdef WITHFAT32
@@ -676,12 +679,15 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
 #endif
   struct bootsectortype *bs;
   static unsigned char oldboot[SEC_SIZE], newboot[SEC_SIZE];
+  static unsigned char default_bpb[0x5c];
 
 #ifdef DEBUG
   printf("Reading old bootsector from drive %c:\n", drive + 'A');
 #endif
 
-  lock_drive(drive);
+  /* lock drive */
+  generic_block_ioctl((unsigned char)drive + 1, 0x84a, NULL);
+
   reset_drive(drive);
   /* suggestion: allow reading from a boot sector or image file here */
   if (MyAbsReadWrite(drive, 1, 0, oldboot, 0) != 0)
@@ -727,10 +733,22 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
       bs->bsBytesPerSec);
     exit(1); /* Japan?! */
   }
-  
+
+  /* bit 0 set if function to use current BPB, clear if Device
+           BIOS Parameter Block field contains new default BPB
+     bit 1 set if function to use track layout fields only
+           must be clear if CL=60h
+     bit 2 set if all sectors in track same size (should be set) (RBIL) */
+  default_bpb[0] = 4;
+
   if (fs == FAT32)
   {
     printf("FAT type: FAT32\n");
+    /* get default bpb (but not for floppies) */
+    if (drive >= 2 &&
+        generic_block_ioctl((unsigned char)drive + 1, 0x4860, default_bpb) == 0)
+      correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
+
 #ifdef WITHFAT32                /* copy one of the FAT32 boot sectors */
     memcpy(newboot, haveLBA() ? fat32lba : fat32chs, SEC_SIZE);
 #else
@@ -742,6 +760,9 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   else
   { /* copy the FAT12/16 CHS+LBA boot sector */
     printf("FAT type: FAT1%c\n", fs + '0' - 10);
+    if (drive >= 2 &&
+        generic_block_ioctl((unsigned char)drive + 1, 0x860, default_bpb) == 0)
+      correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
     memcpy(newboot, fs == FAT16 ? fat16com : fat12com, SEC_SIZE);
   }
 
@@ -864,7 +885,9 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
     close(fd);
   } /* if write boot sector file */
   reset_drive(drive);
-  unlock_drive(drive);
+
+  /* unlock_drive */
+  generic_block_ioctl((unsigned char)drive + 1, 0x86a, NULL);
 } /* put_boot */
 
 
