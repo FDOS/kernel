@@ -41,7 +41,7 @@ ConTable        db      0Ah
                 dw      _IOCommandError
                 dw      ConRead
                 dw      CommonNdRdExit
-                dw      ConInStat
+                dw      CommonNdRdExit
                 dw      ConInpFlush
                 dw      ConWrite
                 dw      ConWrite
@@ -106,26 +106,16 @@ ConRead2:
                 jmp     _IOExit
 
 
-checkkey:
-                mov     ah,1
-		add     ah,[cs:kbdType]
-                int     16h                     ; Get status, if zf=0  al=char
-                jz      keydone                 ; Jump if no char available
-checke0:        cmp	al,0xe0                 ; must check for 0xe0 scan code
-        	jne	.ret
-		cmp	ax,0x00e0 		; check for Greek alpha
-		je	.ret
-		mov	al,0
-.ret:		retn
-        
 readkey:        
        		mov     ah,[cs:kbdType]
                 int     16h
-        	jmp     short checke0
-
-keydone:	pop	cx
-		jmp	_IODone
-
+checke0:        cmp	al,0xe0                 ; must check for 0xe0 scan code
+        	jne	.ret
+		or	ah,ah			; check for Greek alpha
+		jz	.ret
+		mov	al,0			; otherwise destroy the 0xe0
+.ret:		retn
+        
 ;
 ; Name:
 ;       KbdRdChar
@@ -162,13 +152,27 @@ KbdRd1:
 KbdRdRtn:
                 retn
 
+;
+; Name:
+;       ConInStat
+;
+; Function:
+;       Checks the keyboard input buffer.
+;
+; Description:
+;       Calls int 16 (get status). Sets Busy-Flag in status field. Destroys ax.
+;
                 global  CommonNdRdExit
 CommonNdRdExit:		; *** tell if key waiting and return its ASCII if yes
                 mov     al,[cs:uScanCode]       ; Test for last scan code
 			; now AL is set if previous key was extended,
                 or      al,al                   ; Was it zero ?
                 jnz     ConNdRd2                ; Jump if there's a char waiting
-		call    checkkey
+                mov     ah,1
+		add     ah,[cs:kbdType]
+                int     16h                     ; Get status, if zf=0  al=char
+                jz      ConNdRd4                ; Jump if no char available
+		call	checke0			; check for e0 scancode
                 or      ax,ax                   ; Zero ?
                 jnz     ConNdRd1                ; Jump if not zero
 		call	readkey
@@ -183,6 +187,8 @@ ConNdRd1:
 
 ConNdRd2:
                 lds     bx,[cs:_ReqPktPtr]         ; Set the status
+		cmp     byte[bx+2],6		; input status call?
+		je      ConNdRd3
                 mov     [bx+0Dh],al             ; return the ASCII of that key
 
 ConNdRd3:
@@ -263,42 +269,3 @@ _int29_handler:
                 pop     si
                 pop     ax
                 iret
-
-
-;
-; Name:
-;       ConInStat
-;
-; Function:
-;       Checks the keybord input buffer.
-;
-; Description:
-;       Calls int 16 (get status). Sets Busy-Flag in status field. Destroys ax.
-;
-      	  	global  ConInStat
-ConInStat:
-		mov	ah,0			; just in case ...
-                mov     al,[cs:uScanCode]       ; Test for last scan code
-                or      al,al                   ; Was it zero ?
-                jnz     ConCharReady            ; Jump if there's a char waiting
-		; return previously cached ext char if any
-        	call	checkkey
-                or      ax,ax                   ; Zero ?
-                jnz     ConIS1                  ; Jump if not zero
-                ; if non-zero key waiting, take it
-        	call	readkey
-                jmp     short ConInStat
-		; if zero key was waiting, fetch 2nd part etc. (???)
-
-ConIS1:
-                cmp     ax,CTL_PRT_SCREEN       ; Was ctl+prntscrn key pressed?
-                jne     ConIS2                  ; Jump if not
-                mov     al,CTL_P
-ConIS2:
-                lds     bx,[cs:_ReqPktPtr]         ; Set the status
-                mov     [bx+0Dh],al		; return the ASCII of the key
-ConCharReady:
-                jmp     _IOExit                 ; key ready (busy=0)
-ConNoChar:
-                jmp     _IODone                 ; no key ready (busy=1)
-
