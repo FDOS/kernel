@@ -864,9 +864,9 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
     return TRUE;
   }
 #endif
-  /* a passed nc of 0xffff means: skip free; see FatGetDrvData
+  /* a passed navc of NULL means: skip free; see FatGetDrvData
      fcbfns.c */
-  if (*nc != 0xffff)
+  if (navc != NULL)
     *navc = (COUNT) dos_free(dpbp);
   *nc = dpbp->dpb_size - 1;
   if (*spc > 64)
