@@ -196,14 +196,9 @@ STATIC void fast_put_char(unsigned char chr)
 }
 #endif
 
-/* writes a character in cooked mode; maybe with printer echo;
-   handles TAB expansion */
-STATIC int cooked_write_char(struct dhdr FAR **pdev,
-                      unsigned char c,
-                      unsigned char *fast_counter)
+void update_scr_pos(unsigned char c, unsigned char count)
 {
   unsigned char scrpos = scr_pos;
-  unsigned char count = 1;
 
   if (c == CR)
     scrpos = 0;
@@ -211,13 +206,24 @@ STATIC int cooked_write_char(struct dhdr FAR **pdev,
     if (scrpos > 0)
       scrpos--;
   } else if (c != LF && c != BELL) {
-    if (c == HT) {
-      count = 8 - (scrpos & 7);
-      c = ' ';
-    }
     scrpos += count;
   }
   scr_pos = scrpos;
+}
+
+/* writes a character in cooked mode; maybe with printer echo;
+   handles TAB expansion */
+STATIC int cooked_write_char(struct dhdr FAR **pdev,
+                      unsigned char c,
+                      unsigned char *fast_counter)
+{
+  unsigned char count = 1;
+
+  if (c == HT) {
+    count = 8 - (scr_pos & 7);
+    c = ' ';
+  }
+  update_scr_pos(c, count);
 
   do {
 
@@ -277,28 +283,19 @@ void write_char(int c, int sft_idx)
 
 void write_char_stdout(int c)
 {
-  unsigned char scrpos = scr_pos;
   unsigned char count = 1;
   unsigned flags = get_sft(STDOUT)->sft_flags & (SFT_FDEVICE | SFT_FBINARY);
 
   /* ah=2, ah=9 should expand tabs even for raw devices and disk files */
   if (flags != SFT_FDEVICE)
   {
-    if (c == CR)
-      scrpos = 0;
-    else if (c == BS) {
-      if (scrpos > 0)
-      scrpos--;
-    } else if (c != LF && c != BELL) {
-      if (c == HT) {
-        count = 8 - (scrpos & 7);
-        c = ' ';
-      }
-      scrpos += count;
+    if (c == HT) {
+      count = 8 - (scr_pos & 7);
+      c = ' ';
     }
     /* for raw devices already updated in dosfns.c */
     if (!(flags & SFT_FDEVICE))
-      scr_pos = scrpos;
+      update_scr_pos(c, count);
   }
 
   do {

@@ -69,6 +69,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp);
 size_t read_line_handle(int sft_idx, size_t n, char FAR * bp);
 void write_char(int c, int sft_idx);
 void write_char_stdout(int c);
+void update_scr_pos(unsigned char c, unsigned char count);
 long cooked_write(struct dhdr FAR **pdev, size_t n, char FAR *bp);
 
 sft FAR *get_sft(UCOUNT);

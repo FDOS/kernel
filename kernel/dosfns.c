@@ -247,25 +247,8 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
       {
         size_t cnt = (size_t)rc;
         const char FAR *p = bp;
-        unsigned char scrpos = scr_pos;
         while (cnt--)
-        {
-          switch (*p++)
-          {
-          case CR:
-            scrpos = 0;
-            break;
-          case LF:
-          case BELL:
-            break;
-          case BS:
-            --scrpos;
-            break;
-          default:
-            ++scrpos;
-          }
-        }
-        scr_pos = scrpos;
+          update_scr_pos(*p++, 1);
       }
       return rc;
     }
