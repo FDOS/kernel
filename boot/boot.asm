@@ -122,7 +122,7 @@ Entry:          jmp     short real_start
 %define READADDR_SEG   BP-0x60-0x1802
 
 %define PARAMS LBA_PACKET+0x10
-%define RootDirSecs     PARAMS+0x0         ; # of sectors root dir uses
+;%define RootDirSecs     PARAMS+0x0         ; # of sectors root dir uses
 
 %define fat_start       PARAMS+0x2         ; first FAT sector
 
@@ -210,7 +210,8 @@ dont_use_dl:				; no,  rely on [drive] written by SYS
                 xor     dx, dx
                 div     bx
 
-                mov     word [RootDirSecs], ax  ; AX = sectors per root directory
+;               mov     word [RootDirSecs], ax  ; AX = sectors per root directory
+                push    ax
 
                 add     si, ax
                 adc     di, byte 0              ; DI:SI = first data sector
@@ -229,7 +230,7 @@ dont_use_dl:				; no,  rely on [drive] written by SYS
 
                 mov     ax, word [root_dir_start]
                 mov     dx, word [root_dir_start+2]
-                mov     di, word [RootDirSecs]
+                pop     di                      ; mov     di, word [RootDirSecs]
                 les     bx, [loadsegoff_60] ; es:bx = 60:0
                 call    readDisk
                 les     di, [loadsegoff_60] ; es:di = 60:0
@@ -366,7 +367,7 @@ show:           pop     si
 
 boot_error:     call    show
 ;                db      "Error! Hit a key to reboot."
-                db      "Err."
+                db      "Error!."
 
                 xor     ah,ah
                 int     0x13                    ; reset floppy
@@ -487,7 +488,9 @@ do_int13_read:
                 rep     movsb
                 pop     di
 
-                shr     ax, 4                   ; adjust segment pointer by increasing
+;               div     byte[LBA_PACKET]        ; luckily 16 !!
+                mov     cl, 4
+                shr     ax, cl                  ; adjust segment pointer by increasing
                 add     word [READADDR_SEG], ax ; by paragraphs read in (per sector)
 
                 add     LBA_SECTOR_0,  byte 1

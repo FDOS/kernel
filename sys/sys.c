@@ -186,7 +186,7 @@ char *getenv(const char *name)
 
 BYTE pgm[] = "SYS";
 
-void put_boot(int, char *, char *, int, int, int);
+void put_boot(int, char *, char *, int, int, int, int);
 BOOL check_space(COUNT, ULONG);
 BOOL get_full_path(BYTE * srcPath, BYTE * rootPath, BYTE * filename, BYTE *source);
 BOOL copy(BYTE *source, COUNT drive, BYTE * filename);
@@ -303,6 +303,7 @@ int main(int argc, char **argv)
   int argno = 0;
   int bootonly = 0;
   int both = 0;
+  int bootdrive = -1;           /* -1 means default processing, else value to use */
   char *kernel_name = FDKERNEL;
   int load_segment = FDLOADSEG;
   int altkern = NO_OEMKERN;     /* use OEM kernel values instead of FD ones */
@@ -388,6 +389,24 @@ int main(int argc, char **argv)
         {
           load_segment = (int)strtol(argv[argno], NULL, 16);
         }
+        else if (memicmp(argp, "B", 2) == 0) /* set boot drive # */
+        {
+          /* BIOS drive number to put in boot sector, normally this is
+             0 for A, 80 for 1st hard drive, 81 2nd hd, etc, and 
+             FF for FreeDOS bootsector will force use of value passed
+             in DL by BIOS. */
+          bootdrive = (BYTE)strtol(argv[argno], NULL, 16);
+        }
+        else /* unknown option */
+        {
+          drivearg = 0;
+          break;
+        }
+      }
+      else  /* invalid option or missing value portion */
+      {
+        drivearg = 0;
+        break;
       }
     }
     else if (drivearg != argno)
@@ -396,7 +415,7 @@ int main(int argc, char **argv)
       {
         bsFile = argp;
       }
-      else
+      else  /* invalid usage */
       {
         drivearg = 0;
         break;
@@ -417,12 +436,13 @@ int main(int argc, char **argv)
       "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
       "  /OEM     : indicates kernel is IBMBIO.COM/IBMDOS.COM loaded at 0x70\n"
 #ifdef WITHOEMCOMPATBS
-      "             /OEM:DR use IBMBIO.COM/IBMDOS.SYS and FD boot sector (default)\n"
+      "             /OEM:DR use IBMBIO.COM/IBMDOS.COM and FD boot sector (default)\n"
       "             /OEM:PC use PC-DOS compatible boot sector\n"
       "             /OEM:MS use PC-DOS compatible boot sector with IO.SYS/MSDOS.SYS\n"
 #endif
       "  /K name  : name of kernel to use instead of KERNEL.SYS\n"
       "  /L segm  : hex load segment to use instead of 60\n"
+      "  /B btdrv : hex BIOS # of boot drive, FF=BIOS provided, 0=A:, 80=1st hd,...\n"
       "%s CONFIG /help\n", pgm, pgm);
     exit(1);
   }
@@ -489,7 +509,7 @@ int main(int argc, char **argv)
   }
 
   printf("Processing boot sector...\n");
-  put_boot(drive, bsFile, kernel_name, load_segment, both, altkern);
+  put_boot(drive, bsFile, kernel_name, load_segment, both, altkern, bootdrive);
 
   if (!bootonly)
   {
@@ -814,7 +834,9 @@ void correct_bpb(struct bootsectortype *default_bpb,
   oldboot->bsHiddenSecs = default_bpb->bsHiddenSecs;
 }
 
-void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both, int altkern)
+void put_boot(int drive, char *bsFile, 
+              char *kernel_name, int load_seg, int both, 
+              int altkern, int bootdrive)
 {
 #ifdef WITHFAT32
   struct bootsectortype32 *bs32;
@@ -900,7 +922,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
     if (altkern >= 2) /* MS or PC compatible BS requested */
     {
       printf("%s: FAT32 versions of PC/MS DOS compatible boot sectors\n"
-             "are not supported [yet].\n");
+             "are not supported [yet].\n", pgm);
       exit(1);
     }
     #endif
@@ -948,12 +970,15 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   /* originally OemName was "FreeDOS", changed for better compatibility */
   memcpy(bs->OemName, "FRDOS4.1", 8);
 
+  /* allow user to override default of use BIOS provided boot drive # */
+  bootdrive = (bootdrive < 0)? (drive < 2 ? 0 : 0xff) : bootdrive;
+
 #ifdef WITHFAT32
   if (fs == FAT32)
   {
     bs32 = (struct bootsectortype32 *)&newboot;
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
-    bs32->bsDriveNumber = drive < 2 ? 0 : 0xff;
+    bs32->bsDriveNumber = bootdrive;
     /* the location of the "0060" segment portion of the far pointer
        in the boot sector is just before cont: in boot*.asm.
        This happens to be offset 0x78 (=0x3c * 2) for FAT32 and
@@ -972,7 +997,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
 #endif
   {
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
-    bs->bsDriveNumber = drive < 2 ? 0 : 0xff;
+    bs->bsDriveNumber = bootdrive;
     #ifdef WITHOEMCOMPATBS
     if (altkern < 2)  /* PC-DOS compatible bs has fixed load sector */
     #endif
