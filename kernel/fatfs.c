@@ -326,6 +326,7 @@ COUNT dos_commit(COUNT fd)
   /* a copy of the fnode is closed meaning that the directory info
      is updated etc, but we keep our old info */
   memcpy(fnp2, fnp, sizeof(*fnp));
+  save_far_f_node(fnp2);
   release_near_f_node(fnp);
   return dos_close(xlt_fnp(fnp2));
 }
@@ -1939,6 +1940,7 @@ f_node_ptr get_f_node(void)
         return fnp;
       }
     }
+    release_near_f_node(fnp);
   }
   return (f_node_ptr) 0;
 }
