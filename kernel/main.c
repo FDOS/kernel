@@ -363,11 +363,8 @@ STATIC VOID FsConfig(VOID)
 
 STATIC VOID signon()
 {
-  printf("\r%S", MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)));
-
-  printf("Kernel compatibility %d.%d - ", MAJOR_RELEASE, MINOR_RELEASE);
-
-  printf(
+  printf("\r%S"
+         "Kernel compatibility %d.%d - "
 #if defined(__BORLANDC__)
   "BORLANDC"
 #elif defined(__TURBOC__)
@@ -391,7 +388,9 @@ STATIC VOID signon()
 #ifdef WITHFAT32
   " - FAT32 support"
 #endif
-  "\n\n%S", (void FAR *)copyright);
+  "\n\n%S",
+         MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)),
+         MAJOR_RELEASE, MINOR_RELEASE, copyright);
 }
 
 STATIC void kernel()
