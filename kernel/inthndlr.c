@@ -752,7 +752,6 @@ dispatch:
       return_code = lr.AL | 0x300;
       tsr = TRUE;
       return_user();
-      break;
 
       /* Get default BPB */
     case 0x1f:
@@ -958,6 +957,7 @@ dispatch:
         DosMemLargest(&lr.BX);
         if (DosMemCheck() != SUCCESS)
           panic("MCB chain corrupted");
+        goto error_exit;
       }
       lr.AX++;   /* DosMemAlloc() returns seg of MCB rather than data */
       break;
@@ -968,6 +968,7 @@ dispatch:
       {
         if (DosMemCheck() != SUCCESS)
           panic("MCB chain corrupted");
+        goto error_exit;
       }
       break;
 
@@ -987,6 +988,7 @@ dispatch:
 #endif
         if (DosMemCheck() != SUCCESS)
           panic("after 4a: MCB chain corrupted");
+        goto error_exit;
       }
       lr.AX = lr.ES; /* Undocumented MS-DOS behaviour expected by BRUN45! */
       break;
@@ -1025,7 +1027,6 @@ dispatch:
       StartTrace();
 #endif
       return_user();
-      break;
 
       /* Get Child-program Return Value                               */
     case 0x4d:
