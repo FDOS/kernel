@@ -501,10 +501,20 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
     {
       unsigned long fatlength, clust, maxclust;
 
-      /* For FAT32, use 4k clusters on sufficiently large file systems,
-       * otherwise 1 sector per cluster. This is also what M$'s format
-       * command does for FAT32. */
-      defbpb->bpb_nsector = (NumSectors >= 512 * 1024ul ? 8 : 1);
+      /* For FAT32, use the cluster size table described in the FAT spec:
+       * http://www.microsoft.com/hwdev/download/hardware/fatgen103.pdf
+       */
+      unsigned sz_gb = (unsigned)(NumSectors / 2097152UL);
+      unsigned char nsector = 64; /* disks greater than 32 GB, 32K cluster */
+      if (sz_gb <= 32)            /* disks up to 32 GB, 16K cluster */
+        nsector = 32;
+      if (sz_gb <= 16)            /* disks up to 16 GB, 8K cluster */
+        nsector = 16;
+      if (sz_gb <= 8)             /* disks up to 8 GB, 4K cluster */
+        nsector = 8;
+      if (NumSectors <= 532480)   /* disks up to 260 MB, 0.5K cluster */
+        nsector = 1;
+      defbpb->bpb_nsector = nsector;
       do
       {
         fatlength = cdiv(fatdata + 2 * defbpb->bpb_nsector,
