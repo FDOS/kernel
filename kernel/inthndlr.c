@@ -1883,9 +1883,9 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
     case 0x13:
       /* uppercase character */  
       /* for now, ASCII only because nls.c cannot handle DS!=SS */
-      r.AX = (unsigned char)r.callerARG1;
-      if (r.AX >= 'a' && r.AX <= 'z')
-        r.AX -= 'a' - 'A';
+      r.AL = (unsigned char)r.callerARG1;
+      if (r.AL >= 'a' && r.AL <= 'z')
+        r.AL -= 'a' - 'A';
       break;
 
     case 0x16:
