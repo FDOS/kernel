@@ -962,7 +962,6 @@ dispatch:
     case 0x46:
       rc = DosForceDup(lr.BX, lr.CX);
       goto short_check;
-      break;
 
       /* Get Current Directory                                        */
     case 0x47:
