@@ -430,12 +430,12 @@ dispatch:
       /* Read Keyboard with Echo                      */
     case 0x01:
       lr.AL = read_char_stdin(TRUE);
-      write_char_stdin(lr.AL);
+      write_char_stdout(lr.AL);
       break;
 
       /* Display Character                                            */
     case 0x02:
-      write_char_stdin(lr.DL);
+      write_char_stdout(lr.DL);
       break;
 
       /* Auxiliary Input                                                      */
@@ -455,7 +455,7 @@ dispatch:
       /* Direct Console I/O                                            */
     case 0x06:
       if (lr.DL != 0xff)
-        write_char_stdin(lr.DL);
+        write_char_stdout(lr.DL);
       else if (StdinBusy())
       {
         lr.AL = 0x00;

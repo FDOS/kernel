@@ -264,9 +264,9 @@ void write_char(int c, int sft_idx)
   DosRWSft(sft_idx, 1, &ch, XFR_FORCE_WRITE);
 }
 
-void write_char_stdin(int c)
+void write_char_stdout(int c)
 {
-  write_char(c, get_sft_idx(STDIN));
+  write_char(c, get_sft_idx(STDOUT));
 }
 
 #define iscntrl(c) ((unsigned char)(c) < ' ')

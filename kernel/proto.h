@@ -64,7 +64,7 @@ long cooked_read(int sft_idx, size_t n, char FAR *bp);
 void read_line(int sft_in, int sft_out, keyboard FAR * kp);
 size_t read_line_handle(int sft_idx, size_t n, char FAR * bp);
 void write_char(int c, int sft_idx);
-void write_char_stdin(int c);
+void write_char_stdout(int c);
 long cooked_write(int sft_idx, size_t n, char FAR *bp);
 
 sft FAR *get_sft(UCOUNT);
