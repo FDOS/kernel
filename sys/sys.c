@@ -152,12 +152,14 @@ int write(int fd, const void *buf, unsigned count)
 
 #define close _dos_close
 
-int stat(const char *file_name, struct stat *buf)
+int stat(const char *file_name, struct stat *statbuf)
 {
   struct find_t find_tbuf;
-  UNREFERENCED_PARAMETER(buf);
 
-  return _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
+  int ret = _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
+  statbuf->st_size = (off_t)find_tbuf.size;
+  /* statbuf->st_attr = (ULONG)find_tbuf.attrib; */
+  return ret;
 }
 
 /* WATCOM's getenv is case-insensitive which wastes a lot of space
@@ -296,6 +298,16 @@ DOSBootFiles bootFiles[] = {
 #define OEM_PC     2  /* use PC-DOS compatible boot sector and names */ 
 #define OEM_MS     3  /* use PC-DOS compatible BS with MS names */
 #define OEM_W9x    4  /* use FreeDOS boot sector but with MS names */
+
+CONST char * msgDOS[DOSFLAVORS] = {
+  "\n",  /* In standard FreeDOS mode, don't print anything special */
+  "DR DOS (OpenDOS Enhancement Project) mode\n",
+#ifdef WITHOEMCOMPATBS
+  "PC-DOS compatibility mode\n",
+  "MS-DOS compatibility mode\n",
+#endif
+  "Win9x DOS compatibility mode\n",
+};
 
 typedef struct SYSOptions {
   BYTE srcDrive[SYS_MAXPATH];   /* source drive:[path], root assumed if no path */
@@ -512,8 +524,8 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   {
 	int slen;
     /* set source path, reserving room to append filename */
-    if ( (argv[drivearg][1] == ':') || (argv[drivearg][1] == '\\') ) 
-      strncpy(opts->srcDrive, argv[drivearg], SYS_MAXPATH-13);
+    if ( (argv[srcarg][1] == ':') /* || ((argv[srcarg][0]=='\\') && (argv[srcarg][1] == '\\'))*/ ) 
+      strncpy(opts->srcDrive, argv[srcarg], SYS_MAXPATH-13);
     else /* only path provided, append to default drive */
       strncat(opts->srcDrive, argv[srcarg], SYS_MAXPATH-15);
     slen = strlen(opts->srcDrive);
@@ -584,8 +596,11 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
       }
     }
   }
+
   /* if unable to determine DOS, assume FreeDOS */
   if (opts->flavor == OEM_AUTO) opts->flavor = OEM_FD;
+
+  printf(msgDOS[opts->flavor]);
 
   /* set compatibility settings not explicitly set */
   if (!opts->kernel.kernel) opts->kernel.kernel = bootFiles[opts->flavor].kernel;
@@ -657,7 +672,7 @@ int main(int argc, char **argv)
   SYSOptions opts;            /* boot options and other flags */
   BYTE srcFile[SYS_MAXPATH];  /* full path+name of [kernel] file [to copy] */
 
-  printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
+  printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n");
 
   if (argc > 1 && memicmp(argv[1], "CONFIG", 6) == 0)
   {
@@ -1132,7 +1147,7 @@ void put_boot(SYSOptions *opts)
     ULONG fatSize, totalSectors, dataSectors, clusters;
     UCOUNT rootDirSectors;
 
-    bs32 = (struct bootsectortype32 *)&oldboot;
+    bs32 = (struct bootsectortype32 *)bs;
     rootDirSectors = (bs->bsRootDirEnts * DIRENT_SIZE  /* 32 */
                  + bs32->bsBytesPerSec - 1) / bs32->bsBytesPerSec;
     fatSize      = bs32->bsFATsecs ? bs32->bsFATsecs : bs32->bsBigFatSize;
@@ -1187,12 +1202,14 @@ void put_boot(SYSOptions *opts)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
 
     if (opts->kernel.stdbs)
+	{
+      memcpy(newboot, (fs == FAT16) ? fat16com : fat12com, SEC_SIZE);
+	}
+    else
     {
-      printf("Using PC-DOS compatible boot sector.\n");
+      printf("Using OEM (PC/MS-DOS) compatible boot sector.\n");
       memcpy(newboot, (fs == FAT16) ? oemfat16 : oemfat12, SEC_SIZE);
     }
-    else
-      memcpy(newboot, (fs == FAT16) ? fat16com : fat12com, SEC_SIZE);
   }
 
   /* Copy disk parameter from old sector to new sector */
@@ -1272,7 +1289,7 @@ void put_boot(SYSOptions *opts)
 
   if (opts->ignoreBIOS)
   {
-    if ( ((int *)newboot)[bsBiosMovOff/sizeof(int)] == 0x5688 )
+    if ( (newboot[bsBiosMovOff]==0x88) && (newboot[bsBiosMovOff+1]==0x56) )
     {
       newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
       newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
