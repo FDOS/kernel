@@ -34,7 +34,7 @@ static BYTE *memmgrRcsId =
     "$Id$";
 #endif
 
-#define nxtMCBsize(mcb,size) MK_FP(FP_SEG(mcb) + (size) + 1, 0)
+#define nxtMCBsize(mcb,size) MK_FP(FP_SEG(mcb) + (size) + 1, FP_OFF(mcb))
 #define nxtMCB(mcb) nxtMCBsize((mcb), (mcb)->m_size)
 
 #define mcbFree(mcb) ((mcb)->m_psp == FREE_PSP)
@@ -49,14 +49,18 @@ static BYTE *memmgrRcsId =
  *  SUCCESS: on success
  *  else: error number <<currently DE_MCBDESTRY only>>
  */
-STATIC COUNT joinMCBs(mcb FAR * p)
+STATIC COUNT joinMCBs(seg para)
 {
+  mcb FAR *p = para2far(para);
   mcb FAR *q;
 
   /* loop as long as the current MCB is not the last one in the chain
      and the next MCB is unused */
-  while (p->m_type == MCB_NORMAL && mcbFree(q = nxtMCB(p)))
+  while (p->m_type == MCB_NORMAL)
   {
+    q = nxtMCB(p);
+    if (!mcbFree(q))
+      break;
     if (!mcbValid(q))
       return DE_MCBDESTRY;
     /* join both MCBs */
@@ -132,7 +136,7 @@ searchAgain:
 
     if (mcbFree(p))
     {                           /* unused block, check if it applies to the rule */
-      if (joinMCBs(p) != SUCCESS)       /* join following unused blocks */
+      if (joinMCBs(FP_SEG(p)) != SUCCESS)       /* join following unused blocks */
         return DE_MCBDESTRY;    /* error */
 
       if (!biggestSeg || biggestSeg->m_size < p->m_size)
@@ -219,10 +223,10 @@ stopIt:                        /* reached from FIRST_FIT on match */
     else
     {                           /* all other modes allocate from the beginning */
       p = nxtMCBsize(foundSeg, size);
-      p->m_size = foundSeg->m_size - size - 1;
 
       /* initialize stuff because p > foundSeg  */
       p->m_type = foundSeg->m_type;
+      p->m_size = foundSeg->m_size - size - 1;
       foundSeg->m_type = MCB_NORMAL;
     }
 
@@ -293,33 +297,6 @@ COUNT DosMemFree(UWORD para)
   p->m_psp = FREE_PSP;
   fmemset(p->m_name, '\0', 8);
 
-#if 0
-  /* Moved into allocating functions -- 1999/04/21 ska */
-  /* Now merge free blocks                        */
-
-  for (p = (mcb FAR *) (MK_FP(first_mcb, 0)); p->m_type != MCB_LAST; p = q)
-  {
-    /* make q a pointer to the next block   */
-    q = nxtMCB(p);
-    /* and test for corruption              */
-    if (q->m_type != MCB_NORMAL && q->m_type != MCB_LAST)
-      return DE_MCBDESTRY;
-    if (p->m_psp != FREE_PSP)
-      continue;
-
-    /* test if next is free - if so merge   */
-    if (q->m_psp == FREE_PSP)
-    {
-      /* Always flow type down on free */
-      p->m_type = q->m_type;
-      p->m_size += q->m_size + 1;
-      /* and make pointers the same   */
-      /* since the next free is now   */
-      /* this block                   */
-      q = p;
-    }
-  }
-#endif
   return SUCCESS;
 }
 
@@ -347,7 +324,7 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
   {
     /* first try to make the MCB larger by joining with any following
        unused blocks */
-    if (joinMCBs(p) != SUCCESS)
+    if (joinMCBs(FP_SEG(p)) != SUCCESS)
       return DE_MCBDESTRY;
 
     if (size > p->m_size)
@@ -364,8 +341,8 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     /* make q a pointer to the new next block               */
     q = nxtMCBsize(p, size);
     /* reduce the size of p and add difference to q         */
-    q->m_type = p->m_type;
     q->m_size = p->m_size - size - 1;
+    q->m_type = p->m_type;
 
     p->m_size = size;
 
@@ -378,7 +355,7 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     fmemset(q->m_name, '\0', 8);
 
     /* try to join q with the free mcb's following it if possible */
-    if (joinMCBs(q) != SUCCESS)
+    if (joinMCBs(FP_SEG(q)) != SUCCESS)
       return DE_MCBDESTRY;
   }
 
@@ -448,38 +425,6 @@ COUNT FreeProcessMem(UWORD ps)
   return SUCCESS;
 }
 
-#if 0
-        /* seems to be superceeded by DosMemLargest
-           -- 1999/04/21 ska */
-COUNT DosGetLargestBlock(UWORD FAR * block)
-{
-  UWORD sz = 0;
-  mcb FAR *p;
-  *block = sz;
-
-  /* Initialize                                           */
-  p = (mcb FAR *) (MK_FP(first_mcb, 0));
-
-  /* Search through memory blocks                         */
-  for (;;)
-  {
-    /* check for corruption                         */
-    if (p->m_type != MCB_NORMAL && p->m_type != MCB_LAST)
-      return DE_MCBDESTRY;
-
-    if (p->m_psp == FREE_PSP && p->m_size > sz)
-      sz = p->m_size;
-
-    /* not corrupted - if last we're OK!            */
-    if (p->m_type == MCB_LAST)
-      break;
-    p = nxtMCB(p);
-  }
-  *block = sz;
-  return SUCCESS;
-}
-#endif
-
 #ifdef DEBUG
 VOID show_chain(void)
 {
@@ -525,9 +470,9 @@ VOID DosUmbLink(BYTE n)
     while (FP_SEG(p) != uppermem_root)
     {
       if (mcbFree(p))
-        joinMCBs(p);
+        joinMCBs(FP_SEG(p));
       if (!mcbValid(p))
-        goto DUL_exit;
+        return;
       q = p;
       p = nxtMCB(p);
     }
@@ -542,15 +487,13 @@ VOID DosUmbLink(BYTE n)
     while (q->m_type != MCB_LAST)
     {
       if (!mcbValid(q))
-        goto DUL_exit;
+        return;
       q = nxtMCB(q);
     }
 
     q->m_type = MCB_NORMAL;
     uppermem_link = n;
   }
-DUL_exit:
-  return;
 }
 
 #endif
