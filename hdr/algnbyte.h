@@ -5,7 +5,7 @@
 #pragma warning(disable:4103)
 #endif
 #pragma pack(1)
-#elif defined(_QC) || defined(__WATCOM__)
+#elif defined(_QC) || defined(__WATCOM__) || defined(__GNUC__)
 #pragma pack(1)
 #elif defined(__ZTC__)
 #pragma ZTC align 1

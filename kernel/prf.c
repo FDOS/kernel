@@ -28,25 +28,9 @@
 
 #include "portab.h"
 
-#if defined(DEBUG) || defined(FORSYS) || defined(_INIT)
-
 #ifdef FORSYS
 #include <io.h>
 #include <stdarg.h>
-#else
-/* copied from bcc (Bruce's C compiler) stdarg.h */
-typedef char *va_list;
-#define va_start(arg, last) ((arg) = (char *) (&(last)+1))
-#define va_arg(arg, type) (((type *)(arg+=sizeof(type)))[-1])
-#define va_end(arg)
-#endif
-
-/*#define DOSEMU */
-
-#ifdef DOSEMU
-#define MAX_BUFSIZE 80                       /* adjust if necessary */
-static int buff_offset = 0;
-static char buff[MAX_BUFSIZE];
 #endif
 
 #ifdef _INIT
@@ -65,33 +49,14 @@ static BYTE *prfRcsId =
     "$Id$";
 #endif
 
-static BYTE *charp = 0;
-
-STATIC VOID handle_char(COUNT);
-STATIC VOID put_console(COUNT);
-STATIC BYTE * ltob(LONG, BYTE *, COUNT);
-STATIC COUNT do_printf(CONST BYTE *, REG va_list);
-int CDECL printf(CONST BYTE * fmt, ...);
-
-/* The following is user supplied and must match the following prototype */
-VOID cso(COUNT);
-
-#if defined(FORSYS) || defined(_INIT)
-COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
-{
-  int i = 0;
-
-  while (*s++)
-    i++;
-
-  return i;
-}
-#else
-COUNT /*ASMCFUNC*/ pascal fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
-#endif
-
 /* special console output routine */
+/*#define DOSEMU */
 #ifdef DOSEMU
+
+#define MAX_BUFSIZE 80                       /* adjust if necessary */
+static int buff_offset = 0;
+static char buff[MAX_BUFSIZE];
+
 VOID put_console(COUNT c)
 {
   if (buff_offset >= MAX_BUFSIZE)
@@ -150,6 +115,41 @@ VOID put_console(COUNT c)
 #endif                          /*  FORSYS   */
 }
 #endif                          /*  DOSEMU   */
+
+#if defined(DEBUG) || defined(FORSYS) || defined(_INIT)
+
+#ifndef FORSYS
+/* copied from bcc (Bruce's C compiler) stdarg.h */
+typedef char *va_list;
+#define va_start(arg, last) ((arg) = (char *) (&(last)+1))
+#define va_arg(arg, type) (((type *)(arg+=sizeof(type)))[-1])
+#define va_end(arg)
+#endif
+
+static BYTE *charp = 0;
+
+STATIC VOID handle_char(COUNT);
+STATIC VOID put_console(COUNT);
+STATIC BYTE * ltob(LONG, BYTE *, COUNT);
+STATIC COUNT do_printf(CONST BYTE *, REG va_list);
+int CDECL printf(CONST BYTE * fmt, ...);
+
+/* The following is user supplied and must match the following prototype */
+VOID cso(COUNT);
+
+#if defined(FORSYS) || defined(_INIT)
+COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
+{
+  int i = 0;
+
+  while (*s++)
+    i++;
+
+  return i;
+}
+#else
+COUNT /*ASMCFUNC*/ pascal fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
+#endif
 
 /* special handler to switch between sprintf and printf */
 STATIC VOID handle_char(COUNT c)
@@ -371,26 +371,8 @@ COUNT do_printf(CONST BYTE * fmt, va_list arg)
   return 0;
 }
 
-#else
-void put_console(int c)
-{
-  if (c == '\n')
-    put_console('\r');
-
-#if defined(__TURBOC__)
-  _AX = 0x0e00 | c;
-  _BX = 0x0070;
-  __int__(0x10);
-#elif defined(I86)
-  __asm
-  {
-    mov al, byte ptr c;
-    mov ah, 0x0e;
-    mov bx, 0x0070;
-    int 0x10;
-  }
-#endif                          /* __TURBO__ */
-}
+#endif
+#if !defined(FORSYS) && !defined(_INIT)
 
 extern void put_string(const char *);
 extern void put_unsigned(unsigned, int, int);

@@ -13,7 +13,11 @@
 *****************************************************************************/
 
 #include <stdio.h>
+#ifdef __GNUC__
+#include <unistd.h>
+#else
 #include <io.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -115,11 +119,13 @@ int main(int argc, char *argv[])
 
 }
 
+#include "algnbyte.h"
 struct record {
   unsigned char rectyp;
-  unsigned datalen;
+  unsigned short datalen;
   unsigned char buffer[0x2000];
 } Record, Outrecord;
+#include "algndflt.h"
 
 struct verify_pack1 { char x[ sizeof(struct record) == 0x2003 ? 1 : -1];};
 

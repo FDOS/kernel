@@ -1,3 +1,22 @@
+2002 Mar 14 - Build 2029
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * fattab.c, fat.h removed the wrong ELSE_ISFAT32()
+    * fatfs.c: rmdir would crash if you rmdir'ed an existing file
+    * config.c, main.c, portab.h
+      implement INSTALL and INSTALLHIGH for config.sys
+      basic COUNTRY=xxx support (with a little help from others,
+      mentioned in config.c)
+    * execrh.asm: save si, di for strategy device driver handler
+    * (adjusted by Bart): the internal "truename" has to reject
+      wildcards for all commands except for the exposed "truename"
+      (DosTrueName, int21/ah=60), FindFirst and FCB functions.
++ Changes Bart
+    * add top level makefile with list of files to zip for releases
+    * remove obsolete documentation and intr.h
+    * eliminated the "f_highwater" fnode field.
+    * reintroduced HMA_TEXT segment and adjust segments in libm.lib
+      to solve problems with Borland compilers.
 2002 Dec 9 - Build 2028
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

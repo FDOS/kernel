@@ -1,4 +1,4 @@
-#if defined (_MSC_VER) || defined(_QC) || defined(__WATCOMC__)
+#if defined (_MSC_VER) || defined(_QC) || defined(__WATCOMC__) || defined(__GNUC__)
 #pragma pack()
 #elif defined (__ZTC__)
 #pragma ZTC align

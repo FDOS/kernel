@@ -17,32 +17,37 @@ You will also need to download the latest version of NASM and Turbo C
 where) and then be sure to edit the CONFIG.MAK file to reflect where
 you put the tools.
 
-*TE*******  Make sure to use the NASMR version, as the DosExtender version
-  _seems_ to produce wrong code. the tested version is 
-  NASM98R, 06/04/99, 202.606 bytes.
-*Bart*****  This is probably only true for Windows NT/2k/XP; In that
-  case you could use the Win32 version anyway.
-Look at
-ftp://ftp.kernel.org/pub/software/devel/nasm
-or a mirror of ftp.kernel.org.
+You can find NASM at http://nasm.sourceforge.net. Version 0.98.36 is
+strongly recommended. The older 0.98 will also work fine, but
+any version in between is likely to fail. It's best to use a NASM
+that is native to your host; that is, when compiling in Windows, use
+the win32 version. The DJGPP version is less likely to run out of
+memory than the DOS version.
 
+Optionally, the kernel can be compressed using UPX. You can find
+UPX at http://upx.sourceforge.net. Simply adjust config.bat to
+enable it.
 
-This kernel will now compile with Turbo C 2.01 (now freely
+This kernel will now compile with Turbo C 2.01, Turbo C++ 1.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
-other Borland compilers, Microsoft C and Watcom C.
+other Borland compilers, Microsoft C and (Open)Watcom C.
 
-The Watcom C 11.0c beta compiler for DOS can now be downloaded at
+The OpenWatcom 1.0 compiler for DOS can now be downloaded at
 www.openwatcom.org: you need at least the following zips from
 ftp://ftp.openwatcom.org/watcom/zips/
 
-core_all        - Core binaries (All hosts)
-clib_hdr        - C runtime library header files
+cm_core_all     - Core binaries (All hosts)
+cm_clib_hdr     - C runtime library header files
+cm_clib_a16     - C runtime libraries (16-bit all targets)
 clib_a16        - C runtime libraries (16-bit all targets)
+cm_clib_d16     - C runtime libraries (16-bit DOS)
 clib_d16        - C runtime libraries (16-bit DOS)
-core_binw       - Core binaries (DOS host)
-c_binw          - C compiler (DOS host)
+cm_core_dos     - Core binaries (DOS host)
+core_doswin     - Core binaries (DOS & Win16 hosts)
+c_doswin        - C compiler (DOS & Win16 hosts)
+ext_dos4gw      - DOS/4GW DOS extender
 
-Replace binw by binnt for an NT host or binp for an OS/2 host.
+Replace "dos" by "nt" for an NT/Win9x host or "os2" for an OS/2 host.
 The host needs to be a 386+ with at least 8MB of memory.
 
 If you feel hardy, read on to understand the directory structure.  A

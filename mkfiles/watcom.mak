@@ -17,7 +17,7 @@ TARGETOPT=-0
 !endif
 
 LIBPATH=$(COMPILERPATH)\lib286
-LIBUTIL=wlib /q 
+LIBUTIL=wlib -q -n 
 LIBPLUS=
 LIBTERM=
 
@@ -34,8 +34,8 @@ CLIB=$(COMPILERPATH)\lib286\dos\clibm.lib
 # we use our own ones, which override these ones when linking.
 #  
 
-MATH_EXTRACT=*i4d *i4m
-MATH_INSERT= +i4d +i4m
+MATH_EXTRACT=
+MATH_INSERT=
 
 
 #
