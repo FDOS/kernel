@@ -183,6 +183,7 @@ VOID ASMCFUNC FAR int28_handler(void);
 VOID ASMCFUNC FAR int29_handler(void);
 VOID ASMCFUNC FAR int2a_handler(void);
 VOID ASMCFUNC FAR int2f_handler(void);
+VOID ASMCFUNC FAR cpm_entry(void);
 
 /* main.c */
 VOID ASMCFUNC FreeDOSmain(void);

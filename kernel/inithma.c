@@ -408,6 +408,13 @@ void MoveKernel(unsigned NewKernelSegment)
         rp->jmpSegment = NewKernelSegment;
 
     }
+
+    if (NewKernelSegment == 0xffff)
+    {
+      /* jmp far cpm_entry (copy from 0:c0) */
+      pokeb(0xffff, 0x30 * 4 + 0x10, 0xea);
+      pokel(0xffff, 0x30 * 4 + 0x11, (ULONG)cpm_entry);
+    }
   }
 
   CurrentKernelSegment = NewKernelSegment;

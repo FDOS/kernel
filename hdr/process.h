@@ -62,8 +62,9 @@ typedef struct {
 #define load    ldata._load
 
 typedef struct {
-  UWORD ps_exit;                /* 00 CP/M-like exit poimt         */
-  UWORD ps_size;                /* 02 memory size in paragraphs    */
+  UWORD ps_exit;                /* 00 CP/M-like exit point: int 20 */
+  UWORD ps_size;                /* 02 segment of first byte beyond */
+                                /*    memory allocated to program  */
   BYTE ps_fill1;                /* 04 single char fill             */
 
   /* CP/M-like entry point                                */

@@ -171,9 +171,9 @@ void new_psp(seg para, int psize)
   /* CP/M-like exit point                                 */
   p->ps_exit = 0x20cd;
 
-  /* CP/M-like entry point - jump to special entry        */
-  p->ps_farcall = 0xea;
-  p->ps_reentry = cpm_entry;
+  /* CP/M-like entry point - call far to special entry    */
+  p->ps_farcall = 0x9a;
+  p->ps_reentry = MK_FP(0, 0x30 * 4);
   /* unix style call - 0xcd 0x21 0xcb (int 21, retf)      */
   p->ps_unix[0] = 0xcd;
   p->ps_unix[1] = 0x21;
@@ -470,21 +470,26 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
   
   {
     UWORD fcbcode;
-    
+    psp FAR *p;
+
     /* point to the PSP so we can build it                  */
     setvec(0x22, MK_FP(user_r->CS, user_r->IP));
     new_psp(mem, mem + asize);
-  
+
     fcbcode = patchPSP(mem - 1, env, exp, namep);
     /* set asize to end of segment */
-    if (asize < 0x1000)
-      asize = (asize << 4) - 2;
-    else
-      asize = 0xfffe;
-    /* TODO: worry about PSP+6:
-       CP/M compatibility--size of first segment for .COM files,
-       while preserving the far call */
-
+    if (asize > 0x1000)
+      asize = 0x1000;
+    if (asize < 0x11)
+      return DE_NOMEM;
+    asize -= 0x11;
+    /* CP/M compatibility--size of first segment for .COM files
+       while preserving the far call to 0:00c0 +
+       copy in HMA at ffff:00d0 */
+    p = MK_FP(mem, 0);
+    p->ps_reentry = MK_FP(0xc - asize, asize << 4);
+    asize <<= 4;
+    asize += 0x10e;
     exp->exec.stack = MK_FP(mem, asize);
     exp->exec.start_addr = MK_FP(mem, 0x100);
     *((UWORD FAR *) MK_FP(mem, asize)) = (UWORD) 0;

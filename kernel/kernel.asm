@@ -718,6 +718,10 @@ begin_hma:
                 times 20h db 0
                 db 0
 
+; to minimize relocations
+		global _DGROUP_
+_DGROUP_	dw DGROUP
+
 %ifdef WATCOM
 ;               32 bit multiplication + division
 global __U4M
@@ -727,6 +731,10 @@ global __U4D
 __U4D:
                 LDIVMODU
 %endif
+
+		resb 0xd0 - ($-begin_hma)
+		; reserve space for far jump to cp/m routine
+		resb 5
 
 ;End of HMA segment                
 segment	HMA_TEXT_END
@@ -744,7 +752,7 @@ segment	_STACK	class=STACK stack
 
     
 
-segment	_LOWTEXT
+segment	CONST
         ; dummy interrupt return handlers
 
 		global _int22_handler
@@ -931,7 +939,6 @@ noNeedToDisable:
     iret        
 
 
-segment _LOWTEXT
 ;
 ; Default Int 24h handler -- always returns fail
 ; so we have not to relocate it (now)
@@ -945,11 +952,6 @@ _int24_handler: mov     al,FAIL
 ;
 ; this makes some things easier
 ;
-
-; to minimize relocations
-segment HMA_TEXT
-		global _DGROUP_
-_DGROUP_	dw DGROUP    
 
 segment _LOWTEXT
                 global _TEXT_DGROUP

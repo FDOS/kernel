@@ -215,6 +215,8 @@ STATIC void init_kernel(void)
   setvec(0x28, int28_handler);
   setvec(0x2a, int2a_handler);
   setvec(0x2f, int2f_handler);
+  pokeb(0, 0x30 * 4, 0xea);
+  pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
 
   init_PSPSet(DOS_PSP);
   set_DTA(MK_FP(DOS_PSP, 0x80));
