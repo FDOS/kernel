@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/08/07 04:53:54  jimtabor
+ * Cleanup code
+ *
  * Revision 1.6  2000/08/07 04:48:50  jimtabor
  * Fixed LoadHigh probllem
  *
@@ -193,13 +196,12 @@ COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
   p = para2far(first_mcb);
 
   biggestSeg = foundSeg = NULL;
-
+/*
+    Hack to the Umb Region direct for now. Save time and program space.
+*/
     if((mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link) {
-        if(uppermem_root) {
-            printf("Upper Mem Allocate\n");
+        if(uppermem_root)
             p = para2far(uppermem_root);
-        }
-
      }
 
   /* Search through memory blocks                         */
