@@ -1,0 +1,17 @@
+These are the know contributors of the FreeDOS kernel.  If you have
+contributed in any way to the kernel, but are not on this list,
+please email me at linux-guru@gcfl.net so I can add you to the list!
+
+Thanx to all the following for contributing to the FreeDOS kernel:
+
+ror4 (ror4@angelfire.com)
+Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
+Charles Dye (raster@highfiber.com)
+John Price (linux-guru@gcfl.net)
+Steve Miller (SMiller@dsfx.com)
+Jens Horstmeier (Jens.Horstmeier@Abg1.SIEMENS.DE)
+James Tabor (jimtabor@infohwy.com)
+
+And last, but not least, a big thanx to Pasquale J. Villani
+(patv@iop.com), who was the original author of DOS-C, in which the
+FreeDOS kernel was based.

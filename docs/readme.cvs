@@ -1,0 +1,15 @@
+You can check out the latest code (from a UNIX type machine) using
+CVS as follows:
+
+cvs -d :pserver:guest@gcfl.net:/home/cvsroot login
+Password: guest
+
+Then, to get the kernel code:
+cvs -d :pserver:guest@gcfl.net:/home/cvsroot checkout fdkernel
+
+To get the FreeCom code:
+cvs -d :pserver:guest@gcfl.net:/home/cvsroot checkout FreeCom
+
+
+You can also view the CVS code from the web at
+http://www.gcfl.net/cgi-bin/cvsweb

@@ -1,0 +1,6 @@
+The current bug database is available on the web at
+
+http://www.gcfl.net/bugs/kernel
+
+Send bug reports to kernel-bugs@gcfl.net.
+

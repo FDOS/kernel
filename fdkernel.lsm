@@ -1,0 +1,14 @@
+Begin3
+Title:          The FreeDOS Kernel
+Version:        1.1.18
+Entered-date:   9 March 2000
+Description:    The FreeDOS Kernel
+Keywords:       kernel freedos dos msdos
+Author:         kernel@gcfl.net (developers)
+Maintained-by:  linux-guru@gcfl.net
+Primary-site:   http://www.gcfl.net/pub/FreeDOS/kernel
+Alternate-site: www.freedos.org
+Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel
+Platforms:      dos dosemu
+Copying-policy: GPL
+End

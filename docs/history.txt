@@ -1,0 +1,543 @@
+2000 Mar 09 - Build 2018
+-------- James Tabor (jimtabor@infohwy.com)
+Added   CDS and made FD CDS based. Changes encompass all of the
+	code for FD.
+Fixed   Task.c, rewritten code from FINODE to SFT function calls.
+	Unable to execute from CD. Main.c and Config.c has small
+	changes.
+Fixed   Device drivers are unable to write to con. Rewritten code to
+	relocate DOS_PSP pointer to 050:0000. Removed references to
+	DOS_PSP in DosFns.c.
+Added   Network and Redirection function calls in Inthndlr.c and
+	network.c.
+
+I have a note in FatFs.c line 313, describing functions not yet
+supported for networking. I don't understand Pats thoughts on SFT to
+FINODE. IMHO it would have been easier to stay with SFT all through
+the code.
+
+I tested MS-Dos 6.22 Command and found it unable to do Find First or
+Next. This too could explain why MSCDEX does the same thing. I only
+test this with the current FDCommand at the time, so this could have
+changed.
+
+1999 Sep 24 - Build 2017
+-------- John Price (linux-guru@gcfl.net)
+* Per Jens Horstmeier's email, changed boot sector code to make
+  Siemens CDROM's bootable.  The changes should be OK for all other
+  machines too (in theory).
+
+1999 Sep 22 - Build 2016
+-------- John Price (linux-guru@gcfl.net)
+* Turned off debug output from the kernel.  It does not seem to be
+  necessary at this time.
+* Changed boot sector to do single-sector reads instead of
+  multi-sector reads.  Appearantly this was part of the reason the
+  kernel would not boot from a 720K, or other format floppies.  Thanx
+  to Charles Dye for the info.
+
+1999 Sep 16 - Build 2016
+-------- James Tabor (jimtabor@infohwy.com)
+* Added Networking and Server Call
+* Added Dos Idle call
+* fixed Console.asm ConInStat
+
+1999 Sep 13 - Build 2014
+-------- John Price (linux-guru@gcfl.net)
+* Deleted some files from the drivers directory that were not being
+  used.
+* Changed the LIB.MAK file so it would work for TC2 or TC3 or higher.
+* Changed SYS.COM so that it creates a sys.log file with more debug
+  information to help debug problems with making boot disks.
+
+1999 Sep 13 - Build 2014
+-------- James Tabor (jimtabor@infohwy.com)
+* Submitted changes to CONSOLE.ASM & INTHNDLR.ASM to fix the INT21
+  func 0B bug.
+
+1999 Sep 13 - Build 2014
+-------- Helmut Fritsch (helmut.fritsch@gcd-hs.de)
+* Submitted changes to CONSOLE.ASM to fix the INT21 func 0B bug.
+
+1999 Sep 10 - Build 2014
+-------- ror4 (f2xm1@crosswinds.net)
+* At the suggestion of Mr John Price, modified the int 0x25 and int
+  0x26 so that they no longer update the disk buffers (int 0x26 only
+  invalidates the buffers for the specified drive). This is to avoid
+  inconsistent disk buffers from appearing in the buffer chain due to
+  interactions between int 0x25/0x26 and file read/write operations.
+
+1999 Aug 24 - Build 2013
+-------- John Price (linux-guru@gcfl.net)
+* With ideas from ror4, I redid the build batch file so you can
+  specify where what make to use.
+* Also created CONFIG.M and CONFIG.B which should be copied to
+  CONFIG.MAK and CONFIG.BAT, respecively, and edited to reflect the
+  users configuration.  This keeps new versions from replacing the
+  configuration files so the user does not have to keep reseting
+  their configutation.
+
+1999 Aug 15 - Build 2013
+-------- ror4 (ror4@angelfire.com)
+* Patched the source so that it can be compiled with Turbo C 2.01.
+  (`asm' statements were rewritten into very ugly equivalents... they
+  probably need more work. :( )
+* Modified the `dmatch' structure in `hdr/dirmatch.h' so that the
+  `dm_dirstart' field is in the right place, and also to make it
+  compile under TC 2.01, which doesn't allow bit fields of any types
+  other than signed or unsigned int.
+* Fixed a few minor bugs in error code returning in `kernel/fatfs.c'.
+
+1999 Jul 16 - Build 2012
+-------- ror4 (ror4@iname.com)
+* Finally ported all the assembly modules to `nasm'. *phew*
+* Undid plonee's patches to `kernel/fatfs.c' (sorry). They were
+  causing the resulting findfirst/findnext DTA structures to be
+  incompatible with MSDOS's.
+* Also rewrote all the pattern copying code in `dos_findfirst' in
+  `kernel/fatdir.c' to prevent a bad buffer overflow problem.
+* Modified the disk buffer handling code, so that logical sector
+  numbers in disk buffers are now 0-based instead of 1-based.
+* int 0x25 and int 0x26 now do multi-sector reads/writes.
+
+1999 Jul 14 - Build 2012
+-------- ror4 (ror4@iname.com)
+* Ported the modules in the `drivers/' branch to `nasm'.
+
+1999 May 04 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Fixed the code for converting day numbers into Julian calendar
+  dates: the first and last days of each month are now returned
+  correctly.
+* Undid a change to the code to get the day of the week.
+
+1999 May 02 - Build 2011
+-------- John Price (linux-guru@gcfl.net)
+* blockio.c: changed getblock and getbuf so that they leave at least
+  3 FAT type buffers valid.  This helps because the FAT is accessed
+  very often compared to other sectors.
+* fatfs.c: Fixed a bug in map_cluster so it will optimize FAT reads
+  on disks that have more than one sector per cluster.  This
+  sigificantly improved disk access of big files on hard drives.
+
+1999 May 02 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Corrected the `struct buffer' definition in `kernel/globals.h' so
+  that it corresponds exactly to Ralf Brown's description of a DOS 3.x
+  buffer.
+* Also fixed the problem with FATs > 255 sectors, by making use of an
+  originally unused field in the buffer structure.
+
+1999 May 01 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Fixed a problem which caused disk corruption on partitions with
+  FATs larger than 127 sectors. (However, FATs larger than 255
+  sectors may still experience problems -- this is due to a
+  limitation of the DOS 3.x buffering scheme.)
+* Fixed a bug in the handling of the `stacks=' command in
+  `(fd)config.sys' which caused the system to behave strangely.
+
+1999 Apr 22 - Build 2011
+-------- Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
+bugfix: memmgr.c: Invalid returned largest size in MemLargest()
+fix: memmgr.c: DosMemLargest: change prototype to match its useage
+bugfix: inthdlr.c: 0x49: ES is decremented
+fix: inthdlr.c: 0x00: DosMemCheck() does nothing --> added panic()
+fix: inthdlr.c: 0x4c: DosMemCheck() does nothing --> added panic()
+fix: inthdlr.c: 0x00: changed to make it the same as DOS-4C-00
+	Both actions differed e.g. in ErrorMode
+chg: memmgr.c: the 'name' field of the MCB is never initialized by
+	DOS-48, DOS-49 or DOS-4A. Leave this to the program loading function.
+bugfix: memmgr.c: adjust_far() / add_far():
+	Both function together (and the way they are used) don't make sense:
+	adjust_far() normalizes a far pointer, add_far() generates a linear
+	address. Usually both are used this way:
+		far_poi = adjust_far(far_poi);
+		while(...) {
+			...
+			far_poi = add_far(far_poi, uword);
+			...
+		}
+	First one makes sure that 'far_poi' is normalized, then far_poi
+	becomes a linear address, which makes it very difficult to use
+	it, because the possibility to get a segment warp gets very high.
+	-->
+		Change: add_far() also returns a normalized real mode pointer
+		as adjust_far() does.
+	Probably in DOS-C supporting various architecures thee functions
+	served other duties, but the current useage is highly dangerous.
+bugfix: task.c: ChildEnv(): nEnvSize didn't counted the last '\0'
+bugfix: task.c: ChildEnv(): Allocation: maximum absolute filename to
+	short and forgot the word counter
+bugfix: task.c: ChildEnv(): for very corrupt environments, the
+	copy function failed.
+bugfix: task.c: DosExeLoader(): If exe_size > allocated_size or
+	DosMemLargest() failes, the environment is not deallocated
+bugfix: task.c: DosExeLoader(): Calculating the exe_size to be
+	allocated. At both places (+ header.exMinAlloc & ...MaxAlloc)
+	sizeof(psp) is added to exe_size. Why? image_size already
+	contains sizeof(psp).
+chg: task.c: DosExeLoader()/DosComLoader(): MCB patching and command
+	line copying is no outside of those functions
+chg: asmsupt.asm: _fbcopy: re-use parts of _bcopy
+add: asmsupt.asm: fmemset, fmemclr, fmemclra {Replace the explicit
+	for() loops}
+
+1999 Apr 22 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Ported boot.asm to NASM.  The plan is to port all assembly to NASM
+  over time.
+
+1999 Apr 19 - Build 2010
+-------- John Price (linux-guru@gcfl.net)
+* Undid the change I made to getblock below because it DID NOT speed
+anything up, and in fact slowed access down.
+
+1999 Apr 18 - Build 2009
+-------- John Price (linux-guru@gcfl.net)
+* change getblock so that it flushes all buffers for a drive when it
+  has to flush one of them to make room.  This should speed disk
+  access slightly.
+* Change the boot sector so there is a compile-time option to use
+  multi-sector IO or single-sector IO.  The default is multi since
+  ror4 seemed to have fixed the problem we had before.
+
+1999 Apr 18 - Build 2009
+-------- ror4 (ror4@cryogen.com)
+* The boot sector can now load the kernel properly from a hard disk.
+* Other minor changes.
+
+1999 Apr 16 - Build 2008
+-------- ror4 (ror4@cryogen.com)
+* Modified the block device driver to prepare it for multi-sector I/O
+  support.  Among other things, the driver can now handle transfer
+  buffers which cross DMA boundaries.
+* Some other minor changes.
+
+1999 Apr 15 - Build 2008
+-------- John Price (linux-guru@gcfl.net)
+* Changed mainly the map_cluster function in fatfs.c so that instead
+  of starting at the beginning of the FAT chain every time, it will
+  be smart about it, and start at the last FAT location that it was
+  before if it can.  This speeds up disk access considerably
+  especially on slower machines.
+
+1999 Apr 15 - Build 2008
+-------- Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
+bugfix: ^Break handler according cmt1.txt
+bugfix: DosCreat(): Detection for Devices and extension:
+	the semi-colon behind if(*froot) is definitely wrong, whether
+	one wants CON.EXT to be interpreted as CON or not.
+bugfix: DosOpen(): dito
+
+* Re-implementation of ^Break handler -- 1999/03/27 ska
+  + Warning: The handle_break() function assumes that the InDOS flag
+  was incremented (except if ErrorMode is true). Never call
+  handle_break() unless the InDOS flag has been incremented within
+  this reentrant call of DOS.
+
+  + ^Break is detected and handled at certain places within the
+  kernel only:  a) within the CON: device when reading or writing a
+  character, and b) when entering the INT-21 service (if extended
+  break checking is enabled).  At these places the process flow can
+  be modified to: either a) redo the interrupted function or b) abort
+  the currently running process.
+
+  + Both actions are performed by switching back to the user stack
+  and enter INT-21 handler again. If to terminate the program, AX is
+  modified into 4C00h.
+
+  + By default, if the user has no ^Break handler installed, the
+  program is terminated.
+
+  + Heavy change: The original implementation installed an unique
+  INT-23 handler that directly called the actions performed
+  DOS-4C-XX.  In fact, this was identically with when the user had an
+  own handler installed and returned the Carry flag set, except that
+  it was somewhat quicker, because the kernel need not decode the
+  4C00h command.  Now the Carry flag is set prior the call of INT-23,
+  so the default action is to terminate the program.
+
+  + Note: INT-23 is called with all registers as they are passed to
+  the INT-21 entry. When they are modified, they are passed
+  _modified_ to the API interpreter. This also allows the DOS1-style
+  termination by to load register AH with 0 (zero).
+
+  + RBIL says:
+     "any DOS call may safely be made within the INT 23 handler,
+     although the handler must check for a recursive invocation if it
+     does call DOS"
+  This can be interpreted so or so, the problem is that the user can
+  call DOS again, what would overwrite the saved _usr_stack pointer
+  with a different value and, therefore, cannot be used to check if
+  INT-23 was returned by RETF or RETF2/IRET.
+
+  Because a recursive invokation of INT-23 is to prevented by the
+  user, the kernel could internally save SP to somewhere else.
+  However:
+  a) where?
+  b) is it reliable that the user ever returns from INT-23 at all?
+
+  The implemented method uses the same mechanism as fail-safe intr()
+  function is implemented: A little piece of code is constructed
+  within the stack, which contains the value of SP as an operand of
+  an immediate MOV instruction.
+
+
+1999 Apr 13 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* The boot sector now moves itself to the last 512 bytes of
+  conventional memory instead of a lower memory location.
+* The kernel startup code has also been modified so that it works
+  with the new boot sector.
+
+1999 Apr 12 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* The directory scanning functions (`findfirst'/`findnext') now also
+  recognize more flavours of the volume label attribute byte (namely
+  0x09, 0x28 and 0x29).
+* Subdirectories are now no longer assumed to have the same size as
+  the root directory.
+* `device/device.lib' is now included as a dependency in the kernel
+  makefile.
+* Removed several unused assembler modules from the `device/' branch
+  (see `device/device.mak').
+
+1999 Apr 11 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* The kernel now reads times from the system clock (0x40:0x6c)
+  instead of the RTC. The RTC is only used during startup to
+  initialize the system clock. (As a side effect of this,
+  `ReadATClock' has been moved from `_TEXT' to `INIT_TEXT'.)
+* Checking for leap years is now improved -- year numbers which are
+  divisible by 100 but not by 400 are not counted as leap years. (Not
+  that it matters for year 2000, though.)
+* The scaling factor used to convert the system time count to a
+  second count has been changed from 18.2 to the more accurate (?)
+  19663/1080.
+* Day numbers used by `clock$' are now 0-based (as in MSDOS) instead
+  of 1-based. Thus 1 Jan 1980 is now day number 0.
+
+1999 Apr 10 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* Added code to prevent the kernel from returning path names
+  containing double backslashes.
+
+1999 Apr 9 - Build 2007
+-------- ror4 (ror4@usa.net)
+* File handles are now cloned properly when a child process is spawned.
+* The `DosClose' function now also frees SFT entries corresponding to
+  devices, not only those entries corresponding to files.
+* Removed a (minor) memory corruption bug in the code for int 0x21,
+  ah = 0x09.
+
+1999 Apr 6 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* Functions ax = 0x5700 and 0x5701 (get/set file date and time) now
+  return the right values at the right times. (They used to return
+  success when there's an error, and return error when there's a
+  success.)
+* Removed the `/k' switch to the linker in `sys/sys.mak'.
+
+1999 Apr 4 - Build 2006
+-------- John Price (linux-guru@gcfl.net)
+* added "version=" directive so that you can change the version that
+  the kernel reports.  Usage: version=<major>.<minor> (i.e.
+  version=6.22)
+
+1999 Apr 4 - Build 2006
+-------- ror4 (ror4@usa.net)
+* Fixed the file name parsing function (`ParseDosNames') so that it
+  handles single-character path names correctly.
+* Also modified the functions which call `ParseDosNames' to check its
+  return value instead of assuming that it is always successful.
+  (This is not currentl useful, but it will be when error checking is
+  introduced into `ParseDosNames'. In other words, there'll be more
+  changes to `ParseDosNames' in the near future...)
+
+* After wondering for a long time why the kernel text segment was
+  always getting corrupted when I ran DJGPP `bash' 1.14.7, I finally
+  decided to examine the code occurring before the handler for int
+  0x21, ah = 0x60, and I found out why... :)
+* Fixed the problem of int 0x21, ax = 0x5d06 causing memory
+  corruption.
+* Corrected the types of `internal_data', `swap_always' and
+  `swap_indos' in `kernel/globals.h'.
+
+* Improved checking for invalid file names in `ParseDosName'
+  (although I'm still not sure whether the check is water-tight or
+  not).
+* Changed the default path setting from `PATH=' to `PATH=.'.
+
+* Output from character I/O functions now goes to standard output as
+  it should, instead of the console. Also, there's now a clear
+  distinction between console input/output and standard input/output.
+* Tabs are now expanded during writes to the console device.
+* Removed a hard-wired limit on the number of entries in a JFT.
+  (Although I'm not sure whether this is really correct...)
+* Many other changes to the file descriptor handling code.
+
+1999 Mar 29 - Build 2006
+-------- John Price (linux-guru@gcfl.net)
+* Changed boot loader so it prints some feedback info while booting.
+  Removed code to handle FAT12 and FAT16, and code to calculate the
+  start of the fat, rootdir, and data.  Moved these functions into
+  the sys command.  Now there are two versions of the boot loader
+  created, one to handle FAT16, and one for FAT12.  These are
+  hard-coded into the sys command, so the need for the boot.bin file
+  is obsolete.
+* created a new program (bin2c) to convert the boot loader binary
+  file into a header file that can be included in the sys program as
+  an array of bytes.
+
+1999 Mar 29 - Build 2006
+-------- ror4 (ror4@usa.net)
+* Changed the class of `_BSSEND' from "STACK" to "BSS" in the
+  `drivers/' branch (which I forgot about in my last patch).
+* Removed all traces of the `CONST' segment, since it was causing
+  `IGROUP' to be assimilated into `DGROUP', which shouldn't happen.
+* Added a `(void)' cast to the `setvec' macro in `kernel/globals.h'
+  (`setvec' no longer returns the original ISR vector).
+* Changed an incorrect error message in `sys/sys.c'.
+* Removed `drivers/setvec.asm', since it's no longer needed.
+* Also removed `kernel/krnstart'.
+* The name field in a process's MCB is now filled in the same manner
+  as in MSDOS -- instead of being padded to the right with spaces, it
+  is now terminated with '\0'. Also, if the original file name
+  doesn't have an extension, the code will stop copying the file name
+  at '\0' instead of continuing to look for a '.'.
+* Fixed the problem of the `switchar' syscall (int 0x21, ax = 0x3700) not
+  returning the correct value.
+
+
+1999 Mar 28 - Build 2005
+-------- ror4 (ror4@usa.net)
+* Removed the need for `ipl.sys'. (!) The kernel makefile now
+  statically relocates `kernel.exe' to 0x60:0 and outputs the
+  resulting binary to `kernel.sys', and the boot sector has also been
+  modified to load `kernel.sys' at 0x60:0 instead of `ipl.sys' at
+  0x2000:0. (I chose 0x60:0 because it's the first 512-byte boundary
+  occurring after the BIOS data area, 0x40:0.) Finally, `sys.com' has
+  also been updated.
+
+* Also changed the boot sector code in some other ways. In
+  particular, because `kernel.sys' is rather large, I had to add some
+  code to move the boot sector away from 0:0x7c00 to somewhere
+  higher. (For 640K systems the boot sector will be shifted to
+  0x6000:0x7c00. However, there may be problems on systems with very
+  little conventional memory -- I'll probably look into this later.)
+
+* Made some minor changes to the assembler source files so that they
+  can compile on `masm'. (JP: The code still compiles fine with tasm
+  too).
+
+* Also changed several incorrect label references in the assembler
+  sources. (JP: These changes fixed the "Fixup" errors we been
+  talking about in the list)
+
+* Eliminated redundant re-makes of files in the various makefiles.
+  For one thing, `*.cfg' files are no longer generated from the
+  makefiles, but are independent from them. (I didn't like the idea
+  of having to compile an entire branch each time I edit a
+  makefile...) Also, intermediate files are now retained instead of
+  deleted.
+
+* Also made some changes to `build.bat' (you'll know them when you
+  see them).
+
+* Added a file `lib/libm.mak'
+
+* Added a file `kernel/krnstart
+
+* The code required to initialize the kernel (or rather most of it)
+  is no longer retained in memory after the initialization process is
+  done. I accomplished this by moving most of the initialization code
+  from `_TEXT' to a new segment named `INIT_TEXT'. Of course, I also
+  had to introduce lots of other changes in order for everything to
+  compile and run properly:
+  - Added code to `kernel/src/kernel/kernel.asm' to move the contents
+    of `INIT_TEXT' to the top of conventional memory and continue
+    from there.  Control is only transferred back to `_TEXT' when the
+    kernel calls `p_0'.
+  - Many functions are called from both `_TEXT' and `INIT_TEXT'. To
+    fix this, I created far wrappers for these functions which can
+    then be called from `INIT_TEXT'. (E.g. for `execrh' there's a
+    corresponding far function named `init_call_execrh' which simply
+    calls `execrh' with its own parameters.) One exception to this is
+    `printf' -- instead of creating a far wrapper for a near
+    `printf', I created a near wrapper for a far `printf' (now called
+    `init_call_printf'), because it was easier that way. :)
+  - Most functions which are required only during initialization time
+    were shifted into `INIT_TEXT'. (There are still some functions
+    which should rightfully go into `INIT_TEXT', but are retained in
+    `_TEXT' as far functions, because I found it too difficult to
+    move them out. :( ) Because Turbo C only allows at most one code
+    segment to be defined for each module, I had to shift some
+    functions around within the source tree -- the file
+    `kernel/src/kernel/proto.h' says it all.
+  - A cosmetic change mentioned here for completeness: all functions
+    defined in `INIT_TEXT' are now marked with the word `INIT' (in
+    fact a null macro) so that the reader can easily distinguish them
+    from functions defined in `_TEXT'.
+
+* Replaced `exit' calls with `for (;;);'.
+
+* Changed `strcpy' into a macro which calls `scopy'.
+
+* Also redefined `setvec' to be a macro (I didn't want to waste time
+  writing a far wrapper for it).
+
+* Removed the `break_key' function in `kernel/src/kernel/kernel.asm'.
+
+* `low_int25_handler' and `low_int26_handler' are now of type
+  `void interrupt far()' instead of `void near()'. (I hope I updated
+  `entry.asm' correctly -- I never tested `int 0x25' and `int 0x26'...)
+
+* Changed the class of `_BSSEND' from "STACK" to "BSS" -- "STACK" is
+  now used for a separate stack segment (`_STACK').
+
+* Assembler modules now include `segs.inc' instead of having their
+  own long list of segment definitions. (Some day I'll update the
+  makefile dependencies to reflect this.)
+
+* Also made a few minor changes to the assembler modules so that
+  `masm' won't complain.
+
+* Changed the `-X' switch in `kernel.cfg' to `-X-', so that I don't
+  have to worry about C module dependencies.
+
+* Removed the definition of `CFLAGS' from the makefile -- everything
+  is now in `kernel.cfg'.
+
+* Created a file `kernel/src/kernel/init-mod.h' which is included by
+  modules whose code is supposed to go into `INIT_TEXT' instead of
+  `TEXT'.
+
+* This diff solves the problem of the MCB of a process not having a
+  correct value in its name field (bug report #6).
+  (The definition of the `toupper' macro is because I shifted the
+  `toupper' function into `INIT_TEXT' a while ago, and therefore
+  can't be called from `_TEXT' now...)
+
+
+-------- John Price (linux-guru@gcfl.net)
+* Made changes so you can create a directory with the same name as a
+  volume label, but you still can't rename or delete it!
+
+* Fix findfirst and findnext functions so that act as they should.
+  (i.e. If the attrib has only the volume label set, then it returns
+  the volume label entry in the root directory, else it returns the
+  files/directories that are specified with the attrib, ignoring the
+  read-only and archive bits (these are always returned).
+
+* reorginize the source tree.  Removed IPL directory, and command.
+  Moved all the file system C files into the kernel directory.
+  Modifed build.bat, clean.bat, and all the make files to reflect the
+  new tree.
+
+* changed so that kernel will look for a "fdconfig.sys" file, and use
+  it INSTEAD of config.sys.  If it does not find it, it will look
+  for, and read config.sys, if it exists.
+
+* Fixed so that if you call an INT 21 function with AH containing a
+  unsupported function, the carry flag is set.

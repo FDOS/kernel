@@ -1,0 +1,326 @@
+/****************************************************************/
+/*                                                              */
+/*                           newstuff.c                         */
+/*                            DOS-C                             */
+/*                                                              */
+/*                       Copyright (c) 1996                     */
+/*                          Svante Frey                         */
+/*                      All Rights Reserved                     */
+/*                                                              */
+/* This file is part of DOS-C.                                  */
+/*                                                              */
+/* DOS-C is free software; you can redistribute it and/or       */
+/* modify it under the terms of the GNU General Public License  */
+/* as published by the Free Software Foundation; either version */
+/* 2, or (at your option) any later version.                    */
+/*                                                              */
+/* DOS-C is distributed in the hope that it will be useful, but */
+/* WITHOUT ANY WARRANTY; without even the implied warranty of   */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See    */
+/* the GNU General Public License for more details.             */
+/*                                                              */
+/* You should have received a copy of the GNU General Public    */
+/* License along with DOS-C; see the file COPYING.  If not,     */
+/* write to the Free Software Foundation, 675 Mass Ave,         */
+/* Cambridge, MA 02139, USA.                                    */
+/****************************************************************/
+
+#ifdef VERSION_STRINGS
+static BYTE *mainRcsId = "$Id$";
+#endif
+
+/*
+ * $Log$
+ * Revision 1.1  2000/05/06 19:35:27  jhall1
+ * Initial revision
+ *
+ * Revision 1.5  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.4  1999/08/25 03:18:09  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.3  1999/04/11 04:33:39  jprice
+ * ror4 patches
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:22  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:26  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.4   06 Dec 1998  8:49:02   patv
+ * Bug fixes.
+ *
+ *    Rev 1.3   04 Jan 1998 23:15:22   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.2   04 Jan 1998 17:26:14   patv
+ * Corrected subdirectory bug
+ *
+ *    Rev 1.1   22 Jan 1997 13:21:22   patv
+ * pre-0.92 Svante Frey bug fixes.
+ */
+
+#include        "portab.h"
+#include        "globals.h"
+#include        "proto.h"
+
+int SetJFTSize(UWORD nHandles)
+{
+  UWORD block,
+    maxBlock;
+  psp FAR *ppsp = MK_FP(cu_psp, 0);
+  UBYTE FAR *newtab;
+  COUNT i;
+
+  if (nHandles <= ppsp->ps_maxfiles)
+  {
+    ppsp->ps_maxfiles = nHandles;
+    return SUCCESS;
+  }
+
+  if ((DosMemAlloc((nHandles + 0xf) >> 4, mem_access_mode, &block, &maxBlock)) < 0)
+    return DE_NOMEM;
+
+  ++block;
+  newtab = MK_FP(block, 0);
+
+  for (i = 0; i < ppsp->ps_maxfiles; i++)
+    newtab[i] = ppsp->ps_filetab[i];
+
+  for (; i < nHandles; i++)
+    newtab[i] = 0xff;
+
+  ppsp->ps_maxfiles = nHandles;
+  ppsp->ps_filetab = newtab;
+
+  return SUCCESS;
+}
+
+int DosMkTmp(BYTE FAR * pathname, UWORD attr)
+{
+  /* create filename from current date and time */
+  static const char tokens[] = "0123456789ABCDEF";
+  char FAR *ptmp = pathname;
+  BYTE wd,
+    month,
+    day;
+  BYTE h,
+    m,
+    s,
+    hund;
+  WORD sh;
+  WORD year;
+  int rc;
+
+  while (*ptmp)
+    ptmp++;
+
+  if (ptmp == pathname || (ptmp[-1] != '\\' && ptmp[-1] != '/'))
+    *ptmp++ = '\\';
+
+  DosGetDate(&wd, &month, &day, (COUNT FAR *) & year);
+  DosGetTime(&h, &m, &s, &hund);
+
+  sh = s * 100 + hund;
+
+  ptmp[0] = tokens[year & 0xf];
+  ptmp[1] = tokens[month];
+  ptmp[2] = tokens[day & 0xf];
+  ptmp[3] = tokens[h & 0xf];
+  ptmp[4] = tokens[m & 0xf];
+  ptmp[5] = tokens[(sh >> 8) & 0xf];
+  ptmp[6] = tokens[(sh >> 4) & 0xf];
+  ptmp[7] = tokens[sh & 0xf];
+  ptmp[8] = '.';
+  ptmp[9] = 'A';
+  ptmp[10] = 'A';
+  ptmp[11] = 'A';
+  ptmp[12] = 0;
+
+  while ((rc = DosOpen(pathname, 0)) >= 0)
+  {
+    DosClose(rc);
+
+    if (++ptmp[11] > 'Z')
+    {
+      if (++ptmp[10] > 'Z')
+      {
+        if (++ptmp[9] > 'Z')
+          return DE_TOOMANY;
+
+        ptmp[10] = 'A';
+      }
+      ptmp[11] = 'A';
+    }
+  }
+
+  if (rc == DE_FILENOTFND)
+  {
+    rc = DosCreat(pathname, attr);
+  }
+  return rc;
+}
+/*
+ * Added support for external and internal calls.
+ * Clean buffer before use. Make the true path and expand file names.
+ * Example: *.* -> ????????.??? as in the currect way.
+ */
+int truename(char FAR * src, char FAR * dest, COUNT t)
+{
+  static char buf[128] = "A:\\";
+  char *bufp = buf + 3;
+  COUNT i,
+    n;
+  BYTE far *test;
+  REG struct cds FAR *cdsp;
+
+  fbcopy((VOID FAR *) "A:\\\0\0\0\0\0\0\0", (VOID FAR *) buf, 10);
+
+  /* First, adjust the source pointer                             */
+  src = adjust_far(src);
+
+  /* Do we have a drive?                                          */
+  if (src[1] == ':')
+  {
+    buf[0] = (src[0] | 0x20) + 'A' - 'a';
+
+    if (buf[0] >= lastdrive + 'A')
+      return DE_PATHNOTFND;
+
+    src += 2;
+  }
+  else
+    buf[0] = default_drive + 'A';
+
+  i = buf[0] - '@';
+
+  cdsp = &CDSp->cds_table[i - 1];
+
+  if (cdsp->cdsFlags & 0x8000)
+  {
+    QRemote_Fn(src, dest);
+    if (t == FALSE)
+    {
+      bufp += 4;
+      fsncopy((BYTE FAR *) & cdsp->cdsCurrentPath[0], (BYTE FAR *) & buf[0], cdsp->cdsJoinOffset);
+      *bufp++ = '\\';
+    }
+  }
+
+  if (*src != '\\' && *src != '/')	/* append current dir */
+  {
+    DosGetCuDir(i, bufp);
+    if (*bufp)
+    {
+      while (*bufp)
+        bufp++;
+      *bufp++ = '\\';
+    }
+  }
+  else
+    src++;
+
+  /* convert all forward slashes to backslashes, and uppercase all characters */
+  while (*src)
+  {
+    char c;
+
+    switch ((c = *src++))
+    {
+/*  added *.*, *., * support.
+ */
+      case '*':
+        if (*src == '.')
+        {
+          n = 8;
+          while (n--)
+            *bufp++ = '?';
+          break;
+        }
+        else
+        {
+          if (src[-2] == '.')
+          {
+            n = 3;
+            while (n--)
+              *bufp++ = '?';
+            break;
+          }
+          else
+          {
+            n = 8;
+            while (n--)
+              *bufp++ = '?';
+            break;
+          }
+        }
+
+      case '/':                /* convert to backslash */
+      case '\\':
+
+        if (bufp[-1] != '\\')
+          *bufp++ = '\\';
+        break;
+
+        /* look for '.' and '..' dir entries */
+      case '.':
+        if (bufp[-1] == '\\')
+        {
+          if (*src == '.' && (src[1] == '/' || src[1] == '\\' || !src[1]))
+          {
+            /* '..' dir entry: rewind bufp to last backslash */
+
+            for (bufp -= 2; *bufp != '\\'; bufp--)
+            {
+              if (bufp < buf + 2)	/* '..' illegal in root dir */
+                return DE_PATHNOTFND;
+            }
+            src++;
+            if (bufp[-1] == ':')
+              bufp++;
+          }
+          else if (*src == '/' || *src == '\\' || *src == 0)
+            --bufp;
+        }
+        else
+          *bufp++ = c;
+        break;
+
+      default:
+        *bufp++ = c;
+        break;
+    }
+  }
+  /* remove trailing backslashes */
+  while (bufp[-1] == '\\')
+    --bufp;
+
+  if (bufp == buf + 2)
+    ++bufp;
+
+  *bufp++ = 0;
+
+  /* finally, uppercase everything */
+  upString(buf);
+
+  /* copy to user's buffer */
+  fbcopy(buf, dest, bufp - buf);
+
+  return SUCCESS;
+}
+
