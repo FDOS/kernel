@@ -1985,24 +1985,45 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
 {
   ULONG size;
   REG UWORD shftcnt;
+  bpb sbpb;
 
-  for (shftcnt = 0; (bpbp->bpb_nsector >> shftcnt) > 1; shftcnt++)
+  fmemcpy(&sbpb, bpbp, sizeof(sbpb));
+  for (shftcnt = 0; (sbpb.bpb_nsector >> shftcnt) > 1; shftcnt++)
     ;
   dpbp->dpb_shftcnt = shftcnt;
 
-  dpbp->dpb_mdb = bpbp->bpb_mdesc;
-  dpbp->dpb_secsize = bpbp->bpb_nbyte;
-  dpbp->dpb_clsmask = bpbp->bpb_nsector - 1;
-  dpbp->dpb_fatstrt = bpbp->bpb_nreserved;
-  dpbp->dpb_fats = bpbp->bpb_nfat;
-  dpbp->dpb_dirents = bpbp->bpb_ndirent;
-  size = bpbp->bpb_nsize == 0 ? bpbp->bpb_huge : (ULONG) bpbp->bpb_nsize;
-  dpbp->dpb_fatsize = bpbp->bpb_nfsect;
+  dpbp->dpb_mdb = sbpb.bpb_mdesc;
+  dpbp->dpb_secsize = sbpb.bpb_nbyte;
+  dpbp->dpb_clsmask = sbpb.bpb_nsector - 1;
+  dpbp->dpb_fatstrt = sbpb.bpb_nreserved;
+  dpbp->dpb_fats = sbpb.bpb_nfat;
+  dpbp->dpb_dirents = sbpb.bpb_ndirent;
+  size = sbpb.bpb_nsize == 0 ? sbpb.bpb_huge : (ULONG) sbpb.bpb_nsize;
+  dpbp->dpb_fatsize = sbpb.bpb_nfsect;
   dpbp->dpb_dirstrt = dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_fatsize;
   dpbp->dpb_data = dpbp->dpb_dirstrt
       + (dpbp->dpb_dirents + dpbp->dpb_secsize/DIRENT_SIZE - 1) /
           (dpbp->dpb_secsize/DIRENT_SIZE);
   dpbp->dpb_size = ((size - dpbp->dpb_data) >> shftcnt) + 1;
+  { /* Make sure the number of FAT sectors is actually enough to hold that */
+    /* many clusters. Otherwise back the number of clusters down (LG & AB) */
+    unsigned fatsiz;
+    ULONG tmp = dpbp->dpb_fatsize * (ULONG)(dpbp->dpb_secsize / 2);/* entries/2 */
+    if (tmp >= 0x10000)
+      goto ckok;
+    fatsiz = (unsigned) tmp;
+    if (dpbp->dpb_size > FAT_MAGIC) {/* FAT16 */
+      if (fatsiz <= FAT_MAGIC)       /* FAT12 - let it pass through rather */
+        goto ckok;                   /* than lose data correcting FAT type */
+    } else {                         /* FAT12 */
+      if (fatsiz >= 0x4000)
+        goto ckok;
+      fatsiz = fatsiz * 4 / 3;
+    }
+    if (dpbp->dpb_size >= fatsiz)    /* FAT too short */
+      dpbp->dpb_size = fatsiz - 1;   /* - 2 reserved entries + 1 */
+ckok:;
+  }
   dpbp->dpb_flags = 0;
   dpbp->dpb_cluster = UNKNCLUSTER;
   /* number of free clusters */
@@ -2011,8 +2032,8 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
 #ifdef WITHFAT32
   if (extended)
   {
-    dpbp->dpb_xfatsize = bpbp->bpb_nfsect == 0 ? bpbp->bpb_xnfsect
-        : bpbp->bpb_nfsect;
+    dpbp->dpb_xfatsize = sbpb.bpb_nfsect == 0 ? sbpb.bpb_xnfsect
+        : sbpb.bpb_nfsect;
     dpbp->dpb_xcluster = UNKNCLUSTER;
     dpbp->dpb_xnfreeclst = XUNKNCLSTFREE;       /* number of free clusters */
 
@@ -2025,16 +2046,16 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
 
     if (ISFAT32(dpbp))
     {
-      dpbp->dpb_xflags = bpbp->bpb_xflags;
-      dpbp->dpb_xfsinfosec = bpbp->bpb_xfsinfosec;
-      dpbp->dpb_xbackupsec = bpbp->bpb_xbackupsec;
+      dpbp->dpb_xflags = sbpb.bpb_xflags;
+      dpbp->dpb_xfsinfosec = sbpb.bpb_xfsinfosec;
+      dpbp->dpb_xbackupsec = sbpb.bpb_xbackupsec;
       dpbp->dpb_dirents = 0;
       dpbp->dpb_dirstrt = 0xffff;
       dpbp->dpb_size = 0;
       dpbp->dpb_xdata =
           dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_xfatsize;
       dpbp->dpb_xsize = ((size - dpbp->dpb_xdata) >> shftcnt) + 1;
-      dpbp->dpb_xrootclst = bpbp->bpb_xrootclst;
+      dpbp->dpb_xrootclst = sbpb.bpb_xrootclst;
       read_fsinfo(dpbp);
     }
   }
