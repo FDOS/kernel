@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/09 00:30:11  jimtabor
+ * Clean up and Release
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
  *
@@ -1578,6 +1581,7 @@ dispatch:
         r->AL = 0xFF;
       break;
 
+#if 0
 
     /* Extended Open-Creat, not fully functional.*/
     case 0x6c:
@@ -1603,7 +1607,7 @@ dispatch:
                 r->FLAGS &= ~FLG_CARRY;
             }
             break;
-
+#endif
         default:
             goto error_invalid;
         }
