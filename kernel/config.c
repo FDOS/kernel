@@ -29,9 +29,7 @@
 
 #include "portab.h"
 #include "init-mod.h"
-#include "init-dat.h"
 #include "dyndata.h"
-#include "lol.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -44,27 +42,6 @@ static BYTE *RcsId =
 #define DebugPrintf(x)
 #endif
 #define para2far(seg) ((mcb FAR *)MK_FP((seg), 0))
-
-/*
-  These are the far variables from the DOS data segment that we need here. The
-  init procedure uses a different default DS data segment, which is discarded
-  after use. I hope to clean this up to use the DOS List of List and Swappable
-  Data Area obtained via INT21.
-
-  -- Bart
- */
-
-extern struct dhdr
-DOSTEXTFAR ASM blk_dev;             /* Block device (Disk) driver           */
-extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
-extern struct lol ASM DOSFAR DATASTART;
-struct lol FAR *LoL = &DATASTART;
-
-extern BYTE DOSFAR _HMATextAvailable,    /* first byte of available CODE area    */
-  FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
-  FAR _HMATextEnd[], DOSFAR ASM break_ena,  /* break enabled flag                   */
-  DOSFAR _InitTextStart,       /* first available byte of ram          */
-  DOSFAR ReturnAnyDosVersionExpected;
 
 UWORD umb_start = 0, UMB_top = 0;
 UWORD ram_top = 0; /* How much ram in Kbytes               */
@@ -273,21 +250,16 @@ void PreConfig(void)
 
 #ifdef DEBUG
   {
-    extern BYTE FAR ASM internal_data[];
     printf("SDA located at 0x%p\n", internal_data);
   }
 #endif
   /* Begin by initializing our system buffers                     */
-  /* the dms_scratch buffer is statically allocated
-     in the DSK module */
-  /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
-/*  DebugPrintf(("Preliminary DMA scratchpad allocated at 0x%p\n",dma_scratch));*/
-
-/*  buffers = (struct buffer FAR *)
-      KernelAlloc(Config.cfgBuffers * sizeof(struct buffer)); */
 #ifdef DEBUG
 /*  printf("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers);*/
 #endif
+
+  LoL->DPBp =
+      DynAlloc("DPBp", blk_dev.dh_name[0], sizeof(struct dpb));
 
   /* Initialize the file table                                    */
 /*  f_nodes = (f_node_ptr)
@@ -305,19 +277,13 @@ void PreConfig(void)
 
   config_init_buffers(Config.cfgBuffers);
 
-  LoL->sfthead->sftt_next =
-      KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft), 'F', 0);
-  LoL->sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
-  LoL->sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
-
-  LoL->DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E', 0);
 
 #ifdef DEBUG
   printf("Preliminary:\n f_node 0x%x", LoL->f_nodes);
 /*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
-  printf(" sft table 0x%p\n", LoL->sfthead->sftt_next);
+  printf(" sft table 0x%p\n", LoL->sfthead);
   printf(" CDS table 0x%p\n", LoL->CDSp);
   printf(" DPB table 0x%p\n", LoL->DPBp);
 #endif
@@ -355,13 +321,17 @@ void PreConfig2(void)
   mcb_init(LoL->first_mcb, ram_top * 64 - LoL->first_mcb - 1);
   if (UmbState == 2)
     umb_init();    
+
+  LoL->sfthead->sftt_next = KernelAlloc(sizeof(sftheader) + 3 * sizeof(sft), 'F', 0);
+  LoL->sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
+  LoL->sfthead->sftt_next->sftt_count = 3;
 }
 
 /* Do third pass initialization.                                        */
 /* Also, run config.sys to load drivers.                                */
 void PostConfig(void)
 {
-  struct dpb FAR *old_dpbp;
+  sfttbl FAR *sp;
 
   /* We could just have loaded FDXMS or HIMEM */
   if (HMAState == HMA_REQ && MoveKernelToHMA())
@@ -374,8 +344,6 @@ void PostConfig(void)
     Config.cfgStacksHigh = TRUE;
   }
         
-  /* close all (device) files */
-
   /* compute lastdrive ... */
   LoL->lastdrive = Config.cfgLastdrive;
   if (LoL->lastdrive < LoL->nblkdev)
@@ -395,18 +363,14 @@ void PostConfig(void)
   /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
   /* LoL->FCBp = KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
-  LoL->sfthead->sftt_next = (sfttbl FAR *)
-    KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft), 'F',
+  sp = LoL->sfthead->sftt_next;
+  sp = sp->sftt_next = (sfttbl FAR *)
+    KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 8) * sizeof(sft), 'F',
                 Config.cfgFilesHigh);
-  LoL->sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
-  LoL->sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
+  sp->sftt_next = (sfttbl FAR *) - 1;
+  sp->sftt_count = Config.cfgFiles - 8;
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
-
-  old_dpbp = LoL->DPBp;
-  LoL->DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E',
-                     Config.cfgDosDataUmb);
-  fmemcpy(LoL->DPBp, old_dpbp, blk_dev.dh_name[0] * sizeof(struct dpb));
 
 #ifdef DEBUG
   printf("Final: \n f_node 0x%x\n", LoL->f_nodes);
@@ -951,8 +915,6 @@ STATIC VOID Dosmem(BYTE * pLine)
   BYTE *pTmp;
   BYTE UMBwanted = FALSE;
 
-/*    extern BYTE FAR INITDataSegmentClaimed; */
-
   pLine = GetStringArg(pLine, szBuf);
 
   for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
@@ -997,8 +959,6 @@ STATIC VOID DosData(BYTE * pLine)
 {
   BYTE *pTmp;
 
-/*    extern BYTE FAR INITDataSegmentClaimed; */
-
   pLine = GetStringArg(pLine, szBuf);
 
   for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
@@ -1018,7 +978,6 @@ STATIC VOID CfgSwitchar(BYTE * pLine)
 
 STATIC VOID CfgSwitches(BYTE * pLine)
 {
-  extern unsigned char FAR kbdType;
   pLine = skipwh(pLine);
   if (commands[0].pass == 0) {
     if ('=' != *pLine)
@@ -1201,8 +1160,6 @@ STATIC VOID CfgBreak(BYTE * pLine)
 
 STATIC VOID Numlock(BYTE * pLine)
 {
-  extern VOID ASMCFUNC keycheck(void);
-
   /* Format:      NUMLOCK = (ON | OFF)      */
   BYTE FAR *keyflags = (BYTE FAR *) MK_FP(0x40, 0x17);
 
@@ -1861,37 +1818,11 @@ STATIC VOID CfgMenuDefault(BYTE * pLine)
   }
 }
 
-
-
-
-
 /*********************************************************************************
     National specific things.
     this handles only Date/Time/Currency, and NOT codepage things.
     Some may consider this a hack, but I like to see 24 Hour support. tom.
 *********************************************************************************/
-
-
-struct CountrySpecificInfo {
-  short CountryID;    /*  = W1 W437   # Country ID & Codepage */
-  short CodePage;
-  short DateFormat;           /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-  char  CurrencyString[5];    /* '$' ,'EUR'   */
-  char  ThousandSeparator[2]; /* ','          # Thousand's separator */
-  char  DecimalPoint[2];      /* '.'        # Decimal point        */
-  char  DateSeparator[2];     /* '-'  */
-  char  TimeSeparator[2];     /* ':'  */
-  char  CurrencyFormat;       /* = 0  # Currency format (bit array) 
-                                 0Fh    BYTE    currency format
-                                 bit 2 = set if currency symbol replaces decimal point
-                                 bit 1 = number of spaces between value and currency symbol
-                                 bit 0 = 0 if currency symbol precedes value
-                                 1 if currency symbol follows value    
-                              */
-  char  CurrencyPrecision;    /* = 2  # Currency precision           */
-  char  TimeFormat;           /* = 0  # time format: 0/1: 12/24 houres */
-};
-
 
 #define _DATE_MDY 0 /* mm/dd/yy */
 #define _DATE_DMY 1  /* dd.mm.yy */
@@ -2299,18 +2230,6 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
 	Aitor Santamar­a Merino (SP)
 */	
 
-
-
-extern struct {
-  char  ThisIsAConstantOne;
-  short TableSize;
-  
-  struct CountrySpecificInfo C;
-  
-} FAR nlsCountryInfoHardcoded;
-
-
-
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage)
 {
   int i;
@@ -2440,7 +2359,6 @@ VOID DoInstall(void)
 {
   int i;
   iregs r;
-  extern BYTE ASM _init_end[];
   unsigned short installMemory; 
 
 

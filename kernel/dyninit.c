@@ -38,7 +38,6 @@ additionally:
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
-#include "lol.h"
 
 #if defined(DEBUG)
 #define DebugPrintf(x) printf x

@@ -20,6 +20,9 @@
 #include "nls.h"
 #include "buffer.h"
 #include "dcb.h"
+#include "lol.h"
+
+#include "init-dat.h"
 
 #include "kconfig.h"
 extern struct _KernelConfig InitKernelConfig;
@@ -49,6 +52,7 @@ void strcpy(char *dest, const char *src);
 /*inithma.c*/
 extern BYTE DosLoadedInHMA;
 int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
+void MoveKernel(unsigned NewKernelSegment);
 
 #define setvec(n, isr) (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
 
@@ -122,6 +126,7 @@ COUNT ASMCFUNC Umb_Test(void);
 COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
 BYTE * GetStringArg(BYTE * pLine, BYTE * pszString);
 void DoInstall(void);
+UWORD GetBiosKey(int timeout);
 
 /* diskinit.c */
 COUNT dsk_init(VOID);
@@ -185,10 +190,83 @@ VOID init_fatal(BYTE * err_msg);
 WORD CDECL init_printf(CONST BYTE * fmt, ...);
 WORD CDECL init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
-void MoveKernel(unsigned NewKernelSegment);
+/* initclk.c */
+extern void Init_clk_driver(void);
+
 extern UWORD HMAFree;            /* first byte in HMA not yet used      */
 
 extern unsigned CurrentKernelSegment;
+extern struct _KernelConfig FAR ASM LowKernelConfig;
+extern WORD days[2][13];
+extern BYTE FAR *lpOldTop;
+extern BYTE FAR *lpTop;
+extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
+extern UWORD ram_top;               /* How much ram in Kbytes               */
+extern char MenuSelected;
+extern unsigned Menus;
+extern char singleStep;
+extern char SkipAllConfig;
+
+extern struct lol FAR *LoL;
+
+extern struct dhdr DOSTEXTFAR ASM blk_dev; /* Block device (Disk) driver           */
+
+extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
+extern struct lol ASM DOSFAR DATASTART;
+
+extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE area    */
+  FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
+  FAR ASM _HMATextEnd[], DOSFAR ASM break_ena,  /* break enabled flag                   */
+  DOSFAR _InitTextStart,       /* first available byte of ram          */
+  DOSFAR ReturnAnyDosVersionExpected;
+
+extern BYTE FAR ASM internal_data[];
+extern unsigned char FAR kbdType;
+
+extern struct {
+  char  ThisIsAConstantOne;
+  short TableSize;
+  
+  struct CountrySpecificInfo C;
+  
+} FAR nlsCountryInfoHardcoded;
+
+/*
+    data shared between DSK.C and INITDISK.C
+*/
+
+extern UWORD DOSFAR LBA_WRITE_VERIFY;
+
+/* floppy parameter table, at 70:xxxx */
+extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
+
+struct RelocationTable {
+  UBYTE jmpFar;
+  UWORD jmpOffset;
+  UWORD jmpSegment;
+  UBYTE callNear;
+  UWORD callOffset;
+};
+
+struct RelocatedEntry {
+  UBYTE callNear;
+  UWORD callOffset;
+  UBYTE jmpFar;
+  UWORD jmpOffset;
+  UWORD jmpSegment;
+};
+
+extern struct RelocationTable
+   DOSTEXTFAR ASM _HMARelocationTableStart[],
+   DOSTEXTFAR ASM _HMARelocationTableEnd[];
+
+extern void FAR *DOSTEXTFAR ASM XMSDriverAddress;
+extern VOID ASMCFUNC FAR _EnableA20(VOID);
+extern VOID ASMCFUNC FAR _DisableA20(VOID);
+
+extern void FAR * ASMCFUNC DetectXMSDriver(VOID);
+extern int ASMCFUNC init_call_XMScall(void FAR * driverAddress, UWORD ax,
+                                      UWORD dx);
 
 #if defined(WATCOM) && 0
 ULONG ASMCFUNC FAR MULULUS(ULONG mul1, UWORD mul2);     /* MULtiply ULong by UShort */
@@ -196,6 +274,4 @@ ULONG ASMCFUNC FAR MULULUL(ULONG mul1, ULONG mul2);     /* MULtiply ULong by ULo
 ULONG ASMCFUNC FAR DIVULUS(ULONG mul1, UWORD mul2);     /* DIVide ULong by UShort */
 ULONG ASMCFUNC FAR DIVMODULUS(ULONG mul1, UWORD mul2, UWORD * rem);     /* DIVide ULong by UShort */
 #endif
-
-extern struct lol FAR *LoL;
 

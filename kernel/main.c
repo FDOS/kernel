@@ -30,44 +30,20 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
-#include "init-dat.h"
-#include "lol.h"
-
-char copyright[] =
-    "(C) Copyright 1995-2003 Pasquale J. Villani and The FreeDOS Project.\n"
-    "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
-    "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
-    "GNU General Public License as published by the Free Software Foundation;\n"
-    "either version 2, or (at your option) any later version.\n";
-
-/*
-  These are the far variables from the DOS data segment that we need here. The
-  init procedure uses a different default DS data segment, which is discarded
-  after use. I hope to clean this up to use the DOS List of List and Swappable
-  Data Area obtained via INT21.
-
-  -- Bart
- */
-
-extern struct dhdr ASM DOSTEXTFAR con_dev,  /* console device drive                 */
-  DOSTEXTFAR ASM clk_dev,           /* Clock device driver                  */
-  DOSTEXTFAR ASM blk_dev;           /* Block device (Disk) driver           */
-extern BYTE FAR ASM _HMATextEnd[];
-
-extern struct _KernelConfig FAR ASM LowKernelConfig;
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId =
     "$Id$";
 #endif
 
-struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0, 0 };
+static char copyright[] =
+    "(C) Copyright 1995-2003 Pasquale J. Villani and The FreeDOS Project.\n"
+    "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
+    "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
+    "GNU General Public License as published by the Free Software Foundation;\n"
+    "either version 2, or (at your option) any later version.\n";
 
-extern WORD days[2][13];
-extern BYTE FAR *lpOldTop;
-extern BYTE FAR *lpTop;
-extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
-extern UWORD ram_top;               /* How much ram in Kbytes               */
+struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0, 0 };
 
 STATIC VOID InitIO(void);
 
@@ -77,9 +53,7 @@ STATIC VOID signon(VOID);
 STATIC VOID kernel(VOID);
 STATIC VOID FsConfig(VOID);
 STATIC VOID InitPrinters(VOID);
-void CheckContinueBootFromHarddisk(void);
-
-extern void Init_clk_driver(void);
+STATIC void CheckContinueBootFromHarddisk(void);
 
 #ifdef _MSC_VER
 BYTE _acrtused = 0;
@@ -92,6 +66,8 @@ __segment DosDataSeg = 0;       /* serves for all references to the DOS DATA seg
 __segment DosTextSeg = 0;
 
 #endif
+
+struct lol FAR *LoL = &DATASTART;
 
 /* little functions - could be ASM but does not really matter in this context */
 void memset(void *s, int c, unsigned n)
@@ -269,6 +245,7 @@ STATIC void init_kernel(void)
   /* and process CONFIG.SYS one last time for device drivers */
   DoConfig(2);
 
+
   /* Close all (device) files */
   for (i = 0; i < LoL->lastdrive; i++)
     close(i);
@@ -278,7 +255,7 @@ STATIC void init_kernel(void)
 
   /* Init the file system one more time     */
   FsConfig();
-
+  
   configDone();
 
   InitializeAllBPBs();
@@ -286,10 +263,8 @@ STATIC void init_kernel(void)
 
 STATIC VOID FsConfig(VOID)
 {
-  REG COUNT i;
-  struct dpb FAR *dpb;
-
-  dpb = LoL->DPBp;
+  struct dpb FAR *dpb = LoL->DPBp;
+  int i;
 
   /* Initialize the current directory structures    */
   for (i = 0; i < LoL->lastdrive; i++)
@@ -380,9 +355,6 @@ STATIC void kernel()
   CommandTail Cmd;
   int rc;
 
-  extern char MenuSelected;
-  extern unsigned Menus;
-
   BYTE master_env[32];
   char *masterenv_ptr = master_env;
 
@@ -415,8 +387,6 @@ STATIC void kernel()
 
   if (Cmd.ctCount < sizeof(Cmd.ctBuffer) - 3)
   {
-    extern int singleStep;
-    extern int SkipAllConfig;
     char *insertString = NULL;
 
     if (singleStep)
@@ -581,10 +551,16 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
 
 STATIC void InitIO(void)
 {
+  struct dhdr far *device = &LoL->nul_dev;
+
   /* Initialize driver chain                                      */
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
-  init_device(&con_dev, NULL, NULL, lpTop);
-  init_device(&clk_dev, NULL, NULL, lpTop);
+  device = &LoL->nul_dev;
+  do {
+    init_device(device, NULL, NULL, lpTop);
+    device = device->dh_next;
+  }
+  while (FP_OFF(device) != 0xffff);
 }
 
 /* issue an internal error message                              */
@@ -630,8 +606,6 @@ STATIC VOID InitPrinters(VOID)
 	booted from HD
 */
 
-extern UWORD GetBiosKey(int timeout);
-
 EmulatedDriveStatus(int drive,char statusOnly)
 {
   iregs r;
@@ -650,7 +624,7 @@ EmulatedDriveStatus(int drive,char statusOnly)
   return TRUE;	
 }
 
-void CheckContinueBootFromHarddisk(void)
+STATIC void CheckContinueBootFromHarddisk(void)
 {
   char *bootedFrom = "Floppy/CD";
   iregs r;

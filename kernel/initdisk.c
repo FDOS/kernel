@@ -26,9 +26,7 @@
 
 #include "portab.h"
 #include "init-mod.h"
-#include "init-dat.h"
 #include "dyndata.h"
-#include "lol.h"
 #ifdef VERSION_STRINGS
 static BYTE *dskRcsId =
     "$Id$";
@@ -36,15 +34,6 @@ static BYTE *dskRcsId =
 
 UBYTE InitDiskTransferBuffer[SEC_SIZE];
 COUNT nUnits;
-
-/*
-    data shared between DSK.C and INITDISK.C
-*/
-
-extern UWORD DOSFAR LBA_WRITE_VERIFY;
-
-/* floppy parameter table, at 70:xxxx */
-extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
 
 /*
  *    Rev 1.0   13 May 2001  tom ehlert

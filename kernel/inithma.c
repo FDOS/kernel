@@ -65,12 +65,6 @@
 
 #include "portab.h"
 #include "init-mod.h"
-#include "init-dat.h"
-#include "lol.h"
-
-extern BYTE FAR ASM _HMATextAvailable,      /* first byte of available CODE area    */
-  FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
-  FAR ASM _HMATextEnd[];            /* and the last byte of it              */
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -81,13 +75,6 @@ BYTE DosLoadedInHMA = FALSE;    /* set to TRUE if loaded HIGH          */
 BYTE HMAclaimed = FALSE;        /* set to TRUE if claimed from HIMEM   */
 UWORD HMAFree = 0;              	/* first byte in HMA not yet used      */
 
-extern void FAR *DOSTEXTFAR ASM XMSDriverAddress;
-VOID ASMCFUNC FAR _EnableA20(VOID);
-VOID ASMCFUNC FAR _DisableA20(VOID);
-
-void FAR * ASMCFUNC DetectXMSDriver(VOID);
-int ASMCFUNC init_call_XMScall(void FAR * driverAddress, UWORD ax,
-                                      UWORD dx);
 STATIC void InstallVDISK(void);
 
 #ifdef DEBUG
@@ -108,8 +95,6 @@ void int3()
 #else
 #define HMAInitPrintf(x)
 #endif
-
-void MoveKernel(unsigned NewKernelSegment);
 
 #ifdef DEBUG
 VOID hdump(BYTE FAR * p)
@@ -380,24 +365,6 @@ void MoveKernel(unsigned NewKernelSegment)
        jmp far kernelentry
        style table
      */
-
-    struct RelocationTable {
-      UBYTE jmpFar;
-      UWORD jmpOffset;
-      UWORD jmpSegment;
-      UBYTE callNear;
-      UWORD callOffset;
-    };
-    struct RelocatedEntry {
-      UBYTE callNear;
-      UWORD callOffset;
-      UBYTE jmpFar;
-      UWORD jmpOffset;
-      UWORD jmpSegment;
-    };
-    extern struct RelocationTable
-    DOSTEXTFAR ASM _HMARelocationTableStart[],
-        DOSTEXTFAR ASM _HMARelocationTableEnd[];
 
     struct RelocationTable FAR *rp, rtemp;
 
