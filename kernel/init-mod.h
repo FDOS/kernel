@@ -271,6 +271,8 @@ extern UWORD DOSFAR LBA_WRITE_VERIFY;
 /* floppy parameter table, at 70:xxxx */
 extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
 
+extern char DOSTEXTFAR DiskTransferBuffer[SEC_SIZE]; /* in dsk.c */
+
 struct RelocationTable {
   UBYTE jmpFar;
   UWORD jmpOffset;

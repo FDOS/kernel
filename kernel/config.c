@@ -1714,12 +1714,11 @@ STATIC void config_init_buffers(int wantedbuffers)
     else
     {
       LoL->bufloc = LOC_HMA;
-      LoL->deblock_buf = KernelAlloc(SEC_SIZE, 'B', 0);
       /* space in HMA beyond requested buffers available as user space */
       firstAvailableBuf = pbuffer + wantedbuffers;
     }
   }
-
+  LoL->deblock_buf = DiskTransferBuffer;
   LoL->firstbuf = pbuffer;
 
   DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));

@@ -336,6 +336,7 @@ extern UBYTE ASM BootDrive,         /* Drive we came up from                */
 
 extern keyboard ASM kb_buf;
 extern char ASM local_buffer[LINEBUFSIZE0A];
+extern UBYTE DiskTransferBuffer[SEC_SIZE];
 
 extern struct cds
   ASM TempCDS;
