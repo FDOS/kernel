@@ -435,18 +435,24 @@ VOID dump_sector(unsigned char far * sec)
 
 int absread(int DosDrive, int nsects, int foo, void *diskReadPacket);
 #pragma aux absread =  \
+      "push bp"           \
       "int 0x25"          \
+      "popf"              \
+      "pop bp"            \
       "sbb ax, ax"        \
       parm [ax] [cx] [dx] [bx] \
-      modify [si di bp] \
+      modify [si di] \
       value [ax];
 
 int abswrite(int DosDrive, int nsects, int foo, void *diskReadPacket);
 #pragma aux abswrite =  \
+      "push bp"           \
       "int 0x26"          \
+      "popf"              \
+      "pop bp"            \
       "sbb ax, ax"        \
       parm [ax] [cx] [dx] [bx] \
-      modify [si di bp] \
+      modify [si di] \
       value [ax];
 
 fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
