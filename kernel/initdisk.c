@@ -556,11 +556,21 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
   pddt->ddt_fstype[8] = '\0';
 }
 
+STATIC void push_ddt(ddt *pddt)
+{
+  ddt FAR *fddt = DynAlloc("ddt", 1, sizeof(ddt));
+  fmemcpy(fddt, pddt, sizeof(ddt));
+  if (pddt->ddt_logdriveno != 0) {
+    (fddt - 1)->ddt_next = fddt;
+    if (pddt->ddt_driveno == 0 && pddt->ddt_logdriveno == 1)
+      (fddt - 1)->ddt_descflags |= DF_CURLOG | DF_MULTLOG;
+  }
+}
+
 void DosDefinePartition(struct DriveParamS *driveParam,
                         ULONG StartSector, struct PartTableEntry *pEntry,
                         int extendedPartNo, int PrimaryNum)
 {
-  ddt FAR *fddt;
   ddt nddt;
   ddt *pddt = &nddt;
   struct CHS chs;
@@ -610,9 +620,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_type = 5;
   memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
 
-  fddt = DynAlloc("ddt", 1, sizeof(ddt));
-  fmemcpy(fddt, pddt, sizeof(ddt));
-  (fddt-1)->ddt_next = fddt;
+  push_ddt(pddt);
 
   /* Alain whishes to keep this in later versions, too 
      Tom likes this too, so he made it configurable by SYS CONFIG ...
@@ -1253,7 +1261,6 @@ void ReadAllPartitionTables(void)
   int HardDrive;
   int nHardDisk = BIOS_nrdrives();
   int Unit;
-  ddt FAR *fddt;
   ddt nddt;
   ddt *pddt = &nddt;
   static iregs regs;
@@ -1281,10 +1288,8 @@ void ReadAllPartitionTables(void)
     pddt->ddt_serialno = 0x12345678l;
     memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
 
-    fddt = DynAlloc("ddt", 1, sizeof(ddt));
-    if (Unit == 0) {
-      fmemcpy(fddt, pddt, sizeof(ddt));
-    }
+    if (Unit == 0)
+      push_ddt(pddt);
   }
 
   /* Initial number of disk units                                 */
@@ -1306,12 +1311,10 @@ void ReadAllPartitionTables(void)
   }
   else
   {                             /* set up the DJ method : multiple logical drives */
-    (fddt - 1)->ddt_descflags |= DF_CURLOG | DF_MULTLOG;
     pddt->ddt_descflags |= DF_MULTLOG;
   }
-  (fddt-1)->ddt_next = fddt;
-  fmemcpy(fddt, pddt, sizeof(ddt));
 
+  push_ddt(pddt);
   nHardDisk = min(nHardDisk, MAX_HARD_DRIVE - 1);
 
   memset(foundPartitions, 0, sizeof(foundPartitions));
