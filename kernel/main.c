@@ -482,6 +482,14 @@ BOOL init_device(struct dhdr FAR * dhp, PCStr cmdLine, int mode, VFP *r_top)
     if (rq.r_endaddr == (BYTE FAR *) dhp)
       return TRUE;
 
+    /* Don't link in block device drivers which indicate no units */
+    if (!(dhp->dh_attr & ATTR_CHAR) && !rq.r_nunits)
+    {
+      rq.r_endaddr = (BYTE FAR *) dhp;
+      return TRUE;
+    }
+
+
     /* Fix for multisegmented device drivers:                          */
     /*   If there are multiple device drivers in a single driver file, */
     /*   only the END ADDRESS returned by the last INIT call should be */
@@ -531,15 +539,11 @@ BOOL init_device(struct dhdr FAR * dhp, PCStr cmdLine, int mode, VFP *r_top)
     *r_top = rq.r_endaddr;
   }
 
-  if (!(dhp->dh_attr & ATTR_CHAR))  /* if block device (not character) */
+  /* if block device (not character) and unit count is nonzero */
+  if (!(dhp->dh_attr & ATTR_CHAR) && rq.r_nunits)
   {
-    if (rq.r_nunits)  /* if unit count is nonzero */
-    {
-      dhp->dh_name[0] = rq.r_nunits;
-      update_dcb(dhp);
-    }
-    else /* returned unit count of 0, indication of load failure */
-      return TRUE;
+    dhp->dh_name[0] = rq.r_nunits;
+    update_dcb(dhp);
   }
 
   if (dhp->dh_attr & ATTR_CONIN)
@@ -615,7 +619,7 @@ STATIC VOID InitSerialPorts(VOID)
 	booted from HD
 */
 
-static int EmulatedDriveStatus(int drive,char statusOnly)
+STATIC int EmulatedDriveStatus(int drive,char statusOnly)
 {
   iregs r;
   char buffer[0x13];
