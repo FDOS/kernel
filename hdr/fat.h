@@ -128,6 +128,7 @@ struct lfn_entry {
 /*                                                                      */
 
 #ifdef WITHFAT32
+struct dpb;
 CLUSTER getdstart(struct dpb FAR *dpbp, struct dirent *dentry);
 void setdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);
 BOOL checkdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);

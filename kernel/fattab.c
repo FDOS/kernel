@@ -61,9 +61,9 @@ struct buffer FAR *getFATblock(ULONG clussec, struct dpb FAR * dpbp)
   {
     put_string("run CHKDSK: trying to access invalid cluster 0x");
 #ifdef WITHFAT32
-    put_unsigned(clussec >> 16, 16, 4);
+    put_unsigned((unsigned)(clussec >> 16), 16, 4);
 #endif
-    put_unsigned(clussec & 0xffffu, 16, 4);
+    put_unsigned((unsigned)(clussec & 0xffffu), 16, 4);
     put_console('\n');
     return NULL;
   }

@@ -512,7 +512,7 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
         nsector = 16;
       if (sz_gb <= 8)             /* disks up to 8 GB, 4K cluster */
         nsector = 8;
-      if (NumSectors <= 532480)   /* disks up to 260 MB, 0.5K cluster */
+      if (NumSectors <= 532480UL)   /* disks up to 260 MB, 0.5K cluster */
         nsector = 1;
       defbpb->bpb_nsector = nsector;
       do
