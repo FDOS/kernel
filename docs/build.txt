@@ -15,12 +15,10 @@ kernel come out, you can extract them over your previous source, and
 not have to worry about resetting up your configuration because your
 CONFIG.BAT and CONFIG.MAK files will not get replaced!
 
-You will also need to download the latest version of NASM (a mirror
-is at ftp://ftp.gcfl.net/freedos/nasm) and Turbo C 2.01 (a mirror is
-at ftp://ftp.gcfl.net/freedos/tools/borland/tc201.zip).  Install
-Turbo C and NASM somewhere (it doesn't really matter where) and then
-be sure to edit the CONFIG.MAK file to reflect where you put the
-tools.
+You will also need to download the latest version of NASM and Turbo C
+2.01.  Install Turbo C and NASM somewhere (it doesn't really matter
+where) and then be sure to edit the CONFIG.MAK file to reflect where
+you put the tools.
 
 This program will now compile with Turbo C 2.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
@@ -67,6 +65,12 @@ component.  Study the makefile to better understand this.
 $Id$
 
 $Log$
+Revision 1.3  2000/08/15 03:42:17  jhall1
+update to the bugs.txt file to point the user to the bug database at
+ the FreeDOS web site (http://www.freedos.org/bugs)
+update to the build.txt file to remove references to the now-defunct
+ web site at gcfl.net (John's old site).
+
 Revision 1.2  2000/05/08 04:27:48  jimtabor
 Update CVS to 2020
 

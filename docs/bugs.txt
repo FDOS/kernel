@@ -1,6 +1,6 @@
 The current bug database is available on the web at
 
-http://www.gcfl.net/bugs/kernel
+ http://www.freedos.org/bugs/
 
-Send bug reports to kernel-bugs@gcfl.net.
 
+Thanks!
