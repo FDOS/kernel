@@ -175,7 +175,7 @@
  *
  *	Performance tweaks:
  *	When the system -- This word applies to the combination of kernel and
- *	any loaded MUX-14 extension   la NLSFUNC here. -- uppercases
+ *	any loaded MUX-14 extension á la NLSFUNC here. -- uppercases
  *	_filenames_, it must perform a DOS-65-A2 internally. In the basic
  *	implementation this request would be channeled through MUX-14, even
  *	if there is no external NLSFUNC at all. Also, when a NLS pkg had
@@ -517,22 +517,22 @@ extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
 #define CSYS_FD_IDSTRING "FreeDOS COUNTRY.SYS v1.0\r\n"
 
-struct nlsCSys_function {       /* S3: function definition */
+struct csys_function {       /* S3: function definition */
   UDWORD csys_rpos;             /* relative position to actual data */
   UWORD csys_length;
   UBYTE csys_fctID;             /* As passed to DOS-65-XX */
   UBYTE csys_reserved1;         /* always 0, reserved for future use */
 };
 
-struct nlsCSys_ccDefinition {   /* S1: country/codepage reference */
+struct csys_ccDefinition {   /* S1: country/codepage reference */
   UDWORD csys_rpos;             /* moving the 4byte value to the front
                                    can increase performance */
   UWORD csys_cp;
   UWORD csys_cntry;
 };
 
-struct nlsCSys_numEntries {     /* helper structure for "number of entries" */
-  UWORD csys_numEntries;
+struct csys_numEntries {     /* helper structure for "number of entries" */
+  UWORD csys_entries;
 };
 
 /* Actually, this structure is never really used */
@@ -541,7 +541,7 @@ struct nlsCSys_fileHeader {     /* S0: primary structure */
   /* decrement by 1 to cut off \0 from IDString -- ska */
 };
 
-struct nlsCSys_completeFileHeader {     /* as S0, but full 128 bytes */
+struct csys_completeFileHeader {     /* as S0, but full 128 bytes */
   unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
   unsigned char csys_padbytes[128 - (sizeof(CSYS_FD_IDSTRING) - 1)];
 };

@@ -36,7 +36,7 @@ static BYTE *dirmatch_hRcsId =
 #endif
 
 typedef struct {
-  BYTE dm_drive;
+  UBYTE dm_drive;
   BYTE dm_name_pat[FNAME_SIZE + FEXT_SIZE];
   BYTE dm_attr_srch;
   UWORD dm_entry;

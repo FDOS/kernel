@@ -126,8 +126,8 @@ struct dhdr {
   struct dhdr
   FAR *dh_next;
   UWORD dh_attr;
-    VOID(*dh_strategy) ();
-    VOID(*dh_interrupt) ();
+    VOID(*dh_strategy) (void);
+    VOID(*dh_interrupt) (void);
   BYTE dh_name[8];
 };
 

@@ -68,7 +68,7 @@ typedef struct {
 
   /* CP/M-like entry point                                */
   UBYTE ps_farcall;             /* 05  far call opcode              */
-  VOID(FAR ASMCFUNC * ps_reentry) ();  /* 06  re-entry point          */
+  VOID(FAR ASMCFUNC * ps_reentry) (void);  /* 06  re-entry point          */
   intvec ps_isv22,	        /* 0a  terminate address */
          ps_isv23,        	/* 0e break address   */
          ps_isv24;        	/* 12 critical error address */
@@ -76,7 +76,7 @@ typedef struct {
   UBYTE ps_files[20];           /* 18 file table - 0xff is unused  */
   UWORD ps_environ;             /* 2c environment paragraph        */
   BYTE FAR *ps_stack;           /* 2e user stack pointer - int 21  */
-  WORD ps_maxfiles;             /* 32 maximum open files           */
+  UWORD ps_maxfiles;            /* 32 maximum open files           */
   UBYTE FAR *ps_filetab;        /* 34 open file table pointer      */
   VOID FAR *ps_prevpsp;         /* 38 previous psp pointer         */
   BYTE FAR *ps_dta;             /* 3c process dta address          */

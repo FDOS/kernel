@@ -81,6 +81,12 @@ typedef struct _iregss {
   UWORD ip, cs, flags;
 } iregs;
 
+/* struct used for local copy of registers */
+typedef struct {
+  xreg a, b, c, d;
+  UWORD si, di, ds, es;
+} lregs;
+
    /* Registers directly passed to syscall;
       must be the same order as iregs!
       Is used to define parameters. */

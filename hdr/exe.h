@@ -53,6 +53,7 @@ typedef struct {
 } exe_header;
 
 #define MAGIC 0x5a4d
+#define OLD_MAGIC 0x4d5a
 
 /*
  * Log: exe.h,v 

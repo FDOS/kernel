@@ -51,6 +51,21 @@ static BYTE *file_hRcsId =
 #define O_WRONLY        SFT_MWRITE
 #define O_RDWR          SFT_MRDWR
 
+/* bits 2, 3 reserved */
+/* bits 4, 5, 6 sharing modes */
+#define O_NOINHERIT     0x0080
+#define O_OPEN          0x0100 /* not     */
+#define O_TRUNC         0x0200 /*    both */
+#define O_CREAT         0x0400
+#define O_LEGACY        0x0800
+#define O_LARGEFILE     0x1000
+#define O_NOCRIT        0x2000
+#define O_SYNC          0x4000
+#define O_FCB           0x8000
+
+/* status for extended open */
+enum {S_OPENED = 1, S_CREATED = 2, S_REPLACED = 3};
+
 /*
  * Log: file.h,v 
  *

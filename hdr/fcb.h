@@ -78,7 +78,7 @@ static BYTE *fcb_hRcsId =
 
 /* File Control Block (FCB)                                             */
 typedef struct {
-  BYTE fcb_drive;               /* Drive number 0=default, 1=A, etc     */
+  UBYTE fcb_drive;              /* Drive number 0=default, 1=A, etc     */
   BYTE fcb_fname[FNAME_SIZE];   /* File name                    */
   BYTE fcb_fext[FEXT_SIZE];     /* File name Extension          */
   UWORD fcb_cublock;            /* Current block number of              */
