@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.13  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -180,7 +183,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
 /* *** End of change
 
 /* chario.c */
-VOID cso(COUNT c);
+/* VOID cso(COUNT c);*/
 VOID sto(COUNT c);
 VOID mod_sto(REG UCOUNT c);
 VOID destr_bs(void);

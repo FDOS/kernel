@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.17  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -381,6 +384,9 @@ INIT void PreConfig(void)
 /* Also, run config.sys to load drivers.                                */
 INIT void PostConfig(void)
 {
+  /* close all (device) files */
+
+    
   /* Set pass number                                              */
   nPass = 2;
   /* compute lastdrive ... */
@@ -1067,6 +1073,8 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
              (result=init_device(dhp, pTmp, mode, top))==SUCCESS
             ; dhp = next_dhp)
     { 
+	
+      printf("result=%d\n", result);
       next_dhp = dhp->dh_next;
       if (FP_SEG(next_dhp) == 0xffff)
         /*  Does this ever occur with FP_OFF(next_dhp) != 0xffff ??? */

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.10  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -783,15 +786,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     asize = exe_size;
 
 #ifdef DEBUG  
-{ COUNT i = 0;
-  printf("loading '");
-  while (namep[i]!=0)
-  {
-    cso(namep[i]);
-    i++;
-  }
-  printf("' at %04x\n", mem);
-}
+  printf("loading '%S' at %04x\n", namep, mem);
 #endif    
 
 /* /// Added open curly brace and "else" clause.  We should not attempt

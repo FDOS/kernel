@@ -28,7 +28,7 @@
 
 #include "portab.h"
 
-COUNT strlen (BYTE * s);        /* don't want globals.h, sorry */
+COUNT fstrlen (BYTE FAR * s);        /* don't want globals.h, sorry */
 
 
 #ifdef VERSION_STRINGS
@@ -37,6 +37,9 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.7  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -50,6 +53,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.8  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.7  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -224,7 +230,7 @@ COUNT
 {
   int base;
   BYTE s[11],
-      *p;
+      FAR *p;
   int c,
     flag,
     size,
@@ -303,8 +309,15 @@ COUNT
     	    }
 
       case 's':
-			p = *((BYTE **) arg)++;
-			goto do_outputstring;
+            p = *((BYTE **) arg)++;
+	    goto do_outputstring;
+            
+      case 'F':
+            fmt++;
+            /* we assume %Fs here */
+      case 'S':
+            p = *((BYTE FAR **) arg)++;
+            goto do_outputstring;
 
       case 'd':
             base = -10;
@@ -334,7 +347,7 @@ COUNT
             p = s;
 do_outputstring:
             
-            size  -= strlen(p);
+            size  -= fstrlen(p);
             
             if (flag == RIGHT )
             {

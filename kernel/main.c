@@ -38,6 +38,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.13  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -312,6 +315,11 @@ INIT void init_kernel(void)
 #ifndef KDB
   /* Now process CONFIG.SYS     */
   DoConfig();
+
+  /* Close all (device) files */
+  for (i = 0; i < lastdrive; i++)
+    init_DosClose(i);
+  
   /* and do final buffer allocation. */
   PostConfig();
   nblkdev = 0;
@@ -324,6 +332,10 @@ INIT void init_kernel(void)
   DoConfig();
   configDone();
 
+  /* Close all (device) files */
+  for (i = 0; i < lastdrive; i++)
+    init_DosClose(i);
+  
   /* Now config the final file system     */
   FsConfig();
 
@@ -351,7 +363,6 @@ INIT VOID FsConfig(VOID)
   sfthead->sftt_count = Config.cfgFiles;
   for (i = 0; i < sfthead->sftt_count; i++)
   {
-    init_DosClose(i);
     sfthead->sftt_table[i].sft_count = 0;
     sfthead->sftt_table[i].sft_status = -1;
   }
@@ -516,10 +527,21 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
 
   if(cmdLine){
     if (mode)
+    {
+      /* Don't link in device drivers which do not take up memory */
+      if (rq.r_endaddr == (BYTE FAR *)dhp)
+        return TRUE;
+      else
         upBase = rq.r_endaddr;
+    }
     else
+    {
+      if (rq.r_endaddr == (BYTE FAR *)dhp)
+        return TRUE;
+      else
         lpBase = rq.r_endaddr;
     }
+  }
 
   if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0)) {
     dhp->dh_name[0] = rq.r_nunits;

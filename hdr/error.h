@@ -36,6 +36,9 @@ static BYTE *error_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.4  2000/11/02 06:56:53  jimtabor
  * Fix Share Patch
  *
@@ -116,6 +119,8 @@ static BYTE *error_hRcsId = "$Id$";
 
 #define DE_DEADLOCK	-36
 #define DE_LOCK		-39
+
+#define DE_FILEEXISTS   -80     /* File exists                  */
 
 /* Critical error flags                                                 */
 #define EFLG_READ       0x00    /* Read error                   */

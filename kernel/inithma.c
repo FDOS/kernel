@@ -75,6 +75,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.3  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -116,7 +119,7 @@ extern void FAR *DetectXMSDriver(VOID);
 
 
 #ifdef DEBUG
-hdump(BYTE FAR *p)
+VOID hdump(BYTE FAR *p)
 {
     int loop;
     HMAInitPrintf(("%p", p));

@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.14  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -394,7 +397,6 @@ struct f_node FAR *
  */
 #ifdef DEBUG
   if (cdsp->cdsFlags & CDSNETWDRV) {
-    BYTE FAR *p;
     printf("split path called for redirected file: `%s.%s'\n",
 	    fname, fext);
     return (struct f_node FAR *)0;

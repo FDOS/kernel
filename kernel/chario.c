@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.5  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -121,11 +124,11 @@ static BYTE *charioRcsId = "$Id$";
 #include "globals.h"
 
 #ifdef PROTO
-VOID kbfill(keyboard FAR *, UCOUNT, BOOL, UWORD *);
+static VOID kbfill(keyboard FAR *, UCOUNT, BOOL, UWORD *);
 struct dhdr FAR *finddev(UWORD attr_mask);
 
 #else
-VOID kbfill();
+static VOID kbfill();
 struct dhdr FAR *finddev();
 #endif
 
@@ -147,6 +150,7 @@ struct dhdr FAR *finddev(UWORD attr_mask)
   return &nul_dev;
 }
 
+#if 0
 VOID cso(COUNT c)
 {
    BYTE buf = c;
@@ -162,6 +166,7 @@ VOID cso(COUNT c)
    if (CharReqHdr.r_status & S_ERROR)
    char_error(&CharReqHdr, lpDevice);
 }
+#endif
 
 
 VOID sto(COUNT c)

@@ -1,3 +1,12 @@
+2001 Apr 16 - Build 2023                                                                                                             
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  * Thanks to Martin Stromberg for pointing some bugs out:
+         * more warnings fixed.
+	 * accidentally opened too many file handles at boot time.
+	 * device drivers should not be linked into the device chain
+	   if they do not take up memory.
++ Add	 * added printf "%S" and "%Fs" to print far strings.
+         * enabled and cleaned up INT21/AH=6C (extended open/create).
 2001 Apr 15 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  Tom: 

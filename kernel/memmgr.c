@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.12  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -612,7 +615,7 @@ COUNT DosGetLargestBlock(UWORD FAR * block)
 #ifdef DEBUG
 VOID show_chain(void)
 {
-  mcb FAR *p, FAR *u;
+  mcb FAR *p;
   p = para2far(first_mcb);
 
   for (;;)

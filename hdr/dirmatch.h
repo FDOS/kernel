@@ -36,6 +36,9 @@ static BYTE *dirmatch_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -98,17 +101,17 @@ typedef struct
 
   struct
   {
-    UWORD                       /* directory has been modified  */
+    BITS                        /* directory has been modified  */
     f_dmod:1;
-    UWORD                       /* directory is the root        */
+    BITS                        /* directory is the root        */
     f_droot:1;
-    UWORD                       /* fnode is new and needs fill  */
+    BITS                        /* fnode is new and needs fill  */
     f_dnew:1;
-    UWORD                       /* fnode is assigned to dir     */
+    BITS                        /* fnode is assigned to dir     */
     f_ddir:1;
-    UWORD                       /* directory is full            */
+    BITS                        /* directory is full            */
     f_dfull:1;
-    UWORD                       /* filler to avoid a bad bug (feature?) in */
+    BITS                        /* filler to avoid a bad bug (feature?) in */
     f_filler:11;                /* TC 2.01           */
   }
   dm_flags;                     /* file flags                   */

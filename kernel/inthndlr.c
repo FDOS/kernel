@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.21  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.20  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -1639,99 +1642,52 @@ dispatch:
     case 0x6a: see case 0x68
     case 0x6b: dummy func: return AL=0
 */    
-#if 0
-    /* Extended Open-Creat, not fully functional.*/
+    /* Extended Open-Creat, not fully functional. (bits 4,5,6 of BH) */
     case 0x6c:
-        switch(r->DL) {
-        case 0x12:
-            {
-                COUNT x = 0;
-            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) >= 0)
-            {
-                DosClose(rc);
-                x = 1;
-            }
-            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
-                goto error_exit;
-            else
-            {
-                x += 2;
-                r->CX = x;
-                r->AX = rc;
-                CLEAR_CARRY_FLAG();
-            }
-            }
-            break;
-        case 0x10:
-            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) >= 0)
-            {
-                DosClose(rc);
-                r->AX = 80;
-                r->FLAGS |= FLG_CARRY;
-            }
-            else
-            {
-            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
-                goto error_exit;
-            else
-            {
-                r->CX = 0x02;
-                r->AX = rc;
-                CLEAR_CARRY_FLAG();
-            }
-            }
-            break;
-        case 0x02:
-            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) < 0)
-                goto error_exit;
-            DosClose(rc);
-            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
-                goto error_exit;
-            else
-            {
-                r->CX = 0x03;
-                r->AX = rc;
-                CLEAR_CARRY_FLAG();
-            }
-            break;
-
-        case 0x11:
-            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) >= 0)
-            {
-                r->CX = 0x01;
-                r->AX = rc;
-                CLEAR_CARRY_FLAG();
-            }
-            else{
-            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
-                goto error_exit;
-            else
-            {
-                r->CX = 0x02;
-                r->AX = rc;
-                CLEAR_CARRY_FLAG();
-            }
-            }
-            break;
-
-        case 0x01:
-            if ((rc = DosOpen(MK_FP(r->DS, r->SI), r->BL )) < 0 )
-                goto error_exit;
-            else
-            {
-                r->CX = 0x01;
-                r->AX = rc;
-                CLEAR_CARRY_FLAG();
-            }
-            break;
-
-        default:
+      {
+        COUNT x = 0;
+      
+        if (r->AL != 0 || r->DH != 0 ||
+              (r->DL&0x0f) > 0x2 || (r->DL&0xf0) > 0x10)
             goto error_invalid;
-       }
+        CLEAR_CARRY_FLAG();
+        if ((rc = DosOpen(MK_FP(r->DS, r->SI),
+                          (r->DL&0x0f) == 0x1 ? r->BL : 0)) < 0)
+        {
+            if (r->DL < 0x10)
+                goto error_exit;
+            /* else try to create below */
+        }
+        else switch (r->DL & 0x0f)
+        {
+          case 0x0:
+            /* fail if file exists */
+            DosClose(rc);
+            rc = DE_FILEEXISTS;
+            goto error_exit;
+          case 0x1:
+            /* file exists and opened: OK */
+            r->CX = 0x01;
+            goto break_out;
+          case 0x2:  
+            /* file exists: replace/open */
+            DosClose(rc);
+            x = 1;
+            break;
+        }
+        /* cases 0x00, 0x01 are finished now */
+        if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX)) < 0)
+            goto error_exit;
+            
+        r->CX = x+2;
+break_out:        
+        r->AX = rc;
+        break;
+      }
+
 
     /* case 0x6d and above not implemented : see default; return AL=0 */
         
-#endif
   }
 
 #ifdef DEBUG

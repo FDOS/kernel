@@ -32,6 +32,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
  * Revision 1.14  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -1008,23 +1011,23 @@ static WORD Genblkdev(rqptr rp)
             y = 2;
 	    x = 8;      /* any odd ball drives return this */
             if (miarray[rp->r_unit].mi_size <= 0xffff)
-              switch(miarray[rp->r_unit].mi_size)
+              switch((UWORD)miarray[rp->r_unit].mi_size)
               {
-                case 640l:
-                case 720l:      /* 320-360 */
+                case 640:
+                case 720:      /* 320-360 */
                     x = 0;
                     z = 1;
                 break;
-                case 1440l:     /* 720 */
+                case 1440:     /* 720 */
                     x = 2;
                 break;
-                case 2400l:     /* 1.2 */
+                case 2400:     /* 1.2 */
                     x = 1;
                 break;
-                case 2880l:     /* 1.44 */
+                case 2880:     /* 1.44 */
                     x = 7;
                 break;
-                case 5760l:     /* 2.88 almost forgot this one*/
+                case 5760:     /* 2.88 almost forgot this one*/
                     x = 9;
                 break;
               }
