@@ -1,3 +1,16 @@
+2003 Sep 24 - Build 2032a
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * fix segment problems with ctrl-c and character uppercase
+      handlers
+    * fix critical error callers to set the critical error code
+      immediately before calling the handler (in case they call
+      DOS-59); don't set the critical error in inthndlr.c if 
+      something else already did. Return with an errorcode if
+      "truename" and "read"/"write" encountered a critical error.
+    * sys.c: add /k kernname.sys option to and straighten out SYS option
+      processing; remove the metakern magic.
+    * config.c: ignore the segment part for multi-part device drivers
 2003 Sep 21 - Build 2032
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Rune Espeseth <re@icd.no> (modified by Bart)
