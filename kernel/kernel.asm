@@ -28,8 +28,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.10  2001/04/21 22:32:53  bartoldeman
-; Init DS=Init CS, fixed stack overflow problems and misc bugs.
+; Revision 1.11  2001/04/22 01:19:34  bartoldeman
+; Avoid sys warning and have a VDISK signature in the HMA
 ;
 ; Revision 1.9  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
@@ -665,12 +665,16 @@ __HMATextAvailable
 __HMATextStart:   
  
 ; 
-; the HMA area is filled with 16+22(=sizeof VDISK) = 32 byte dummy data,
-; so nothing will ever be below 0xffff:25
+; the HMA area is filled with 1eh+3(=sizeof VDISK) = 33 byte dummy data,
+; so nothing will ever be below 0xffff:0031
 ;
-segment	HMA_TEXT
-                times 16 db 0   ; filler [ffff:0..ffff:10]
-                times 22 db 0   ; filler [sizeof VDISK info]
+segment HMA_TEXT
+begin_hma:              
+                times 13h db 0   ; filler [ffff:0..ffff:12]
+                db 'VDISK',0    ; VDISK3.3 signature at ffff:0013
+                times (2eh-($-begin_hma)) db 0
+                dw 1088         ; 0x2e: first free kb position for extended memory
+                db 0
 
 init_ret_np:    push ds
                 push word [retoff]

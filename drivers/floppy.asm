@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/04/22 01:19:33  bartoldeman
+; Avoid sys warning and have a VDISK signature in the HMA
+;
 ; Revision 1.5  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -85,13 +88,10 @@
 
 %ifndef SYS
      %include "..\kernel\segs.inc"
+     segment HMA_TEXT
 %else
-group   TGROUP  HMA_TEXT _TEXT 
-segment _TEXT      class=CODE
-segment HMA_TEXT   class=CODE
-%endif                               
-segment	HMA_TEXT
-
+     segment _TEXT class=CODE
+%endif
 ;
 ;
 ; Reset both the diskette and hard disk system

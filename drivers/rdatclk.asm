@@ -62,7 +62,7 @@
 
         %include "..\kernel\segs.inc"
 
-segment	INIT_TEXT
+segment	HMA_TEXT
 
 ;
 ;COUNT ReadATClock(bcdDays, bcdHours, bcdMinutes, bcdSeconds)
