@@ -110,7 +110,7 @@
     defined(DEBUGFATDIR) || defined(DEBUGFATFS)
 #ifndef DEBUG_NEED_PRINTF
 #define DEBUG_NEED_PRINTF
-void printf(const char *, ...);
+VOID VA_CDECL printf(const char * fmt, ...);
 #endif
 #endif
 
