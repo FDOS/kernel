@@ -1,3 +1,9 @@
+2001 Aug 19 - Build 2024/h
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ fixes Bart
+    * truename fixes (#580)
+    * free space fixes (#249)
+    * Ctrl-C/Ctrl-Break fix
 2001 Aug 19 - Build 2024/g
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + fixes Bart
