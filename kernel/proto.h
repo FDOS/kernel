@@ -46,6 +46,7 @@ BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mo
 UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
               COUNT mode);
 /* *** End of change */
+void AllocateHMASpace (size_t lowbuffer, size_t highbuffer);
 
 /* break.c */
 #ifdef __WATCOMC__

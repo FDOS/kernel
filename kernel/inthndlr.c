@@ -1774,42 +1774,30 @@ struct int2f12regs {
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
 
-extern short AllocateHMASpace (size_t lowbuffer, size_t highbuffer);
-
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
  * On input r.AX==0x12xx, 0x4A01 or 0x4A02
  */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 {
-  /* dont use
-     QueryFreeHMASpace(&p);
-     here; DS !=SS
-  */
   if (r.AH == 0x4a)
   {
-    size_t wantedBytes, offs;
+    size_t size = 0, offs = 0xffff;
 
-    if (r.AL != 1 && r.AL != 2)
-      return;
-
-    wantedBytes = r.BX;
-    r.ES = r.DI = 0xffff;
-    r.BX = 0;
-    if (FP_SEG(firstAvailableBuf) != 0xffff)
-      return;
-
-    offs = FP_OFF(firstAvailableBuf);
-    r.di = offs;
-
-    if (r.AL == 0x02)
+    r.ES = offs;
+    if (FP_SEG(firstAvailableBuf) == offs) /* HMA present? */
     {
-      if (wantedBytes > ~offs)
-        return;
-      AllocateHMASpace(FP_OFF(firstAvailableBuf),
-                       FP_OFF(firstAvailableBuf)+wantedBytes);
-      firstAvailableBuf += wantedBytes;
-      r.BX = wantedBytes;
+      offs = FP_OFF(firstAvailableBuf);
+      size = ~offs;                        /* BX for query HMA   */
+      if (r.AL == 0x02)                    /* allocate HMA space */
+      {
+        if (r.BX < size)
+          size = r.BX;
+        AllocateHMASpace(offs, offs+size);
+        firstAvailableBuf += size;
+      }
     }
+    r.DI = offs;
+    r.BX = size;
     return;
   }
 
