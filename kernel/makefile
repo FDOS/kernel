@@ -75,7 +75,7 @@ procsupt.obj:	procsupt.asm segs.inc $(HDR)stacks.inc
 serial.obj:	serial.asm   io.inc
 
 HDRS=\
-    $(HDR)portab.h $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h \
+    $(HDR)portab.h $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h $(HDR)lol.h\
     $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)time.h $(HDR)process.h \
     $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h \
     $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
