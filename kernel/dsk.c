@@ -33,6 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/03/27 20:27:43  bartoldeman
+ * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+ *
  * Revision 1.12  2001/03/24 22:13:05  bartoldeman
  * See history.txt: dsk.c changes, warning removal and int21 entry handling.
  *
@@ -328,14 +331,14 @@ static WORD(*dispatch[NENTRY]) () =
 
 
 ULONG StartSector(WORD ptDrive,     unsigned  BeginCylinder,
-                                    unsigned BeginSector,   
                                     unsigned BeginHead, 
+                                    unsigned BeginSector,   
                                     ULONG    peStartSector,
                                     ULONG    ptAccuOff)
 {
         iregs regs;
         
-        unsigned cylinders,heads,sectors;
+        unsigned heads,sectors;
         ULONG startPos;
         ULONG oldStartPos;
         
@@ -489,7 +492,7 @@ COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
   BYTE *p;
   int partition_chain = 0;
   int ret;
-  ULONG newStartPos;
+/*  ULONG newStartPos;*/
   UWORD partMask;
   int loop;
   
@@ -749,7 +752,7 @@ WORD _dsk_init(rqptr rp)
     /* Process primary a 2nd time */
   for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
   {
-    processtable(PRIMARY, (HardDrive | 0x80), 0, 0l, 1, 0l,foundPartitions[HardDrive]);
+    processtable(PRIMARY2, (HardDrive | 0x80), 0, 0l, 1, 0l,foundPartitions[HardDrive]);
   }
 
   rp->r_nunits = nUnits;
@@ -801,8 +804,8 @@ STATIC WORD RWzero(rqptr rp, WORD t)
   {
     COUNT partidx = miarray[rp->r_unit].mi_partidx;
     head = dos_partition[partidx].peBeginHead;
-    sector = dos_partition[partidx].peBeginSector;
     track = dos_partition[partidx].peBeginCylinder;
+    sector = dos_partition[partidx].peBeginSector;
   }
   else
   {
@@ -877,13 +880,13 @@ static WORD blk_Media(rqptr rp)
 
 STATIC WORD bldbpb(rqptr rp)
 {
-  ULONG count, i;
-  byteptr trans;
-  WORD local_word;
+  ULONG count/*, i*/;
+/*  byteptr trans;*/
+/*  WORD local_word;*/
 /*TE*/  
   bpb *pbpbarray;
   struct media_info *pmiarray;
-  WORD head,track,sector,ret;
+  WORD head,/*track,*/sector,ret;
 
   ret = RWzero( rp, 0);
 

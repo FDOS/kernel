@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/03/27 20:27:43  bartoldeman
+ * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+ *
  * Revision 1.10  2001/03/22 04:55:36  bartoldeman
  * Fix prototypes.
  *
@@ -365,8 +368,8 @@ VOID INRPT FAR int23_handler(int es, int ds, int di, int si, int bp, int sp, int
 VOID INRPT FAR int24_handler(void);
 VOID INRPT FAR low_int25_handler(void);
 VOID INRPT FAR low_int26_handler(void);
-VOID int25_handler();
-VOID int26_handler();
+/* VOID int25_handler();
+VOID int26_handler();*/
 VOID INRPT FAR int27_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs, int flags);
 VOID INRPT FAR int28_handler(void);
 VOID INRPT FAR int2a_handler(void);

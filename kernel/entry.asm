@@ -28,8 +28,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.7  2001/03/27 02:56:58  bartoldeman
-; Fixed bugs in entry.asm: stack segment and int 2A/82 Ralf Brown compliant.
+; Revision 1.8  2001/03/27 20:27:43  bartoldeman
+; dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
 ;
 ; Revision 1.6  2001/03/24 22:13:05  bartoldeman
 ; See history.txt: dsk.c changes, warning removal and int21 entry handling.
@@ -84,8 +84,7 @@
 segment	HMA_TEXT
                 extern   _int21_syscall:wrt HGROUP
                 extern   _int21_service:wrt HGROUP
-                extern   _int25_handler:wrt HGROUP
-                extern   _int26_handler:wrt HGROUP
+                extern   _int2526_handler:wrt HGROUP
                 extern   _set_stack:wrt HGROUP
                 extern   _restore_stack:wrt HGROUP
                 extern   _error_tos:wrt DGROUP
@@ -399,15 +398,20 @@ reloc_call_int27_handler:
                 jmp     reloc_call_int21_handler  ; terminate through int 21h
 
 ;
-; I really do need to get rid of this because it's the only thing stopping
-; us from being ROMABLE.
 ;
-stkframe        dd      0
 
+reloc_call_low_int26_handler:
+                sti
+                pushf
+                push    ax
+                mov     ax,026h
+                jmp     int2526
 reloc_call_low_int25_handler:
                 sti
                 pushf
                 push    ax
+                mov     ax,025h
+int2526:                
                 push    cx
                 push    dx
                 push    bx
@@ -418,24 +422,41 @@ reloc_call_low_int25_handler:
                 push    ds
                 push    es
 
-                mov     word [cs:stkframe], sp     ; save stack frame
-                mov     word [cs:stkframe+2], ss
+               
+                mov     cx, sp     ; save stack frame
+                mov     dx, ss
 
                 cld
-                mov     ax, DGROUP
-                mov     ds, ax
+                mov     bx, DGROUP
+                mov     ds, bx
 
-                mov     word [_api_sp], _disk_api_tos
-                mov     word [_api_ss], ds
+                ; save away foreground process' stack
+                push    word [_usr_ss]
+                push    word [_usr_sp]
 
-                call    _set_stack
+                mov     word [_usr_ss],ss
+                mov     word [_usr_sp],sp
 
-                push    word [cs:stkframe+2]
-                push    word [cs:stkframe]
-                call    _int25_handler
+                ; setup our local stack
+                cli
+                mov     ss,bx
+                mov     sp,_disk_api_tos
+                sti
+
+                push    dx                      ; SS:SP -> user stack
+                push    cx
+                push    ax                      ; was set on entry = 25,26
+                call    _int2526_handler
                 add     sp, byte 4
 
-                call    _restore_stack
+
+                ; restore foreground stack here
+                cli
+                mov     ss,word [_usr_ss]
+                mov     sp,word [_usr_sp]
+
+                pop     word [_usr_sp]
+                pop     word [_usr_ss]
 
                 pop     es
                 pop     ds
@@ -452,52 +473,6 @@ reloc_call_low_int25_handler:
                                 ; This function is supposed to leave the original
                                 ; flag image on the stack.
 
-
-reloc_call_low_int26_handler:
-                sti
-                pushf
-                push    ax
-                push    cx
-                push    dx
-                push    bx
-                push    sp
-                push    bp
-                push    si
-                push    di
-                push    ds
-                push    es
-
-                mov     word [cs:stkframe], sp     ; save stack frame
-                mov     word [cs:stkframe+2], ss
-
-                cld
-                mov     ax, DGROUP
-                mov     ds, ax
-
-                mov     word [_api_sp], _disk_api_tos
-                mov     word [_api_ss], ds
-
-                call    _set_stack
-
-                push    word [cs:stkframe+2]
-                push    word [cs:stkframe]
-                call    _int26_handler
-                add     sp, 4
-
-                call    _restore_stack
-
-                pop     es
-                pop     ds
-                pop     di
-                pop     si
-                pop     bp
-                pop     bx      ; pop off sp value
-                pop     bx
-                pop     dx
-                pop     cx
-                pop     ax
-                popf
-                retf
 
 
 CONTINUE        equ     00h

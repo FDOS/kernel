@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/03/27 20:27:43  bartoldeman
+ * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+ *
  * Revision 1.15  2001/03/25 17:11:54  bartoldeman
  * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
  *
@@ -230,6 +233,8 @@ VOID FAR int21_entry(iregs UserRegs)
 
 /* Normal entry.  This minimizes user stack usage by avoiding local     */
 /* variables needed for the rest of the handler.                        */
+/* this here works on the users stack !! and only very few functions 
+   are allowed                                                          */
 VOID int21_syscall(iregs FAR * irp)
 {
   Int21AX = irp->AX;
@@ -260,12 +265,16 @@ VOID int21_syscall(iregs FAR * irp)
           irp->BL = os_major;
           irp->BH = os_minor;
           irp->DL = rev_number;
-          irp->DH = version_flags;
+          irp->DH = version_flags; /* bit3:runs in ROM,bit 4: runs in HMA*/
           break;
+          
+        case 0x02:  /* andrew schulman: get/set extended control break 
+                       should be done */
+        case 0x03:  /* DOS 7 does not set AL */
+        case 0x07:  /* neither here */
 
-        default:
-          irp->AX = -DE_INVLDFUNC;
-          irp->FLAGS |= FLG_CARRY;
+        default:    /* set AL=0xFF as error, NOT carry */
+          irp->AL  = 0xff;
           break;
 
           /* Toggle DOS-C rdwrblock trace dump                    */
@@ -305,14 +314,12 @@ VOID int21_syscall(iregs FAR * irp)
       irp->BX = cu_psp;
       break;
 
-      /* Normal DOS function - switch stacks          */
+      /* Normal DOS function - DO NOT ARRIVE HERE          */
     default:
-      int21_service(user_r);
       break;
   }
 }
 
-static int debug_cnt;
 
 VOID int21_service(iregs FAR * r)
 {
@@ -330,16 +337,6 @@ VOID int21_service(iregs FAR * r)
   p->ps_stack = (BYTE FAR *) r;
   
   
-  switch(r->AH)
-    {
-    case 0x2a: /*DosGetDate */
-    case 0x2b: /*DosSetDate */
-    case 0x2c: /*DosGetTime */
-    case 0x2d: /*DosSetDate */
-        break;
-    default:
-        debug_cnt++; /* debuggable statement */
-    }        
         
   
 
@@ -1864,21 +1861,21 @@ struct int25regs
     cs;
 };
 
-/* this function is called from an assembler wrapper function */
-/*
-    I'm probably either 
-        A) totally braindamaged 
-        B) chasing a compiler bug, which I can't find.
-        
-        LEAVE THIS CODE EXACTLY AS IS OR FDOS WON'T BOOT
+/* 
+    this function is called from an assembler wrapper function 
 */
 VOID int2526_handler(WORD mode, struct int25regs FAR * r)
 {
   ULONG blkno;
   UWORD nblks;
   BYTE  FAR *buf;
-  UBYTE drv = r->ax;
+  UBYTE drv;
   
+  if (mode == 0x26) mode = DSKWRITE;
+  else              mode = DSKREAD;
+  
+  drv = r->ax;
+
   if (drv >= (lastdrive - 1))
   {
     r->ax = 0x202;
@@ -1892,45 +1889,22 @@ VOID int2526_handler(WORD mode, struct int25regs FAR * r)
     
   buf = MK_FP(r->ds, r->bx);
     
-  if (mode == DSKREAD)
-  {  
-      if (nblks == 0xFFFF)
-      {
-        /*struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);*/
-        blkno = ((struct HugeSectorBlock FAR *)buf)->blkno;
-        nblks = ((struct HugeSectorBlock FAR *)buf)->nblks;
-        buf   = ((struct HugeSectorBlock FAR *)buf)->buf;
-      }
-      else
-      {
-        buf = MK_FP(r->ds, r->bx);
-      }
-  } else {  
-      if (nblks == 0xFFFF)
-      {
-        struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);
-        blkno = lb->blkno;
-        nblks = lb->nblks;
-        buf = lb->buf;
-      }
-      else
-      {
-        buf = MK_FP(r->ds, r->bx);
-      }
-  }  
-  
+  if (nblks == 0xFFFF)
+  {
+    /*struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);*/
+    blkno = ((struct HugeSectorBlock FAR *)buf)->blkno;
+    nblks = ((struct HugeSectorBlock FAR *)buf)->nblks;
+    buf   = ((struct HugeSectorBlock FAR *)buf)->buf;
+  }
   
 
   InDOS++;
 
-  if (mode == DSKREAD)
-  {
-    r->ax=dskxfer(drv, blkno, buf, nblks, mode);
-  } else {
-    r->ax=dskxfer(drv, blkno, buf, nblks, DSKWRITE);
-  if (r->ax <= 0)
-    setinvld(drv);
-  }  
+  r->ax=dskxfer(drv, blkno, buf, nblks, mode);
+
+  if (mode == DSKWRITE)
+    if (r->ax <= 0)
+        setinvld(drv);
 
   if (r->ax > 0)
   {
@@ -1945,9 +1919,10 @@ VOID int2526_handler(WORD mode, struct int25regs FAR * r)
   --InDOS;
   
 }
+/*
 VOID int25_handler(struct int25regs FAR * r) { int2526_handler(DSKREAD,r); }
 VOID int26_handler(struct int25regs FAR * r) { int2526_handler(DSKWRITE,r); }
-
+*/
 
 
 

@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/03/27 20:27:27  bartoldeman
+ * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+ *
  * Revision 1.12  2001/03/25 17:11:54  bartoldeman
  * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
  *
@@ -765,10 +768,6 @@ INIT static VOID Lastdrive(BYTE * pLine)
     UmbState of confidence, 1 is sure, 2 maybe, 4 unknown and 0 no way.
 */
 
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-#endif
-#define int3() __int__(3);
 
 INIT static VOID Dosmem(BYTE * pLine)
 {
@@ -782,7 +781,6 @@ INIT static VOID Dosmem(BYTE * pLine)
         *pTmp = toupper(*pTmp);
 
     printf("DOS called with %s\n", szBuf);
-    int3();
 
     for (pTmp = szBuf ; ; )
     {
@@ -1006,7 +1004,6 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
          szBuf, dev_seg);
 #endif
 
-  int3();
 
   if (DosExec(3, &eb, szBuf) == SUCCESS)
   {
@@ -1037,7 +1034,6 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
         */
         pTmp = pLine;
     
-        int3();
         if (DosLoadedInHMA)
             if (stristr(szBuf, "HIMEM.SYS") != NULL)
             {

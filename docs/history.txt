@@ -1,3 +1,7 @@
+2001 Mar 28 - Build 2023
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Bug fix release 2023b: dsk.c (reported by Nagy Daniel), inthndlr and
+	 int25/26 fixes by Tom Ehlert.
 2001 Mar 27 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  Bug fix release 2023a: fixed stack segment bug in entry.asm.
