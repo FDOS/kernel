@@ -291,7 +291,7 @@ _CDSp           dd      0               ; 0016 Current Directory Structure
 _FCBp           dd      0               ; 001a FCB table pointer
                 global  _nprotfcb
 _nprotfcb       dw      0               ; 001e number of protected fcbs
-                                        ; unused for DOS 5+, see winPatchTable
+                                        ; unused for DOS 5+
                 global  _nblkdev
 _nblkdev        db      0               ; 0020 number of block devices
                                         ;      should match # of DPBs
@@ -394,22 +394,20 @@ _winPatchTable: ; returns offsets to various internal variables
 _os_setver_major	db	0
 _os_setver_minor	db	0
 %IFDEF WIN31SUPPORT
-                dw dummy  ; where DS stored during int21h dispatch
-                dw dummy  ; where BX stored during int21h dispatch
-                dw _InDOS ; offset of InDOS flag
+                dw save_DS     ; where DS stored during int21h dispatch
+                dw save_BX     ; where BX stored during int21h dispatch
+                dw _InDOS      ; offset of InDOS flag
                 dw _MachineId  ; offset to variable containing MachineID
-                dw _nprotfcb   ; offset of to arrary of offsets to patch
+                dw patch_bytes ; offset of to array of offsets to patch
                                ; NOTE: this points to a null terminated
                                ; array of offsets of critical section bytes
                                ; to patch, for now we just point this to
-                               ; an empty table, so to save space we are
-                               ; reusing _nprotfcb as it is unused and
-                               ; can ?safely? be assumed to stay 0 
+                               ; an empty table, purposely not _CritPatch
                                ; ie we just point to a 0 word to mark end
-                ; FIXME is uppermem_root correct? or do what should we use?
                 dw _uppermem_root ; seg of last arena header in conv memory
-dummy           dw 0 ; 
-;patch_bytes     dw 0 ; mark end of array of offsets of critical section bytes to patch
+                                  ; this matches MS DOS's location, but 
+                                  ; do we have the same meaning?
+patch_bytes     dw 0 ; mark end of array of offsets of critical section bytes to patch
 %ENDIF ; WIN31SUPPORT
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
@@ -626,8 +624,13 @@ _current_sft_idx    dw      0               ;28A - SFT index for next open
                 global  _current_filepos
 _current_filepos times 2 dw 0       ;2AE - current offset in file
 
-                ; Pad to 05f0h
-                times (2d0h - ($ - _internal_data)) db 0
+                ; Pad to 05eah
+                times (2cah - ($ - _internal_data)) db 0
+                ;global _save_BX
+                ;global _save_DS
+save_BX                 dw      0       ;2CA - unused by FreeDOS, for Win3.x
+save_DS                 dw      0       ;      compatibility, match MS's positions
+                        dw      0
                 global  _prev_user_r
                 global  prev_int21regs_off
                 global  prev_int21regs_seg
