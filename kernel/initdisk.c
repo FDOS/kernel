@@ -469,7 +469,7 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
          * not really present cluster. */
         clust =
             (fatdata - defbpb->bpb_nfat * fatlength) / defbpb->bpb_nsector;
-        maxclust = (fatlength * defbpb->bpb_nbyte) / 2;
+        maxclust = ((unsigned long)fatlength * defbpb->bpb_nbyte) / 2;
         if (maxclust > FAT16MAX)
           maxclust = FAT16MAX;
         DebugPrintf(("FAT16: #clu=%lu, fatlen=%u, maxclu=%lu, limit=%u\n",
