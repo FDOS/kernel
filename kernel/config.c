@@ -741,10 +741,7 @@ STATIC struct table * LookUp(struct table *p, BYTE * token)
             0x..LL : asciicode in lower half
 */
 
-STATIC ULONG GetBiosTime(VOID)
-{
-  return *(ULONG FAR *) (MK_FP(0x40, 0x6c));
-}
+#define GetBiosTime() peekl(0, 0x46c)
 
 UWORD GetBiosKey(int timeout)
 {
@@ -752,26 +749,19 @@ UWORD GetBiosKey(int timeout)
 
   ULONG startTime = GetBiosTime();
 
-  for (;;)
+  if (timeout >= 0) do
   {
     r.a.x = 0x0100;             /* are there keys available ? */
     init_call_intr(0x16, &r);
-
-    if ((r.flags & 0x40) == 0)  /* yes - fetch and return     */
-    {
-      r.a.x = 0x0000;
-      init_call_intr(0x16, &r);
-
-      return r.a.x;
-    }
-
-    if (timeout < 0)
-      continue;
-
-    if (GetBiosTime() - startTime >= (unsigned)timeout * 18)
-      break;
+    if ((unsigned)(GetBiosTime() - startTime) >= timeout * 18u)
+      return 0xffff;
   }
-  return 0xffff;
+  while (r.flags & FLG_ZERO);
+
+  /* key available or blocking wait (timeout < 0): fetch it */
+  r.a.x = 0x0000;
+  init_call_intr(0x16, &r);
+  return r.a.x;
 }
 
 STATIC BOOL SkipLine(char *pLine)
