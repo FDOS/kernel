@@ -216,7 +216,7 @@ typedef signed long LONG;
 #ifdef I86
 #ifndef MK_FP
 
-#ifdef __WATCOMC__
+#if defined(__WATCOMC__)
 #define MK_FP(seg,ofs) 	      (((UWORD)(seg)):>((VOID *)(ofs)))
 #elif defined(__TURBOC__) && (__TURBOC__ > 0x202)
 #define MK_FP(seg,ofs)        ((void _seg *)(seg) + (void near *)(ofs))
