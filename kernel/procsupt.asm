@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:26  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -99,6 +102,8 @@
 
 segment	_TEXT
 
+                extern   _DGROUP_:wrt TGROUP
+
 ;
 ;       Special call for switching processes
 ;
@@ -109,8 +114,7 @@ segment	_TEXT
 _exec_user:
 
                 PUSH$ALL
-                mov     ax,DGROUP
-                mov     ds,ax
+                mov     ds,[_DGROUP_]
                 mov     bp,sp
                 cld
                 cli
@@ -302,6 +306,11 @@ _spawn_int23:
                 jmp 	_int21_handler
 
 
+                global _init_call_spawn_int23
+_init_call_spawn_int23:
+                int 3
+                call _spawn_int23
+                retf
 ;
 ; interrupt enable and disable routines
 ;

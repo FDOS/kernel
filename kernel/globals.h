@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.6  2000/12/16 01:38:35  jimtabor
  * Added patches from Bart Oldeman
  *
@@ -214,7 +217,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #define PARSE_MAX       67      /* maximum # of bytes in path   */
 #define NFILES          16      /* number of files in table     */
 #define NFCBS           16      /* number of fcbs               */
-#define NDEVS           8       /* number of supported devices  */
+#define NDEVS           26      /* number of supported devices  */
 #define NSTACKS         8       /* number of stacks             */
 #define NLAST           6       /* last drive                   */
 #define NAMEMAX         PARSE_MAX	/* Maximum path for CDS         */
@@ -295,16 +298,18 @@ struct buffer
   FAR *b_next;                  /* form linked list for LRU     */
   BYTE b_unit;                  /* disk for this buffer         */
   BYTE b_flag;                  /* buffer flags                 */
-  UWORD b_blkno;                /* block for this buffer        */
+  ULONG b_blkno;                /* block for this buffer        */
   /* DOS-C: 0xffff for huge block numbers */
   BYTE b_copies;                /* number of copies to write    */
   UBYTE b_offset_lo;            /* span between copies (low)                                                    */
-  union
+#if 0 /*TE*/
+ union
   {
     struct dpb FAR *_b_dpbp;    /* pointer to DPB                                                                                                                                               */
     LONG _b_huge_blkno;         /* DOS-C: actual block number if >= 0xffff */
   }
   _b;
+#endif  
   UBYTE b_offset_hi;            /* DOS-C: span between copies (high) */
   UBYTE b_unused;
   BYTE b_buffer[BUFFERSIZE];    /* 512 byte sectors for now     */
@@ -351,7 +356,14 @@ extern COUNT *
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */
 extern BYTE
-  FAR last;                     /* first available byte of ram          */
+  FAR _InitTextStart;           /* first available byte of ram          */
+extern BYTE
+  FAR _HMATextAvailable,        /* first byte of available CODE area    */
+  FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
+  FAR _HMATextEnd[];            /* and the last byte of it              */
+extern 
+  BYTE DosLoadedInHMA;          /* if InitHMA has moved DOS up          */
+  
 extern struct ClockRecord
   ClkRecord;
 
@@ -593,8 +605,8 @@ GLOBAL struct f_node FAR
 * f_nodes;                      /* pointer to the array                 */
 
 GLOBAL struct buffer
-FAR *lastbuf,                   /* tail of ditto                        */
-  FAR * buffers;                /* pointer to array of track buffers    */
+FAR *lastbuf;                   /* tail of ditto                        */
+/*  FAR * buffers;              /* pointer to array of track buffers    */
 
 GLOBAL BYTE                     /* scratchpad used for working around                                           */
   FAR * dma_scratch;            /* DMA transfers during disk I/O                                                */
@@ -675,6 +687,7 @@ VOID FAR restore_stack(VOID);
 WORD execrh(request FAR *, struct dhdr FAR *);
 #endif
 VOID FAR init_call_execrh(request FAR *, struct dhdr FAR *);
+VOID FAR reloc_call_execrh(request FAR *, struct dhdr FAR *);
 VOID exit(COUNT);
 /*VOID INRPT FAR handle_break(VOID); */
 VOID tmark(VOID);
@@ -746,11 +759,12 @@ VOID fputbyte();
 #ifdef I86
 #define setvec(n, isr)  (void)(*(VOID (INRPT FAR * FAR *)())(4 * (n)) = (isr))
 #endif
-#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1)
+/*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 
 /* ^Break handling */
-void spawn_int23(void);         /* procsupt.asm */
+void FAR _init_call_spawn_int23(void);         /* procsupt.asm */
 int control_break(void);        /* break.c */
 void handle_break(void);        /* break.c */
 
 
+GLOBAL BYTE ReturnAnyDosVersionExpected;

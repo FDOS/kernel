@@ -32,9 +32,9 @@ static BYTE *date_hRcsId = "$Id$";
 #endif
 #endif
 
-/* This Kernel is at a min Dos Ver. 4.00 */
+/* This Kernel is at a min Dos Ver. 5.00 */
 
-#define MAJOR_RELEASE   4
+#define MAJOR_RELEASE   5
 #define MINOR_RELEASE   00
 
 #define REV_NUMBER      0

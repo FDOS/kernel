@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.6  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -226,8 +229,8 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
        {
          if ((lpszFileName - lpszLclFile) == 2) /* for tail DotDot */
            nDirCnt += 2;
-         if (nDirCnt > PARSE_MAX)
-           nDirCnt = PARSE_MAX;
+         if (nDirCnt > PARSE_MAX-1)
+           nDirCnt = PARSE_MAX-1;
          fbcopy(lpszLclDir, (BYTE FAR *) pszDir, nDirCnt);
          if (((lpszFileName - lpszLclFile) == 2) && (nDirCnt < PARSE_MAX))
            pszDir[nDirCnt++] = '\\';  /* make DosTrimPath() enjoy, for tail DotDot */
@@ -272,8 +275,8 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
     return DE_FILENOTFND;
 
   /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if (nDirCnt > PARSE_MAX)
-    nDirCnt = PARSE_MAX;
+  if (nDirCnt > PARSE_MAX-1)
+    nDirCnt = PARSE_MAX-1;
   if (nFileCnt > FNAME_SIZE)
     nFileCnt = FNAME_SIZE;
   if (nExtCnt > FEXT_SIZE)
@@ -344,9 +347,9 @@ COUNT ParseDosPath(BYTE FAR * lpszFileName,
   lpszLclDir = lpszFileName;
   if (!PathSep(*lpszLclDir))
   {
-    fstrncpy(pszDir, pszCurPath, PARSE_MAX);
+    fstrncpy(pszDir, pszCurPath, PARSE_MAX - 1);        /*TE*/
     nPathCnt = fstrlen(pszCurPath);
-    if (!PathSep(pszDir[nPathCnt - 1]) && nPathCnt < PARSE_MAX)
+    if (!PathSep(pszDir[nPathCnt - 1]) && nPathCnt < PARSE_MAX - 1) /*TE*/
       pszDir[nPathCnt++] = '\\';
     if (nPathCnt > PARSE_MAX)
       nPathCnt = PARSE_MAX;
@@ -363,8 +366,8 @@ COUNT ParseDosPath(BYTE FAR * lpszFileName,
   }
 
   /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if ((nDirCnt + nPathCnt) > PARSE_MAX)
-    nDirCnt = PARSE_MAX - nPathCnt;
+  if ((nDirCnt + nPathCnt) > PARSE_MAX - 1)     /*TE*/
+    nDirCnt = PARSE_MAX - 1 - nPathCnt;
 
   /* Finally copy whatever the user wants extracted to the user's */
   /* buffers.                                                     */

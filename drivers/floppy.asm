@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:25  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:19  jimtabor
 ; Fixed project history
 ;
@@ -77,9 +80,9 @@
 ;Initial revision.
 ;
 
-group	TGROUP	_TEXT
+                %include "..\kernel\segs.inc"
 
-segment _TEXT	class=CODE
+segment	HMA_TEXT
 
 ;
 ;
@@ -211,37 +214,6 @@ _fl_rd_status:
 ;
 ; Returns 0 if successful, error code otherwise.
 ;
-		global	_fl_read
-_fl_read:
-                push    bp              ; C entry
-                mov     bp,sp
-
-                mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
-                                        ; hard drive.
-                mov     dh,[bp+6]       ; get the head number
-                mov     ch,[bp+8]       ; cylinder number (lo only if hard)
-                mov     al,[bp+9h]      ; get the top of cylinder
-                xor     ah,ah
-                mov     cl,6            ; form top of cylinder for sector
-                shl     ax,cl
-                mov     cl,[bp+0Ah]     ; sector number
-                and     cl,03fh         ; mask to sector field bits 5-0
-                or      cl,al           ; or in bits 7-6
-                mov     al,[bp+0Ch]
-                les     bx,[bp+0Eh]   ; Load 32 bit buffer ptr
-
-                mov     ah,2
-                int     13h             ; read sectors to memory es:bx
-
-                mov     al,ah
-                jc      fl_rd1          ; error, return error code
-                xor     al,al           ; Zero transfer count
-fl_rd1:
-                xor     ah,ah           ; force into < 255 count
-                pop     bp
-                ret
-
-
 ;
 ; Write Sectors
 ;
@@ -251,60 +223,59 @@ fl_rd1:
 ;
 ; Returns 0 if successful, error code otherwise.
 ;
+		global	_fl_read
+_fl_read:
+                mov     ah,2            ; cmd READ
+                jmp short fl_common
+                
+		global	_fl_verify
+_fl_verify:
+                mov     ah,4            ; cmd verify
+                jmp short fl_common
+                
 		global	_fl_write
 _fl_write:
+                mov     ah,3            ; cmd WRITE
+
+fl_common:                
                 push    bp              ; C entry
                 mov     bp,sp
 
                 mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
                                         ; hard drive.
                 mov     dh,[bp+6]       ; get the head number
-                mov     ch,[bp+8]       ; cylinder number (lo only if hard)
-                mov     al,[bp+9h]      ; get the top of cylinder
-                xor     ah,ah
-                mov     cl,6            ; form top of cylinder for sector
-                shl     ax,cl
+                mov     bx,[bp+8]       ; cylinder number (lo only if hard)
+
+                mov     al,1            ; this should be an error code                     
+                cmp     bx,3ffh         ; this code can't write above 3ff=1023
+                ja      fl_error
+
+                mov     ch,bl           ; low 8 bits of cyl number
+                
+                xor     bl,bl           ; extract bits 8+9 to cl
+                shr     bx,1
+                shr     bx,1
+                                
+                
                 mov     cl,[bp+0Ah]     ; sector number
                 and     cl,03fh         ; mask to sector field bits 5-0
-                or      cl,al           ; or in bits 7-6
-                mov     al,[bp+0Ch]
+                or      cl,bl           ; or in bits 7-6
+
+                mov     al,[bp+0Ch]     ; count to read/write
                 les     bx,[bp+0Eh]   ; Load 32 bit buffer ptr
 
-                mov     ah,3
                 int     13h             ;  write sectors from mem es:bx
 
                 mov     al,ah
                 jc      fl_wr1          ; error, return error code
                 xor     al,al           ; Zero transfer count
 fl_wr1:
+fl_error:
                 xor     ah,ah           ; force into < 255 count
                 pop     bp
                 ret
 
 
-;
-;                              SUBROUTINE
-;
-
-		global	_fl_verify
-_fl_verify:
-                push    bp
-                mov     bp,sp
-                mov     dl,[bp+4]
-                mov     dh,[bp+6]
-                mov     ch,[bp+8]
-                mov     cl,[bp+0Ah]
-                mov     al,[bp+0Ch]
-                mov     ah,4
-                int     13h                     ; Disk  dl=drive a: ah=func 04h
-                                                ;  verify sectors with mem es:bx
-                mov     al,ah
-                jc      fl_ver1                 ; Jump if carry Set
-                xor     al,al                   ; Zero register
-fl_ver1:
-                xor     ah,ah                   ; Zero register
-                pop     bp
-                ret
 
 
 		global	_fl_format

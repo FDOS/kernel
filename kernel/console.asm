@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/03/21 02:56:25  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.4  2000/05/26 19:25:19  jimtabor
 ; Read History file for Change info
 ;
@@ -90,7 +93,7 @@ ConTable        db      0Ah
 PRT_SCREEN      equ     7200h
 CTL_P           equ     10h
 
-segment	_IO_TEXT
+segment	_TEXT
 
 uScanCode	db	0		; Scan code for con: device
 

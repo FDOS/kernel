@@ -29,8 +29,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.5  2001/03/19 04:50:56  bartoldeman
-; See history.txt for overview: put kernel 2022beo1 into CVS
+; Revision 1.6  2001/03/21 02:56:26  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
 ;
 ; Revision 1.5  2001/03/08 21:15:00  bartoldeman
@@ -87,15 +87,15 @@
 
 		%include "segs.inc"
 
-segment	_TEXT
-                global  _CharMapSrvc
-                extern  _DosUpChar:wrt TGROUP
+segment	HMA_TEXT
+                global  _reloc_call_CharMapSrvc
+                extern  _DosUpChar:wrt HGROUP
 ;
 ; CharMapSrvc:
 ;       User callable character mapping service.
 ;       Part of Function 38h
 ;
-_CharMapSrvc:
+_reloc_call_CharMapSrvc:
                 push    ds
                 push    es
                 push    bp
@@ -106,8 +106,10 @@ _CharMapSrvc:
                 push    bx
 
                 push    ax          ; arg of _upChar
-                mov     ax, DGROUP
+                push ax
+                mov  ax,DGROUP   
                 mov     ds, ax
+                pop ax
 
                 call    _DosUpChar
                 ;add     sp, byte 2	// next POP retrieves orig AX

@@ -29,6 +29,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:26  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -54,8 +57,9 @@
 ; $EndLog
 ;
 
-group	TGROUP		_TEXT _IO_TEXT _IO_FIXED_DATA
+group	TGROUP		_TEXT _IO_TEXT _IO_FIXED_DATA 
 group	DGROUP		_FIXED_DATA _DATA _BSS _BSSEND
+group	HGROUP		HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END
 
 segment	_TEXT		class=CODE
@@ -63,8 +67,13 @@ segment	_IO_TEXT	class=CODE
 segment	_IO_FIXED_DATA	class=CODE align=2
 segment	_FIXED_DATA	class=DATA align=16
 segment	_DATA		class=DATA align=2
+segment	_BSSSTART   class=BSS align=2
 segment	_BSS		class=BSS align=2
 segment	_BSSEND		class=BSS
+segment	HMA_TEXT_START	class=HMA
+segment	HMA_TEXT	    class=HMA
+segment	HMA_TEXT_END	class=HMA
 segment	INIT_TEXT_START	class=INIT align=16
 segment	INIT_TEXT	class=INIT
 segment	INIT_TEXT_END	class=INIT
+

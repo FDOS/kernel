@@ -36,8 +36,8 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.9  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.10  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.9  2001/03/08 21:00:00  bartoldeman
  * Disabled select_unit() since it's not used
@@ -348,7 +348,7 @@ COUNT FAR init_call_dos_close(COUNT fd)
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
-static struct f_node FAR *
+struct f_node FAR *
   split_path(BYTE FAR * path, BYTE * dname, BYTE * fname, BYTE * fext)
 {
   REG struct f_node FAR *fnp;
@@ -1506,13 +1506,11 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   UWORD secsize;
   UCOUNT to_xfer = count;
 
-#ifdef DEBUG
+#if defined( DEBUG ) && 0
   if (bDumpRdWrParms)
   {
-    printf("readblock:\n");
-    printf(" fd   buffer     count\n --   ------     -----\n");
-    printf(" %02d   %04x:%04x   %d\n",
-           fd, (COUNT) FP_SEG(buffer), (COUNT) FP_OFF(buffer), count);
+    printf("readblock:fd %02x  buffer %04x:%04x count %x\n",
+           fd, FP_SEG(buffer), FP_OFF(buffer), count);
   }
 #endif
   /* Translate the fd into an fnode pointer, since all internal   */
@@ -1690,9 +1688,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 #ifdef DEBUG
   if (bDumpRdWrParms)
   {
-    printf("writeblock:\n");
-    printf(" fd   buffer     count\n --   ------     -----\n");
-    printf(" %02d   %04x:%04x   %d\n",
+    printf("writeblock: fd %02d buffer %04x:%04x count %d\n",
            fd, (COUNT) FP_SEG(buffer), (COUNT) FP_OFF(buffer), count);
   }
 #endif

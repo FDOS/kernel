@@ -37,6 +37,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -94,39 +97,65 @@ static BYTE *RcsId = "$Id$";
  * Initial revision.
  */
 
-static WORD days[2][13] =
+    
+WORD days[2][13] =
 {
   {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365},
   {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
 };
 
-static WORD ndays[2][13] =
-{
-        /*  1   2   3   4   5   6   7   8   9   10  11  12 */
-  {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
-  {0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
-};
-
-extern BYTE
-  Month,
-  DayOfMonth,
-  DayOfWeek;
-
-extern COUNT
-  Year,
-  YearsSince1980;
-
 extern request
   ClkReqHdr;
+  
+/*
+    return a pointer to an array with the days for that year
+*/      
 
-VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
+WORD *is_leap_year_monthdays(int y)
+{
+ /* this is correct in a strict mathematical sense   
+    return ((y) & 3 ? days[0] : (y) % 100 ? days[1] : (y) % 400 ? days[0] : days[1]); */
+ 
+ /* this will work until 2200 - long enough for me - and saves 0x1f bytes */
+ 
+    if ((y & 3) || y == 2100) return days[0];
+    
+    return days[1];
+}
+
+WORD DaysFromYearMonthDay(WORD Year, WORD Month, WORD DayOfMonth)
+{
+  if (Year < 1980) return 0;
+    
+  return DayOfMonth - 1
+      + is_leap_year_monthdays(Year)[Month - 1]
+      + ((Year - 1980) * 365)
+      + ((Year - 1980 + 3) / 4);
+    
+}
+WORD FAR init_call_DaysFromYearMonthDay(WORD Year, WORD Month, WORD DayOfMonth)
+{
+    return DaysFromYearMonthDay(Year,Month,DayOfMonth);
+}    
+
+
+/* common - call the clock driver */
+void ExecuteClockDriverRequest(BYTE command)
 {
   ClkReqHdr.r_length = sizeof(request);
-  ClkReqHdr.r_command = C_INPUT;
+  ClkReqHdr.r_command = command;
   ClkReqHdr.r_count = sizeof(struct ClockRecord);
   ClkReqHdr.r_trans = (BYTE FAR *) (&ClkRecord);
   ClkReqHdr.r_status = 0;
   execrh((request FAR *) & ClkReqHdr, (struct dhdr FAR *)clock);
+} 
+
+  
+
+VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
+{
+  ExecuteClockDriverRequest(C_INPUT);
+    
   if (ClkReqHdr.r_status & S_ERROR)
     return;
 
@@ -138,6 +167,8 @@ VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
 
 COUNT DosSetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
 {
+  BYTE Month, DayOfMonth, DayOfWeek; COUNT Year;
+    
   DosGetDate((BYTE FAR *) & DayOfWeek, (BYTE FAR *) & Month,
              (BYTE FAR *) & DayOfMonth, (COUNT FAR *) & Year);
 
@@ -146,18 +177,10 @@ COUNT DosSetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
   ClkRecord.clkSeconds = *sp;
   ClkRecord.clkHundredths = *hdp;
 
-  YearsSince1980 = Year - 1980;
-  ClkRecord.clkDays = DayOfMonth - 1
-      + days[is_leap_year(Year)][Month - 1]
-      + ((YearsSince1980) * 365)
-      + ((YearsSince1980 + 3) / 4);
+  ClkRecord.clkDays = DaysFromYearMonthDay(Year, Month, DayOfMonth);
 
-  ClkReqHdr.r_length = sizeof(request);
-  ClkReqHdr.r_command = C_OUTPUT;
-  ClkReqHdr.r_count = sizeof(struct ClockRecord);
-  ClkReqHdr.r_trans = (BYTE FAR *) (&ClkRecord);
-  ClkReqHdr.r_status = 0;
-  execrh((request FAR *) & ClkReqHdr, (struct dhdr FAR *)clock);
+  ExecuteClockDriverRequest(C_OUTPUT);
+
   if (ClkReqHdr.r_status & S_ERROR)
     return char_error(&ClkReqHdr, (struct dhdr FAR *)clock);
   return SUCCESS;
@@ -169,25 +192,22 @@ BYTE FAR *wdp,
   FAR * mdp;
 COUNT FAR *yp;
 {
-  COUNT count,
-    c;
+  WORD c;
+  WORD *pdays;  
+  WORD Year,Month;
 
-  ClkReqHdr.r_length = sizeof(request);
-  ClkReqHdr.r_command = C_INPUT;
-  ClkReqHdr.r_count = sizeof(struct ClockRecord);
-  ClkReqHdr.r_trans = (BYTE FAR *) (&ClkRecord);
-  ClkReqHdr.r_status = 0;
-  execrh((request FAR *) & ClkReqHdr, (struct dhdr FAR *)clock);
+  ExecuteClockDriverRequest(C_INPUT);
+
   if (ClkReqHdr.r_status & S_ERROR)
     return;
 
-  for (Year = 1980, c = ClkRecord.clkDays; c > 0;)
+  for (Year = 1980, c = ClkRecord.clkDays; ;)
   {
-    count = is_leap_year(Year) ? 366 : 365;
-    if (c >= count)
+    pdays = is_leap_year_monthdays(Year);
+    if (c >= pdays[12])
     {
       ++Year;
-      c -= count;
+      c -= pdays[12];
     }
     else
       break;
@@ -196,21 +216,19 @@ COUNT FAR *yp;
   /* c contains the days left and count the number of days for    */
   /* that year.  Use this to index the table.                     */
   Month = 1;
-  while (c >= ndays[count == 366][Month])
+  while (c >= pdays[Month])
   {
-    c -= ndays[count == 366][Month];
     ++Month;
   }
 
   *mp = Month;
-  *mdp = c + 1;
+  *mdp = c - pdays[Month-1] + 1;
   *yp = Year;
 
   /* Day of week is simple. Take mod 7, add 2 (for Tuesday        */
   /* 1-1-80) and take mod again                                   */
 
-  DayOfWeek = (ClkRecord.clkDays % 7 + 2) % 7;
-  *wdp = DayOfWeek;
+  *wdp = (ClkRecord.clkDays + 2) % 7;
 }
 
 COUNT DosSetDate(mp, mdp, yp)
@@ -218,31 +236,28 @@ BYTE FAR *mp,
   FAR * mdp;
 COUNT FAR *yp;
 {
+  WORD *pdays, Month, DayOfMonth,Year;
   Month = *mp;
   DayOfMonth = *mdp;
   Year = *yp;
+  pdays = is_leap_year_monthdays(Year);     
+  
   if (Year < 1980 || Year > 2099
       || Month < 1 || Month > 12
-      || DayOfMonth < 1 || DayOfMonth > ndays[is_leap_year(Year)][Month])
+      || DayOfMonth < 1
+      || DayOfMonth > pdays[Month] - pdays[Month-1])
     return DE_INVLDDATA;
+    
 
   DosGetTime((BYTE FAR *) & ClkRecord.clkHours,
              (BYTE FAR *) & ClkRecord.clkMinutes,
              (BYTE FAR *) & ClkRecord.clkSeconds,
              (BYTE FAR *) & ClkRecord.clkHundredths);
 
-  YearsSince1980 = Year - 1980;
-  ClkRecord.clkDays = DayOfMonth - 1
-      + days[is_leap_year(Year)][Month - 1]
-      + ((YearsSince1980) * 365)
-      + ((YearsSince1980 + 3) / 4);
+  ClkRecord.clkDays = DaysFromYearMonthDay(Year, Month, DayOfMonth);
 
-  ClkReqHdr.r_length = sizeof(request);
-  ClkReqHdr.r_command = C_OUTPUT;
-  ClkReqHdr.r_count = sizeof(struct ClockRecord);
-  ClkReqHdr.r_trans = (BYTE FAR *) (&ClkRecord);
-  ClkReqHdr.r_status = 0;
-  execrh((request FAR *) & ClkReqHdr, (struct dhdr FAR *)clock);
+  ExecuteClockDriverRequest(C_OUTPUT);
+
   if (ClkReqHdr.r_status & S_ERROR)
     return char_error(&ClkReqHdr, (struct dhdr FAR *)clock);
   return SUCCESS;

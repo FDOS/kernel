@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.6  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -722,29 +725,29 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive)
 {
   BYTE FAR *lpszFcbFname,
     FAR * lpszFcbFext;
-  COUNT nDrvIdx,
-    nFnameIdx,
-    nFextIdx;
+    COUNT loop;
 
   /* Build a traditional DOS file name                            */
-  lpszFcbFname = (BYTE FAR *) lpFcb->fcb_fname;
   if (lpFcb->fcb_drive != 0)
   {
     *pCurDrive = lpFcb->fcb_drive;
     pszBuffer[0] = 'A' + lpFcb->fcb_drive - 1;
     pszBuffer[1] = ':';
-    nDrvIdx = 2;
+    pszBuffer += 2;
   }
   else
   {
     *pCurDrive = default_drive + 1;
-    nDrvIdx = 0;
   }
 
-  for (nFnameIdx = 0; nFnameIdx < FNAME_SIZE; nFnameIdx++)
+  ConvertName83ToNameSZ((BYTE FAR *)pszBuffer, (BYTE FAR *) lpFcb->fcb_fname);
+  
+/*
+  lpszFcbFname = (BYTE FAR *) lpFcb->fcb_fname;
+  for (loop = FNAME_SIZE; --loop >= 0; )
   {
     if (*lpszFcbFname != ' ')
-      pszBuffer[nDrvIdx + nFnameIdx] = *lpszFcbFname++;
+      *pszBuffer++ = *lpszFcbFname++;
     else
       break;
   }
@@ -752,19 +755,17 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive)
   lpszFcbFext = (BYTE FAR *) lpFcb->fcb_fext;
   if (*lpszFcbFext != ' ')
   {
-    pszBuffer[nDrvIdx + nFnameIdx++] = '.';
-    for (nFextIdx = 0; nFextIdx < FEXT_SIZE; nFextIdx++)
+    *pszBuffer++ = '.';
+    for (loop = FEXT_SIZE; --loop >= 0; )
     {
       if (*lpszFcbFext != ' ')
-        pszBuffer[nDrvIdx + nFnameIdx + nFextIdx] =
-            *lpszFcbFext++;
+		*pszBuffer++  = *lpszFcbFext++;
       else
-        break;
+		break;
     }
   }
-  else
-    nFextIdx = 0;
-  pszBuffer[nDrvIdx + nFnameIdx + nFextIdx] = '\0';
+  *pszBuffer = '\0';
+*/
 }
 
 BOOL FcbOpen(xfcb FAR * lpXfcb)

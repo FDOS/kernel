@@ -5,8 +5,8 @@
 #
 
 # $Log$
-# Revision 1.5  2001/03/19 04:50:56  bartoldeman
-# See history.txt for overview: put kernel 2022beo1 into CVS
+# Revision 1.6  2001/03/21 02:56:26  bartoldeman
+# See history.txt for changes. Bug fixes and HMA support are the main ones.
 #
 # Revision 1.4  2000/08/06 05:50:17  jimtabor
 # Add new files and update cvs with patches and changes
@@ -127,9 +127,11 @@ NASMFLAGS   = -i../hdr/
 LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
 #CFLAGS = -1- -O -Z -d -I..\hdr -I. \
 #    -D__STDC__=0;DEBUG;KERNEL;I86;PROTO;ASMSUPT
-CFLAGS = -1- -O -Z -d -I..\hdr -I. \
-     -D__STDC__=0;KERNEL;I86;PROTO;ASMSUPT
-INITCFLAGS = $(CFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP
+ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
+     -D__STDC__=0;KERNEL;I86;PROTO;ASMSUPT \
+     -g1 
+INITCFLAGS = $(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP
+CFLAGS     = $(ALLCFLAGS) -zAHMA  -zCHMA_TEXT  
 HDR=../hdr/
 
 #               *Implicit Rules*
@@ -191,7 +193,8 @@ EXE_dependencies =  \
  sysclk.obj   \
  syspack.obj  \
  systime.obj  \
- task.obj
+ task.obj     \
+ inithma.obj
 
 #               *Explicit Rules*
 
@@ -215,7 +218,7 @@ kernel.exe: $(EXE_dependencies) $(LIBS)
     $(RM) kernel.lib
     $(LIBUTIL) kernel +entry +io +blockio +chario +dosfns +console
     $(LIBUTIL) kernel +printer +serial +dsk +error +fatdir +fatfs
-    $(LIBUTIL) kernel +fattab +fcbfns +initoem +inthndlr +ioctl +nls_hc
+    $(LIBUTIL) kernel +fattab +fcbfns +initoem +initHMA+inthndlr +ioctl +nls_hc
     $(LIBUTIL) kernel +main +config +memmgr +misc +newstuff +nls +intr
     $(LIBUTIL) kernel +dosnames +prf +strings +network +sysclk +syspack
     $(LIBUTIL) kernel +systime +task +int2f +irqstack +apisupt
@@ -283,6 +286,14 @@ main.obj: main.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
  $(HDR)version.h proto.h
         $(CC) $(INITCFLAGS) -c main.c
+
+initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
+ $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
+ $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
+ $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
+ $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
+ $(HDR)version.h proto.h
+        $(CC) $(INITCFLAGS) -c initHMA.c
 
 # XXX: I generated these using `gcc -MM' and `sed', so they may not be
 # completely correct... -- ror4

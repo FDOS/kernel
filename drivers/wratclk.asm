@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:25  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:19  jimtabor
 ; Fixed project history
 ;
@@ -66,9 +69,9 @@
 ;Initial revision.
 ;
 
-group	TGROUP	_TEXT
+                %include "..\kernel\segs.inc"
 
-segment	_TEXT	class=CODE
+segment	HMA_TEXT
 
 ;
 ;       VOID WriteATClock(bcdDays, bcdHours, bcdMinutes, bcdSeconds)

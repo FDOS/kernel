@@ -24,9 +24,19 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
+; version 1.4 by tom.ehlert@ginko.de
+; added some more functions
+; changed bcopy, scopy, sncopy,...
+; to      memcpy, strcpy, strncpy
+; Bart Oldeman: optimized a bit: see /usr/include/bits/string.h from 
+; glibc 2.2
+;
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:25  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -77,126 +87,443 @@
 
 		%include "segs.inc"
 
-segment	_TEXT
+segment HMA_TEXT
+
+;*********************************************************************
+; this implements some of the common string handling functions
 ;
-;       VOID bcopy(s, d, n)
-;       REG BYTE *s, *d;
-;       REG COUNT n;
+; every function has 2 entries
 ;
+;   NEAR FUNC()
+;   FAR  init_call_FUNC()
 ;
-                global	_bcopy
-_bcopy:
+; currently done:
+;
+;  memcpy(void     *dest, void     *src, int count)
+; fmemcpy(void FAR *dest, void FAR *src, int count)
+; _fmemcpy(void FAR *dest, void FAR *src, int count)
+; fmemset(void FAR *dest, int ch, int count);
+; fstrncpy(void FAR*dest, void FAR *src, int count);
+;  strcpy (void    *dest, void     *src);
+; fstrcpy (void FAR*dest, void FAR *src, int count);
+;  strlen (void    *dest);
+; fstrlen (void FAR*dest);
+;  strchr (BYTE     *src , BYTE ch);
+; fstrcmp (BYTE FAR *s1 , BYTE FAR *s2);
+;  strcmp (BYTE     *s1 , BYTE     *s2);
+; fstrncmp(BYTE FAR *s1 , BYTE FAR *s2, int count);
+;  strncmp(BYTE     *s1 , BYTE     *s2, int count);
+
+;***********************************************
+; common_setup - set up the standard calling frame for C-functions
+;                and save registers needed later
+;                also preload the args for the near functions
+;                di=arg1
+;                si=arg2
+;                cx=arg3
+;
+common_setup:
+                pop     bx                      ; get return address
+                
                 push    bp                      ; Standard C entry
                 mov     bp,sp
                 push    si
                 push    di
-                push ds
                 push    es
-
-                ; Get the repitition count, n
-                mov     cx,[bp+8]
-                jcxz      bcopy_exit
-
+                push    ds
                 ; Set both ds and es to same segment (for near copy)
-                mov             ax,ds
-                mov             es,ax
+                pop     es
+                push    ds
 
-                ; Get the source pointer, ss
-                mov             si,[bp+4]
-
-                ; and the destination pointer, d
-                mov             di,[bp+6]
-
-?doIt:
                 ; Set direction to autoincrement
                 cld
 
+                                ; to conserve even some more bytes,
+                                ; the registers for the near routines
+                                ; are preloaded here
+                
+                ; the destination pointer, d = arg1
+                mov             di,[bp+6]
+
+                ; Get the source pointer,  s = arg2
+                mov             si,[bp+8]
+
+                ; Get the repitition count, n = arg3
+                mov             cx,[bp+10]
+
+                jmp bx
+                
+
+;***********************************************
+;
+;       VOID memcpy(REG BYTE *s, REG BYTE *d, REG COUNT n);
+;
+                global  _memcpy
+                global  _init_call_memcpy
+_memcpy:
+                pop ax
+                push cs
+                push ax
+_init_call_memcpy:
+                call common_setup
+
+
+domemcpy:
                 ; And do the built-in byte copy, but do a 16-bit transfer
                 ; whenever possible.
-                mov al, cl
-                and     al,1            ; test for odd count
-                jz      b_even
-                movsb
-b_even:         shr     cx,1
+                shr     cx,1
                 rep     movsw
+                jnc     common_return
+                movsb
 
-                ; Finally do a C exit to return
-fbcopy_exit:
-bcopy_exit:     pop     es
+;
+; common_return - pop saved registers and do return
+;
+
+common_return:
 				pop	ds
+		pop     es
                 pop     di
                 pop     si
                 pop     bp
-                ret
+                retf
 
 
+
+;************************************************************
 ;
-;       VOID fbcopy(s, d, n)
+;       VOID fmemcpy(REG BYTE FAR *d, REG BYTE FAR *s,REG COUNT n);
 ;
-;       REG VOID FAR *s, FAR *d;
-;       REG COUNT n;
-                global  _fbcopy
-_fbcopy:
-                push    bp              ; Standard C entry
-                mov     bp,sp
-                push    si
-                push    di
-
-                ; Save ds, since we won't necessarily be within our
-                ; small/tiny environment
-                push    ds
-                push    es
-
-                ; Get the repititon count, n
-                mov     cx,[bp+12]
-                jcxz      fbcopy_exit
+                global  __fmemcpy
+                global  _fmemcpy
+                global  _init_call_fmemcpy
+_fmemcpy:
+__fmemcpy:
+                pop ax
+                push cs
+                push ax
+_init_call_fmemcpy:
+                call common_setup
 
                 ; Get the far source pointer, s
-                lds     si,[bp+4]
+                lds     si,[bp+10]
 
                 ; Get the far destination pointer d
-                les     di,[bp+8]
+                les     di,[bp+6]
 
-                jmp short ?doIt
+                ; Get the repetition count, n
+                mov     cx,[bp+14]
 
+
+                jmp short domemcpy
+
+;***************************************************************
 ;
-;       VOID fmemset(s, ch, n)
+;       VOID fmemset(REG VOID FAR *d, REG BYTE ch, REG COUNT n);
 ;
-;       REG VOID FAR *s
-;		REG int ch
-;       REG COUNT n;
                 global  _fmemset
+                global  _init_call_fmemset
 _fmemset:
-                push    bp              ; Standard C entry
-                mov     bp,sp
-                push    di
+                pop ax
+                push cs
+                push ax
+_init_call_fmemset:
 
-                ; Save ds, since we won't necessarily be within our
-                ; small/tiny environment
-                push    es
+                call common_setup
 
-                ; Get the repititon count, n
-                mov     cx,[bp+10]
-                jcxz      fmemset_exit
+                ; Get the repetition count, n
+                mov     cx,[bp+12]
 
                 ; Get the far source pointer, s
-                les     di,[bp+4]
-
-				; Test if odd or even
-				mov al, cl
-				and al, 1
+                les     di,[bp+6]
 
                 ; Get the far destination pointer ch
-                mov     al,[bp+8]
+                mov     al,[bp+10]
+                
+domemset:                
                 mov		ah, al
 
-                jz      m_even
-                stosb
-m_even:         shr     cx,1
+                shr    cx,1
                 rep     stosw
+                jnc     common_return
+                stosb
+                
+                jmp  short common_return
+
+;***************************************************************
+;
+;       VOID memset(REG VOID *d, REG BYTE ch, REG COUNT n);
+;
+                global  _memset
+                global  _init_call_memset
+_memset:
+                pop ax
+                push cs
+                push ax
+_init_call_memset:
+
+                call common_setup
+                
+                                ; Get the far source pointer, s
+                ; mov      di,[bp+6]
+
+                ; Get the char ch
+                mov     ax,si   ; mov al, [bp+8]
+
+                ; Get the repititon count, n
+                ; mov     cx,[bp+10]
+
+                jmp short domemset
+
+
+                
+                
+;***************************************************************
+                
+                global  _fstrncpy
+                global  _init_call_fstrncpy
+_fstrncpy:
+                pop ax
+                push cs
+                push ax
+_init_call_fstrncpy:
+                call common_setup
+
+                ; Get the source pointer, ss
+                lds             si,[bp+10]
+
+                ; and the destination pointer, d
+                les             di,[bp+6]
+
+                mov             cx,[bp+14]
+                
+                jcxz    common_return
+                ;;                 dec     cx
+                ;          jcxz    store_one_byte
+strncpy_loop:   lodsb
+                stosb
+                test al,al
+                loopnz strncpy_loop
+                
+store_one_byte: xor al,al
+                                    ; the spec for strncpy() would require
+                                    ; rep stosb 
+                                    ; to fill remaining part of buffer
+                stosb
+                
+                jmp  short common_return
+                
+;*****************************************************************
                 
 
-fmemset_exit:	pop es
-				pop di
-				pop bp
-				ret
+
+                global  _fstrcpy
+                global  _init_call_fstrcpy
+_fstrcpy:
+                pop ax
+                push cs
+                push ax
+_init_call_fstrcpy:
+                call common_setup
+
+                ; Get the source pointer, ss
+                lds             si,[bp+10]
+
+                ; and the destination pointer, d
+                les             di,[bp+6]
+                
+                jmp short dostrcpy
+
+;******
+                global  _strcpy
+                global  _init_call_strcpy
+_strcpy:
+                pop ax
+                push cs
+                push ax
+_init_call_strcpy:
+                call common_setup
+
+
+                ; Get the source pointer, ss
+                ;mov             si,[bp+8]
+
+                ; and the destination pointer, d
+                ;mov             di,[bp+6]
+
+dostrcpy:
+
+strcpy_loop:                
+                lodsb
+                stosb
+                test al,al
+                jne  strcpy_loop
+                
+				jmp  short common_return
+
+;******************************************************************                
+                
+                global  _fstrlen
+                global  _init_call_fstrlen
+_fstrlen:
+                pop ax
+                push cs
+                push ax
+_init_call_fstrlen:
+                call common_setup
+
+                ; Get the source pointer, ss
+                les             di,[bp+6]
+
+                jmp short dostrlen
+
+;**********************************************
+                global  _strlen
+                global  _init_call_strlen
+_strlen:
+                pop ax
+                push cs
+                push ax
+_init_call_strlen:
+                call common_setup
+
+                ; The source pointer, ss, arg1 was loaded as di
+
+dostrlen:           
+                mov al,0
+                mov cx,0xffff
+                repne scasb
+
+                mov ax,cx
+                not ax                
+                dec ax
+
+                jmp common_return
+
+;************************************************************
+                global  _strchr
+                global  _init_call_strchr
+_strchr:
+                pop ax
+                push cs
+                push ax
+_init_call_strchr:
+                call common_setup
+
+                ; Get the source pointer, ss
+                ; mov             si,[bp+6]
+                ; mov             bx,[bp+8]
+                mov bx,si
+                mov si,di
+
+strchr_loop:                
+                lodsb
+                cmp  al,bl
+                je   strchr_found
+                test al,al
+                jne  strchr_loop
+                
+                mov si,1                ; return NULL if not found
+strchr_found:
+                mov ax,si
+                dec ax
+
+                jmp common_return
+
+;**********************************************************************
+                global  _fstrcmp
+                global  _init_call_fstrcmp
+_fstrcmp:
+                pop ax
+                push cs
+                push ax
+_init_call_fstrcmp:
+                call common_setup
+
+                ; Get the source pointer, ss
+                lds             si,[bp+6]
+
+                ; and the destination pointer, d
+                les             di,[bp+10]
+                
+                jmp dostrcmp
+
+;******
+                global  _strcmp
+                global  _init_call_strcmp
+_strcmp:
+                pop ax
+                push cs
+                push ax
+_init_call_strcmp:
+                call common_setup
+
+
+                ; Get the source pointer, ss
+                ; mov             si,[bp+6]
+
+                ; and the destination pointer, d
+                ; mov             di,[bp+8]
+                xchg si,di
+
+dostrcmp:                       
+                                    ; replace strncmp(s1,s2)-->
+                                    ;         strncmp(s1,s2,0xffff)
+                mov cx,0xffff
+                jmp short dostrncmp
+
+                
+;**********************************************************************
+                global  _fstrncmp
+                global  _init_call_fstrncmp
+_fstrncmp:
+                pop ax
+                push cs
+                push ax
+_init_call_fstrncmp:
+                call common_setup
+
+                ; Get the source pointer, ss
+                lds             si,[bp+6]
+
+                ; and the destination pointer, d
+                les             di,[bp+10]
+                mov             cx,[bp+12]
+                
+                jmp short dostrncmp
+
+;******
+                global  _strncmp
+                global  _init_call_strncmp
+_strncmp:
+                pop ax
+                push cs
+                push ax
+_init_call_strncmp:
+                call common_setup
+
+                ; Get the source pointer, ss
+                ;mov             si,[bp+6]
+
+                ; and the destination pointer, d
+                ;mov             di,[bp+8]
+                ;mov             cx,[bp+10]
+                xchg si,di
+
+dostrncmp:
+                jcxz strncmp_retzero
+
+strncmp_loop:                
+                lodsb
+                scasb
+                jne  strncmp_done
+                test al,al
+                loopne   strncmp_loop
+strncmp_retzero:
+                xor  ax, ax
+                jmp  short strncmp_done2
+strncmp_done:
+                sbb  ax,ax
+		or   al,1
+strncmp_done2:  jmp  common_return
+

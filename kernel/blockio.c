@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.6  2000/10/30 00:32:08  jimtabor
  * Minor Fixes
  *
@@ -152,34 +155,43 @@ static BYTE *blockioRcsId = "$Id$";
 /*                      block cache routines                            */
 /*                                                                      */
 /************************************************************************/
+/* #define DISPLAY_GETBLOCK */
+
 
 /*                                                                      */
 /* Initialize the buffer structure                                      */
 /*                                                                      */
 /* XXX: This should go into `INIT_TEXT'. -- ror4 */
-VOID FAR init_buffers(void)
+
+/* this code moved to CONFIG.C 
+VOID FAR reloc_call_init_buffers(void)
 {
   REG WORD i;
   REG WORD count;
 
+  printf("init_buffers %d buffers at %p\n",Config.cfgBuffers, (void FAR*)&buffers[0]);
+
   for (i = 0; i < Config.cfgBuffers; ++i)
   {
-    buffers[i].b_unit = 0;
-    buffers[i].b_flag = 0;
-    buffers[i].b_blkno = 0;
-    buffers[i].b_copies = 0;
-    buffers[i].b_offset_lo = 0;
-    buffers[i].b_offset_hi = 0;
+	struct buffer FAR *pbuffer = &buffers[i];
+  	
+    pbuffer->b_unit = 0;
+    pbuffer->b_flag = 0;
+    pbuffer->b_blkno = 0;
+    pbuffer->b_copies = 0;
+    pbuffer->b_offset_lo = 0;
+    pbuffer->b_offset_hi = 0;
     if (i < (Config.cfgBuffers - 1))
-      buffers[i].b_next = &buffers[i + 1];
+      pbuffer->b_next = pbuffer + 1;
     else
-      buffers[i].b_next = NULL;
+      pbuffer->b_next = NULL;
   }
   firstbuf = &buffers[0];
   lastbuf = &buffers[Config.cfgBuffers - 1];
 }
-
+*/
 /* Extract the block number from a buffer structure. */
+#if 0 /*TE*/
 ULONG getblkno(struct buffer FAR * bp)
 {
   if (bp->b_blkno == 0xffffu)
@@ -187,9 +199,13 @@ ULONG getblkno(struct buffer FAR * bp)
   else
     return bp->b_blkno;
 }
+#else
+#define getblkno(bp) (bp)->b_blkno
+#endif
 
 /*  Set the block number of a buffer structure. (The caller should  */
 /*  set the unit number before calling this function.)     */
+#if 0 /*TE*/
 VOID setblkno(struct buffer FAR * bp, ULONG blkno)
 {
   if (blkno >= 0xffffu)
@@ -206,6 +222,90 @@ VOID setblkno(struct buffer FAR * bp, ULONG blkno)
 
   }
 }
+#else
+#define setblkno(bp, blkno) (bp)->b_blkno = (blkno)
+#endif
+
+/*
+    this searches the buffer list for the given disk/block.
+    
+    if found, the buffer is returned.
+    
+    if not found, NULL is returned, and *pReplacebp
+    contains a buffer to throw out.
+*/    
+
+struct buffer FAR *searchblock(ULONG blkno, COUNT dsk, 
+                            struct buffer FAR ** pReplacebp)
+{
+    int    fat_count = 0;
+    struct buffer FAR *bp;
+    struct buffer FAR *lbp        = NULL;
+    struct buffer FAR *lastNonFat = NULL;
+
+    
+#ifdef DISPLAY_GETBLOCK
+    printf("[searchblock %d, blk %ld, buf ", dsk, blkno);
+#endif
+    
+    
+
+  /* Search through buffers to see if the required block  */
+  /* is already in a buffer                               */
+
+  for (bp = firstbuf; bp != NULL;lbp = bp, bp = bp->b_next)
+  {
+    if ((getblkno(bp) == blkno)  &&
+        (bp->b_flag & BFR_VALID) && (bp->b_unit == dsk))
+    {
+      /* found it -- rearrange LRU links      */
+      if (lbp != NULL)
+      {
+	    lbp->b_next = bp->b_next;
+	    bp->b_next = firstbuf;
+	    firstbuf = bp;
+      }
+#ifdef DISPLAY_GETBLOCK
+      printf("HIT %04x:%04x]\n", FP_SEG(bp), FP_OFF(bp));
+#endif
+      
+      return (bp);
+    }
+
+    if (bp->b_flag & BFR_FAT)
+    	fat_count++;
+    else
+        lastNonFat = bp;
+  }
+  
+  /*
+    now take either the last buffer in chain (not used recently)
+    or, if we are low on FAT buffers, the last non FAT buffer
+  */  
+  
+  if (lbp ->b_flag & BFR_FAT && fat_count < 3 && lastNonFat)
+  {
+    lbp = lastNonFat;  
+  }
+  *pReplacebp = lbp;
+  
+#ifdef DISPLAY_GETBLOCK
+  printf("MISS, replace %04x:%04x]\n", FP_SEG(lbp), FP_OFF(lbp));
+#endif
+  
+
+  if (lbp != firstbuf)      /* move to front */
+    {
+    for (bp = firstbuf; bp->b_next != lbp; bp = bp->b_next)
+        ;
+    bp->b_next = bp->b_next->b_next;
+    lbp->b_next = firstbuf;
+    firstbuf = lbp;
+    }
+  
+  return NULL;
+}                                
+
 
 /*                                                                      */
 /*      Return the address of a buffer structure containing the         */
@@ -218,106 +318,34 @@ VOID setblkno(struct buffer FAR * bp, ULONG blkno)
 /*                                                                      */
 struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
 {
-  REG struct buffer FAR *bp;
-  REG struct buffer FAR *lbp;
-  REG struct buffer FAR *mbp;
-  REG BYTE fat_count = 0;
+    struct buffer FAR *bp;
+    struct buffer FAR *Replacebp;
+
+
 
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-#ifdef DISPLAY_GETBLOCK
-  printf("[getblock %d, blk %ld, buf ", dsk, blkno);
-#endif
-  bp = firstbuf;
-  lbp = NULL;
-  mbp = NULL;
-  while (bp != NULL)
-  {
-    if ((bp->b_flag & BFR_VALID) && (bp->b_unit == dsk)
-	&& (getblkno(bp) == blkno))
+    bp = searchblock(blkno, dsk, &Replacebp);
+    
+    if (bp)
     {
-      /* found it -- rearrange LRU links      */
-      if (lbp != NULL)
-      {
-	lbp->b_next = bp->b_next;
-	bp->b_next = firstbuf;
-	firstbuf = bp;
-      }
-#ifdef DISPLAY_GETBLOCK
-      printf("HIT]\n");
-#endif
       return (bp);
     }
-    else
-    {
-      if (bp->b_flag & BFR_FAT)
-	fat_count++;
-      mbp = lbp;                /* move along to next buffer */
-      lbp = bp;
-      bp = bp->b_next;
-    }
-  }
+
   /* The block we need is not in a buffer, we must make a buffer  */
   /* available, and fill it with the desired block                */
 
-  /* detach lru buffer                                            */
-#ifdef DISPLAY_GETBLOCK
-  printf("MISS]\n");
-#endif
 
-  /* make sure we keep at least 3 buffers for the FAT.  If this is not a */
-  /* FAT buffer, or there are at least 3 already, then we can use this  */
-  /* buffer.  */
-  /* otherwise, search again, and find the last non-FAT buffer.   */
-  if ((lbp->b_flag & BFR_FAT) && (fat_count < 3))
+  /* take the buffer that lbp points to and flush it, then read new block. */
+  if (flush1(Replacebp) && fill(Replacebp, blkno, dsk))     /* success             */
   {
-    bp = firstbuf;
-    lbp = NULL;
-    mbp = NULL;
-    while ((bp != NULL) && (bp->b_flag & BFR_FAT))
-    {
-      /* if this is a FAT buffer, then move to the next one, else we found */
-      /* the one we want.      */
-      mbp = lbp;                /* move along to next buffer */
-      lbp = bp;
-      bp = bp->b_next;
-    }
-    /* if we get to the end of the list here, then we must only have 3  */
-    /* buffers, which is not suppose to happen, but if it does, then we */
-    /* end up using the last buffer (even though it is FAT).                                                                                                    */
-
-    if (bp == NULL)
-    {
-      /* put lbp at the top of the chain. */
-      if (mbp != NULL)
-	mbp->b_next = NULL;
-      lbp->b_next = firstbuf;
-      firstbuf = bp = lbp;
-    }
-    else if (lbp != NULL)
-    {
-      lbp->b_next = bp->b_next;
-      bp->b_next = firstbuf;
-      firstbuf = bp;
-    }
-    lbp = bp;
+    return Replacebp;
   }
   else
   {
-    /* put lbp at the top of the chain. */
-    if (mbp != NULL)
-      mbp->b_next = NULL;
-    lbp->b_next = firstbuf;
-    firstbuf = lbp;
+    return NULL;
   }
-
-  /* take the buffer than lbp points to and flush it, then read new block. */
-  if (flush1(lbp) && fill(lbp, blkno, dsk))     /* success             */
-    mbp = lbp;
-  else
-    mbp = NULL;                 /* failure */
-  return (mbp);
 }
 
 /*
@@ -333,107 +361,30 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
  */
 BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
 {
-  REG struct buffer FAR *bp;
-  REG struct buffer FAR *lbp;
-  REG struct buffer FAR *mbp;
-  REG BYTE fat_count = 0;
+    struct buffer FAR *bp;
+    struct buffer FAR *Replacebp;
 
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-#ifdef DISPLAY_GETBLOCK
-  printf("[getbuf %d, blk %ld, buf ", dsk, blkno);
-#endif
-  bp = firstbuf;
-  lbp = NULL;
-  mbp = NULL;
-  while (bp != NULL)
-  {
-    if ((bp->b_flag & BFR_VALID) && (bp->b_unit == dsk)
-	&& (getblkno(bp) == blkno))
+    bp = searchblock(blkno, dsk, &Replacebp);
+    
+    if (bp)
     {
-      /* found it -- rearrange LRU links      */
-      if (lbp != NULL)
-      {
-	lbp->b_next = bp->b_next;
-	bp->b_next = firstbuf;
-	firstbuf = bp;
-      }
       *pbp = bp;
-#ifdef DISPLAY_GETBLOCK
-      printf("HIT]\n");
-#endif
       return TRUE;
-    }
-    else
-    {
-      if (bp->b_flag & BFR_FAT)
-	fat_count++;
-      mbp = lbp;                /* move along to next buffer */
-      lbp = bp;
-      bp = bp->b_next;
-    }
-  }
+    }      
+
   /* The block we need is not in a buffer, we must make a buffer  */
   /* available. */
 
-#ifdef DISPLAY_GETBLOCK
-  printf("MISS]\n");
-#endif
-
-  /* make sure we keep at least 3 buffers for the FAT.  If this is not a */
-  /* FAT buffer, or there are at least 3 already, then we can use this   */
-  /* buffer.                                                            */
-  /* otherwise, search again, and find the last non-FAT buffer.         */
-  if ((lbp->b_flag & BFR_FAT) && (fat_count < 3))
-  {
-    bp = firstbuf;
-    lbp = NULL;
-    mbp = NULL;
-    while ((bp != NULL) && (bp->b_flag & BFR_FAT))
-    {
-      /* if this is a FAT buffer, then move to the next one, else we found */
-      /* the one we want.      */
-      mbp = lbp;                /* move along to next buffer */
-      lbp = bp;
-      bp = bp->b_next;
-    }
-    /* if we get to the end of the list here, then we must only have 3    */
-    /* buffers, which is not suppose to happen, but if it does, then we   */
-    /* end up using the last buffer (even though it is FAT).    */
-
-    if (bp == NULL)
-    {
-      /* put lbp at the top of the chain. */
-      if (mbp != NULL)
-	mbp->b_next = NULL;
-      lbp->b_next = firstbuf;
-      firstbuf = bp = lbp;
-    }
-    else if (lbp != NULL)
-    {
-      lbp->b_next = bp->b_next;
-      bp->b_next = firstbuf;
-      firstbuf = bp;
-    }
-    lbp = bp;
-  }
-  else
-  {
-    /* put lbp at the top of the chain. */
-    if (mbp != NULL)
-      mbp->b_next = NULL;
-    lbp->b_next = firstbuf;
-    firstbuf = lbp;
-  }
-
   /* take the buffer than lbp points to and flush it, then make it available. */
-  if (flush1(lbp))              /* success              */
+  if (flush1(Replacebp))              /* success              */
   {
-    lbp->b_flag = 0;
-    lbp->b_unit = dsk;
-    setblkno(lbp, blkno);
-    *pbp = lbp;
+    Replacebp->b_flag = 0;
+    Replacebp->b_unit = dsk;
+    setblkno(Replacebp, blkno);
+    *pbp = Replacebp;
     return TRUE;
   }
   else
@@ -443,7 +394,6 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
     return FALSE;
   }
 }
-
 /*                                                                      */
 /*      Mark all buffers for a disk as not valid                        */
 /*                                                                      */

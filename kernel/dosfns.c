@@ -37,8 +37,8 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
- * Revision 1.10  2001/03/19 04:34:18  bartoldeman
- * Update the redirector and Martin Stromberg changes to CVS.
+ * Revision 1.11  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.10  2001/03/08 21:15:00  bartoldeman
  * Redirector and DosSelectDrv() (Martin Stromberg) fixes
@@ -805,6 +805,7 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
 
     if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
 		lpCurSft = (sfttbl FAR *)sftp;
+		sftp->sft_mode = attrib;
 		result = int2f_Remote_call(REM_CREATE, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, attrib));
 		result = -result;
 		if (result == SUCCESS) {
@@ -963,12 +964,13 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
 
   sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
 
+  sftp->sft_mode = mode;
+
   /* check for a device                           */
     dhp = IsDevice(fname);
     if ( dhp )
       {
         sftp->sft_count += 1;
-        sftp->sft_mode = mode;
         sftp->sft_attrib = 0;
         sftp->sft_flags =
             ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
@@ -1184,6 +1186,12 @@ COUNT DosChangeDir(BYTE FAR * s)
   REG COUNT drive;
 	COUNT result;
 	BYTE FAR *p;
+
+    /* don't do wildcard CHDIR --TE*/
+    /* although this should be handled somewhere else */    
+    for (p = s; *p; p++)
+        if (*p == '*' || *p == '?')
+            return DE_PATHNOTFND;
 
     drive = get_verify_drive(s);
     if (drive < 0 ) {

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -107,12 +110,8 @@ VOID DayToBcd();
 /*                                                                      */
 /* WARNING - THIS DRIVER IS NON-PORTABLE!!!!                            */
 /*                                                                      */
+extern WORD days[2][13];    /* this is defined by SYSTIME.C */
 
-WORD days[2][13] =
-{
-  {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365},
-  {0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335, 366}
-};
 
 static struct ClockRecord clk;
 
@@ -128,11 +127,12 @@ static BYTE bcdSeconds;
 static ULONG Ticks;
 UWORD DaysSinceEpoch = 0;
 
-WORD clk_driver(rqptr rp)
+WORD FAR init_call_clk_driver(rqptr rp)
 {
-  REG COUNT count,
+  COUNT 
     c;
-  BYTE FAR *cp;
+  int FAR *cp;
+  WORD *pdays;
 
   switch (rp->r_command)
   {
@@ -142,9 +142,6 @@ WORD clk_driver(rqptr rp)
       return S_DONE;
 
     case C_INPUT:
-      count = rp->r_count;
-      if (count > sizeof(struct ClockRecord))
-          count = sizeof(struct ClockRecord);
       {
         ULONG remainder,
           hs;
@@ -158,6 +155,7 @@ WORD clk_driver(rqptr rp)
          * (100 x 86400) / 0x1800b0 = 108000 / 19663. -- ror4
          */
         hs = 0;
+#if 0        
         if (Ticks >= 64 * 19663ul)
         {
           hs += 64 * 108000ul;
@@ -193,6 +191,15 @@ WORD clk_driver(rqptr rp)
           hs += 108000ul;
           Ticks -= 19663ul;
         }
+#else
+    	{
+		UWORD  q1 = Ticks/19663ul;
+
+		Ticks -= q1*19663ul;
+		hs     = q1*108000ul;
+    	}
+    
+#endif        
         /*
          * Now Ticks < 19663, so Ticks * 108000 < 2123604000 < ULONG_MAX.
          * *phew* -- ror4
@@ -205,15 +212,13 @@ WORD clk_driver(rqptr rp)
         clk.clkSeconds = remainder / 100ul;
         clk.clkHundredths = remainder % 100ul;
       }
-      fbcopy((BYTE FAR *) & clk, rp->r_trans, count);
+      
+      fbcopy((BYTE FAR *) & clk, rp->r_trans, min(sizeof(struct ClockRecord),rp->r_count ));
       return S_DONE;
 
     case C_OUTPUT:
-      count = rp->r_count;
-      if (count > sizeof(struct ClockRecord))
-          count = sizeof(struct ClockRecord);
-      rp->r_count = count;
-      fbcopy(rp->r_trans, (BYTE FAR *) & clk, count);
+      rp->r_count = min(rp->r_count,sizeof(struct ClockRecord)); 
+      fbcopy(rp->r_trans, (BYTE FAR *) & clk, rp->r_count);
 
       /* Set PC Clock first                                   */
       DaysSinceEpoch = clk.clkDays;
@@ -224,6 +229,7 @@ WORD clk_driver(rqptr rp)
             100ul * clk.clkSeconds +
             clk.clkHundredths;
         Ticks = 0;
+#if 0        
         if (hs >= 64 * 108000ul)
         {
           Ticks += 64 * 19663ul;
@@ -259,6 +265,15 @@ WORD clk_driver(rqptr rp)
           Ticks += 19663ul;
           hs -= 108000ul;
         }
+#else 
+    	{
+		UWORD  q1 = hs/108000ul;
+
+		hs     -= q1*108000ul;
+		Ticks   = q1*19663ul;
+    	}
+    
+#endif        
         Ticks += hs * 19663ul / 108000ul;
       }
       WritePCClock(Ticks);
@@ -266,13 +281,13 @@ WORD clk_driver(rqptr rp)
       /* Now set AT clock                                     */
       /* Fix year by looping through each year, subtracting   */
       /* the appropriate number of days for that year.        */
-      for (Year = 1980, c = clk.clkDays; c > 0;)
+      for (Year = 1980, c = clk.clkDays; ;)
       {
-        count = is_leap_year(Year) ? 366 : 365;
-        if (c >= count)
+        pdays = is_leap_year_monthdays(Year);
+        if (c >= pdays[12])
         {
           ++Year;
-          c -= count;
+          c -= pdays[12];
         }
         else
           break;
@@ -282,12 +297,14 @@ WORD clk_driver(rqptr rp)
       /* days for that year.  Use this to index the table.    */
       for (Month = 1; Month < 13; ++Month)
       {
-        if (days[count == 366][Month] > c)
+        if (pdays[Month] > c)
         {
-          Day = c - days[count == 366][Month - 1] + 1;
+          Day = c - pdays[Month - 1] + 1;
           break;
         }
       }
+      
+      
       DayToBcd((BYTE *) bcdDays, &Month, &Day, &Year);
       bcdMinutes = ByteToBcd(clk.clkMinutes);
       bcdHours = ByteToBcd(clk.clkHours);

@@ -34,15 +34,15 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.4  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.5  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.4  2001/03/07 10:00:00 tomehlert
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
- * Revision 1.4  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.5  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
@@ -110,13 +110,21 @@ VOID cso(COUNT);
 VOID cso();
 #endif
 
+#ifdef __TURBOC__
+void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
+#endif
+
+
 /* special console output routine */
 VOID
 put_console(COUNT c)
 {
   if (c == '\n')
-    cso('\r');
-  cso(c);
+    put_console('\r');
+    
+  _AX = 0x0e00 | c;
+  _BX = 0x0070;
+  __int__(0x10);
 }
 
 /* special handler to switch between sprintf and printf */
@@ -188,7 +196,15 @@ sprintf(BYTE * buff, CONST BYTE * fmt, BYTE * args,...)
   handle_char(NULL);
   return ret;
 }
-
+/*
+ULONG FAR retcs(int i)
+{
+    char *p = (char*)&i;
+    
+    p -= 4;
+    return *(ULONG *)p;
+}
+*/
 COUNT
   do_printf(CONST BYTE * fmt, BYTE ** arg)
 {
@@ -202,7 +218,19 @@ COUNT
     fill;
   int longarg;  
   long currentArg;
-
+  
+/*  
+  long cs = retcs(1);
+  put_console("0123456789ABCDEF"[(cs >> 28) & 0x0f]);
+  put_console("0123456789ABCDEF"[(cs >> 24) & 0x0f]);
+  put_console("0123456789ABCDEF"[(cs >> 20) & 0x0f]);
+  put_console("0123456789ABCDEF"[(cs >> 16) & 0x0f]);
+  put_console(':');
+  put_console("0123456789ABCDEF"[(cs >> 12) & 0x0f]);
+  put_console("0123456789ABCDEF"[(cs >>  8) & 0x0f]);
+  put_console("0123456789ABCDEF"[(cs >>  4) & 0x0f]);
+  put_console("0123456789ABCDEF"[(cs >>  0) & 0x0f]);
+*/
   while ((c = *fmt++) != '\0')
   {
     if (c != '%')
@@ -242,7 +270,8 @@ COUNT
     }
 
     
-    switch (c = *fmt++)
+    c = *fmt++;
+    switch (c)
     {
       case '\0': 
       		return 0;
@@ -250,6 +279,15 @@ COUNT
       case 'c':
 	        handle_char(*(COUNT *) arg++);
     	    continue;
+
+      case 'p':
+            {
+            WORD w[2];
+            w[1] = *((unsigned int*) arg)++;
+            w[0] = *((unsigned int*) arg)++;
+            do_printf("%04x:%04x",(BYTE**)&w);
+    	    continue;
+    	    }
 
       case 's':
 			p = *((BYTE **) arg)++;
@@ -299,6 +337,8 @@ do_outputstring:
             continue;
 
           default:
+            handle_char('?');
+          
             handle_char(c);
             break;
 
@@ -370,7 +410,8 @@ struct  {
 		{  "2147483649", "%lu", 1,0x8000},
 		{ "-2147483647", "%ld", 1,0x8000},
 		{ "32767", "%ld", 0x7fff,0},
-		{ "32769", "%ld", 0x8001,0},
+
+		{ "ptr 1234:5678", "ptr %p", 0x5678,0x1234},
 		
 		
 		

@@ -34,6 +34,9 @@ static BYTE *stringsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -91,6 +94,7 @@ static BYTE *stringsRcsId = "$Id$";
  * Initial revision.
  */
 
+#ifndef ASMSUPT
 COUNT strlen(REG BYTE * s)
 {
   REG WORD cnt = 0;
@@ -204,3 +208,4 @@ BYTE *strchr(BYTE * s, BYTE c)
   while (*p);
   return 0;
 }
+#endif

@@ -36,8 +36,8 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.10  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.11  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.10  2001/03/08 21:00:00  bartoldeman
  * Fix handling of very long path names (Tom Ehlert)
@@ -271,6 +271,9 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     /* Convert the name into an absolute name for           */
     /* comparison...                                        */
     /* first the file name with trailing spaces...          */
+
+    memset(TempBuffer, ' ', FNAME_SIZE+FEXT_SIZE);
+    
     for (i = 0; i < FNAME_SIZE; i++)
     {
       if (*p != '\0' && *p != '.' && *p != '/' && *p != '\\')
@@ -278,9 +281,6 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
       else
         break;
     }
-
-    for (; i < FNAME_SIZE; i++)
-      TempBuffer[i] = ' ';
 
     /* and the extension (don't forget to   */
     /* add trailing spaces)...              */
@@ -293,8 +293,6 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
       else
         break;
     }
-    for (; i < FEXT_SIZE; i++)
-      TempBuffer[i + FNAME_SIZE] = ' ';
 
     /* Now search through the directory to  */
     /* find the entry...                    */
@@ -586,12 +584,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   BYTE FAR *ptr;
 
   static BYTE local_name[FNAME_SIZE + 1],
-    local_ext[FEXT_SIZE + 1],
-    Tname[65];
-
-  fsncopy(name, (BYTE FAR *)&Tname, sizeof(Tname));
-  Tname[sizeof(Tname)-1]=0;
-
+    local_ext[FEXT_SIZE + 1];
 /*
   printf("ff %s", Tname);
  */
@@ -610,7 +603,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   dmp->dm_attr_srch = attr | D_RDONLY | D_ARCHIVE;
 
   /* Parse out the drive, file name and file extension.           */
-  i = ParseDosName((BYTE FAR *)&Tname, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
+  i = ParseDosName((BYTE FAR *)name, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
   if (i != SUCCESS)
     return i;
 /*
@@ -639,28 +632,16 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   /* copy the part of the pattern which belongs to the filename and is fixed */
   for (p = local_name, i = 0; i < FNAME_SIZE && *p && *p != '*'; ++p, ++i)
     SearchDir.dir_name[i] = *p;
-  if (*p == '*')
-  {
-    for (; i < FNAME_SIZE; ++i)
-      SearchDir.dir_name[i] = '?';
-    while (*++p) ;
-  }
-  else
-    for (; i < FNAME_SIZE; i++)
-      SearchDir.dir_name[i] = ' ';
+
+  for (; i < FNAME_SIZE; ++i)
+      SearchDir.dir_name[i] = *p == '*' ?  '?' : ' ';
 
   /* and the extension (don't forget to add trailing spaces)...   */
   for (p = local_ext, i = 0; i < FEXT_SIZE && *p && *p != '*'; ++p, ++i)
     SearchDir.dir_ext[i] = *p;
-  if (*p == '*')
-  {
-    for (; i < FEXT_SIZE; ++i)
-      SearchDir.dir_ext[i] = '?';
-    while (*++p) ;
-  }
-  else
-    for (; i < FEXT_SIZE; i++)
-      SearchDir.dir_ext[i] = ' ';
+
+  for (; i < FEXT_SIZE; ++i)
+      SearchDir.dir_ext[i] = *p == '*' ?  '?' : ' ';
 
   /* Convert everything to uppercase. */
   DosUpFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
@@ -912,9 +893,6 @@ COUNT dos_findnext(void)
 
 static VOID pop_dmp(dmatch FAR * dmp, struct f_node FAR * fnp)
 {
-  COUNT idx;
-  BYTE FAR *p;
-  BYTE FAR *q;
 
   dmp->dm_attr_fnd = fnp->f_dir.dir_attrib;
   dmp->dm_time = fnp->f_dir.dir_time;
@@ -925,38 +903,43 @@ static VOID pop_dmp(dmatch FAR * dmp, struct f_node FAR * fnp)
   dmp->dm_flags.f_ddir = fnp->f_flags.f_ddir;
   dmp->dm_flags.f_dmod = fnp->f_flags.f_dmod;
   dmp->dm_flags.f_dnew = fnp->f_flags.f_dnew;
-  p = dmp->dm_name;
-  if (fnp->f_dir.dir_name[0] == '.')
-  {
-    for (idx = 0, q = (BYTE FAR *) fnp->f_dir.dir_name;
-         idx < FNAME_SIZE; idx++)
-    {
-      if (*q == ' ')
-        break;
-      *p++ = *q++;
-    }
-  }
-  else
-  {
-    for (idx = 0, q = (BYTE FAR *) fnp->f_dir.dir_name;
-         idx < FNAME_SIZE; idx++)
-    {
-      if (*q == ' ')
-        break;
-      *p++ = *q++;
-    }
-    if (fnp->f_dir.dir_ext[0] != ' ')
-    {
-      *p++ = '.';
-      for (idx = 0, q = (BYTE FAR *) fnp->f_dir.dir_ext; idx < FEXT_SIZE; idx++)
-      {
-        if (*q == ' ')
-          break;
-        *p++ = *q++;
-      }
-    }
-  }
-  *p++ = NULL;
+  
+  ConvertName83ToNameSZ((BYTE FAR *)dmp->dm_name, (BYTE FAR *) fnp->f_dir.dir_name);
+
 }
 #endif
-
+/*
+    this receives a name in 11 char field NAME+EXT and builds 
+    a zeroterminated string
+*/    
+void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName)
+{
+    int loop;
+    int noExtension = FALSE;
+    
+    if (*srcFCBName == '.')
+    {
+        noExtension = TRUE;
+    }
+    
+    
+    for (loop = FNAME_SIZE; --loop >= 0; srcFCBName++)
+    {
+        if (*srcFCBName != ' ')
+            *destSZ++ = *srcFCBName;     
+    }
+    
+    if (!noExtension)       /* not for ".", ".." */
+    {
+        if (*srcFCBName != ' ')
+        {
+            *destSZ++ = '.';
+            for (loop = FEXT_SIZE; --loop >= 0; srcFCBName++)
+            {
+                if (*srcFCBName != ' ')
+                    *destSZ++ = *srcFCBName;     
+            }
+        }
+    }
+    *destSZ = '\0';
+}

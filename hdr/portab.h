@@ -36,8 +36,8 @@ static char *portab_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.6  2001/03/19 05:08:53  bartoldeman
- * New macros from Tom Ehlert to save even more bytes.
+ * Revision 1.7  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.5  2001/03/08 21:15:00  bartoldeman
  * Fixes for MK_FP and friends from Tom Ehlert; reduces kernel by 1.5k.

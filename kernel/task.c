@@ -35,8 +35,8 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.6  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.7  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.6  2001/03/08 21:00:00  bartoldeman
  * UMB fixes to DosComLoader
@@ -441,7 +441,7 @@ set_name:
 
 }
 
-static COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
+COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
   COUNT rc,
     err,
@@ -674,7 +674,7 @@ static COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
   /* and finally add in the psp size                      */
   if (mode != OVERLAY)
-    image_size += (ULONG) long2para((LONG) sizeof(psp));
+    image_size += sizeof(psp);             /*TE 03/20/01*/
 
   if (mode != OVERLAY)
   {
@@ -956,7 +956,7 @@ VOID InitPSP(VOID)
 }
 
 /* process 0       */
-VOID FAR p_0(VOID)
+VOID FAR reloc_call_p_0(VOID)
 {
   exec_blk exb;
   CommandTail Cmd;

@@ -44,6 +44,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.4  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -348,7 +351,9 @@ log( ("NLS: nlsGetData(): Subfunction not found\n") );
 }
 
 VOID nlsCPchange(UWORD cp)
-{	printf("\7\nSorry, to change the codepage is not implemented, yet.\n\
+{
+	UNREFERENCED_PARAMETER(cp);
+	printf("\7\nSorry, to change the codepage is not implemented, yet.\n\
 Hope it's OK to proceed ignoring this call.\n-- 2000/02/26 ska\n");
 }
 
@@ -609,6 +614,8 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
 #pragma argsused
 UWORD syscall_MUX14(DIRECT_IREGS)
 {	struct nlsPackage FAR*nls;	/* addressed NLS package */
+
+	if (flags || cs || ip || ds || es || si);
 
 log( ("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n",
 	AL, BX, DX) );

@@ -31,7 +31,7 @@
 PSP_USERSP      equ     2eh
 PSP_USERSS      equ     30h
 
-segment _TEXT
+segment HMA_TEXT
 
                 global  _DosIdle_int
 
@@ -52,7 +52,7 @@ segment _TEXT
 _DosIdle_int:
                 push    ds
                 push    ax
-                mov     ax,DGROUP
+                mov     ax, DGROUP
                 mov     ds,ax
                 pop     ax
                 cmp     byte [_dosidle_flag],0

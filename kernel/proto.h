@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.8  2000/10/30 00:21:15  jimtabor
  * Adding Brian Reifsnyder Fix for Int 25/26
  *
@@ -152,15 +155,16 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 #ifdef IN_INIT_MOD
 #define __FAR_WRAPPER(ret, name, proto) \
-	ret FAR name proto;	/* will be expanded to `init_call_<name>' */
+	ret FAR name proto;     /* will be expanded to `init_call_<name>' */
 #else
 #define __FAR_WRAPPER(ret, name, proto) \
 	ret name proto; \
-	ret FAR init_call_##name proto;
+	ret FAR init_call_##name proto; \
+	ret FAR reloc_call_##name proto;
 #endif
 
 /* blockio.c */
-VOID FAR init_buffers(void);
+VOID FAR init_call_init_buffers(COUNT anzBuffers);
 ULONG getblkno(struct buffer FAR *);
 VOID setblkno(struct buffer FAR *, ULONG);
 struct buffer FAR *getblock(ULONG blkno, COUNT dsk);
@@ -207,7 +211,7 @@ BYTE FAR *get_root(BYTE FAR *);
 BOOL fnmatch(BYTE FAR *, BYTE FAR *, COUNT, COUNT);
 BOOL check_break(void);
 UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
-                   BOOL force_binary);
+		   BOOL force_binary);
 COUNT SftSeek(sft FAR *sftp, LONG new_pos, COUNT mode);
 UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
 UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
@@ -243,7 +247,7 @@ COUNT ParseDosName(BYTE FAR *, COUNT *, BYTE *, BYTE *, BYTE *, BOOL);
 COUNT ParseDosPath(BYTE FAR *, COUNT *, BYTE *, BYTE FAR *);
 
 /* dsk.c */
-COUNT blk_driver(rqptr rp);
+COUNT FAR init_call_blk_driver(rqptr rp);
 
 /* error.c */
 VOID dump(void);
@@ -345,7 +349,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb);
 UWORD init_oem(void);
 
 /* inthndlr.c */
-VOID INRPT far got_cbreak(void);	/* procsupt.asm */
+VOID INRPT far got_cbreak(void);        /* procsupt.asm */
 VOID INRPT far int20_handler(iregs UserRegs);
 VOID INRPT far int21_handler(iregs UserRegs);
 VOID far int21_entry(iregs UserRegs);
@@ -376,7 +380,7 @@ seg long2para(LONG size);
 VOID FAR *add_far(VOID FAR * fp, ULONG off);
 VOID FAR *adjust_far(VOID FAR * fp);
 __FAR_WRAPPER(COUNT, DosMemAlloc,
-              (UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize))
+	      (UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize))
 COUNT DosMemLargest(UWORD FAR * size);
 COUNT DosMemFree(UWORD para);
 COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize);
@@ -386,14 +390,34 @@ COUNT DosGetLargestBlock(UWORD FAR * block);
 VOID show_chain(void);
 VOID DosUmbLink(BYTE n);
 VOID mcb_print(mcb FAR * mcbp);
-VOID _fmemcpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n);
 
 /* misc.c */
+/*
 __FAR_WRAPPER(VOID, scopy, (REG BYTE * s, REG BYTE * d))
-VOID fscopy(REG BYTE FAR * s, REG BYTE FAR * d);
-VOID fsncopy(BYTE FAR * s, BYTE FAR * d, REG COUNT n);
-VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n);
+#define strcpy(d, s)    scopy(s, d)
 __FAR_WRAPPER(VOID, fbcopy, (REG VOID FAR * s, REG VOID FAR * d, REG COUNT n))
+
+*/
+__FAR_WRAPPER(VOID, strcpy, (REG BYTE * d, REG BYTE * s))
+#define scopy(s, d)    strcpy(d,s)
+__FAR_WRAPPER(VOID, fmemcpy, (REG VOID FAR * d, REG VOID FAR * s, REG COUNT n))
+#define fbcopy(s, d, n)    fmemcpy(d,s,n)
+void FAR _reloc_call_fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n);
+
+
+/*VOID fscopy(REG BYTE FAR * s, REG BYTE FAR * d);*/
+VOID fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
+#define fscopy(s,d) fstrcpy(d,s)
+
+VOID fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
+
+/*VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n);*/
+void memcpy(REG BYTE * d, REG BYTE * s, REG COUNT n);
+#define bcopy(s,d,n) memcpy(d,s,n)
+
+__FAR_WRAPPER(void, fmemset,(REG VOID FAR * s, REG int ch, REG COUNT n))
+__FAR_WRAPPER(void, memset ,(REG VOID     * s, REG int ch, REG COUNT n))
+
 
 /* nls.c */
 BYTE DosYesNo(unsigned char ch);
@@ -431,11 +455,17 @@ __FAR_WRAPPER(COUNT, strcmp, (REG BYTE * d, REG BYTE * s))
 COUNT fstrcmp(REG BYTE FAR * d, REG BYTE FAR * s);
 COUNT fstrncmp(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l);
 COUNT strncmp(REG BYTE * d, REG BYTE * s, COUNT l);
-VOID fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l);
+/*
+void fsncopy(REG BYTE FAR * s, REG BYTE FAR * d, COUNT l);
+#define fstrncpy(d,s,l) fsncopy(s,d,l)
+*/
+void fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l);
+#define fsncopy(s,d,l) fstrncpy(d,s,l)
+
 BYTE *strchr(BYTE * s, BYTE c);
 
 /* sysclk.c */
-WORD clk_driver(rqptr rp);
+WORD FAR init_call_clk_driver(rqptr rp);
 COUNT BcdToByte(COUNT x);
 COUNT BcdToWord(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr);
 COUNT ByteToBcd(COUNT x);
@@ -456,6 +486,11 @@ COUNT DosSetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp);
 VOID DosGetDate(BYTE FAR * wdp, BYTE FAR * mp, BYTE FAR * mdp, COUNT FAR * yp);
 COUNT DosSetDate(BYTE FAR * mp, BYTE FAR * mdp, COUNT FAR * yp);
 
+WORD  *is_leap_year_monthdays(int year);
+__FAR_WRAPPER(WORD,DaysFromYearMonthDay,(WORD Year, WORD Month, WORD DayOfMonth))
+
+
+
 /* task.c */
 COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname);
 VOID new_psp(psp FAR * p, int psize);
@@ -463,7 +498,7 @@ VOID return_user(void);
 __FAR_WRAPPER(COUNT, DosExec, (COUNT mode, exec_blk FAR * ep, BYTE FAR * lp))
 __FAR_WRAPPER(VOID, InitPSP, (VOID))
 
-VOID FAR p_0(void);
+VOID FAR init_call_p_0(VOID);
 
 /* irqstack.asm */
 VOID init_stacks(VOID FAR * stack_base, COUNT nStacks, WORD stackSize);
@@ -478,7 +513,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t);
 COUNT int2f_Remote_call(UWORD func, UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
 COUNT QRemote_Fn(char FAR * s, char FAR * d);
 
-COUNT FAR Umb_Test(void);
+COUNT Umb_Test(void);
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
@@ -487,9 +522,24 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp);
 
 /* procsupt.asm */
 VOID INRPT FAR exec_user(iregs FAR * irp);
-#define strcpy(d, s)    scopy(s, d)
 
 /* detect.c */
 unsigned long FAR is_dosemu(void);
 
 
+/* new by TE */
+
+/*
+    assert at compile time, that something is true.
+    
+    use like 
+        ASSERT_CONST( SECSIZE == 512) 
+        ASSERT_CONST( (BYTE FAR *)x->fcb_ext - (BYTE FAR *)x->fcbname == 8)
+*/
+
+#define ASSERT_CONST(x) { typedef struct { char x[2 * (x) - 1]; } xx ; }
+
+void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName);
+
+
+VOID FAR *HMAalloc(COUNT bytesToAllocate);

@@ -1,3 +1,28 @@
+2001 Mar 21 - Build 2022
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Clean  A lot of space savings by Tom Ehlert, merely because Turbo C 2.01 does not
+         do it. And several more complicated situations as well, like coding some
+	 string functions in assembly (asmsupt.asm).
++ Add    Tom Ehlert: support for DOS=HIGH. Now most of the kernel can be loaded into
+         the HMA. This required a lot of segmentation changes. Let's hope the best
+	 of it. Support for device drivers with multiple devices.
++ Fixes  From Tom Ehlert:
+         task.c bug fix (image_size is in bytes)
+	 dosfns.c change dir to E:\FREEDOS\*.PRJ fix
+	 fcbfns.c fixes.
+	 break.c Ctrl-C Ctrl-C -> crash temporary fix.
++ Fixes  From Bart:
+	 Let UMBs work again after HMA changes.
+	 Be able to compile sys.com again. Is now really a .exe file but still masks
+	 as .com in the hope that we can make it a real .com again.
+	 DeviceHigh loads low if there are not enough UMB's available.
+	 Fixed another redirector problem.
++ Update Optimized asmsupt.asm a bit with help of the glibc 2.2 source.	 
++ Fixes  Tom Ehlert and Brian Reifsnyder: fix partition detection in dsk.c + 
+         other bug fixes (also: floppy.asm).
++ Update Tom Ehlert optimized blockio.c.
++ Fixes  a few small ones from Tom I forgot.
+
 2001 Mar 08 - Build 2022
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  MCB chain corruption fix (thanks Tom Ehlert and Martin Stromberg)

@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
  * Revision 1.7  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -161,6 +164,7 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
 /*
    Needed Code Rep-off.;)
  */
+/*    
   p = dmp->dm_name;
   if (SDp->dir_name[0] == '.')
   {
@@ -189,8 +193,11 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
         *p++ = *q++;
       }
     }
-  }
+   }
   *p++ = NULL;
+*/    
+  ConvertName83ToNameSZ((BYTE FAR *) dmp->dm_name, (BYTE FAR *) SDp->dir_name);
+
 
   return i;
 }

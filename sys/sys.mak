@@ -4,6 +4,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.4  2001/03/21 02:56:26  bartoldeman
+# See history.txt for changes. Bug fixes and HMA support are the main ones.
+#
 # Revision 1.3  2000/05/25 20:56:23  jimtabor
 # Fixed project history
 #
@@ -36,7 +39,7 @@
 #CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
 #	 -L$(LIBPATH) -DI86;PROTO;DEBUG
 CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
-	 -L$(LIBPATH) -DI86;PROTO
+	 -L$(LIBPATH) -DI86;PROTO -zAHMA -zCHMA_TEXT -zDHMA_TEXT
 
 #               *Implicit Rules*
 .c.obj:
@@ -66,8 +69,9 @@ b_fat16.h:      ..\boot\b_fat16.bin bin2c.com
                 bin2c ..\boot\b_fat16.bin b_fat16.h b_fat16
 
 sys.com:        $(EXE_dependencies)
-                $(LINK) /m/t/c $(LIBPATH)\c0t.obj+sys.obj,sys,,\
-		$(LIBS)+$(CLIB);
+#		 $(LINK) /m/t/c $(LIBPATH)\c0t.obj+sys.obj,sys,,\
+		$(LINK) /m/c $(LIBPATH)\c0s.obj+sys.obj,sys.com,,\
+                $(LIBS)+$(CLIB);
 
 clobber:	clean
                 $(RM) sys.com b_fat12.h b_fat16.h

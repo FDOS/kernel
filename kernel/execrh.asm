@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:25  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -78,7 +81,7 @@
 
                 %include "segs.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
                 ; _execrh
                 ;       Execute Device Request
                 ;

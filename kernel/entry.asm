@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2001/03/21 02:56:25  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -72,12 +75,12 @@
 		%include "segs.inc"
                 %include "stacks.inc"
 
-segment	_TEXT
-                extern   _int21_syscall:wrt TGROUP
-                extern   _int25_handler:wrt TGROUP
-                extern   _int26_handler:wrt TGROUP
-                extern   _set_stack:wrt TGROUP
-                extern   _restore_stack:wrt TGROUP
+segment	HMA_TEXT
+                extern   _int21_syscall:wrt HGROUP
+                extern   _int25_handler:wrt HGROUP
+                extern   _int26_handler:wrt HGROUP
+                extern   _set_stack:wrt HMA_TEXT
+                extern   _restore_stack:wrt HGROUP
                 extern   _error_tos:wrt DGROUP
                 extern   _char_api_tos:wrt DGROUP
                 extern   _disk_api_tos:wrt DGROUP
@@ -100,12 +103,12 @@ segment	_TEXT
                 extern   _Int21AX:wrt DGROUP
 
 
-                global  _cpm_entry
-                global  _int20_handler
-                global  _int21_handler
-                global  _low_int25_handler
-                global  _low_int26_handler
-                global  _int27_handler
+                global  reloc_call_cpm_entry
+                global  reloc_call_int20_handler
+                global  reloc_call_int21_handler
+                global  reloc_call_low_int25_handler
+                global  reloc_call_low_int26_handler
+                global  reloc_call_int27_handler
 
 
 ;
@@ -118,7 +121,7 @@ segment	_TEXT
 ; function after the call.  What we do is convert it to a normal call and
 ; fudge the stack to look like an int 21h call.
 ;
-_cpm_entry:
+reloc_call_cpm_entry:
                 ; Stack is:
                 ;       return offset
                 ;       psp seg
@@ -159,7 +162,7 @@ _cpm_entry:
                 cmp     cl,024h
                 jbe     cpm_error
                 mov     ah,cl           ; get the call # from cl to ah
-                jmp     short _int21_handler    ; do the system call
+                jmp     short reloc_call_int21_handler    ; do the system call
 cpm_error:      mov     al,0
                 iret
 
@@ -189,7 +192,7 @@ _RestartSysCall:
 ;       VOID INRPT far
 ;       int20_handler(iregs UserRegs)
 ;
-_int20_handler:
+reloc_call_int20_handler:
                 mov     ah,0            ; terminate through int 21h
 
 
@@ -199,7 +202,7 @@ _int20_handler:
 ;       VOID INRPT far
 ;       int21_handler(iregs UserRegs)
 ;
-_int21_handler:
+reloc_call_int21_handler:
                 ;
                 ; Create the stack frame for C call.  This is done to
                 ; preserve machine state and provide a C structure for
@@ -347,7 +350,7 @@ dos_crit_sect:
 ;       VOID INRPT far
 ;       int27_handler(iregs UserRegs)
 ;
-_int27_handler:
+reloc_call_int27_handler:
                 ;
                 ; First convert the memory to paragraphs
                 ;
@@ -360,7 +363,7 @@ _int27_handler:
                 ; ... then use the standard system call
                 ;
                 mov     ax,3100h
-                jmp     _int21_handler  ; terminate through int 21h
+                jmp     reloc_call_int21_handler  ; terminate through int 21h
 
 ;
 ; I really do need to get rid of this because it's the only thing stopping
@@ -368,7 +371,7 @@ _int27_handler:
 ;
 stkframe        dd      0
 
-_low_int25_handler:
+reloc_call_low_int25_handler:
                 sti
                 pushf
                 push    ax
@@ -417,7 +420,7 @@ _low_int25_handler:
                                 ; flag image on the stack.
 
 
-_low_int26_handler:
+reloc_call_low_int26_handler:
                 sti
                 pushf
                 push    ax
@@ -478,12 +481,6 @@ PSP_USERSP      equ     2eh
 PSP_USERSS      equ     30h
 
 
-;
-; Default Int 24h handler -- always returns fail
-;
-                global  _int24_handler
-_int24_handler: mov     al,FAIL
-                iret
 
 ;
 ; COUNT

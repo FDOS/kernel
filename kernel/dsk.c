@@ -33,9 +33,8 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.10  2001/03/19 05:01:38  bartoldeman
- * Space saving and partition detection fixes from Tom Ehlert and
- * Brian Reifsnyder.
+ * Revision 1.11  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.9  2001/03/08 21:15:00  bartoldeman
  * Space saving fixes from Tom Ehlert
@@ -124,7 +123,7 @@ static BYTE *dskRcsId = "$Id$";
  * Initial revision.
  */
 
-#if 0 
+#if defined(DEBUG) 
     #define PartCodePrintf(x) printf x 
 #else    
     #define PartCodePrintf(x) 
@@ -155,7 +154,7 @@ COUNT fl_verify();
 BOOL fl_format();
 #endif
 
-#define NDEV            16      /* only one for demo            */
+#define NDEV            8       /* only one for demo            */
 #define SEC_SIZE        512     /* size of sector in bytes      */
 #define N_RETRY         5       /* number of retries permitted  */
 #define NENTRY          26      /* total size of dispatch table */
@@ -164,10 +163,17 @@ extern BYTE FAR nblk_rel;
 
 union
 {
-  BYTE bytes[2 * SEC_SIZE];
+  BYTE bytes[1 * SEC_SIZE];
   boot boot_sector;
-}
-buffer;
+} buffer;
+
+                            /* if the buffer above is good enough for booting
+                               it's also good enough for DMA input           */
+BYTE                        /* scratchpad used for working around                                           */
+  FAR * dma_scratch_buffer = (BYTE FAR *)&buffer; /* DMA transfers during disk I/O                                                */
+
+
+
 
 STATIC struct media_info
 {
@@ -229,7 +235,7 @@ STATIC struct dos_partitionS
 dos_partition[NDEV - 2];
 
 #ifdef PROTO
-WORD init(rqptr),
+WORD _dsk_init(rqptr),
   mediachk(rqptr),
   bldbpb(rqptr),
   blockio(rqptr),
@@ -247,7 +253,7 @@ COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, ULONG, byteptr);
 WORD dskerr(COUNT);
 COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder, BYTE ptSector, LONG ptAccuOff);
 #else
-WORD init(),
+WORD _dsk_init(),
   mediachk(),
   bldbpb(),
   blockio(),
@@ -275,7 +281,7 @@ static WORD(*dispatch[NENTRY]) (rqptr) =
 static WORD(*dispatch[NENTRY]) () =
 #endif
 {
-      init,                     /* Initialize                   */
+      _dsk_init,                     /* Initialize                   */
       mediachk,                 /* Media Check                  */
       bldbpb,                   /* Build BPB                    */
       blk_error,                /* Ioctl In                     */
@@ -317,9 +323,9 @@ static WORD(*dispatch[NENTRY]) () =
 
 
 
-ULONG StartSector(WORD ptDrive,     unsigned  BeginHead,
+ULONG StartSector(WORD ptDrive,     unsigned  BeginCylinder,
                                     unsigned BeginSector,   
-                                    unsigned BeginCylinder, 
+                                    unsigned BeginHead, 
                                     ULONG    peStartSector,
                                     ULONG    ptAccuOff)
 {
@@ -345,12 +351,8 @@ ULONG StartSector(WORD ptDrive,     unsigned  BeginHead,
         startPos = ((ULONG)BeginCylinder * heads + BeginHead) * sectors + BeginSector - 1;
 
         PartCodePrintf((" CHS %x %x %x (%d %d %d) --> %lx ( %ld)\n",
-                             BeginHead,    
-                             BeginSector,   
-                             BeginCylinder, 
-                             BeginHead,    
-                             BeginSector,   
-                             BeginCylinder, 
+                             BeginCylinder, BeginHead, BeginSector,
+                             BeginCylinder, BeginHead, BeginSector,
                              startPos, startPos));
         
         return startPos;
@@ -385,6 +387,7 @@ COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
   BYTE *p;
   int partition_chain = 0;
   int ret;
+  ULONG newStartPos;
   
 restart:                    /* yes, it's a GOTO >:-) */
 
@@ -395,8 +398,7 @@ restart:                    /* yes, it's a GOTO >:-) */
 
   
     PartCodePrintf(("searching partition table at %x %x %x %x %lx\n", 
-         ptDrive,  ptHead, ptCylinder,
-                   ptSector, ptAccuOff));
+         ptDrive,  ptCylinder, ptHead, ptSector, ptAccuOff));
 
   /* Read partition table                         */
   for ( retry = N_RETRY; --retry >= 0; )
@@ -437,110 +439,109 @@ restart:                    /* yes, it's a GOTO >:-) */
 
   /* Walk through the table, add DOS partitions to global
      array and process extended partitions         */
-  for (ptemp_part = &temp_part[0];
-       ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
-  {
-
+     
                                     /* when searching the EXT chain, 
                                        must skip primary partitions */  	
-    if ( ( (table_type==PRIMARY)  
-      || ( (table_type==EXTENDED) && (partition_chain!=0) ) ) && 
-        ( ptemp_part->peFileSystem == FAT12 ||
-    	  ptemp_part->peFileSystem == FAT16SMALL ||
-	      ptemp_part->peFileSystem == FAT16LARGE)    )
-    {
-      struct dos_partitionS *pdos_partition; 
-      
-      struct media_info *pmiarray = getPMiarray(nUnits);
-      	
-      pmiarray->mi_offset  = ptemp_part->peStartSector + ptAccuOff;
-      
-      PartCodePrintf(("mioffset1 = %lx - ", pmiarray->mi_offset));
-      pmiarray->mi_drive   = ptDrive;
-      pmiarray->mi_partidx = nPartitions;
-
-      {
-      ULONG newStartPos = StartSector(ptDrive, 
-                                    ptemp_part->peBeginHead,
-                                    ptemp_part->peBeginSector,   
-                                    ptemp_part->peBeginCylinder, 
-                                    ptemp_part->peStartSector,
-                                    ptAccuOff);
-                                    
-      if (newStartPos != pmiarray->mi_offset)
-        {
-        printf("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
-                                    ptemp_part->peBeginCylinder, 
-                                    ptemp_part->peBeginHead,
-                                    ptemp_part->peBeginSector,   
-                                    ptemp_part->peStartSector,
-                                    ptAccuOff);
-        printf(" old startpos = %ld, new startpos = %ld, taking new\n", 
-            pmiarray->mi_offset, newStartPos);
-                                    
-        pmiarray->mi_offset = newStartPos;
-        }                                      
-      }
-      
-      nUnits++;
-
-	  pdos_partition = &dos_partition[nPartitions];
-
-      pdos_partition->peDrive = ptDrive;
-      pdos_partition->peBootable    = ptemp_part->peBootable;
-      pdos_partition->peBeginHead   = ptemp_part->peBeginHead;
-      pdos_partition->peBeginSector = ptemp_part->peBeginSector;
-      pdos_partition->peBeginCylinder=ptemp_part->peBeginCylinder;
-      pdos_partition->peFileSystem   =ptemp_part->peFileSystem;
-      pdos_partition->peEndHead      =ptemp_part->peEndHead;
-      pdos_partition->peEndSector    =ptemp_part->peEndSector;
-      pdos_partition->peEndCylinder  =ptemp_part->peEndCylinder;
-      pdos_partition->peStartSector  =ptemp_part->peStartSector;
-      pdos_partition->peSectors      =ptemp_part->peSectors;
-      pdos_partition->peAbsStart     =ptemp_part->peStartSector + ptAccuOff;
-
-      PartCodePrintf(("DOS PARTITION drive %x CHS %x-%x-%x  %x-%x-%x  %lx %lx %lx FS %x\n",
-          pdos_partition->peDrive,
-          pdos_partition->peBeginCylinder,
-          pdos_partition->peBeginHead   ,
-          pdos_partition->peBeginSector ,
-          pdos_partition->peEndCylinder , 
-          pdos_partition->peEndHead     , 
-          pdos_partition->peEndSector   , 
-          pdos_partition->peStartSector , 
-          pdos_partition->peSectors     , 
-          pdos_partition->peAbsStart    ,
-           pdos_partition->peFileSystem
-          )); 
-      
-      
-      nPartitions++;
-    }
-  }
-  for (ptemp_part = &temp_part[0];
-       ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
+  if (   (table_type==PRIMARY)  ||
+       ( (table_type==EXTENDED) && (partition_chain!=0) ) ) 
   {
-    if ( (table_type==EXTENDED) &&
-         (ptemp_part->peFileSystem == EXTENDED ||
-          ptemp_part->peFileSystem == EXTENDED_INT32 ) )
-    {
-      /* restart with new extended part table, don't recurs */
-        partition_chain++;
-      
-        ptHead = ptemp_part->peBeginHead;
-        ptCylinder = ptemp_part->peBeginCylinder;
-        ptSector = ptemp_part->peBeginSector;
-        ptAccuOff = ptemp_part->peStartSector + ptAccuOff;
-        
-        goto restart;
-    }
-   
+     
+      for (ptemp_part = &temp_part[0];
+           ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
+      {
+    
+        if  ( ptemp_part->peFileSystem == FAT12      ||
+        	  ptemp_part->peFileSystem == FAT16SMALL ||
+    	      ptemp_part->peFileSystem == FAT16LARGE  )
+        {
+          struct dos_partitionS *pdos_partition; 
+          
+          struct media_info *pmiarray = getPMiarray(nUnits);
+          	
+          pmiarray->mi_offset  = ptemp_part->peStartSector + ptAccuOff;
+          
+          PartCodePrintf(("mioffset1 = %lx - ", pmiarray->mi_offset));
+          pmiarray->mi_drive   = ptDrive;
+          pmiarray->mi_partidx = nPartitions;
+    
+          newStartPos = StartSector(ptDrive, 
+                                        ptemp_part->peBeginCylinder, 
+                                        ptemp_part->peBeginHead,
+                                        ptemp_part->peBeginSector,   
+                                        ptemp_part->peStartSector,
+                                        ptAccuOff);
+                                        
+          if (newStartPos != pmiarray->mi_offset)
+          {
+            printf("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
+                        ptDrive, 
+                        ptemp_part->peBeginCylinder, ptemp_part->peBeginHead,ptemp_part->peBeginSector,   
+                        ptemp_part->peStartSector, ptAccuOff);
+                        
+            printf(" old startpos = %ld, new startpos = %ld, using new\n", 
+                pmiarray->mi_offset, newStartPos);
+                                        
+            pmiarray->mi_offset = newStartPos;
+          }                                      
+          
+          nUnits++;
+    
+    	  pdos_partition = &dos_partition[nPartitions];
+    
+          pdos_partition->peDrive = ptDrive;
+          pdos_partition->peBootable    = ptemp_part->peBootable;
+          pdos_partition->peBeginHead   = ptemp_part->peBeginHead;
+          pdos_partition->peBeginSector = ptemp_part->peBeginSector;
+          pdos_partition->peBeginCylinder=ptemp_part->peBeginCylinder;
+          pdos_partition->peFileSystem   =ptemp_part->peFileSystem;
+          pdos_partition->peEndHead      =ptemp_part->peEndHead;
+          pdos_partition->peEndSector    =ptemp_part->peEndSector;
+          pdos_partition->peEndCylinder  =ptemp_part->peEndCylinder;
+          pdos_partition->peStartSector  =ptemp_part->peStartSector;
+          pdos_partition->peSectors      =ptemp_part->peSectors;
+          pdos_partition->peAbsStart     =ptemp_part->peStartSector + ptAccuOff;
+    
+          PartCodePrintf(("DOS PARTITION drive %x CHS %x-%x-%x  %x-%x-%x  %lx %lx %lx FS %x\n",
+              pdos_partition->peDrive,
+              pdos_partition->peBeginCylinder,pdos_partition->peBeginHead   ,pdos_partition->peBeginSector  ,
+              pdos_partition->peEndCylinder  ,pdos_partition->peEndHead      ,pdos_partition->peEndSector   , 
+              pdos_partition->peStartSector , 
+              pdos_partition->peSectors     , 
+              pdos_partition->peAbsStart    ,
+               pdos_partition->peFileSystem
+              )); 
+          
+          nPartitions++;
+        }
+      }
+  }    
+  
+                    /* search for EXT partitions only on 2. run */
+  if (table_type==EXTENDED)
+  {
+      for (ptemp_part = &temp_part[0];
+           ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
+      {
+        if ( (ptemp_part->peFileSystem == EXTENDED ||
+              ptemp_part->peFileSystem == EXTENDED_INT32 ) )
+        {
+          /* restart with new extended part table, don't recurs */
+            partition_chain++;
+          
+            ptHead = ptemp_part->peBeginHead;
+            ptCylinder = ptemp_part->peBeginCylinder;
+            ptSector = ptemp_part->peBeginSector;
+            ptAccuOff = ptemp_part->peStartSector + ptAccuOff;
+            
+            goto restart;
+        }
+      }          
   }
   
   return TRUE;
 }
 
-COUNT blk_driver(rqptr rp)
+COUNT FAR init_call_blk_driver(rqptr rp)
 {
   if (rp->r_unit >= nUnits && rp->r_command != C_INIT)
     return failure(E_UNIT);
@@ -552,7 +553,7 @@ COUNT blk_driver(rqptr rp)
     return ((*dispatch[rp->r_command]) (rp));
 }
 
-static WORD init(rqptr rp)
+WORD _dsk_init(rqptr rp)
 {
   extern COUNT fl_nrdrives(VOID);
   COUNT HardDrive,
@@ -607,6 +608,9 @@ static WORD init(rqptr rp)
      primary partitions are added/removed, but
      thats the way it is (hope I got it right) 
      TE (with a little help from my friends) */
+     
+  PartCodePrintf(("DSK init: found %d disk drives\n",nHardDisk)); 
+     
   
   for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
   {
@@ -905,7 +909,6 @@ static WORD Genblkdev(rqptr rp)
         }
         case 0x0866:        /* get volume serial number */
         {
-        REG COUNT i;
         struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
         struct FS_info FAR * fs = &fsarray[rp->r_unit];
 
@@ -992,19 +995,23 @@ WORD blockio(rqptr rp)
       }
       
       
-      if (count)
+      if (count && FP_SEG(trans) != 0xffff)
+        {    
         ret = action((WORD) miarray[rp->r_unit].mi_drive, head, track, sector,
                      count, trans);
+        }                     
       else
       {
         count = 1;
-        /* buffer crosses DMA boundary, use scratchpad */
+        /* buffer crosses DMA boundary, use scratchpad  */
+        /* use scratchpad also, if going to HIGH memory */
+
         if (cmd != C_INPUT)
-          fbcopy(trans, dma_scratch, SEC_SIZE);
+          fbcopy(trans, dma_scratch_buffer, SEC_SIZE);
         ret = action((WORD) miarray[rp->r_unit].mi_drive, head, track, sector,
-                     1, dma_scratch);
+                     1, dma_scratch_buffer);
         if (cmd == C_INPUT)
-          fbcopy(dma_scratch, trans, SEC_SIZE);
+          fbcopy(dma_scratch_buffer, trans, SEC_SIZE);
       }
       if (ret != 0)
         fl_reset((WORD) miarray[rp->r_unit].mi_drive);

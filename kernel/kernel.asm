@@ -28,8 +28,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.6  2001/03/19 04:50:56  bartoldeman
-; See history.txt for overview: put kernel 2022beo1 into CVS
+; Revision 1.7  2001/03/21 02:56:26  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
 ; Revision 1.6  2001/03/08 21:15:00  bartoldeman
 ; uppermem_root initialised to 0 (no UMBs).
@@ -187,7 +187,7 @@ floppy:		mov	byte [_BootDrive],bl ; tell where we came from
 		shr	al,cl
 		inc	al
                 mov     byte [_NumFloppies],al ; and how many
-
+                
                 mov     ax,ds
                 mov     es,ax
         jmp _main
@@ -219,15 +219,6 @@ _nul_intr:
                 pop     es
                 retf
 
-		extern	_init_call_printf:wrt TGROUP
-
-		global	_printf
-
-_printf:
-		pop	ax
-		push	cs
-		push	ax
-		jmp	_init_call_printf
 
 
 segment	_FIXED_DATA
@@ -551,7 +542,9 @@ _FcbSearchBuffer:              ;  of error stack as scratch buffer
 _LocalPath:
 ;               times 67 db 0
                 ; stacks are made to initialize to no-ops so that high-water
-                ; tesing can be performed
+                ; testing can be performed
+                
+                global apistk_bottom
 apistk_bottom:
                 times STACK_SIZE dw 0      ;300 - Error Processing Stack
                 global  _error_tos
@@ -594,6 +587,14 @@ _ram_top        dw      0
 
 
 
+;
+; mark front and end of bss area to clear
+segment _BSSSTART
+    global __bssstart
+__bssstart:
+segment _BSSEND
+    global __bssend
+__bssend:
 
 segment	_BSSEND
 ; blockdev private stack
@@ -607,21 +608,410 @@ blk_stk_top:
 clk_stk_top:
 
 ; interrupt stack
+                global  intr_stk_top
                 times 256 dw 0
 intr_stk_top:
 
 ; kernel startup stack
+                global  tos
                 times 128 dw 0
 tos:
 
-                global  last
-last:                    ; must always be end of stack area
-                global  _last
-_last:                    ; and c version
+segment	INIT_TEXT_START
+                global  __InitTextStart
+__InitTextStart:                    ; and c version
+
+
+;
+; start end end of HMA area
+
+segment	HMA_TEXT_START
+                global __HMATextAvailable
+__HMATextAvailable
+                global  __HMATextStart
+__HMATextStart:   
+ 
+; 
+; the HMA area is filled with 16+22(=sizeof VDISK) = 32 byte dummy data,
+; so nothing will ever be below 0xffff:25
+;
+segment	HMA_TEXT
+                times 16 db 0   ; filler [ffff:0..ffff:10]
+                times 22 db 0   ; filler [sizeof VDISK info]
+                
+;End of HMA segment                
+segment	HMA_TEXT_END
+                global  __HMATextEnd
+__HMATextEnd:                   ; and c version
+
 
 
 ; The default stack (_TEXT:0) will overwrite the data area, so I create a dummy
 ; stack here to ease debugging. -- ror4
 
 segment	_STACK	class=STACK stack
+
+
+
+    
+
+segment	_TEXT
+        ; dummy interrupt return handlers
+        
+                global _int28_handler
+                global _int2a_handler
+                global _empty_handler
+_int28_handler:
+_int2a_handler:
+_empty_handler:
+                iret
+    
+
+; to minimize relocations
+    global _DGROUP_
+_DGROUP_:
+         dw DGROUP    
+
+
+segment _TEXT
+
+    global __HMARelocationTableStart
+__HMARelocationTableStart:    
+
+
+    extern _init_call_DosExec
+    global _reloc_call_DosExec
+_reloc_call_DosExec: jmp far _init_call_DosExec
+                call near forceEnableA20
+    
+    extern _init_call_DosMemAlloc
+    global _reloc_call_DosMemAlloc
+_reloc_call_DosMemAlloc: jmp far _init_call_DosMemAlloc
+                call near forceEnableA20
+    
+    extern _init_call_dos_close
+    global _reloc_call_dos_close
+_reloc_call_dos_close: jmp far _init_call_dos_close
+                call near forceEnableA20
+    
+    extern _init_call_dos_getdate
+    global _reloc_call_dos_getdate
+_reloc_call_dos_getdate: jmp far _init_call_dos_getdate
+                call near forceEnableA20
+    
+    extern _init_call_dos_gettime
+    global _reloc_call_dos_gettime
+_reloc_call_dos_gettime: jmp far _init_call_dos_gettime
+                call near forceEnableA20
+    
+    extern _init_call_dos_open
+    global _reloc_call_dos_open
+_reloc_call_dos_open: jmp far _init_call_dos_open
+                call near forceEnableA20
+    
+    extern _init_call_dos_read
+    global _reloc_call_dos_read
+_reloc_call_dos_read: jmp far _init_call_dos_read
+                call near forceEnableA20
+    
+    extern _init_call_execrh
+    global _reloc_call_execrh
+_reloc_call_execrh: jmp far _init_call_execrh
+                call near forceEnableA20
+    
+    extern _init_call_fatal
+    global _reloc_call_fatal
+_reloc_call_fatal: jmp far _init_call_fatal
+                call near forceEnableA20
+
+    extern _init_call_fmemcpy
+    global _reloc_call_fmemcpy
+_reloc_call_fmemcpy: jmp far _init_call_fmemcpy    
+                call near forceEnableA20
+
+    
+    extern _init_call_memcpy
+    global _reloc_call_memcpy
+_reloc_call_memcpy: jmp far _init_call_memcpy
+                call near forceEnableA20
+    
+    extern _init_call_printf
+    global _reloc_call_printf
+_reloc_call_printf: jmp far _init_call_printf
+                call near forceEnableA20
+    
+    extern _init_call_strcpy
+    global _reloc_call_strcpy
+_reloc_call_strcpy: jmp far _init_call_strcpy
+                call near forceEnableA20
+    
+    extern _init_call_sti
+    global _reloc_call_sti
+_reloc_call_sti: jmp far _init_call_sti
+                call near forceEnableA20
+    
+    extern _init_call_strcmp
+    global _reloc_call_strcmp
+_reloc_call_strcmp: jmp far _init_call_strcmp
+                call near forceEnableA20
+    
+    extern _init_call_strlen
+    global _reloc_call_strlen
+_reloc_call_strlen: jmp far _init_call_strlen
+                call near forceEnableA20
+    
+
+    extern _init_call_WritePCClock
+    global _reloc_call_WritePCClock
+_reloc_call_WritePCClock: jmp far _init_call_WritePCClock
+                call near forceEnableA20
+
+    extern _init_call_DaysFromYearMonthDay
+    global _reloc_call_DaysFromYearMonthDay
+_reloc_call_DaysFromYearMonthDay: jmp far _init_call_DaysFromYearMonthDay
+                call near forceEnableA20
+
+                global  _CharMapSrvc
+                extern  _reloc_call_CharMapSrvc
+_CharMapSrvc: jmp far _reloc_call_CharMapSrvc
+                call near forceEnableA20
+
+                global  _reloc_call_clk_driver
+                extern  _init_call_clk_driver
+_reloc_call_clk_driver: jmp far _init_call_clk_driver
+                call near forceEnableA20
+
+
+
+                global  _reloc_call_fmemset
+                extern  _init_call_fmemset
+_reloc_call_fmemset: jmp far _init_call_fmemset
+                call near forceEnableA20
+
+
+                global  _reloc_call_blk_driver
+                extern  _init_call_blk_driver
+_reloc_call_blk_driver: jmp far _init_call_blk_driver
+                call near forceEnableA20
+
+
+                global  _int2f_handler
+                extern  reloc_call_int2f_handler
+_int2f_handler: jmp far reloc_call_int2f_handler
+                call near forceEnableA20
+
+                global  _int20_handler
+                extern  reloc_call_int20_handler
+_int20_handler: jmp far reloc_call_int20_handler
+                call near forceEnableA20
+
+
+
+
+                global  _int21_handler
+                extern  reloc_call_int21_handler
+_int21_handler: jmp far reloc_call_int21_handler
+                call near forceEnableA20
+
+
+                global  _low_int25_handler
+                extern  reloc_call_low_int25_handler
+_low_int25_handler: jmp far reloc_call_low_int25_handler
+                call near forceEnableA20
+
+                global  _low_int26_handler
+                extern  reloc_call_low_int26_handler
+_low_int26_handler: jmp far reloc_call_low_int26_handler
+                call near forceEnableA20
+
+                global  _int27_handler
+                extern  reloc_call_int27_handler
+_int27_handler: jmp far reloc_call_int27_handler
+                call near forceEnableA20
+
+
+
+                global  _cpm_entry
+                extern  reloc_call_cpm_entry
+_cpm_entry: jmp far reloc_call_cpm_entry
+                call near forceEnableA20
+
+;                global  _init_call_init_buffers
+;                extern  _reloc_call_init_buffers
+;_init_call_init_buffers: jmp far _reloc_call_init_buffers
+;                call near forceEnableA20
+
+                global  _init_call_p_0
+                extern  _reloc_call_p_0
+_init_call_p_0: jmp far _reloc_call_p_0
+                call near forceEnableA20
+
+		
+    global __HMARelocationTableEnd
+__HMARelocationTableEnd:    
+
+;
+; if we were lucky, we found all entries from the outside to the kernel.
+; if not, BUMS
+;
+;
+; this routine makes the HMA area available. PERIOD.
+; must conserve ALL registers
+; will be only ever called, if HMA (DOS=HIGH) is enabled.
+; for obvious reasons it should be located at the relocation table
+;
+    global enableA20        ; to see it in the map
+    
+delay:
+     in al, 64h
+delay_check:
+     and al, 2
+     jnz delay
+     ret
+
+;void _EnableHMA()
+;{
+;    OutportWithDelay(0x64, 0xd1);
+;    OutportWithDelay(0x60, 0xdf);
+;    OutportWithDelay(0x64, 0xff);
+;}    
+
+    global _XMSDriverAddress
+_XMSDriverAddress:  
+                    dw 0            ; XMS driver, if detected
+                    dw 0
+
+    global __EnableA20
+__EnableA20:
+    cmp word [cs:_XMSDriverAddress],0
+    jne enableUsingXMSdriver
+    cmp word [cs:_XMSDriverAddress+2],0
+    jne enableUsingXMSdriver
+
+
+                        ; we do it ourself, without an XMS driver
+     mov al,0d1h
+     out 64h,al
+     call delay
+     mov al,0dfh
+     out 60h,al
+     call delay
+     mov al,0ffh
+     out 64h,al
+     call delay
+     retf
+
+enableUsingXMSdriver:
+    mov ah,3
+UsingXMSdriver:    
+    call far [cs:_XMSDriverAddress]
+    retf
+
+    global __DisableA20
+__DisableA20:
+    mov ah,4
+    cmp word [cs:_XMSDriverAddress],0
+    jne UsingXMSdriver
+    cmp word [cs:_XMSDriverAddress+2],0
+    jne UsingXMSdriver
+
+                        ; we do it ourself, without an XMS driver
+                        ;OutportWithDelay(0x64, 0xd1);
+                        ;OutportWithDelay(0x60, 0xdd);
+                        ;OutportWithDelay(0x64, 0xff);
+     mov al,0d1h
+     out 64h,al
+     call delay
+     mov al,0ddh
+     out 60h,al
+     call delay
+     mov al,0ffh
+     out 64h,al
+     call delay
+
+     retf
+
+
+dslowmem  dw 0
+eshighmem dw 0ffffh
+
+    global forceEnableA20
+forceEnableA20:
+
+    push ds
+    push es
+    push ax
+    
+forceEnableA20retry:    
+    mov  ds, [cs:dslowmem]
+    mov  es, [cs:eshighmem]
+    
+    mov ax, [ds:00000h]    
+    cmp ax, [es:00010h]    
+    jne forceEnableA20success
+
+    mov ax, [ds:00002h]    
+    cmp ax, [es:00012h]    
+    jne forceEnableA20success
+
+    mov ax, [ds:00004h]    
+    cmp ax, [es:00014h]    
+    jne forceEnableA20success
+
+    mov ax, [ds:00006h]    
+    cmp ax, [es:00016h]    
+    jne forceEnableA20success
+
+;
+;   ok, we have to enable A20 )at least seems so
+;
+    ; some debug first
+    ; push bx
+    ; mov  ah, 0eh
+    ; mov  al, 'H'
+    ; mov  bx, 0007h
+    ; int  10h
+    ; pop bx
+    
+    call far __EnableA20
+    
+    jmp short forceEnableA20retry
+    
+    
+    
+forceEnableA20success:    
+    pop ax
+    pop es
+    pop ds
+    ret
+		
+
+
+
+
+
+segment _TEXT
+;
+; Default Int 24h handler -- always returns fail
+; so we have not to relocate it (now)
+;
+FAIL            equ     03h
+
+                global  _int24_handler
+_int24_handler: mov     al,FAIL
+                iret
+
+
+segment HMA_TEXT    
+		extern	_init_call_printf:wrt TGROUP
+		global	_printf
+
+_printf:
+		pop	ax
+		push	cs
+		push	ax
+		jmp	_init_call_printf
+
+
+
 

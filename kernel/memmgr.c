@@ -35,8 +35,8 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.8  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.9  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.8  2001/03/08 21:00:00  bartoldeman
  * UMB and MCB chain corruption (thanks Martin Stromberg) fixes
@@ -114,8 +114,14 @@ VOID mcb_init();
 VOID mcb_print();
 VOID show_chain();
 
-#define nxtMCBsize(mcb,size)	\
-	MK_FP(far2para((VOID FAR *) (mcb)) + (size) + 1, 0)
+/*#define nxtMCBsize(mcb,size)	\
+	MK_FP(far2para((VOID FAR *) (mcb)) + (size) + 1, 0) */
+
+void FAR *nxtMCBsize(mcb FAR *Mcb, int size)	
+{
+	return MK_FP(far2para((VOID FAR *) (Mcb)) + (size) + 1, 0);
+}
+
 #define nxtMCB(mcb) nxtMCBsize((mcb), (mcb)->m_size)
 
 #define mcbFree(mcb) ((mcb)->m_psp == FREE_PSP)
@@ -164,6 +170,8 @@ seg long2para(LONG size)
  */
 VOID FAR *add_far(VOID FAR * fp, ULONG off)
 {
+  if (FP_SEG(fp) == 0xffff) return ((BYTE FAR *)fp) + off;
+    
   off += FP_OFF(fp);
 
   return MK_FP(FP_SEG(fp) + (UWORD) (off >> 4), (UWORD) off & 0xf);
@@ -176,6 +184,9 @@ VOID FAR *adjust_far(VOID FAR * fp)
 {
   /* and return an adddress adjusted to the nearest paragraph     */
   /* boundary.                                                    */
+  
+  if (FP_SEG(fp) == 0xffff) return fp;
+  
   return MK_FP(FP_SEG(fp) + (FP_OFF(fp) >> 4), FP_OFF(fp) & 0xf);
 }
 
@@ -613,14 +624,14 @@ VOID mcb_print(mcb FAR * mcbp)
          mcbp->m_psp,
          mcbp->m_size);
 }
-
+/*
 VOID _fmemcpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n)
 {
   while (n--)
     *d++ = *s++;
 
 }
-
+*/
 VOID DosUmbLink(BYTE n)
 {
     REG mcb FAR *p;

@@ -27,6 +27,7 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
+
 #include "init-mod.h"
 
 #include "portab.h"
@@ -39,8 +40,8 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.9  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.10  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.9  2001/03/08 21:15:00  bartoldeman
  * Fixed handling of "DOS=UMB", use toupper instead of tolower consistently.
@@ -148,8 +149,10 @@ static BYTE *RcsId = "$Id$";
  */
 
 #ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
+    void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
+    #define int3() __int__(3);
 #endif
+
 
 #ifdef KDB
 #include <alloc.h>
@@ -163,7 +166,7 @@ static BYTE FAR *lpOldLast;
 static BYTE FAR *upOldLast;
 static COUNT nCfgLine;
 static COUNT nPass;
-static COUNT UmbState;
+       COUNT UmbState;
 static BYTE szLine[256];
 static BYTE szBuf[256];
 
@@ -172,7 +175,7 @@ int singleStep = 0;
 INIT VOID  zumcb_init(mcb FAR * mcbp, UWORD size);
 INIT VOID  mumcb_init(mcb FAR * mcbp, UWORD size);
 
-INIT VOID Buffers(BYTE * pLine);
+INIT VOID Config_Buffers(BYTE * pLine);
 INIT VOID sysScreenMode(BYTE * pLine);
 INIT VOID sysVersion(BYTE * pLine);
 INIT VOID Break(BYTE * pLine);
@@ -181,18 +184,29 @@ INIT VOID DeviceHigh(BYTE * pLine);
 INIT VOID Files(BYTE * pLine);
 INIT VOID Fcbs(BYTE * pLine);
 INIT VOID Lastdrive(BYTE * pLine);
-INIT VOID LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
+INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
 INIT VOID Dosmem(BYTE * pLine);
 INIT VOID Country(BYTE * pLine);
 INIT VOID InitPgm(BYTE * pLine);
 INIT VOID Switchar(BYTE * pLine);
 INIT VOID CfgFailure(BYTE * pLine);
 INIT VOID Stacks(BYTE * pLine);
+INIT VOID SetAnyDos(BYTE * pLine);
 INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg);
 INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
 INIT struct dhdr FAR *linkdev(struct dhdr FAR * dhp);
 INIT UWORD initdev(struct dhdr FAR * dhp, BYTE FAR * cmdTail);
 INIT int SkipLine(char *pLine);
+INIT char *stristr(char *s1, char *s2);
+
+INIT BYTE FAR *KernelAlloc(WORD nBytes);
+
+extern void HMAconfig(int finalize);
+VOID config_init_buffers(COUNT anzBuffers); /* from BLOCKIO.C */
+
+extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
+
+
 
 INIT static VOID FAR *AlignParagraph(VOID FAR * lpPtr);
 #ifndef I86
@@ -213,12 +227,12 @@ struct table
 static struct table commands[] =
 {
   {"BREAK", 1, Break},
-  {"BUFFERS", 1, Buffers},
+  {"BUFFERS", 1, Config_Buffers},
   {"COMMAND", 1, InitPgm},
   {"COUNTRY", 1, Country},
   {"DEVICE", 2, Device},
   {"DEVICEHIGH", 2, DeviceHigh},
-  {"DOS", 2, Dosmem},
+  {"DOS", 1, Dosmem},
   {"FCBS", 1, Fcbs},
   {"FILES", 1, Files},
   {"LASTDRIVE", 1, Lastdrive},
@@ -229,6 +243,7 @@ static struct table commands[] =
   {"SWITCHAR", 1, Switchar},
   {"SCREEN", 1, sysScreenMode}, /* JPP */
   {"VERSION", 1, sysVersion},   /* JPP */
+  {"ANYDOS", 1, SetAnyDos},   /* JPP */
         /* default action                                               */
   {"", -1, CfgFailure}
 };
@@ -240,6 +255,21 @@ INIT BYTE FAR *KernelAllocDma(WORD);
 
 BYTE *pLineStart;
 
+BYTE HMATextIsAvailable = 0;
+
+void FAR * ConfigAlloc(COUNT bytes)
+{
+    VOID FAR *p;
+    
+    p = HMAalloc(bytes);
+    
+    if (p == NULL) p = KernelAlloc(bytes);
+    
+    /* printf("ConfigAllog %d at %p\n", bytes, p);*/
+    
+    return p;
+}    
+
 /* Do first time initialization.  Store last so that we can reset it    */
 /* later.                                                               */
 INIT void PreConfig(void)
@@ -247,26 +277,34 @@ INIT void PreConfig(void)
   /* Set pass number                                              */
   nPass = 0;
   VgaSet = 0;
-  UmbState = 0;
-
+  UmbState = 0; 
+ 
   /* Initialize the base memory pointers                          */
-  lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & last);
+  
+  
+  if ( HMATextIsAvailable )
+      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _HMATextAvailable);
+    else
+      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _InitTextStart);
 
 #ifdef DEBUG
-  printf("SDA located at 0x%04x:0x%04x\n",
-	  FP_SEG(internal_data), FP_OFF(internal_data));
+  printf("SDA located at 0x%p\n", internal_data);
 #endif
   /* Begin by initializing our system buffers                     */
-  dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE);
+  /* the dms_scratch buffer is statically allocated
+     in the DSK module */
+  /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
 #ifdef DEBUG
-  printf("Preliminary DMA scratchpad allocated at 0x%04x:0x%04x\n",
-         FP_SEG(dma_scratch), FP_OFF(dma_scratch));
+  /* printf("Preliminary DMA scratchpad allocated at 0x%p\n",dma_scratch);*/
 #endif
-  buffers = (struct buffer FAR *)
-      KernelAlloc(Config.cfgBuffers * sizeof(struct buffer));
+
+
+
+  config_init_buffers( Config.cfgBuffers );
+/*  buffers = (struct buffer FAR *)
+      KernelAlloc(Config.cfgBuffers * sizeof(struct buffer)); */
 #ifdef DEBUG
-  printf("Preliminary %d buffers allocated at 0x%04x:0x%04x\n", Config.cfgBuffers,
-         FP_SEG(buffers), FP_OFF(buffers));
+/*  printf("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers);*/
 #endif
 
   /* Initialize the file table                                    */
@@ -285,22 +323,16 @@ INIT void PreConfig(void)
       KernelAlloc(0x58 * (lastdrive));
 
 #ifdef DEBUG
-
-  printf("Preliminary f_node allocated at 0x%04x:0x%04x\n",
-         FP_SEG(f_nodes), FP_OFF(f_nodes));
-  printf("Preliminary FCB table allocated at 0x%04x:0x%04x\n",
-         FP_SEG(FCBp), FP_OFF(FCBp));
-  printf("Preliminary sft table allocated at 0x%04x:0x%04x\n",
-         FP_SEG(sfthead), FP_OFF(sfthead));
-  printf("Preliminary CDS table allocated at 0x%04x:0x%04x\n",
-         FP_SEG(CDSp), FP_OFF(CDSp));
+  printf("Preliminary f_node allocated at at 0x%p\n",f_nodes);
+  printf("Preliminary FCB table allocated at 0x%p\n",FCBp);
+  printf("Preliminary sft table allocated at 0x%p\n",sfthead);
+  printf("Preliminary CDS table allocated at 0x%p\n",CDSp);
 #endif
 
   /* Done.  Now initialize the MCB structure                      */
   /* This next line is 8086 and 80x86 real mode specific          */
 #ifdef DEBUG
-  printf("Preliminary  allocation completed: top at 0x%04x:0x%04x\n",
-         FP_SEG(lpBase), FP_OFF(lpBase));
+  printf("Preliminary  allocation completed: top at 0x%p\n",lpBase);
 #endif
 
 #ifdef KDB
@@ -327,20 +359,29 @@ INIT void PostConfig(void)
   if (lastdrive < nblkdev )
     lastdrive = nblkdev ;
 
+
+
   /* Initialize the base memory pointers from last time.          */
-  lpBase = AlignParagraph(lpOldLast);
+
+  if ( HMATextIsAvailable )
+      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _HMATextStart);
+    else
+      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _InitTextStart);
 
   /* Begin by initializing our system buffers                     */
-  dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE);
+  /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
 #ifdef DEBUG
-  printf("DMA scratchpad allocated at 0x%04x:0x%04x\n", FP_SEG(dma_scratch),
-         FP_OFF(dma_scratch));
+  /* printf("DMA scratchpad allocated at 0x%p\n", dma_scratch); */
 #endif
-  buffers = (struct buffer FAR *)
-      KernelAlloc(Config.cfgBuffers * sizeof(struct buffer));
+
+
+  config_init_buffers( Config.cfgBuffers );
+
+  /* buffers = (struct buffer FAR *)
+      KernelAlloc(Config.cfgBuffers * sizeof(struct buffer)); */
+
 #ifdef DEBUG
-  printf("%d buffers allocated at 0x%04x:0x%04x\n", Config.cfgBuffers,
-         FP_SEG(buffers), FP_OFF(buffers));
+  /* printf("%d buffers allocated at 0x%p\n", Config.cfgBuffers,buffers); */
 #endif
 
   /* Initialize the file table                                    */
@@ -360,14 +401,10 @@ INIT void PostConfig(void)
 
 #ifdef DEBUG
 
-  printf("f_node allocated at 0x%04x:0x%04x\n",
-         FP_SEG(f_nodes), FP_OFF(f_nodes));
-  printf("FCB table allocated at 0x%04x:0x%04x\n",
-         FP_SEG(FCBp), FP_OFF(FCBp));
-  printf("sft table allocated at 0x%04x:0x%04x\n",
-         FP_SEG(sfthead), FP_OFF(sfthead));
-  printf("CDS table allocated at 0x%04x:0x%04x\n",
-         FP_SEG(CDSp), FP_OFF(CDSp));
+  printf("f_node    allocated at 0x%p\n",f_nodes);
+  printf("FCB table allocated at 0x%p\n",FCBp);
+  printf("sft table allocated at 0x%p\n",sfthead);
+  printf("CDS table allocated at 0x%p\n",CDSp);
 #endif
   if (Config.cfgStacks)
   {
@@ -375,13 +412,11 @@ INIT void PostConfig(void)
     init_stacks(stackBase, Config.cfgStacks, Config.cfgStackSize);
 
 #ifdef  DEBUG
-    printf("Stacks allocated at %04x:%04x\n",
-           FP_SEG(stackBase), FP_OFF(stackBase));
+    printf("Stacks allocated at %p\n",stackBase);
 #endif
   }
 #ifdef DEBUG
-  printf("Allocation completed: top at 0x%04x:0x%04x\n",
-         FP_SEG(lpBase), FP_OFF(lpBase));
+  printf("Allocation completed: top at 0x%p\n",lpBase);
 #endif
 
 
@@ -391,6 +426,10 @@ INIT void PostConfig(void)
 INIT VOID configDone(VOID)
 {
   COUNT i;
+  
+    HMAconfig(TRUE);        /* final HMA processing */
+  
+  
 
   if (lastdrive < nblkdev) {
 #ifdef DEBUG
@@ -426,8 +465,7 @@ INIT VOID configDone(VOID)
     }
 
 #ifdef DEBUG
-  printf("UMB Allocation completed: top at 0x%04x:0x%04x\n",
-         FP_SEG(upBase), FP_OFF(upBase));
+  printf("UMB Allocation completed: top at 0x%p\n",upBase);
 #endif
 
   /* The standard handles should be reopened here, because
@@ -509,6 +547,9 @@ INIT VOID DoConfig(VOID)
 /*
     Do it here in the loop.
 */
+
+                            /* shouldn't this go also AFTER the last line has been read?
+                               might be the UMB driver */
     if(UmbState == 2){
         if(!Umb_Test()){
             UmbState = 1;
@@ -624,7 +665,7 @@ INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
   return scan(pLine, pszString);
 }
 
-INIT static VOID Buffers(BYTE * pLine)
+INIT void Config_Buffers(BYTE * pLine)
 {
   COUNT nBuffers;
 
@@ -719,17 +760,49 @@ INIT static VOID Lastdrive(BYTE * pLine)
     UmbState of confidence, 1 is sure, 2 maybe, 4 unknown and 0 no way.
 */
 
+#ifdef __TURBOC__
+void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
+#endif
+#define int3() __int__(3);
+
 INIT static VOID Dosmem(BYTE * pLine)
 {
     BYTE *pTmp;
-    
-    if(UmbState == 0){
-    uppermem_link = 0;
-    uppermem_root = 0;
-    GetStringArg(pLine, szBuf);
+    BYTE  UMBwanted = FALSE, HMAwanted = FALSE;
+
+
+    pLine = GetStringArg(pLine, szBuf);
+
     for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
         *pTmp = toupper(*pTmp);
-    UmbState = strcmp(szBuf, "UMB") ? 0 : 2;
+
+    printf("DOS called with %s\n", szBuf);
+    int3();
+
+    for (pTmp = szBuf ; ; )
+    {
+        if (fmemcmp(pTmp, "UMB" ,3) == 0) { UMBwanted = TRUE; pTmp += 3; }
+        if (fmemcmp(pTmp, "HIGH",4) == 0) { HMAwanted = TRUE; pTmp += 4; }
+
+        pTmp = skipwh(pTmp);
+
+        if (*pTmp != ',')
+            break;
+        pTmp++;    
+    }        
+    
+    
+    if(UmbState == 0){
+        uppermem_link = 0;
+        uppermem_root = 0;
+        UmbState = UMBwanted ? 2 : 0;
+    }
+
+    if (HMAwanted)
+    {
+        int MoveKernelToHMA();    
+            
+        HMATextIsAvailable = MoveKernelToHMA();    
     }
 }
 
@@ -771,10 +844,15 @@ INIT static VOID Fcbs(BYTE * pLine)
  *      Returns TRUE if successful, FALSE if not.
  */
 
-static INIT BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
+INIT BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
 {
 /* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename); */
 	printf("Sorry, the COUNTRY= statement has been temporarily disabled\n");
+	
+	UNREFERENCED_PARAMETER(codePage);
+	UNREFERENCED_PARAMETER(ctryCode);
+	UNREFERENCED_PARAMETER(filename);
+	
 	return FALSE;
 }
 
@@ -867,7 +945,11 @@ INIT static VOID DeviceHigh(BYTE * pLine)
 {
     if(UmbState == 1)
     {
-        LoadDevice(pLine, UMB_top, TRUE);
+        if (LoadDevice(pLine, UMB_top, TRUE) == DE_NOMEM)
+        {
+            printf("Not enough free memory in UMB's: loading low\n");
+            LoadDevice(pLine, ram_top, FALSE);
+        }
     }
     else
     {
@@ -876,12 +958,12 @@ INIT static VOID DeviceHigh(BYTE * pLine)
     }
 }
 
-INIT static VOID Device(BYTE * pLine)
+INIT void Device(BYTE * pLine)
 {
     LoadDevice(pLine, ram_top, FALSE);
 }
 
-INIT static VOID LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
+INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 {
   VOID FAR *driver_ptr;
   BYTE *pTmp;
@@ -889,6 +971,7 @@ INIT static VOID LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
   struct dhdr FAR *dhp;
   struct dhdr FAR *next_dhp;
   UWORD dev_seg;
+  BOOL result;
 
   if(mode)
     dev_seg = (((ULONG) FP_SEG(upBase) << 4) + FP_OFF(upBase) + 0xf) >> 4;
@@ -908,18 +991,74 @@ INIT static VOID LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
          szBuf, dev_seg);
 #endif
 
+  int3();
+
   if (DosExec(3, &eb, szBuf) == SUCCESS)
   {
-    /* Link in device driver and save nul_dev pointer to next */
-    next_dhp = dhp->dh_next = nul_dev.dh_next;
-    nul_dev.dh_next = dhp;
+    /* TE this fixes the loading of devices drivers with 
+       multiple devices in it. NUMEGA's SoftIce is such a beast
+   */   
+   
+   for ( ; ; )
+   { 
+      struct dhdr FAR *previous_nul_dhp;
+    
+        previous_nul_dhp = nul_dev.dh_next;
+        
+        next_dhp = dhp->dh_next;
+        
+        /* Link in device driver and save nul_dev pointer to next */
+        dhp->dh_next = nul_dev.dh_next;
+        nul_dev.dh_next = dhp;
+        
+        /*  that's a nice hack >:-)   
+        
+            although we don't want HIMEM.SYS,(it's not free), other people
+            might load HIMEM.SYS to see if they are compatible to it.
+    
+            if it's HIMEM.SYS, we won't survive TESTMEM:ON
+            
+            so simply add TESTMEM:OFF to the commandline
+        */
+        pTmp = pLine;
+    
+        int3();
+        if (DosLoadedInHMA)
+            if (stristr(szBuf, "HIMEM.SYS") != NULL)
+            {
+                if (stristr(pLine, "/TESTMEM:OFF") == NULL)
+                    {
+                    pTmp = szBuf;
+                    strcpy(pTmp, pLine);
+                    strcat(pTmp, " /TESTMEM:OFF\r\n");
+                    }
+            }
+        /* end of HIMEM.SYS HACK */    
 
-    if(init_device(dhp, pLine, mode, top)){
-        nul_dev.dh_next = next_dhp;     /* return orig pointer if error */
-    }
+        result=init_device(dhp, pTmp, mode, top);
+        if(result){
+            nul_dev.dh_next = previous_nul_dhp;     /* return orig pointer if error */
+        }
+      
+                                                    /* multiple devices end */
+      if (FP_OFF(next_dhp) == 0xffff)               /* end of internal chain */
+        break;
+      
+      FP_OFF(dhp) = FP_OFF(next_dhp);
+      
+      if (FP_SEG(next_dhp) != 0xffff)
+        {
+        printf("multisegmented device driver found, next %p\n",next_dhp); /* give warning message */
+        dhp = next_dhp;  
+        }
+    } 
+
+    HMAconfig(FALSE);   /* let the HMA claim HMA usage */
+
   }
   else
     CfgFailure(pLine);
+  return result;
 }
 
 INIT static VOID CfgFailure(BYTE * pLine)
@@ -934,7 +1073,7 @@ INIT static VOID CfgFailure(BYTE * pLine)
 }
 
 #ifndef KDB
-INIT static BYTE FAR *KernelAlloc(WORD nBytes)
+INIT BYTE FAR *KernelAlloc(WORD nBytes)
 {
   BYTE FAR *lpAllocated;
 
@@ -956,7 +1095,7 @@ INIT static BYTE FAR *KernelAlloc(WORD nBytes)
 #endif
 
 #ifdef I86
-INIT static BYTE FAR *KernelAllocDma(WORD bytes)
+INIT BYTE FAR *KernelAllocDma(WORD bytes)
 {
   BYTE FAR *allocated;
 
@@ -968,7 +1107,7 @@ INIT static BYTE FAR *KernelAllocDma(WORD bytes)
   return allocated;
 }
 
-INIT static VOID FAR *AlignParagraph(VOID FAR * lpPtr)
+INIT void FAR *AlignParagraph(VOID FAR * lpPtr)
 {
   ULONG lTemp;
   UWORD uSegVal;
@@ -1122,4 +1261,86 @@ INIT VOID
   strcpy(d, s);
 }
 
+/* see if the second string is contained in the first one, ignoring case */
+char *stristr(char *s1, char *s2)
+{
+    int loop;
+    
+    for ( ; *s1 ; s1++)
+        for ( loop = 0; ; loop++)
+        {
+            if (s2[loop] == 0)  /* found end of string 2 -> success */
+            {
+                return s1;      /* position where s2 was found */
+            }
+        if (toupper(s1[loop]) != toupper(s2[loop]) )
+            break;
+        }    
+        
+    return NULL;
+}    
 
+
+/*
+    moved from BLOCKIO.C here.
+    that saves some relocation problems    
+*/
+
+
+VOID config_init_buffers(COUNT anzBuffers)
+{
+  REG WORD i;
+  struct buffer FAR *pbuffer;
+  int HMAcount = 0;
+  
+  anzBuffers = max(anzBuffers,6);
+  anzBuffers = min(anzBuffers,64);
+  
+  firstbuf = ConfigAlloc(sizeof (struct buffer));
+  
+  pbuffer = firstbuf;  
+
+  for (i = 0; ; ++i)
+  {
+    if (FP_SEG(pbuffer) == 0xffff) HMAcount++;
+    
+    lastbuf = pbuffer;
+    
+    pbuffer->b_unit = 0;
+    pbuffer->b_flag = 0;
+    pbuffer->b_blkno = 0;
+    pbuffer->b_copies = 0;
+    pbuffer->b_offset_lo = 0;
+    pbuffer->b_offset_hi = 0;
+    pbuffer->b_next = NULL;
+
+    /* printf("init_buffers buffer %d at %p\n",i, pbuffer);*/
+
+    if (i < (anzBuffers - 1))
+        pbuffer->b_next = ConfigAlloc(sizeof (struct buffer));
+
+    if (pbuffer->b_next == NULL)
+        break;  
+        
+    pbuffer = pbuffer->b_next;        
+  }
+  
+  if (HMAcount > 0) 
+    printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
+                            HMAcount, HMAcount*sizeof (struct buffer));
+}
+
+/*
+    Undocumented feature: 
+    
+    ANYDOS 
+        will report to MSDOS programs just the version number
+        they expect. be careful with it!
+*/        
+    
+
+INIT VOID SetAnyDos(BYTE * pLine)
+{
+    UNREFERENCED_PARAMETER(pLine);
+    ReturnAnyDosVersionExpected = TRUE;
+}

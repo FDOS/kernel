@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.7  2001/03/21 02:56:26  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.6  2000/06/21 18:16:46  jimtabor
 ; Add UMB code, patch, and code fixes
 ;
@@ -72,8 +75,8 @@
                 extern   _NumFloppies:wrt DGROUP
                 extern   blk_stk_top:wrt DGROUP
                 extern   clk_stk_top:wrt DGROUP
-                extern   _blk_driver:wrt TGROUP
-                extern   _clk_driver:wrt TGROUP
+                extern   _reloc_call_blk_driver
+                extern   _reloc_call_clk_driver
 
 ;---------------------------------------------------
 ;
@@ -224,11 +227,11 @@ blk_dos_seg	resw	1
 clk_dos_stk	resw	1
 clk_dos_seg	resw	1
 
-segment	_IO_TEXT
-
+segment _IO_TEXT
 		global	_ReqPktPtr
 _ReqPktPtr	dd	0
 uUnitNumber	dw	0
+
 
 ;
 ; Name:
@@ -413,8 +416,10 @@ DiskIntrEntry:
                 push    ds
                 push    bx
                 mov     bp,sp
-                mov     ax,DGROUP
-                mov     ds,ax
+                push ax
+                mov  ax,DGROUP
+                mov ds,ax
+                pop ax
                 cld
                 call    word [cs:si+1]
                 pop     cx
@@ -435,10 +440,10 @@ AsmType:        mov     al,[bx+unit]
                 xchg    di,ax
 
                 les     di,[bx+trans]
-                push    ax
-                mov     ax,DGROUP
+                push ax
+                mov ax, DGROUP
                 mov     ds,ax
-                pop     ax
+                pop ax
                 cld
                 jmp     word [cs:si+1]
 
@@ -542,9 +547,9 @@ blk_entry:
                 push    di
                 push    ds
                 push    es
-
+                
                 ; small model
-                mov     ax,DGROUP                       ; correct for segments
+                mov     ax,DGROUP                   ; correct for segments
                 mov     ds,ax                           ; ax to carry segment
                 mov     word [blk_dos_stk],sp		; use internal stack
                 mov     word [blk_dos_seg],ss
@@ -558,7 +563,7 @@ blk_entry:
                 mov     bp,sp                           ; make a c frame
                 push    word [cs:_ReqPktPtr+2]
                 push    word [cs:_ReqPktPtr]
-                call    _blk_driver
+                call    far _reloc_call_blk_driver
                 pop     cx
                 pop     cx
                 les     bx,[cs:_ReqPktPtr]		; now return completion code
@@ -580,6 +585,8 @@ blk_entry:
 
 
 
+
+
                 ;
                 ; clock device interrupt
                 ;
@@ -597,9 +604,9 @@ clk_entry:
                 push    di
                 push    ds
                 push    es
-
+                
                 ; small model
-                mov     ax,DGROUP                       ; correct for segments
+                mov     ax,DGROUP                   ; correct for segments
                 mov     ds,ax                           ; ax to carry segment
                 mov     word [clk_dos_stk],sp		; use internal stack
                 mov     word [clk_dos_seg],ss
@@ -613,7 +620,7 @@ clk_entry:
                 mov     bp,sp                           ; make a c frame
                 push    word [cs:_ReqPktPtr+2]
                 push    word [cs:_ReqPktPtr]
-                call    _clk_driver
+                call    far _reloc_call_clk_driver
                 pop     cx
                 pop     cx
                 les     bx,[cs:_ReqPktPtr]		; now return completion code

@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.7  2001/03/21 02:56:26  bartoldeman
+; See history.txt for changes. Bug fixes and HMA support are the main ones.
+;
 ; Revision 1.6  2000/08/06 05:50:17  jimtabor
 ; Add new files and update cvs with patches and changes
 ;
@@ -88,14 +91,14 @@
 		%include "segs.inc"
         %include "stacks.inc"
 
-segment	_TEXT
+segment	HMA_TEXT
             extern  _nul_dev:wrt DGROUP
             extern  _umb_start:wrt DGROUP
             extern  _UMB_top:wrt DGROUP
-            extern _syscall_MUX14:wrt _TEXT
+            extern _syscall_MUX14:wrt HMA_TEXT
 
-                global  _int2f_handler
-_int2f_handler:
+                global  reloc_call_int2f_handler
+reloc_call_int2f_handler:
                 sti                             ; Enable interrupts
                 cmp     ah,11h                  ; Network interrupt?
                 jne     Int2f3                  ; No, continue
@@ -336,6 +339,8 @@ int2f_call:
 ;  B2h    UMB segment number is invalid
 ;
 ;
+
+segment INIT_TEXT
                 global  _Umb_Test
 _Umb_Test
                 push    bp
@@ -345,8 +350,8 @@ _Umb_Test
                 push    dx
                 push    bx
 
-                mov     ax,DGROUP
-                mov     ds,ax
+                mov     ax, DGROUP
+                mov     ds, ax
 
                 mov     ax,4300h        ; is there a xms driver installed?
                 int     2fh
@@ -404,4 +409,4 @@ umbt_error:     dec     ax
                 pop     ds
                 pop     es
                 pop     bp
-                retf                ; this was called FAR.
+                ret                ; this was called NEAR!!

@@ -36,8 +36,8 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.13  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.14  2001/03/21 02:56:26  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
  * Revision 1.13  2001/03/08 21:00:00  bartoldeman
  * MCB chain corruption and DosFindNext fix (thanks Martin Stromberg and Tom Ehlert)
@@ -309,14 +309,36 @@ VOID int21_syscall(iregs FAR * irp)
   }
 }
 
+static int debug_cnt;
+
 VOID int21_service(iregs FAR * r)
 {
   COUNT rc = 0,
 	  rc1;
   ULONG lrc;
   psp FAR *p = MK_FP(cu_psp, 0);
+  void FAR *FP_DS_DX = MK_FP(r->DS, r->DX); /* this is saved so often,
+                                               that this saves ~100 bytes */
+
+    
+#define CLEAR_CARRY_FLAG()  r->FLAGS &= ~FLG_CARRY
+#define SET_CARRY_FLAG()    r->FLAGS |= FLG_CARRY
 
   p->ps_stack = (BYTE FAR *) r;
+  
+  
+  switch(r->AH)
+    {
+    case 0x2a: /*DosGetDate */
+    case 0x2b: /*DosSetDate */
+    case 0x2c: /*DosGetTime */
+    case 0x2d: /*DosSetDate */
+        break;
+    default:
+        debug_cnt++; /* debuggable statement */
+    }        
+        
+  
 
 #ifdef DEBUG
   if (bDumpRegs)
@@ -422,21 +444,20 @@ dispatch:
     case 0x09:
       {
         static COUNT scratch;
-        BYTE FAR *p = MK_FP(r->DS, r->DX),
-          FAR * q;
-        q = p;
+        BYTE FAR * q;
+        q = FP_DS_DX;
         while (*q != '$')
           ++q;
-        DosWrite(STDOUT, q - p, p, (COUNT FAR *) & scratch);
+        DosWrite(STDOUT, q - (BYTE FAR*)FP_DS_DX, FP_DS_DX, (COUNT FAR *) & scratch);
       }
       r->AL = '$';
       break;
 
       /* Buffered Keyboard Input                                      */
     case 0x0a:
-      ((keyboard FAR *) MK_FP(r->DS, r->DX))->kb_count = 0;
-      sti((keyboard FAR *) MK_FP(r->DS, r->DX));
-      ((keyboard FAR *) MK_FP(r->DS, r->DX))->kb_count -= 2;
+      ((keyboard FAR *) FP_DS_DX)->kb_count = 0;
+      sti((keyboard FAR *) FP_DS_DX);
+      ((keyboard FAR *) FP_DS_DX)->kb_count -= 2;
       break;
 
       /* Check Stdin Status                                           */
@@ -477,35 +498,35 @@ dispatch:
       break;
 
     case 0x0f:
-      if (FcbOpen(MK_FP(r->DS, r->DX)))
+      if (FcbOpen(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
       break;
 
     case 0x10:
-      if (FcbClose(MK_FP(r->DS, r->DX)))
+      if (FcbClose(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
       break;
 
     case 0x11:
-      if (FcbFindFirst(MK_FP(r->DS, r->DX)))
+      if (FcbFindFirst(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
       break;
 
     case 0x12:
-      if (FcbFindNext(MK_FP(r->DS, r->DX)))
+      if (FcbFindNext(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
       break;
 
     case 0x13:
-      if (FcbDelete(MK_FP(r->DS, r->DX)))
+      if (FcbDelete(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
@@ -513,7 +534,7 @@ dispatch:
 
     case 0x14:
       {
-        if (FcbRead(MK_FP(r->DS, r->DX), &CritErrCode))
+        if (FcbRead(FP_DS_DX, &CritErrCode))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -522,7 +543,7 @@ dispatch:
 
     case 0x15:
       {
-        if (FcbWrite(MK_FP(r->DS, r->DX), &CritErrCode))
+        if (FcbWrite(FP_DS_DX, &CritErrCode))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -530,14 +551,14 @@ dispatch:
       }
 
     case 0x16:
-      if (FcbCreate(MK_FP(r->DS, r->DX)))
+      if (FcbCreate(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
       break;
 
     case 0x17:
-      if (FcbRename(MK_FP(r->DS, r->DX)))
+      if (FcbRename(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
@@ -565,7 +586,7 @@ dispatch:
       {
         psp FAR *p = MK_FP(cu_psp, 0);
 
-        p->ps_dta = MK_FP(r->DS, r->DX);
+        p->ps_dta = FP_DS_DX;
         dos_setdta(p->ps_dta);
       }
       break;
@@ -625,7 +646,7 @@ dispatch:
       /* Random read using FCB */
     case 0x21:
       {
-        if (FcbRandomRead(MK_FP(r->DS, r->DX), &CritErrCode))
+        if (FcbRandomRead(FP_DS_DX, &CritErrCode))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -635,7 +656,7 @@ dispatch:
       /* Random write using FCB */
     case 0x22:
       {
-        if (FcbRandomWrite(MK_FP(r->DS, r->DX), &CritErrCode))
+        if (FcbRandomWrite(FP_DS_DX, &CritErrCode))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -644,7 +665,7 @@ dispatch:
 
       /* Get file size in records using FCB */
     case 0x23:
-      if (FcbGetFileSize(MK_FP(r->DS, r->DX)))
+      if (FcbGetFileSize(FP_DS_DX))
         r->AL = 0;
       else
         r->AL = 0xff;
@@ -652,13 +673,13 @@ dispatch:
 
       /* Set random record field in FCB */
     case 0x24:
-      FcbSetRandom(MK_FP(r->DS, r->DX));
+      FcbSetRandom(FP_DS_DX);
       break;
 
       /* Set Interrupt Vector                                         */
     case 0x25:
       {
-        VOID(INRPT FAR * p) () = MK_FP(r->DS, r->DX);
+        VOID(INRPT FAR * p) () = FP_DS_DX;
 
         setvec(r->AL, p);
       }
@@ -676,7 +697,7 @@ dispatch:
       /* Read random record(s) using FCB */
     case 0x27:
       {
-        if (FcbRandomBlockRead(MK_FP(r->DS, r->DX), r->CX, &CritErrCode))
+        if (FcbRandomBlockRead(FP_DS_DX, r->CX, &CritErrCode))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -686,7 +707,7 @@ dispatch:
       /* Write random record(s) using FCB */
     case 0x28:
       {
-        if (FcbRandomBlockWrite(MK_FP(r->DS, r->DX), r->CX, &CritErrCode))
+        if (FcbRandomBlockWrite(FP_DS_DX, r->CX, &CritErrCode))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -769,6 +790,34 @@ dispatch:
       r->CH = REVISION_MAJOR;   /* JPP */
       r->CL = REVISION_MINOR;
       r->BL = REVISION_SEQ;
+      
+      if (ReturnAnyDosVersionExpected)  
+      {
+                            /* TE for testing purpose only and NOT 
+                               to be documented:
+                               return programs, who ask for version == XX.YY
+                               exactly this XX.YY. 
+                               this makes most MS programs more happy.
+                            */
+        UBYTE FAR *retp = MK_FP(r->cs, r->ip);
+        
+        if (     retp[0] == 0x3d  &&     /* cmp ax, xxyy */
+                (retp[3] == 0x75 || retp[3] == 0x74)) /* je/jne error    */
+        {
+            r->AL = retp[1];
+            r->AH = retp[2];
+        }
+        else if(retp[0] == 0x86 &&      /* xchg al,ah   */
+                retp[1] == 0xc4 &&
+                retp[2] == 0x3d &&      /* cmp ax, xxyy */
+               (retp[5] == 0x75 || retp[5] == 0x74)) /* je/jne error    */                               
+        {
+            r->AL = retp[4];
+            r->AH = retp[3];
+        }                
+            
+      }
+      
       break;
 
       /* Keep Program (Terminate and stay resident) */
@@ -872,65 +921,65 @@ dispatch:
         		goto error_invalid;
         } else {
         	/* Get Country Information */
-            if((rc = DosGetCountryInformation(cntry, MK_FP(r->DS, r->DX))) < 0)
+            if((rc = DosGetCountryInformation(cntry, FP_DS_DX)) < 0)
         		goto error_invalid;
         	r->AX = r->BX = cntry;
         }
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Dos Create Directory                                         */
     case 0x39:
-      rc = DosMkdir((BYTE FAR *) MK_FP(r->DS, r->DX));
+      rc = DosMkdir((BYTE FAR *) FP_DS_DX);
       if (rc != SUCCESS)
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Dos Remove Directory                                         */
     case 0x3a:
-      rc = DosRmdir((BYTE FAR *) MK_FP(r->DS, r->DX));
+      rc = DosRmdir((BYTE FAR *) FP_DS_DX);
       if (rc != SUCCESS)
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Dos Change Directory                                         */
     case 0x3b:
-      if ((rc = DosChangeDir((BYTE FAR *) MK_FP(r->DS, r->DX))) < 0)
+      if ((rc = DosChangeDir((BYTE FAR *) FP_DS_DX)) < 0)
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Dos Create File                                              */
     case 0x3c:
-      if ((rc = DosCreat(MK_FP(r->DS, r->DX), r->CX)) < 0)
+      if ((rc = DosCreat(FP_DS_DX, r->CX)) < 0)
         goto error_exit;
       else
       {
         r->AX = rc;
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Dos Open                                                     */
     case 0x3d:
-      if ((rc = DosOpen(MK_FP(r->DS, r->DX), r->AL)) < 0)
+      if ((rc = DosOpen(FP_DS_DX, r->AL)) < 0)
         goto error_exit;
       else
       {
         r->AX = rc;
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
@@ -939,12 +988,12 @@ dispatch:
       if ((rc = DosClose(r->BX)) < 0)
         goto error_exit;
       else
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Dos Read                                                     */
     case 0x3f:
-      rc = DosRead(r->BX, r->CX, MK_FP(r->DS, r->DX), (COUNT FAR *) & rc1);
+      rc = DosRead(r->BX, r->CX, FP_DS_DX, (COUNT FAR *) & rc1);
 
       if (rc1 != SUCCESS)
       {
@@ -953,14 +1002,14 @@ dispatch:
       }
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
         r->AX = rc;
       }
       break;
 
       /* Dos Write                                                    */
     case 0x40:
-      rc = DosWrite(r->BX, r->CX, MK_FP(r->DS, r->DX), (COUNT FAR *) & rc1);
+      rc = DosWrite(r->BX, r->CX, FP_DS_DX, (COUNT FAR *) & rc1);
       if (rc1 != SUCCESS)
       {
         r->AX = -rc1;
@@ -968,21 +1017,21 @@ dispatch:
       }
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
         r->AX = rc;
       }
       break;
 
       /* Dos Delete File                                              */
     case 0x41:
-      rc = DosDelete((BYTE FAR *) MK_FP(r->DS, r->DX));
+      rc = DosDelete((BYTE FAR *) FP_DS_DX);
       if (rc < 0)
       {
         r->AX = -rc;
         goto error_out;
       }
       else
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Dos Seek                                                     */
@@ -992,8 +1041,8 @@ dispatch:
       else
       {
         r->DX = (lrc >> 16);
-        r->AX = lrc & 0xffff;
-        r->FLAGS &= ~FLG_CARRY;
+        r->AX = (UWORD)lrc;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
@@ -1002,21 +1051,21 @@ dispatch:
       switch (r->AL)
       {
         case 0x00:
-          rc = DosGetFattr((BYTE FAR *) MK_FP(r->DS, r->DX), (UWORD FAR *) & r->CX);
+          rc = DosGetFattr((BYTE FAR *) FP_DS_DX, (UWORD FAR *) & r->CX);
           if (rc != SUCCESS)
             goto error_exit;
           else
           {
-            r->FLAGS &= ~FLG_CARRY;
+            CLEAR_CARRY_FLAG();
           }
           break;
 
         case 0x01:
-          rc = DosSetFattr((BYTE FAR *) MK_FP(r->DS, r->DX), (UWORD FAR *) & r->CX);
+          rc = DosSetFattr((BYTE FAR *) FP_DS_DX, (UWORD FAR *) & r->CX);
           if (rc != SUCCESS)
             goto error_exit;
           else
-            r->FLAGS &= ~FLG_CARRY;
+            CLEAR_CARRY_FLAG();
           break;
 
         default:
@@ -1035,7 +1084,7 @@ dispatch:
           goto error_out;
         }
         else{
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
         }
       }
       break;
@@ -1047,7 +1096,7 @@ dispatch:
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
         r->AX = rc;
       }
       break;
@@ -1058,7 +1107,7 @@ dispatch:
       if (rc < SUCCESS)
         goto error_exit;
       else
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Get Current Directory                                        */
@@ -1067,7 +1116,7 @@ dispatch:
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
         r->AX = 0x0100;         /*jpp: from interrupt list */
       }
       break;
@@ -1082,7 +1131,7 @@ dispatch:
       else
       {
         ++(r->AX);              /* DosMemAlloc() returns seg of MCB rather than data */
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
@@ -1091,7 +1140,7 @@ dispatch:
       if ((rc = DosMemFree((r->ES) - 1)) < 0)
         goto error_exit;
       else
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Set memory block size */
@@ -1117,7 +1166,7 @@ dispatch:
           goto error_exit;
         }
         else
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
 
         break;
       }
@@ -1126,11 +1175,11 @@ dispatch:
     case 0x4b:
       break_flg = FALSE;
 
-      if ((rc = DosExec(r->AL, MK_FP(r->ES, r->BX), MK_FP(r->DS, r->DX)))
+      if ((rc = DosExec(r->AL, MK_FP(r->ES, r->BX), FP_DS_DX))
           != SUCCESS)
         goto error_exit;
       else
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Terminate Program                                            */
@@ -1179,12 +1228,12 @@ dispatch:
       {
         /* dta for this call is set on entry.  This     */
         /* needs to be changed for new versions.        */
-        if ((rc = DosFindFirst((UCOUNT) r->CX, (BYTE FAR *) MK_FP(r->DS, r->DX))) < 0)
+        if ((rc = DosFindFirst((UCOUNT) r->CX, (BYTE FAR *) FP_DS_DX)) < 0)
           goto error_exit;
         else
         {
           r->AX = 0;
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
         }
       }
       break;
@@ -1204,7 +1253,7 @@ dispatch:
         }
         else
         {
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
           r->AX = -SUCCESS;
         }
       }
@@ -1235,12 +1284,12 @@ dispatch:
 
       /* Dos Rename                                                   */
     case 0x56:
-      rc = DosRename((BYTE FAR *) MK_FP(r->DS, r->DX), (BYTE FAR *) MK_FP(r->ES, r->DI));
+      rc = DosRename((BYTE FAR *) FP_DS_DX, (BYTE FAR *) MK_FP(r->ES, r->DI));
       if (rc < SUCCESS)
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
@@ -1256,7 +1305,7 @@ dispatch:
           if (rc < SUCCESS)
             goto error_exit;
           else
-            r->FLAGS &= ~FLG_CARRY;
+            CLEAR_CARRY_FLAG();
           break;
 
         case 0x01:
@@ -1267,7 +1316,7 @@ dispatch:
           if (rc < SUCCESS)
             goto error_exit;
           else
-            r->FLAGS &= ~FLG_CARRY;
+            CLEAR_CARRY_FLAG();
           break;
 
         default:
@@ -1304,7 +1353,7 @@ dispatch:
                 goto error_invalid;
             }
         }
-            r->FLAGS &= ~FLG_CARRY;
+            CLEAR_CARRY_FLAG();
             break;
 
         case 0x02:
@@ -1335,23 +1384,23 @@ dispatch:
         r->CH = CritErrLocus;
         r->BH = CritErrClass;
         r->BL = CritErrAction;
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Create Temporary File */
     case 0x5a:
-      if ((rc = DosMkTmp(MK_FP(r->DS, r->DX), r->CX)) < 0)
+      if ((rc = DosMkTmp(FP_DS_DX, r->CX)) < 0)
         goto error_exit;
       else
       {
         r->AX = rc;
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Create New File */
     case 0x5b:
-      if ((rc = DosOpen(MK_FP(r->DS, r->DX), 0)) >= 0)
+      if ((rc = DosOpen(FP_DS_DX, 0)) >= 0)
       {
         DosClose(rc);
         r->AX = 80;
@@ -1359,12 +1408,12 @@ dispatch:
       }
       else
       {
-        if ((rc = DosCreat(MK_FP(r->DS, r->DX), r->CX)) < 0)
+        if ((rc = DosCreat(FP_DS_DX, r->CX)) < 0)
           goto error_exit;
         else
         {
           r->AX = rc;
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
         }
       }
       break;
@@ -1379,7 +1428,7 @@ dispatch:
          ((r->AX & 0xff) != 0))) != 0)
           r->FLAGS |= FLG_CARRY;
       else
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
       r->AX = -rc;
       break;
 /* /// End of additions for SHARE.  - Ron Cemer */
@@ -1391,7 +1440,7 @@ dispatch:
           /* Remote Server Call */
         case 0x00:
           {
-            UWORD FAR *x = MK_FP(r->DS, r->DX);
+            UWORD FAR *x = FP_DS_DX;
             r->AX = x[0];
             r->BX = x[1];
             r->CX = x[2];
@@ -1408,7 +1457,7 @@ dispatch:
           r->SI = FP_OFF(internal_data);
           r->CX = swap_always - internal_data;
           r->DX = swap_indos - internal_data;
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
           break;
 
         case 0x07:
@@ -1421,7 +1470,7 @@ dispatch:
 	    if (result != SUCCESS) {
           goto error_out;
 	    } else {
-	      r->FLAGS &= ~FLG_CARRY;
+	      CLEAR_CARRY_FLAG();
 	    }
           break;
 	  }
@@ -1434,11 +1483,11 @@ dispatch:
       switch (r->AL)
       {
         case 0x00:
-          r->CX = get_machine_name(MK_FP(r->DS, r->DX));
+          r->CX = get_machine_name(FP_DS_DX);
           break;
 
         case 0x01:
-          set_machine_name(MK_FP(r->DS, r->DX), r->CX);
+          set_machine_name(FP_DS_DX, r->CX);
           break;
 
         default:
@@ -1449,7 +1498,7 @@ dispatch:
 	    if (result != SUCCESS) {
             goto error_out;
 	    } else {
-	  	    r->FLAGS &= ~FLG_CARRY;
+	  	    CLEAR_CARRY_FLAG();
 	    }
           break;
       }
@@ -1479,7 +1528,7 @@ dispatch:
 	    if (result != SUCCESS) {
             goto error_out;
 	    } else {
-	  	    r->FLAGS &= ~FLG_CARRY;
+	  	    CLEAR_CARRY_FLAG();
 	    }
           break;
 	  }
@@ -1492,7 +1541,7 @@ dispatch:
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
@@ -1549,19 +1598,19 @@ dispatch:
             r->DL = DosUpChar(r->DL);
             break;
         case 0x21:				/* upcase memory area */
-            DosUpMem(MK_FP(r->DS, r->DX), r->CX);
+            DosUpMem(FP_DS_DX, r->CX);
             break;
         case 0x22:				/* upcase ASCIZ */
-            DosUpString(MK_FP(r->DS, r->DX));
+            DosUpString(FP_DS_DX);
             break;
     	case 0xA0:				/* upcase single character of filenames */
             r->DL = DosUpFChar(r->DL);
             break;
         case 0xA1:				/* upcase memory area of filenames */
-            DosUpFMem(MK_FP(r->DS, r->DX), r->CX);
+            DosUpFMem(FP_DS_DX, r->CX);
             break;
         case 0xA2:				/* upcase ASCIZ of filenames */
-            DosUpFString(MK_FP(r->DS, r->DX));
+            DosUpFString(FP_DS_DX);
             break;
         case 0x23:				/* check Yes/No response */
             r->AX = DosYesNo(r->DL);
@@ -1581,7 +1630,7 @@ dispatch:
 
             break;
          }
-		r->FLAGS &= ~FLG_CARRY;
+		CLEAR_CARRY_FLAG();
       break;
 
       /* Code Page functions */
@@ -1601,7 +1650,7 @@ dispatch:
       }
       if(rc != SUCCESS)
       	goto error_exit;
-      r->FLAGS &= ~FLG_CARRY;
+      CLEAR_CARRY_FLAG();
       break;
      }
 
@@ -1611,13 +1660,13 @@ dispatch:
         goto error_exit;
       else
       {
-        r->FLAGS &= ~FLG_CARRY;
+        CLEAR_CARRY_FLAG();
       }
       break;
 
       /* Flush file buffer -- dummy function right now.  */
     case 0x68:
-      r->FLAGS &= ~FLG_CARRY;
+      CLEAR_CARRY_FLAG();
       break;
 
       /* Get/Set Serial Number */
@@ -1648,7 +1697,7 @@ dispatch:
         }
         else
         {
-          r->FLAGS &= ~FLG_CARRY;
+          CLEAR_CARRY_FLAG();
         }
         break;
       }
@@ -1675,7 +1724,7 @@ dispatch:
                 x += 2;
                 r->CX = x;
                 r->AX = rc;
-                r->FLAGS &= ~FLG_CARRY;
+                CLEAR_CARRY_FLAG();
             }
             }
             break;
@@ -1694,7 +1743,7 @@ dispatch:
             {
                 r->CX = 0x02;
                 r->AX = rc;
-                r->FLAGS &= ~FLG_CARRY;
+                CLEAR_CARRY_FLAG();
             }
             }
             break;
@@ -1708,7 +1757,7 @@ dispatch:
             {
                 r->CX = 0x03;
                 r->AX = rc;
-                r->FLAGS &= ~FLG_CARRY;
+                CLEAR_CARRY_FLAG();
             }
             break;
 
@@ -1717,7 +1766,7 @@ dispatch:
             {
                 r->CX = 0x01;
                 r->AX = rc;
-                r->FLAGS &= ~FLG_CARRY;
+                CLEAR_CARRY_FLAG();
             }
             else{
             if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
@@ -1726,7 +1775,7 @@ dispatch:
             {
                 r->CX = 0x02;
                 r->AX = rc;
-                r->FLAGS &= ~FLG_CARRY;
+                CLEAR_CARRY_FLAG();
             }
             }
             break;
@@ -1738,7 +1787,7 @@ dispatch:
             {
                 r->CX = 0x01;
                 r->AX = rc;
-                r->FLAGS &= ~FLG_CARRY;
+                CLEAR_CARRY_FLAG();
             }
             break;
 
@@ -1808,109 +1857,92 @@ struct int25regs
 };
 
 /* this function is called from an assembler wrapper function */
-VOID int25_handler(struct int25regs FAR * r)
+/*
+    I'm probably either 
+        A) totally braindamaged 
+        B) chasing a compiler bug, which I can't find.
+        
+        LEAVE THIS CODE EXACTLY AS IS OR FDOS WON'T BOOT
+*/
+VOID int2526_handler(WORD mode, struct int25regs FAR * r)
 {
   ULONG blkno;
   UWORD nblks;
-  BYTE FAR *buf;
-  UBYTE drv = r->ax & 0xFF;
-
-  InDOS++;
-
-  if (r->cx == 0xFFFF)
-  {
-    struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);
-    blkno = lb->blkno;
-    nblks = lb->nblks;
-    buf = lb->buf;
-  }
-  else
-  {
-    nblks = r->cx;
-    blkno = r->dx;
-    buf = MK_FP(r->ds, r->bx);
-  }
-
+  BYTE  FAR *buf;
+  UBYTE drv = r->ax;
+  
   if (drv >= (lastdrive - 1))
   {
     r->ax = 0x202;
     r->flags |= FLG_CARRY;
     return;
   }
+  
 
-/* *** Changed 9/4/00  BER */  
-  r->ax=dskxfer(drv, blkno, buf, nblks, DSKREAD);
-  if (r->ax > 0)
-  {
-    r->flags |= FLG_CARRY;
-    --InDOS;
-    return;
-  }
-/* End of change */  
-
-  r->ax = 0;
-  r->flags &= ~FLG_CARRY;
-  --InDOS;
-}
-
-VOID int26_handler(struct int25regs FAR * r)
-{
-  ULONG blkno;
-  UWORD nblks;
-  BYTE FAR *buf;
-  UBYTE drv = r->ax & 0xFF;
+  nblks = r->cx;
+  blkno = r->dx;
+    
+  buf = MK_FP(r->ds, r->bx);
+    
+  if (mode == DSKREAD)
+  {  
+      if (nblks == 0xFFFF)
+      {
+        /*struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);*/
+        blkno = ((struct HugeSectorBlock FAR *)buf)->blkno;
+        nblks = ((struct HugeSectorBlock FAR *)buf)->nblks;
+        buf   = ((struct HugeSectorBlock FAR *)buf)->buf;
+      }
+      else
+      {
+        buf = MK_FP(r->ds, r->bx);
+      }
+  } else {  
+      if (nblks == 0xFFFF)
+      {
+        struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);
+        blkno = lb->blkno;
+        nblks = lb->nblks;
+        buf = lb->buf;
+      }
+      else
+      {
+        buf = MK_FP(r->ds, r->bx);
+      }
+  }  
+  
+  
 
   InDOS++;
 
-  if (r->cx == 0xFFFF)
+  if (mode == DSKREAD)
   {
-    struct HugeSectorBlock FAR *lb = MK_FP(r->ds, r->bx);
-    blkno = lb->blkno;
-    nblks = lb->nblks;
-    buf = lb->buf;
-  }
-  else
-  {
-    nblks = r->cx;
-    blkno = r->dx;
-    buf = MK_FP(r->ds, r->bx);
-  }
+    r->ax=dskxfer(drv, blkno, buf, nblks, mode);
+  } else {
+    r->ax=dskxfer(drv, blkno, buf, nblks, DSKWRITE);
+  if (r->ax <= 0)
+    setinvld(drv);
+  }  
 
-  if (drv >= (lastdrive -1))
-  {
-    r->ax = 0x202;
-    r->flags |= FLG_CARRY;
-    return;
-  }
-
-/* *** Changed 9/4/00  BER */  
-  r->ax=dskxfer(drv, blkno, buf, nblks, DSKWRITE);
   if (r->ax > 0)
   {
     r->flags |= FLG_CARRY;
     --InDOS;
     return;
   }
-/* End of change */  
 
-  setinvld(drv);
 
   r->ax = 0;
   r->flags &= ~FLG_CARRY;
   --InDOS;
+  
 }
+VOID int25_handler(struct int25regs FAR * r) { int2526_handler(DSKREAD,r); }
+VOID int26_handler(struct int25regs FAR * r) { int2526_handler(DSKWRITE,r); }
 
-VOID INRPT FAR int28_handler(void)
-{
-}
 
-VOID INRPT FAR int2a_handler(void)
-{
-}
 
-VOID INRPT FAR empty_handler(void)
-{
-}
+
 
 #ifdef TSC
 static VOID StartTrace(VOID)
