@@ -57,7 +57,14 @@ segment	_TEXT
                 mov     ax, [si+6]      ; construct strategy address
                 mov     [bp+8], ax    
 
+                push si                 ; the bloody fucking RTSND.DOS 
+                push di                 ; driver destroys SI,DI (tom 14.2.03)
+
                 call    far[bp+8]       ; call far the strategy
+
+                pop di 
+                pop si
+                                
 
 		mov     ax,[si+8]       ; construct 'interrupt' address
                 mov     [bp+8],ax       ; construct interrupt address 
