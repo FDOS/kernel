@@ -29,6 +29,7 @@
 
 #include "portab.h"
 #include "init-mod.h"
+#include "lol.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =

@@ -106,6 +106,26 @@ ConRead2:
                 jmp     _IOExit
 
 
+checkkey:
+                mov     ah,1
+		add     ah,[cs:kbdType]
+                int     16h                     ; Get status, if zf=0  al=char
+                jz      keydone                 ; Jump if no char available
+checke0:        cmp	al,0xe0                 ; must check for 0xe0 scan code
+        	jne	.ret
+		cmp	ax,0x00e0 		; check for Greek alpha
+		je	.ret
+		mov	al,0
+.ret:		retn
+        
+readkey:        
+       		mov     ah,[cs:kbdType]
+                int     16h
+        	jmp     short checke0
+
+keydone:	pop	cx
+		jmp	_IODone
+
 ;
 ; Name:
 ;       KbdRdChar
@@ -129,8 +149,7 @@ KbdRdChar:
 		; and previous is erased in any case
                 or      al,al                   ; Test to see if it was set
                 jnz     KbdRdRtn                ; Exit if it was, returning it
-		mov	ah, [cs:kbdType]
-                int     16h                     ; get keybd char in al, ah=scan
+		call	readkey     		; get keybd char in al, ah=scan
                 or      ax,ax                   ; Zero ?
                 jz      KbdRdChar               ; Loop if it is
                 cmp     ax,CTL_PRT_SCREEN       ; Ctrl-Print screen?
@@ -143,22 +162,16 @@ KbdRd1:
 KbdRdRtn:
                 retn
 
-
-
                 global  CommonNdRdExit
 CommonNdRdExit:		; *** tell if key waiting and return its ASCII if yes
                 mov     al,[cs:uScanCode]       ; Test for last scan code
 			; now AL is set if previous key was extended,
                 or      al,al                   ; Was it zero ?
                 jnz     ConNdRd2                ; Jump if there's a char waiting
-                mov     ah,1
-		add     ah,[cs:kbdType]
-                int     16h                     ; Get status, if zf=0  al=char
-                jz      ConNdRd4                ; Jump if no char available
+		call    checkkey
                 or      ax,ax                   ; Zero ?
                 jnz     ConNdRd1                ; Jump if not zero
-		mov     ah,[cs:kbdType]
-                int     16h                     ; get status, if zf=0  al=char
+		call	readkey
                 jmp     short CommonNdRdExit
 		; if char was there but 0, fetch and retry...
 		; (why do we check uScanCode here?)
@@ -196,8 +209,7 @@ KbdInpCh1:
                 int     16h                     ; get status, if zf=0  al=char
                 jz      KbdInpRtnZero           ; Jump if zero
 		; returns 0 or the last key that was waiting in AL
-		mov     ah,[cs:kbdType]
-                int     16h                     ; get keybd char in al, ah=scan
+		call	readkey
                 jmp     short KbdInpCh1
                 ; just read any key that is waiting, then check if
                 ; more keys are waiting. if not, return AL of this
@@ -270,17 +282,11 @@ ConInStat:
                 or      al,al                   ; Was it zero ?
                 jnz     ConCharReady            ; Jump if there's a char waiting
 		; return previously cached ext char if any
-		mov     ah,1
-		add     ah,[cs:kbdType]
-		int     16h                     ; get status, if zf=0  al=char
-                jz      ConNoChar               ; Jump if zero
-		; if no key waiting, return AL=0 / "none waiting"
-
+        	call	checkkey
                 or      ax,ax                   ; Zero ?
                 jnz     ConIS1                  ; Jump if not zero
                 ; if non-zero key waiting, take it
-		mov     ah,[cs:kbdType]
-                int     16h                     ; get status, if zf=0  al=char
+        	call	readkey
                 jmp     short ConInStat
 		; if zero key was waiting, fetch 2nd part etc. (???)
 

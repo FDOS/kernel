@@ -682,7 +682,7 @@ void CheckContinueBootFromHarddisk(void)
          bootedFrom
     );
 
-  if (GetBiosKey(InitKernelConfig.BootHarddiskSeconds) != -1)
+  if (GetBiosKey(InitKernelConfig.BootHarddiskSeconds) != (UWORD)-1)
   {
     /* user has hit a key, continue to boot from floppy/CD */
     printf("\n");
@@ -703,7 +703,7 @@ void CheckContinueBootFromHarddisk(void)
   init_call_intr(0x13, &r);
 
   {
-    void (far *reboot)() = (void (far*)()) MK_FP(0x0,0x7c00);
+    void (far *reboot)(void) = (void (far*)(void)) MK_FP(0x0,0x7c00);
 
     (*reboot)();
   }
