@@ -207,10 +207,9 @@ extern BYTE FAR *lpOldTop;
 extern BYTE FAR *lpTop;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
 extern UWORD ram_top;               /* How much ram in Kbytes               */
-extern char MenuSelected;
-extern unsigned Menus;
 extern char singleStep;
 extern char SkipAllConfig;
+extern char master_env[128];
 
 extern struct lol FAR *LoL;
 

@@ -137,6 +137,9 @@ UWORD ram_top = 0; /* How much ram in Kbytes               */
 static UBYTE ErrorAlreadyPrinted[128];
 
 
+char master_env[128] = {"PATH="};   /* some shells panic on empty master env. */
+static char *envp = master_env + 6; /* point to the second zero */
+
 struct config Config = {
   0,
   NUMBUFF,
@@ -206,6 +209,7 @@ STATIC VOID InitPgm(BYTE * pLine);
 STATIC VOID InitPgmHigh(BYTE * pLine);
 STATIC VOID CmdInstall(BYTE * pLine);
 STATIC VOID CmdInstallHigh(BYTE * pLine);
+STATIC VOID CmdSet(BYTE * pLine);
 
 
 STATIC VOID CfgSwitchar(BYTE * pLine);
@@ -226,6 +230,7 @@ STATIC char * GetNumber(REG const char *p, int *num);
 STATIC COUNT tolower(COUNT c);
 #endif
 STATIC COUNT toupper(COUNT c);
+STATIC VOID strupr(char *s);
 STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type);
 STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
 
@@ -306,6 +311,7 @@ STATIC struct table commands[] = {
   {"DEVICEHIGH", 2, DeviceHigh},
   {"INSTALL", 2, CmdInstall},
   {"INSTALLHIGH", 2, CmdInstallHigh},
+  {"SET", 2, CmdSet},
   
   /* default action                                               */
   {"", -1, CfgFailure}
@@ -1036,8 +1042,7 @@ STATIC VOID Dosmem(BYTE * pLine)
 
   pLine = GetStringArg(pLine, szBuf);
 
-  for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
-    *pTmp = toupper(*pTmp);
+  strupr(szBuf);
 
   /* printf("DOS called with %s\n", szBuf); */
 
@@ -1076,12 +1081,8 @@ STATIC VOID Dosmem(BYTE * pLine)
 
 STATIC VOID DosData(BYTE * pLine)
 {
-  BYTE *pTmp;
-
   pLine = GetStringArg(pLine, szBuf);
-
-  for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
-    *pTmp = toupper(*pTmp);
+  strupr(szBuf);
 
   if (fmemcmp(szBuf, "UMB", 3) == 0)
     Config.cfgDosDataUmb = TRUE;
@@ -1337,7 +1338,6 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   struct dhdr FAR *next_dhp;
   BOOL result;
   seg base, start;
-  char *p;
 
   if (mode)
   {
@@ -1373,8 +1373,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
 
   strcpy(szBuf, pLine);
   /* uppercase the device driver command */
-  for (p = szBuf; *p != '\0'; p++)
-    *p = toupper(*p);
+  strupr(szBuf);
 
   /* TE this fixes the loading of devices drivers with
      multiple devices in it. NUMEGA's SoftIce is such a beast
@@ -1663,6 +1662,13 @@ STATIC COUNT toupper(COUNT c)
     return c;
 }
 
+/* Convert string s to uppercase */
+STATIC VOID strupr(char *s)
+{
+  while (*s)
+    *s++ = toupper(*s);
+}
+
 /* The following code is 8086 dependant                         */
 
 #if 1                           /* ifdef KERNEL */
@@ -1691,13 +1697,18 @@ STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 }
 #endif
 
+static size_t strlen(const char *s)
+{
+  size_t n = 0;
+  while (*s++)
+    n++;
+  return n;
+}
+
 char *strcat(register char * d, register const char * s)
 {
-  char *tmp = d;
-  while (*d != 0)
-    ++d;
-  strcpy(d, s);
-  return tmp;
+  strcpy(d + strlen(d), s);
+  return d;
 }
 
 #if 0
@@ -1995,6 +2006,9 @@ RestartInput:
   }
   printf("\n");
 
+  /* export the current selected config  menu */
+  sprintf(envp, "CONFIG=%c", MenuSelected+'0');
+  envp += 9;
   if (MenuColor != -1)
     ClearScreen(0x7);
 }
@@ -2659,4 +2673,28 @@ VOID DoInstall(void)
   
   InstallPrintf(("Done with installing commands\n"));
   return;
+}
+
+STATIC VOID CmdSet(BYTE *pLine)
+{
+  pLine = GetStringArg(pLine, szBuf);
+  pLine = skipwh(pLine);  /* scan() stops at the equal sign or space */
+  if (*pLine == '=')      /* equal sign is required */
+  {
+    int size;
+    strupr(szBuf);        /* all environment variables must be uppercase */
+    strcat(szBuf, "=");
+    pLine = skipwh(++pLine);
+    strcat(szBuf, pLine); /* append the variable value (may include spaces) */
+    size = strlen(szBuf);
+    if (size < master_env + sizeof(master_env) - envp - 1)
+    {                     /* must end with two consequtive zeros */
+      strcpy(envp, szBuf);
+      envp += size + 1;   /* add next variables starting at the second zero */
+    }
+    else
+      printf("Master environment is full - can't add \"%s\"\n", szBuf);
+  }
+  else
+    printf("Invalid SET command: \"%s\"\n", szBuf);
 }

@@ -361,22 +361,6 @@ STATIC void kernel()
   CommandTail Cmd;
   int rc;
 
-  BYTE master_env[32];
-  char *masterenv_ptr = master_env;
-
-  /* build the startup environment */
-
-  memset(master_env,0,sizeof(master_env));
-
-  /* initial path setting. is this useful ?? */
-  masterenv_ptr += sprintf(masterenv_ptr, "PATH=.");
-
-  /* export the current selected config  menu */
-  if (Menus)
-    {
-    masterenv_ptr += sprintf(masterenv_ptr, "CONFIG=%c", MenuSelected+'0');
-    }
-
   exb.exec.env_seg = DOS_PSP + 8;
   fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
 
