@@ -36,8 +36,8 @@ static char *portab_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.5  2001/03/19 04:50:56  bartoldeman
- * See history.txt for overview: put kernel 2022beo1 into CVS
+ * Revision 1.6  2001/03/19 05:08:53  bartoldeman
+ * New macros from Tom Ehlert to save even more bytes.
  *
  * Revision 1.5  2001/03/08 21:15:00  bartoldeman
  * Fixes for MK_FP and friends from Tom Ehlert; reduces kernel by 1.5k.
@@ -217,4 +217,25 @@ typedef signed long LONG;
 #define MK_FP(seg,ofs)         ((VOID *)(&(((BYTE *)(seg))[(ofs)])))
 #define FP_SEG(fp)             (0)
 #define FP_OFF(fp)             (fp)
+#endif
+
+/*
+	this suppresses the warning 
+	unreferenced parameter 'x'
+	and (hopefully) generates no code
+*/	
+
+#if defined(__TURBOC__)
+	#define UNREFERENCED_PARAMETER(x) if (x);
+#else	
+	#define UNREFERENCED_PARAMETER(x) x;
+#endif	
+
+
+#if defined(__TURBOC__)
+    #define FDCALL  pascal
+    #define CDECL   cdecl
+#else
+    #define FDCALL  
+    #define CDECL   
 #endif
