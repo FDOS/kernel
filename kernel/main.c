@@ -79,6 +79,9 @@ VOID ASMCFUNC FreeDOSmain(void)
   DosTextSeg = (__segment) & prn_dev;
 #endif
 
+  /* clear the Init BSS area (what normally the RTL does */
+  memset(_ib_start, 0, _ib_end - _ib_start);
+
                         /*  if the kernel has been UPX'ed,
                                 CONFIG info is stored at 50:e2 ..fc
                             and the bootdrive (passed from BIOS)
@@ -111,11 +114,6 @@ VOID ASMCFUNC FreeDOSmain(void)
 
 
   CheckContinueBootFromHarddisk();
-
-
-
-  /* clear the Init BSS area (what normally the RTL does */
-  memset(_ib_start, 0, _ib_end - _ib_start);
 
   signon();
   init_kernel();
