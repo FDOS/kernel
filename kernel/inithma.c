@@ -78,7 +78,7 @@ static BYTE *RcsId =
 
 BYTE DosLoadedInHMA = FALSE;    /* set to TRUE if loaded HIGH          */
 BYTE HMAclaimed = FALSE;        /* set to TRUE if claimed from HIMEM   */
-WORD HMAFree = 0;              	/* first byte in HMA not yet used      */
+UWORD HMAFree = 0;              	/* first byte in HMA not yet used      */
 
 extern void FAR *DOSTEXTFAR ASM XMSDriverAddress;
 VOID ASMCFUNC FAR _EnableA20(VOID);

@@ -66,9 +66,11 @@ int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
 
 /* Start of configuration variables                                     */
 struct config {
+  UBYTE cfgDosDataUmb;
   BYTE cfgBuffers;
   /* number of buffers in the system      */
   UBYTE cfgFiles;
+  UBYTE cfgFilesHigh;
   /* number of available files            */
   UBYTE cfgFcbs;
   /* number of available FCBs             */
@@ -79,8 +81,10 @@ struct config {
   BYTE cfgInitTail[NAMEMAX];
   /* command.com's tail           */
   UBYTE cfgLastdrive;
+  UBYTE cfgLastdriveHigh;
   /* last drive                           */
   BYTE cfgStacks;
+  BYTE cfgStacksHigh;
   /* number of stacks                     */
   UWORD cfgStackSize;
   /* stacks size for each stack           */
@@ -107,10 +111,12 @@ extern struct config Config;
 
 /* config.c */
 VOID PreConfig(VOID);
+VOID PreConfig2(VOID);
 VOID DoConfig(int pass);
 VOID PostConfig(VOID);
 VOID configDone(VOID);
-VOID FAR * KernelAlloc(size_t nBytes);
+VOID FAR * KernelAlloc(size_t nBytes, char type, int mode);
+void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode);
 char *strcat(char * d, const char * s);
 COUNT ASMCFUNC Umb_Test(void);
 COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
@@ -168,7 +174,7 @@ VOID ASMCFUNC FAR int2f_handler(void);
 
 /* main.c */
 VOID ASMCFUNC FreeDOSmain(void);
-BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine,
+BOOL init_device(struct dhdr FAR * dhp, char * cmdLine,
                       COUNT mode, char FAR *top);
 VOID init_fatal(BYTE * err_msg);
 
@@ -177,7 +183,7 @@ WORD CDECL init_printf(CONST BYTE * fmt, ...);
 WORD CDECL init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 void MoveKernel(unsigned NewKernelSegment);
-extern WORD HMAFree;            /* first byte in HMA not yet used      */
+extern UWORD HMAFree;            /* first byte in HMA not yet used      */
 
 extern unsigned CurrentKernelSegment;
 

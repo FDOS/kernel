@@ -42,12 +42,7 @@ static BYTE *RcsId =
 #else
 #define DebugPrintf(x)
 #endif
-
-#ifdef KDB
-#include <alloc.h>
-
-#define KernelAlloc(x) adjust_far((void far *)malloc((unsigned long)(x)))
-#endif
+#define para2far(seg) ((mcb FAR *)MK_FP((seg), 0))
 
 /*
   These are the far variables from the DOS data segment that we need here. The
@@ -61,8 +56,7 @@ extern f_node_ptr DOSFAR f_nodes;       /* pointer to the array                 
 extern UWORD DOSFAR f_nodes_cnt,        /* number of allocated f_nodes          */
   DOSFAR ASM first_mcb;             /* Start of user memory                 */
 
-extern UBYTE DOSFAR ASM lastdrive, DOSFAR ASM nblkdev, DOSFAR ASM mem_access_mode,
-    DOSFAR ASM uppermem_link;
+extern UBYTE DOSFAR ASM lastdrive, DOSFAR ASM nblkdev, DOSFAR ASM uppermem_link;
 extern struct dhdr
 DOSTEXTFAR ASM blk_dev,             /* Block device (Disk) driver           */
   DOSFAR ASM nul_dev;
@@ -76,7 +70,7 @@ extern sfttbl FAR *DOSFAR ASM sfthead;
 /* System File Table head               */
 extern sfttbl FAR *DOSFAR ASM FCBp;
 
-extern BYTE DOSFAR ASM VgaSet, DOSFAR _HMATextAvailable,    /* first byte of available CODE area    */
+extern BYTE DOSFAR _HMATextAvailable,    /* first byte of available CODE area    */
   FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
   FAR _HMATextEnd[], DOSFAR ASM break_ena,  /* break enabled flag                   */
   DOSFAR os_major,              /* major version number                 */
@@ -93,14 +87,18 @@ static UBYTE ErrorAlreadyPrinted[128];
 
 
 struct config Config = {
+  0,
   NUMBUFF,
   NFILES,
+  0,
   NFCBS,
   0,
   "command.com",
   " /P /E:256\r\n",
   NLAST,
+  0,
   NSTACKS,
+  0,
   128
       /* COUNTRY= is initialized within DoConfig() */
       , 0                       /* country ID */
@@ -115,8 +113,8 @@ struct config Config = {
                            in INIT code.
                            please make sure, that ALL data in INIT is initialized !! 
                          */
-BYTE FAR *lpBase = 0;
-BYTE FAR *upBase = 0;
+STATIC seg base_seg = 0;
+STATIC seg umb_base_seg = 0;
 BYTE FAR *lpTop = 0;
 BYTE FAR *lpOldTop = 0;
 STATIC unsigned nCfgLine = 0;
@@ -135,9 +133,6 @@ BYTE  MenuSelected = 0;
 UCOUNT MenuLine     = 0;
 UCOUNT Menus      = 0;
 
-STATIC VOID zumcb_init(UCOUNT seg, UWORD size);
-STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
-
 STATIC VOID Config_Buffers(BYTE * pLine);
 STATIC VOID sysScreenMode(BYTE * pLine);
 STATIC VOID sysVersion(BYTE * pLine);
@@ -145,10 +140,13 @@ STATIC VOID CfgBreak(BYTE * pLine);
 STATIC VOID Device(BYTE * pLine);
 STATIC VOID DeviceHigh(BYTE * pLine);
 STATIC VOID Files(BYTE * pLine);
+STATIC VOID FilesHigh(BYTE * pLine);
 STATIC VOID Fcbs(BYTE * pLine);
 STATIC VOID CfgLastdrive(BYTE * pLine);
+STATIC VOID CfgLastdriveHigh(BYTE * pLine);
 STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode);
 STATIC VOID Dosmem(BYTE * pLine);
+STATIC VOID DosData(BYTE * pLine);
 STATIC VOID Country(BYTE * pLine);
 STATIC VOID InitPgm(BYTE * pLine);
 STATIC VOID InitPgmHigh(BYTE * pLine);
@@ -171,8 +169,10 @@ STATIC COUNT tolower(COUNT c);
 #endif
 STATIC COUNT toupper(COUNT c);
 STATIC VOID mcb_init(UCOUNT seg, UWORD size);
+STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
 
 STATIC VOID Stacks(BYTE * pLine);
+STATIC VOID StacksHigh(BYTE * pLine);
 STATIC VOID SetAnyDos(BYTE * pLine);
 STATIC VOID Numlock(BYTE * pLine);
 STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg);
@@ -183,6 +183,7 @@ STATIC char * stristr(char *s1, char *s2);
 #endif
 STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
+STATIC unsigned alloc(size_t size);
 
 void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
@@ -212,20 +213,24 @@ STATIC struct table commands[] = {
 
   {"MENUDEFAULT", 0, CfgMenuDefault},   
   {"MENU", 0, CfgMenu},         /* lines to print in pass 0 */
-  {"ECHO", 2, CfgMenu},         /* lines to print in pass 2 - when devices are loaded */
+  {"ECHO", 2, CfgMenu},         /* lines to print in pass 2 - install(high) */
 
   {"BREAK", 1, CfgBreak},
   {"BUFFERS", 1, Config_Buffers},
   {"COMMAND", 1, InitPgm},
   {"COUNTRY", 1, Country},
   {"DOS", 1, Dosmem},
+  {"DOSDATA", 1, DosData},
   {"FCBS", 1, Fcbs},
   {"FILES", 1, Files},
+  {"FILESHIGH", 1, FilesHigh},
   {"LASTDRIVE", 1, CfgLastdrive},
+  {"LASTDRIVEHIGH", 1, CfgLastdriveHigh},
   {"NUMLOCK", 1, Numlock},
   {"SHELL", 1, InitPgm},
   {"SHELLHIGH", 1, InitPgmHigh},
   {"STACKS", 1, Stacks},
+  {"STACKSHIGH", 1, StacksHigh},
   {"SWITCHAR", 1, CfgSwitchar},
   {"SCREEN", 1, sysScreenMode}, /* JPP */
   {"VERSION", 1, sysVersion},   /* JPP */
@@ -248,14 +253,14 @@ BYTE HMAState = 0;
 #define HMA_DONE 2              /* Moved kernel to HMA */
 #define HMA_LOW 3               /* Definitely LOW */
 
-STATIC void FAR* ConfigAlloc(COUNT bytes)
+STATIC void FAR* ConfigAlloc(COUNT bytes, char type)
 {
   VOID FAR *p;
 
   p = HMAalloc(bytes);
 
   if (p == NULL)
-    p = KernelAlloc(bytes);
+    p = KernelAlloc(bytes, type, 0);
 
   /* printf("ConfigAlloc %d at %p\n", bytes, p); */
 
@@ -266,11 +271,7 @@ STATIC void FAR* ConfigAlloc(COUNT bytes)
 /* later.                                                               */
 void PreConfig(void)
 {
-  VgaSet = 0;
-  UmbState = 0;   
-  
   memset(ErrorAlreadyPrinted,0,sizeof(ErrorAlreadyPrinted));
-
 
   /* Initialize the base memory pointers                          */
 
@@ -306,18 +307,16 @@ void PreConfig(void)
      KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
 
-  lpBase = AlignParagraph((BYTE FAR *) DynLast() + 0x0f);
-
   config_init_buffers(Config.cfgBuffers);
 
-  sfthead->sftt_next = (sfttbl FAR *)
-      KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft));
+  sfthead->sftt_next =
+      KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft), 'F', 0);
   sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
   sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
-  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive);
+  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive, 'L', 0);
 
-  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb));
+  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E', 0);
 
 #ifdef DEBUG
   printf("Preliminary:\n f_node 0x%x", f_nodes);
@@ -330,31 +329,13 @@ void PreConfig(void)
   /* Done.  Now initialize the MCB structure                      */
   /* This next line is 8086 and 80x86 real mode specific          */
 #ifdef DEBUG
-  printf("Preliminary  allocation completed: top at 0x%p\n", lpBase);
+  printf("Preliminary  allocation completed: top at %p\n", lpTop);
 #endif
-
-#ifdef KDB
-  lpBase = malloc(4096);
-  first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
-#else
-  first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
-#endif
-
-  /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init(first_mcb, ram_top * 64 - first_mcb - 1);
 }
 
-/* Do second pass initialization.                                       */
-/* Also, run config.sys to load drivers.                                */
-void PostConfig(void)
+/* Do second pass initialization: near allocation and MCBs              */
+void PreConfig2(void)
 {
-  /* close all (device) files */
-
-  /* compute lastdrive ... */
-  lastdrive = Config.cfgLastdrive;
-  if (lastdrive < nblkdev)
-    lastdrive = nblkdev;
-
   /* initialize NEAR allocated things */
 
   /* Initialize the file table                                    */
@@ -372,9 +353,37 @@ void PostConfig(void)
      and allocation starts after the kernel.
    */
 
-  lpBase = AlignParagraph((BYTE FAR *) DynLast() + 0x0f);
+  base_seg = first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
 
-  DebugPrintf(("starting FAR allocations at %p\n", lpBase));
+  /* We expect ram_top as Kbytes, so convert to paragraphs */
+  mcb_init(first_mcb, ram_top * 64 - first_mcb - 1);
+  if (UmbState == 2)
+    umb_init();    
+}
+
+/* Do third pass initialization.                                        */
+/* Also, run config.sys to load drivers.                                */
+void PostConfig(void)
+{
+  /* We could just have loaded FDXMS or HIMEM */
+  if (HMAState == HMA_REQ && MoveKernelToHMA())
+    HMAState = HMA_DONE;
+  
+  if (Config.cfgDosDataUmb)
+  {
+    Config.cfgFilesHigh = TRUE;
+    Config.cfgLastdriveHigh = TRUE;
+    Config.cfgStacksHigh = TRUE;
+  }
+        
+  /* close all (device) files */
+
+  /* compute lastdrive ... */
+  lastdrive = Config.cfgLastdrive;
+  if (lastdrive < nblkdev)
+    lastdrive = nblkdev;
+
+  DebugPrintf(("starting FAR allocations at %x\n", base_seg));
 
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
@@ -388,14 +397,16 @@ void PostConfig(void)
   /* FCBp = (sfttbl FAR *)&FcbSft; */
   /* FCBp = KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
-  sfthead->sftt_next =
-      KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft));
+  sfthead->sftt_next = (sfttbl FAR *)
+    KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft), 'F',
+                Config.cfgFilesHigh);
   sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
   sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
-  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive);
+  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive, 'L', Config.cfgLastdriveHigh);
 
-  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb));
+  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E',
+                     Config.cfgDosDataUmb);
 
 #ifdef DEBUG
   printf("Final: \n f_node 0x%x\n", f_nodes);
@@ -407,116 +418,136 @@ void PostConfig(void)
   if (Config.cfgStacks)
   {
     VOID FAR *stackBase =
-        KernelAlloc(Config.cfgStacks * Config.cfgStackSize);
+        KernelAlloc(Config.cfgStacks * Config.cfgStackSize, 'S',
+                    Config.cfgStacksHigh);
     init_stacks(stackBase, Config.cfgStacks, Config.cfgStackSize);
 
     DebugPrintf(("Stacks allocated at %p\n", stackBase));
   }
-  DebugPrintf(("Allocation completed: top at 0x%p\n", lpBase));
+  DebugPrintf(("Allocation completed: top at 0x%x\n", base_seg));
 
 }
 
 /* This code must be executed after device drivers has been loaded */
 VOID configDone(VOID)
 {
+  if (UmbState == 1)
+    para2far(base_seg)->m_type = MCB_LAST;
+
   if (HMAState != HMA_DONE)
   {
-    lpBase = AlignParagraph(lpBase);
+    seg kernel_seg = alloc((HMAFree+0xf)/16);
+    mcb FAR *p = para2far(kernel_seg - 1);
+    
+    p->m_name[0] = 'S';
+    p->m_name[1] = 'C';
+    p->m_psp = 8;  
 
-    DebugPrintf(("HMA not available, moving text to %x\n",
-                 FP_SEG(lpBase)));
-    MoveKernel(FP_SEG(lpBase));
+    DebugPrintf(("HMA not available, moving text to %x\n", kernel_seg));
+    MoveKernel(kernel_seg);
 
-    lpBase = AlignParagraph((BYTE FAR *) lpBase + HMAFree + 0x0f);
+    kernel_seg += (HMAFree + 0x0f)/16 + 1;
 
-    DebugPrintf(("kernel is low, start alloc at %p", lpBase));
-
-    /* final buffer processing, now upwards */
-    HMAState = HMA_LOW;
-    config_init_buffers(Config.cfgBuffers);
+    DebugPrintf(("kernel is low, start alloc at %x", kernel_seg));
   }
-
-  if (lastdrive < nblkdev)
-  {
-
-    DebugPrintf(("lastdrive %c too small upping it to: %c\n",
-                 lastdrive + 'A', nblkdev + 'A' - 1));
-
-    lastdrive = nblkdev;
-    CDSp = KernelAlloc(sizeof(struct cds) * lastdrive);
-  }
-  first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
-
-  /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init(first_mcb, ram_top * 64 - first_mcb - 1);
-
-  if (UmbState == 1)
-  {
-
-    UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
-      
-    mumcb_init(ram_top * 64 - 1, umb_start - 64 * ram_top);
-/* Check if any devices were loaded in umb */
-    if (umb_start != FP_SEG(upBase))
-    {
-/* make last block normal with SC for the devices */
-
-      mumcb_init(umb_start, umr_new - umb_start - 1);
-
-      zumcb_init(umr_new, (umb_start + UMB_top) - umr_new - 1);
-      upBase += 16;
-    }
-    else
-      umr_new = FP_SEG(upBase);
-
-    {
-      /* are there any more UMB's ?? 
-         this happens, if memory mapped devces are in between 
-         like UMB memory c800..c8ff, d8ff..efff with device at d000..d7ff
-       */
-
-      /*  TE - this code 
-         a) isn't the best I ever wrote :-(
-         b) works for 2 memory areas (no while(), use of UMB_top,...)
-         and the first discovered is the larger one.
-         no idea what happens, if the larger one is higher in memory.
-         might work, though
-       */
-
-      UCOUNT umb_seg, umb_size, umbz_root;
-
-      umbz_root = umr_new;
-
-      if (UMB_get_largest(&umb_seg, &umb_size))
-      {
-
-        mcb_init(umbz_root, (umb_start + UMB_top) - umr_new - 1);
-
-        /* change UMB 'Z' to 'M' */
-        ((mcb FAR *) MK_FP(umbz_root, 0))->m_type = 'M';
-
-        /* move to end */
-        umbz_root += ((mcb FAR *) MK_FP(umbz_root, 0))->m_size + 1;
-
-        /* create link mcb       */
-        mumcb_init(umbz_root, umb_seg - umbz_root - 1);
-
-        /* should the UMB driver return
-           adjacent memory in several pieces */
-        if (umb_seg - umbz_root - 1 == 0)
-          ((mcb FAR *) MK_FP(umbz_root, 0))->m_psp = FREE_PSP;
-
-        /* create new 'Z' mcb */
-        zumcb_init(umb_seg, umb_size - 1);
-      }
-    }
-  }
-
-  DebugPrintf(("UMB Allocation completed: top at 0x%p\n", upBase));
 
   /* The standard handles should be reopened here, because
      we may have loaded new console or printer drivers in CONFIG.SYS */
+}
 
+STATIC seg prev_mcb(seg cur_mcb, seg start)
+{
+  /* determine prev mcb */
+  seg mcb_prev, mcb_next;
+  mcb_prev = mcb_next = start;
+  while (mcb_next < cur_mcb && para2far(mcb_next)->m_type == MCB_NORMAL)
+  {
+    mcb_prev = mcb_next;
+    mcb_next += para2far(mcb_prev)->m_size + 1;
+  }
+  return mcb_prev;
+}
+
+STATIC void umb_init(void)
+{
+  UCOUNT umb_seg, umb_size;
+  seg umb_max;
+
+  if (UMB_get_largest(&umb_seg, &umb_size))
+  {
+    mcb FAR *p;
+
+    UmbState = 1;
+
+    /* reset root */
+    uppermem_root = ram_top * 64 - 1;
+
+    /* create link mcb (below) */
+    para2far(base_seg)->m_type = MCB_NORMAL;
+    para2far(base_seg)->m_size--;
+    mumcb_init(uppermem_root, umb_seg - uppermem_root - 1);
+
+    /* setup the real mcb for the devicehigh block */
+    mcb_init(umb_seg, umb_size - 2); 
+    p = para2far(umb_seg);
+    p->m_type = MCB_NORMAL;
+    p->m_psp = FREE_PSP;
+
+    umb_base_seg = umb_max = umb_start = umb_seg;
+    UMB_top = umb_size;
+
+    /* there can be more UMB's ! 
+       this happens, if memory mapped devces are in between 
+       like UMB memory c800..c8ff, d8ff..efff with device at d000..d7ff
+       However some of the xxxHIGH commands still only work with
+       the first UMB.
+    */
+
+    while (UMB_get_largest(&umb_seg, &umb_size))
+    {
+      seg umb_prev, umb_next;
+
+      /* setup the real mcb for the devicehigh block */
+      mcb_init(umb_seg, umb_size - 2);
+
+      /* determine prev and next umbs */
+      umb_prev = prev_mcb(umb_seg, uppermem_root);
+      umb_next = umb_prev + para2far(umb_prev)->m_size + 1;
+      para2far(umb_seg)->m_type = MCB_NORMAL;
+
+      if (umb_seg < umb_max)
+      {
+        if (umb_next - umb_seg - umb_size == 0)
+        {
+          /* should the UMB driver return
+             adjacent memory in several pieces */
+          umb_size += para2far(umb_next)->m_size + 1;
+          para2far(umb_seg)->m_size = umb_size;
+        }
+        else
+        {
+          /* create link mcb (above) */
+          mumcb_init(umb_seg + umb_size - 1, umb_next - umb_seg - umb_size);
+        }
+      }
+
+      if (umb_seg - umb_prev - 1 == 0)
+        /* should the UMB driver return
+           adjacent memory in several pieces */
+        para2far(umb_prev)->m_size += umb_size;
+      else
+      {
+        /* create link mcb (below) */
+        mumcb_init(umb_prev, umb_seg - umb_prev - 1);
+      }
+
+      if (umb_seg > umb_max)
+        umb_max = umb_seg;
+    }
+    para2far(umb_max)->m_size++;
+    para2far(umb_max)->m_type = MCB_LAST;
+    DebugPrintf(("UMB Allocation completed: start at 0x%x\n", umb_base_seg));
+  }
 }
 
 VOID DoConfig(int pass)
@@ -624,28 +655,6 @@ VOID DoConfig(int pass)
       CfgFailure(pLine);
     else                        /* YES. DO IT */
       (*(pEntry->func)) (skipwh(pLine + 1));
-
-    /* might have been the UMB driver */
-    if (UmbState == 2)
-    {
-
-      UCOUNT umb_seg, umb_size;
-
-      if (UMB_get_largest(&umb_seg, &umb_size))
-      {
-        UmbState = 1;
-        upBase = MK_FP(umb_seg, 0);
-        UMB_top = umb_size;
-        umb_start = umb_seg;
-
-/* reset root */
-        uppermem_root = ram_top * 64 - 1;
-/* setup the real mcb for the devicehigh block */
-        zumcb_init(umb_seg, UMB_top - 1);
-        upBase += 16;
-      }
-    }
-
   }
   close(nFileDesc); 
 
@@ -898,6 +907,13 @@ STATIC VOID Files(BYTE * pLine)
 
   /* Got the value, assign either default or new value            */
   Config.cfgFiles = max(Config.cfgFiles, nFiles);
+  Config.cfgFilesHigh = 0;
+}
+
+STATIC VOID FilesHigh(BYTE * pLine)
+{
+  Files(pLine);
+  Config.cfgFilesHigh = 1;
 }
 
 STATIC VOID CfgLastdrive(BYTE * pLine)
@@ -916,6 +932,14 @@ STATIC VOID CfgLastdrive(BYTE * pLine)
   drv -= 'A';
   drv++;                        /* Make real number */
   Config.cfgLastdrive = max(Config.cfgLastdrive, drv);
+  Config.cfgLastdriveHigh = 0;
+}
+
+STATIC VOID CfgLastdriveHigh(BYTE * pLine)
+{
+  /* Format:   LASTDRIVEHIGH = letter         */
+  CfgLastdrive(pLine);
+  Config.cfgLastdriveHigh = 1;
 }
 
 /*
@@ -967,6 +991,21 @@ STATIC VOID Dosmem(BYTE * pLine)
   {
     HMAState = HMA_DONE;
   }
+}
+
+STATIC VOID DosData(BYTE * pLine)
+{
+  BYTE *pTmp;
+
+/*    extern BYTE FAR INITDataSegmentClaimed; */
+
+  pLine = GetStringArg(pLine, szBuf);
+
+  for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
+    *pTmp = toupper(*pTmp);
+
+  if (fmemcmp(szBuf, "UMB", 3) == 0)
+    Config.cfgDosDataUmb = TRUE;
 }
 
 STATIC VOID CfgSwitchar(BYTE * pLine)
@@ -1085,6 +1124,13 @@ STATIC VOID Stacks(BYTE * pLine)
     if (Config.cfgStacks > 64)
       Config.cfgStacks = 64;
   }
+  Config.cfgStacksHigh = 0;
+}
+
+STATIC VOID StacksHigh(BYTE * pLine)
+{
+  Stacks(pLine);
+  Config.cfgStacksHigh = 1;
 }
 
 STATIC VOID InitPgmHigh(BYTE * pLine)
@@ -1157,21 +1203,32 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   struct dhdr FAR *dhp;
   struct dhdr FAR *next_dhp;
   BOOL result;
+  seg base, start;
 
   if (mode)
-    dhp = AlignParagraph(upBase);
+  {
+    base = umb_base_seg;
+    start = umb_start;
+  }
   else
-    dhp = AlignParagraph(lpBase);
+  {
+    base = base_seg;
+    start = first_mcb;
+  }
 
+  if (base == start)
+    base++;
+  base++;
+  
   /* Get the device driver name                                   */
   GetStringArg(pLine, szBuf);
 
   /* The driver is loaded at the top of allocated memory.         */
   /* The device driver is paragraph aligned.                      */
-  eb.load.reloc = eb.load.load_seg = FP_SEG(dhp);
+  eb.load.reloc = eb.load.load_seg = base;
 
 #ifdef DEBUG
-  printf("Loading device driver %s at segment %04x\n", szBuf, FP_SEG(dhp));
+  printf("Loading device driver %s at segment %04x\n", szBuf, base);
 #endif
 
   if ((result = init_DosExec(3, &eb, szBuf)) != SUCCESS)
@@ -1188,6 +1245,8 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
 
   /* add \r\n to the command line */
   strcat(szBuf, "\r\n");
+
+  dhp = MK_FP(base, 0);
 
   for (next_dhp = NULL; FP_OFF(next_dhp) != 0xffff &&
        (result = init_device(dhp, szBuf, mode, top)) == SUCCESS;
@@ -1206,14 +1265,10 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
     dhp->dh_next = nul_dev.dh_next;
     nul_dev.dh_next = dhp;
   }
-  /* We could just have loaded FDXMS or HIMEM */
-  if (HMAState == HMA_REQ && MoveKernelToHMA())
-  {
-    /* final HMA processing: */
-    /* final buffer processing, now upwards */
-    HMAState = HMA_DONE;
-    config_init_buffers(Config.cfgBuffers);
-  }
+
+  /* might have been the UMB driver or DOS=UMB */
+  if (UmbState == 2)
+    umb_init();
 
   return result;
 }
@@ -1238,42 +1293,96 @@ STATIC VOID CfgFailure(BYTE * pLine)
   printf("^\n");
 }
 
-#ifndef KDB
-void FAR * KernelAlloc(size_t nBytes)
+struct submcb 
 {
-  BYTE FAR *lpAllocated;
+  char type;
+  unsigned short start;
+  unsigned short size;
+  char unused[3];
+  char name[8];
+};
 
-  lpBase = AlignParagraph(lpBase);
-  lpAllocated = lpBase;
+void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
+{
+  seg base, start;
+  struct submcb FAR *p;
 
-  if (0xffff - FP_OFF(lpBase) <= nBytes)
+  if (UmbState != 1)
+    mode = 0;
+
+  if (mode)
   {
-    UWORD newOffs = (FP_OFF(lpBase) + nBytes) & 0xFFFF;
-    UWORD newSeg = FP_SEG(lpBase) + 0x1000;
-
-    lpBase = MK_FP(newSeg, newOffs);
+    base = umb_base_seg;
+    start = umb_start;
   }
   else
-    lpBase += nBytes;
+  {
+    base = base_seg;
+    start = first_mcb;
+  }
 
-  fmemset(lpAllocated, 0, nBytes);
+  /* create the special DOS data MCB if it doesn't exist yet */
+  DebugPrintf(("kernelallocpara: %x %x %x %c %d\n", start, base, nPara, type, mode));
 
-  return lpAllocated;
+  if (base == start)
+  {
+    mcb FAR *p = para2far(base);
+    mcb_init(base + 1, p->m_size - 1);
+    para2far(base+1)->m_type = p->m_type;
+    p->m_type = MCB_NORMAL;
+    p->m_psp = 8;
+    p->m_size = 0;
+    p->m_name[0] = 'S';
+    p->m_name[1] = 'D';
+    base++;
+  }
+
+  mcb_init(base + nPara + 1, para2far(base)->m_size - nPara - 1);
+  para2far(base + nPara + 1)->m_type = para2far(base)->m_type;
+  para2far(start)->m_size += nPara + 1;
+
+  p = (struct submcb FAR *)para2far(base);
+  p->type = type;
+  p->start = FP_SEG(p)+1;
+  p->size = nPara;
+  if (name)
+    fmemcpy(p->name, name, 8);
+  base += nPara + 1;
+  if (mode)
+    umb_base_seg = base;
+  else
+    base_seg = base;
+  return MK_FP(FP_SEG(p)+1, 0);
 }
-#endif
+
+void FAR * KernelAlloc(size_t nBytes, char type, int mode)
+{
+  void FAR *p;
+  size_t nPara = (nBytes + 15)/16;
+
+  if (first_mcb == 0)
+  {
+    /* prealloc */
+    lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop));
+    return AlignParagraph(lpTop);
+    
+  }
+  else
+  {
+    p = KernelAllocPara((nBytes + 15)/16, type, NULL, mode);
+  }
+  fmemset(p, 0, nBytes);
+  return p;
+}
 
 #ifdef I86
 #if 0
-STATIC BYTE FAR * KernelAllocDma(WORD bytes)
+STATIC BYTE FAR * KernelAllocDma(WORD bytes, char type)
 {
-  BYTE FAR *allocated;
-
-  lpBase = AlignParagraph(lpBase);
-  if ((FP_SEG(lpBase) & 0x0fff) + (bytes >> 4) > 0x1000)
-    lpBase = MK_FP((FP_SEG(lpBase) + 0x0fff) & 0xf000, 0);
-  allocated = lpBase;
-  lpBase += bytes;
-  return allocated;
+  if ((base_seg & 0x0fff) + (bytes >> 4) > 0x1000) {
+    KernelAllocPara((base_seg + 0x0fff) & 0xf000 - base_seg, type, NULL, 0);
+  }
+  return KernelAlloc(bytes, type);
 }
 #endif
 
@@ -1426,35 +1535,21 @@ STATIC VOID mcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
 
-  mcb FAR *mcbp = MK_FP(seg, 0);
+  mcb FAR *mcbp = para2far(seg);
 
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
-
-  mcbp->m_size = (UmbState > 0 ? size - 1 : size);
 
   for (i = 0; i < 8; i++)
     mcbp->m_name[i] = '\0';
-  mem_access_mode = FIRST_FIT;
-}
-
-STATIC VOID zumcb_init(UCOUNT seg, UWORD size)
-{
-  COUNT i;
-  mcb FAR *mcbp = MK_FP(seg, 0);
-
-  mcbp->m_type = MCB_LAST;
-  mcbp->m_psp = FREE_PSP;
+  
   mcbp->m_size = size;
-  for (i = 0; i < 8; i++)
-    mcbp->m_name[i] = '\0';
-
 }
 
 STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
-  mcb FAR *mcbp = MK_FP(seg, 0);
+  mcb FAR *mcbp = para2far(seg);
 
   static char name[8] = "SC\0\0\0\0\0\0";
 
@@ -1522,7 +1617,6 @@ VOID config_init_buffers(COUNT anzBuffers)
 {
   REG WORD i;
   struct buffer FAR *pbuffer;
-  BYTE FAR *tmplpBase = lpBase;
   unsigned wantedbuffers = anzBuffers;
 
   if (anzBuffers < 0)
@@ -1544,10 +1638,8 @@ VOID config_init_buffers(COUNT anzBuffers)
   
   lpTop = lpOldTop;
 
-  if (HMAState == HMA_NONE || HMAState == HMA_REQ)
-    lpTop = lpBase = lpTop - (anzBuffers * sizeof(struct buffer) + 0xf);
-  
-  firstbuf = ConfigAlloc(sizeof(struct buffer) * anzBuffers);
+  firstbuf = ConfigAlloc(sizeof(struct buffer) * anzBuffers, 'B');
+
   pbuffer = firstbuf;
 
   DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
@@ -1577,9 +1669,6 @@ VOID config_init_buffers(COUNT anzBuffers)
   if (FP_SEG(pbuffer) == 0xffff)
     printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
            anzBuffers, anzBuffers * sizeof(struct buffer));
-
-  if (HMAState == HMA_NONE || HMAState == HMA_REQ)
-    lpBase = tmplpBase;
 }
 
 /*
@@ -2199,9 +2288,11 @@ struct {
   int mode;
 } InstallCommands[10];
 
+#ifdef DEBUG
+#define InstallPrintf(x) printf x
+#else
 #define InstallPrintf(x)
-/*#define InstallPrintf(x) printf x*/
-                
+#endif
 
 STATIC VOID _CmdInstall(BYTE * pLine,int mode)
 {
@@ -2212,12 +2303,12 @@ STATIC VOID _CmdInstall(BYTE * pLine,int mode)
     printf("Too many Install commands given (%d max)\n",LENGTH(InstallCommands));
     CfgFailure(pLine);
     return;
-  }   
+  }
   fmemcpy(InstallCommands[numInstallCmds].buffer,pLine,127);
   InstallCommands[numInstallCmds].buffer[127] = 0;
   InstallCommands[numInstallCmds].mode        = mode;
   numInstallCmds++;
-}       
+}
 STATIC VOID CmdInstall(BYTE * pLine)
 {
   _CmdInstall(pLine,0);
@@ -2264,6 +2355,24 @@ void InstallExec(char *cmd)
   }
 }		
 
+STATIC unsigned alloc(size_t size)
+{
+  iregs r;
+        
+  r.a.b.h = 0x48;				/* alloc memory	*/
+  r.b.x = size;
+  init_call_intr(0x21, &r);
+  return r.a.x;
+}
+
+STATIC void free(seg segment)
+{
+  iregs r;
+        
+  r.a.b.h = 0x49;				/* free memory	*/
+  r.es  = segment;
+  init_call_intr(0x21, &r);
+}
 
 VOID DoInstall(void)
 {
@@ -2288,11 +2397,7 @@ VOID DoInstall(void)
   r.b.b.l = 0x02;			    /*low memory, last fit			*/
   init_call_intr(0x21, &r);
 
-  r.a.b.h = 0x48;				/* alloc memory	*/
-  r.b.x = ((unsigned)_init_end+15)/16;
-  init_call_intr(0x21, &r);
-  installMemory = r.a.x;
-
+  installMemory = alloc(((unsigned)_init_end+15)/16);
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
 
@@ -2311,9 +2416,7 @@ VOID DoInstall(void)
   r.b.b.l = 0x00;			    /*low memory, high			*/
   init_call_intr(0x21, &r);
     
-  r.a.b.h = 0x49;				/* alloc memory	*/
-  r.es  = installMemory;
-  init_call_intr(0x21, &r);
+  free(installMemory);
   
   InstallPrintf(("Done with installing commands\n"));
   return;

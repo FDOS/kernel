@@ -33,7 +33,7 @@
 #include "init-dat.h"
 
 char copyright[] =
-    "(C) Copyright 1995-2002 Pasquale J. Villani and The FreeDOS Project.\n"
+    "(C) Copyright 1995-2003 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
     "GNU General Public License as published by the Free Software Foundation;\n"
@@ -77,10 +77,8 @@ static BYTE *mainRcsId =
 struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0 };
 
 extern WORD days[2][13];
-extern BYTE FAR *lpBase;
 extern BYTE FAR *lpOldTop;
 extern BYTE FAR *lpTop;
-extern BYTE FAR *upBase;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
 extern UWORD ram_top;               /* How much ram in Kbytes               */
 
@@ -229,16 +227,13 @@ STATIC void init_kernel(void)
 /* Fake int 21h stack frame */
   user_r = (iregs FAR *) MK_FP(DOS_PSP, 0xD0);
 
-#ifndef KDB
   for (i = 0x20; i <= 0x3f; i++)
     setvec(i, empty_handler);
-#endif
 
   /* Initialize IO subsystem                                      */
   InitIO();
   InitPrinters();
 
-#ifndef KDB
   /* set interrupt vectors                                        */
   setvec(0x1b, got_cbreak);
   setvec(0x20, int20_handler);
@@ -252,7 +247,6 @@ STATIC void init_kernel(void)
   setvec(0x28, int28_handler);
   setvec(0x2a, int2a_handler);
   setvec(0x2f, int2f_handler);
-#endif
 
   init_PSPSet(DOS_PSP);
   init_PSPInit(DOS_PSP);
@@ -275,10 +269,14 @@ STATIC void init_kernel(void)
   /* Now config the temporary file system */
   FsConfig();
 
-#ifndef KDB
   /* Now process CONFIG.SYS     */
   DoConfig(0);
   DoConfig(1);
+
+  /* initialize near data and MCBs */
+  PreConfig2();
+  /* and process CONFIG.SYS one last time for device drivers */
+  DoConfig(2);
 
   /* Close all (device) files */
   for (i = 0; i < lastdrive; i++)
@@ -292,18 +290,8 @@ STATIC void init_kernel(void)
   /* Init the file system one more time     */
   FsConfig();
 
-  /* and process CONFIG.SYS one last time to load device drivers. */
-  DoConfig(2);
   configDone();
 
-  /* Close all (device) files */
-  for (i = 0; i < lastdrive; i++)
-    close(i);
-
-  /* Now config the final file system     */
-  FsConfig();
-
-#endif
   InitializeAllBPBs();
 }
 
@@ -524,7 +512,7 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
          dpb = dpb->dpb_next)
       ;
     dpb = dpb->dpb_next =
-        (struct dpb FAR *)KernelAlloc(nunits * sizeof(struct dpb));
+      KernelAlloc(nunits * sizeof(struct dpb), 'E', Config.cfgDosDataUmb);
   }
 
   for (Index = 0; Index < nunits; Index++)
@@ -547,11 +535,21 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
 
 /* If cmdLine is NULL, this is an internal driver */
 
-BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode,
+BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
                  char FAR *r_top)
 {
   request rq;
+  int i;
+  char name[8];
+  char *p;
 
+  fmemset(name, 0, 8);
+  for (p = cmdLine; *p && *p != ' ' && *p != '\t'; p++);
+  while (p >= cmdLine && *p != '\\' && *p != '/' && *p != ':') p--;
+  p++;
+  for (i = 0; i < 8 && p[i] && p[i] != '.'; i++)
+    name[i] = p[i];
+  
   rq.r_unit = 0;
   rq.r_status = 0;
   rq.r_command = C_INIT;
@@ -570,21 +568,12 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode,
 
   if (cmdLine)
   {
-    if (mode)
-    {
-      /* Don't link in device drivers which do not take up memory */
-      if (rq.r_endaddr == (BYTE FAR *) dhp)
-        return TRUE;
-      else
-        upBase = rq.r_endaddr;
-    }
-    else
-    {
-      if (rq.r_endaddr == (BYTE FAR *) dhp)
-        return TRUE;
-      else
-        lpBase = rq.r_endaddr;
-    }
+    /* Don't link in device drivers which do not take up memory */
+    if (rq.r_endaddr == (BYTE FAR *) dhp)
+      return TRUE;
+
+    KernelAllocPara(FP_SEG(rq.r_endaddr) + (FP_OFF(rq.r_endaddr) + 15)/16
+                    - FP_SEG(dhp), 'D', name, mode);
   }
 
   if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
