@@ -186,7 +186,7 @@ ff_find_next_cluster:
                 pop     ax                      ; restore current cluster
                 pop     dx
                 call    next_cluster
-                jmp     ff_next_cluster
+                jmp     short ff_next_cluster
 ff_done:
                 
                 mov     ax, [es:di+0x1A-11]        ; get cluster number
@@ -207,7 +207,7 @@ c6:
                 pop     ax
                 pop     dx
                 call    next_cluster
-                jmp     c5
+                jmp     short c5
                 
 boot_error:
 		xor	ah,ah
@@ -369,7 +369,7 @@ read_next:      push    dx
                 jnc     read_ok                 ; jump if no error
                 xor     ah, ah                  ; else, reset floppy
                 int     0x13
-                jmp     read_next
+                jmp     short read_next
 read_ok:
                 add     bx, word [bsBytesPerSec]
 
