@@ -250,7 +250,8 @@ STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePa
 STATIC void umb_init(void);
 
 void HMAconfig(int finalize);
-VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
+STATIC void config_init_buffers(int anzBuffers);     /* from BLOCKIO.C */
+STATIC void config_init_fnodes(int f_nodes_cnt);
 
 #ifdef I86
 STATIC VOID FAR * AlignParagraph(VOID FAR * lpPtr);
@@ -1701,7 +1702,7 @@ STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s)
     that saves some relocation problems    
 */
 
-VOID config_init_buffers(COUNT anzBuffers)
+STATIC void config_init_buffers(int anzBuffers)
 {
   REG WORD i;
   struct buffer FAR *pbuffer;
@@ -1772,7 +1773,7 @@ VOID config_init_buffers(COUNT anzBuffers)
            anzBuffers, anzBuffers * sizeof(struct buffer));
 }
 
-VOID config_init_fnodes(int f_nodes_cnt)
+STATIC void config_init_fnodes(int f_nodes_cnt)
 {
   struct f_node FAR *p;
   size_t bytes;
