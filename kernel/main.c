@@ -36,11 +36,12 @@
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId = "$Id$";
 #endif
-GLOBAL WORD bDumpRegs     = FALSE;
-GLOBAL WORD bDumpRdWrParms= FALSE;
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/25 17:11:54  bartoldeman
+ * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
+ *
  * Revision 1.8  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *

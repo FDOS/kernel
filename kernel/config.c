@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/03/25 17:11:54  bartoldeman
+ * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
+ *
  * Revision 1.11  2001/03/22 04:55:36  bartoldeman
  * Fix prototypes.
  *
@@ -195,12 +198,14 @@ INIT VOID Switchar(BYTE * pLine);
 INIT VOID CfgFailure(BYTE * pLine);
 INIT VOID Stacks(BYTE * pLine);
 INIT VOID SetAnyDos(BYTE * pLine);
+INIT VOID Numlock(BYTE * pLine);
 INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg);
 INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
 INIT struct dhdr FAR *linkdev(struct dhdr FAR * dhp);
 INIT UWORD initdev(struct dhdr FAR * dhp, BYTE FAR * cmdTail);
 INIT int SkipLine(char *pLine);
 INIT char *stristr(char *s1, char *s2);
+INIT COUNT strcasecmp(REG BYTE *d, REG BYTE *s);
 
 INIT BYTE FAR *KernelAlloc(WORD nBytes);
 
@@ -239,6 +244,7 @@ static struct table commands[] =
   {"FCBS", 1, Fcbs},
   {"FILES", 1, Files},
   {"LASTDRIVE", 1, Lastdrive},
+  {"NUMLOCK", 1, Numlock},
         /* rem is never executed by locking out pass                    */
   {"REM", 0, CfgFailure},
   {"SHELL", 1, InitPgm},
@@ -585,10 +591,6 @@ INIT VOID DoConfig(VOID)
       /* Skip leading white space and get verb.               */
       pLine = scan(pLine, szBuf);
 
-      /* Translate the verb to upper case ...                 */
-      for (pTmp = szBuf; *pTmp != '\0'; pTmp++)
-        *pTmp = toupper(*pTmp);
-
       /* If the line was blank, skip it.  Otherwise, look up  */
       /* the verb and execute the appropriate function.       */
       if (*szBuf != '\0')
@@ -619,7 +621,7 @@ INIT struct table *LookUp(struct table *p, BYTE * token)
 {
   while (*(p->entry) != '\0')
   {
-    if (strcmp(p->entry, token) == 0)
+    if (strcasecmp(p->entry, token) == 0)
       break;
     else
       ++p;
@@ -936,10 +938,22 @@ INIT static VOID InitPgm(BYTE * pLine)
 INIT static VOID Break(BYTE * pLine)
 {
   /* Format:      BREAK = (ON | OFF)      */
-  BYTE *pTmp;
+  GetStringArg(pLine, szBuf);
+  break_ena = strcasecmp(szBuf, "OFF") ? 1 : 0;
+}
+
+INIT static VOID Numlock(BYTE * pLine)
+{
+  /* Format:      NUMLOCK = (ON | OFF)      */
+  iregs regs;
+  BYTE FAR *keyflags = (BYTE FAR *)MK_FP(0x40,0x17);
 
   GetStringArg(pLine, szBuf);
-  break_ena = strcmp(szBuf, "OFF") ? 1 : 0;
+
+  *keyflags &= ~32;
+  *keyflags |= strcasecmp(szBuf, "OFF") ? 32 : 0;
+  regs.a.b.h = 1;
+  init_call_intr(0x16, &regs);
 }
 
 INIT static VOID DeviceHigh(BYTE * pLine)
@@ -1279,8 +1293,26 @@ char *stristr(char *s1, char *s2)
         }    
         
     return NULL;
-}    
+}
 
+/* compare two ASCII strings ignoring case */
+INIT COUNT strcasecmp(REG BYTE *d, REG BYTE *s)
+{
+    int loop;
+
+    while (*s != '\0' && *d != '\0')
+    {
+        
+        if (toupper(*d) == toupper(*s))
+            ++s, ++d;
+        
+        else
+            return toupper(*d) - toupper(*s);
+        
+    }
+    
+    return toupper(*d) - toupper(*s);
+}
 
 /*
     moved from BLOCKIO.C here.

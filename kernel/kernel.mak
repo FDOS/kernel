@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.7  2001/03/25 17:11:54  bartoldeman
+# Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
+#
 # Revision 1.6  2001/03/21 02:56:26  bartoldeman
 # See history.txt for changes. Bug fixes and HMA support are the main ones.
 #
@@ -125,7 +128,7 @@ INCLUDEPATH = ..\HDR
 #AFLAGS      = /Mx /DSTANDALONE=1 /I..\HDR
 NASMFLAGS   = -i../hdr/
 LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
-#CFLAGS = -1- -O -Z -d -I..\hdr -I. \
+#ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
 #    -D__STDC__=0;DEBUG;KERNEL;I86;PROTO;ASMSUPT
 ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
      -D__STDC__=0;KERNEL;I86;PROTO;ASMSUPT \

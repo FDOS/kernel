@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/03/25 17:11:54  bartoldeman
+ * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
+ *
  * Revision 1.14  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -564,7 +567,13 @@ dispatch:
         r->AL = 0xff;
       break;
 
-      /* CP/M compatibility functions                                 */
+    default:
+#ifdef DEBUG
+       printf("Unsupported INT21 AH = 0x%x, AL = 0x%x.\n", r->AH, r->AL);
+#endif
+      /* Fall through. */
+
+    /* CP/M compatibility functions                                 */
     case 0x18:
     case 0x1d:
     case 0x1e:
@@ -572,7 +581,6 @@ dispatch:
 #ifndef TSC
     case 0x61:
 #endif
-    default:
       r->AL = 0;
       break;
 

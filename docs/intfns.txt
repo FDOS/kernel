@@ -112,12 +112,12 @@ int 21	Description			State		Ver	Status
 5701h	Set File Date and Time		active		2.00	supported
 5800h	Get Allocation Strategy		active		3.00	supported
 5801h	Set Allocation Strategy		active		3.00	supported
-5802h   Get Upper-Memory Link           active          5.00    planned
-5803h   Set Upper-Memory Link           active          5.00    planned
-59h     Get Extended Error              active          3.00    planned
-5ah     Create Temporary File           active          3.00
-5bh     Create New File                 active          3.00
-5ch     Lock/Unlock File                active          3.10    planned
+5802h   Get Upper-Memory Link           active          5.00    supported
+5803h   Set Upper-Memory Link           active          5.00    supported
+59h     Get Extended Error              active          3.00    supported
+5ah     Create Temporary File           active          3.00    supported
+5bh     Create New File                 active          3.00    supported
+5ch     Lock/Unlock File                active          3.10    supported
 5d00h   Server Function Call            active          3.10    supported
 5d01h   Commit All Files                active          3.10    planned
 5d02h   Close File by Name              active          3.10    planned
@@ -142,8 +142,8 @@ int 21	Description			State		Ver	Status
 68h     Commit File                     active          3.30    dummy func
 69h     GET/SET DISK SERIAL NUMBER      active          4.00    supported
 6ah     COMMIT FILE (same as 68h)       active          4.00    not supported
-6bh     NULL FUNCTION                   active          5.00    not supported
-6ch     Extended Open/Create            active          4.00    supported
+6bh     NULL FUNCTION                   active          5.00    supported
+6ch     Extended Open/Create            active          4.00    planned
 71h     LONG FILENAME FUNCTIONS         active          7.00    not supported
 
 int 22: Program Termination Address.
@@ -195,6 +195,9 @@ See COPYING in DOS-C root directory for license.
 $Id$
 
 $Log$
+Revision 1.4  2001/03/25 17:11:53  bartoldeman
+Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
+
 Revision 1.3  2000/05/09 00:29:50  jimtabor
 Clean up and Release
 

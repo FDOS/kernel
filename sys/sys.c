@@ -27,9 +27,12 @@
 ***************************************************************/
 
 /* $Log$
- * Revision 1.4  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
+ * Revision 1.5  2001/03/25 17:11:54  bartoldeman
+ * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
  *
+/* Revision 1.4  2000/08/06 05:50:17  jimtabor
+/* Add new files and update cvs with patches and changes
+/*
  * Revision 1.3  2000/05/25 20:56:23  jimtabor
  * Fixed project history
  *
@@ -510,12 +513,14 @@ VOID get_boot(COUNT drive)
 BOOL check_space(COUNT drive, BYTE * BlkBuffer)
 {
   BYTE *bpbp;
+#if 0 /* these local variables are never used */
   BYTE nfat;
   UWORD nfsect;
   ULONG hidden;
+  UBYTE nreserved;
+#endif
   ULONG count;
   ULONG block;
-  UBYTE nreserved;
   UCOUNT i;
   WORD track, head, sector;
   UBYTE buffer[SEC_SIZE];
@@ -523,10 +528,12 @@ BOOL check_space(COUNT drive, BYTE * BlkBuffer)
   UWORD bpb_nsize;
 
   /* get local information                                */
+#if 0 /* these local variables are never used */
   getbyte((VOID *) & BlkBuffer[BT_BPB + BPB_NFAT], &nfat);
   getword((VOID *) & BlkBuffer[BT_BPB + BPB_NFSECT], &nfsect);
   getlong((VOID *) & BlkBuffer[BT_BPB + BPB_HIDDEN], &hidden);
   getbyte((VOID *) & BlkBuffer[BT_BPB + BPB_NRESERVED], &nreserved);
+#endif
 
   getlong((VOID *) & BlkBuffer[BT_BPB + BPB_HUGE], &bpb_huge);
   getword((VOID *) & BlkBuffer[BT_BPB + BPB_NSIZE], &bpb_nsize);

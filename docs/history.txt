@@ -1,3 +1,11 @@
+2001 Mar 25 - Build 2023
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  sys.com compilation: it is a proper .com and works again.
+	 Suggestions from Martin Stromberg: warning removal and some
+	 debugging related changes.
+	 Suggestion from Aitor Santamaria Merino: implemented NUMLOCK=ON/OFF
+         in config.sys. Also implemented strcasecmp.
+	 Updated intfns.txt; reported version is now 5.0.
 2001 Mar 24 - Build 2022
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  Tom and Bart: cli/sti handling and other fixes in entry.asm,
