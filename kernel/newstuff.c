@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.14  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -529,7 +532,7 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
                                     break;
                                 }
                                 if (c == '.') {
-                                    *(bufp++) = '.';
+                                    if (src[i+1] != '.' && i+1 < seglen) *(bufp++) = '.';
                                     copylen = 0;
                                     state = 2;  /* Copy extension next */
                                     break;
@@ -543,7 +546,7 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
                                 }
                                 break;
                             case 1: /* Looking for dot so we can copy exten */
-                                if (src[i] == '.') {
+                                if (src[i] == '.' && src[i+1] != '.' && i+1 < seglen) {
                                     *(bufp++) = '.';
                                     state = 2;
                                 }

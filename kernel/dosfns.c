@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.30  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.29  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -1134,8 +1137,7 @@ COUNT DosCloseSft(WORD sft_idx)
     return DE_INVLDHNDL;
 
   /* If this is not opened another error          */
-  /* The second condition is a sanity check and necessary for FcbCloseAll */
-  if (sftp->sft_count == 0 || (sftp->sft_count == 1 && sftp->sft_psp != cu_psp))
+  if (sftp->sft_count == 0)
     return DE_ACCESS;
 
   lpCurSft = sftp;
@@ -1181,8 +1183,9 @@ COUNT DosClose(COUNT hndl)
   return ret;
 }
 
-VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps, COUNT FAR * nc)
+BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc, UCOUNT FAR * bps, UCOUNT FAR * nc)
 {
+  /* *nc==0xffff means: called from FatGetDrvData, fcbfns.c */	
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
 	COUNT rg[4];
@@ -1193,29 +1196,45 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
 	/* first check for valid drive          */
   *spc = -1;
   if (drive >= lastdrive)
-      return;
+      return FALSE;
   
   cdsp = &CDSp->cds_table[drive];
 
   if (!(cdsp->cdsFlags & CDSVALID))
-      return;
+      return FALSE;
                 
   if (cdsp->cdsFlags & CDSNETWDRV)
   {
+      if (*nc == 0xffff)
+      {
+          /* Undoc DOS says, its not supported for 
+             network drives. so it's probably OK */
+          /*printf("FatGetDrvData not yet supported over network drives\n");*/
+	  return FALSE;
+      }
+      
       remote_getfree(cdsp, rg);
 		
       *spc  = (COUNT) rg[0];
       *nc   = (COUNT) rg[1];
       *bps  = (COUNT) rg[2];
       *navc = (COUNT) rg[3]; 
-      return;
+      return TRUE;
   }
 
   dpbp = CDSp->cds_table[drive].cdsDpb;
-  if (dpbp == NULL || media_check(dpbp) < 0)
-      return;
+  if (dpbp == NULL)
+      return FALSE;
+
+  if (*nc == 0xffff)
+  {
+      flush_buffers(dpbp->dpb_unit); 
+      dpbp->dpb_flags = M_CHANGED;
+  }
+  
+  if (media_check(dpbp) < 0)
+      return FALSE;
   /* get the data available from dpb      */
-  *nc = dpbp->dpb_size - 1;
   *spc = dpbp->dpb_clsmask + 1;
   *bps = dpbp->dpb_secsize;
 
@@ -1229,7 +1248,7 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
     /* we shift ntotal until it is equal to or below 0xfff6 */
     cluster_size = (ULONG)dpbp->dpb_secsize << dpbp->dpb_shftcnt;
     ntotal = dpbp->dpb_xsize - 1;
-    nfree = dos_free(dpbp);
+    if (*nc != 0xffff) nfree = dos_free(dpbp);
     while (ntotal > FAT_MAGIC16 && cluster_size < 0x8000)
     {
       cluster_size <<= 1;
@@ -1243,10 +1262,21 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
     /* now tell fs to give us free cluster  */
     /* count                                */
     *navc = nfree > FAT_MAGIC16 ? FAT_MAGIC16 : (UCOUNT)nfree;
-    return;
+    return TRUE;
   }
 #endif
-  *navc = (COUNT)dos_free(dpbp);
+  /* a passed nc of 0xffff means: skip free; see FatGetDrvData
+     fcbfns.c */
+  if (*nc != 0xffff) *navc = (COUNT)dos_free(dpbp);
+  *nc = dpbp->dpb_size - 1;
+  if (*spc > 64) {
+      /* fake for 64k clusters do confuse some DOS programs, but let
+         others work without overflowing */
+    *spc >>= 1;
+    *navc = (*navc < FAT_MAGIC16/2) ? (*navc << 1) : FAT_MAGIC16;
+    *nc = (*nc < FAT_MAGIC16/2) ? (*nc << 1) : FAT_MAGIC16;
+  }
+  return TRUE;
 }
 
 #ifdef WITHFAT32

@@ -1,23 +1,19 @@
-!include "..\config.mak"
+!include "..\mkfiles\generic.mak"
 
 CFLAGS = -I$(INCLUDEPATH) -I..\hdr
 
 production: patchobj.exe exeflat.exe
 
-patchobj.exe: patchobj.obj
-	$(CC) -L$(LIBPATH) patchobj.obj
+patchobj.exe: patchobj.c
+	$(CC) $(CFLAGST) $(CFLAGS) patchobj.c
 
-exeflat.exe: exeflat.obj
-	$(CC) -L$(LIBPATH) $(CFLAGSC) exeflat.obj
+exeflat.exe: exeflat.c ..\hdr\exe.h
+	$(CC) $(CFLAGSC) $(CFLAGS) exeflat.c
 
-patchobj.obj: patchobj.c ..\config.mak
-
-exeflat.obj: exeflat.c ..\hdr\exe.h ..\config.mak
-	$(CC) $(CFLAGSC) $(CFLAGS) -c exeflat.c
 
 clobber: clean
 	$(RM) bin2c.com exeflat.exe patchobj.exe
 
 clean:
-	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las status.me
+	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod status.me
 

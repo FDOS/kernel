@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.9  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -401,8 +404,10 @@ UCOUNT link_fat12(struct dpb FAR *dpbp, CLUSTER Cluster1, CLUSTER Cluster2)
 CLUSTER next_cluster(struct dpb FAR *dpbp, CLUSTER ClusterNum)
 {
   struct buffer FAR *bp;
+#ifdef DEBUG
   if (ClusterNum == LONG_LAST_CLUSTER) printf("fatal error: trying to do next_cluster(dpbp, EOC)!\n");
-
+  if (ClusterNum == 0) printf("fatal error: trying to do next_cluster(dpbp, 0)!\n");
+#endif
 
   /* Get the block that this cluster is in                */
   bp = getFATblock(ClusterNum, dpbp);

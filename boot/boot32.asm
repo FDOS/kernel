@@ -92,10 +92,7 @@ real_start:     cld
 		mov	di, bp
 		mov	cx, 0x0100
 		rep	movsw           ; move boot code to the 0x1FE0:0x0000
-		push	es
-		mov	bx, cont
-		push	bx
-		retf
+		jmp     word 0x1FE0:cont
 
 cont:           mov     ds, ax
 		mov	ss, ax
@@ -269,15 +266,15 @@ c3:
                 
 ; prints text after call to this function.
 
-print:          pop   si                       ; this is the first character
+print_1char:        
                 xor   bx, bx                   ; video page 0
                 mov   ah, 0x0E                 ; else print it
-print1:         lodsb                          ; get token
-                cmp   al, bl                   ; end of string? (al == bl == 0)
-                je    print2                   ; if so, exit
                 int   0x10                     ; via TTY mode
-                jmp   short print1             ; until done
-print2:         push  si                       ; stack up return address
+print:          pop   si                       ; this is the first character
+print1:         lodsb                          ; get token
+                push  si                       ; stack up potential return address
+                cmp   al, 0                    ; end of string?
+                jne   print_1char              ; until done
                 ret                            ; and jump to it
 
 

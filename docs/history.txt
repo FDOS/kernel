@@ -1,3 +1,34 @@
+2001 Nov 12 - Build 2025a
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Changes Tom
+    * initialize LBA parameter struct to 0's - some BIOSes don't fill
+      in everything. Thanks to Bernd Blaauw's bug report.
+    * Minor boot sector optimization.
+    * added some exeflat options
++ Changes Jeremy
+    * changes to fdkrncfg.c: mostly cosmetic to the output
+    * added sys.doc file (updated by Bart)
++ Changes Bart
+    * let int 0 (divide by zero) and int 6 (invalid opcode) print a
+      stack trace to aid in debugging
+    * fixed floppy drive detection for XT's.
+    * fixed bug in int21/ah=0x32 and friends - we should flush data before the 
+      forced media_check
+    * Use CHS addressing if possible on partitions with the relevant ID,
+      you can overide this using the new FORCELBA and GLOBALENABLELBASUPPORT
+      sys config options.
+    * Always use BIOS values for translating LBA to CHS for fixed disks - 
+      ignoring the boot sector values. For floppies the boot sector is used.
+    * fixed "truename hello." to remove the trailing dot.
+    * added options to SYS to write to a boot sector image file
+    * set Critical Error Code for ioctl's
+    * fake cluster size for 64k clusters just like FAT32 for INT21/AH=0x36
+      and friends.
++ Changes Bart+Tom+Victor
+    * make makefile system more robust
++ Changes Victor
+    * cleaned up map_cluster and dir_read (bug fixed by Bart)
+    * updated LFN API (in development, not used yet)
 2001 Nov 4 - Build 2025a (test)
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Changes tom
@@ -25,6 +56,8 @@
       compilers (MS, Watcom, Borland). Watcom compiles but the result 
       does not run yet.
 + Changes Bart
+    * extended the double-byte lead table from int21/ah=63 to 4 zeros
+      to make Watcom happy
     * support for IOCTL AX=440D, CL=40,41,42,61,62 for 
       read/write/format track - this enables R. Nordier format to work
     * default floppy type depends on the drive

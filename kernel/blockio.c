@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
                                                                                                                                                                    
 /*
  * $Log$
+ * Revision 1.15  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.14  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -592,7 +595,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
       return 0x0201;        /* illegal command */
       }
   
-#if 1
+#if TOM
 #define KeyboardShiftState() (*(BYTE FAR *)(MK_FP(0x40,0x17)))
 
   if (KeyboardShiftState() & 0x01)

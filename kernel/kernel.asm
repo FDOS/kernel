@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.20  2001/11/13 23:36:45  bartoldeman
+; Kernel 2025a final changes.
+;
 ; Revision 1.19  2001/11/04 19:47:39  bartoldeman
 ; kernel 2025a changes: see history.txt
 ;
@@ -183,6 +186,8 @@ configstart:
 DLASortByDriveNo            db 0        ; sort disks by drive order
 InitDiskShowDriveAssignment db 1        ;  
 SkipConfigSeconds           db 2        ;                 
+ForceLBA                    db 0        ;                 
+GlobalEnableLBAsupport      db 1        ;                 
 
 configend:                
 

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.12  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -265,7 +268,10 @@ COUNT DosDevIOctl(iregs FAR * r)
           execrh((request FAR *) & CharReqHdr, s->sft_dev);
 
           if (CharReqHdr.r_status & S_ERROR)
+          {
+            CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
             return DE_DEVICE;
+          }
 
           if (r->AL == 0x07)
           {
@@ -316,6 +322,7 @@ COUNT DosDevIOctl(iregs FAR * r)
 
         if (CharReqHdr.r_status & S_ERROR)
         {
+            CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
             return DE_DEVICE;
         }
         if (r->AL == 0x08)
@@ -407,7 +414,10 @@ COUNT DosDevIOctl(iregs FAR * r)
                dpbp->dpb_device);
 
         if (CharReqHdr.r_status & S_ERROR)
+        {
+          CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
           return DE_ACCESS;
+        }
         else
         {
             r->AL = CharReqHdr.r_unit;

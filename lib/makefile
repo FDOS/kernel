@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.2  2001/11/13 23:36:45  bartoldeman
+# Kernel 2025a final changes.
+#
 # Revision 1.1  2001/11/04 20:10:15  bartoldeman
 # Added new makefile names, utils sources, kconfig.h
 #
@@ -40,18 +43,18 @@
 # Improved by jprice
 #
 
-!include "..\config.mak"
+!include "..\mkfiles\generic.mak"
 
 
-libm.lib:	$(CLIB) ..\config.mak
-	$(RM) libm.lib
+libm.lib:	$(CLIB)
+	-$(RM) libm.lib
 	$(LIBUTIL) $(CLIB) $(MATH_EXTRACT) $(LIBTERM)
 	$(LIBUTIL) libm $(MATH_INSERT)     $(LIBTERM)
-	$(RM) *.OBJ
+	-$(RM) *.OBJ
 
 
 clobber:        clean
-	$(RM) libm.lib status.me
+	-$(RM) libm.lib status.me
 
 clean:
-	$(RM) *.obj *.bak
+	-$(RM) *.obj *.bak

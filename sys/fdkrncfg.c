@@ -34,8 +34,11 @@ KernelConfig cfg = {0};
 
 
 typedef unsigned char byte;
+typedef signed char sbyte;
 typedef unsigned short word;
+typedef signed short sword;
 typedef unsigned long dword;
+typedef signed long sdword;
 
 
 /* These structures need to be byte packed, if your compiler
@@ -48,8 +51,6 @@ typedef unsigned long dword;
 /* Displays command line syntax */
 void showUsage(void)
 {
-
-  printf("FreeDOS Kernel Configuration %s\n", VERSION);
   printf("Usage: \n"
 	 "  %s \n"
 	 "  %s [/help | /?]\n"
@@ -57,15 +58,17 @@ void showUsage(void)
 	 PROGRAM, PROGRAM, PROGRAM, KERNEL);
   printf("\n");
   printf("  If no options are given, the current values are shown.\n");
-  printf("  %/help or ? displays this usage information.\n"
+  printf("  /help or /? displays this usage information.\n"
 	 "   [drive:][path]KERNEL.SYS specifies the kernel file to\n"
-	 "      modify, if not given defaults to \\%s\n",
+	 "      modify, if not given defaults to %s\n",
 	 KERNEL);
   printf("\n");
   printf("  option=value ... specifies one or more options and the values\n"
 	 "      to set each to.  If an option is given multiple times,\n"
 	 "      the value set will be the rightmost one.\n");
-  printf("  Current Options are: DLASORT=0|1, SHOWDRIVEASSIGNMENT=0|1\n");
+  printf("  Current Options are: DLASORT=0|1, SHOWDRIVEASSIGNMENT=0|1\n"
+         "                       SKIPCONFIGSECONDS=#, FORCELBA=0|1\n"
+         "                       GLOBALENABLELBASUPPORT=0|1\n");
 }
 
 
@@ -152,8 +155,20 @@ void displayConfigSettings(KernelConfig *cfg)
 
   if (cfg->ConfigSize >= 3)
   {
-    printf("SKIPCONFIGSECONDS=%-2d      time to wait for F5/F8 :   *2 sec\n",
+    printf("SKIPCONFIGSECONDS=%-3d     time to wait for F5/F8 :   *2 sec (skip < 0)\n",
       cfg->SkipConfigSeconds);
+  }
+
+  if (cfg->ConfigSize >= 4)
+  {
+    printf("FORCELBA=0x%02X            Always use LBA if possible: *0=no, 1=yes\n",
+      cfg->ForceLBA);
+  }
+
+  if (cfg->ConfigSize >= 5)
+  {
+    printf("GLOBALENABLELBASUPPORT=0x%02X Enable LBA support:      *1=yes, 0=no\n",
+      cfg->GlobalEnableLBAsupport);
   }
 
 #if 0   /* we assume that SYS is as current as the kernel */
@@ -177,16 +192,32 @@ void displayConfigSettings(KernelConfig *cfg)
 
 
 
+/* Note: The setXXXOption functions will set the config option of
+   type XXX to the value given.  It will display a warning, but
+   allow probably invalid values to be used (cause I believe in
+   letting the user do what they want, not what we guess they mean).
+   Additionally, we only indicate a change if a new value is used,
+   to force changes written even if same value is used, use same
+   option twice, first with a different value & second time with
+   (same) value desired.  kjd
+*/
 
-/* Sets the given location to a byte value if different,
+/* Sets the given location to an unsigned byte value if different,
    displays warning if values exceeds max
 */
 void setByteOption(byte *option, char *value, word max, int *updated, char *name)
 {
-  int optionValue;
+  unsigned long optionValue;
 
-  optionValue = atoi(value);
-  if (optionValue > max)
+  /*  optionValue = atoi(value); Use strtoul instead of atoi/atol as it detect base (0xFF & 255) */
+  optionValue = strtoul(value, NULL, 0);
+
+  if (optionValue > 255)
+  {
+    printf("Warning: Option %s: Value <0x%02lX> will be truncated!\n",
+      name, optionValue);
+  }
+  if ((byte)optionValue > max)
   {
     printf("Warning: Option %s: Value <0x%02X> may be invalid!\n",
       name, (unsigned int)((byte)optionValue));
@@ -198,6 +229,93 @@ void setByteOption(byte *option, char *value, word max, int *updated, char *name
     *updated = 1;
   }
 }
+
+/* Sets the given location to a signed byte value if different,
+   displays warning if values exceeds max or is less than min
+*/
+void setSByteOption(sbyte *option, char *value, sword min, sword max, int *updated, char *name)
+{
+  signed long optionValue;
+
+  /*  optionValue = atoi(value); Use strtol instead of atoi/atol as it detects base */
+  optionValue = strtol(value, NULL, 0);
+
+  if ( (optionValue < -128) || (optionValue > 127) )
+  {
+    printf("Warning: Option %s: Value <0x%02lX> will be truncated!\n",
+      name, optionValue);
+  }
+  if ( ((sbyte)optionValue > max) || ((sbyte)optionValue < min) )
+  {
+    printf("Warning: Option %s: Value <0x%02X> may be invalid!\n",
+      name, (signed int)((byte)optionValue));
+  }
+  /* Don't bother updating if same value */
+  if ((sbyte)optionValue != *option)
+  {
+    *option = (sbyte)optionValue;
+    *updated = 1;
+  }
+}
+
+#if 0  /* disable until there are (un)signed word configuration values */
+/* Sets the given location to an unsigned word value if different,
+   displays warning if values exceeds max
+*/
+void setWordOption(word *option, char *value, dword max, int *updated, char *name)
+{
+  unsigned long optionValue;
+
+  /*  optionValue = atol(value); Use strtoul instead of atoi/atol as it allows 0xFF and 255 */
+  optionValue = strtoul(value, NULL, 0);
+
+  if (optionValue > 65535)
+  {
+    printf("Warning: Option %s: Value <0x%02lX> will be truncated!\n",
+      name, optionValue);
+  }
+  if ((word)optionValue > max)
+  {
+    printf("Warning: Option %s: Value <0x%02X> may be invalid!\n",
+      name, (unsigned int)optionValue);
+  }
+  /* Don't bother updating if same value */
+  if ((word)optionValue != *option)
+  {
+    *option = (word)optionValue;
+    *updated = 1;
+  }
+}
+
+/* Sets the given location to a signed byte value if different,
+   displays warning if values exceeds max or is less than min
+*/
+void setSWordOption(sword *option, char *value, sdword min, sdword max, int *updated, char *name)
+{
+  signed long optionValue;
+
+  /*  optionValue = atol(value); Use strtol instead of atoi/atol as it allows 0xFF and 255 */
+  optionValue = strtol(value, NULL, 0);
+
+  if ( (optionValue < -32768) || (optionValue > 32767) )
+  {
+    printf("Warning: Option %s: Value <0x%02lX> will be truncated!\n",
+      name, optionValue);
+  }
+
+  if ( ((sword)optionValue > max) || ((sword)optionValue < min) )
+  {
+    printf("Warning: Option %s: Value <0x%02X> may be invalid!\n",
+      name, (signed int)optionValue);
+  }
+  /* Don't bother updating if same value */
+  if ((sword)optionValue != *option)
+  {
+    *option = (sword)optionValue;
+    *updated = 1;
+  }
+}
+#endif
 
 
 /* Main, processes command line options and calls above
@@ -212,7 +330,7 @@ int FDKrnConfigMain(int argc,char **argv)
   char *cptr;
   char *argptr;
 
-  printf("FreeDOS System configurator %s \n", VERSION);
+  printf("FreeDOS Kernel Configuration %s\n", VERSION);
 
 
   /* 1st go through and just process arguments (help/filename/etc) */
@@ -243,15 +361,16 @@ int FDKrnConfigMain(int argc,char **argv)
 
     argptr = argv[argstart];
 
-    cptr = strchr(argptr, '=');
-
+#if 0  /* No arguments is acceptable, just displays current settings using default kernel file */
     if (argptr == 0)
         {
         showUsage();
         exit(1);
         }             
+#endif
+
                                 /* the first argument may be the kernel name */
-    if (strchr(argptr, '=') == NULL)
+    if ( (argstart < argc) && (strchr(argptr, '=') == NULL) )
         {
     	kfilename = argptr;
     	argstart++;
@@ -291,9 +410,18 @@ int FDKrnConfigMain(int argc,char **argv)
         }
         else if (memicmp(argptr, "SKIPCONFIGSECONDS",3) == 0)
         {
-            setByteOption(&(cfg.SkipConfigSeconds),
-                cptr, 1, &updates, "SKIPCONFIGSECONDS");
-            updates++;      
+            setSByteOption(&(cfg.SkipConfigSeconds),
+                cptr, -128, 127, &updates, "SKIPCONFIGSECONDS");
+        }
+        else if (memicmp(argptr, "FORCELBA",3) == 0)
+        {
+            setByteOption(&(cfg.ForceLBA),
+                cptr, 1, &updates, "FORCELBA");
+        }
+        else if (memicmp(argptr, "GLOBALENABLELBASUPPORT",3) == 0)
+        {
+            setByteOption(&(cfg.GlobalEnableLBAsupport),
+                cptr, 1, &updates, "GLOBALENABLELBASUPPORT");
         }
         else
         {
@@ -321,7 +449,7 @@ illegal_arg:
         printf("\nUpdated Kernel settings.\n");
     }
     else
-	    printf("Current Kernel settings.\n");
+	    printf("\nCurrent Kernel settings.\n");
 
 
   /* display current settings  */

@@ -79,11 +79,14 @@ extern BYTE FAR _HMATextEnd[];
 static BYTE *mainRcsId = "$Id$";
 #endif
 
-struct _KernelConfig InitKernelConfig = {0};    
+struct _KernelConfig InitKernelConfig = {"", 0, 0, 0, 0, 0, 0};
 
 
 /*
  * $Log$
+ * Revision 1.23  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.22  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *

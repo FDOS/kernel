@@ -103,8 +103,57 @@ extern UWORD DOSFAR LBA_WRITE_VERIFY;
  *
  * e) and all this is my private opinion. tom ehlert.
  *
+ *
+ * Some thoughts about LBA vs. CHS. by Bart Oldeman 2001/Nov/11
+ * Matthias Paul writes in www.freedos.org/freedos/news/technote/113.html:
+ * (...) MS-DOS 7.10+, which will always access logical drives in a type
+ * 05h extended partition via CHS, even if the individual logical drives
+ * in there are of LBA type, or go beyond 8 Gb... (Although this workaround
+ * is sometimes used in conjunction with OS/2, using a 05h partition going
+ * beyond 8 Gb may cause MS-DOS 7.10 to hang or corrupt your data...) (...)
+ *
+ * Also at http://www.win.tue.nl/~aeb/partitions/partition_types-1.html:
+ * (...) 5 DOS 3.3+ Extended Partition
+ *   Supports at most 8.4 GB disks: with type 5 DOS/Windows will not use the
+ *   extended BIOS call, even if it is available. (...)
+ *
+ * So MS-DOS 7.10+ is brain-dead in this respect, but we knew that ;-)
+ * However there is one reason to use old-style CHS calls:
+ * some programs intercept int 13 and do not support LBA addressing. So
+ * it is worth using CHS if possible, unless the user asks us not to,
+ * either by specifying a 0x0c/0x0e/0x0f partition type or enabling
+ * the ForceLBA setting in the fd kernel (sys) config. This will make
+ * multi-sector reads and BIOS computations more efficient, at the cost
+ * of some compatibility.
+ *
+ * However we need to be safe, and with varying CHS at different levels
+ * that might be difficult. Hence we _only_ trust the LBA values in the
+ * partition tables and the heads and sectors values the BIOS gives us.
+ * After all these are the values the BIOS uses to process our CHS values.
+ * So unless the BIOS is buggy, using CHS on one partition and LBA on another
+ * should be safe. The CHS values in the partition table are NOT trusted.
+ * We print a warning if there is a mismatch with the calculated values.
+ *
+ * The CHS values in the boot sector are used at a higher level. The CHS
+ * that DOS uses in various INT21/AH=44 IOCTL calls are converted to LBA
+ * using the boot sector values and then converted back to CHS using BIOS
+ * values if necessary. Internally we do LBA as much as possible.
+ *
+ * However if the partition extends beyond cylinder 1023 and is not labelled
+ * as one of the LBA types, we can't use CHS and print a warning, using LBA
+ * instead if possible, and otherwise refuse to use it.
+ *
+ * As for EXTENDED_LBA vs. EXTENDED, FreeDOS makes no difference. This is
+ * boot time - there is no reason not to use LBA for reading partition tables,
+ * and the MSDOS 7.10 behaviour is not desirable.
+ *
+ * Note: for floppies we need the boot sector values though and the boot sector
+ * code does not use LBA addressing yet.
+ *
+ * Conclusion: with all this implemented, FreeDOS should be able to gracefully
+ * handle and read foreign hard disks moved across computers, whether using
+ * CHS or LBA, strengthening its role as a rescue environment.
  */
-
 
 /* #define DEBUG */
 
@@ -146,6 +195,7 @@ extern UWORD DOSFAR LBA_WRITE_VERIFY;
                               /* boundary.  LBA is needed to access this.  */
 #define FAT16_LBA       0x0e  /* like 0x06, but it is supposed to end past */
                               /* the 8.4GB boundary                        */
+#define FAT12_LBA       0xff  /* fake FAT12 LBA entry for internal use     */
 #define EXTENDED_LBA    0x0f  /* like 0x05, but it is supposed to end past */
 
 /* Let's play it safe and do not allow partitions with clusters above  *
@@ -159,6 +209,10 @@ extern UWORD DOSFAR LBA_WRITE_VERIFY;
 
 #define IsExtPartition(parttyp) ((parttyp) == EXTENDED || \
                                  (parttyp) == EXTENDED_LBA )
+
+#define IsLBAPartition(parttyp) ((parttyp) == FAT12_LBA  || \
+                                 (parttyp) == FAT16_LBA  || \
+                                 (parttyp) == FAT32_LBA)
 
 #ifdef WITHFAT32
 #define IsFATPartition(parttyp) ((parttyp) == FAT12      || \
@@ -221,8 +275,6 @@ struct PartTableEntry     /* INTERNAL representation of partition table entry */
     internal global data
 */
 
-UBYTE GlobalEnableLBAsupport = 1;       /* = 0 --> disable LBA support */  
-
 COUNT init_readdasd(UBYTE drive)
 {
     static iregs regs;
@@ -266,37 +318,31 @@ floppy_bpb floppy_bpbs[5] = {
 COUNT init_getdriveparm(UBYTE drive, bpb FAR *pbpbarray)
 {
     static iregs regs;
+    REG UBYTE type;
     
     if (drive & 0x80)
         return 5;
     regs.a.b.h = 0x08;
     regs.d.b.l = drive;
     init_call_intr(0x13,&regs);
+    type = regs.b.b.l - 1;
     if (regs.flags & 1)
-        return 0; /* return 320-360 for XTs */
+      type = 0; /* return 320-360 for XTs */
+    else if (type > 6) 
+      type = 8; /* any odd ball drives get 8&7=0: the 320-360 table */
+    else if (type == 5)
+      type = 4; /* 5 and 4 are both 2.88 MB */    
+	    
+    fmemcpy(pbpbarray, &floppy_bpbs[type & 7], sizeof(floppy_bpb));
 
-    switch(regs.b.b.l)
-    {
-    case 1:        /* 320-360 */
-        fmemcpy(pbpbarray, &floppy_bpbs[0], sizeof(floppy_bpb));
-        return 0;
-    case 2:        /* 1.2 */
-        fmemcpy(pbpbarray, &floppy_bpbs[1], sizeof(floppy_bpb));
-        return 1;
-    case 3:        /* 720 */
-        fmemcpy(pbpbarray, &floppy_bpbs[2], sizeof(floppy_bpb));
-        return 2;
-    case 4:        /* 1.44 */
-        fmemcpy(pbpbarray, &floppy_bpbs[3], sizeof(floppy_bpb));
-        return 7;
-    case 5:        /* 2.88 almost forgot this one*/
-    case 6:
-        fmemcpy(pbpbarray, &floppy_bpbs[4], sizeof(floppy_bpb));
-        return 9;
-    }
-    /* any odd ball drives return this */
-    fmemcpy(pbpbarray, &floppy_bpbs[0], sizeof(floppy_bpb));
-    return 8;
+    if (type == 3)
+      return 7;  /* 1.44 MB */
+
+    if (type == 4)
+      return 9;  /* 2.88 almost forgot this one*/
+    
+    /* 0=320-360kB, 1=1.2MB, 2=720kB, 8=any odd ball drives */
+    return type;
 }
 
 /*
@@ -363,6 +409,7 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
     switch(FileSystem) {
 
     case FAT12:
+    case FAT12_LBA:        
         /* in DOS, FAT12 defaults to 4096kb (8 sector) - clusters. */
         defbpb->bpb_nsector = 8;
         /* Force maximal fatdata=32696 sectors since with our only possible sector
@@ -502,6 +549,11 @@ void DosDefinePartition(struct DriveParamS *driveParam,
       pddt->ddt_driveno = driveParam->driveno;
       pddt->ddt_logdriveno = nUnits;
       pddt->ddt_LBASupported = driveParam->LBA_supported;
+      /* Turn of LBA if not forced and the partition is within 1023 cyls and of the right type */
+      /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
+         above cylinder 1023 was found */
+      if (!InitKernelConfig.ForceLBA && !IsLBAPartition(pEntry->FileSystem))
+          pddt->ddt_LBASupported = FALSE;
       pddt->ddt_WriteVerifySupported = driveParam->WriteVerifySupported;
       pddt->ddt_ncyl = driveParam->chs.Cylinder;
       
@@ -576,7 +628,7 @@ int LBA_Get_Drive_Parameters(int drive,struct DriveParamS *driveParam)
 
                                 /* for tests - disable LBA support,
                                    even if exists                    */
-    if (!GlobalEnableLBAsupport)
+    if (!InitKernelConfig.GlobalEnableLBAsupport)
         {
         goto StandardBios;
         }
@@ -611,6 +663,7 @@ int LBA_Get_Drive_Parameters(int drive,struct DriveParamS *driveParam)
         LBA_WRITE_VERIFY = 0x4301;
 
 
+    memset(&lba_bios_parameters, 0, sizeof(lba_bios_parameters));
     lba_bios_parameters.size = sizeof(lba_bios_parameters);
 
 
@@ -637,7 +690,7 @@ int LBA_Get_Drive_Parameters(int drive,struct DriveParamS *driveParam)
                drive,
                (ULONG)lba_bios_parameters.heads,
                (ULONG)lba_bios_parameters.sectors,
-               (ULONG)lba_bios_parameters.sectors,
+               (ULONG)lba_bios_parameters.totalSect,
                (ULONG)lba_bios_parameters.totalSectHigh);
 
         goto StandardBios;
@@ -751,6 +804,8 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
     int i;
     struct CHS chs,end;
     ULONG  partitionStart;
+    char   partitionName[12];
+    
 
     for (i = 0; i < 4; i++,pEntry++)
         {
@@ -775,6 +830,12 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
            continue;
            }
 
+
+		
+		if (extendedPartNo) sprintf(partitionName, "Ext:%d", extendedPartNo);
+        else                sprintf(partitionName, "Pri:%d",i+1);
+
+
                                     /*
                                         some sanity checks, that partition
                                         structure is OK
@@ -792,8 +853,8 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
              chs.Head              != pEntry->Begin.Head          ||
              chs.Sector            != pEntry->Begin.Sector    )
             {
-            printf("WARNING: using suspect partition %u FS %02x:",
-                        i, pEntry->FileSystem);
+            printf("WARNING: using suspect partition %s FS %02x:",
+                        partitionName, pEntry->FileSystem);
              printCHS(" with calculated values ",&chs);
              printCHS(" instead of ",&pEntry->Begin);
              printf("\n");
@@ -809,12 +870,12 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
             {
             if (pEntry->NumSect == 0)
             {
-                printf("Not using partition %u with 0 sectors\n", i);
+                printf("Not using partition %s with 0 sectors\n", partitionName);
                 continue;
             }
  
-            printf("WARNING: using suspect partition %u FS %02x:",
-                        i, pEntry->FileSystem);
+            printf("WARNING: using suspect partition %s FS %02x:",
+                        partitionName, pEntry->FileSystem);
 
              printCHS(" with calculated values ",&end);
              printCHS(" instead of ",&pEntry->End);
@@ -825,12 +886,12 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
 
 
         if (chs.Cylinder > 1023 || end.Cylinder > 1023)
-           {
+        {
 
            if (!driveParam->LBA_supported)
                {
-               printf("can't use LBA partition without LBA support - part %u FS %02x",
-                       i, pEntry->FileSystem);
+               printf("can't use LBA partition without LBA support - part %s FS %02x",
+                       partitionName, pEntry->FileSystem);
                        
                 printCHS(" start ",&chs);
                 printCHS(", end ", &end);
@@ -839,15 +900,29 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
                 continue;
                 }
 
-            /* else its a diagnostic message only */
+           if (!InitKernelConfig.ForceLBA && !IsLBAPartition(pEntry->FileSystem))
+           {
+             printf("WARNING: Partition ID does not suggest LBA - part %s FS %02x.\n"
+                    "Please run FDISK to correct this - using LBA to access partition.\n",
+                       partitionName, pEntry->FileSystem);
+                       
+             printCHS(" start ",&chs);
+             printCHS(", end ", &end);
+             printf("\n");
+             pEntry->FileSystem = (pEntry->FileSystem == FAT12 ? FAT12_LBA :
+                                   pEntry->FileSystem == FAT32 ? FAT32_LBA :
+                                   /*  pEntry->FileSystem == FAT16 ? */ FAT16_LBA);
+           }
+
+           /* else its a diagnostic message only */
 #ifdef DEBUG
-           printf("found and using LBA partition %u FS %02x",
-                       i, pEntry->FileSystem);
+           printf("found and using LBA partition %s FS %02x",
+                       partitionName, pEntry->FileSystem);
            printCHS(" start ",&chs);
            printCHS(", end ", &end);
            printf("\n");
 #endif           
-           }
+        }
 
 
         /*

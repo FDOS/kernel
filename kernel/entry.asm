@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.16  2001/11/13 23:36:45  bartoldeman
+; Kernel 2025a final changes.
+;
 ; Revision 1.15  2001/11/04 19:47:39  bartoldeman
 ; kernel 2025a changes: see history.txt
 ;
@@ -183,7 +186,7 @@ reloc_call_cpm_entry:
                 cmp     cl,024h
                 jbe     cpm_error
                 mov     ah,cl           ; get the call # from cl to ah
-                jmp     short reloc_call_int21_handler    ; do the system call
+                jmp     reloc_call_int21_handler    ; do the system call
 cpm_error:      mov     al,0
                 iret
 
@@ -218,13 +221,30 @@ _RestartSysCall:
 ;       int20_handler(iregs UserRegs)
 ;
 
-divide_by_zero_message db 0dh,0ah,'Interrupt divide by zero',0dh,0ah,0
+print_hex:	mov cx, 404h
+hex_loop:	
+		rol dx, cl
+		mov al, dl
+		and al, 0fh
+		add al, 30h
+		cmp al, 39h
+		jbe no_letter
+		add al, 7
+no_letter:
+                mov bx, 0070h
+                mov ah, 0eh
+                int  10h
+		dec ch
+		jnz hex_loop
+		ret
+
+divide_by_zero_message db 0dh,0ah,'Interrupt divide by zero, stack:',0dh,0ah,0
 
                 global reloc_call_int0_handler
 reloc_call_int0_handler:
                 
                 mov si,divide_by_zero_message
-                
+
 zero_message_loop:
                 mov al, [cs:si]
                 test al,al
@@ -239,10 +259,26 @@ zero_message_loop:
                 jmp short zero_message_loop
                 
 zero_done:
+		mov bp, sp		
+		xor si, si	   ; print 13 words of stack for debugging LUDIV etc.
+stack_loop:		
+                mov dx, [bp+si]
+		call print_hex
+		mov al, ' '
+		int 10h
+		inc si
+		inc si
+		cmp si, 13*2
+		jb stack_loop
+		mov al, 0dh
+		int 10h
+		mov al, 0ah
+		int 10h
+												
                 mov ax,04c7fh       ; terminate with errorlevel 127                                                
                 int 21h
 
-invalid_opcode_message db 0dh,0ah,'Invalid Opcode',0dh,0ah,0
+invalid_opcode_message db 0dh,0ah,'Invalid Opcode at ',0
 
                 global reloc_call_int6_handler
 reloc_call_int6_handler:

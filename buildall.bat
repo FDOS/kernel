@@ -20,7 +20,8 @@ set onerror=if not \%XERROR% == \ goto daswarwohlnix
 :***** some MSCL kernels
 
 call config.bat
-if not \%SKIPMS% == \ goto no_ms
+
+if \%MS_BASE% == \ goto no_ms
 call build -r msc 386 fat16
 %ONERROR%
 call build -r msc 186 fat16
@@ -33,11 +34,11 @@ call build -r msc 186 fat32
 %ONERROR%
 call build -r msc  86 fat32
 %ONERROR%
-no_ms:
-SET SKIPMS=
+:no_ms
 
 :***** some TC 2.01 kernels
 
+if \%TC2_BASE% == \ goto no_tc
 call build -r tc   186 fat16
 %ONERROR%
 call build -r tc    86 fat16
@@ -46,7 +47,7 @@ call build -r tc   186 fat32
 %ONERROR%
 call build -r tc    86 fat32
 %ONERROR%
-
+:no_tc
 
 :wc
 
@@ -56,10 +57,12 @@ call build -r tc    86 fat32
 :- this is definitively only for fun - now
 :- hope, this gets better
 :- 
+if \%WATCOM% == \ goto no_wc
 call build -r wc    386 fat32
 call build -r wc    386 fat16
 call build -r wc     86 fat32
 call build -r wc     86 fat16
+:no_wc
     
 :- the watcom executables will currently NOT RUN
 @del bin\kwc*.sys >nul

@@ -34,6 +34,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.22  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.21  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -979,12 +982,19 @@ STATIC WORD dskerr(COUNT code)
 
 void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt *pddt)
 {
-    chs->Sector = LBA_address% pddt->ddt_bpb.bpb_nsecs + 1;
+    /* we need the defbpb values since those are taken from the
+       BIOS, not from some random boot sector, except when
+       we're dealing with a floppy */
+    bpb *pbpb = hd(pddt->ddt_descflags) ?
+        &pddt->ddt_defbpb :
+        &pddt->ddt_bpb;
+    
+    chs->Sector = LBA_address % pbpb->bpb_nsecs + 1;
 
-    LBA_address /= pddt->ddt_bpb.bpb_nsecs;
+    LBA_address /= pbpb->bpb_nsecs;
 
-    chs->Head     = LBA_address % pddt->ddt_bpb.bpb_nheads;
-    chs->Cylinder = LBA_address / pddt->ddt_bpb.bpb_nheads;
+    chs->Head     = LBA_address % pbpb->bpb_nheads;
+    chs->Cylinder = LBA_address / pbpb->bpb_nheads;
 }
 
 
@@ -1079,7 +1089,7 @@ int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer,
         count = DMA_max_transfer(buffer,count);    
         
 
-        if (FP_SEG(buffer) == 0xffff || count == 0)
+        if (FP_SEG(buffer) >= 0xa000 || count == 0)
             {
             transfer_address = DiskTransferBuffer;
             count = 1;

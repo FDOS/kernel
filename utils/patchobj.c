@@ -201,10 +201,10 @@ do  {
 	for (s = (unsigned char *)&Outrecord; s < &Outrecord.buffer[Outrecord.datalen]; s++)
 		chksum += *s;
 	
-	Outrecord.buffer[Outrecord.datalen] = -chksum;	
+	Outrecord.buffer[Outrecord.datalen] = ~chksum;	
 	Outrecord.datalen++;
 		
-	/* printf("^sum = %02x - %02x\n",chksum,-chksum); */
+	/* printf("^sum = %02x - %02x\n",chksum,~chksum); */
 	
 	
 	fwrite(&Outrecord,1,3+Outrecord.datalen,fdo);

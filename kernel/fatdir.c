@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.25  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.24  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -388,10 +391,8 @@ f_node_ptr dir_open(BYTE * dirname)
  * Return value.
  *  1              - all OK, directory entry having been read is not empty.
  *  0              - Directory entry is empty.
- *  DE_HNDLDSKFULL - Disk full
- *  DE_SEEK        - Other error from map_cluster
- *  DE_TOOMANY     - Too many files in root dir.
- *  DE_BLKINVLD    - Invalid block
+ *  DE_SEEK        - Attempt to read beyound the end of the directory.
+ *  DE_BLKINVLD    - Invalid block.
  * Note. Empty directory entries always resides at the end of the directory. */
 COUNT dir_read(REG f_node_ptr fnp)
 {
@@ -415,7 +416,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   if (fnp->f_flags.f_droot)
   {
     if (new_diroff >= DIRENT_SIZE * (ULONG)fnp->f_dpb->dpb_dirents)
-      return DE_TOOMANY;
+      return DE_SEEK;
 
     bp = getblock((ULONG) (new_diroff / secsize
                            + fnp->f_dpb->dpb_dirstrt),
@@ -426,8 +427,6 @@ COUNT dir_read(REG f_node_ptr fnp)
   }
   else
   {
-    COUNT rc;
-      
     /* Do a "seek" to the directory position        */
     fnp->f_offset = new_diroff;
 
@@ -436,14 +435,8 @@ COUNT dir_read(REG f_node_ptr fnp)
 #ifdef DISPLAY_GETBLOCK
     printf("dir_read: ");
 #endif
-    if ((rc = map_cluster(fnp, XFR_READ)) != SUCCESS)
-      return rc;
-
-    /* If the returned cluster is FREE, LAST_CLUSTER */
-    /* LONG_LAST_CLUSTER, return "disk as full"      */
-
-    if (fnp->f_cluster == FREE || last_link(fnp))
-      return DE_HNDLDSKFULL;
+    if (map_cluster(fnp, XFR_READ) != SUCCESS)
+      return DE_SEEK;
 
     /* Compute the block within the cluster and the */
     /* offset within the block.                     */
@@ -527,9 +520,7 @@ BOOL dir_write(REG f_node_ptr fnp)
 #ifdef DISPLAY_GETBLOCK
       printf("dir_write: ");
 #endif
-      /* If map_cluster gives an error or the returned cluster is FREE,
-         return FALSE */
-      if (map_cluster(fnp, XFR_READ) != SUCCESS || fnp->f_cluster == FREE)
+      if (map_cluster(fnp, XFR_READ) != SUCCESS)
       {
         release_f_node(fnp);
         return FALSE;

@@ -4,6 +4,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.2  2001/11/13 23:36:45  bartoldeman
+# Kernel 2025a final changes.
+#
 # Revision 1.1  2001/11/04 20:10:15  bartoldeman
 # Added new makefile names, utils sources, kconfig.h
 #
@@ -30,7 +33,7 @@
 # Improved by jprice
 #
 
-!include "..\config.mak"
+!include "..\mkfiles\generic.mak"
 
 CFLAGS = -I$(INCLUDEPATH) -I..\hdr -DFORSYS -DWITHFAT32 $(CFLAGST)
 NASMFLAGS = -DSYS=1
@@ -49,7 +52,7 @@ SYS_EXE_dependencies =  \
 production:     bin2c.com ..\bin\sys.com
 
 bin2c.com:      $(BIN2C_EXE_dependencies)
-		$(CC) $(CFLAGST) -L$(LIBPATH) $(BIN2C_EXE_dependencies)
+		$(CC) $(CFLAGST) $(BIN2C_EXE_dependencies)
 
 ..\bin\sys.com: sys.com
 		copy sys.com ..\bin
@@ -69,13 +72,13 @@ prf.obj:	..\kernel\prf.c
 fdkrncfg.obj:   fdkrncfg.c ..\hdr\kconfig.h
 
 sys.com:        $(SYS_EXE_dependencies)
-		$(CC) $(CFLAGST) -L$(LIBPATH) $(SYS_EXE_dependencies)
+		$(CC) $(CFLAGST) $(SYS_EXE_dependencies)
 
 clobber:	clean
-		$(RM) bin2c.com sys.com b_fat12.h b_fat16.h b_fat32.h
+		-$(RM) bin2c.com sys.com b_fat12.h b_fat16.h b_fat32.h
 
 clean:
-		$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las status.me
+		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod status.me
 
 #		*Individual File Dependencies*
 bin2c.obj: bin2c.c

@@ -47,6 +47,9 @@ BYTE *RcsId = "$Id$";
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
  *
  * $Log$
+ * Revision 1.26  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.25  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -1543,13 +1546,25 @@ STATIC BOOL first_fat(f_node_ptr fnp)
   return TRUE;
 }
 
-/* JPP:  I think this starts at the beginning of a file, and follows
-   the fat chain to find the cluster that contains the data for the
-   file at f_offset. */
+/* Description.
+ *    Finds the cluster which contains byte at the fnp->f_offset offset and
+ *  stores its number to the fnp->f_cluster. The search begins from the start of
+ *  a file or a directory depending whether fnp->f_ddir is FALSE or TRUE
+ *  and continues through the FAT chain until the target cluster is found.
+ *  The mode can have only XFR_READ or XFR_WRITE values.
+ *    In the XFR_WRITE mode map_cluster extends the FAT chain by creating
+ *  new clusters upon necessity.
+ * Return value.
+ *  DE_HNDLDSKFULL - [XFR_WRITE mode only] unable to find free cluster
+ *                   for extending the FAT chain, the disk is full.
+ *                   The fnode is released from memory.
+ *  DE_SEEK        - [XFR_READ mode only] byte at f_offset lies outside of
+ *                   the FAT chain. The fnode is not released.
+ * Notes.
+ *  JPP: new map_cluster. If we are moving forward, then use the offset
+ *  that we are at now (f_cluster_offset) to start, instead of starting
+ *  at the beginning. */
 
-/* JPP: new map_cluster.  If we are moving forward, then use the offset
-   that we are at now (f_cluster_offset) to start, instead of starting
-   at the beginning. */
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 {
   ULONG idx;
@@ -1570,7 +1585,10 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   {
     /* If there are no more free fat entries, then we are full! */
     if (!first_fat(fnp))
+    {
+      dir_close(fnp);
       return DE_HNDLDSKFULL;
+    }
   }
 
   if (fnp->f_offset >= fnp->f_cluster_offset)	/*JPP */
@@ -1594,19 +1612,16 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   /* physical cluster. Our search is performed by pacing an index */
   /* up to the relative cluster position where the index falls    */
   /* within the cluster.                                          */
-  /*                                                              */
-  /* NOTE: make sure your compiler does not optimize for loop     */
-  /* tests to the loop exit. We need to fall out immediately for  */
-  /* files whose length < cluster size.                           */
-  for (; idx >= clssize; idx -= clssize)
+
+  FOREVER
   {
     /* If this is a read and the next is a LAST_CLUSTER,    */
     /* then we are going to read past EOF, return zero read */
-    if ((mode == XFR_READ) && last_link(fnp))
+    if ((mode == XFR_READ) && (last_link(fnp) || fnp->f_cluster == FREE))
       return DE_SEEK;
-/* expand the list if we're going to write and have run into    */
-/* the last cluster marker.                                     */
-    else if ((mode == XFR_WRITE) && last_link(fnp))
+    /* expand the list if we're going to write and have run into    */
+    /* the last cluster marker.                                     */
+    if ((mode == XFR_WRITE) && (last_link(fnp)))
     {
       if (!extend(fnp))
       {
@@ -1614,13 +1629,18 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 	return DE_HNDLDSKFULL;
       }
     }
+
+    if (idx < clssize)
+      break;
+    
     fnp->f_back = fnp->f_cluster;
 
     /* get next cluster in the chain */
     fnp->f_cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
     fnp->f_cluster_offset += clssize;
+    idx -= clssize;
   }
-
+  
 #ifdef DISPLAY_GETBLOCK
   printf("done.\n");
 #endif
@@ -1799,20 +1819,11 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 #ifdef DISPLAY_GETBLOCK
       printf("readblock: ");
 #endif
-      switch (map_cluster(fnp, XFR_READ))
+      if (map_cluster(fnp, XFR_READ) != SUCCESS)
       {
-        case DE_SEEK:
-          *err = DE_SEEK;
-          dir_close(fnp);
-          return ret_cnt;
-
-        default:
-          *err = DE_HNDLDSKFULL;
-          dir_close(fnp);
-          return ret_cnt;
-
-        case SUCCESS:
-          break;
+        *err = DE_SEEK;
+        dir_close(fnp);
+        return ret_cnt;
       }
     }
 
@@ -1984,20 +1995,8 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
   while (count > 0)
   {
 #endif      
-      switch (map_cluster(fnp, XFR_WRITE))
-      {
-        case DE_SEEK:
-          dir_close(fnp);
-          return DE_SEEK;
-
-        default:
-          dir_close(fnp);
-          return DE_HNDLDSKFULL;
-
-        case SUCCESS:
-          merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
-          break;
-      }
+    if (map_cluster(fnp, XFR_WRITE) != SUCCESS)
+      return DE_HNDLDSKFULL;
 
 #ifdef WRITEZEROS
     /* Compute the block within the cluster and the offset  */
@@ -2181,31 +2180,9 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 #ifdef DISPLAY_GETBLOCK
       printf("writeblock: ");
 #endif
-      switch (map_cluster(fnp, XFR_WRITE))
+      if (map_cluster(fnp, XFR_WRITE) != SUCCESS)
       {
-        case DE_SEEK:
-          *err = DE_SEEK;
-          dir_close(fnp);
-          return ret_cnt;
-
-        default:
-          dir_close(fnp);
-          *err = DE_HNDLDSKFULL;
-          return ret_cnt;
-
-        case SUCCESS:
-          merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
-          break;
-      }
-    }
-
-    /* XFR_WRITE case only - if we're at the end, the next  */
-    /* FAT is an EOF marker, so just extend the file length */
-    if (last_link(fnp)) {
-      if (!extend(fnp))
-      {
-        dir_close(fnp);
-	*err = DE_HNDLDSKFULL;
+        *err = DE_HNDLDSKFULL;
         return ret_cnt;
       }
       merge_file_changes(fnp, FALSE);   /* /// Added - Ron Cemer */
@@ -2708,10 +2685,6 @@ STATIC VOID shrink_file(f_node_ptr fnp)
     
     st = fnp->f_cluster;
 
-    /* first cluster is free or EOC */
-    if (st == FREE || st == LONG_LAST_CLUSTER)
-        goto done;
-    
     next = next_cluster(dpbp, st);
 
     if (next == LONG_LAST_CLUSTER)         /* last cluster found */

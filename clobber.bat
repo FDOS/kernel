@@ -4,6 +4,9 @@ rem batch file to clobber everything
 rem $Id$
 
 rem $Log$
+rem Revision 1.6  2001/11/13 23:36:43  bartoldeman
+rem Kernel 2025a final changes.
+rem
 rem Revision 1.5  2001/11/04 19:47:37  bartoldeman
 rem kernel 2025a changes: see history.txt
 rem
@@ -31,20 +34,15 @@ rem Initial include
 rem
 
 if not exist config.bat goto noconfigbat
-if not exist config.mak goto noconfigmak
 goto start
 
 :noconfigbat
 echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
 goto end
 
-:noconfigmak
-echo You must copy CONFIG.M to CONFIG.MAK and edit it to reflect your setup!
-goto end
-
 :start
-set COMPILER=tc2
 call config.bat
+call getmake.bat
 
 cd utils
 %MAKE% clobber

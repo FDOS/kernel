@@ -26,9 +26,12 @@
 
 ***************************************************************/
 /* $Log$
- * Revision 1.11  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
+ * Revision 1.12  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
  *
+/* Revision 1.11  2001/11/04 19:47:39  bartoldeman
+/* kernel 2025a changes: see history.txt
+/*
 /* Revision 1.10  2001/09/24 02:28:14  bartoldeman
 /* Minor printf fixes.
 /*
@@ -148,7 +151,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.2"
+#define SYS_VERSION "v2.3"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -175,7 +178,7 @@
 
 BYTE pgm[] = "SYS";
 
-void put_boot(COUNT);
+void put_boot(COUNT, BYTE *, BOOL);
 BOOL check_space(COUNT, BYTE *);
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
 COUNT DiskRead(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
@@ -185,8 +188,9 @@ COUNT DiskWrite(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 #define SEC_SIZE        512
 #define COPY_SIZE       32768u
 
-
-
+#ifdef _MSC_VER
+        #pragma pack(1)
+#endif
 
 struct bootsectortype
 {
@@ -260,12 +264,20 @@ UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
 #define SBSIZE          (sizeof(struct bootsectortype) - SBOFFSET)
 #define SBSIZE32        (sizeof(struct bootsectortype32) - SBOFFSET)
 
+/* essentially - verify alignment on byte boundaries at compile time  */
+struct VerifyBootSectorSize 
+{
+    char failure1[sizeof(struct bootsectortype) == 78 ? 1 : -1];
+    char failure2[sizeof(struct bootsectortype) == 78 ? 1 : 0];
+};
 
 int FDKrnConfigMain(int argc,char **argv);
 
 int main(int argc, char **argv)
 {
   COUNT drive;                  /* destination drive */
+  COUNT drivearg = 0;           /* drive argument position */
+  BYTE *bsFile = NULL;          /* user specified destination boot sector */
   COUNT srcDrive;               /* source drive */
   BYTE srcPath[MAXPATH];        /* user specified source drive and/or path */
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
@@ -273,19 +285,18 @@ int main(int argc, char **argv)
 
   printf("FreeDOS System Installer " SYS_VERSION "\n\n");
   
-  if (memicmp(argv[1],"CONFIG",6) == 0)
+  if (argc > 1 && memicmp(argv[1],"CONFIG",6) == 0)
     {
     exit(FDKrnConfigMain(argc,argv));
     }
 
-  if (argc == 2)
+  srcPath[0] = '\0';
+  if (argc > 1 && argv[1][1] == ':' && argv[1][2] == '\0')
+    drivearg = 1;
+  
+  if (argc > 2 && argv[2][1] == ':' && argv[2][2] == '\0')
   {
-    drive = toupper(*argv[1]) - 'A';
-    srcPath[0] = '\0';
-  }
-  else if (argc == 3)
-  {
-    drive = toupper(*argv[2]) - 'A';
+    drivearg = 2;
     strncpy(srcPath, argv[1], MAXPATH-12);
     /* leave room for COMMAND.COM\0 */
     srcPath[MAXPATH-13] = '\0';
@@ -299,14 +310,19 @@ int main(int argc, char **argv)
       srcPath[slen] = '\0';
     }
   }
-  else
+
+  if (drivearg == 0)
   {
-    printf("Usage: %s [source] drive\n", pgm);
-    printf("  source = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n");
-    printf("  drive  = A,B,etc.\n");
+    printf("Usage: %s [source] drive: [bootsect [BOTH]]\n", pgm);
+    printf("  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n");
+    printf("  drive    = A,B,etc.\n");
+    printf("  bootsect = name of 512-byte boot sector file image for drive:\n");
+    printf("             to write to instead of real boot sector\n");
+    printf("  BOTH     : write to both the real boot sector and the image file\n");
     printf("%s CONFIG /help\n",pgm);
     exit(1);
   }
+  drive = toupper(argv[drivearg][0]) - 'A';
 
   if (drive < 0 || drive >= 26)
   {
@@ -353,9 +369,13 @@ int main(int argc, char **argv)
     printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);
     exit(1);
   }
-  
+
+  if (argc > drivearg+1)
+    bsFile = argv[drivearg+1];      
+      
   printf("\nWriting boot sector...\n");
-  put_boot(drive);
+  put_boot(drive, bsFile,
+           (argc > drivearg+2) && memicmp(argv[drivearg+2], "BOTH", 4) == 0);
   
   printf("\nSystem transferred.\n");
   return 0;
@@ -435,7 +455,7 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer, unsigned
 }    
 
 
-VOID put_boot(COUNT drive)
+VOID put_boot(COUNT drive, BYTE *bsFile, BOOL both)
 {
   COUNT i, z;
   WORD head, track, sector, ret;
@@ -635,16 +655,43 @@ VOID put_boot(COUNT drive)
   dump_sector(newboot);
 #endif
 
+  if ((bsFile == NULL) || both)
+  {
+      
 #ifdef DEBUG
     printf("writing new bootsector to drive %c:\n",drive+'A');
 #endif            
 
-  if (MyAbsReadWrite(drive, 1, 0, newboot,0x26) != 0)
+    if (MyAbsReadWrite(drive, 1, 0, newboot,0x26) != 0)
     {
-    printf("Can't write new boot sector to drive %c:\n", drive +'A');
-    exit(1);
+      printf("Can't write new boot sector to drive %c:\n", drive +'A');
+      exit(1);
     }
+  }
+  
+  if (bsFile != NULL)
+  {
+    int fd;
+      
+#ifdef DEBUG
+    printf("writing new bootsector to file %s\n", bsFile);
+#endif            
 
+    /* write newboot to bsFile */
+    if ((fd = open(bsFile, O_RDWR | O_TRUNC | O_CREAT | O_BINARY,S_IREAD|S_IWRITE)) < 0)
+    {
+      printf( " %s: can't create\"%s\"\nDOS errnum %d", pgm, bsFile, errno);
+      exit(1);
+    }
+    if (write(fd, newboot, SEC_SIZE) != SEC_SIZE)
+    {
+      printf("Can't write %u bytes to %s\n", SEC_SIZE, bsFile);
+      close(fd);
+      unlink(bsFile);
+      exit(1);
+    }
+    close(fd);
+  }
 }
 
 

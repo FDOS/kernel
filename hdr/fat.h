@@ -36,6 +36,9 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.9  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -161,6 +164,18 @@ struct dirent
   ULONG dir_size;               /* File size in bytes           */
 };
 
+struct lfn_entry
+{
+  UBYTE lfn_id;
+  UNICODE lfn_name0_4[5];
+  UBYTE lfn_attrib;
+  UBYTE lfn_reserved1;
+  UBYTE lfn_checksum;
+  UNICODE lfn_name5_10[6];
+  UWORD lfn_reserved2;
+  UNICODE lfn_name11_12[2];
+};
+
 /*                                                                      */
 /* filesystem sizeof(dirent) - may be different from core               */
 /*                                                                      */
@@ -193,3 +208,14 @@ struct dirent
 #define DIR_SIZE        FNAME_SIZE+FEXT_SIZE+17
 
 #define DIRENT_SIZE     32
+
+struct lfn_inode
+{
+  UNICODE name[256];
+  
+  struct dirent l_dir;
+  
+  ULONG l_diroff;               /* offset of the dir entry      */
+};
+  
+typedef struct lfn_inode FAR * lfn_inode_ptr;

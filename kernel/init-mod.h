@@ -36,6 +36,7 @@ extern struct _KernelConfig InitKernelConfig;
  * entry points.
  */
 #define printf      init_printf
+#define sprintf     init_sprintf
 #define execrh      reloc_call_execrh
 #define fmemcpy     reloc_call_fmemcpy
 #define fmemset     reloc_call_fmemset
@@ -192,6 +193,7 @@ INIT VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */
 WORD init_printf(CONST BYTE * fmt,...);
+WORD init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 void MoveKernel(unsigned NewKernelSegment);
 extern WORD HMAFree;          /* first byte in HMA not yet used      */

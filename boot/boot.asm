@@ -27,6 +27,9 @@
 ;
 ;
 ; $Log$
+; Revision 1.5  2001/11/13 23:36:45  bartoldeman
+; Kernel 2025a final changes.
+;
 ; Revision 1.4  2001/04/29 17:34:39  bartoldeman
 ; A new SYS.COM/config.sys single stepping/console output/misc fixes.
 ;
@@ -274,10 +277,7 @@ real_start:     cli
 		mov	di, bp
 		mov	cx, 0x0100
 		rep	movsw
-		push	es
-		mov	bx, cont
-		push	bx
-		retf
+                jmp     word 0x1FE0:cont
 
 cont:           mov     ds, ax
 		mov	ss, ax
@@ -455,15 +455,15 @@ boot_success:   call    print
 
 ; prints text after call to this function.
 
-print:          pop   si                       ; this is the first character
+print_1char:        
                 xor   bx, bx                   ; video page 0
                 mov   ah, 0x0E                 ; else print it
-print1:         lodsb                          ; get token
-                cmp   al, 0                    ; end of string?
-                je    print2                   ; if so, exit
                 int   0x10                     ; via TTY mode
-                jmp   short print1             ; until done
-print2:         push  si                       ; stack up return address
+print:          pop   si                       ; this is the first character
+print1:         lodsb                          ; get token
+                push  si                       ; stack up potential return address
+                cmp   al, 0                    ; end of string?
+                jne   print_1char              ; until done
                 ret                            ; and jump to it
 
 

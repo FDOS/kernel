@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.2  2001/11/13 23:36:45  bartoldeman
+# Kernel 2025a final changes.
+#
 # Revision 1.1  2001/11/04 20:10:15  bartoldeman
 # Added new makefile names, utils sources, kconfig.h
 #
@@ -137,31 +140,13 @@
 # $EndLog$
 #
 
-!include "..\config.mak"
+!include "..\mkfiles\generic.mak"
 
 RELEASE = 1.00
 
-# Compiler and Options for Borland C++
-# ------------------------------------
-#
-#  -zAname       ¦ ¦ Code class
-#  -zBname       ¦ ¦ BSS class
-#  -zCname       ¦ ¦ Code segment
-#  -zDname       ¦ ¦ BSS segment
-#  -zEname       ¦ ¦ Far segment
-#  -zFname       ¦ ¦ Far class
-#  -zGname       ¦ ¦ BSS group
-#  -zHname       ¦ ¦ Far group
-#  -zPname       ¦ ¦ Code group
-#  -zRname       ¦ ¦ Data segment
-#  -zSname       ¦ ¦ Data group
-#  -zTname       ¦ ¦ Data class
-#  -zX           ¦«¦ Use default name for "X"
-
-
 # Compiler and Options 
 
-INCLUDE=$(COMPILERBASE)\include
+INCLUDE=..\hdr
 LIB=    $(COMPILERBASE)\lib
 
 LIBPATH = .
@@ -212,6 +197,7 @@ EXE_dependencies =  \
  ioctl.obj    \
  irqstack.obj \
  kernel.obj   \
+ lfnapi.obj   \
  main.obj     \
  memmgr.obj   \
  misc.obj     \
@@ -244,18 +230,18 @@ production:     ..\bin\kernel.sys
 		copy kernel.map ..\bin\$(THETARGET).map
 
 kernel.sys:	kernel.exe ..\utils\exeflat.exe
-		..\utils\exeflat kernel.exe kernel.sys 0x60
+		..\utils\exeflat kernel.exe kernel.sys 0x60 -S0x10 -S0x8B
 
 clobber:        clean
-		$(RM) kernel.exe kernel.sys status.me
+		-$(RM) kernel.exe kernel.sys status.me
 
 clean:
-		$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod
+		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 kernel.exe: $(EXE_dependencies) $(LIBS) 
-	$(RM) kernel.lib
+	-$(RM) kernel.lib
 	$(LIBUTIL) kernel.lib $(LIBPLUS)entry.obj $(LIBPLUS)io.obj $(LIBPLUS)blockio.obj $(LIBPLUS)chario.obj $(LIBPLUS)dosfns.obj $(LIBPLUS)console.obj$(LIBTERM)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)printer.obj $(LIBPLUS)serial.obj $(LIBPLUS)dsk.obj $(LIBPLUS)initdisk.obj $(LIBPLUS)error.obj $(LIBPLUS)fatdir.obj $(LIBPLUS)fatfs.obj$(LIBTERM)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)fattab.obj $(LIBPLUS)fcbfns.obj $(LIBPLUS)initoem.obj $(LIBPLUS)initHMA.obj $(LIBPLUS)inthndlr.obj $(LIBPLUS)ioctl.obj $(LIBPLUS)nls_hc.obj$(LIBTERM)
@@ -264,9 +250,9 @@ kernel.exe: $(EXE_dependencies) $(LIBS)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)systime.obj $(LIBPLUS)task.obj $(LIBPLUS)int2f.obj $(LIBPLUS)irqstack.obj $(LIBPLUS)apisupt.obj$(LIBTERM)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)asmsupt.obj $(LIBPLUS)execrh.obj $(LIBPLUS)nlssupt.obj $(LIBPLUS)procsupt.obj  $(LIBPLUS)break.obj$(LIBTERM)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)dosidle.obj $(LIBPLUS)dyndata.obj $(LIBPLUS)dyninit.obj $(LIBPLUS)rtlsupt.obj $(LIBTERM)
-	$(RM) kernel.bak
-	$(LINK) kernel iprf,kernel,kernel,kernel+$(LIBS)$(LINKTERM)
-	$(RM) kernel.lib
+	-$(RM) kernel.bak
+	$(LINK) kernel iprf,kernel,kernel,kernel+$(LIBS);
+	-$(RM) kernel.lib
 
 #               *Individual File Dependencies*
 kernel.obj: kernel.asm segs.inc
@@ -306,7 +292,7 @@ dosidle.obj: dosidle.asm segs.inc
 
 INITHEADERS=init-mod.h init-dat.h 
 
-CONFIGURATION = turboc.cfg makefile ..\config.mak ..\mkfiles\$(COMPILER).MAK
+CONFIGURATION = turboc.cfg makefile ..\mkfiles\generic.mak ..\mkfiles\$(COMPILER).MAK
 
 HEADERS=\
     $(HDR)portab.h $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h \
@@ -347,6 +333,8 @@ ioctl.obj: ioctl.c        $(HEADERS) $(CONFIGURATION)
 memmgr.obj: memmgr.c      $(HEADERS) $(CONFIGURATION)  
 
 misc.obj: misc.c          $(HEADERS) $(CONFIGURATION)  
+
+lfnapi.obj: lfnapi.c      $(HEADERS) $(CONFIGURATION)
 
 newstuff.obj: newstuff.c  $(HEADERS) $(CONFIGURATION)  
 
@@ -399,23 +387,16 @@ initdisk.obj: initdisk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)
 	$(CC) $(INITCFLAGS) -c $*.c
 	$(PATCHOBJ) $*.obj $(INITPATCH)
 
+#the printf for INIT_TEXT - yet another special case, this file includes prf.c
+iprf.obj: iprf.c prf.c $(HDR)\portab.h $(CONFIGURATION)
+	$(CC) $(INITCFLAGS) -c $*.c
+	$(PATCHOBJ) $*.obj $(INITPATCH)
 
-#   $(CC) $(CFLAGS) -c $*.c
-#   patchobj $*.obj _DATA=DYN_DATA DATA=DYN_DATA CODE=HMA CONST=DCONST
-
+#dynamic NEAR data
 dyndata.obj: dyndata.c   dyndata.h
 	$(CC) $(DYNCFLAGS) -c $*.c
 	$(PATCHOBJ) $*.obj $(DYNPATCH)
 
-
-
-#the printf for INIT_TEXT - yet another special case
-#   $(CC) -D_INIT $(INITCFLAGS) -Foiprf.obj -c prf.c 
-#   patchobj Iprf.obj $(INITPATCH)
-
-iprf.obj: prf.c  $(HDR)\portab.h $(CONFIGURATION)
-	$(CC) -D_INIT $(IPRFCFLAGS) -c prf.c
-	$(PATCHOBJ) iprf.obj $(INITPATCH)
 
 
 

@@ -89,6 +89,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.30  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.29  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -366,6 +369,7 @@ STATIC struct table commands[] =
   {"NUMLOCK", 1, Numlock},
         /* rem is never executed by locking out pass                    */
   {"REM", 0, CfgFailure},
+  {";", 0, CfgFailure},
   {"SHELL", 1, InitPgm},
   {"SHELLHIGH", 1, InitPgmHigh},
   {"STACKS", 1, Stacks},
@@ -1419,7 +1423,11 @@ INIT BYTE *
   askThisSingleCommand = FALSE;
   
   s = skipwh(s);
-  while (*s &&
+  if (*s == ';') {
+    /* semicolon is a synonym for rem */
+    *d++ = *s++;
+  }
+  else while (*s &&
          !(*s == 0x0d
            || *s == 0x0a
            || *s == ' '

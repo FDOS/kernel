@@ -7,13 +7,16 @@ COMPILERPATH=$(MS_BASE)
 COMPILERBIN=$(COMPILERPATH)\bin
 INCLUDEPATH=$(COMPILERPATH)\include
 CC=$(COMPILERBIN)\cl
-CFLAGST = /Fm /AS /Os ????
-CFLAGSC=-a- -mc ????
-LIBUTIL=$(COMPILERBIN)\lib /nologo
+CFLAGST=/Fm /AT /Os
+CFLAGSC=/Fm /AL /Os
 LIBPATH=$(COMPILERPATH)\lib
+LIB=$(COMPILERPATH)\lib
+INCLUDE=$(COMPILERPATH)\include
 LIBUTIL=$(COMPILERBIN)\lib /nologo
+LIBPLUS=+
 LIBTERM=;
-
+INCLUDE=$(COMPILERPATH)\include
+LIB=$(COMPILERPATH)\lib
 
 # used for building the library
 
@@ -21,12 +24,13 @@ CLIB=$(COMPILERPATH)\lib\slibce.lib
 MATH_EXTRACT=*aflmul *aFlshl *aFNauldi *aFulrem *aFulshr *aFuldiv *aFlrem *aFldiv
 MATH_INSERT= +aflmul +aFlshl +aFNauldi +aFulrem +aFulshr +aFuldiv +aFlrem +aFldiv
 
+TARGETOPT=
 !if $(XCPU) == 186    
 TARGETOPT=-G1
-!end
+!endif
 !if $(XCPU) == 386
 TARGETOPT=-G3
-!end
+!endif
 
 TARGET=KMS
 
@@ -34,9 +38,8 @@ TARGET=KMS
 # heavy stuff - building
 
 
-ALLCFLAGS = -I..\hdr $(TARGETOPT) $(ALLCFLAGS) -nologo -c -Zl -Fc -Zp1 -Gs -Os -WX
-INITCFLAGS = $(ALLCFLAGS) -NTINIT_TEXT -AT
-CFLAGS     = $(ALLCFLAGS) -NTHMA_TEXT
-DYNCFLAGS = $(ALLCFLAGS) -NTHMA_TEXT 
-IPRFCFLAGS = $(INITCFLAGS) -Foiprf.obj
-PATCHOBJ = patchobj
+ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -nologo -Zl -Fc -Zp1 -Gs -Os -WX
+INITCFLAGS=$(ALLCFLAGS) -NTINIT_TEXT -AT
+CFLAGS=$(ALLCFLAGS) -NTHMA_TEXT
+DYNCFLAGS=$(ALLCFLAGS) -NTHMA_TEXT 
+PATCHOBJ=patchobj

@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.24  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.23  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -250,7 +253,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode);
 COUNT DosOpenSft(BYTE * fname, COUNT mode);
 COUNT DosClose(COUNT hndl);
 COUNT DosCloseSft(WORD sft_idx);
-VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps, COUNT FAR * nc);
+BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc, UCOUNT FAR * bps, UCOUNT FAR * nc);
 COUNT DosGetExtFree(BYTE FAR *DriveString, struct xfreespace FAR *xfsp);
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s);
 COUNT DosChangeDir(BYTE FAR * s);
@@ -369,7 +372,7 @@ int DosCharInput(VOID);
 VOID DosDirectConsoleIO(iregs FAR * r);
 VOID DosCharOutput(COUNT c);
 VOID DosDisplayOutput(COUNT c);
-VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps, COUNT FAR * nc, BYTE FAR ** mdp);
+VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps, UCOUNT FAR * nc, BYTE FAR ** mdp);
 WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb);
 BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName);
 BOOL TestCmnSeps(BYTE FAR * lpFileName);
@@ -439,6 +442,17 @@ void ASMCFUNC memcpy(REG void * d, REG VOID * s, REG COUNT n);
 void ASMCFUNC fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);
 void ASMCFUNC memset(REG VOID     * s, REG int ch, REG COUNT n);
 
+/* lfnapi.c */
+COUNT lfn_allocate_inode(VOID);
+COUNT lfn_free_inode(COUNT handle);
+
+COUNT lfn_setup_inode(COUNT handle, CLUSTER dirstart, ULONG diroff);
+
+COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip);
+COUNT lfn_remove_entries(COUNT handle);
+
+COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip);
+COUNT lfn_dir_write(COUNT handle);
 
 /* nls.c */
 BYTE DosYesNo(unsigned char ch);

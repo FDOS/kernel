@@ -5,6 +5,9 @@
 :-  $Id$
 
 :-  $Log$
+:-  Revision 1.7  2001/11/13 23:36:43  bartoldeman
+:-  Kernel 2025a final changes.
+:-
 :-  Revision 1.6  2001/11/04 19:47:37  bartoldeman
 :-  kernel 2025a changes: see history.txt
 :-
@@ -52,18 +55,34 @@
 set XERROR=
 
 
-if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
-if not exist config.bat goto end
+@if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
+@if not exist config.bat goto end
 
-if not \%1 == \-r goto norebuild
-    del kernel\*.obj 
-    del lib\libm.lib
+@if not \%1 == \-r goto norebuild
+    call clobber
 :norebuild    
 
 
 call config.bat
+call getmake.bat
 
-set XERROR=
+@if not \%XLINK% == \ goto link_set
+
+@if \%COMPILER% == \TC2 set XLINK=%TC2_BASE%\tlink /m/c
+@if \%COMPILER% == \TURBOCPP set XLINK=%TP1_BASE%\bin\tlink /m/c
+@if \%COMPILER% == \TC3 set XLINK=%TC3_BASE%\bin\tlink /m/c
+@if \%COMPILER% == \BC5 set XLINK=%BC5_BASE%\bin\tlink /m/c
+@if \%COMPILER% == \WATCOM goto watcom_problem
+@if \%COMPILER% == \MSCL8 set XLINK=%MS_BASE%\link /ONERROR:NOEXE /ma /nologo
+goto link_set
+
+:watcom_problem
+@echo you MUST set XLINK for Watcom in config.bat as WLINK is not suitable
+goto end
+
+:link_set
+
+@set XERROR=
 
 :**********************************************************************
 :* DONE with preferences - following is command line handling
@@ -150,3 +169,10 @@ set XERROR=1
 @set COMPILER=
 @set XCPU=
 @set XFAT=
+@set XLINK=
+@set TC2_BASE=
+@set TP1_BASE=
+@set TC3_BASE=
+@set BC5_BASE=
+@set MS_BASE=
+

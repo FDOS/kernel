@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.33  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.32  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -668,9 +671,9 @@ dispatch:
         BYTE FAR *p;
 
         FatGetDrvData(0,
-                      (COUNT FAR *) & r->AX,
-                      (COUNT FAR *) & r->CX,
-                      (COUNT FAR *) & r->DX,
+                      (UCOUNT FAR *) & r->AX,
+                      (UCOUNT FAR *) & r->CX,
+                      (UCOUNT FAR *) & r->DX,
                       (BYTE FAR **) & p);
         r->DS = FP_SEG(p);
         r->BX = FP_OFF(p);
@@ -683,9 +686,9 @@ dispatch:
         BYTE FAR *p;
 
         FatGetDrvData(r->DL,
-                      (COUNT FAR *) & r->AX,
-                      (COUNT FAR *) & r->CX,
-                      (COUNT FAR *) & r->DX,
+                      (UCOUNT FAR *) & r->AX,
+                      (UCOUNT FAR *) & r->CX,
+                      (UCOUNT FAR *) & r->DX,
                       (BYTE FAR **) & p);
         r->DS = FP_SEG(p);
         r->BX = FP_OFF(p);
@@ -902,8 +905,9 @@ dispatch:
         r->AL = 0xFF;
         CritErrCode = 0x0f;
         break;
-      }  
-      dpb->dpb_flags = M_CHANGED;       /* force reread of drive BPB/DPB */
+      }
+      flush_buffers(dpb->dpb_unit); 
+      dpb->dpb_flags = M_CHANGED;   /* force flush and reread of drive BPB/DPB */
           
 #ifdef WITHFAT32
       if (media_check(dpb) < 0 || ISFAT32(dpb))
@@ -951,10 +955,10 @@ dispatch:
     case 0x36:
       DosGetFree(
                   r->DL,
-                  (COUNT FAR *) & r->AX,
-                  (COUNT FAR *) & r->BX,
-                  (COUNT FAR *) & r->CX,
-                  (COUNT FAR *) & r->DX);
+                  (UCOUNT FAR *) & r->AX,
+                  (UCOUNT FAR *) & r->BX,
+                  (UCOUNT FAR *) & r->CX,
+                  (UCOUNT FAR *) & r->DX);
       break;
 
       /* Undocumented Get/Set Switchar                                */
@@ -1105,10 +1109,15 @@ dispatch:
 
       /* Device I/O Control                                           */
     case 0x44:
-      rc = DosDevIOctl(r);
+      rc = DosDevIOctl(r); /* can set critical error code! */
 
       if (rc != SUCCESS)
-        goto error_exit;
+      {
+        r->AX = -rc;
+        if (rc != DE_DEVICE && rc != DE_ACCESS)
+          CritErrCode = -rc;
+        SET_CARRY_FLAG();
+      }
       break;
 
       /* Duplicate File Handle                                        */
@@ -1753,6 +1762,7 @@ break_out:
               dpb = GetDriveDPB(r->DL, &rc);
               if (rc != SUCCESS) goto error_exit;
 
+              flush_buffers(dpbp->dpb_unit); 
 							dpb->dpb_flags = M_CHANGED;  /* force reread of drive BPB/DPB */
           
 							if (media_check(dpb) < 0)
@@ -1845,6 +1855,7 @@ break_out:
                 case 0x02:
                   {
 rebuild_dpb:
+                    flush_buffers(dpbp->dpb_unit); 
                     dpb->dpb_flags = M_CHANGED;
           
                     if (media_check(dpb) < 0)
@@ -1953,6 +1964,58 @@ rebuild_dpb:
           }
         break;
 			}
+#endif
+#ifdef WITHLFNAPI
+      /* FreeDOS LFN helper API functions */
+    case 0x74:
+      {
+         switch(r->AL)
+          {
+            /* Allocate LFN inode */
+          case 0x01:
+            {
+              r->AX = lfn_allocate_inode();
+              break;
+            }
+           /* Free LFN inode */
+          case 0x02:
+            {
+              r->AX = lfn_free_inode(r->BX);
+              break;
+            }
+            /* Setup LFN inode */
+          case 0x03:
+            {
+              r->AX = lfn_setup_inode(r->BX, r->CX, r->DX);
+              break;
+            }
+            /* Create LFN entries */
+          case 0x04:
+            {
+              r->AX = lfn_create_entries(r->BX, (lfn_inode_ptr)FP_DS_DX);
+              break;
+            }
+            /* Delete LFN entries */
+          case 0x05:
+            {
+              r->AX = lfn_remove_entries(r->BX);
+              break;
+            }
+            /* Read next LFN */
+          case 0x06:
+            {
+              r->AX = lfn_dir_read(r->BX, (lfn_inode_ptr)FP_DS_DX);
+              break;
+            }
+            /* Write SFN pointed by LFN inode */
+          case 0x07:
+            {
+              r->AX = lfn_dir_write(r->BX);
+              break;
+            }
+          }
+        break;
+      }
 #endif
   }
 #ifdef DEBUG

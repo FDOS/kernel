@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.2  2001/11/13 23:36:45  bartoldeman
+# Kernel 2025a final changes.
+#
 # Revision 1.1  2001/11/04 20:10:15  bartoldeman
 # Added new makefile names, utils sources, kconfig.h
 #
@@ -56,7 +59,7 @@
 #Initial revision.
 #
 
-!include "..\config.mak"
+!include "..\mkfiles\generic.mak"
 
 
 # MICROSOFT C
@@ -90,11 +93,11 @@ production:     ..\lib\device.lib
 	copy device.lib ..\lib
 
 clobber:        clean
-	$(RM) device.lib status.me ..\lib\device.lib
+	-$(RM) device.lib status.me ..\lib\device.lib
 
 clean:
-	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst
+	-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod
 
 device.lib : $(OBJS)
-	$(RM) device.lib
+	-$(RM) device.lib
 	$(LIBUTIL) $(LIBFLAGS) device $(LIBOBJS) $(LIBTERM)

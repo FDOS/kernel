@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.2  2001/11/13 23:36:45  bartoldeman
+# Kernel 2025a final changes.
+#
 # Revision 1.1  2001/11/04 20:10:15  bartoldeman
 # Added new makefile names, utils sources, kconfig.h
 #
@@ -53,7 +56,7 @@
 #Initial revision.
 #
 
-!include "..\config.mak"
+!include "..\mkfiles\generic.mak"
 
 production:     b_fat12.bin b_fat16.bin b_fat32.bin
 
@@ -67,9 +70,9 @@ b_fat32.bin:    boot32.asm
 		$(NASM) boot32.asm -ob_fat32.bin
 
 clobber:        clean
-		$(RM) b_fat12.bin b_fat16.bin b_fat32.bin status.me
+		-$(RM) b_fat12.bin b_fat16.bin b_fat32.bin status.me
 
 clean:
-		$(RM) *.lst *.map *.bak *.obj
+		-$(RM) *.lst *.map *.bak *.obj
 
 

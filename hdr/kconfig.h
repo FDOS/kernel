@@ -21,5 +21,7 @@ typedef struct _KernelConfig {
     unsigned char  DLASortByDriveNo;
     unsigned char  InitDiskShowDriveAssignment;
     signed   char  SkipConfigSeconds;
+    unsigned char  ForceLBA;
+    unsigned char  GlobalEnableLBAsupport;       /* = 0 --> disable LBA support */
     } KernelConfig;
 extern struct _KernelConfig FAR LowKernelConfig;    

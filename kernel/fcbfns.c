@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.20  2001/11/13 23:36:45  bartoldeman
+ * Kernel 2025a final changes.
+ *
  * Revision 1.19  2001/11/04 19:47:39  bartoldeman
  * kernel 2025a changes: see history.txt
  *
@@ -178,68 +181,16 @@ BOOL FcbCalcRec();
 
 static dmatch Dmatch;
 
-VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
-                   COUNT FAR * nc, BYTE FAR ** mdp)
+VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
+                   UCOUNT FAR * nc, BYTE FAR ** mdp)
 {
-  struct dpb FAR *dpbp;
-  struct cds FAR *cdsp;
-
-  /* first check for valid drive          */
-  *spc = -1;
-  
-  drive = (drive == 0 ? default_drive : drive - 1);
-
-  if (drive >= lastdrive)
-      return;
-  
-  cdsp = &CDSp->cds_table[drive];
-
-  if (!(cdsp->cdsFlags & CDSVALID))
-      return;
-
-  /* next - "log" in the drive                                    */
-	if (cdsp->cdsFlags & CDSNETWDRV) {
-                              /* Undoc DOS says, its not supported for 
-                                 network drives. so it's probably OK */
-		/*printf("FatGetDrvData not yet supported over network drives\n");*/
-		return;
-	}
-  dpbp = CDSp->cds_table[drive].cdsDpb;
-  
-  if (dpbp == NULL)
-  {
-    return;
-  }
-  
-  dpbp->dpb_flags = -1;
-  if ((media_check(dpbp) < 0))
-  {
-    return;
-  }
-
+  UCOUNT navc;
+    
   /* get the data available from dpb                       */
-  *nc = dpbp->dpb_size - 1;
-  *spc = dpbp->dpb_clsmask + 1;
-#ifdef WITHFAT32
-  if (ISFAT32(dpbp))
-  {
-    ULONG cluster_size, ntotal;
-
-    cluster_size = (ULONG)dpbp->dpb_secsize << dpbp->dpb_shftcnt;
-    ntotal = dpbp->dpb_xsize - 1;
-    while (ntotal > FAT_MAGIC16 && cluster_size < 0x8000) {
-      cluster_size <<= 1;
-      *spc <<= 1;
-      ntotal >>= 1;
-    }
-    /* get the data available from dpb                      */
-    *nc = ntotal > FAT_MAGIC16 ? FAT_MAGIC16 : (UCOUNT)ntotal;
-  }
-#endif
-  *bps = dpbp->dpb_secsize;
-
+  *nc = 0xffff; /* pass 0xffff to skip free count */
+  if (DosGetFree(drive, spc, &navc, bps, nc))
   /* Point to the media desctriptor for this drive               */
-  *mdp = (BYTE FAR*)&(dpbp->dpb_mdb);
+      *mdp = (BYTE FAR*)&(CDSp->cds_table[drive].cdsDpb->dpb_mdb);
 }
 
 #define PARSE_SEP_STOP          0x01
@@ -628,6 +579,7 @@ see get_free_sft in dosfns.c
 
 BOOL FcbCreate(xfcb FAR * lpXfcb)
 {
+  sft FAR *sftp;
   COUNT sft_idx, FcbDrive;
   struct dhdr FAR *dhp;
 
@@ -637,6 +589,9 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
   sft_idx = DosCreatSft(PriPathName, 0);
   if (sft_idx < 0)
       return FALSE;
+
+  sftp = idx_to_sft(sft_idx);
+  sftp->sft_attrib |= SFT_MFCB;  
 
   /* check for a device                                           */
   dhp = IsDevice(PriPathName);
@@ -709,6 +664,9 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
   if (sft_idx < 0)
       return FALSE;
   
+  sftp = idx_to_sft(sft_idx);
+  sftp->sft_attrib |= SFT_MFCB;
+  
   /* check for a device                                           */
   lpFcb->fcb_curec = 0;
   lpFcb->fcb_rndm = 0;
@@ -723,7 +681,6 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
   }
   else
   {
-      sftp = idx_to_sft(sft_idx);
       lpFcb->fcb_drive = FcbDrive;
       lpFcb->fcb_recsiz = 128;
       lpFcb->fcb_fsize = sftp->sft_size;
@@ -902,15 +859,15 @@ BOOL FcbClose(xfcb FAR * lpXfcb)
   return FALSE;
 }
 
-/* close all files opened by FCBs
-   DosCloseSft checks the open count (has to be 1) and current psp
- */
+/* close all files the current process opened by FCBs */
 VOID FcbCloseAll()
 {
   COUNT idx = 0;
+  sft FAR *sftp;
 
-  for (idx = 0; DosCloseSft(idx) != DE_INVLDHNDL; idx++)
-      ;
+  for (idx = 0; (sftp = idx_to_sft(idx)) != (sft FAR *) -1; idx++)
+    if ((sftp->sft_attrib & SFT_MFCB) && sftp->sft_psp == cu_psp)
+      DosCloseSft(idx);
 }
 
 BOOL FcbFindFirst(xfcb FAR * lpXfcb)
