@@ -88,10 +88,12 @@
 	pop     bx                 ; get dividend lo-word
 	mov     cx, ax             ; save quotient
         mul     di                 ; quotient * divisor hi-word (low only)
+	push	di		   ; save divisor hi-word
         xchg    ax, di             ; save in di
         mov     ax, cx             ; ax=quotient
 	mul     si                 ; quotient * divisor lo-word
 	add     dx, di             ; dx:ax = quotient * divisor
+	pop	di		   ; restore divisor hi-word
 	sub     bx, ax             ; dividend-lo - (quot.*divisor)-lo
 	mov     ax, cx             ; get quotient
 	pop     cx                 ; restore dividend hi-word
