@@ -225,6 +225,15 @@ void new_psp(seg para, int psize)
   p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
 }
 
+STATIC UBYTE chkdrv(unsigned drive) /* from FCB: 0 = default, 1 = A:, ... */
+{
+  if (drive)
+    drive--; /* 0 = A:, 1 = B:, ... */
+  else
+    drive = default_drive;
+  return get_cds(drive) ? 0 : 0xff; /* return 0 if drive is valid, else 0xff */
+}
+
 STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR * exb,
                       BYTE FAR * fnam)
 {
@@ -278,8 +287,8 @@ set_name:
     pspmcb->m_name[i] = '\0';
 
   /* return value: AX value to be passed based on FCB values */
-  return (get_cds(psp->ps_fcb1.fcb_drive) ? 0 : 0xff) |
-         (get_cds(psp->ps_fcb2.fcb_drive) ? 0 : 0xff00);
+  return chkdrv(psp->ps_fcb1.fcb_drive) |
+    (chkdrv(psp->ps_fcb2.fcb_drive) << 8);
 }
 
 int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
