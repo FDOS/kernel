@@ -227,7 +227,7 @@ STATIC void init_kernel(void)
   /* we can read config.sys later.  */
   LoL->lastdrive = Config.cfgLastdrive;
 
-  /*  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top); */
+  /*  init_device((struct dhdr FAR *)&blk_dev, NULL, 0, ram_top); */
   blk_dev.dh_name[0] = dsk_init();
 
   PreConfig();
@@ -501,24 +501,31 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
                  char FAR *r_top)
 {
   request rq;
-  int i;
   char name[8];
-  char *p, *q;
 
-  for (p = q = cmdLine; *p && *p != ' ' && *p != '\t'; p++)
-  {
-    if (*p == '\\' || *p == '/' || *p == ':')
-      q = p + 1;
+  if (cmdLine) {
+    char *p, *q, ch;
+    int i;
+
+    p = q = cmdLine;
+    for (;;)
+    {
+      ch = *p;
+      if (ch == '\0' || ch == ' ' || ch == '\t')
+        break;
+      p++;
+      if (ch == '\\' || ch == '/' || ch == ':')
+        q = p; /* remember position after path */
+    }
+    for (i = 0; i < 8; i++) {
+      ch = '\0';
+      if (p != q && *q != '.')
+        ch = *q++;
+      /* copy name, without extension */
+      name[i] = ch;
+    }
   }
-  for (i = 0; i < 8; i++) {
-    char ch = *q;
-    if (ch != '\0')
-      q++;
-    if (ch == '.')
-      ch = 0;
-    name[i] = ch;
-  }
-  
+
   rq.r_unit = 0;
   rq.r_status = 0;
   rq.r_command = C_INIT;
@@ -566,7 +573,7 @@ STATIC void InitIO(void)
   /* Initialize driver chain                                      */
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
   do {
-    init_device(device, NULL, NULL, lpTop);
+    init_device(device, NULL, 0, lpTop);
     device = device->dh_next;
   }
   while (FP_OFF(device) != 0xffff);
