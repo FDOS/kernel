@@ -85,14 +85,14 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
           /* Set Ctrl-C flag                                      */
         case 0x01:
-          break_ena = irp->DL != 0;
+          break_ena = irp->DL & 1;
           break;
 
         case 0x02:             /* andrew schulman: get/set extended control break  */
           {
             UBYTE tmp = break_ena;
-            irp->DL = break_ena;
-            break_ena = tmp != 0;
+            break_ena = irp->DL & 1;
+            irp->DL = tmp;
           }
           break;
 
@@ -162,7 +162,6 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
       /* UNDOCUMENTED: return current psp                             */
     case 0x62:
       irp->BX = cu_psp;
-      break;
 
       /* Normal DOS function - DO NOT ARRIVE HERE          */
  /* default: */
@@ -693,7 +692,7 @@ dispatch:
 
       /* Set verify flag                                              */
     case 0x2e:
-      verify_ena = (lr.AL ? TRUE : FALSE);
+      verify_ena = lr.AL & 1;
       break;
 
       /* Get DTA                                                      */
@@ -1084,7 +1083,7 @@ dispatch:
 
       /* Get verify state                                             */
     case 0x54:
-      lr.AL = (verify_ena ? TRUE : FALSE);
+      lr.AL = verify_ena;
       break;
 
       /* ************UNDOCUMENTED************************************* */
@@ -1234,10 +1233,7 @@ dispatch:
 
         default:
           rc = (int)network_redirector_mx(REM_PRINTSET, &lr, (void *)Int21AX);
-          if (rc != SUCCESS)
-            goto error_exit;
-          lr.AX = SUCCESS;
-          break;
+          goto short_check;
       }
       break;
 
@@ -1507,7 +1503,7 @@ exit_dispatch:
   fmemcpy(r, &lr, sizeof(lregs) - 4);
   r->DS = lr.DS;
   r->ES = lr.ES;
-real_exit:  
+real_exit:;
 
 #ifdef DEBUG
   if (bDumpRegs)
@@ -1517,7 +1513,6 @@ real_exit:
     dump();
   }
 #endif
-  return;
 }
 
 #if 0
