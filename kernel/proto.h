@@ -123,6 +123,9 @@ COUNT DosTruename(const char FAR * src, char FAR * dest);
 
 /*dosidle.asm */
 VOID ASMCFUNC DosIdle_int(void);
+#ifdef __WATCOMC__
+#pragma aux (cdecl) DosIdle_int modify exact []
+#endif
 
 /* dosnames.c */
 int ParseDosName(const char *, char *, BOOL);
@@ -222,8 +225,12 @@ void FcbCloseAll(void);
 UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First);
 
 /* intr.asm */
-COUNT ASMCFUNC res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
-UCOUNT ASMCFUNC res_read(int fd, void *buf, UCOUNT count);
+COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
+UCOUNT ASMPASCAL res_read(int fd, void *buf, UCOUNT count);
+#ifdef __WATCOMC__
+#pragma aux (pascal) res_DosExec modify exact [ax bx dx es]
+#pragma aux (pascal) res_read modify exact [ax bx cx dx]
+#endif
 
 /* ioctl.c */
 COUNT DosDevIOctl(lregs * r);
@@ -398,6 +405,35 @@ COUNT ASMCFUNC remote_printredir(UCOUNT dx, UCOUNT ax);
 COUNT ASMCFUNC remote_commit(sft FAR * s);
 COUNT ASMCFUNC remote_close(sft FAR * s);
 COUNT ASMCFUNC QRemote_Fn(char FAR * d, const char FAR * s);
+#ifdef __WATCOMC__
+/* bx, cx, and es not used or clobbered for all remote functions,
+ * except lock_unlock and process_end */
+#pragma aux cdecl_axdx "_*" parm caller [] modify exact [ax dx]
+#pragma aux (cdecl_axdx) remote_doredirect
+#pragma aux (cdecl_axdx) remote_printset
+#pragma aux (cdecl_axdx) remote_rename
+#pragma aux (cdecl_axdx) remote_delete
+#pragma aux (cdecl_axdx) remote_chdir
+#pragma aux (cdecl_axdx) remote_mkdir
+#pragma aux (cdecl_axdx) remote_rmdir
+#pragma aux (cdecl_axdx) remote_close_all
+#pragma aux (cdecl_axdx) remote_flushall
+#pragma aux (cdecl_axdx) remote_findfirst
+#pragma aux (cdecl_axdx) remote_findnext
+#pragma aux (cdecl_axdx) remote_getfattr
+#pragma aux (cdecl_axdx) remote_getfree
+#pragma aux (cdecl_axdx) remote_open
+#pragma aux (cdecl_axdx) remote_extopen
+#pragma aux (cdecl_axdx) remote_lseek
+#pragma aux (cdecl_axdx) remote_read
+#pragma aux (cdecl_axdx) remote_write
+#pragma aux (cdecl_axdx) remote_creat
+#pragma aux (cdecl_axdx) remote_setfattr
+#pragma aux (cdecl_axdx) remote_printredir
+#pragma aux (cdecl_axdx) remote_commit
+#pragma aux (cdecl_axdx) remote_close
+#pragma aux (cdecl_axdx) QRemote_Fn
+#endif
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);

@@ -44,6 +44,7 @@ extern struct _KernelConfig InitKernelConfig;
 #define  strcpy     init_strcpy
 #define  strlen     init_strlen
 #define fstrlen     init_fstrlen
+#define open        init_DosOpen
 
 /* execrh.asm */
 WORD   ASMPASCAL execrh(request FAR *, struct dhdr FAR *);
@@ -133,18 +134,32 @@ unsigned ebdasize(void);
 
 /* intr.asm */
 
-void ASMCFUNC init_call_intr(int nr, iregs * rp);
-UCOUNT ASMCFUNC read(int fd, void *buf, UCOUNT count);
-int ASMCFUNC open(const char *pathname, int flags);
-int ASMCFUNC close(int fd);
-int ASMCFUNC dup2(int oldfd, int newfd);
-int ASMCFUNC allocmem(UWORD size, seg * segp);
-VOID ASMCFUNC init_PSPSet(seg psp_seg);
-COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
-int ASMCFUNC init_setdrive(int drive);
-int ASMCFUNC init_switchar(int chr);
-VOID ASMCFUNC keycheck(VOID);
-void ASMCFUNC set_DTA(void far *dta);
+unsigned ASMPASCAL init_call_intr(int nr, iregs * rp);
+unsigned ASMPASCAL read(int fd, void *buf, unsigned count);
+int ASMPASCAL open(const char *pathname, int flags);
+int ASMPASCAL close(int fd);
+int ASMPASCAL dup2(int oldfdk, int newfd);
+int ASMPASCAL allocmem(UWORD size, seg * segp);
+void ASMPASCAL init_PSPSet(seg psp_seg);
+int ASMPASCAL init_DosExec(int mode, exec_blk * ep, char * lp);
+int ASMPASCAL init_setdrive(int drive);
+int ASMPASCAL init_switchar(int chr);
+void ASMPASCAL keycheck(void);
+void ASMPASCAL set_DTA(void far *dta);
+#ifdef __WATCOMC__
+#pragma aux (pascal) init_call_intr modify exact [ax]
+#pragma aux (pascal) read modify exact [ax bx cx dx]
+#pragma aux (pascal) init_DosOpen modify exact [ax bx dx]
+#pragma aux (pascal) close modify exact [ax bx]
+#pragma aux (pascal) dup2 modify exact [ax bx cx]
+#pragma aux (pascal) allocmem modify exact [ax bx dx]
+#pragma aux (pascal) init_PSPSet modify exact [ax bx]
+#pragma aux (pascal) init_DosExec modify exact [ax bx dx es]
+#pragma aux (pascal) init_setdrive modify exact [ax bx dx]
+#pragma aux (pascal) init_switchar modify exact [ax bx dx]
+#pragma aux (pascal) keycheck modify exact [ax]
+#pragma aux (pascal) set_DTA modify exact [ax bx dx]
+#endif
 
 /* irqstack.asm */
 VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,

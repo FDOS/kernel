@@ -33,13 +33,18 @@
                 mov     bp,sp
                 push    si
                 push    di
-                push	ds
+%ifdef WATCOM
+                push    bx
+                push    cx
+                push    dx
                 push    es
+%endif
+                push	ds
 
-                mov	ax, [bp+4]		; interrupt number
+                mov	ax, [bp+6]		; interrupt number
                 mov	[cs:%%intr_1-1], al
                 jmp 	short %%intr_2		; flush the instruction cache
-%%intr_2	mov	bx, [bp+6]		; regpack structure
+%%intr_2	mov	bx, [bp+4]		; regpack structure
 		mov	ax, [bx]
 		mov	cx, [bx+4]
 		mov	dx, [bx+6]
@@ -57,8 +62,12 @@
 		push	ds
 		push	bx
 		mov	bx, sp
-		mov	ds, [ss:bx+8]
-		mov	bx, [ss:bx+20]		; address of REGPACK
+		mov	ds, [ss:bx+6]
+%ifdef WATCOM
+		mov	bx, [ss:bx+24]		; address of REGPACK
+%else
+		mov	bx, [ss:bx+16]		; address of REGPACK
+%endif
 		mov	[bx], ax
 		pop	word [bx+2]
 		mov	[bx+4], cx
@@ -70,39 +79,46 @@
 		mov	[bx+16], es
 		pop	word [bx+22]
 
-		pop	es
 		pop	ds
+%ifdef WATCOM
+                pop     es
+                pop     dx
+                pop     cx
+                pop     bx
+%endif
 		pop	di
 		pop	si
 		pop	bp
-		ret
+		ret     4
 %endmacro
 
 segment	HMA_TEXT
 
-;; COUNT ASMCFUNC res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
-    global _res_DosExec
-_res_DosExec:        
+;; COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
+    global RES_DOSEXEC
+RES_DOSEXEC:
+        pop es                  ; ret address
+        pop dx                  ; filename
+        pop bx                  ; exec block
+        pop ax                  ; mode
+        push es                 ; ret address
         mov ah, 4bh
-        mov bx, sp
-        mov al, [bx+2]
-        push ds
-        pop es
-        mov dx, [bx+6]          ; filename
-        mov bx, [bx+4]          ; exec block
+        push ds                 
+        pop es                  ; es = ds
         int 21h
         jc short no_exec_error
         xor ax, ax
 no_exec_error:
         ret
 
-;; UCOUNT ASMCFUNC res_read(int fd, void *buf, UCOUNT count); 
-    global _res_read
-_res_read: 
-        mov bx, sp
-        mov cx, [bx+6]
-        mov dx, [bx+4]
-        mov bx, [bx+2]
+;; UCOUNT ASMPASCAL res_read(int fd, void *buf, UCOUNT count); 
+    global RES_READ
+RES_READ:
+        pop ax         ; ret address
+        pop cx         ; count
+        pop dx         ; buf
+        pop bx         ; fd
+        push ax        ; ret address
         mov ah, 3fh
         int 21h
         jnc no_read_error
@@ -116,8 +132,8 @@ segment	INIT_TEXT
 ;       REG int nr
 ;       REG struct REGPACK *rp
 ;
-		global	_init_call_intr
-_init_call_intr:
+		global	INIT_CALL_INTR
+INIT_CALL_INTR:
 		INTR
 
 ;
@@ -161,25 +177,25 @@ detected:
         pop es
         ret        
 
-global _keycheck        
-_keycheck:      
+global KEYCHECK
+KEYCHECK:
         mov ah, 1
         int 16h
         ret                
 
 ;; int open(const char *pathname, int flags); 
-    global _open
-_open: 
-        ;; first implementation of init calling DOS through ints:
-        mov bx, sp
+    global INIT_DOSOPEN
+INIT_DOSOPEN: 
+        ;; init calling DOS through ints:
+        pop bx         ; ret address
+        pop ax         ; flags
+        pop dx         ; pathname
+        push bx        ; ret address
         mov ah, 3dh
-        ;; we know that SS=DS during init stage.
-        mov al, [bx+4]
-        mov dx, [bx+2]
-        int 21h
-        ;; AX has file handle
+        ;; AX will have the file handle
 
-common_exit:        
+common_int21:
+        int 21h
         jnc common_no_error
 common_error:
         mov ax, -1
@@ -187,54 +203,56 @@ common_no_error:
         ret
 
 ;; int close(int fd);
-    global _close
-_close:         
-        mov bx, sp
-        mov bx, [bx+2]
+    global CLOSE
+CLOSE:         
+        pop ax         ; ret address
+        pop bx         ; fd
+        push ax        ; ret address
         mov ah, 3eh
-        int 21h
-        jmp short common_exit
+        jmp short common_int21
 
 ;; UCOUNT read(int fd, void *buf, UCOUNT count); 
-    global _read
-_read: 
-        mov bx, sp
-        mov cx, [bx+6]
-        mov dx, [bx+4]
-        mov bx, [bx+2]
+    global READ
+READ: 
+        pop ax         ; ret address
+        pop cx         ; count
+        pop dx         ; buf
+        pop bx         ; fd
+        push ax        ; ret address
         mov ah, 3fh
-        int 21h
-        jmp short common_exit
+        jmp short common_int21
 
 ;; int dup2(int oldfd, int newfd); 
-    global _dup2
-_dup2:
-        mov bx, sp
-        mov cx, [bx+4]
-        mov bx, [bx+2]
+    global DUP2
+DUP2:
+        pop ax         ; ret address
+        pop cx         ; newfd
+        pop bx         ; oldfd
+        push ax        ; ret address
         mov ah, 46h
-        int 21h
-        jmp short common_exit
+        jmp short common_int21
         
 ;; VOID init_PSPSet(seg psp_seg)
-    global _init_PSPSet
-_init_PSPSet:
+    global INIT_PSPSET
+INIT_PSPSET:
+        pop ax         ; ret address
+        pop bx         ; psp_seg
+        push ax        ; ret_address
 	mov ah, 50h
-	mov bx, sp
-	mov bx, [bx+2]
-	int 21h
-	ret
+        int 21h
+        ret
 
 ;; COUNT init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
-    global _init_DosExec
-_init_DosExec:        
+    global INIT_DOSEXEC
+INIT_DOSEXEC:
+        pop es                  ; ret address
+        pop dx                  ; filename
+        pop bx                  ; exec block
+        pop ax                  ; mode
+        push es                 ; ret address
         mov ah, 4bh
-        mov bx, sp
-        mov al, [bx+2]
-        push ds
-        pop es
-        mov dx, [bx+6]          ; filename
-        mov bx, [bx+4]          ; exec block
+        push ds                 
+        pop es                  ; es = ds
         int 21h
         jc short exec_no_error
         xor ax, ax
@@ -242,42 +260,47 @@ exec_no_error:
         ret
 
 ;; int init_setdrive(int drive)
-   global _init_setdrive
-_init_setdrive:
+   global INIT_SETDRIVE
+INIT_SETDRIVE:
 	mov ah, 0x0e
 common_dl_int21:
-	mov bx, sp
-	mov dl, [bx+2]
-	int 21h
-	ret
+        pop bx                  ; ret address
+        pop dx                  ; drive/char
+        push bx
+        int 21h
+        ret
 
 ;; int init_switchar(int char)
-   global _init_switchar
-_init_switchar:
+   global INIT_SWITCHAR
+INIT_SWITCHAR:
 	mov ax, 0x3701
 	jmp short common_dl_int21
 
 ;; int allocmem(UWORD size, seg *segp)
-    global _allocmem
-_allocmem:        
+    global ALLOCMEM
+ALLOCMEM:
+        pop ax           ; ret address
+        pop dx           ; segp
+        pop bx           ; size
+        push ax          ; ret address
         mov ah, 48h
-        mov bx, sp
-        mov bx, [bx+2]
         int 21h
         jc short common_error
-        mov bx, sp
-        mov bx, [bx+4]
+        mov bx, dx       ; segp
         mov [bx], ax
         xor ax, ax
         ret
                         
 ;; void set_DTA(void far *dta)        
-    global _set_DTA
-_set_DTA
-	mov ah, 1ah
-	mov bx, sp
-	push ds
-	lds dx, [bx+2]
-	int 21h
-	pop ds
-	ret
+    global SET_DTA
+SET_DTA:
+        pop ax           ; ret address
+        pop bx           ; seg(dta)
+        pop dx           ; off(dta)
+        push ax          ; ret address
+        mov ah, 1ah
+        push ds
+        mov ds, bx
+        int 21h
+        pop ds
+        ret
