@@ -481,11 +481,15 @@ STATIC void umb_init(void)
           mumcb_init(umb_seg + umb_size - 1, umb_next - umb_seg - umb_size);
         }
       }
+      else /* umb_seg >= umb_max */
+      {
+        umb_prev = umb_next;
+      }
 
       if (umb_seg - umb_prev - 1 == 0)
         /* should the UMB driver return
            adjacent memory in several pieces */
-        para2far(umb_prev)->m_size += umb_size;
+        para2far(prev_mcb(umb_prev, LoL->uppermem_root))->m_size += umb_size;
       else
       {
         /* create link mcb (below) */
