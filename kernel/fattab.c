@@ -47,7 +47,11 @@ int ISFAT32(struct dpb FAR * dpbp)
 }
 #endif
 
-struct buffer FAR *getFATblock(CLUSTER clussec, struct dpb FAR * dpbp)
+/* idx is a pointer to an index which is the nibble offset of the FAT
+   entry within the sector for FAT12, or word offset for FAT16, or
+   dword offset for FAT32 */
+struct buffer FAR *getFATblock(CLUSTER clussec, struct dpb FAR * dpbp,
+                               unsigned *idx)
 {
   unsigned secdiv;
   struct buffer FAR *bp;
@@ -83,6 +87,8 @@ struct buffer FAR *getFATblock(CLUSTER clussec, struct dpb FAR * dpbp)
       secdiv /= 2;
 #endif
   }
+  if (idx)
+    *idx = (unsigned)(clussec % secdiv);
   clussec /= secdiv;
   clussec += dpbp->dpb_fatstrt;
 #ifdef WITHFAT32
@@ -164,22 +170,22 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
                 REG CLUSTER Cluster2)
 {
   struct buffer FAR *bp;
+  unsigned idx;
 
   /* Get the block that this cluster is in                */
-  bp = getFATblock(Cluster1, dpbp);
+  bp = getFATblock(Cluster1, dpbp, &idx);
 
   if (bp == NULL)
     return DE_BLKINVLD;
 
   if (ISFAT12(dpbp))
   {
-    unsigned idx;
     REG UBYTE FAR *fbp0, FAR * fbp1;
     struct buffer FAR * bp1;
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    idx = (((unsigned)Cluster1 >> 1) + (unsigned)Cluster1) % dpbp->dpb_secsize;
+    idx /= 2;
 
     /* Test to see if the cluster straddles the block. If   */
     /* it does, get the next block and use both to form the */
@@ -190,7 +196,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   
     if (idx >= (unsigned)dpbp->dpb_secsize - 1)
     {
-      bp1 = getFATblock((unsigned)Cluster1 + 1, dpbp);
+      bp1 = getFATblock((unsigned)Cluster1 + 1, dpbp, NULL);
       if (bp1 == 0)
         return DE_BLKINVLD;
       
@@ -219,9 +225,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* byte array                                           */
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
-    fputword(
-      &bp->b_buffer[((unsigned)Cluster1 * SIZEOF_CLST16) % dpbp->dpb_secsize],
-      (UWORD)Cluster2);
+    fputword(&bp->b_buffer[idx * 2], (UWORD)Cluster2);
   }
 #ifdef WITHFAT32
   else if (ISFAT32(dpbp))
@@ -230,9 +234,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* byte array                                           */
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
-    fputlong(
-      &bp->b_buffer[(UWORD) ((Cluster1 * SIZEOF_CLST32) % dpbp->dpb_secsize)],
-      Cluster2);
+    fputlong(&bp->b_buffer[idx * 4], Cluster2);
   }
 #endif
   else
@@ -280,9 +282,10 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
 {
   struct buffer FAR *bp;
+  unsigned idx;
 
   /* Get the block that this cluster is in                */
-  bp = getFATblock(ClusterNum, dpbp);
+  bp = getFATblock(ClusterNum, dpbp, &idx);
 
   if (bp == NULL)
     return 1; /* the only error code possible here */
@@ -294,12 +297,9 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
       unsigned word;
     } clusterbuff;
 
-    unsigned idx;
-
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    idx = (((unsigned)ClusterNum >> 1) + (unsigned)ClusterNum) %
-      dpbp->dpb_secsize;
+    idx /= 2;
 
     clusterbuff.bytes[0] = bp->b_buffer[idx];
 
@@ -312,7 +312,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
     /* block.                                               */
     if (idx >= (unsigned)dpbp->dpb_secsize - 1)
     {
-      bp = getFATblock(ClusterNum + 1, dpbp);
+      bp = getFATblock(ClusterNum + 1, dpbp, NULL);
 
       if (bp == 0)
         return LONG_BAD;
@@ -351,8 +351,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
     /* byte array                                           */
     /* and get the cluster number                           */
 
-    res = fgetword(&bp->b_buffer[((unsigned)ClusterNum * SIZEOF_CLST16) %
-                                 dpbp->dpb_secsize]);
+    res = fgetword(&bp->b_buffer[idx * 2]);
 
     if (res >= MASK16)
       return LONG_LAST_CLUSTER;
@@ -366,8 +365,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
   {
     UDWORD res;
 
-    res = fgetlong(&bp->b_buffer[((unsigned)ClusterNum * SIZEOF_CLST32) %
-                                 dpbp->dpb_secsize]);
+    res = fgetlong(&bp->b_buffer[idx * 4]);
     if (res > LONG_BAD)
       return LONG_LAST_CLUSTER;
 
