@@ -100,7 +100,7 @@ clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
 
 clean:
-		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod
+		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4

@@ -49,7 +49,7 @@ clobber:	clean
 		-$(RM) bin2c.com sys.com b_fat12.h b_fat16.h b_fat32.h
 
 clean:
-		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod status.me
+		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me
 
 #		*Individual File Dependencies*
 bin2c.obj: bin2c.c

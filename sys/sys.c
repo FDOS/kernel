@@ -431,7 +431,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     }
     else
     {
-      if (*(unsigned long *)(x + 0x2c)  /* total number of clusters */
+      if (*(unsigned long *)(x + 0x10)  /* total number of clusters */
           > (unsigned)65526l)
       {
         fs = 32;

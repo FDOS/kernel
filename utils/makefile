@@ -15,5 +15,5 @@ clobber: clean
 	$(RM) bin2c.com exeflat.exe patchobj.exe
 
 clean:
-	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod status.me
+	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me
 

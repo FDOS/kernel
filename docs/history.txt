@@ -4,6 +4,8 @@
     * ran source code .c and .h files through "indent"
     * fixed new printf bug
     * removed some duplicate documents
++ Changes Victor & Bart
+    * fixed sys.c fat32 detection bug (offset 0x10, not 0x2c)
 2001 Nov 17 - Build 2025b
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

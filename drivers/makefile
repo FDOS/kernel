@@ -42,7 +42,7 @@ clobber:        clean
 	-$(RM) device.lib status.me ..\lib\device.lib
 
 clean:
-	-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod
+	-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err
 
 device.lib : $(OBJS)
 	-$(RM) device.lib
