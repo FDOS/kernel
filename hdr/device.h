@@ -128,7 +128,7 @@ struct dhdr {
   UWORD dh_attr;
     VOID(*dh_strategy) (void);
     VOID(*dh_interrupt) (void);
-  BYTE dh_name[8];
+  UBYTE dh_name[8];
 };
 
 #define ATTR_SUBST      0x8000
@@ -338,7 +338,7 @@ typedef struct {
   UBYTE r_length;               /*  Request Header length               */
   UBYTE r_unit;                 /*  Unit Code                           */
   UBYTE r_command;              /*  Command Code                        */
-  WORD r_status;                /*  Status                              */
+  UWORD r_status;               /*  Status                              */
   BYTE r_reserved[8];           /*  DOS Reserved Area                   */
   union {
     struct {
