@@ -407,7 +407,7 @@ dispatch:
 
   /* Check for Ctrl-Break */
   if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))
-    check_handle_break;
+    check_handle_break();
 
   /* The dispatch handler                                         */
   switch (lr.AH)
@@ -676,8 +676,7 @@ dispatch:
 
       /* Set Date                                                     */
     case 0x2b:
-      rc = DosSetDate((struct dosdate *)&lr.CX);
-      lr.AL = (rc != SUCCESS ? 0xff : 0);
+      lr.AL = DosSetDate ((struct dosdate*)&lr.CX) == SUCCESS ? 0 : 0xFF;
       break;
 
       /* Get Time                                                     */
@@ -685,10 +684,9 @@ dispatch:
       DosGetTime((struct dostime *)&lr.CL);
       break;
 
-      /* Set Date                                                     */
+      /* Set Time                                                     */
     case 0x2d:
-      rc = DosSetTime((struct dostime *)&lr.CL);
-      lr.AL = (rc != SUCCESS ? 0xff : 0);
+      lr.AL = DosSetTime ((struct dostime*)&lr.CX) == SUCCESS ? 0 : 0xFF;
       break;
 
       /* Set verify flag                                              */
