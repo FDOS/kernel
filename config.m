@@ -48,8 +48,8 @@ NASM=nasm
 # $Id$
 #
 # $Log$
-# Revision 1.1  2000/05/06 19:34:02  jhall1
-# Initial revision
+# Revision 1.2  2000/05/14 17:07:07  jimtabor
+# Cleanup CRs
 #
 # Revision 1.3  1999/09/13 20:40:17  jprice
 # Added COMPILER variable

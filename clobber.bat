@@ -4,8 +4,8 @@ rem batch file to clobber everything
 rem $Id$
 
 rem $Log$
-rem Revision 1.1  2000/05/06 19:34:02  jhall1
-rem Initial revision
+rem Revision 1.2  2000/05/14 17:06:17  jimtabor
+rem Cleanup CRs
 rem
 rem Revision 1.3  1999/08/25 03:59:14  jprice
 rem New build batch files.
