@@ -184,10 +184,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     REG UBYTE FAR *fbp0, FAR * fbp1;
     struct buffer FAR * bp1;
-    union {
-      UBYTE bytes[2];
-      unsigned word;
-    } clusterbuff;
+    unsigned cluster;
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
@@ -197,15 +194,14 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* it does, get the next block and use both to form the */
     /* the FAT word. Otherwise, just point to the next      */
     /* block.                                               */
-    clusterbuff.bytes[0] = bp->b_buffer[idx];
-
-    /* next byte, will be overwritten, if not valid */
-    clusterbuff.bytes[1] = bp->b_buffer[idx + 1];
     fbp0 = &bp->b_buffer[idx];
+
+    /* pointer to next byte, will be overwritten, if not valid */
     fbp1 = fbp0 + 1;
-  
+
     if (idx >= (unsigned)dpbp->dpb_secsize - 1)
     {
+      /* blockio.c LRU logic ensures that bp != bp1 */
       bp1 = getFATblock(dpbp, (unsigned)clussec + 1);
       if (bp1 == 0)
         return 1; /* the only error code possible here */
@@ -214,27 +210,17 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
         bp1->b_flag |= BFR_DIRTY | BFR_VALID;
       
       fbp1 = &bp1->b_buffer[0];
-      clusterbuff.bytes[1] = bp1->b_buffer[0];
     }
 
+    idx = *fbp0 | (*fbp1 << 8);
     if (Cluster2 == READ_CLUSTER)
     {
       /* Now to unpack the contents of the FAT entry. Odd and */
       /* even bytes are packed differently.                   */
 
-#ifndef I86                     /* the latter assumes byte ordering */
       if (Cluster1 & 0x01)
-        idx =
-          ((clusterbuff.bytes[0] & 0xf0) >> 4) | (clusterbuff.bytes[1] << 4);
-      else
-        idx = clusterbuff.bytes[0] | ((clusterbuff.bytes[1] & 0x0f) << 8);
-#else
-
-      if (Cluster1 & 0x01)
-        idx = (unsigned short)clusterbuff.word >> 4;
-      else
-        idx = clusterbuff.word & 0x0fff;
-#endif
+        idx >>= 4;
+      idx &= 0x0fff;
 
       if (idx >= MASK12)
         return LONG_LAST_CLUSTER;
@@ -243,19 +229,23 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
       return idx;
     }
 
+    /* Cluster2 may be set to LONG_LAST_CLUSTER == 0x0FFFFFFFUL or 0xFFFF */
+    /* -- please don't remove this mask!                                  */
+    cluster = (unsigned)Cluster2 & 0x0fff;
+
     /* Now pack the value in                                */
     if ((unsigned)Cluster1 & 0x01)
     {
-      *fbp0 = (*fbp0 & 0x0f) | (UBYTE)((UBYTE)Cluster2 << 4);
-      *fbp1 = (UBYTE)((unsigned)Cluster2 >> 4);
+      idx &= 0x000f;
+      cluster <<= 4;
     }
     else
     {
-      *fbp0 = (UBYTE)Cluster2;
-      /* Cluster2 may be set to LONG_LAST_CLUSTER == 0x0FFFFFFFUL or 0xFFFF */
-      /* -- please don't optimize to (UBYTE)((unsigned)Cluster2 >> 8)!      */
-      *fbp1 = (*fbp1 & 0xf0) | ((UBYTE)((unsigned)Cluster2 >> 8) & 0x0f);
+      idx &= 0xf000;
     }
+    cluster |= idx;
+    *fbp0 = (UBYTE)cluster;
+    *fbp1 = (UBYTE)(cluster >> 8);
   }
   else if (ISFAT16(dpbp)) 
   {
