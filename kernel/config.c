@@ -361,6 +361,8 @@ void PreConfig2(void)
 /* Also, run config.sys to load drivers.                                */
 void PostConfig(void)
 {
+  struct dpb FAR *old_dpbp;
+
   /* We could just have loaded FDXMS or HIMEM */
   if (HMAState == HMA_REQ && MoveKernelToHMA())
     HMAState = HMA_DONE;
@@ -401,8 +403,10 @@ void PostConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
+  old_dpbp = LoL->DPBp;
   LoL->DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb), 'E',
                      Config.cfgDosDataUmb);
+  fmemcpy(LoL->DPBp, old_dpbp, blk_dev.dh_name[0] * sizeof(struct dpb));
 
 #ifdef DEBUG
   printf("Final: \n f_node 0x%x\n", LoL->f_nodes);

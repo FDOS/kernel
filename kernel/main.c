@@ -275,8 +275,6 @@ STATIC void init_kernel(void)
 
   /* and do final buffer allocation. */
   PostConfig();
-  LoL->nblkdev = 0;
-  update_dcb(&blk_dev);
 
   /* Init the file system one more time     */
   FsConfig();
