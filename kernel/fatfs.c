@@ -229,7 +229,6 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
     
   /* Now change to file                                   */
   fnp->f_offset = 0l;
-  fnp->f_highwater = fnp->f_dir.dir_size;
     
   fnp->f_back = LONG_LAST_CLUSTER;
   if (status != S_OPENED)
@@ -288,7 +287,6 @@ COUNT dos_close(COUNT fd)
       fnp->f_dir.dir_date = dos_getdate();
     }
 
-    fnp->f_dir.dir_size = fnp->f_highwater;
     merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
   fnp->f_flags.f_ddir = TRUE;
@@ -470,7 +468,6 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
            f_node which refers to this file. */
         if (fnp2->f_mode != RDONLY)
         {
-          fnp2->f_dir.dir_size = fnp2->f_highwater;
           copy_file_changes(fnp2, fnp);
           break;
         }
@@ -480,8 +477,6 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
         /* We just made changes to this file, so we are
            distributing these changes to the other f_nodes
            which refer to this file. */
-        if (fnp->f_mode != RDONLY)
-          fnp->f_dir.dir_size = fnp->f_highwater;
         copy_file_changes(fnp, fnp2);
       }
     }
@@ -505,7 +500,6 @@ STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2)
     /* /// Added - Ron Cemer */
 STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst)
 {
-  dst->f_highwater = src->f_highwater;
   dst->f_dir.dir_start = src->f_dir.dir_start;
 #ifdef WITHFAT32
   dst->f_dir.dir_start_high = src->f_dir.dir_start_high;
@@ -758,8 +752,6 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   fnp1->f_flags.f_dnew = fnp2->f_flags.f_dnew = FALSE;
   fnp1->f_flags.f_ddir = fnp2->f_flags.f_ddir = TRUE;
 
-  fnp2->f_highwater = fnp2->f_offset = fnp1->f_dir.dir_size;
-
   /* Ok, so we can delete this one. Save the file info.           */
   *(fnp1->f_dir.dir_name) = DELETED;
 
@@ -929,7 +921,7 @@ ULONG dos_getfsize(COUNT fd)
     return (ULONG)-1l;
 
   /* Return the file size                                         */
-  return fnp->f_highwater;
+  return fnp->f_dir.dir_size;
 }
 
 /*                                                              */
@@ -951,7 +943,6 @@ BOOL dos_setfsize(COUNT fd, LONG size)
 
   /* Change the file size                                         */
   fnp->f_dir.dir_size = size;
-  fnp->f_highwater = size;
 
   merge_file_changes(fnp, FALSE);       /* /// Added - Ron Cemer */
 
@@ -1126,7 +1117,6 @@ COUNT dos_mkdir(BYTE * dir)
   fnp->f_flags.f_dnew = FALSE;
   fnp->f_flags.f_ddir = TRUE;
 
-  fnp->f_highwater = 0l;
   fnp->f_offset = 0l;
 
   /* Mark the cluster in the FAT as used                  */
@@ -1401,7 +1391,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   return SUCCESS;
 }
 
-/* extends a file from f_highwater to f_offset                 */
+/* extends a file from f_dir.dir_size to f_offset              */
 /* Proper OS's write zeros in between, but DOS just adds       */
 /* garbage sectors, and lets the caller do the zero filling    */
 /* if you prefer you can have this enabled using               */
@@ -1418,12 +1408,12 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
   ULONG count;
 #endif
 
-  if (fnp->f_offset <= fnp->f_highwater)
+  if (fnp->f_offset <= fnp->f_dir.dir_size)
     return SUCCESS;
 
 #ifdef WRITEZEROS
-  count = fnp->f_offset - fnp->f_highwater;
-  fnp->f_offset = fnp->f_highwater;
+  count = fnp->f_offset - fnp->f_dir.dir_size;
+  fnp->f_offset = fnp->f_dir.dir_size;
   while (count > 0)
 #endif
   {
@@ -1473,9 +1463,8 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
     /* update pointers and counters                         */
     count -= xfr_cnt;
     fnp->f_offset += xfr_cnt;
-    fnp->f_dir.dir_size = fnp->f_offset;
 #endif
-    fnp->f_highwater = fnp->f_offset;
+    fnp->f_dir.dir_size = fnp->f_offset;
     merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
   return SUCCESS;
@@ -1536,7 +1525,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
     better for the people, that complain about slow floppy access
 
     the 
-        fnp->f_offset +to_xfer < fnp->f_highwater &&  avoid EOF problems 
+        fnp->f_offset +to_xfer < fnp->f_dir.dir_size &&  avoid EOF problems 
 
     condition can probably _carefully_ be dropped    
     
@@ -1604,7 +1593,7 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* remove all the following allocated clusters in shrink_file     */
     if (mode == XFR_WRITE)
     {
-      fnp->f_highwater = fnp->f_offset;
+      fnp->f_dir.dir_size = fnp->f_offset;
       shrink_file(fnp);
     }
     return 0;
@@ -1622,7 +1611,7 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   {
     /* Do an EOF test and return whatever was transferred   */
     /* but only for regular files.                          */
-    if (mode == XFR_READ && !(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_highwater))
+    if (mode == XFR_READ && !(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_dir.dir_size))
     {
       return ret_cnt;
     }
@@ -1680,8 +1669,8 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
       sectors_wanted = to_xfer;
 
       /* avoid EOF problems */
-      if (mode == XFR_READ && to_xfer > fnp->f_highwater - fnp->f_offset)
-        sectors_wanted = (UCOUNT)(fnp->f_highwater - fnp->f_offset);
+      if (mode == XFR_READ && to_xfer > fnp->f_dir.dir_size - fnp->f_offset)
+        sectors_wanted = (UCOUNT)(fnp->f_dir.dir_size - fnp->f_offset);
       
       sectors_wanted /= secsize;
 
@@ -1759,7 +1748,7 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* a maximum of what is left.                           */
     xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
     if (!fnp->f_flags.f_ddir && mode == XFR_READ)
-      xfr_cnt = (UWORD) min(xfr_cnt, fnp->f_highwater - fnp->f_offset);
+      xfr_cnt = (UWORD) min(xfr_cnt, fnp->f_dir.dir_size - fnp->f_offset);
 
     /* transfer a block                                     */
     /* Transfer size as either a full block size, or the    */
@@ -1780,7 +1769,7 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
        probably not reused later
      */
     if (xfr_cnt == sizeof(bp->b_buffer) ||
-        (mode == XFR_READ && fnp->f_offset + xfr_cnt == fnp->f_highwater))
+        (mode == XFR_READ && fnp->f_offset + xfr_cnt == fnp->f_dir.dir_size))
     {
       bp->b_flag |= BFR_UNCACHE;
     }
@@ -1794,10 +1783,9 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     buffer = add_far((VOID FAR *) buffer, (ULONG) xfr_cnt);
     if (mode == XFR_WRITE)
     {
-      if (fnp->f_offset > fnp->f_highwater)
+      if (fnp->f_offset > fnp->f_dir.dir_size)
       {
-        fnp->f_highwater = fnp->f_offset;
-        fnp->f_dir.dir_size = fnp->f_highwater;
+        fnp->f_dir.dir_size = fnp->f_offset;
       }
       merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
     }
@@ -1836,7 +1824,7 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 
       /* offset from eof                                              */
     case 2:
-      return fnp->f_offset = fnp->f_highwater + foffset;
+      return fnp->f_offset = fnp->f_dir.dir_size + foffset;
 
       /* default to an invalid function                               */
     default:
@@ -2183,7 +2171,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
   CLUSTER next, st;
   struct dpb FAR *dpbp = fnp->f_dpb;
 
-  fnp->f_offset = fnp->f_highwater;     /* end of file */
+  fnp->f_offset = fnp->f_dir.dir_size;     /* end of file */
 
   if (fnp->f_offset)
     fnp->f_offset--;            /* last existing cluster */
@@ -2203,7 +2191,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
   /* last cluster is encountered.                         */
   /* zap the FAT pointed to                       */
 
-  if (fnp->f_highwater == 0)
+  if (fnp->f_dir.dir_size == 0)
   {
     setdstart(fnp->f_dir, FREE);
     link_fat(dpbp, st, FREE);

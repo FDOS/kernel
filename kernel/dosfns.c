@@ -1072,8 +1072,8 @@ COUNT DosFindNext(void)
   COUNT rc;
   register dmatch FAR *dmp = dta;
 
-  /* /// findnext will always fail on a device name.  - Ron Cemer */
-  if (dmp->dm_attr_fnd == D_DEVICE)
+  /* /// findnext will always fail on a device name device name or volume id */
+  if (dmp->dm_attr_fnd == D_DEVICE || dmp->dm_attr_fnd & D_VOLID)
     return DE_NFILES;
 
 /*

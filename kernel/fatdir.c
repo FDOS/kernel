@@ -46,7 +46,7 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_flags.f_droot = FALSE;
   fnp->f_flags.f_ddir = TRUE;
   fnp->f_flags.f_dnew = TRUE;
-  fnp->f_diroff = fnp->f_offset = fnp->f_highwater = 0l;
+  fnp->f_diroff = fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
 
   /* root directory */
