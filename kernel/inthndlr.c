@@ -408,7 +408,7 @@ dispatch:
 
   /* Check for Ctrl-Break */
   if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))
-    check_handle_break();
+    check_handle_break(&syscon, -1);
 
   /* The dispatch handler                                         */
   switch (lr.AH)
@@ -435,8 +435,11 @@ dispatch:
 
       /* Auxiliary Input                                                      */
     case 0x03:
-      lr.AL = read_char(get_sft_idx(STDAUX), TRUE);
+    {
+      int sft_idx = get_sft_idx(STDAUX);
+      lr.AL = read_char(sft_idx, sft_idx, TRUE);
       break;
+    }
 
       /* Auxiliary Output                                                     */
     case 0x04:

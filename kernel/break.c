@@ -31,49 +31,48 @@
 #include "globals.h"
 #include "proto.h"
 
-extern void ASMCFUNC spawn_int23(void);
-
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
     "$Id$";
 #endif
 
-#define CB_FLG *(UBYTE FAR*)MK_FP(0x40, 0x71)
+#define CB_FLG *(UBYTE FAR*)MK_FP(0x0, 0x471)
 #define CB_MSK 0x80
 
-/* Check for ^Break.
-
- * Two sources are available:
- *                                                                              1) flag at 40:71 bit 7
- *                                                                              2) STDIN stream via con_break()
- */
-int check_handle_break(void)
-{
-  if (CB_FLG & CB_MSK) {
-    CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
-    handle_break(&syscon);
-  }
-  /* con_break will call handle_break() for CTL_C */
-  return con_break();
-}
-
-/*
- * Handles a ^Break state
- *
+/* Check for ^Break/^C.
+ * Three sources are available:
+ *       1) flag at 40:71 bit 7
+ *       2) CON stream (if STDIN is redirected somewhere else)
+ *       3) input stream (most likely STDIN)
  * Actions:
- *                                                                              1) clear the ^Break flag
- *                                                                              2) clear the STDIN stream
- *                                                                              3) decrease the InDOS flag as the kernel drops back to user space
- *                                                                              4) invoke INT-23 and never come back
+ *       1) echo ^C
+ *       2) clear the STDIN stream
+ *       3) decrease the InDOS flag as the kernel drops back to user space
+ *       4) invoke INT-23 and never come back
  */
-void handle_break(struct dhdr FAR **pdev)
+unsigned char check_handle_break(struct dhdr FAR **pdev, int sft_out)
 {
-  echo_char(CTL_C, get_sft_idx(STDOUT));
-  con_flush(pdev);
-  if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
-    if (InDOS)
-      --InDOS;                  /* fail-safe */
+  unsigned char c = CTL_C;
+  if (CB_FLG & CB_MSK)
+    CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
+  else
+    c = (unsigned char)ndread(&syscon);
+  if (c == CTL_C)
+  {
+    sft_out = -1;
+    pdev = &syscon;
+  }
+  else if (*pdev != syscon)
+    c = (unsigned char)ndread(pdev);
+  if (c == CTL_C)
+  {
+    con_flush(pdev);
+    echo_ctl_c(pdev, sft_out);
+    if (!ErrorMode)      /* within int21_handler, InDOS is not incremented */
+      if (InDOS)
+        --InDOS;         /* fail-safe */
 
-  spawn_int23();                /* invoke user INT-23 and never come back */
+    spawn_int23();       /* invoke user INT-23 and never come back */
+  }
+  return c;
 }
-

@@ -128,15 +128,15 @@ int StdinBusy(void)
 
 STATIC void Do_DosIdle_loop(struct dhdr FAR **pdev)
 {
-  /* the idle loop is only safe if we're using the character stack */
-  if (user_r->AH < 0xd)
-    while (Busy(pdev) && Busy(&syscon))
+  /* the idle int is only safe if we're using the character stack */
+  while (Busy(pdev) && (*pdev == syscon || Busy(&syscon)))
+    if (user_r->AH < 0xd)
       DosIdle_int();
 }
 
 /* get character from the console - this is how DOS gets
    CTL_C/CTL_S/CTL_P when outputting */
-STATIC int ndread(struct dhdr FAR **pdev)
+int ndread(struct dhdr FAR **pdev)
 {
   CharCmd(pdev, C_NDREAD);
   if (CharReqHdr.r_status & S_BUSY)
@@ -144,33 +144,17 @@ STATIC int ndread(struct dhdr FAR **pdev)
   return CharReqHdr.r_ndbyte;
 }
 
-STATIC void con_skip_char(struct dhdr FAR **pdev)
+STATIC void con_hold(struct dhdr FAR **pdev, int sft_out)
 {
-  if (CharIO(pdev, 0, C_INPUT) == CTL_C)
-    handle_break(pdev);
-}
-
-STATIC void con_hold(struct dhdr FAR **pdev)
-{
-  int c = check_handle_break();
-  if (*pdev != syscon)
-    c = ndread(pdev);
-  if (c == CTL_S || c == CTL_C)
+  unsigned char c = check_handle_break(pdev, sft_out);
+  if (c == CTL_S)
   {
-    con_skip_char(pdev);
+    CharIO(pdev, 0, C_INPUT);
     Do_DosIdle_loop(pdev);
-    /* just wait */
-    check_handle_break();
-    con_skip_char(pdev);
+    /* just wait and then skip a character */
+    check_handle_break(pdev, sft_out);
+    CharIO(pdev, 0, C_INPUT);
   }
-}
-
-int con_break(void)
-{
-  int c = ndread(&syscon);
-  if (c == CTL_C)
-    con_skip_char(&syscon);
-  return c;
 }
 
 /* OUTPUT FUNCTIONS */
@@ -231,7 +215,7 @@ STATIC int cooked_write_char(struct dhdr FAR **pdev,
        otherwise check every 32 characters */
     if (*fast_counter <= 0x80)
       /* Test for hold char and ctl_c */
-      con_hold(pdev);
+      con_hold(pdev, -1);
     *fast_counter += 1;
     *fast_counter &= 0x9f;
 
@@ -306,7 +290,7 @@ void write_char_stdout(int c)
 #define iscntrl(c) ((unsigned char)(c) < ' ')
 
 /* this is for handling things like ^C, mostly used in echoed input */
-int echo_char(int c, int sft_idx)
+STATIC int echo_char(int c, int sft_idx)
 {
   int out = c;
   if (iscntrl(c) && c != HT && c != LF && c != CR)
@@ -318,6 +302,16 @@ int echo_char(int c, int sft_idx)
   return c;
 }
 
+void echo_ctl_c(struct dhdr FAR **pdev, int sft_idx)
+{
+  char *buf = "^C\r\n";
+
+  if (sft_idx == -1)
+    cooked_write(pdev, 4, buf);
+  else
+    DosRWSft(sft_idx, 4, buf, XFR_FORCE_WRITE);
+}
+
 STATIC void destr_bs(int sft_idx)
 {
   write_char(BS, sft_idx);
@@ -327,12 +321,12 @@ STATIC void destr_bs(int sft_idx)
 
 /* READ FUNCTIONS */
 
-STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break)
+STATIC int raw_get_char(struct dhdr FAR **pdev, int sft_out, BOOL check_break)
 {
   Do_DosIdle_loop(pdev);
   if (check_break)
   {
-    con_hold(pdev);
+    con_hold(pdev, sft_out);
     Do_DosIdle_loop(pdev);
   }
   return CharIO(pdev, 0, C_INPUT);
@@ -344,7 +338,7 @@ long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
   int c;
   while(n--)
   {
-    c = raw_get_char(pdev, TRUE);
+    c = raw_get_char(pdev, -1, TRUE);
     if (c < 0)
       return c;
     if (c == 256)
@@ -357,26 +351,26 @@ long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
   return xfer;
 }
 
-unsigned char read_char(int sft_idx, BOOL check_break)
+unsigned char read_char(int sft_in, int sft_out, BOOL check_break)
 {
   unsigned char c;
-  struct dhdr FAR *dev = sft_to_dev(idx_to_sft(sft_idx));
+  struct dhdr FAR *dev = sft_to_dev(idx_to_sft(sft_in));
 
   if (dev)
-    return (unsigned char)raw_get_char(&dev, check_break);
+    return (unsigned char)raw_get_char(&dev, sft_out, check_break);
 
-  DosRWSft(sft_idx, 1, &c, XFR_READ);
+  DosRWSft(sft_in, 1, &c, XFR_READ);
   return c;
 }
 
-STATIC unsigned char read_char_check_break(int sft_idx)
+STATIC unsigned char read_char_check_break(int sft_in, int sft_out)
 {
-  return read_char(sft_idx, TRUE);
+  return read_char(sft_in, sft_out, TRUE);
 }
 
 unsigned char read_char_stdin(BOOL check_break)
 {
-  return read_char(get_sft_idx(STDIN), check_break);
+  return read_char(get_sft_idx(STDIN), get_sft_idx(STDOUT), check_break);
 }
 
 /* reads a line (buffered, called by int21/ah=0ah, 3fh) */
@@ -399,9 +393,9 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
   {
     unsigned new_pos = stored_size;
     
-    c = read_char_check_break(sft_in);
+    c = read_char_check_break(sft_in, sft_out);
     if (c == 0)
-      c = (unsigned)read_char_check_break(sft_in) << 8;
+      c = (unsigned)read_char_check_break(sft_in, sft_out) << 8;
     switch (c)
     {
       case LF:
@@ -426,11 +420,11 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
       case F4:
         /* insert/delete up to character c */
         {
-          unsigned char c2 = read_char_check_break(sft_in);
+          unsigned char c2 = read_char_check_break(sft_in, sft_out);
           new_pos = stored_pos;
           if (c2 == 0)
           {
-            read_char_check_break(sft_in);
+            read_char_check_break(sft_in, sft_out);
           }
           else
           {

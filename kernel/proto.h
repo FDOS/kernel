@@ -49,21 +49,18 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
 void AllocateHMASpace (size_t lowbuffer, size_t highbuffer);
 
 /* break.c */
-#ifdef __WATCOMC__
-#pragma aux handle_break aborts;
-#endif
-int check_handle_break(void);
-void handle_break(struct dhdr FAR **pdev);
+unsigned char check_handle_break(struct dhdr FAR **pdev, int sft_out);
 
 /* chario.c */
 struct dhdr FAR *sft_to_dev(sft FAR *sft);
 long BinaryCharIO(struct dhdr FAR **pdev, size_t n, void FAR * bp,
                   unsigned command);
 int echo_char(int c, int sft_idx);
-int con_break(void);
+void echo_ctl_c(struct dhdr FAR **pdev, int sft_idx);
+int ndread(struct dhdr FAR **pdev);
 int StdinBusy(void);
 void con_flush(struct dhdr FAR **pdev);
-unsigned char read_char(int sft_idx, BOOL check_break);
+unsigned char read_char(int sft_in, int sft_out, BOOL check_break);
 unsigned char read_char_stdin(BOOL check_break);
 long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp);
 void read_line(int sft_in, int sft_out, keyboard FAR * kp);
