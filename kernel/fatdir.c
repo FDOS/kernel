@@ -423,7 +423,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
   /* volume id bit set.                                           */
-  if (attr & D_VOLID)
+  if ((attr & (D_VOLID|D_DIR))==D_VOLID)
     i = 3;
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
@@ -445,7 +445,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* Copy the raw pattern from our data segment to the DTA. */
   fmemcpy(dmp->dm_name_pat, SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
-  if (attr & D_VOLID)
+  if ((attr & (D_VOLID|D_DIR))==D_VOLID)
   {
     /* Now do the search                                    */
     while (dir_read(fnp) == 1)
@@ -494,7 +494,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 COUNT dos_findnext(void)
 {
   REG f_node_ptr fnp;
-  BOOL found = FALSE;
   REG dmatch *dmp = &sda_tmp_dm;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
@@ -521,15 +520,11 @@ COUNT dos_findnext(void)
 
   /* Search through the directory to find the entry, but do a     */
   /* seek first.                                                  */
+  fnp->f_flags.f_dnew = TRUE;
   if (dmp->dm_entry > 0)
   {
     fnp->f_diroff = (ULONG) (dmp->dm_entry - 1) * DIRENT_SIZE;
     fnp->f_flags.f_dnew = FALSE;
-  }
-  else
-  {
-    fnp->f_diroff = 0;
-    fnp->f_flags.f_dnew = TRUE;
   }
 
   /* Loop through the directory                                   */
@@ -550,24 +545,20 @@ COUNT dos_findnext(void)
 
         /* Test the attribute as the final step */
         if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
-            ((~dmp->dm_attr_srch & fnp->f_dir.
-              dir_attrib & (D_DIR | D_SYSTEM | D_HIDDEN)) == 0))
+            !(~dmp->dm_attr_srch & (D_DIR | D_SYSTEM | D_HIDDEN) &
+              fnp->f_dir.dir_attrib))
         {
-          found = TRUE;
-          break;
+          /* If found, transfer it to the dmatch structure                */
+          dmp->dm_dircluster = fnp->f_dirstart;
+          memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
+          /* return the result                                            */
+          release_f_node(fnp);
+          return SUCCESS;
         }
-        else
-          continue;
       }
     }
   }
 
-  /* If found, transfer it to the dmatch structure                */
-  if (found)
-  {
-    dmp->dm_dircluster = fnp->f_dirstart;
-    memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
-  }
 
 #ifdef DEBUG
   printf("dos_findnext: %11s\n", fnp->f_dir.dir_name);
@@ -575,7 +566,7 @@ COUNT dos_findnext(void)
   /* return the result                                            */
   release_f_node(fnp);
 
-  return found ? SUCCESS : DE_NFILES;
+  return DE_NFILES;
 }
 #endif
 /*
