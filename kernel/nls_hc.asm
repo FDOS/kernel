@@ -23,9 +23,9 @@ _nlsPackageHardcoded:
 	DW ?table6, SEG ?table6
 	DB  007h
 	DW ?table7, SEG ?table7
-	GLOBAL _nlsCountryInfoHardcoded
-_nlsCountryInfoHardcoded:
 	DB  001h
+	GLOBAL _nlsCntryInfoHardcoded
+_nlsCntryInfoHardcoded:
 ?table1:
 	DB  01ch, 000h, 001h, 000h, 0b5h, 001h, 000h, 000h
 	DB  024h, 000h, 000h, 000h, 000h, 02ch, 000h, 02eh

@@ -1170,17 +1170,32 @@ STATIC void LoadCountryInfo(CStr filename, int ccode, int cpage)
     int reserved[2];
     ULONG offset;       /* offset of country-subfunction-header in file */
   } entry;
-  struct {      /* subfunction header */
+  struct subf_hdr { /* subfunction header */
     int length;         /* length of entry, not counting this word, = 6 */
     int id;             /* subfunction ID */
     ULONG offset;       /* offset within file of subfunction data entry */
-  } subf_hdr;
-  struct {      /* subfunction data */
+  };
+  static struct {   /* subfunction data */
     char signature[8];  /* \377CTYINFO|UCASE|LCASE|FUCASE|FCHAR|COLLATE|DBCS */
     int length;         /* length of following table in bytes */
+    UBYTE buffer[256];
   } subf_data;
-  struct CountrySpecificInfo country;
-  int fd, entries, count, i, j;
+  struct subf_tbl {
+    char sig[8];        /* signature for each subfunction data */
+    void FAR *p;        /* pointer to data in nls_hc.asm to be copied to */
+  };
+  static struct subf_tbl table[8] = {
+    {"\377       ", NULL},                  /* 0, unused */
+    {"\377CTYINFO", &nlsCntryInfoHardcoded},/* 1 */
+    {"\377UCASE  ", &nlsUpcaseHardcoded},   /* 2 */
+    {"\377LCASE  ", NULL},                  /* 3, not supported [yet] */
+    {"\377FUCASE ", &nlsFUpcaseHardcoded},  /* 4 */
+    {"\377FCHAR  ", &nlsFnameTermHardcoded},/* 5 */
+    {"\377COLLATE", &nlsCollHardcoded},     /* 6 */
+    {"\377DBCS   ", &nlsDBCSHardcoded}      /* 7, not supported [yet] */
+  };
+  static struct subf_hdr hdr[8];
+  int fd, entries, count, i;
 
   if ((fd = open(filename, 0)) < 0)
   {
@@ -1192,7 +1207,7 @@ STATIC void LoadCountryInfo(CStr filename, int ccode, int cpage)
     printf("Can't read %s\n", filename);
     goto ret;
   }
-  if (memcmp(&header.name, "\377COUNTRY", 8))
+  if (memcmp(header.name, "\377COUNTRY", sizeof(header.name)))
   {
 err:printf("%s has invalid format\n", filename);
     goto ret;
@@ -1207,30 +1222,38 @@ err:printf("%s has invalid format\n", filename);
     if (entry.country != ccode || entry.codepage != cpage && cpage)
       continue;
     if (lseek(fd, entry.offset) == 0xffffffffL
-      || read(fd, &count, sizeof(count)) < sizeof(count))
+      || read(fd, &count, sizeof(count)) < sizeof(count)
+      || count > LENGTH(hdr)
+      || read(fd, &hdr, sizeof(struct subf_hdr) * count)
+                      < sizeof(struct subf_hdr) * count)
       goto err;
-    for (j = 0; j < count; j++)
+    for (i = 0; i < count; i++)
     {
-      if (read(fd, &subf_hdr, sizeof(subf_hdr)) < sizeof(subf_hdr)
-        || subf_hdr.length != 6)
+      if (hdr[i].length != 6)
         goto err;
-      if (subf_hdr.id != 1)
+      if (hdr[i].id < 1 || hdr[i].id > 6 || hdr[i].id == 3)
         continue;
-      if (lseek(fd, subf_hdr.offset) == 0xffffffffL
-        || read(fd, &subf_data, sizeof(subf_data)) < sizeof(subf_data)
-        || memcmp(&subf_data.signature, "\377CTYINFO", 8))
+      if (lseek(fd, hdr[i].offset) == 0xffffffffL
+       || read(fd, &subf_data, 10) < 10
+       || memcmp(subf_data.signature, table[hdr[i].id].sig, 8) && hdr[i].id == 4
+       && memcmp(subf_data.signature, table[2].sig, 8)  /* UCASE for FUCASE ^*/
+       || read(fd, subf_data.buffer, subf_data.length) < subf_data.length)
         goto err;
-      if (read(fd, &country, sizeof(country)) < sizeof(country))
-        goto err;
-      if (country.CountryID != entry.country
-       || country.CodePage  != entry.codepage && cpage)
-        continue;
-      i = nlsCountryInfoHardcoded.C.CodePage;
-      fmemcpy(&nlsCountryInfoHardcoded.C, &country,
-        min(sizeof(country), subf_data.length));
-      nlsCountryInfoHardcoded.C.CodePage = i;
-      goto ret;
+      if (hdr[i].id == 1)
+      {
+        if (((struct CountrySpecificInfo *)subf_data.buffer)->CountryID
+                                                     != entry.country
+         || ((struct CountrySpecificInfo *)subf_data.buffer)->CodePage
+                                                     != entry.codepage
+         && cpage)
+          continue;
+        subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
+                min(subf_data.length, sizeof(struct CountrySpecificInfo));
+      }
+      fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer,
+                                /* skip length ^*/  subf_data.length);
     }
+    goto ret;
   }
   printf("couldn't find country info for country ID %u\n", ccode);
 ret:

@@ -478,12 +478,12 @@ struct nlsInfoBlock {           /* This block contains all information
 extern struct nlsInfoBlock nlsInfo;
 extern struct nlsPackage ASM nlsPackageHardcoded;
         /* These are the "must have" tables within the hard coded NLS pkg */
-extern struct nlsFnamTerm nlsFnameTermHardcoded;
-extern struct nlsDBCS ASM nlsDBCSHardcoded;
-extern struct nlsCharTbl nlsUpcaseHardcoded;
-extern struct nlsCharTbl nlsFUpcaseHardcoded;
-extern struct nlsCharTbl nlsCollHardcoded;
-extern struct nlsExtCntryInfo nlsCntryInfoHardcoded;
+extern struct nlsFnamTerm     FAR ASM nlsFnameTermHardcoded;
+extern struct nlsDBCS         FAR ASM nlsDBCSHardcoded;
+extern struct nlsCharTbl      FAR ASM nlsUpcaseHardcoded;
+extern struct nlsCharTbl      FAR ASM nlsFUpcaseHardcoded;
+extern struct nlsCharTbl      FAR ASM nlsCollHardcoded;
+extern struct nlsExtCntryInfo FAR ASM nlsCntryInfoHardcoded;
 extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
 /***********************************************************************

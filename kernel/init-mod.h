@@ -263,14 +263,6 @@ extern BYTE DOSFAR _InitTextStart,       /* first available byte of ram         
 extern BYTE FAR ASM internal_data[];
 extern unsigned char FAR ASM kbdType;
 
-extern struct {
-  char  ThisIsAConstantOne;
-  short TableSize;
-  
-  struct CountrySpecificInfo C;
-  
-} FAR ASM nlsCountryInfoHardcoded;
-
 /*
     data shared between DSK.C and INITDISK.C
 */
