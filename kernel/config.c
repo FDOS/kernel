@@ -31,6 +31,7 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "nls.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -38,8 +39,14 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:56  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.15  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.14  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
  *
  * Revision 1.13  2000/03/09 06:07:10  kernel
  * 2017f updates by James Tabor
@@ -204,6 +211,10 @@ INIT void PreConfig(void)
   /* Initialize the base memory pointers                          */
   lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & last);
 
+#ifdef DEBUG
+  printf("SDA located at 0x%04x:0x%04x\n",
+	  FP_SEG(internal_data), FP_OFF(internal_data));
+#endif
   /* Begin by initializing our system buffers                     */
   dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE);
 #ifdef DEBUG
@@ -230,7 +241,7 @@ INIT void PreConfig(void)
                   + Config.cfgFiles * sizeof(sft));
 
   CDSp = (cdstbl FAR *)
-      KernelAlloc(0x58 * lastdrive + 1);
+      KernelAlloc(0x58 * (lastdrive + 1));
 
 #ifdef DEBUG
 
@@ -271,6 +282,11 @@ INIT void PostConfig(void)
   /* Set pass number                                              */
   nPass = 2;
 
+  /* compute lastdrive ... */
+  lastdrive = Config.cfgLastdrive;
+  if (lastdrive < nblkdev -1) 
+    lastdrive = nblkdev -1;
+
   /* Initialize the base memory pointers from last time.          */
   lpBase = AlignParagraph(lpOldLast);
 
@@ -300,7 +316,7 @@ INIT void PostConfig(void)
                   + Config.cfgFiles * sizeof(sft));
 
   CDSp = (cdstbl FAR *)
-      KernelAlloc(0x58 * lastdrive + 1);
+      KernelAlloc(0x58 * (lastdrive + 1));
 
 #ifdef DEBUG
 
@@ -334,6 +350,14 @@ INIT VOID configDone(VOID)
 {
   COUNT i;
 
+  if (lastdrive < nblkdev -1) {
+#ifdef DEBUG
+    printf("lastdrive %c too small upping it to: %c\n", lastdrive + 'A', nblkdev + 'A' -1);
+#endif /* DEBUG */
+    lastdrive = nblkdev -1;
+    CDSp = (cdstbl FAR *)
+       KernelAlloc(0x58 * (lastdrive +1));
+  }
   first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
@@ -634,6 +658,22 @@ INIT static VOID Fcbs(BYTE * pLine)
     Config.cfgProtFcbs = Config.cfgFcbs;
 }
 
+/*      LoadCountryInfo():
+ *      Searches a file in the COUNTRY.SYS format for an entry
+ *      matching the specified code page and country code, and loads
+ *      the corresponding information into memory. If code page is 0,
+ *      the default code page for the country will be used.
+ *
+ *      Returns TRUE if successful, FALSE if not.
+ */
+
+static INIT BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
+{
+/* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename); */
+	printf("Sorry, the COUNTRY= statement has been temporarily disabled\n");
+	return FALSE;
+}
+
 INIT static VOID Country(BYTE * pLine)
 {
   /* Format: COUNTRY = countryCode, [codePage], filename  */
@@ -646,12 +686,11 @@ INIT static VOID Country(BYTE * pLine)
   pLine = skipwh(pLine);
   if (*pLine == ',')
   {
-    pLine = skipwh(pLine);
+    pLine = skipwh(pLine + 1);
 
     if (*pLine == ',')
     {
-      codePage = 0;
-      ++pLine;
+      codePage = NLS_DEFAULT;
     }
     else
     {
@@ -761,7 +800,7 @@ INIT static VOID CfgFailure(BYTE * pLine)
   BYTE *pTmp = pLineStart;
 
   printf("CONFIG.SYS error in line %d\n", nCfgLine);
-  printf(">>>%s\n", pTmp);
+  printf(">>>%s\n   ", pTmp);
   while (++pTmp != pLine)
     printf(" ");
   printf("^\n");

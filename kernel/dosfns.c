@@ -34,8 +34,17 @@ static BYTE *dosfnsRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:59  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.14  2000/04/02 05:01:08  jtabor
+ *  Replaced ChgDir Code
+ *
+ * Revision 1.13  2000/04/02 04:53:56  jtabor
+ * Fix to DosChgDir
+ *
+ * Revision 1.12  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
  *
  * Revision 1.11  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -295,7 +304,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
   sft FAR *s;
   WORD sys_idx;
   sfttbl FAR *sp;
-  UCOUNT ReadCount;
+  UCOUNT WriteCount;
 
   /* Test that the handle is valid                */
   if (hndl < 0)
@@ -321,10 +330,10 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
   }
   if (s->sft_flags & SFT_FSHARED)
   {
-    ReadCount = Remote_RW(REM_WRITE, n, bp, s, err);
+    WriteCount = Remote_RW(REM_WRITE, n, bp, s, err);
     if (err)
     {
-      return ReadCount;
+      return WriteCount;
     }
     else
       return 0;
@@ -463,7 +472,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
   {
     COUNT rc;
 
-    ReadCount = writeblock(s->sft_status, bp, n, &rc);
+    WriteCount = writeblock(s->sft_status, bp, n, &rc);
     if (rc < SUCCESS)
     {
       *err = rc;
@@ -472,50 +481,34 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     else
     {
       *err = SUCCESS;
-      return ReadCount;
+      return WriteCount;
     }
   }
   *err = SUCCESS;
   return 0;
 }
 
-COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos)
+COUNT SftSeek(sft FAR *s, LONG new_pos, COUNT mode)
 {
-  sft FAR *s;
-  ULONG lrx;
-
   /* Test for invalid mode                        */
   if (mode < 0 || mode > 2)
     return DE_INVLDFUNC;
-
-  /* Test that the handle is valid                */
-  if (hndl < 0)
-    return DE_INVLDHNDL;
-
-  /* Get the SFT block that contains the SFT      */
-  if ((s = get_sft(hndl)) == (sft FAR *) - 1)
-    return DE_INVLDHNDL;
 
   lpCurSft = (sfttbl FAR *) s;
 
   if (s->sft_flags & SFT_FSHARED)
   {
-    if (mode == 2)
-    {                           /* seek from end of file */
+		if (mode == 2)	{ 
+			/* seek from end of file */
       int2f_Remote_call(REM_LSEEK, 0, (UWORD) FP_SEG(new_pos), (UWORD) FP_OFF(new_pos), (VOID FAR *) s, 0, 0);
-      *set_pos = s->sft_posit;
       return SUCCESS;
     }
-    if (mode == 0)
-    {
+		if (mode == 0) {
       s->sft_posit = new_pos;
-      *set_pos = new_pos;
       return SUCCESS;
     }
-    if (mode == 1)
-    {
+		if (mode == 1) {
       s->sft_posit += new_pos;
-      *set_pos = s->sft_posit;
       return SUCCESS;
     }
     return DE_INVLDFUNC;
@@ -524,17 +517,39 @@ COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos)
   /* Do special return for character devices      */
   if (s->sft_flags & SFT_FDEVICE)
   {
-    *set_pos = 0l;
+		s->sft_posit = 0l;
     return SUCCESS;
   }
   else
   {
-    *set_pos = dos_lseek(s->sft_status, new_pos, mode);
-    if ((LONG) * set_pos < 0)
-      return (int)*set_pos;
-    else
+		LONG result = dos_lseek(s->sft_status, new_pos, mode);
+		if (result < 0l)
+			return (int)result;
+		else {
+			s->sft_posit = result;
       return SUCCESS;
   }
+	}
+}
+
+COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos)
+{
+	sft FAR *s;
+	COUNT result;
+
+	/* Test that the handle is valid                */
+	if (hndl < 0)
+		return DE_INVLDHNDL;
+
+	/* Get the SFT block that contains the SFT      */
+	if ((s = get_sft(hndl)) == (sft FAR *) - 1)
+		return DE_INVLDHNDL;
+
+	result = SftSeek(s, new_pos, mode);
+	if (result == SUCCESS) {
+		*set_pos = s->sft_posit;
+	}
+	return result;
 }
 
 static WORD get_free_hndl(void)
@@ -613,12 +628,12 @@ static BOOL fnmatch(BYTE FAR * s, BYTE FAR * d, COUNT n, COUNT mode)
 COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
-  WORD hndl,
-    sft_idx;
+	WORD hndl, sft_idx;
   sft FAR *sftp;
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
   WORD i;
+	COUNT result, drive;
 
   /* get a free handle                            */
   if ((hndl = get_free_hndl()) == 0xff)
@@ -662,14 +677,26 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
     }
   }
 
-  if (Remote_OCT(REM_CREATE, fname, attrib, sftp) == 0)
-  {
-    if (sftp->sft_flags & SFT_FSHARED)
-    {
+    drive = get_verify_drive(fname);
+    if(drive < 0) {
+        return drive;
+    }
+
+    result = truename(fname, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+
+    if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+		lpCurSft = (sfttbl FAR *)sftp;
+		result = int2f_Remote_call(REM_CREATE, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, attrib));
+		result = -result;
+		if (result == SUCCESS) {
       sftp->sft_count += 1;
       p->ps_filetab[hndl] = sft_idx;
       return hndl;
     }
+		return result;
   }
 
   sftp->sft_status = dos_creat(fname, attrib);
@@ -775,6 +802,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
   WORD i;
+	COUNT drive, result;
 
   /* test if mode is in range                     */
   if ((mode & ~SFT_OMASK) != 0)
@@ -828,16 +856,27 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
     }
   }
 
-  if (Remote_OCT(REM_OPEN, fname, mode, sftp) == 0)
-  {
-    if (sftp->sft_flags & SFT_FSHARED)
-    {
+     	drive = get_verify_drive(fname);
+	if (drive < 0) {
+		return drive;
+	}
+
+	result = truename(fname, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+		lpCurSft = (sfttbl FAR *)sftp;
+		result = int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, mode));
+		result = -result;
+		if (result == SUCCESS) {
       sftp->sft_count += 1;
       p->ps_filetab[hndl] = sft_idx;
       return hndl;
     }
+		return result;
   }
-
   sftp->sft_status = dos_open(fname, mode);
 
   if (sftp->sft_status >= 0)
@@ -918,27 +957,27 @@ VOID DosGetFree(COUNT drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
 {
   struct dpb *dpbp;
   struct cds FAR *cdsp;
-  static char rg[8];
+	static COUNT rg[4];
 
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
 
-  cdsp = &CDSp->cds_table[drive];
-  if (cdsp->cdsFlags & 0x8000)
+	/* first check for valid drive          */
+	if (drive < 0 || drive > lastdrive)
   {
-    int2f_Remote_call(REM_GETSPACE, 0, 0, 0, cdsp, 0, &rg);
-
-    *spc = (COUNT) rg[0];
-    *navc = (COUNT) rg[2];
-    *bps = (COUNT) rg[4];
-    *nc = (COUNT) rg[6];
+		*spc = -1;
     return;
   }
 
-  /* first check for valid drive          */
-  if (drive < 0 || drive > lastdrive)
+	cdsp = &CDSp->cds_table[drive];
+	if (cdsp->cdsFlags & CDSNETWDRV)
   {
-    *spc = -1;
+		int2f_Remote_call(REM_GETSPACE, 0, 0, 0, cdsp, 0, &rg);
+		
+		*spc = (COUNT) rg[0]; 
+		*nc = (COUNT) rg[1];
+		*bps = (COUNT) rg[2];
+		*navc = (COUNT) rg[3]; 
     return;
   }
 
@@ -968,82 +1007,86 @@ VOID DosGetFree(COUNT drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
 COUNT DosGetCuDir(COUNT drive, BYTE FAR * s)
 {
   REG struct cds FAR *cdsp;
+	REG WORD x;
 
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
 
-  cdsp = &CDSp->cds_table[drive];
+	/* first check for valid drive          */
+	if (drive < 0 || drive > lastdrive) {
+		return DE_INVLDDRV;
+	}
 
+	cdsp = &CDSp->cds_table[drive];
   current_ldt = cdsp;
 
-  if (cdsp->cdsFlags & 0x8000)
-  {
-    dos_pwd(cdsp, s);
-    return SUCCESS;
+	if (!(cdsp->cdsFlags & CDSNETWDRV) && (cdsp->cdsDpb == 0)) {
+		return DE_INVLDDRV;
   }
 
-  /* first check for valid drive          */
+	x = 1 + cdsp->cdsJoinOffset;
+	fsncopy((BYTE FAR *) & cdsp->cdsCurrentPath[x], s, 64);
 
-  if (cdsp->cdsDpb == 0)
-    return DE_INVLDDRV;
-
-/*  if (drive < 0 || drive > nblkdev)
-   return DE_INVLDDRV;
- */
-  dos_pwd(cdsp, s);
   return SUCCESS;
 }
 
+#undef CHDIR_DEBUG
 COUNT DosChangeDir(BYTE FAR * s)
 {
-  REG struct dpb *dpbp;
   REG struct cds FAR *cdsp;
   REG COUNT drive;
-  struct f_node FAR *fp;
-  COUNT ret;
-  /* Parse and extract drive              */
-  if (*(s + 1) == ':')
-  {
-    drive = *s - '@';
-    if (drive > 26)
-      drive -= 'a' - 'A';
-  }
-  else
-    drive = 0;
+	COUNT result;
+	BYTE FAR *p;
 
-  /* next - "log" in the drive            */
-  drive = (drive == 0 ? default_drive : drive - 1);
+    drive = get_verify_drive(s);
+    if (drive < 0 ) {
+        return drive;
+    }
+
+    result = truename(s, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+    }
 
   cdsp = &CDSp->cds_table[drive];
-
   current_ldt = cdsp;
 
-  if (cdsp->cdsFlags & 0x8000)
+	if (cdsp->cdsFlags & CDSNETWDRV)
   {
-    ret = dos_cd(cdsp, s);
-    return ret;
-  }
+#if defined(CHDIR_DEBUG)
+        printf("Remote Chdir: n='");
+        p = s; while(*p)    print("%c", *p++);
+        printf("' p='");
+        p = PriPathName; while(*p) printf("%c", *p++);
+        printf("'\n");
+#endif
+	result = int2f_Remote_call(REM_CHDIR, 0, 0, 0, PriPathName, 0, 0);
+#if defined(CHDIR_DEBUG)
+        printf("status = %04x, new_path='", result);
+        p = cdsd->cdsCurrentPath; while(p) printf("%c", *p++)
+        print("'\n");
+#endif
+        result = -result;
+		if (result != SUCCESS) {
+                return DE_PATHNOTFND;
+		}
+/*
+	Some redirectors do not write back to the CDS.
+	SHSUCdX needs this. jt
+*/
+	fscopy(&PriPathName[0], cdsp->cdsCurrentPath);
+	if (PriPathName[7] == 0)
+		cdsp->cdsCurrentPath[8] = 0;	/* Need two Zeros at the end */
 
-  /* first check for valid drive          */
-  if (cdsp->cdsDpb == 0)
-    return DE_INVLDDRV;
-
-  /* test for path existance from fs      */
-  if ((fp = dir_open((BYTE FAR *) s)) == (struct f_node FAR *)0)
-    return DE_PATHNOTFND;
-  else
-    dir_close(fp);
-
-/*  if (drive < 0 || drive > nblkdev)
-   return DE_INVLDDRV; */
-
-  dpbp = (struct dpb *)cdsp->cdsDpb;
-  if ((media_check(dpbp) < 0))
-    return DE_INVLDDRV;
+	} else {
   /* now get fs to change to new          */
   /* directory                            */
-  ret = dos_cd(cdsp, s);
-  return ret;
+		result = dos_cd(cdsp, PriPathName);
+	}
+	if (result == SUCCESS) {
+		fscopy(&PriPathName[0], cdsp->cdsCurrentPath);
+	}
+	return result;
 }
 
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
@@ -1120,25 +1163,79 @@ COUNT DosSetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
 
 COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
 {
+	static UWORD srfa[5];
+	COUNT result, drive;
+	struct cds FAR *last_cds;
+	BYTE FAR * p;
 
-  if (Remote_GSattr(REM_GETATTRZ, name, attrp) == 0)
-    return SUCCESS;
+#if 0
+	if (IsDevice(name)) {
+		return DE_PATHNOTFND;
+	}
+#endif
 
-  return dos_getfattr(name, attrp);
+     	drive = get_verify_drive(name);
+	if (drive < 0) {
+		return drive;
+	}
 
+	result = truename(name, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
+	{
+		last_cds = current_ldt;
+		current_ldt = &CDSp->cds_table[drive];
+		result = int2f_Remote_call(REM_GETATTRZ, 0, 0, 0, 0, 0, (VOID FAR *) srfa);
+		result = -result;
+		current_ldt = last_cds;
+		*attrp = srfa[0];
+	}
+	else {
+		result =  dos_getfattr(name, attrp);
+	}
 }
 
 COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 {
-  if (Remote_GSattr(REM_SETATTR, name, attrp) == 0)
-    return SUCCESS;
+	COUNT result, drive;
+	struct cds FAR *last_cds;
+	BYTE FAR *p;
 
-  return dos_setfattr(name, attrp);
+#if 0
+	if (IsDevice(name)) {
+		return DE_PATHNOTFND;
+	}
+#endif
+     	drive = get_verify_drive(name);
+	if (drive < 0) {
+		return drive;
+	}
+
+	result = truename(name, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
+	{
+		last_cds = current_ldt;
+		current_ldt = &CDSp->cds_table[drive];
+		result = int2f_Remote_call(REM_SETATTR, 0, 0, 0, 0, 0, MK_FP(0, attrp));
+		result = -result;
+		current_ldt = last_cds;
+	}
+	else {
+		result =  dos_setfattr(name, attrp);
+	}
+	return result;
 }
 
 BYTE DosSelectDrv(BYTE drv)
 {
-  if (CDSp->cds_table[drv].cdsFlags & 0xf000)
+  if ((drv <= lastdrive) && (CDSp->cds_table[drv].cdsFlags & 0xf000))
   {
     current_ldt = &CDSp->cds_table[drv];
     default_drive = drv;
@@ -1146,3 +1243,108 @@ BYTE DosSelectDrv(BYTE drv)
   return lastdrive;
 }
 
+COUNT DosDelete(BYTE FAR *path)
+{
+	COUNT result, drive;
+
+	if (IsDevice(path)) {
+		return DE_PATHNOTFND;
+	}
+
+     	drive = get_verify_drive(path);
+	if (drive < 0) {
+		return drive;
+	}
+
+	result = truename(path, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+    	current_ldt = &CDSp->cds_table[drive];
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+		result = int2f_Remote_call(REM_DELETE, 0, 0, 0, 0, 0, 0);
+		result = -result;
+	}  else {
+		result = dos_delete(path);
+	}
+	return result;
+}
+
+COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
+{
+	COUNT result, drive1, drive2;
+	if (IsDevice(path1) || IsDevice(path2)) {
+		return DE_PATHNOTFND;
+	}
+     	drive1 = get_verify_drive(path1);
+	result = truename(path1, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+	drive2 = get_verify_drive(path2);
+	result = truename(path2, SecPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+	if ((drive1 != drive2) || (drive1 < 0)) {
+		return DE_INVLDDRV;
+	}
+	current_ldt = &CDSp->cds_table[drive1];
+	if (CDSp->cds_table[drive1].cdsFlags & CDSNETWDRV) {
+		result = int2f_Remote_call(REM_RENAME, 0, 0, 0, 0, 0, 0);
+		result = -result;
+	} else {
+		result = dos_rename(path1, path2);
+	}
+	return result;
+}
+
+COUNT DosMkdir(BYTE FAR * dir)
+{
+	COUNT result, drive;
+
+	if (IsDevice(dir)) {
+		return DE_PATHNOTFND;
+	}
+     	drive = get_verify_drive(dir);
+	if (drive < 0) {
+		return drive;
+	}
+	result = truename(dir, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+    	current_ldt = &CDSp->cds_table[drive];
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+		result = int2f_Remote_call(REM_MKDIR, 0, 0, 0, 0, 0, 0);
+		result = -result;
+	}  else {
+		result = dos_mkdir(dir);
+	}
+	return result;
+}
+
+COUNT DosRmdir(BYTE FAR * dir)
+{
+	COUNT result, drive;
+
+	if (IsDevice(dir)) {
+		return DE_PATHNOTFND;
+	}
+     	drive = get_verify_drive(dir);
+	if (drive < 0) {
+		return drive;
+	}
+	result = truename(dir, PriPathName, FALSE);
+	if (result != SUCCESS) {
+		return result;
+	}
+    	current_ldt = &CDSp->cds_table[drive];
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+		result = int2f_Remote_call(REM_RMDIR, 0, 0, 0, 0, 0, 0);
+		result = -result;
+	}  else {
+		result = dos_rmdir(dir);
+	}
+	return result;
+}

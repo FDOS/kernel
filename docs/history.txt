@@ -1,3 +1,71 @@
+2000 Apr 28 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Added  Dos Function calls 0x69, and 0x6C. IOCTL support in disk driver.
+         New funtions not yet fully implemented. 
+         Clean up DSK.C, IOCTL.C and FCBFNS.C. Removed old blk_device
+         pointers.
+
+2000 Apr 03 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  All DPB chains were linking to -1.
+
+2000 Apr 02 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  Dos_Free returned wrong due to MaxCluster Calc.
+	 Media_Check MaxCluster count wrong, needed +1.
+
+2000 Apr 01 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ fixed  Unable to cd back out of cdrom directories.
+
+2000 Mar 31 - Build 2019
+-------- James Tabor (jimtabor@infohwy.com)
++ added Eric W. Biederman patches via CVS.
+
++ 2000 Mar 25 
++ -------- Eric Biederman
++ Fixed	 Lastdrive handling
++ Fixed	 Not enough drives for number present devices
++ Added    Working (though not perfect network redirector)
+           Note: Error codes internal to freedos are negative
+                 Error codes external to freedos are postive.
+                 The network redirector is external to freedos...
+           Note: Running the nonredirected functions on a redirected
+                 drive is dangerous.   My patch is very careful
+                 not to.  Except in truename.  Where (a) it is safe
+                 and (b) I think it is required, and (c) it is needed
+                 by dosemu.
+
+2000 Mar 19 - Build 2019
+-------- James Tabor (jimtabor@infohwy.com)
+* Jean-Francois <lozevis.jeanfrancois@free.fr> email noting
+  the set/clear interrupt was reverse in order.
+
+2000 Mar 17 - Build 2019
+-------- Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
++ Fixed Config.c COUNTRY= statement
++ Fixed *.c to call upFMem() when upcasing filenames
+- Removed everything to load NLS into memory
+= Redesigned hardcoded NLS information
+
+--> The kernel will now return the proper information for the
+    hardcoded NLS (U.S.A. / CP437), it would return the correct
+    information for other NLS, too, if there would be a NLSFUNC
+    available, which is not at this time.
+
+NOTE: The way the external NLSFUNC is called does not look well, 
+therfore expect a change soon.
+
+2000 Mar 15 - Build 2019
+-------- James Tabor (jimtabor@infohwy.com)
+* Dennis Newbold and Massimo De Munari email kernel bug reports
+  with changes to Globals.h and Inthndlr.c. Fix to leap year and
+  Delete file return code.
+* Michal Meller found a bug in media_check. It return the wrong
+  value of sector count. Change in FATFS.C.
+* Fixed Func 0x32 based on information from Marty <k3pbu@arrl.net>.
+  Func 0x32 Get Drive Parameter BLK did not work.
+
 2000 Mar 09 - Build 2018
 -------- James Tabor (jimtabor@infohwy.com)
 Added   CDS and made FD CDS based. Changes encompass all of the

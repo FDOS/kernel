@@ -27,8 +27,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.1  2000/05/06 19:34:52  jhall1
-; Initial revision
+; Revision 1.2  2000/05/08 04:29:59  jimtabor
+; Update CVS to 2020
 ;
 ; Revision 1.2  1999/08/10 17:57:12  jprice
 ; ror4 2011-02 patch

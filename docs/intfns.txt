@@ -44,7 +44,7 @@ int 21	Description			State		Ver	Status
 1ch	Get Drive Data			superseded	2.00	supported
 1dh	CP/M compatibility		obsolete	1.00	supported
 1eh	CP/M compatibility		obsolete	1.00	supported
-1fh	Get Default DPB			active		5.00	Note 2
+1fh	Get Default DPB			active		5.00	supported
 20h	CP/M compatibility		obsolete	1.00	supported
 21h	Random Read			superseded	1.00	supported
 22h	Random Write			superseded	1.00	supported
@@ -63,7 +63,7 @@ int 21	Description			State		Ver	Status
 2fh	Get DTA				active		2.00	supported
 30h	Get Version Number		active		2.00	supported
 31h	Keep Program			active		2.00	supported
-32h	Get DPB				active		5.00	Note 2
+32h	Get DPB				active		5.00	supported
 3300h	Get CTRL+C Check Flag		active		2.00	supported
 3301h	Set CTRL+C Check Flag		active		2.00	supported
 3305h	Get Startup Drive		active		2.00	supported
@@ -118,19 +118,19 @@ int 21	Description			State		Ver	Status
 5ah     Create Temporary File           active          3.00
 5bh     Create New File                 active          3.00
 5ch     Lock/Unlock File                active          3.10    planned
-5d00h   Server Function Call            active          3.10    planned
+5d00h   Server Function Call            active          3.10    supported
 5d01h   Commit All Files                active          3.10    planned
 5d02h   Close File by Name              active          3.10    planned
 5d03h   Close All Files for Computer    active          3.10    planned
 5d04h   Close All Files for Process     active          3.10    planned
 5d05h   Get Open File List              active          3.10    planned
 5d06h   Get Multiple SDA                active          4.00    supported
-5d07h   Get Redirected Printer Mode     active          3.10    planned
-5d08h   Set Redirected Printer Mode     active          4.00    planned
-5d09h   Flush Redirected Printer Output active          4.00    planned
+5d07h   Get Redirected Printer Mode     active          3.10    supported
+5d08h   Set Redirected Printer Mode     active          4.00    supported
+5d09h   Flush Redirected Printer Output active          4.00    supported
 5d0ah   Set Extended Error              active          4.00    planned
-5eh     Generic Network Functions #1    active          3.10    planned
-5fh     Generic Network Functions #2    active          3.10    planned
+5eh     Generic Network Functions #1    active          3.10    supported
+5fh     Generic Network Functions #2    active          3.10    supported
 60h     Truename function               undocumented    3.00    supported
 61h     UNUSED                          obsolete                supported
 62h     Get current PSP                 active          3.00    supported
@@ -165,7 +165,7 @@ int 27:	TSR
 	Supported.
 
 int 28:	DOS Idle.
-	Note 5.
+	Supported.
 
 int 29:	Fast Console Output.
 	Supported.
@@ -195,8 +195,11 @@ See COPYING in DOS-C root directory for license.
 $Id$
 
 $Log$
-Revision 1.1  2000/05/06 19:34:43  jhall1
-Initial revision
+Revision 1.2  2000/05/08 04:27:48  jimtabor
+Update CVS to 2020
+
+Revision 1.2  2000/03/18 05:51:55  kernel
+changes in supported functions
 
 Revision 1.1  1999/08/25 03:46:42  jprice
 New build config

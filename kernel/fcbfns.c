@@ -35,8 +35,14 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:12  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.7  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.6  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
  *
  * Revision 1.5  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -131,7 +137,7 @@ VOID FatGetDrvData(COUNT drive, COUNT FAR * spc, COUNT FAR * bps,
   printf("FGDD\n");
 
   /* first check for valid drive                                  */
-  if (drive < 0 || drive > NDEVS)
+	if ((drive < 0) || (drive > lastdrive) || (drive > NDEVS))
   {
     *spc = -1;
     return;
@@ -139,6 +145,11 @@ VOID FatGetDrvData(COUNT drive, COUNT FAR * spc, COUNT FAR * bps,
 
   /* next - "log" in the drive                                    */
   drive = (drive == 0 ? default_drive : drive - 1);
+	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+		printf("FatGetDrvData not yet supported over network drives\n");
+		*spc = -1;
+		return;
+	}
   dpbp = (struct dpb *)CDSp->cds_table[drive].cdsDpb;
   dpbp->dpb_flags = -1;
   if ((media_check(dpbp) < 0))
@@ -340,7 +351,7 @@ BOOL FcbRead(xfcb FAR * lpXfcb, COUNT * nErrorCode)
   /* to.                                                          */
   lPosit = ((lpFcb->fcb_cublock * 128) + lpFcb->fcb_curec)
       * lpFcb->fcb_recsiz;
-  if (dos_lseek(s->sft_status, lPosit, 0) < 0)
+  if (SftSeek(s, lPosit, 0) != SUCCESS)
   {
     *nErrorCode = FCB_ERR_EOF;
     return FALSE;
@@ -412,7 +423,7 @@ BOOL FcbWrite(xfcb FAR * lpXfcb, COUNT * nErrorCode)
   /* to.                                                          */
   lPosit = ((lpFcb->fcb_cublock * 128) + lpFcb->fcb_curec)
       * lpFcb->fcb_recsiz;
-  if (dos_lseek(s->sft_status, lPosit, 0) < 0)
+  if (SftSeek(s, lPosit, 0) != SUCCESS)
   {
     *nErrorCode = FCB_ERR_EOF;
     return FALSE;
@@ -427,12 +438,13 @@ BOOL FcbWrite(xfcb FAR * lpXfcb, COUNT * nErrorCode)
 
     /* Do the read                                                  */
     nWritten = dos_write(s->sft_status, p->ps_dta, lpFcb->fcb_recsiz);
+    s->sft_size = dos_getcufsize(s->sft_status);
   }
 
   /* Now find out how we will return and do it.                   */
   if (nWritten == lpFcb->fcb_recsiz)
   {
-    lpFcb->fcb_fsize = dos_getcufsize(s->sft_status);
+    lpFcb->fcb_fsize = s->sft_size;
     FcbNextRecord(lpFcb);
     *nErrorCode = FCB_SUCCESS;
     return TRUE;
@@ -813,24 +825,40 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
       }
     }
   }
+  fbcopy((BYTE FAR *) & lpFcb->fcb_fname, (BYTE FAR *) & sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
+  if ((FcbDrive < 0) || (FcbDrive > lastdrive)) {
+    return DE_INVLDDRV;
+  }
+  if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
+    COUNT result;
+    lpCurSft = (sfttbl FAR *)sftp;
+    result = int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, O_RDWR));
+    result = -result;
+    sftp->sft_status = result;
+  }
+  else {
   sftp->sft_status = dos_open(PriPathName, O_RDWR);
+    sftp->sft_size = dos_getfsize(sftp->sft_status);
+    dos_getftime(sftp->sft_status,
+	    (date FAR *) & sftp->sft_date,
+	    (time FAR *) & sftp->sft_time);
+		  
+  }
   if (sftp->sft_status >= 0)
   {
     lpFcb->fcb_drive = FcbDrive;
     lpFcb->fcb_sftno = sft_idx;
     lpFcb->fcb_curec = 0;
     lpFcb->fcb_recsiz = 128;
-    lpFcb->fcb_fsize = dos_getfsize(sftp->sft_status);
-    dos_getftime(sftp->sft_status,
-                 (date FAR *) & lpFcb->fcb_date,
-                 (time FAR *) & lpFcb->fcb_time);
+    lpFcb->fcb_fsize = sftp->sft_size;
+    lpFcb->fcb_date = sftp->sft_date;
+    lpFcb->fcb_time = sftp->sft_time;
     lpFcb->fcb_rndm = 0;
     sftp->sft_count += 1;
     sftp->sft_mode = O_RDWR;
     sftp->sft_attrib = 0;
     sftp->sft_flags = 0;
     sftp->sft_psp = cu_psp;
-    fbcopy((BYTE FAR *) & lpFcb->fcb_fname, (BYTE FAR *) & sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
     return TRUE;
   }
   else
@@ -843,6 +871,14 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
 
   /* Build a traditional DOS file name                            */
   CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
+
+  if ((FcbDrive < 0) || (FcbDrive > lastdrive)) {
+    return DE_INVLDDRV;
+  }
+  current_ldt = &CDSp->cds_table[FcbDrive];
+  if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
+    return -int2f_Remote_call(REM_DELETE, 0, 0, 0, 0, 0, 0);
+  }
 
   /* check for a device                                           */
   /* if we have an extension, can't be a device                   */
@@ -1148,7 +1184,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   Dmatch.dm_drive = FcbDrive ? FcbDrive - 1 : default_drive;
 
   fbcopy(lpFcb->fcb_fname, (BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
-  upMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
+  upFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
   Dmatch.dm_attr_srch = wAttr;
   Dmatch.dm_entry = lpFcb->fcb_diroff;
   Dmatch.dm_cluster = lpFcb->fcb_dirclst;

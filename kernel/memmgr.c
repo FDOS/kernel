@@ -35,8 +35,8 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:26  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
  *
  * Revision 1.4  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor

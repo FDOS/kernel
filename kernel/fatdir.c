@@ -36,8 +36,14 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:05  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.12  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.11  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
  *
  * Revision 1.10  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -160,14 +166,16 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   if (drive >= 0)
   {
     dirname += 2;               /* Assume FAT style drive       */
-    TempCDS.cdsDpb = CDSp->cds_table[drive].cdsDpb;
   }
   else
   {
     drive = default_drive;
-    TempCDS.cdsDpb = CDSp->cds_table[drive].cdsDpb;
-
   }
+  if (drive > lastdrive) {
+    release_f_node(fnp);
+    return NULL;
+  }
+  TempCDS.cdsDpb = CDSp->cds_table[drive].cdsDpb;
 
   cdsp = &CDSp->cds_table[drive];
 
@@ -180,7 +188,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   /* Generate full path name                                      */
   ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[x]);
 
-  if ((cdsp->cdsFlags & 0x8000))
+  if ((cdsp->cdsFlags & CDSNETWDRV))
   {
     printf("FailSafe %x \n", Int21AX);
     return fnp;
@@ -192,7 +200,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     return NULL;
   }
 
-/*  if (drive >= lastdrive)
+/*  if (drive > lastdrive)
    {
    release_f_node(fnp);
    return NULL;
@@ -264,7 +272,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     /* find the entry...                    */
     i = FALSE;
 
-    upMem((BYTE FAR *) TempBuffer, FNAME_SIZE + FEXT_SIZE);
+    upFMem((BYTE FAR *) TempBuffer, FNAME_SIZE + FEXT_SIZE);
 
     while (dir_read(fnp) == DIRENT_SIZE)
     {
@@ -548,6 +556,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   COUNT nDrive;
   BYTE *p;
   struct cds FAR *cdsp;
+  BYTE FAR *ptr;
 
   static BYTE local_name[FNAME_SIZE + 1],
     local_ext[FEXT_SIZE + 1];
@@ -578,9 +587,12 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   else
     nDrive = default_drive;
 
+  if (nDrive > lastdrive) {
+    return DE_INVLDDRV;
+  }
   cdsp = &CDSp->cds_table[nDrive];
 
-  if (cdsp->cdsFlags & 0x8000)
+  if (cdsp->cdsFlags & CDSNETWDRV)
   {
     if (Remote_find(REM_FINDFIRST, attr, name, dmp) != 0)
       return DE_FILENOTFND;
@@ -619,7 +631,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
       SearchDir.dir_ext[i] = ' ';
 
   /* Convert everything to uppercase. */
-  upMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
+  upFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
   /* Copy the raw pattern from our data segment to the DTA. */
   fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
@@ -703,8 +715,17 @@ COUNT dos_findnext(void)
 
   nDrive = dmp->dm_drive;
 
+  if (nDrive > lastdrive) {
+    return DE_INVLDDRV;
+  }
   cdsp = &CDSp->cds_table[nDrive];
-  if (cdsp->cdsFlags & 0x8000)
+
+#if 0
+  printf("findnext: %c %s\n", 
+	  nDrive + 'A', (cdsp->cdsFlags & CDSNETWDRV)?"remote":"local");
+#endif
+
+  if (cdsp->cdsFlags & CDSNETWDRV)
   {
     if (Remote_find(REM_FINDNEXT, 0, 0, dmp) != 0)
       return DE_FILENOTFND;
@@ -720,6 +741,9 @@ COUNT dos_findnext(void)
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
+  if (dmp->dm_drive > lastdrive) {
+    return DE_INVLDDRV;
+  }
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
   fnp->f_dpb = (struct dpb *)CDSp->cds_table[dmp->dm_drive].cdsDpb;

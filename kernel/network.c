@@ -36,8 +36,14 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:27  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.5  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.4  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
  *
  * Revision 1.3  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -85,10 +91,11 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
   dta = bp;
   rx = int2f_Remote_call(func, 0, n, 0, (VOID FAR *) s, 0, (VOID FAR *) & rc);
   dta = save_dta;
-  *err = rx;
+  *err = -rx;
   return ((UCOUNT) rc);
 }
 
+#undef FIND_DEBUG
 /*
 
  */
@@ -96,21 +103,31 @@ COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dm
 {
   COUNT i,
     x;
-  BYTE FAR *p,
+  char FAR *p,
    *q;
-  struct dirent FAR *SDp = (struct dirent FAR *)&SearchDir;
+  struct dirent FAR *SDp = (struct dirent FAR *) &SearchDir;
 
   if (func == REM_FINDFIRST)
   {
-    truename(name, PriPathName, FALSE);
     SAttr = (BYTE) attrib;
+    i = truename(name, PriPathName, FALSE);
+    if (i != SUCCESS) {
+	    return i;
+    }
+#if defined(FIND_DEBUG)
+    printf("Remote Find: n='");
+    p = name;  while(*p)  printf("%c", *p++);
+    printf("' p='");
+    p = PriPathName;  while(*p)  printf("%c", *p++);
+    printf("'\n");
+#endif
   }
-  fsncopy(dta, (BYTE FAR *) & TempBuffer, 21);
+  fsncopy(dta, (BYTE FAR *) &TempBuffer, 21);
   p = dta;
-  dta = (BYTE FAR *) & TempBuffer;
+  dta = (BYTE FAR *) &TempBuffer;
   i = int2f_Remote_call(func, 0, 0, 0, 0, 0, 0);
   dta = p;
-  fsncopy((BYTE FAR *) & TempBuffer[1], &dta[1], 20);
+  fsncopy((BYTE FAR *) &TempBuffer[1], &dta[1], 20);
 
   if (i != 0)
     return i;
@@ -157,53 +174,5 @@ COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dm
   return i;
 }
 
-/*
-   *   Open Existing Remote File, SDA First FN ptr -> Fully qualified name.
-   *   open func 3d
-   *   Create/Truncate w/o CDS Remote File
-   *   Extended Open/Create File
- */
-UWORD Remote_OCT(UWORD func, BYTE FAR * name, UWORD pw, sft FAR * s)
-{
-  truename(name, PriPathName, FALSE);
-  lpCurSft = (sfttbl FAR *) s;
-  return (int2f_Remote_call(func, 0, 0, 0, (VOID FAR *) s, 0, MK_FP(0, pw)));
-}
-
-COUNT Remote_GSattr(UWORD func, BYTE FAR * name, UWORD FAR * attrp)
-{
-  static char srfa[10];
-  COUNT drive;
-  struct cds FAR *p;
-
-  truename(name, PriPathName, TRUE);
-  drive = PriPathName[0];
-  drive -= 'A';
-  truename(name, PriPathName, FALSE);
-
-  if (CDSp->cds_table[drive].cdsFlags & 0x8000)
-  {
-    p = current_ldt;
-    current_ldt = &CDSp->cds_table[drive];
-    if (func == REM_GETATTRZ)
-    {
-
-      if (int2f_Remote_call(func, 0, 0, 0, 0, 0, (VOID FAR *) srfa) != 0)
-      {
-        current_ldt = p;
-        goto AEXIT;
-      }
-      *attrp = (UWORD) srfa[0];
-      goto GEXIT;
-    }
-    int2f_Remote_call(func, 0, 0, 0, 0, 0, MK_FP(0, attrp));
-  GEXIT:
-    current_ldt = p;
-    return (COUNT) 0;
-  }
-AEXIT:
-  return (COUNT) 1;
-
-}
 
 

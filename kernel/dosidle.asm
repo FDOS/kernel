@@ -5,7 +5,7 @@
 ;
 ;                            DOS-C
 ;                   Copyright (c) 1995, 1999
-;                      Pasquale J. Villani
+;                        James B. Tabor
 ;                      All Rights Reserved
 ;
 ; This file is part of DOS-C.

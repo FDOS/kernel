@@ -5,8 +5,14 @@
 #
 
 # $Log$
-# Revision 1.1  2000/05/06 19:35:23  jhall1
-# Initial revision
+# Revision 1.2  2000/05/08 04:30:00  jimtabor
+# Update CVS to 2020
+#
+# Revision 1.14  2000/03/31 05:40:09  jtabor
+# Added Eric W. Biederman Patches
+#
+# Revision 1.13  2000/03/17 22:59:04  kernel
+# Steffen Kaiser's NLS changes
 #
 # Revision 1.12  2000/03/09 06:07:11  kernel
 # 2017f updates by James Tabor
@@ -117,6 +123,9 @@ HDR=../hdr/
 .c.obj:
 	$(CC) $(CFLAGS) -c $<
 
+.c.asm:
+	$(CC) $(CFLAGS) -S $<
+
 .cpp.obj:
 	$(CC) $(CFLAGS) -c $<
 
@@ -149,6 +158,7 @@ EXE_dependencies =  \
  int2f.obj    \
  inthndlr.obj \
  io.obj       \
+ intr.obj     \
  ioctl.obj    \
  irqstack.obj \
  kernel.obj   \
@@ -158,6 +168,7 @@ EXE_dependencies =  \
  newstuff.obj \
  network.obj  \
  nls.obj      \
+ nls_hc.obj   \
  nlssupt.obj  \
  prf.obj      \
  printer.obj  \
@@ -189,16 +200,16 @@ clean:
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 kernel.exe: $(EXE_dependencies) $(LIBS)
     del kernel.lib
-	$(LIBUTIL) kernel +entry +io +blockio +chario +dosfns +console
-	$(LIBUTIL) kernel +printer +serial +dsk +error +fatdir +fatfs
-	$(LIBUTIL) kernel +fattab +fcbfns +initoem +inthndlr +ioctl
-	$(LIBUTIL) kernel +main +config +memmgr +misc +newstuff +nls
+    $(LIBUTIL) kernel +entry +io +blockio +chario +dosfns +console
+    $(LIBUTIL) kernel +printer +serial +dsk +error +fatdir +fatfs
+    $(LIBUTIL) kernel +fattab +fcbfns +initoem +inthndlr +ioctl +nls_hc
+    $(LIBUTIL) kernel +main +config +memmgr +misc +newstuff +nls +intr
     $(LIBUTIL) kernel +dosnames +prf +strings +network +sysclk +syspack
-	$(LIBUTIL) kernel +systime +task +int2f +irqstack +apisupt
-	$(LIBUTIL) kernel +asmsupt +execrh +nlssupt +procsupt +break
+    $(LIBUTIL) kernel +systime +task +int2f +irqstack +apisupt
+    $(LIBUTIL) kernel +asmsupt +execrh +nlssupt +procsupt +break
     $(LIBUTIL) kernel +dosidle
-	del kernel.bak
-	$(LINK) /m/c/L$(LIBPATH) kernel,kernel,kernel,kernel+$(LIBS);
+    del kernel.bak
+    $(LINK) /m/c/L$(LIBPATH) kernel,kernel,kernel,kernel+$(LIBS);
     del kernel.lib
 
 #               *Individual File Dependencies*
@@ -219,6 +230,8 @@ asmsupt.obj: asmsupt.asm segs.inc
 execrh.obj: execrh.asm segs.inc
 
 int2f.obj: int2f.asm segs.inc
+
+intr.obj: intr.asm segs.inc intr.h
 
 io.obj: io.asm segs.inc
 
@@ -381,6 +394,8 @@ nls.obj: nls.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
  $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
  001-437.nls
+
+nls_hc.obj: nls_hc.c globals.h $(HDR)portab.h $(HDR)nls.h
 
 prf.obj: prf.c $(HDR)portab.h
 

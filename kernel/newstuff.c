@@ -31,8 +31,17 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:27  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.8  2000/04/02 06:11:35  jtabor
+ * Fix ChgDir Code
+ *
+ * Revision 1.7  2000/04/02 05:30:48  jtabor
+ * Fix ChgDir Code
+ *
+ * Revision 1.6  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
  *
  * Revision 1.5  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -175,21 +184,41 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
   }
   return rc;
 }
+
+COUNT get_verify_drive(char FAR *src)
+{
+  COUNT drive;
+  /* First, adjust the source pointer                             */
+  src = adjust_far(src);
+
+  /* Do we have a drive?                                          */
+  if (src[1] == ':')
+  {
+    drive = (src[0] | 0x20) - 'a';
+  }
+  else
+    drive = default_drive;
+  if ((drive < 0) || (drive > lastdrive)) {
+    drive = DE_INVLDDRV;
+  }
+  return drive;
+}
+
 /*
  * Added support for external and internal calls.
  * Clean buffer before use. Make the true path and expand file names.
  * Example: *.* -> ????????.??? as in the currect way.
  */
-int truename(char FAR * src, char FAR * dest, COUNT t)
+COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\";
   char *bufp = buf + 3;
-  COUNT i,
-    n;
+  COUNT i, n, x = 2;
   BYTE far *test;
   REG struct cds FAR *cdsp;
 
   fbcopy((VOID FAR *) "A:\\\0\0\0\0\0\0\0", (VOID FAR *) buf, 10);
+  dest[0] = '\0';
 
   /* First, adjust the source pointer                             */
   src = adjust_far(src);
@@ -199,7 +228,7 @@ int truename(char FAR * src, char FAR * dest, COUNT t)
   {
     buf[0] = (src[0] | 0x20) + 'A' - 'a';
 
-    if (buf[0] >= lastdrive + 'A')
+    if (buf[0] > lastdrive + 'A')
       return DE_PATHNOTFND;
 
     src += 2;
@@ -207,24 +236,29 @@ int truename(char FAR * src, char FAR * dest, COUNT t)
   else
     buf[0] = default_drive + 'A';
 
-  i = buf[0] - '@';
+  i = buf[0] - 'A';
 
-  cdsp = &CDSp->cds_table[i - 1];
+  cdsp = &CDSp->cds_table[i];
+  current_ldt = cdsp;
 
-  if (cdsp->cdsFlags & 0x8000)
-  {
-    QRemote_Fn(src, dest);
+  /* Always give the redirector a chance to rewrite the filename */
+  fsncopy((BYTE FAR *) src, bufp -1, sizeof(buf) - (bufp - buf));
+  if ((QRemote_Fn(buf, dest) == SUCCESS) && (dest[0] != '\0')) {
+    return SUCCESS;
+  } else {
+    bufp[-1] = '\\';
+  }
     if (t == FALSE)
     {
-      bufp += 4;
       fsncopy((BYTE FAR *) & cdsp->cdsCurrentPath[0], (BYTE FAR *) & buf[0], cdsp->cdsJoinOffset);
+      bufp = buf + cdsp->cdsJoinOffset;
+      x = cdsp->cdsJoinOffset;
       *bufp++ = '\\';
     }
-  }
 
   if (*src != '\\' && *src != '/')	/* append current dir */
   {
-    DosGetCuDir(i, bufp);
+    DosGetCuDir(i+1, bufp);
     if (*bufp)
     {
       while (*bufp)
@@ -239,11 +273,15 @@ int truename(char FAR * src, char FAR * dest, COUNT t)
   while (*src)
   {
     char c;
-
-    switch ((c = *src++))
+    c = *src++;
+    switch (c)
     {
 /*  added *.*, *., * support.
  */
+/* This doesn't expand cases like: foo*.* corrrectly
+ * disable it for now.
+ */
+#if 1
       case '*':
         if (*src == '.')
         {
@@ -269,7 +307,7 @@ int truename(char FAR * src, char FAR * dest, COUNT t)
             break;
           }
         }
-
+#endif
       case '/':                /* convert to backslash */
       case '\\':
 
@@ -287,7 +325,7 @@ int truename(char FAR * src, char FAR * dest, COUNT t)
 
             for (bufp -= 2; *bufp != '\\'; bufp--)
             {
-              if (bufp < buf + 2)	/* '..' illegal in root dir */
+              if (bufp < buf + x)	/* '..' illegal in root dir */
                 return DE_PATHNOTFND;
             }
             src++;

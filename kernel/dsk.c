@@ -33,8 +33,11 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:01  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.6  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
  *
  * Revision 1.5  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -174,6 +177,7 @@ WORD init(rqptr),
   mediachk(rqptr),
   bldbpb(rqptr),
   blockio(rqptr),
+  Genblkdev(rqptr),
   blk_error(rqptr);
 COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, LONG, byteptr);
 WORD dskerr(COUNT);
@@ -217,7 +221,7 @@ static WORD(*dispatch[NENTRY]) () =
       blk_error,                /* Output till busy             */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
-      blk_error,                /* Generic Ioctl                */
+      Genblkdev,                /* Generic Ioctl                */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
@@ -534,6 +538,35 @@ static COUNT write_and_verify(WORD drive, WORD head, WORD track, WORD sector,
   return fl_verify(drive, head, track, sector, count, buffer);
 }
 
+static WORD Genblkdev(rqptr rp)
+{
+    UWORD cmd = rp->r_count;
+
+
+    switch(cmd){
+        case 0x0860:
+        {
+        struct gblkio FAR * gblp = rp->r_trans;
+
+        gblp->gbio_devtype = 0x05;
+        gblp->gbio_devattrib = 0x01;
+        gblp->gbio_ncyl = miarray[rp->r_unit].mi_cyls;
+        gblp->gbio_media = 0;
+        gblp->gbio_bpb = bpbarray[rp->r_unit];
+        gblp->gbio_nsecs = bpbarray[rp->r_unit].bpb_nsector;
+
+  printf("GenBlkIO = %08lx\n", rp->r_trans);
+  printf("GenBlkIO = %08lx\n", gblp);
+        break;
+        }
+        case 0x0866:
+
+
+        break;
+    }
+
+  return S_DONE;
+}
 static WORD blockio(rqptr rp)
 {
   REG retry = N_RETRY,

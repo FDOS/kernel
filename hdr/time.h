@@ -40,8 +40,8 @@ static BYTE *time_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:50  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:28:22  jimtabor
+ * Update CVS to 2020
  *
  * Revision 1.2  1999/08/25 03:17:11  jprice
  * ror4 patches to allow TC 2.01 compile.

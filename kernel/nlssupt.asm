@@ -29,8 +29,11 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.1  2000/05/06 19:35:29  jhall1
-; Initial revision
+; Revision 1.2  2000/05/08 04:30:00  jimtabor
+; Update CVS to 2020
+;
+; Revision 1.3  2000/03/17 22:59:04  kernel
+; Steffen Kaiser's NLS changes
 ;
 ; Revision 1.2  1999/08/10 17:57:13  jprice
 ; ror4 2011-02 patch
@@ -69,7 +72,7 @@
 
 segment	_TEXT
                 global  _CharMapSrvc
-                extern  _internalUpcase:wrt TGROUP
+                extern  _upChar:wrt TGROUP
 ;
 ; CharMapSrvc:
 ;       User callable character mapping service.
@@ -89,8 +92,11 @@ _CharMapSrvc:
                 mov     ds, dx
 
                 push    ax
-                call    _internalUpcase
-                add     sp, byte 2
+                call    _upChar
+                ;add     sp, byte 2	// next POP retrieves orig AX
+
+                pop bx
+                mov ah, bh		; keep hibyte untouched
 
                 pop     bx
                 pop     cx

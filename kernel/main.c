@@ -39,8 +39,11 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:25  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.14  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
  *
  * Revision 1.13  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -215,19 +218,19 @@ INIT static VOID init_kernel(void)
   /* Now process CONFIG.SYS     */
   DoConfig();
 
-  lastdrive = Config.cfgLastdrive;
-  if (lastdrive < nblkdev)
-    lastdrive = nblkdev;
-
   /* and do final buffer allocation. */
   PostConfig();
 
-  /* Now config the final file system     */
+  /* Init the file system on emore time     */
   FsConfig();
 
   /* and process CONFIG.SYS one last time to load device drivers. */
   DoConfig();
   configDone();
+
+  /* Now config the final file system     */
+  FsConfig();
+
 #endif
   /* Now to initialize all special flags, etc. */
   mem_access_mode = FIRST_FIT;
@@ -347,7 +350,7 @@ INIT VOID FsConfig(VOID)
     if (i < nblkdev)
     {
       CDSp->cds_table[i].cdsDpb = &blk_devices[i];
-      CDSp->cds_table[i].cdsFlags = 0x4000;
+      CDSp->cds_table[i].cdsFlags = CDSPHYSDRV;
     }
     else
     {
@@ -446,10 +449,10 @@ VOID init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
       blk_devices[nblkdev].dpb_subunit = Index;
       blk_devices[nblkdev].dpb_device = dhp;
       blk_devices[nblkdev].dpb_flags = M_CHANGED;
-      if ((CDSp) != 0)
+      if ((CDSp != 0) && (nblkdev <= lastdrive))
       {
         CDSp->cds_table[nblkdev].cdsDpb = &blk_devices[nblkdev];
-        CDSp->cds_table[nblkdev].cdsFlags = 0x4000;
+        CDSp->cds_table[nblkdev].cdsFlags = CDSPHYSDRV;
       }
       ++nblkdev;
     }

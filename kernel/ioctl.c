@@ -35,8 +35,11 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:20  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.4  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
  *
  * Revision 1.3  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -99,6 +102,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 {
   sft FAR *s;
   struct dpb FAR *dpbp;
+  struct cds FAR *cdsp;
   BYTE FAR *pBuffer = MK_FP(r->DS, r->DX);
   COUNT nMode;
 
@@ -131,13 +135,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x0f:
     case 0x10:
     case 0x11:
-      if (r->BL > nblkdev)
-      {
-        *err = DE_INVLDDRV;
-        return 0;
-      }
-      else
-      {
+
 /*
    This line previously returned the deviceheader at r->bl. But,
    DOS numbers its drives starting at 1, not 0. A=1, B=2, and so
@@ -146,11 +144,20 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
    -SRM
  */
 /* JPP - changed to use default drive if drive=0 */
-        if (r->BL == 0)
-          dpbp = &blk_devices[default_drive];
-        else
-          dpbp = &blk_devices[r->BL - 1];
+/* JT Fixed it */
+
+      r->BL = ( r->BL == 0 ? default_drive : r->BL - 1);
+      if (r->BL > lastdrive)
+      {
+        *err = DE_INVLDDRV;
+        return 0;
       }
+      else
+        {
+        cdsp = &CDSp->cds_table[r->BL];
+        dpbp = cdsp->cdsDpb;
+        }
+
       break;
 
     case 0x0b:
@@ -172,19 +179,14 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       /* Get the flags from the SFT                           */
       r->DX = r->AX = s->sft_flags;
 
-      /* Test for file and network SFT.  These return a 0 in  */
-      /* the AH register.                                     */
-      if ((s->sft_flags & SFT_FSHARED)
-          || !(s->sft_flags & SFT_FDEVICE))
-      {
-        r->AH = 0;
-      }
+/*      r->DX = r->AX = s->sft_dev->dh_attr;*/
+
       break;
 
     case 0x01:
       /* sft_flags is a file, return an error because you     */
       /* can't set the status of a file.                      */
-      if (!(s->sft_flags & SFT_FDEVICE))
+      if ((s->sft_flags & SFT_FDEVICE)) /* !*/
       {
         *err = DE_INVLDFUNC;
         return 0;
@@ -209,8 +211,9 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     IoCharCommon:
 
       if ((s->sft_flags & SFT_FDEVICE)
-          || ((r->AL == 0x10) && !(s->sft_dev->dh_attr & ATTR_QRYIOCTL))
-          || ((r->AL == 0x0c) && !(s->sft_dev->dh_attr & ATTR_GENIOCTL)))
+          || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
+          || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
+          /* ! ! */
       {
         if (s->sft_dev->dh_attr & SFT_FIOCTL)
         {
@@ -249,8 +252,9 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       nMode = C_IOCTLOUT;
     IoBlockCommon:
       if ((dpbp->dpb_device->dh_attr & ATTR_IOCTL)
-      || ((r->AL == 0x11) && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
-          || ((r->AL == 0x0d) && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
+      || ((r->AL == 0x11) && (dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
+          || ((r->AL == 0x0d) && (dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
+          /* ! ! */
       {
         *err = DE_INVLDFUNC;
         return 0;
@@ -310,11 +314,14 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       return 0;
 
     case 0x09:
-      r->DX = dpbp->dpb_device->dh_attr;
+      if(cdsp->cdsFlags & CDSNETWDRV)
+        r->DX = 0x1000;
+      else
+        r->DX = dpbp->dpb_device->dh_attr;
       break;
 
     case 0x0a:
-      r->DX = s->sft_dcb->dpb_device->dh_attr;
+      r->DX = s->sft_flags & SFT_FSHARED;
       break;
 
     case 0x0e:

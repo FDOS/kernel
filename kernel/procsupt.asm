@@ -30,8 +30,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.1  2000/05/06 19:35:30  jhall1
-; Initial revision
+; Revision 1.2  2000/05/08 04:30:00  jimtabor
+; Update CVS to 2020
 ;
 ; Revision 1.4  1999/08/10 17:57:13  jprice
 ; ror4 2011-02 patch

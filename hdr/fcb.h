@@ -36,8 +36,8 @@ static BYTE *fcb_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:48  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:28:22  jimtabor
+ * Update CVS to 2020
  *
  * Revision 1.2  1999/09/20 21:24:54  jprice
  * *** empty log message ***

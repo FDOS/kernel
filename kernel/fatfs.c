@@ -36,8 +36,20 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:09  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.23  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.19  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
+ *
+ * Revision 1.18  2000/03/17 04:13:12  kernel
+ * Added Change for media_check
+ *
+ * Revision 1.17  2000/03/17 04:01:20  kernel
+ * Added Change for media_check
  *
  * Revision 1.16  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -307,6 +319,9 @@ static struct f_node FAR *
   SpacePad(fname, FNAME_SIZE);
   SpacePad(fext, FEXT_SIZE);
 
+  if (nDrive > lastdrive) {
+    return (struct f_node FAR *)0;
+  }
   cdsp = &CDSp->cds_table[nDrive];
 
   /* If the path is null, we to default to the current            */
@@ -327,6 +342,14 @@ static struct f_node FAR *
    Do the redirection in Network.c>
 
  */
+#ifdef DEBUG
+  if (cdsp->cdsFlags & CDSNETWDRV) {
+    BYTE FAR *p;
+    printf("split path called for redirected file: `%s.%s'\n",
+	    fname, fext);
+    return (struct f_node FAR *)0;
+  }
+#endif
 
   /* Translate the path into a useful pointer                     */
   fnp = dir_open((BYTE FAR *) dname);
@@ -341,9 +364,9 @@ static struct f_node FAR *
   }
 
   /* Convert the name into an absolute name for comparison...     */
-  upMem((BYTE FAR *) dname, strlen(dname));
-  upMem((BYTE FAR *) fname, FNAME_SIZE);
-  upMem((BYTE FAR *) fext, FEXT_SIZE);
+  upFMem((BYTE FAR *) dname, strlen(dname));
+  upFMem((BYTE FAR *) fname, FNAME_SIZE);
+  upFMem((BYTE FAR *) fext, FEXT_SIZE);
 
   return fnp;
 }
@@ -419,7 +442,7 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
     /* it in building the new file.                 */
     /* Note that if we're in the root and we don't  */
     /* find an empty slot, we need to abort.        */
-    if (!(is_free = find_free(fnp)) && (fnp->f_flags.f_droot))
+    if (((is_free = find_free(fnp)) == 0) && (fnp->f_flags.f_droot))
     {
       fnp->f_flags.f_dmod = FALSE;
       dir_close(fnp);
@@ -661,7 +684,7 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
 
   /* Now find a free slot to put the file into.                   */
   /* If it's the root and we don't have room, return an error.    */
-  if (!(is_free = find_free(fnp2)) && (fnp2->f_flags.f_droot))
+  if (((is_free = find_free(fnp2)) == 0) && (fnp2->f_flags.f_droot))
   {
     fnp2->f_flags.f_dmod = FALSE;
     dir_close(fnp1);
@@ -1032,7 +1055,7 @@ COUNT dos_mkdir(BYTE FAR * dir)
     /* it in building the new file.                 */
     /* Note that if we're in the root and we don't  */
     /* find an empty slot, we need to abort.        */
-    if (!(is_free = find_free(fnp)) && (fnp->f_flags.f_droot))
+    if (((is_free = find_free(fnp)) == 0) && (fnp->f_flags.f_droot))
     {
       fnp->f_flags.f_dmod = FALSE;
       dir_close(fnp);
@@ -1825,9 +1848,12 @@ UWORD dos_free(struct dpb * dpbp)
   /* cluster start at 2 and run to max_cluster+2  */
   REG UWORD i;
   REG UWORD cnt = 0;
-  UWORD max_cluster = ((ULONG) dpbp->dpb_size
-                  * (ULONG) (dpbp->dpb_clsmask + 1) - dpbp->dpb_data + 1)
-  / (dpbp->dpb_clsmask + 1) + 2;
+/*  UWORD max_cluster = ( ((ULONG) dpbp->dpb_size
+ *                 * (ULONG) (dpbp->dpb_clsmask + 1) - (dpbp->dpb_data + 1) )
+ * / (dpbp->dpb_clsmask + 1) ) + 2;
+ */
+  UWORD max_cluster = ( ((ULONG) dpbp->dpb_size * (ULONG) (dpbp->dpb_clsmask + 1))
+                        / (dpbp->dpb_clsmask + 1) ) + 1;
 
   if (dpbp->dpb_nfreeclst != UNKNCLUSTER)
     return dpbp->dpb_nfreeclst;
@@ -1843,41 +1869,34 @@ UWORD dos_free(struct dpb * dpbp)
   }
 }
 
-VOID dos_pwd(struct cds FAR * cdsp, BYTE FAR * s)
-{
-  WORD x = 1 + cdsp->cdsJoinOffset;
-  fsncopy((BYTE FAR *) & cdsp->cdsCurrentPath[x], s, 64);
-}
+
 
 #ifndef IPL
-COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR * s)
+COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR *PathName)
 {
   BYTE FAR *p;
   struct f_node FAR *fnp;
+	REG struct dpb *dpbp;
   COUNT x;
 
-  /* Get the current directory so that we initialize all access   */
-  /* relative to root.                                            */
-  truename(s, PriPathName, FALSE);
+	/* first check for valid drive          */
+	if (cdsp->cdsDpb == 0)
+		return DE_INVLDDRV;
 
-  if (cdsp->cdsFlags & 0x8000)
-  {
-    if ((int2f_Remote_call(REM_CHDIR, 0, 0, 0, PriPathName, 0, 0)) != 0)
-      return DE_PATHNOTFND;
-    fscopy(&PriPathName[0], cdsp->cdsCurrentPath);
-    if (PriPathName[7] == 0)
-      cdsp->cdsCurrentPath[8] = 0;
-    return SUCCESS;
-  }
+
+	dpbp = (struct dpb *)cdsp->cdsDpb;
+	if ((media_check(dpbp) < 0))
+		return DE_INVLDDRV;
 
   /* now test for its existance. If it doesn't, return an error.  */
   /* If it does, copy the path to the current directory           */
   /* structure.                                                   */
-  if ((fnp = dir_open((BYTE FAR *) PriPathName)) == NULL)
+	if ((fnp = dir_open(PathName)) == NULL)
     return DE_PATHNOTFND;
+
   cdsp->cdsStrtClst = fnp->f_dirstart;
   dir_close(fnp);
-  fscopy(&PriPathName[0], cdsp->cdsCurrentPath);
+	fscopy(&PathName[0], cdsp->cdsCurrentPath);
   return SUCCESS;
 }
 #endif
@@ -2074,7 +2093,9 @@ COUNT media_check(REG struct dpb * dpbp)
       size = bpbp->bpb_nsize == 0 ?
           bpbp->bpb_huge :
           (ULONG) bpbp->bpb_nsize;
+/* patch point
       dpbp->dpb_size = size / ((ULONG) bpbp->bpb_nsector);
+*/
       dpbp->dpb_fatsize = bpbp->bpb_nfsect;
       dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
           + dpbp->dpb_fats * dpbp->dpb_fatsize;
@@ -2082,8 +2103,13 @@ COUNT media_check(REG struct dpb * dpbp)
           + ((DIRENT_SIZE * dpbp->dpb_dirents
               + (dpbp->dpb_secsize - 1))
              / dpbp->dpb_secsize);
+/*
+	Michal Meller <maceman@priv4,onet.pl> patch to jimtabor
+*/
+      dpbp->dpb_size = ((size - dpbp->dpb_data) / ((ULONG) bpbp->bpb_nsector) + 1);
+
       dpbp->dpb_flags = 0;
-      dpbp->dpb_next = (struct dpb FAR *)-1;
+/*      dpbp->dpb_next = (struct dpb FAR *)-1;*/
       dpbp->dpb_cluster = UNKNCLUSTER;
       dpbp->dpb_nfreeclst = UNKNCLUSTER;	/* number of free clusters */
       for (i = 1, dpbp->dpb_shftcnt = 0;
@@ -2112,6 +2138,9 @@ COUNT xlt_fnp(struct f_node FAR * fnp)
 struct dhdr FAR *select_unit(COUNT drive)
 {
   /* Just get the header from the dhdr array                      */
-  return blk_devices[drive].dpb_device;
+/*  return blk_devices[drive].dpb_device; */
+
+    return CDSp->cds_table[drive].cdsDpb;
+
 }
 

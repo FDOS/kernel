@@ -67,8 +67,8 @@ component.  Study the makefile to better understand this.
 $Id$
 
 $Log$
-Revision 1.1  2000/05/06 19:34:38  jhall1
-Initial revision
+Revision 1.2  2000/05/08 04:27:48  jimtabor
+Update CVS to 2020
 
 Revision 1.2  1999/08/25 04:12:31  jprice
 update

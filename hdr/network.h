@@ -54,6 +54,7 @@
 #define REM_PRINTSET    0x111f
 #define REM_FLUSHALL    0x1120
 #define REM_LSEEK       0x1121
+#define REM_PROCESS_END 0x1122
 #define REM_FILENAME    0x1123
 #define REM_PRINTREDIR  0x1125
 #define REM_EXTOC       0x112e

@@ -34,8 +34,14 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:32  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.17  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.16  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
  *
  * Revision 1.15  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -176,6 +182,7 @@ INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 BOOL check_break(void);
 UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
                    BOOL force_binary);
+COUNT SftSeek(sft FAR *sftp, LONG new_pos, COUNT mode);
 UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
 UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
 COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos);
@@ -195,6 +202,10 @@ COUNT DosSetFtime(COUNT hndl, date FAR * dp, time FAR * tp);
 COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp);
 COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp);
 BYTE DosSelectDrv(BYTE drv);
+COUNT DosDelete(BYTE FAR *path);
+COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
+COUNT DosMkdir(BYTE FAR * dir);
+COUNT DosRmdir(BYTE FAR * dir);
 
 /*dosidle.asm */
 VOID DosIdle_int(void);
@@ -203,7 +214,7 @@ VOID DosIdle_int(void);
 VOID SpacePad(BYTE *, COUNT);
 COUNT ParseDosName(BYTE FAR *, COUNT *, BYTE *, BYTE *, BYTE *, BOOL);
 COUNT ParseDosPath(BYTE FAR *, COUNT *, BYTE *, BYTE FAR *);
-BOOL IsDevice(BYTE * FileName);
+BOOL IsDevice(BYTE FAR * FileName);
 
 /* dsk.c */
 COUNT blk_driver(rqptr rp);
@@ -250,11 +261,9 @@ COUNT dos_write(COUNT fd, VOID FAR * buffer, UCOUNT count);
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin);
 UWORD dos_free(struct dpb *dpbp);
 
-VOID dos_pwd(struct cds FAR * cdsp, BYTE FAR * s);
-
 VOID trim_path(BYTE FAR * s);
 
-COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR * s);
+COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR * PathName);
 
 struct f_node FAR *get_f_node(void);
 VOID release_f_node(struct f_node FAR * fnp);
@@ -361,22 +370,19 @@ VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n);
 __FAR_WRAPPER(VOID, fbcopy, (REG VOID FAR * s, REG VOID FAR * d, REG COUNT n))
 
 /* nls.c */
-UWORD GetCtryInfo(UBYTE FAR * lpShrtCode, UWORD FAR * lpLongCode, BYTE FAR * lpTable);
-UWORD SetCtryInfo(UBYTE FAR * lpShrtCode, UWORD FAR * lpLongCode, BYTE FAR * lpTable, UBYTE * nRetCode);
-UWORD internalUpcase(UWORD c);
-BOOL GetGlblCodePage(UWORD FAR * ActvCodePage, UWORD FAR * SysCodePage);
-BOOL SetGlblCodePage(UWORD FAR * ActvCodePage, UWORD FAR * SysCodePage);
-BOOL ExtCtryInfo(UBYTE nOpCode, UWORD CodePageID, UWORD InfoSize, VOID FAR * Information);
-char upMChar(UPMAP map, char ch);
-VOID upMMem(UPMAP map, char FAR * str, unsigned len);
-BYTE yesNo(char ch);
-char upChar(char ch);
-VOID upString(char FAR * str);
-VOID upMem(char FAR * str, unsigned len);
-char upFChar(char ch);
-VOID upFString(char FAR * str);
-VOID upFMem(char FAR * str, unsigned len);
-BOOL FAR LoadCountryInfo(char FAR * filename, WORD ctryCode, WORD codePage);
+COUNT extCtryInfo(int subfct, UWORD codepage,
+	UWORD cntry, UWORD bufsize, UBYTE FAR * buf);
+BYTE yesNo(unsigned char ch);
+unsigned char upChar(unsigned char ch);
+VOID upString(unsigned char FAR * str);
+VOID upMem(unsigned char FAR * str, unsigned len);
+unsigned char upFChar(unsigned char ch);
+VOID upFString(unsigned char FAR * str);
+VOID upFMem(unsigned char FAR * str, unsigned len);
+COUNT setCountryCode(UWORD cntry);
+COUNT getCountryInformation(UWORD cntry, BYTE FAR *buf);
+COUNT getCodePage(UWORD FAR* actCP, UWORD FAR*sysCP);
+COUNT setCodePage(UWORD actCP, UWORD sysCP);
 
 /* prf.c */
 VOID put_console(COUNT c);
@@ -432,7 +438,8 @@ VOID init_stacks(VOID FAR * stack_base, COUNT nStacks, WORD stackSize);
 /* newstuff.c */
 int SetJFTSize(UWORD nHandles);
 int DosMkTmp(BYTE FAR * pathname, UWORD attr);
-int truename(char FAR * src, char FAR * dest, COUNT t);
+COUNT get_verify_drive(char FAR * src);
+COUNT truename(char FAR * src, char FAR * dest, COUNT t);
 
 /* network.c */
 COUNT int2f_Remote_call(UWORD func, UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
@@ -440,10 +447,8 @@ COUNT QRemote_Fn(char FAR * s, char FAR * d);
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
-UWORD Remote_OCT(UWORD func, BYTE FAR * name, UWORD pw, sft FAR * s);
 UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err);
 COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dmp);
-COUNT Remote_GSattr(UWORD func, BYTE FAR * name, UWORD FAR * attrp);
 
 /* procsupt.asm */
 VOID INRPT FAR exec_user(iregs FAR * irp);

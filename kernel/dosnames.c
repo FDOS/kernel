@@ -36,8 +36,11 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:00  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.4  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
  *
  * Revision 1.3  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -329,13 +332,13 @@ COUNT ParseDosPath(BYTE FAR * lpszFileName,
   return SUCCESS;
 }
 
-BOOL IsDevice(BYTE * pszFileName)
+BOOL IsDevice(BYTE FAR * pszFileName)
 {
   REG struct dhdr FAR *dhp = (struct dhdr FAR *)&nul_dev;
   BYTE szName[FNAME_SIZE];
 
   /* break up the name first                              */
-  if (ParseDosName((BYTE FAR *) pszFileName,
+  if (ParseDosName(pszFileName,
                    (COUNT *) 0, TempBuffer, szName, (BYTE *) 0, FALSE)
       != SUCCESS)
     return FALSE;

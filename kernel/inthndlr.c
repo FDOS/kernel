@@ -36,8 +36,26 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:19  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.25  2000/04/29 05:31:47  jtabor
+ * fix history
+ *
+ * Revision 1.24  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.23  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.22  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
+ *
+ * Revision 1.21  2000/03/17 05:00:11  kernel
+ * Fixed Func 0x32
+ *
+ * Revision 1.20  2000/03/16 03:28:49  kernel
+ * *** empty log message ***
  *
  * Revision 1.19  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -253,8 +271,8 @@ VOID int21_syscall(iregs FAR * irp)
 
 VOID int21_service(iregs FAR * r)
 {
-  COUNT rc,
-    rc1;
+  COUNT rc = 0,
+	  rc1;
   ULONG lrc;
   psp FAR *p = MK_FP(cu_psp, 0);
 
@@ -565,7 +583,7 @@ dispatch:
 
       /* Get default DPB                                              */
     case 0x1f:
-      if (default_drive < lastdrive)
+      if (default_drive <= lastdrive)
       {
         struct dpb FAR *dpb = (struct dpb FAR *)CDSp->cds_table[default_drive].cdsDpb;
         if (dpb == 0)
@@ -750,7 +768,8 @@ dispatch:
 
       /* Get DPB                                                      */
     case 0x32:
-      if (r->DL < lastdrive)
+      r->DL = ( r->DL == 0 ? default_drive : r->DL - 1);
+      if (r->DL <= lastdrive)
       {
         struct dpb FAR *dpb = CDSp->cds_table[r->DL].cdsDpb;
         if (dpb == 0)
@@ -822,40 +841,30 @@ dispatch:
       /* Get/Set Country Info                                         */
     case 0x38:
       {
-        BYTE FAR *lpTable
-        = (BYTE FAR *) MK_FP(r->DS, r->DX);
-        BYTE nRetCode;
+      	UWORD cntry = r->AL;
 
-        if (0xffff == r->DX)
-        {
-          r->BX = SetCtryInfo(
-                               (UBYTE FAR *) & (r->AL),
-                               (UWORD FAR *) & (r->BX),
-                               (BYTE FAR *) & lpTable,
-                               (UBYTE *) & nRetCode);
+      	if(cntry == 0)
+      		cntry = (UWORD)-1;
+      	else if(cntry == 0xff)
+      		cntry = r->BX;
 
-          if (nRetCode != 0)
-          {
-            r->AX = 0xff;
-            r->FLAGS |= FLG_CARRY;
-          }
-          else
-          {
-            r->AX = nRetCode;
-            r->FLAGS &= ~FLG_CARRY;
-          }
+        if (0xffff == r->DX) {
+        	/* Set Country Code */
+        	if((rc = setCountryCode(cntry)) < 0)
+        		goto error_invalid;
+        } else {
+        	/* Get Country Information */
+        	if((rc = getCountryInformation(cntry, MK_FP(r->DS, r->DX))) < 0)
+        		goto error_invalid;
+        	r->AX = r->BX = cntry;
         }
-        else
-        {
-          r->BX = GetCtryInfo(&(r->AL), &(r->BX), lpTable);
-          r->FLAGS &= ~FLG_CARRY;
-        }
+        r->FLAGS &= ~FLG_CARRY;
       }
       break;
 
       /* Dos Create Directory                                         */
     case 0x39:
-      rc = dos_mkdir((BYTE FAR *) MK_FP(r->DS, r->DX));
+      rc = DosMkdir((BYTE FAR *) MK_FP(r->DS, r->DX));
       if (rc != SUCCESS)
         goto error_exit;
       else
@@ -866,7 +875,7 @@ dispatch:
 
       /* Dos Remove Directory                                         */
     case 0x3a:
-      rc = dos_rmdir((BYTE FAR *) MK_FP(r->DS, r->DX));
+      rc = DosRmdir((BYTE FAR *) MK_FP(r->DS, r->DX));
       if (rc != SUCCESS)
         goto error_exit;
       else
@@ -948,11 +957,11 @@ dispatch:
 
       /* Dos Delete File                                              */
     case 0x41:
-      rc = dos_delete((BYTE FAR *) MK_FP(r->DS, r->DX));
+      rc = DosDelete((BYTE FAR *) MK_FP(r->DS, r->DX));
       if (rc < 0)
       {
         r->FLAGS |= FLG_CARRY;
-        r->AX = -rc1;
+        r->AX = -rc;
       }
       else
         r->FLAGS &= ~FLG_CARRY;
@@ -976,7 +985,7 @@ dispatch:
       {
         case 0x00:
           rc = DosGetFattr((BYTE FAR *) MK_FP(r->DS, r->DX), (UWORD FAR *) & r->CX);
-          if (rc < SUCCESS)
+          if (rc != SUCCESS)
             goto error_exit;
           else
           {
@@ -1009,6 +1018,10 @@ dispatch:
         }
         else
         {
+
+          if(r->AL == 0x02)
+            r->AX = r->CX;
+
           r->FLAGS &= ~FLG_CARRY;
         }
       }
@@ -1117,9 +1130,8 @@ dispatch:
           || ((psp FAR *) (MK_FP(cu_psp, 0)))->ps_parent == cu_psp)
         break;
       tsr = FALSE;
-/*      int2f_Remote_call(0x1122, 0, 0, 0, 0, 0, 0);
+      int2f_Remote_call(REM_PROCESS_END, 0, 0, 0, 0, 0, 0);
    int2f_Remote_call(REM_CLOSEALL, 0, 0, 0, 0, 0, 0);
- */
       if (ErrorMode)
       {
         ErrorMode = FALSE;
@@ -1210,7 +1222,7 @@ dispatch:
 
       /* Dos Rename                                                   */
     case 0x56:
-      rc = dos_rename(
+      rc = DosRename(
                        (BYTE FAR *) MK_FP(r->DS, r->DX),	/* OldName      */
                        (BYTE FAR *) MK_FP(r->ES, r->DI));	/* NewName      */
       if (rc < SUCCESS)
@@ -1341,9 +1353,17 @@ dispatch:
         case 0x07:
         case 0x08:
         case 0x09:
-          int2f_Remote_call(REM_PRINTREDIR, 0, 0, r->DX, 0, 0, (MK_FP(0, Int21AX)));
+	  {
+	    COUNT result;
+	    result = int2f_Remote_call(REM_PRINTREDIR, 0, 0, r->DX, 0, 0, (MK_FP(0, Int21AX)));
+	    r->AX = result;
+	    if (result != SUCCESS) {
+	      r->FLAGS |= FLG_CARRY;
+	    } else {
+	      r->FLAGS &= ~FLG_CARRY;
+	    }
           break;
-
+	  }
         default:
           goto error_invalid;
       }
@@ -1361,8 +1381,17 @@ dispatch:
           break;
 
         default:
-          int2f_Remote_call(REM_PRINTSET, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
+	  {
+	    COUNT result;
+            result = int2f_Remote_call(REM_PRINTSET, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
+	    r->AX = result;
+	    if (result != SUCCESS) {
+	  	    r->FLAGS |= FLG_CARRY;
+	    } else {
+	  	    r->FLAGS &= ~FLG_CARRY;
+	    }
           break;
+      }
       }
       break;
 
@@ -1370,16 +1399,29 @@ dispatch:
       switch (r->AL)
       {
         case 0x07:
+          if (r->DL <= lastdrive) {
           CDSp->cds_table[r->DL].cdsFlags |= 0x100;
+	  }
           break;
 
         case 0x08:
+          if (r->DL <= lastdrive) {
           CDSp->cds_table[r->DL].cdsFlags &= ~0x100;
+	  }
           break;
 
         default:
-          int2f_Remote_call(REM_DOREDIRECT, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
+	  {
+	    COUNT result;
+            result = int2f_Remote_call(REM_DOREDIRECT, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
+	    r->AX = result;
+	    if (result != SUCCESS) {
+	  	    r->FLAGS |= FLG_CARRY;
+	    } else {
+	  	    r->FLAGS &= ~FLG_CARRY;
+	    }
           break;
+	  }
       }
       break;
 
@@ -1441,71 +1483,58 @@ dispatch:
 
       /* Extended country info                                        */
     case 0x65:
-      if (r->AL <= 0x7)
-      {
-        if (ExtCtryInfo(
-                         r->AL,
-                         r->BX,
-                         r->CX,
-                         MK_FP(r->ES, r->DI)))
-          r->FLAGS &= ~FLG_CARRY;
-        else
-          goto error_invalid;
-      }
-      else if ((r->AL >= 0x20) && (r->AL <= 0x22))
-      {
-        switch (r->AL)
-        {
-          case 0x20:
+    	switch(r->AL) {
+    	case 0x20:				/* upcase single character */
             r->DL = upChar(r->DL);
-            goto okay;
-
-          case 0x21:
-            upMem(
-                   MK_FP(r->DS, r->DX),
-                   r->CX);
-            goto okay;
-
-          case 0x22:
-            upString(MK_FP(r->DS, r->DX));
-          okay:
-            r->FLAGS &= ~FLG_CARRY;
             break;
-
-          case 0x23:
+        case 0x21:				/* upcase memory area */
+            upMem(MK_FP(r->DS, r->DX), r->CX);
+            break;
+        case 0x22:				/* upcase ASCIZ */
+            upString(MK_FP(r->DS, r->DX));
+            break;
+    	case 0xA0:				/* upcase single character of filenames */
+            r->DL = upFChar(r->DL);
+            break;
+        case 0xA1:				/* upcase memory area of filenames */
+            upFMem(MK_FP(r->DS, r->DX), r->CX);
+            break;
+        case 0xA2:				/* upcase ASCIZ of filenames */
+            upFString(MK_FP(r->DS, r->DX));
+            break;
+        case 0x23:				/* check Yes/No response */
             r->AX = yesNo(r->DL);
-            goto okay;
-
-          default:
-            goto error_invalid;
-        }
-      }
-      else
-        r->FLAGS |= FLG_CARRY;
+            break;
+      	default:
+			if ((rc = extCtryInfo(
+                         r->AL, r->BX, r->DX, r->CX,
+                         MK_FP(r->ES, r->DI))) < 0)
+             	goto error_exit;
+            break;
+         }
+		r->FLAGS &= ~FLG_CARRY;
       break;
 
       /* Code Page functions */
-    case 0x66:
+    case 0x66: {
+    	int rc;
       switch (r->AL)
       {
         case 1:
-          GetGlblCodePage(
-                           (UWORD FAR *) & (r->BX),
-                           (UWORD FAR *) & (r->DX));
-          goto okay_66;
-
+          rc = getCodePage(&r->BX, &r->DX);
+			break;
         case 2:
-          SetGlblCodePage(
-                           (UWORD FAR *) & (r->BX),
-                           (UWORD FAR *) & (r->DX));
-        okay_66:
-          r->FLAGS &= ~FLG_CARRY;
+          rc = setCodePage(r->BX, r->DX);
           break;
 
         default:
           goto error_invalid;
       }
+      if(rc != SUCCESS)
+      	goto error_exit;
+      r->FLAGS &= ~FLG_CARRY;
       break;
+     }
 
       /* Set Max file handle count */
     case 0x67:
@@ -1521,6 +1550,63 @@ dispatch:
     case 0x68:
       r->FLAGS &= ~FLG_CARRY;
       break;
+
+      /* Get/Set Serial Number */
+    case 0x69:
+      r->BL = ( r->BL == 0 ? default_drive : r->BL - 1);
+      if (r->BL <= lastdrive)
+      {
+        if (CDSp->cds_table[r->BL].cdsFlags & CDSNETWDRV) {
+          r->AX = 0x01;
+          goto error_out;
+        }
+        switch(r->AL){
+            case 0x00:
+            r->CX = 0x0866;
+            rc = DosDevIOctl(r, (COUNT FAR *) & rc1);
+            break;
+
+            case 0x01:
+            r->CX = 0x0846;
+            rc = DosDevIOctl(r, (COUNT FAR *) & rc1);
+            break;
+        }
+        r->FLAGS &= ~FLG_CARRY;
+        break;
+      }
+      else
+        r->AL = 0xFF;
+      break;
+
+
+    /* Extended Open-Creat, not fully functional.*/
+    case 0x6c:
+        switch(r->DL) {
+        case 0x01:
+            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
+                goto error_exit;
+            else
+            {
+                r->CX = 0x02;
+                r->AX = rc;
+                r->FLAGS &= ~FLG_CARRY;
+            }
+            break;
+
+        case 0x10:
+            if ((rc = DosOpen(MK_FP(r->DS, r->SI), r->BL )) < 0 )
+                goto error_exit;
+            else
+            {
+                r->CX = 0x01;
+                r->AX = rc;
+                r->FLAGS &= ~FLG_CARRY;
+            }
+            break;
+
+        default:
+            goto error_invalid;
+        }
   }
 
 #ifdef DEBUG

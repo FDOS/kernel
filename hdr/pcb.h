@@ -36,8 +36,8 @@ static BYTE *pcb_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:49  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:28:22  jimtabor
+ * Update CVS to 2020
  *
  * Revision 1.1.1.1  1999/03/29 15:39:32  jprice
  * New version without IPL.SYS

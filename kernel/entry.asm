@@ -28,8 +28,11 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.1  2000/05/06 19:35:03  jhall1
-; Initial revision
+; Revision 1.2  2000/05/08 04:29:59  jimtabor
+; Update CVS to 2020
+;
+; Revision 1.5  2000/03/20 03:15:49  kernel
+; Change in Entry.asm
 ;
 ; Revision 1.4  1999/09/23 04:40:46  jprice
 ; *** empty log message ***
@@ -306,13 +309,13 @@ int21_3:
                 ; Recover registers from system call.  Registers and flags
                 ; were modified by the system call.
                 ;
-int21_exit:     sti
+int21_exit:     cli
                 mov     bp,word [_user_r+2]
                 mov     ss,bp
                 mov     bp,word [_user_r]     ; store and init
                 mov     sp,bp
                 dec     byte [_InDOS]
-                cli
+                sti
 int21_ret:      POP$ALL
 
                 ;

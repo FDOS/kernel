@@ -35,8 +35,11 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:46  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:28:22  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.4  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
  *
  * Revision 1.3  2000/03/09 06:06:38  kernel
  * 2017f updates by James Tabor
@@ -244,6 +247,17 @@ typedef struct
 }
 bpb;
 
+struct gblkio
+{
+    UBYTE   gbio_spcfunbit;
+    UBYTE   gbio_devtype;
+    UWORD   gbio_devattrib;
+    UWORD   gbio_ncyl;
+    UBYTE   gbio_media;
+    bpb     gbio_bpb;
+    UWORD   gbio_nsecs;
+};
+
 /*                                                                      */
 /* Boot Block (Super Block)                                             */
 /*                                                                      */
@@ -256,13 +270,19 @@ bpb;
 
 typedef struct
 {
-  BYTE bt_jump[3];              /* Boot Jump opcodes            */
-  BYTE bt_oem[8];               /* OEM Name                     */
-  bpb bt_bpb;                   /* BPB for this media/device    */
-  WORD bt_nsecs;                /* # Sectors per Track          */
-  WORD bt_nheads;               /* # Heads                      */
-  WORD bt_hidden;               /* # Hidden sectors             */
-  LONG bt_huge;                 /* use if nsecs == 0            */
+  BYTE  bt_jump[3];             /* Boot Jump opcodes            */
+  BYTE  bt_oem[8];              /* OEM Name                     */
+  bpb   bt_bpb;                 /* BPB for this media/device    */
+  WORD  bt_nsecs;               /* # Sectors per Track          */
+  WORD  bt_nheads;              /* # Heads                      */
+  WORD  bt_hidden;              /* # Hidden sectors             */
+  LONG  bt_huge;                /* use if nsecs == 0            */
+  BYTE  bt_drvno;
+  BYTE  bt_reserv;
+  BYTE  bt_btid;
+  ULONG bt_serialno;
+  BYTE  bt_volume[11];
+  BYTE  bt_fstype[8];
 }
 boot;
 

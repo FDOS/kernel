@@ -36,8 +36,8 @@ static BYTE *mcb_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:48  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:28:22  jimtabor
+ * Update CVS to 2020
  *
  * Revision 1.2  2000/03/09 06:06:38  kernel
  * 2017f updates by James Tabor

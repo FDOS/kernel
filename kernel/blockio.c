@@ -37,8 +37,11 @@ static BYTE *blockioRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:34:53  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.15  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
  *
  * Revision 1.14  2000/03/09 06:07:10  kernel
  * 2017f updates by James Tabor
@@ -157,7 +160,7 @@ VOID FAR init_buffers(void)
   lastbuf = &buffers[Config.cfgBuffers - 1];
 }
 
-/*                                                                              Extract the block number from a buffer structure.                                                                                                               */
+/* Extract the block number from a buffer structure. */
 ULONG getblkno(struct buffer FAR * bp)
 {
   if (bp->b_blkno == 0xffffu)
@@ -166,8 +169,8 @@ ULONG getblkno(struct buffer FAR * bp)
     return bp->b_blkno;
 }
 
-/*                                                                              Set the block number of a buffer structure. (The caller should                  */
-/*                                                                              set the unit number before calling this function.)                                                                                                              */
+/*  Set the block number of a buffer structure. (The caller should  */
+/*  set the unit number before calling this function.)     */
 VOID setblkno(struct buffer FAR * bp, ULONG blkno)
 {
   if (blkno >= 0xffffu)
@@ -178,7 +181,10 @@ VOID setblkno(struct buffer FAR * bp, ULONG blkno)
   else
   {
     bp->b_blkno = blkno;
-    bp->b_dpbp = &blk_devices[bp->b_unit];
+/*    bp->b_dpbp = &blk_devices[bp->b_unit]; */
+
+      bp->b_dpbp = CDSp->cds_table[bp->b_unit].cdsDpb;
+
   }
 }
 
@@ -242,9 +248,9 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
 #endif
 
   /* make sure we keep at least 3 buffers for the FAT.  If this is not a */
-  /* FAT buffer, or there are at least 3 already, then we can use this           */
-  /* buffer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     */
-  /* otherwise, search again, and find the last non-FAT buffer.                                                                                                  */
+  /* FAT buffer, or there are at least 3 already, then we can use this  */
+  /* buffer.  */
+  /* otherwise, search again, and find the last non-FAT buffer.   */
   if ((lbp->b_flag & BFR_FAT) && (fat_count < 3))
   {
     bp = firstbuf;
@@ -253,12 +259,12 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
     while ((bp != NULL) && (bp->b_flag & BFR_FAT))
     {
       /* if this is a FAT buffer, then move to the next one, else we found */
-      /* the one we want.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          */
+      /* the one we want.      */
       mbp = lbp;                /* move along to next buffer */
       lbp = bp;
       bp = bp->b_next;
     }
-    /* if we get to the end of the list here, then we must only have 3          */
+    /* if we get to the end of the list here, then we must only have 3  */
     /* buffers, which is not suppose to happen, but if it does, then we */
     /* end up using the last buffer (even though it is FAT).                                                                                                    */
 
@@ -357,9 +363,9 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
 #endif
 
   /* make sure we keep at least 3 buffers for the FAT.  If this is not a */
-  /* FAT buffer, or there are at least 3 already, then we can use this           */
-  /* buffer.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     */
-  /* otherwise, search again, and find the last non-FAT buffer.                                                                                                  */
+  /* FAT buffer, or there are at least 3 already, then we can use this   */
+  /* buffer.                                                            */
+  /* otherwise, search again, and find the last non-FAT buffer.         */
   if ((lbp->b_flag & BFR_FAT) && (fat_count < 3))
   {
     bp = firstbuf;
@@ -368,14 +374,14 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
     while ((bp != NULL) && (bp->b_flag & BFR_FAT))
     {
       /* if this is a FAT buffer, then move to the next one, else we found */
-      /* the one we want.                                                                                                                                                                                                                                                                                                                                                                                                                                                                          */
+      /* the one we want.      */
       mbp = lbp;                /* move along to next buffer */
       lbp = bp;
       bp = bp->b_next;
     }
-    /* if we get to the end of the list here, then we must only have 3          */
-    /* buffers, which is not suppose to happen, but if it does, then we         */
-    /* end up using the last buffer (even though it is FAT).                                                                                                    */
+    /* if we get to the end of the list here, then we must only have 3    */
+    /* buffers, which is not suppose to happen, but if it does, then we   */
+    /* end up using the last buffer (even though it is FAT).    */
 
     if (bp == NULL)
     {
@@ -539,7 +545,9 @@ BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk)
 /*                                                                      */
 BOOL dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode)
 {
-  REG struct dpb *dpbp = &blk_devices[dsk];
+/*  REG struct dpb *dpbp = &blk_devices[dsk]; */
+
+    REG struct dpb *dpbp = CDSp->cds_table[dsk].cdsDpb;
 
   for (;;)
   {

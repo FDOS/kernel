@@ -35,8 +35,11 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:36  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.8  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
  *
  * Revision 1.7  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -265,7 +268,9 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   *((UWORD FAR *) pDest)++ = 1;
 
   /* copy complete pathname */
-  truename(pathname, pDest, TRUE);
+  if ((RetCode = truename(pathname, pDest, TRUE)) != SUCCESS) {
+    return RetCode;
+  }
 
   /* Theoretically one could either:
      + resize the already allocated block to best-fit behind the pathname, or

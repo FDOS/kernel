@@ -36,8 +36,11 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.1  2000/05/06 19:35:18  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/08 04:30:00  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.17  2000/03/16 03:28:49  kernel
+ * *** empty log message ***
  *
  * Revision 1.16  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -703,7 +706,7 @@ VOID fputbyte();
 #ifdef I86
 #define setvec(n, isr)  (void)(*(VOID (INRPT FAR * FAR *)())(4 * (n)) = (isr))
 #endif
-#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 1 : 0)
+#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1)
 
 /* ^Break handling */
 void spawn_int23(void);         /* procsupt.asm */
