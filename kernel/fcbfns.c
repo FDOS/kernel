@@ -407,6 +407,13 @@ UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
     /* pass attribute without constraints (dangerous for directories) */
     attr = lpXfcb->xfcb_attrib;
 
+  /* for c:/nul c:nul must be opened instead!
+   * this is a consequence of truename's funny behaviour:
+   * truename(c:nul) = c:/nul and truename(c:/nul) = c:\nul
+   * and for FCBs it's easiest to call truename twice
+   */
+  if (SecPathName[2] == '/')
+    strcpy(&SecPathName[2], &SecPathName[3]);
   sft_idx = (short)DosOpenSft(SecPathName, flags, attr);
   if (sft_idx < 0)
   {
@@ -675,6 +682,9 @@ UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
     lpDir += 7;
   }
 
+  /* for c:/nul c:nul must be opened instead! (see above) */
+  if (SecPathName[2] == '/')
+    strcpy(&SecPathName[2], &SecPathName[3]);
   CritErrCode = -(First ? DosFindFirst(wAttr, SecPathName) : DosFindNext());
   if (CritErrCode != SUCCESS)
   {
