@@ -211,8 +211,8 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     return DE_INVLDHNDL;
   }
   /* If for read and write-only or for write and read-only then exit */
-  if((mode == XFR_READ && (s->sft_mode & SFT_MWRITE)) ||
-     (mode == XFR_WRITE && !(s->sft_mode & (SFT_MWRITE | SFT_MRDWR))))
+  if((mode == XFR_READ && (s->sft_mode & O_WRONLY)) ||
+     (mode == XFR_WRITE && (s->sft_mode & O_ACCMODE) == O_RDONLY))
   {
     return DE_ACCESS;
   }
@@ -337,7 +337,7 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
  *  Lredir via mfs.c from DosEMU works when writing appended files.
  *  Mfs.c looks for these mode bits set, so here is my best guess.;^)
  */
-      if ((s->sft_mode & SFT_MDENYREAD) || (s->sft_mode & SFT_MDENYNONE))
+      if ((s->sft_mode & O_DENYREAD) || (s->sft_mode & O_DENYNONE))
       {
         s->sft_posit = remote_lseek(s, new_pos);
         return SUCCESS;
@@ -644,7 +644,7 @@ long DosOpen(char FAR * fname, unsigned mode, unsigned attrib)
   unsigned hndl;
   
   /* test if mode is in range                     */
-  if ((mode & ~SFT_OMASK) != 0)
+  if ((mode & ~O_VALIDMASK) != 0)
     return DE_INVLDACC;
 
   /* get a free handle  */

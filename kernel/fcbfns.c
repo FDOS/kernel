@@ -412,7 +412,7 @@ UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
   }
 
   sftp = idx_to_sft(sft_idx);
-  sftp->sft_mode |= SFT_MFCB;
+  sftp->sft_mode |= O_FCB;
 
   lpFcb->fcb_sftno = sft_idx;
   lpFcb->fcb_curec = 0;
@@ -631,7 +631,7 @@ VOID FcbCloseAll()
   sft FAR *sftp;
 
   for (idx = 0; (sftp = idx_to_sft(idx)) != (sft FAR *) - 1; idx++)
-    if ((sftp->sft_mode & SFT_MFCB) && sftp->sft_psp == cu_psp)
+    if ((sftp->sft_mode & O_FCB) && sftp->sft_psp == cu_psp)
       DosCloseSft(idx, FALSE);
 }
 

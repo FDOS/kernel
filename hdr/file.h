@@ -47,13 +47,25 @@ static BYTE *file_hRcsId =
 #define STDAUX          3
 #define STDPRN          4
 
-#define O_RDONLY        SFT_MREAD
-#define O_WRONLY        SFT_MWRITE
-#define O_RDWR          SFT_MRDWR
-#define O_ACCMODE       3
+/* mode bits                                                    */
+#define O_VALIDMASK     0xfff3  /* valid open mask              */
+
+#define O_RDONLY        0x0000
+#define O_WRONLY        0x0001
+#define O_RDWR          0x0002
+#define O_ACCMODE       0x0003
 
 /* bits 2, 3 reserved */
+
 /* bits 4, 5, 6 sharing modes */
+#define O_SHAREMASK     0x0070  /* mask to isolate shared bits  */
+
+#define O_DENYALL       0x0010  /*     "      "                 */
+#define O_DENYWRITE     0x0020  /*     "      "                 */
+#define O_DENYREAD      0x0030  /*     "      "                 */
+#define O_DENYNONE      0x0040  /* sharing bits                 */
+#define O_NETFCB        0x0070  /* networked fcb                */
+
 #define O_NOINHERIT     0x0080
 #define O_OPEN          0x0100 /* not     */
 #define O_TRUNC         0x0200 /*    both */

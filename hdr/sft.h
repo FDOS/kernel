@@ -94,20 +94,6 @@ typedef struct sfttbl {
 /* defines for sft use                                                  */
 #define SFT_MASK        0x0060  /* splits device data           */
 
-/* mode bits                                                            */
-#define SFT_MFCB        0x8000  /* entry is for fcb             */
-#define SFT_MDENYNONE   0x0040  /* sharing bits                 */
-#define SFT_MDENYREAD   0x0030  /*     "      "                 */
-#define SFT_MDENYWRITE  0x0020  /*     "      "                 */
-#define SFT_MEXCLUSIVE  0x0010  /*     "      "                 */
-#define SFT_NOINHERIT   0x0080  /* inhibit inherting of file    */
-#define SFT_NETFCB      0x0070  /* networked fcb                */
-#define SFT_MSHAREMASK  0x0070  /* mask to isolate shared bits  */
-#define SFT_MRDWR       0x0002  /* read/write bit               */
-#define SFT_MWRITE      0x0001  /* write bit                    */
-#define SFT_MREAD       0x0000  /* ~ write bit                  */
-#define SFT_OMASK       0xfff3  /* valid open mask              */
-
 /* flag bits                                                            */
 
 /* the following bit is for redirection                                 */
