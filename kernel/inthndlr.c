@@ -1905,6 +1905,27 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       r.dx = dos_gettime();
       break;
 
+    case 0x11:                 /* normalise ASCIIZ filename */
+    {
+      char c;
+      char FAR *s = MK_FP(r.ds, r.si);
+      char FAR *t = MK_FP(r.es, r.di);
+
+      do
+      {
+        c = *s++;
+        /* uppercase character */
+        /* for now, ASCII only because nls.c cannot handle DS!=SS */
+        if (c >= 'a' && c <= 'z')
+          c -= 'a' - 'A';
+        else if (c == '/')
+          c = '\\';
+        *t++ = c;
+      }
+      while (c);
+      break;
+    }
+
     case 0x12:                 /* get length of asciiz string */
 
       r.cx = fstrlen(MK_FP(r.es, r.di)) + 1;
