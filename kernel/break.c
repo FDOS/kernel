@@ -44,7 +44,7 @@ static BYTE *RcsId =
 
  * Two sources are available:
  *                                                                              1) flag at 40:71 bit 7
- *                                                                              2) STDIN str‘am via con_break()
+ *                                                                              2) STDIN stream via con_break()
  */
 int control_break(void)
 {

@@ -64,12 +64,13 @@ VOID fatal(BYTE * err_msg)
 }
 #else
 /* issue an internal error message                              */
+#if 0
 VOID fatal(BYTE * err_msg)
 {
   printf("\nInternal kernel error - \n");
   panic(err_msg);
 }
-
+#endif
 #endif
 
 /* Abort, retry or fail for character devices                   */
