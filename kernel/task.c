@@ -152,7 +152,7 @@ STATIC int ChildEnv(seg_t env_seg, seg_t *penv_seg, const char far *path)
     fstrcpy(MK_PTR(char, dst_seg, env_sz + 4), PriPathName);
   }
 
-#if DEBUG
+#ifdef DEBUG
   {
     seg_t dst_seg = *penv_seg + 1;
     int i;
