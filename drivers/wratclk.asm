@@ -28,7 +28,7 @@
 ; $Header$
 ;
 
-                %include "..\kernel\segs.inc"
+                %include "../kernel/segs.inc"
 
 segment	HMA_TEXT
 
