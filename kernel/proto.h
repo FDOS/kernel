@@ -313,7 +313,25 @@ void * /*ASMCFUNC*/ ASMPASCAL memset(void * s, int ch, size_t n);
 int /*ASMCFUNC*/ ASMPASCAL memcmp(const void *m1, const void *m2, size_t n);
 int /*ASMCFUNC*/ ASMPASCAL fmemcmp(const void FAR *m1, const void FAR *m2, size_t n);
 
-
+#ifdef __WATCOMC__
+/* dx and es not used or clobbered for all asmsupt.asm functions except
+   (f)memchr/(f)strchr (which preserve es) */
+#pragma aux (pascal) pascal_abc modify exact [ax bx cx]
+#pragma aux (pascal_abc) fmemcpy
+#pragma aux (pascal_abc) memcpy
+#pragma aux (pascal_abc) fmemset
+#pragma aux (pascal_abc) memset
+#pragma aux (pascal_abc) fmemcmp modify nomemory
+#pragma aux (pascal_abc) memcmp modify nomemory
+#pragma aux (pascal_abc) fstrcpy
+#pragma aux (pascal_abc) strcpy
+#pragma aux (pascal_abc) fstrlen modify nomemory
+#pragma aux (pascal_abc) strlen modify nomemory
+#pragma aux (pascal) memchr modify exact [ax bx cx dx]
+#pragma aux (pascal) fmemchr modify exact [ax bx cx dx]
+#pragma aux (pascal) strchr modify exact [ax bx cx dx]
+#pragma aux (pascal) fstrchr modify exact [ax bx cx dx]
+#endif
 
 /* sysclk.c */
 COUNT BcdToByte(COUNT x);

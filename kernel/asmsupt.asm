@@ -105,6 +105,9 @@ pascal_setup:
                 
                 push    bp                      ; Standard C entry
                 mov     bp,sp
+%ifdef WATCOM
+                push    es
+%endif
                 push    si
                 push    di
                 push    ds
@@ -240,6 +243,9 @@ pascal_return:
 		pop	ds
                 pop     di
                 pop     si
+%ifdef WATCOM
+                pop     es
+%endif
                 pop     bp
 
 		pop	cx
