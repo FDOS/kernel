@@ -118,6 +118,53 @@ MENUDEFAULT=0,0
 
 DEVICE=ATAPICDD.SYS /D:MSCD000
 
+Full Screen Menus (thanks to Rune Espeseth)
+
+Use MENUCOLOR=foreground[,background] to obtain a full screen menu
+where you can use the arrow keys. Example (note that box drawing
+characters are used that look strange in other character sets):
+
+REM *** This is the FreeDos Config.sys ***
+REM *** executed before autoexec.bat   ***
+
+REM *** Set white foreground, red background ***
+menucolor=7,4
+
+files=20
+buffers=20
+
+REM *** The Menu ***
+MENU
+MENU  ษอออออออออออออออออออออออออออออออออออออออออออออออออออออออป
+MENU  บ My Menu - FreeDOS rules!                              บ
+MENU  ฬอออออออออออออออออออออออออออออออออออออออออออออออออออออออน
+MENU  บ                                                       บ
+MENU  บ   1. Test with border                                 บ
+MENU  บ                                                       บ
+MENU  บ   2. Another test...                                  บ
+MENU  บ                                                       บ
+MENU  บ   3. Third choice                                     บ
+MENU  บ                                                       บ
+MENU  บ   4. Fourth choice.                                   บ
+MENU  บ                                                       บ
+MENU  ศอออออออออออออออออออออออออออออออออออออออออออออออออออออออผ
+MENU
+
+MENUDEFAULT=1,10		( configuration 1, wait 10 seconds)
+
+1?  REM 1st choice
+1?  ECHO You selected menu #1 
+
+2?  REM 2nd choice
+2?  ECHO You selected menu #2
+
+3?  REM 3rd choice
+3?  ECHO You selected menu #3
+
+4?  REM 4th choice
+4?  ECHO You selected menu #4
+
+
 
 
 
@@ -125,9 +172,4 @@ DEVICE=ATAPICDD.SYS /D:MSCD000
 
 2002-11-28 - Tom Ehlert
 2003-07-15 - Bernd Blaauw
-
-
-
-
-
-
+2003-09-18 - Bart Oldeman

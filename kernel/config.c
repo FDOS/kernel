@@ -43,6 +43,94 @@ static BYTE *RcsId =
 #endif
 #define para2far(seg) ((mcb FAR *)MK_FP((seg), 0))
 
+/**
+  Menu selection bar struct:
+  x pos, ypos, string
+*/
+#define MENULINEMAX 80
+#define MENULINESMAX 10
+struct MenuSelector
+{
+  int x;
+  int y;
+  BYTE bSelected;
+  BYTE Text[MENULINEMAX];
+};
+
+/** Structure below holds the menu-strings */
+STATIC struct MenuSelector MenuStruct[MENULINESMAX] =
+{
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}},
+  {0,0,0,{""}}
+};
+
+int nMenuLine=0;
+BOOL MenuColor = -1;
+
+STATIC void WriteMenuLine(int MenuSelected)
+{
+  iregs r;
+  unsigned char attr = (unsigned char)MenuColor;
+  char *pText = MenuStruct[MenuSelected].Text;
+  size_t len = 0;
+
+  if (pText[0] == 0)
+    return;
+
+  do len++; while (pText[len]);
+
+  if(MenuStruct[MenuSelected].bSelected==1)
+    attr = ((attr << 4) | (attr >> 4));
+
+  /* clear line */
+  r.a.x   = 0x0600;
+  r.b.b.h = attr;
+  r.c.b.l = r.d.b.l = MenuStruct[MenuSelected].x;
+  r.c.b.h = r.d.b.h = MenuStruct[MenuSelected].y;
+  r.d.b.l += len - 1;
+  init_call_intr(0x10, &r);
+
+  /* set cursor position: */
+  r.a.b.h = 0x02;
+  r.b.b.h = 0;
+  r.d.b.l = MenuStruct[MenuSelected].x;
+  r.d.b.h = MenuStruct[MenuSelected].y;
+  init_call_intr(0x10, &r);
+
+  printf("%s", pText);
+}
+
+/* Deselect the previously selected line */
+STATIC void DeselectLastLine(void)
+{
+  int i;
+  for (i = 0 ; i < MENULINESMAX; i++)
+  {
+    if (MenuStruct[i].bSelected == 1)
+    {
+      /* deselect it: */
+      MenuStruct[i].bSelected = 0;
+      WriteMenuLine(i);
+      break;
+    }
+  }
+}
+
+STATIC void SelectLine(int MenuSelected)
+{
+  DeselectLastLine(); /* clear previous selection */
+  MenuStruct[MenuSelected].bSelected = 1;  /* set selection flag for this one */
+  WriteMenuLine(MenuSelected);
+}
+
 UWORD umb_start = 0, UMB_top = 0;
 UWORD ram_top = 0; /* How much ram in Kbytes               */
 
@@ -96,6 +184,8 @@ COUNT MenuTimeout = -1;
 BYTE  MenuSelected = 0;
 UCOUNT MenuLine     = 0;
 UCOUNT Menus      = 0;
+
+STATIC VOID CfgMenuColor(BYTE * pLine);
 
 STATIC VOID Config_Buffers(BYTE * pLine);
 STATIC VOID sysScreenMode(BYTE * pLine);
@@ -179,12 +269,14 @@ STATIC struct table commands[] = {
   /* first = switches! this one is special since it is asked for but
      also checked before F5/F8 */
   {"SWITCHES", 0, CfgSwitches},
-  
+
   /* rem is never executed by locking out pass                    */
   {"REM", 0, CfgIgnore},
   {";", 0,   CfgIgnore},
 
-  {"MENUDEFAULT", 0, CfgMenuDefault},   
+  {"MENUCOLOR",0,CfgMenuColor},
+
+  {"MENUDEFAULT", 0, CfgMenuDefault},
   {"MENU", 0, CfgMenu},         /* lines to print in pass 0 */
   {"ECHO", 2, CfgMenu},         /* lines to print in pass 2 - install(high) */
   {"EECHO", 2, CfgMenuEsc},     /* modified ECHO (ea) */
@@ -218,6 +310,23 @@ STATIC struct table commands[] = {
   /* default action                                               */
   {"", -1, CfgFailure}
 };
+
+/* RE function for menu. */
+int  findend(BYTE * s)
+{
+  int nLen = 0;
+  /* 'marks' end if at least three spaces, 0, or newline is found. */
+  while (*s && (*s != 0x0d || *s != 0x0a) )
+  {
+    BYTE *p= skipwh(s);
+    /* ah, more than two whitespaces ? We're done here (hrmph!) */
+    if((unsigned int)p - (unsigned int)s>=3)
+      break;
+    nLen++;
+    ++s;
+  }
+  return nLen;
+}
 
 BYTE *pLineStart = 0;
 
@@ -606,22 +715,30 @@ VOID DoConfig(int pass)
     
     if (nPass == 0) /* pass 0 always executed (rem Menu prompt switches) */
     {
-      (*(pEntry->func)) (pLine);
+      pEntry->func(pLine);
       continue;
     }
     else
-    {        
+    {
       if (SkipLine(pLineStart))   /* F5/F8 processing */
         continue;
     }
 
     if ((pEntry->func != CfgMenu) && (pEntry->func != CfgMenuEsc))
+    {
+      /* compatibility "device foo.sys" */
+      if (' ' != *pLine && '\t' != *pLine && '=' != *pLine)
+      {
+        CfgFailure(pLine);
+        continue;
+      }
       pLine = skipwh(pLine);
+    }
+    if ('=' == *pLine || pEntry->func == CfgMenu || pEntry->func == CfgMenuEsc)
+      pLine = skipwh(pLine+1);
 
-    if ('=' != *pLine && pEntry->func != CfgMenu && pEntry->func != CfgMenuEsc)
-      CfgFailure(pLine);
-    else                        /* YES. DO IT */
-      (*(pEntry->func)) (skipwh(pLine + 1));
+    /* YES. DO IT */
+    pEntry->func(pLine);
   }
   close(nFileDesc); 
 
@@ -708,7 +825,7 @@ STATIC BOOL SkipLine(char *pLine)
     {
       SkipAllConfig = TRUE;
     }
-    if (key == 0x4200)          /* F8 */
+    else if (key == 0x4200)     /* F8 */
     {
       singleStep = TRUE;
     }
@@ -725,7 +842,7 @@ STATIC BOOL SkipLine(char *pLine)
   /* 1?device=CDROM.SYS */
   /* 12?device=OAKROM.SYS */
   /* 123?device=EMM386.EXE NOEMS */
-  if ( MenuLine != 0 && 
+  if ( MenuLine != 0 &&
       (MenuLine & (1 << MenuSelected)) == 0)
     return TRUE;
 
@@ -807,35 +924,34 @@ STATIC void Config_Buffers(BYTE * pLine)
       (nBuffers < 0 ? nBuffers : max(Config.cfgBuffers, nBuffers));
 }
 
+/**
+  Set screen mode - rewritten to use init_call_intr() by RE / ICD
+*/
 STATIC VOID sysScreenMode(BYTE * pLine)
 {
+  iregs r;
   COUNT nMode;
+  COUNT nFunc = 0x11;
 
   /* Get the argument                                             */
   if (GetNumArg(pLine, &nMode) == (BYTE *) 0)
     return;
 
-  if ((nMode != 0x11) && (nMode != 0x12) && (nMode != 0x14))
-    return;
+  if(nMode<0x10)
+    nFunc = 0; /* set lower screenmode */
+  else if ((nMode != 0x11) && (nMode != 0x12) && (nMode != 0x14))
+    return; /* do nothing; invalid screenmode */
 
 /* Modes
    0x11 (17)   28 lines
    0x12 (18)   43/50 lines
    0x14 (20)   25 lines
  */
-#if defined(__TURBOC__)
-  _AX = (0x11 << 8) + nMode;
-  _BL = 0;
-  __int__(0x10);
-#elif defined(I86)
-  asm
-  {
-    mov al, byte ptr nMode;
-    mov ah, 0x11;
-    mov bl, 0;
-    int 0x10;
-  }
-#endif
+  /* move cursor to pos 0,0: */
+  r.a.b.h = nFunc; /* set videomode */
+  r.a.b.l = nMode;
+  r.b.b.l = 0;
+  init_call_intr(0x10, &r);
 }
 
 STATIC VOID sysVersion(BYTE * pLine)
@@ -982,13 +1098,8 @@ STATIC VOID CfgSwitchar(BYTE * pLine)
 STATIC VOID CfgSwitches(BYTE * pLine)
 {
   pLine = skipwh(pLine);
-  if (commands[0].pass == 0) {
-    /* compatibility "device foo.sys" */
-    if ('=' != *pLine && ' ' != *pLine && '\t' != *pLine)
-    {
-      CfgFailure(pLine);
-      return;
-    }
+  if (*pLine == '=')
+  {
     pLine = skipwh(pLine + 1);
   }
   while (*pLine)
@@ -1008,15 +1119,15 @@ STATIC VOID CfgSwitches(BYTE * pLine)
         break;
       case 'E': /* /E[[:]nnnn]  Set the desired EBDA amount to move in bytes */
         {       /* Note that if there is no EBDA, this will have no effect */
-          char *p;
           int n = 0;
           if (*++pLine == ':')
             pLine++;                    /* skip optional separator */
-          if ((p = GetNumArg(pLine, &n)) == 0) {
+          if (!isnum(*pLine))
+          {
             Config.ebda2move = 0;
             break;
           }
-          pLine = p - 1;              /* p points past number */
+          pLine = GetNumArg(pLine, &n) - 1;
           /* allowed values: [48..1024] bytes, multiples of 16
            * e.g. AwardBIOS: 48, AMIBIOS: 1024
            * (Phoenix, MRBIOS, Unicore = ????)
@@ -1738,10 +1849,44 @@ STATIC VOID CfgIgnore(BYTE * pLine)
    
 */
 
+STATIC void ClearScreen(unsigned char attr);
 STATIC VOID CfgMenu(BYTE * pLine)
 {
+  int nLen;
+  BYTE *pNumber = pLine;
+
   printf("%s\n",pLine);
-}               
+  if (MenuColor == -1)
+    return;
+
+  pLine = skipwh(pLine);
+
+  /* skip drawing characters in cp437, which is what we'll have
+     just after booting! */
+  while ((unsigned char)*pLine >= 0xb0 && (unsigned char)*pLine < 0xe0)
+    pLine++;
+
+  pLine = skipwh(pLine);  /* skip more whitespaces... */
+
+  /* now I'm expecting a number here if this is a menu-choice line. */
+  if (pLine[0]>='1' && pLine[0]<='9')
+  {
+    int nIndex = pLine[0]-'0';
+
+    MenuStruct[nIndex].x = (pLine-pNumber);  /* xpos is at start of number */
+    MenuStruct[nIndex].y = nMenuLine;
+    /* copy menu text: */
+    nLen = findend(pLine); /* length is until cr/lf, null or three spaces */
+
+    /* max 40 chars including nullterminator
+       (change struct at top of file if you want more...) */
+    if (nLen > MENULINEMAX-1)
+      nLen = MENULINEMAX-1;
+    fmemcpy(MenuStruct[nIndex].Text, pLine, nLen);
+    MenuStruct[nIndex].Text[nLen] = 0;  /* nullTerminate */
+  }
+  nMenuLine++;
+}
 
 STATIC VOID CfgMenuEsc(BYTE * pLine)
 {
@@ -1749,39 +1894,62 @@ STATIC VOID CfgMenuEsc(BYTE * pLine)
   for (check = pLine; check[0]; check++)
     if (check[0] == '$') check[0] = 27;	/* translate $ to ESC */
   printf("%s\n",pLine);
-}               
+}
 
 STATIC VOID DoMenu(void)
-{   
+{
+  iregs r;
+  int key = -1;
   if (Menus == 0)
-    return;      
-    
-  InitKernelConfig.SkipConfigSeconds = -1;  
+    return;
 
-  Menus |= 1 << 0;          /* '0' Menu always allowed */
+  InitKernelConfig.SkipConfigSeconds = -1;
 
-  printf("\n\n");
+  if (MenuColor == -1)
+    Menus |= 1 << 0;          /* '0' Menu always allowed */
+
+  nMenuLine+=2; /* use this to position "select menu" text (ypos): */
 
   for (;;)
   {
-    int key,i;
+    int i;
 
-RestartInput:    
-    printf("\rSinglestepping (F8) is :%s - ", singleStep ? "ON " : "OFF");
-    
-    printf("please select a Menu[");
-    
+RestartInput:
+
+    if (MenuColor != -1)
+    {
+      SelectLine(MenuSelected); /* select current line. */
+
+      /* set new cursor position: */
+      r.a.b.h = 0x02;
+      r.b.b.h = 0;
+      r.d.b.l = 3;
+      r.d.b.h = nMenuLine;
+
+      init_call_intr(0x10, &r);  /* set cursor pos */
+    }
+
+    printf("Select from Menu [");
+
     for (i = 0; i <= 9; i++)
       if (Menus & (1 << i))
         printf("%c", '0' + i);
-    printf("]");            
-    
-    printf(" (default=%d)", MenuSelected);
-    
+    printf("], or press [ENTER]");
+
+    if (MenuColor != -1)
+      printf(" (Selection=%d)", MenuSelected);
+
     if (MenuTimeout >= 0)
       printf(" - %d \b", MenuTimeout);
-    else	
+    else
       printf("     \b\b\b\b\b");
+
+    if (MenuColor != -1)
+      printf("\r\n\n  ");
+    else
+      printf(" -");
+
+    printf(" Singlestepping (F8) is: %s \r", singleStep ? "ON " : "OFF");
 
     key = GetBiosKey(MenuTimeout >= 0 ? 1 : -1);
 
@@ -1792,9 +1960,9 @@ RestartInput:
         MenuTimeout--;
         goto RestartInput;
       }
-      break;            
-    }        
-    else 
+      break;
+    }
+    else
       MenuTimeout = -1;
 
     if (key == 0x3f00)          /* F5 */
@@ -1806,27 +1974,36 @@ RestartInput:
     {
       singleStep = !singleStep;
     }
-    
-    key &= 0xff;
-    
-    if (key == '\r')            /* CR - use default */
+    else if(key == 0x4800 && MenuColor != -1)      /* arrow up */
     {
-      break;
-    }
-    if (key == 0x1b)            /* ESC - use default */
-    {
-      break;
-    }
-    
-    printf("%c", key);
-    
-    if (key >= '0' && key <= '9')
-      if (Menus & (1 << (key - '0')))
+      if(MenuSelected>=0 && (Menus & (1 << (MenuSelected-1))) )
       {
-        MenuSelected = key - '0'; break;
+        MenuSelected--;
       }
+    }
+    else if(key == 0x5000 && MenuColor != -1)      /* arrow down */
+    {
+      if(MenuSelected<10 && (Menus & (1 << (MenuSelected+1))) )
+      {
+        MenuSelected++;
+      }
+    }
+
+    key &= 0xff;
+
+    if (key == '\r' || key == 0x1b) /* CR/ESC - use default */
+      break;
+
+    if (key >= '0' && key <= '9' && (Menus & (1 << (key - '0'))))
+    {
+      MenuSelected = key - '0';
+      break;
+    }
   }
   printf("\n");
+
+  if (MenuColor != -1)
+    ClearScreen(0x7);
 }
 
 STATIC VOID CfgMenuDefault(BYTE * pLine)
@@ -1851,6 +2028,60 @@ STATIC VOID CfgMenuDefault(BYTE * pLine)
   {
     GetNumArg(++pLine, &MenuTimeout);
   }
+}
+
+STATIC void ClearScreen(unsigned char attr)
+{
+  /* scroll down (newlines): */
+  iregs r;
+  unsigned char columns, rows;
+
+  /* clear */
+  r.a.x = 0x0600;
+  r.b.b.h = attr;
+  r.c.x = 0;
+  columns = peekb(0x40, 0x4a) - 1;
+  rows = peekb(0x40, 0x84);
+  if (rows == 0) rows = 24;
+  r.d.x = rows * 0x100 + columns;
+  init_call_intr(0x10, &r);
+
+  /* move cursor to pos 0,0: */
+  r.a.b.h = 0x02; /* set cursorpos */
+  r.b.b.h = 0;    /* displaypage: */
+  r.d.x = 0;  /* pos 0,0 */
+  init_call_intr(0x10, &r);
+  MenuColor = attr;
+}
+
+/**
+  MENUCOLOR[=] fg[, bg]
+*/
+STATIC void CfgMenuColor(BYTE * pLine)
+{
+  int num = 0;
+  unsigned char fg, bg = 0;
+
+  pLine = skipwh(pLine);
+
+  if ('=' == *pLine)
+    pLine = skipwh(pLine + 1);
+
+  pLine = GetNumArg(pLine, &num);
+  if (pLine == 0)
+    return;
+  fg = (unsigned char)num;
+
+  pLine = skipwh(pLine);
+
+  if (*pLine == ',')
+  {
+    pLine = GetNumArg(skipwh(pLine+1), &num);
+    if (pLine == 0)
+      return;
+    bg = (unsigned char)num;
+  }
+  ClearScreen((bg << 4) | fg);
 }
 
 /*********************************************************************************
