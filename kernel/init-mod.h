@@ -221,7 +221,7 @@ extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE are
   DOSFAR ReturnAnyDosVersionExpected;
 
 extern BYTE FAR ASM internal_data[];
-extern unsigned char FAR kbdType;
+extern unsigned char FAR ASM kbdType;
 
 extern struct {
   char  ThisIsAConstantOne;
@@ -229,7 +229,7 @@ extern struct {
   
   struct CountrySpecificInfo C;
   
-} FAR nlsCountryInfoHardcoded;
+} FAR ASM nlsCountryInfoHardcoded;
 
 /*
     data shared between DSK.C and INITDISK.C

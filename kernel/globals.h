@@ -178,12 +178,12 @@ extern struct ClockRecord
 /*                                                                      */
 /* Global variables                                                     */
 /*                                                                      */
-extern BYTE os_setver_major,    /* editable major version number        */
-  os_setver_minor,              /* editable minor version number        */
-  os_major,                     /* major version number                 */
-  os_minor,                     /* minor version number                 */
-  rev_number,                   /* minor version number                 */
-  version_flags;                /* minor version number                 */
+extern BYTE ASM os_setver_major,/* editable major version number        */
+  ASM os_setver_minor,          /* editable minor version number        */
+  ASM os_major,                 /* major version number                 */
+  ASM os_minor,                 /* minor version number                 */
+  ASM rev_number,               /* minor version number                 */
+  ASM version_flags;            /* minor version number                 */
 
 #ifdef DEBUG
 GLOBAL WORD bDumpRegs
@@ -211,7 +211,7 @@ GLOBAL BYTE copyright[] =
 
 #endif
 
-GLOBAL const BYTE os_release[]
+GLOBAL const BYTE ASM os_release[]
 #ifdef MAIN
 #if 0
     = "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n"
@@ -346,8 +346,8 @@ GLOBAL WORD dump_regs;          /* dump registers of bad call           */
 
 #endif
 
-extern f_node_ptr f_nodes;      /* pointer to the array                 */
-extern UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
+extern f_node_ptr ASM f_nodes;  /* pointer to the array                 */
+extern UWORD ASM f_nodes_cnt;   /* number of allocated f_nodes          */
 
 /*                                                                      */
 /* Function prototypes - automatically generated                        */
