@@ -250,7 +250,7 @@ STATIC void init_kernel(void)
 
 
   /* Close all (device) files */
-  for (i = 0; i < LoL->lastdrive; i++)
+  for (i = 0; i < 20; i++)
     close(i);
 
   /* and do final buffer allocation. */
