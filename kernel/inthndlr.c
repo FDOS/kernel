@@ -1561,8 +1561,8 @@ dispatch:
       {
         long lrc;
 
-        if (lr.AL != 0 ||
-            (lr.DL & 0x0f) > 0x2 || (lr.DL & 0xf0) > 0x10)
+        /* high nibble must be <= 1, low nibble must be <= 2 */
+        if ((lr.DL & 0xef) > 0x2)
           goto error_invalid;
         lrc = DosOpen(MK_FP(lr.DS, lr.SI),
                       (lr.BX & 0x70ff) | ((lr.DL & 3) << 8) |
