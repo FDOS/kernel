@@ -461,7 +461,6 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
   /* Now load the executable                              */
   {
     BYTE FAR *sp;
-    ULONG tmp;
 
     if (mode == OVERLAY)  /* memory already allocated */
       sp = MK_FP(mem, 0);
@@ -472,7 +471,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
        -- 1999/04/21 ska */
 
     /* rewind to start */
-    DosSeek(fd, 0, 0, &tmp);
+    DosSeek(fd, 0, 0);
     /* read everything, but at most 64K - sizeof(PSP)             */
     DosRead(fd, 0xff00, sp, &UnusedRetVal);
     DosClose(fd);
@@ -552,7 +551,7 @@ VOID return_user(void)
 COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 {
   UWORD mem, env, start_seg, asize = 0;
-  ULONG exe_size, tmp;
+  ULONG exe_size;
   {
     ULONG image_size;
     ULONG image_offset;
@@ -646,8 +645,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
     /* Now load the executable                              */
     /* offset to start of image                             */
-    DosSeek(fd, image_offset, 0, &tmp);
-    if (tmp != image_offset)
+    if (DosSeek(fd, image_offset, 0) != image_offset)
     {
       if (mode != OVERLAY)
       {
@@ -696,9 +694,8 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     COUNT i;
     UWORD reloc[2];
     seg FAR *spot;
-    ULONG tmp;
 
-    DosSeek(fd, ExeHeader.exRelocTable, 0, &tmp);
+    DosSeek(fd, ExeHeader.exRelocTable, 0);
     for (i = 0; i < ExeHeader.exRelocItems; i++)
     {
       if (DosRead
@@ -765,11 +762,7 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   /* If file not found - free ram and return error        */
 
   if (IsDevice(lp) ||        /* we don't want to execute C:>NUL */
-#if 0      
       (fd = (short)DosOpen(lp, O_LEGACY | O_OPEN | O_RDONLY, 0)) < 0)
-#else
-      (fd = (short)DosOpen(lp, 0)) < 0)
-#endif
   {
     return DE_FILENOTFND;
   }

@@ -14,6 +14,8 @@ James Tabor (jimtabor@infohwy.com)
 Eric Biederman (ebiederm+eric@ccr.net)
 Tom Ehlert (tom.ehlert@ginko.de)
 Victor Vlasenko (victor_vlasenko@hotbox.ru)
+Jeremy Davis (jeremyd@computer.org)
+Martin Stromberg (ams@ludd.luth.se)
 Bart Oldeman (bart@dosemu.org)
 
 And last, but not least, a big thanx to Pasquale J. Villani

@@ -457,7 +457,6 @@ STATIC void kernel()
           fmemcpy(p, insertString, 3);
 
           Cmd.ctCount += 3;
-          printf("%d %s\n", Cmd.ctCount, Cmd.ctBuffer);
           break;
         }
       }

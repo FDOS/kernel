@@ -74,16 +74,10 @@ UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth)
 /* common - call the clock driver */
 void ExecuteClockDriverRequest(BYTE command)
 {
-  ClkReqHdr.r_length = sizeof(request);
-  ClkReqHdr.r_command = command;
-  ClkReqHdr.r_count = sizeof(struct ClockRecord);
-  ClkReqHdr.r_trans = (BYTE FAR *) (&ClkRecord);
-  ClkReqHdr.r_status = 0;
-  execrh((request FAR *) & ClkReqHdr, (struct dhdr FAR *)clock);
+  BinaryCharIO(clock, sizeof(struct ClockRecord), &ClkRecord, command, &UnusedRetVal);
 }
 
-VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp,
-                BYTE FAR * hdp)
+VOID DosGetTime(UBYTE * hp, UBYTE * mp, UBYTE * sp, UBYTE * hdp)
 {
   ExecuteClockDriverRequest(C_INPUT);
 
@@ -113,9 +107,7 @@ COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd)
   return SUCCESS;
 }
 
-VOID DosGetDate(wdp, mp, mdp, yp)
-BYTE FAR *wdp, FAR * mp, FAR * mdp;
-COUNT FAR *yp;
+VOID DosGetDate(UBYTE *wdp, UBYTE *mp, UBYTE *mdp, UWORD *yp)
 {
   UWORD c;
   const UWORD *pdays;

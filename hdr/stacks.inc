@@ -117,12 +117,14 @@ irp_hi    equ 26
 ; later
 ;
 ; assumption:
-; we have never seen MSVC (our only I386 compiler) to use
-; anything but eax,ecx, edx
+; we have never seen MSVC to use anything but eax,ecx, edx
 ; so we only protect eax, ebx, ecx, edx to conserve stack space
 ;
 ; to save even more stack space, we save only HIGH part of regs
 ; at some expense of slower execution. it's easier anyway :-)
+;
+; WATCOM only uses FS: and GS: (using -zff and -zgf) and never
+; any high part of the 386 registers
 ;
 
 
@@ -141,6 +143,9 @@ irp_hi    equ 26
 	%macro  Protect386Registers  0
 
 	%ifdef WATCOM
+		push fs
+		push gs
+	%else
 		ror eax,16
 		push ax
 		ror eax,16
@@ -153,9 +158,6 @@ irp_hi    equ 26
 		ror edx,16
 		push dx
 		ror edx,16
-	%else
-		push fs
-		push gs
 	%endif
 
 	%endmacro
@@ -163,6 +165,9 @@ irp_hi    equ 26
 	%macro  Restore386Registers  0
 
 	%ifdef WATCOM
+		pop gs
+		pop fs
+	%else
 		ror edx,16
 		pop  dx
 		ror edx,16
@@ -175,9 +180,6 @@ irp_hi    equ 26
 		ror eax,16
 		pop  ax
 		ror eax,16
-	%else
-		pop gs
-		pop fs
 	%endif
 
 	%endmacro

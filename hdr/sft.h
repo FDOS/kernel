@@ -106,7 +106,7 @@ typedef struct _sfttbl {
 #define SFT_MRDWR       0x0002  /* read/write bit               */
 #define SFT_MWRITE      0x0001  /* write bit                    */
 #define SFT_MREAD       0x0000  /* ~ write bit                  */
-#define SFT_OMASK       0x00f3  /* valid open mask              */
+#define SFT_OMASK       0xfff3  /* valid open mask              */
 
 /* flag bits                                                            */
 

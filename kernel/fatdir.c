@@ -68,14 +68,10 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
     fnp->f_cluster = fnp->f_dirstart = dirstart;
 }
 
-f_node_ptr dir_open(BYTE * dirname)
+f_node_ptr dir_open(register const char *dirname)
 {
   f_node_ptr fnp;
-  COUNT drive;
-  BYTE *p;
-  WORD i;
-  struct cds FAR *cdsp;
-  BYTE *pszPath = dirname + 2;
+  int i;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (f_node_ptr) 0)
@@ -86,56 +82,22 @@ f_node_ptr dir_open(BYTE * dirname)
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
-  /* determine what drive we are using...                         */
-  if (ParseDosName
-      (dirname, &drive, (BYTE *) 0, (BYTE *) 0, (BYTE *) 0,
-       FALSE) != SUCCESS)
+  /* determine what drive and dpb we are using...                 */
+  fnp->f_dpb = CDSp[dirname[0]-'A'].cdsDpb;
+  if (fnp->f_dpb == 0)
   {
     release_f_node(fnp);
     return NULL;
   }
-
-  /* If the drive was specified, drive is non-negative and        */
-  /* corresponds to the one passed in, i.e., 0 = A, 1 = B, etc.   */
-  /* We use that and skip the "D:" part of the string.            */
-  /* Otherwise, just use the default drive                        */
-  if (drive >= 0)
-  {
-    dirname += 2;               /* Assume FAT style drive       */
-  }
-  else
-  {
-    drive = default_drive;
-  }
-  if (drive >= lastdrive)
-  {
-    release_f_node(fnp);
-    return NULL;
-  }
-
-  cdsp = &CDSp[drive];
-
-  /* Generate full path name                                      */
-  /* not necessary anymore, since truename did that already
-     i = cdsp->cdsJoinOffset;
-     ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[i]); */
 
 /* for testing only for now */
 #if 0
-  if ((cdsp->cdsFlags & CDSNETWDRV))
+  if ((CDSp[dirname[0]-'A'].cdsFlags & CDSNETWDRV))
   {
     printf("FailSafe %x \n", Int21AX);
     return fnp;
   }
 #endif
-
-  if (cdsp->cdsDpb == 0)
-  {
-    release_f_node(fnp);
-    return NULL;
-  }
-
-  fnp->f_dpb = cdsp->cdsDpb;
 
   /* Perform all directory common handling after all special      */
   /* handling has been performed.                                 */
@@ -150,15 +112,21 @@ f_node_ptr dir_open(BYTE * dirname)
   /*                                                              */
   /* Start from the root directory (dirstart = 0)                 */
 
+  /* The CDS's cdsStartCls may be used to shorten the search
+     beginning at the CWD, see mapPath() and CDS.H in order
+     to enable this behaviour there.
+           -- 2001/09/04 ska*/
+
   dir_init_fnode(fnp, 0);
 
-  for (p = pszPath; *p != '\0';)
+  dirname += 2;               /* Assume FAT style drive       */
+  while(*dirname != '\0')
   {
     /* skip all path seperators                             */
-    while (*p == '\\')
-      ++p;
+    while (*dirname == '\\')
+      ++dirname;
     /* don't continue if we're at the end                   */
-    if (*p == '\0')
+    if (*dirname == '\0')
       break;
 
     /* Convert the name into an absolute name for           */
@@ -169,20 +137,22 @@ f_node_ptr dir_open(BYTE * dirname)
 
     for (i = 0; i < FNAME_SIZE; i++)
     {
-      if (*p != '\0' && *p != '.' && *p != '/' && *p != '\\')
-        TempBuffer[i] = *p++;
+      if (*dirname != '\0' && *dirname != '.' && *dirname != '/' &&
+          *dirname != '\\')
+        TempBuffer[i] = *dirname++;
       else
         break;
     }
 
     /* and the extension (don't forget to   */
     /* add trailing spaces)...              */
-    if (*p == '.')
-      ++p;
+    if (*dirname == '.')
+      ++dirname;
     for (i = 0; i < FEXT_SIZE; i++)
     {
-      if (*p != '\0' && *p != '.' && *p != '/' && *p != '\\')
-        TempBuffer[i + FNAME_SIZE] = *p++;
+      if (*dirname != '\0' && *dirname != '.' && *dirname != '/' &&
+          *dirname != '\\')
+        TempBuffer[i + FNAME_SIZE] = *dirname++;
       else
         break;
     }
@@ -191,27 +161,18 @@ f_node_ptr dir_open(BYTE * dirname)
     /* find the entry...                    */
     i = FALSE;
 
-    DosUpFMem((BYTE FAR *) TempBuffer, FNAME_SIZE + FEXT_SIZE);
-
     while (dir_read(fnp) == 1)
     {
-      if (fnp->f_dir.dir_name[0] != '\0'
-          && fnp->f_dir.dir_name[0] != DELETED
-          && !(fnp->f_dir.dir_attrib & D_VOLID))
+      if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
+          fcbmatch(TempBuffer, fnp->f_dir.dir_name))
       {
-        if (fcmp
-            (TempBuffer, (BYTE *) fnp->f_dir.dir_name,
-             FNAME_SIZE + FEXT_SIZE))
-        {
-          i = TRUE;
-          break;
-        }
+        i = TRUE;
+        break;
       }
     }
 
     if (!i || !(fnp->f_dir.dir_attrib & D_DIR))
     {
-
       release_f_node(fnp);
       return (f_node_ptr) 0;
     }
@@ -223,6 +184,15 @@ f_node_ptr dir_open(BYTE * dirname)
     }
   }
   return fnp;
+}
+
+/* swap internal and external delete flags */
+STATIC void swap_deleted(char *name)
+{
+  if (name[0] == DELETED)
+    name[0] = EXT_DELETED;
+  else if (name[0] == EXT_DELETED)
+    name[0] = DELETED;
 }
 
 /* Description.
@@ -305,6 +275,8 @@ COUNT dir_read(REG f_node_ptr fnp)
   getdirent((BYTE FAR *) & bp->
             b_buffer[((UWORD) new_diroff) % fnp->f_dpb->dpb_secsize],
             (struct dirent FAR *)&fnp->f_dir);
+
+  swap_deleted(fnp->f_dir.dir_name);
 
   /* Update the fnode's directory info                    */
   fnp->f_flags.f_dmod = FALSE;
@@ -399,9 +371,14 @@ BOOL dir_write(REG f_node_ptr fnp)
 
     if (fnp->f_flags.f_dnew && fnp->f_dir.dir_attrib != D_LFN)
       fmemset(&fnp->f_dir.dir_case, 0, 8);
+
+    swap_deleted(fnp->f_dir.dir_name);
+
     putdirent((struct dirent FAR *)&fnp->f_dir,
               (VOID FAR *) & bp->b_buffer[(UWORD) fnp->f_diroff %
                                           fnp->f_dpb->dpb_secsize]);
+
+    swap_deleted(fnp->f_dir.dir_name);
 
     bp->b_flag &= ~(BFR_DATA | BFR_FAT);
     bp->b_flag |= BFR_DIR | BFR_DIRTY | BFR_VALID;
@@ -422,6 +399,7 @@ VOID dir_close(REG f_node_ptr fnp)
 
 #endif
   /* Clear buffers after release                                  */
+  /* hazard: no error checking! */
   flush_buffers(fnp->f_dpb->dpb_unit);
 
   /* and release this instance of the fnode                       */
@@ -434,10 +412,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   REG f_node_ptr fnp;
   REG dmatch *dmp = (dmatch *) TempBuffer;
   REG COUNT i;
-  COUNT nDrive;
-  BYTE *p;
-
-  BYTE local_name[FNAME_SIZE + 1], local_ext[FEXT_SIZE + 1];
 
 /*  printf("ff %Fs\n", name);*/
 
@@ -449,63 +423,37 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* current directory, do a seek and read, then close the fnode. */
 
   /* Parse out the drive, file name and file extension.           */
-  i = ParseDosName(name, &nDrive, &szDirName[2], local_name, local_ext,
-                   TRUE);
-  if (i != SUCCESS)
+  i = ParseDosName(name, SearchDir.dir_name, TRUE);
+  if (i < SUCCESS)
     return i;
 /*
   printf("\nff %s", Tname);
-  printf("ff %s", local_name);
-  printf("ff %s\n", local_ext);
+  printf("ff %s", fcbname);
 */
 
-  /* Build the match pattern out of the passed string             */
-  /* copy the part of the pattern which belongs to the filename and is fixed */
-  for (p = local_name, i = 0; i < FNAME_SIZE && *p; ++p, ++i)
-    SearchDir.dir_name[i] = *p;
-
-  for (; i < FNAME_SIZE; ++i)
-    SearchDir.dir_name[i] = ' ';
-
-  /* and the extension (don't forget to add trailing spaces)...   */
-  for (p = local_ext, i = 0; i < FEXT_SIZE && *p; ++p, ++i)
-    SearchDir.dir_ext[i] = *p;
-
-  for (; i < FEXT_SIZE; ++i)
-    SearchDir.dir_ext[i] = ' ';
-
-  /* Convert everything to uppercase. */
-  DosUpFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
-
   /* Now search through the directory to find the entry...        */
-
-  /* Complete building the directory from the passed in   */
-  /* name                                                 */
-  szDirName[0] = 'A' + nDrive;
-  szDirName[1] = ':';
 
   /* Special handling - the volume id is only in the root         */
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
   /* volume id bit set.                                           */
   if (attr == D_VOLID)
-  {
-    szDirName[2] = '\\';
-    szDirName[3] = '\0';
-  }
+    i = 3;
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
 
 /*  printf("dir_open %s\n", szDirName);*/
-  if ((fnp = dir_open(szDirName)) == NULL)
-    return DE_PATHNOTFND;
+  {
+    char tmp = name[i];
+    name[i] = '\0';
+    if ((fnp = dir_open(name)) == NULL)
+      return DE_PATHNOTFND;
+    name[i] = tmp;
+  }
 
   /* Now initialize the dirmatch structure.            */
 
-  nDrive = get_verify_drive(name);
-  if (nDrive < 0)
-    return nDrive;
-  dmp->dm_drive = nDrive;
+  dmp->dm_drive = name[0] - 'A';
   dmp->dm_attr_srch = attr;
 
   /* Copy the raw pattern from our data segment to the DTA. */
@@ -605,9 +553,7 @@ COUNT dos_findnext(void)
     if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
         && (fnp->f_dir.dir_attrib & D_VOLID) != D_VOLID)
     {
-      if (fcmp_wild
-          ((BYTE FAR *) dmp->dm_name_pat, (BYTE FAR *) fnp->f_dir.dir_name,
-           FNAME_SIZE + FEXT_SIZE))
+      if (fcmp_wild(dmp->dm_name_pat, fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
       {
         /*
            MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.
@@ -694,6 +640,7 @@ void ConvertName83ToNameSZ(BYTE FAR * destSZ, BYTE FAR * srcFCBName)
   *destSZ = '\0';
 }
 
+#if 0
 /*
     returns the asciiSZ length of a 8.3 filename
 */
@@ -706,6 +653,7 @@ int FileName83Length(BYTE * filename83)
 
   return strlen(buff);
 }
+#endif
 
 /*
  * Log: fatdir.c,v - for newer log entries do a "cvs log fatdir.c"

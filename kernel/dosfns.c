@@ -35,11 +35,6 @@ static BYTE *dosfnsRcsId =
 
 #include "globals.h"
 
-COUNT get_free_hndl(VOID);
-sft FAR * get_free_sft(COUNT *);
-
-f_node_ptr xlt_fd(COUNT);
-
 /* /// Added for SHARE.  - Ron Cemer */
 
 BYTE share_installed = 0;
@@ -50,7 +45,7 @@ BYTE share_installed = 0;
            error.  If < 0 is returned, it is the negated error return
            code, so DOS simply negates this value and returns it in
            AX. */
-STATIC int share_open_check(char far * filename,        /* far pointer to fully qualified filename */
+STATIC int share_open_check(char * filename,            /* pointer to fully qualified filename */
                             unsigned short pspseg,      /* psp segment address of owner process */
                             int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
                             int sharemode);     /* SHARE_COMPAT, etc... */
@@ -119,17 +114,13 @@ struct dpb FAR * GetDriveDPB(UBYTE drive, COUNT * rc)
 }
 #endif
 
+/* Construct dir-style filename for ASCIIZ 8.3 name */
 STATIC VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
 {
-  BYTE szLclName[FNAME_SIZE + 1];
-  BYTE szLclExt[FEXT_SIZE + 1];
+  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
-  ParseDosName(lpszPath, (COUNT *) 0, (BYTE *) 0,
-               szLclName, szLclExt, FALSE);
-  SpacePad(szLclName, FNAME_SIZE);
-  SpacePad(szLclExt, FEXT_SIZE);
-  fmemcpy(lpszDosFileName, (BYTE FAR *) szLclName, FNAME_SIZE);
-  fmemcpy(&lpszDosFileName[FNAME_SIZE], (BYTE FAR *) szLclExt, FEXT_SIZE);
+  ParseDosName(lpszPath, fcbname, FALSE);
+  fmemcpy(lpszDosFileName, fcbname, FNAME_SIZE + FEXT_SIZE);
 }
 
 sft FAR * idx_to_sft(COUNT SftIndex)
@@ -146,6 +137,10 @@ sft FAR * idx_to_sft(COUNT SftIndex)
     {
       lpCurSft = (sft FAR *) & (sp->sftt_table[SftIndex]);
 
+      /* if not opened, the SFT is useless            */
+      if (lpCurSft->sft_count == 0)
+        return (sft FAR *) - 1;
+      
       /* finally, point to the right entry            */
       return lpCurSft;
     }
@@ -153,6 +148,7 @@ sft FAR * idx_to_sft(COUNT SftIndex)
       SftIndex -= sp->sftt_count;
   }
   /* If not found, return an error                */
+
   return (sft FAR *) - 1;
 }
 
@@ -172,303 +168,173 @@ sft FAR *get_sft(UCOUNT hndl)
   return idx_to_sft(get_sft_idx(hndl));
 }
 
-/*
- * The `force_binary' parameter is a hack to allow functions 0x01, 0x06, 0x07,
- * and function 0x40 to use the same code for performing reads, even though the
- * two classes of functions behave quite differently: 0x01 etc. always do
- * binary reads, while for 0x40 the type of read (binary/text) depends on what
- * the SFT says. -- ror4
- */
-UCOUNT GenericReadSft(sft FAR * s, UCOUNT n, BYTE FAR * bp,
-                      COUNT FAR * err, BOOL force_binary)
+UCOUNT DosRWSft(sft FAR * s, UCOUNT n, void FAR * bp, COUNT * err, int mode)
 {
-  UCOUNT ReadCount;
-
-  /* Get the SFT block that contains the SFT      */
-  if (s == (sft FAR *) - 1)
+  *err = SUCCESS;
+  if (FP_OFF(s) == (size_t) - 1)
   {
     *err = DE_INVLDHNDL;
     return 0;
   }
-
-  /* If not open or write permission - exit       */
-  if (s->sft_count == 0 || (s->sft_mode & SFT_MWRITE))
+  /* If for read and write-only or for write and read-only then exit */
+  if((mode == XFR_READ && (s->sft_mode & SFT_MWRITE)) ||
+     (mode == XFR_WRITE && !(s->sft_mode & (SFT_MWRITE | SFT_MRDWR))))
   {
-    *err = DE_INVLDACC;
+    *err = DE_ACCESS;
     return 0;
   }
-
+    
 /*
  *   Do remote first or return error.
  *   must have been opened from remote.
  */
   if (s->sft_flags & SFT_FSHARED)
   {
-    COUNT rc;
+    UCOUNT XferCount;
     BYTE FAR *save_dta;
 
     save_dta = dta;
     lpCurSft = s;
     current_filepos = s->sft_posit;     /* needed for MSCDEX */
     dta = bp;
-    ReadCount = remote_read(s, n, &rc);
+    XferCount = (mode == XFR_READ ? remote_read : remote_write)(s, n, err);
     dta = save_dta;
-    *err = rc;
-    return rc == SUCCESS ? ReadCount : 0;
+    return *err == SUCCESS ? XferCount : 0;
   }
-  /* Do a device read if device                   */
+
+  /* Do a device transfer if device                   */
   if (s->sft_flags & SFT_FDEVICE)
   {
-    request rq;
+    if (mode==XFR_READ)
+    {
+      /* First test for eof and exit          */
+      /* immediately if it is                 */
+      if (!(s->sft_flags & SFT_FEOF) || (s->sft_flags & SFT_FNUL))
+      {
+        s->sft_flags &= ~SFT_FEOF;
+        return 0;
+      }
 
+      /* Now handle raw and cooked modes      */
+      if (s->sft_flags & SFT_FBINARY)
+        return BinaryCharIO(s->sft_dev, n, bp, C_INPUT, err);
+      if (s->sft_flags & SFT_FCONIN)
+      {
+        UCOUNT ReadCount;
+        
+        kb_buf.kb_size = LINESIZE - 1;
+        ReadCount = sti(&kb_buf);
+        if (ReadCount < kb_buf.kb_count)
+          s->sft_flags &= ~SFT_FEOF;
+        fmemcpy(bp, kb_buf.kb_buf, kb_buf.kb_count);
+        return ReadCount;
+      }
+      *(char FAR *)bp = _sti(FALSE);
+      return 1;
+    }
+    else
+    {
+      /* set to no EOF                        */
+      s->sft_flags |= SFT_FEOF;
+
+      /* if null just report full transfer    */
+      if (s->sft_flags & SFT_FNUL)
+        return n;
+
+      /* Now handle raw and cooked modes      */
+      if (s->sft_flags & SFT_FBINARY)
+      {
+        n = BinaryCharIO(s->sft_dev, n, bp, C_OUTPUT, err);
+        if (n > 0 && (s->sft_flags & SFT_FCONOUT))
+        {
+          UWORD cnt = n;
+          const char FAR *p = bp;
+          while (cnt--)
+          {
+            switch (*p++)
+            {
+            case CR:
+              scr_pos = 0;
+              break;
+            case LF:
+            case BELL:
+              break;
+            case BS:
+              --scr_pos;
+              break;
+            default:
+              ++scr_pos;
+            }
+          }
+        }
+        return n;
+      }
+      else
+      {
+        REG UWORD xfer;
+        const char FAR *p = bp;
+        
+        for (xfer = 0; xfer < n && *p != CTL_Z; p++, xfer++)
+        {
+          if (s->sft_flags & SFT_FCONOUT)
+            cso(*p);
+          else if (BinaryCharIO(s->sft_dev, 1, bp, C_OUTPUT, err) == 0 &&
+                   *err != SUCCESS)
+            return xfer;
+          if (control_break())
+          {
+            handle_break();
+            break;
+          }
+        }
+        return xfer;
+      }
+    }
+  }
+
+  /* a block transfer                           */
+  /* /// Added for SHARE - Ron Cemer */
+  if (IsShareInstalled() && (s->sft_shroff >= 0))
+  {
+    *err = share_access_check(cu_psp, s->sft_shroff, s->sft_posit,
+                              (unsigned long)n, 1);
+    if (*err != SUCCESS)
+      return 0;
+  }
+  /* /// End of additions for SHARE - Ron Cemer */
+  {
+    UCOUNT XferCount;
+    XferCount = rwblock(s->sft_status, bp, n, mode);
+    if (mode == XFR_WRITE)
+      s->sft_size = dos_getfsize(s->sft_status);
+    return XferCount;
+  }
+}
+
+UCOUNT BinaryReadSft(sft FAR * s, void *bp, COUNT *err)
+{
+  if (FP_OFF(s) == (size_t) - 1)
+  {
+    *err = DE_INVLDHNDL;
+    return 0;
+  }
+  if (s->sft_mode & SFT_MWRITE)
+  {
+    *err = DE_INVLDACC;
+    return 0;
+  }
+  if (s->sft_flags & SFT_FDEVICE)
+  {
     /* First test for eof and exit          */
     /* immediately if it is                 */
     if (!(s->sft_flags & SFT_FEOF) || (s->sft_flags & SFT_FNUL))
     {
       s->sft_flags &= ~SFT_FEOF;
-      *err = SUCCESS;
       return 0;
     }
-
-    /* Now handle raw and cooked modes      */
-    if (force_binary || (s->sft_flags & SFT_FBINARY))
-    {
-      rq.r_length = sizeof(request);
-      rq.r_command = C_INPUT;
-      rq.r_count = n;
-      rq.r_trans = (BYTE FAR *) bp;
-      rq.r_status = 0;
-      execrh((request FAR *) & rq, s->sft_dev);
-      if (rq.r_status & S_ERROR)
-      {
-        char_error(&rq, s->sft_dev);
-      }
-      else
-      {
-        *err = SUCCESS;
-        return rq.r_count;
-      }
-    }
-    else if (s->sft_flags & SFT_FCONIN)
-    {
-      kb_buf.kb_size = LINESIZE - 1;
-      ReadCount = sti(&kb_buf);
-      if (ReadCount < kb_buf.kb_count)
-        s->sft_flags &= ~SFT_FEOF;
-      fmemcpy(bp, (BYTE FAR *) kb_buf.kb_buf, kb_buf.kb_count);
-      *err = SUCCESS;
-      return ReadCount;
-    }
-    else
-    {
-      *bp = _sti(FALSE);
-      *err = SUCCESS;
-      return 1;
-    }
+    return BinaryCharIO(s->sft_dev, 1, bp, C_INPUT, err);
   }
-  else
-    /* a block read                            */
-  {
-    /* /// Added for SHARE - Ron Cemer */
-    if (IsShareInstalled())
-    {
-      if (s->sft_shroff >= 0)
-      {
-        int share_result = share_access_check(cu_psp,
-                                              s->sft_shroff,
-                                              s->sft_posit,
-                                              (unsigned long)n,
-                                              1);
-        if (share_result != 0)
-        {
-          *err = share_result;
-          return 0;
-        }
-      }
-    }
-    /* /// End of additions for SHARE - Ron Cemer */
-
-    ReadCount = rwblock(s->sft_status, bp, n, XFR_READ);
-    *err = SUCCESS;
-    return ReadCount;
-  }
-  *err = SUCCESS;
-  return 0;
-}
-
-#if 0
-UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
-{
-  return GenericRead(hndl, n, bp, err, FALSE);
-}
-#endif
-
-UCOUNT DosWriteSft(sft FAR * s, UCOUNT n, const BYTE FAR * bp, COUNT FAR * err)
-{
-  UCOUNT WriteCount;
-
-  /* Get the SFT block that contains the SFT      */
-  if (s == (sft FAR *) - 1)
-  {
-    *err = DE_INVLDHNDL;
-    return 0;
-  }
-
-  /* If this is not opened and it's not a write   */
-  /* another error                                */
-  if (s->sft_count == 0 ||
-      (!(s->sft_mode & SFT_MWRITE) && !(s->sft_mode & SFT_MRDWR)))
-  {
-    *err = DE_ACCESS;
-    return 0;
-  }
-
-  if (s->sft_flags & SFT_FSHARED)
-  {
-    COUNT rc;
-    BYTE FAR *save_dta;
-
-    save_dta = dta;
-    lpCurSft = s;
-    current_filepos = s->sft_posit;     /* needed for MSCDEX */
-    dta = (BYTE FAR *)bp;
-    WriteCount = remote_write(s, n, &rc);
-    dta = save_dta;
-    *err = rc;
-    return rc == SUCCESS ? WriteCount : 0;
-  }
-
-  /* Do a device write if device                  */
-  if (s->sft_flags & SFT_FDEVICE)
-  {
-    request rq;
-
-    /* set to no EOF                        */
-    s->sft_flags |= SFT_FEOF;
-
-    /* if null just report full transfer    */
-    if (s->sft_flags & SFT_FNUL)
-    {
-      *err = SUCCESS;
-      return n;
-    }
-
-    /* Now handle raw and cooked modes      */
-    if (s->sft_flags & SFT_FBINARY)
-    {
-      rq.r_length = sizeof(request);
-      rq.r_command = C_OUTPUT;
-      rq.r_count = n;
-      rq.r_trans = (BYTE FAR *) bp;
-      rq.r_status = 0;
-      execrh((request FAR *) & rq, s->sft_dev);
-      if (rq.r_status & S_ERROR)
-      {
-        char_error(&rq, s->sft_dev);
-      }
-      else
-      {
-        if (s->sft_flags & SFT_FCONOUT)
-        {
-          WORD cnt = rq.r_count;
-          while (cnt--)
-          {
-            switch (*bp++)
-            {
-              case CR:
-                scr_pos = 0;
-                break;
-              case LF:
-              case BELL:
-                break;
-              case BS:
-                --scr_pos;
-                break;
-              default:
-                ++scr_pos;
-            }
-          }
-        }
-        *err = SUCCESS;
-        return rq.r_count;
-      }
-    }
-    else
-    {
-      REG WORD xfer;
-
-      for (xfer = 0; xfer < n && *bp != CTL_Z; bp++, xfer++)
-      {
-        if (s->sft_flags & SFT_FCONOUT)
-        {
-          cso(*bp);
-        }
-        else
-          FOREVER
-        {
-          rq.r_length = sizeof(request);
-          rq.r_command = C_OUTPUT;
-          rq.r_count = 1;
-          rq.r_trans = (BYTE FAR *)bp;
-          rq.r_status = 0;
-          execrh((request FAR *) & rq, s->sft_dev);
-          if (!(rq.r_status & S_ERROR))
-            break;
-        charloop:
-          switch (char_error(&rq, s->sft_dev))
-          {
-            case ABORT:
-            case FAIL:
-              *err = DE_INVLDACC;
-              return xfer;
-            case CONTINUE:
-              break;
-            case RETRY:
-              continue;
-            default:
-              goto charloop;
-          }
-          break;
-        }
-        if (control_break())
-        {
-          handle_break();
-          break;
-        }
-      }
-      *err = SUCCESS;
-      return xfer;
-    }
-  }
-  else
-    /* a block write                           */
-  {
-    /* /// Added for SHARE - Ron Cemer */
-    if (IsShareInstalled())
-    {
-      if (s->sft_shroff >= 0)
-      {
-        int share_result = share_access_check(cu_psp,
-                                              s->sft_shroff,
-                                              s->sft_posit,
-                                              (unsigned long)n,
-                                              1);
-        if (share_result != 0)
-        {
-          *err = share_result;
-          return 0;
-        }
-      }
-    }
-    /* /// End of additions for SHARE - Ron Cemer */
-
-    WriteCount = rwblock(s->sft_status, (BYTE FAR *)bp, n, XFR_WRITE);
-    s->sft_size = dos_getcufsize(s->sft_status);
-    *err = SUCCESS;
-    return WriteCount;
-  }
-  *err = SUCCESS;
-  return 0;
+  return DosRWSft(s, 1, bp, err, XFR_READ);
 }
 
 COUNT SftSeek(sft FAR * s, LONG new_pos, COUNT mode)
@@ -537,27 +403,27 @@ COUNT SftSeek(sft FAR * s, LONG new_pos, COUNT mode)
   }
 }
 
-COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos)
+ULONG DosSeek(COUNT hndl, LONG new_pos, COUNT mode)
 {
   sft FAR *s;
   COUNT result;
 
   /* Get the SFT block that contains the SFT      */
   if ((s = get_sft(hndl)) == (sft FAR *) - 1)
-    return DE_INVLDHNDL;
+    return (ULONG)-1;
 
   result = SftSeek(s, new_pos, mode);
   if (result == SUCCESS)
   {
-    *set_pos = s->sft_posit;
+    return s->sft_posit;
   }
-  return result;
+  return (ULONG)-1;
 }
 
-STATIC COUNT get_free_hndl(void)
+STATIC long get_free_hndl(void)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
-  WORD hndl;
+  unsigned hndl;
 
   for (hndl = 0; hndl < p->ps_maxfiles; hndl++)
   {
@@ -598,18 +464,21 @@ sft FAR *get_free_sft(COUNT * sft_idx)
   return (sft FAR *) - 1;
 }
 
-BYTE FAR *get_root(BYTE FAR * fname)
+const char FAR *get_root(const char FAR * fname)
 {
-  BYTE FAR *froot;
-  REG WORD length;
-
   /* find the end                                 */
-  for (length = 0, froot = fname; *froot != '\0'; ++froot)
-    ++length;
+  register unsigned length = fstrlen(fname) - 1;
+  char c;
+
   /* now back up to first path seperator or start */
-  for (--froot; length > 0 && !(*froot == '/' || *froot == '\\'); --froot)
+  while (length != (unsigned)-1)
+  {
+    c = fname[length];
+    if (c == '/' || c == '\\' || c == ':')
+      break;
     --length;
-  return ++froot;
+  }
+  return fname + length + 1;
 }
 
 /* initialize SFT fields (for open/creat) for character devices */
@@ -633,15 +502,50 @@ STATIC void DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
   sftp->sft_dev = dhp;
   sftp->sft_date = dos_getdate();
   sftp->sft_time = dos_gettime();
+  sftp->sft_attrib = D_DEVICE;
 }
 
-COUNT DosCreatSft(BYTE * fname, COUNT attrib)
+/*
+extended open codes
+0000 0000 always fail
+0000 0001 open O_OPEN
+0000 0010 replace O_TRUNC
+
+0001 0000 create new file O_CREAT
+0001 0001 create if not exists, open if exists O_CREAT | O_OPEN
+0001 0010 create O_CREAT | O_TRUNC
+
+bits for flags (bits 11-8 are internal FreeDOS bits only)
+15 O_FCB  called from FCB open
+14 O_SYNC commit for each write (not implemented yet)
+13 O_NOCRIT do not invoke int23 (not implemented yet)
+12 O_LARGEFILE allow files >= 2gb but < 4gb (not implemented yet)
+11 O_LEGACY not called from int21/ah=6c: find right fn for redirector
+10 O_CREAT if file does not exist, create it
+9 O_TRUNC if file exists, truncate and open it \ not both 
+8 O_OPEN  if file exists, open it              /
+7 O_NOINHERIT do not inherit handle on exec
+6 \ 
+5  - sharing modes
+4 / 
+3 reserved 
+2 bits 2,1,0 = 100: RDONLY and do not modify file's last access time
+                    (not implemented yet)
+1 \ 0=O_RDONLY, 1=O_WRONLY,
+0 / 2=O_RDWR, 3=O_EXECCASE (preserve case for redirector EXEC,
+                            (not implemented yet))
+*/
+
+long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
 {
   COUNT sft_idx;
   sft FAR *sftp;
   struct dhdr FAR *dhp;
-  WORD result;
-  COUNT drive;
+  long result;
+
+  result = truename(fname, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
+    return result;
 
   /* now get a free system file table entry       */
   if ((sftp = get_free_sft(&sft_idx)) == (sft FAR *) - 1)
@@ -649,56 +553,89 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
 
   fmemset(sftp, 0, sizeof(sft));
 
-  sftp->sft_shroff = -1;        /* /// Added for SHARE - Ron Cemer */
   sftp->sft_psp = cu_psp;
-  sftp->sft_mode = SFT_MRDWR;
-  sftp->sft_attrib = attrib;
+  sftp->sft_mode = flags & 0xf0ff;
+  OpenMode = (BYTE) flags;
+
+  sftp->sft_shroff = -1;        /* /// Added for SHARE - Ron Cemer */
+  sftp->sft_attrib = attrib = attrib | D_ARCHIVE;
+
+  if (result & IS_NETWORK)
+  {
+    int status;
+    if ((flags & (O_TRUNC | O_CREAT)) == O_CREAT)
+      attrib |= 0x100;
   
+    lpCurSft = sftp;
+    if (!(flags & O_LEGACY))
+    {
+      extern UWORD ASM ext_open_mode, ASM ext_open_attrib, ASM ext_open_action;
+      ext_open_mode = flags & 0x70ff;
+      ext_open_attrib = attrib & 0xff;
+      ext_open_action = ((flags & 0x0300) >> 8) | ((flags & O_CREAT) >> 6);
+      status = remote_extopen(sftp, attrib);
+    }
+    else if (flags & O_CREAT)
+      status = remote_creat(sftp, attrib);
+    else
+      status = remote_open(sftp, (BYTE)flags);
+    if (status >= SUCCESS)
+    {
+      if (sftp->sft_count == 0)
+        sftp->sft_count++;
+      return sft_idx | ((long)status << 16);
+    }
+    return status;
+  }
+
   /* check for a device   */
-  dhp = IsDevice(fname);
-  if (dhp)
+  if ((result & IS_DEVICE) && (dhp = IsDevice(fname)) != NULL)
   {
     DeviceOpenSft(dhp, sftp);
     return sft_idx;
   }
 
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    lpCurSft = sftp;
-    result = remote_creat(sftp, attrib);
-    if (result == SUCCESS)
-    {
-      sftp->sft_count += 1;
-      return sft_idx;
-    }
-    return result;
-  }
-
-  drive = get_verify_drive(fname);
-  if (drive < 0)
-  {
-    return drive;
-  }
-
 /* /// Added for SHARE.  - Ron Cemer */
   if (IsShareInstalled())
   {
-    if ((sftp->sft_shroff = share_open_check((char far *)fname, cu_psp, 0x02,   /* read-write */
-                                             0)) < 0)   /* compatibility mode */
+    if ((sftp->sft_shroff =
+         share_open_check(PriPathName, cu_psp,
+                          flags & 0x03, (flags >> 2) & 0x07)) < 0)
       return sftp->sft_shroff;
   }
+  
 /* /// End of additions for SHARE.  - Ron Cemer */
 
-  sftp->sft_status = dos_creat(fname, attrib);
-  if (sftp->sft_status >= 0)
+  /* NEVER EVER allow directories to be created */
+  /* ... though FCB's are weird :) */
+  if (!(flags & O_FCB) &&
+      (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE | D_VOLID)))
+    return DE_ACCESS;
+  
+  result = dos_open(PriPathName, flags, attrib);
+  if (result >= 0)
   {
+    int status = (int)(result >> 16);
+    if (status == S_OPENED)
+    {
+      sftp->sft_attrib = dos_getfattr_fd((COUNT)result);
+      /* Check permissions. -- JPP
+         (do not allow to open volume labels/directories) */
+      if (sftp->sft_attrib & (D_DIR | D_VOLID))
+      {
+        dos_close((COUNT)result);
+        return DE_ACCESS;
+      }
+      sftp->sft_size = dos_getfsize((COUNT)result);
+    }
+    sftp->sft_status = (COUNT)result;
+    sftp->sft_flags = PriPathName[0] - 'A';
     sftp->sft_count += 1;
-    sftp->sft_flags = drive;
-    DosGetFile(fname, sftp->sft_name);
+    DosGetFile(PriPathName, sftp->sft_name);
     dos_getftime(sftp->sft_status,
                  (date FAR *) & sftp->sft_date,
                  (time FAR *) & sftp->sft_time);
-    return sft_idx;
+    return sft_idx | ((long)status << 16);
   }
   else
   {
@@ -709,49 +646,40 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
       sftp->sft_shroff = -1;
     }
 /* /// End of additions for SHARE.  - Ron Cemer */
-    return sftp->sft_status;
-  }
+    return result;
+  }    
 }
 
-COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
+long DosOpen(char FAR * fname, unsigned mode, unsigned attrib)
 {
-  psp FAR *p = MK_FP(cu_psp, 0);
-  COUNT sft_idx, hndl, result;
-
-  /* NEVER EVER allow directories to be created */
-  attrib = (BYTE) attrib;
-  if (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE))
-  {
-    return DE_ACCESS;
-  }
+  long result;
+  unsigned hndl;
+  
+  /* test if mode is in range                     */
+  if ((mode & ~SFT_OMASK) != 0)
+    return DE_INVLDACC;
 
   /* get a free handle  */
-  if ((hndl = get_free_hndl()) < 0)
-    return hndl;
-
-  result = truename(fname, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  if ((result = get_free_hndl()) < 0)
     return result;
-  }
+  hndl = (unsigned)result;
 
-  sft_idx = DosCreatSft(PriPathName, attrib);
+  result = DosOpenSft(fname, mode, attrib);
+  if (result < SUCCESS)
+    return result;
 
-  if (sft_idx < SUCCESS)
-    return sft_idx;
-
-  p->ps_filetab[hndl] = sft_idx;
-  return hndl;
+  ((psp FAR *)MK_FP(cu_psp, 0))->ps_filetab[hndl] = (UBYTE)result;
+  return hndl | (result & 0xffff0000l);
 }
 
-COUNT CloneHandle(COUNT hndl)
+COUNT CloneHandle(unsigned hndl)
 {
-  sft FAR *sftp;
-
   /* now get the system file table entry                          */
-  if ((sftp = get_sft(hndl)) == (sft FAR *) - 1)
-    return DE_INVLDHNDL;
+  sft FAR *sftp = get_sft(hndl);
 
+  if (sftp == (sft FAR *) -1 || (sftp->sft_mode & O_NOINHERIT))
+    return DE_INVLDHNDL;
+  
   /* now that we have the system file table entry, get the fnode  */
   /* index, and increment the count, so that we've effectively    */
   /* cloned the file.                                             */
@@ -759,47 +687,26 @@ COUNT CloneHandle(COUNT hndl)
   return SUCCESS;
 }
 
-COUNT DosDup(COUNT Handle)
+long DosDup(unsigned Handle)
 {
-  psp FAR *p = MK_FP(cu_psp, 0);
-  COUNT NewHandle;
-  sft FAR *Sftp;
+  long NewHandle;
 
-  /* Get the SFT block that contains the SFT                      */
-  if ((Sftp = get_sft(Handle)) == (sft FAR *) - 1)
-    return DE_INVLDHNDL;
-
-  /* If not open - exit                                           */
-  if (Sftp->sft_count <= 0)
-    return DE_INVLDHNDL;
-
-  /* now get a free handle                                        */
   if ((NewHandle = get_free_hndl()) < 0)
     return NewHandle;
 
-  /* If everything looks ok, bump it up.                          */
-  if ((Sftp->sft_flags & (SFT_FDEVICE | SFT_FSHARED))
-      || (Sftp->sft_status >= 0))
-  {
-    p->ps_filetab[NewHandle] = p->ps_filetab[Handle];
-    Sftp->sft_count += 1;
-    return NewHandle;
-  }
-  else
+  if (DosForceDup(Handle, (unsigned)NewHandle) < 0)
     return DE_INVLDHNDL;
+  else
+    return NewHandle;
 }
 
-COUNT DosForceDup(COUNT OldHandle, COUNT NewHandle)
+COUNT DosForceDup(unsigned OldHandle, unsigned NewHandle)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
   sft FAR *Sftp;
 
   /* Get the SFT block that contains the SFT                      */
   if ((Sftp = get_sft(OldHandle)) == (sft FAR *) - 1)
-    return DE_INVLDHNDL;
-
-  /* If not open - exit                                           */
-  if (Sftp->sft_count <= 0)
     return DE_INVLDHNDL;
 
   /* now close the new handle if it's open                        */
@@ -816,146 +723,20 @@ COUNT DosForceDup(COUNT OldHandle, COUNT NewHandle)
       || (Sftp->sft_status >= 0))
   {
     p->ps_filetab[NewHandle] = p->ps_filetab[OldHandle];
-
+    /* possible hazard: integer overflow ska*/
     Sftp->sft_count += 1;
-    return NewHandle;
+    return SUCCESS;
   }
   else
     return DE_INVLDHNDL;
-}
-
-COUNT DosOpenSft(BYTE * fname, COUNT mode)
-{
-  COUNT sft_idx;
-  sft FAR *sftp;
-  struct dhdr FAR *dhp;
-  COUNT drive, result;
-
-  /* now get a free system file table entry       */
-  if ((sftp = get_free_sft(&sft_idx)) == (sft FAR *) - 1)
-    return DE_TOOMANY;
-
-  fmemset(sftp, 0, sizeof(sft));
-  sftp->sft_psp = cu_psp;
-  sftp->sft_mode = mode;
-  mode = OpenMode = (BYTE) mode;
-  
-  /* check for a device                           */
-  dhp = IsDevice(fname);
-  if (dhp)
-  {
-    DeviceOpenSft(dhp, sftp);
-    return sft_idx;
-  }
-
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    lpCurSft = sftp;
-    result = remote_open(sftp, mode);
-    /* printf("open SFT %d = %p\n",sft_idx,sftp); */
-    if (result == SUCCESS)
-    {
-      sftp->sft_count += 1;
-      return sft_idx;
-    }
-    return result;
-  }
-
-  drive = get_verify_drive(fname);
-  if (drive < 0)
-  {
-    return drive;
-  }
-
-  sftp->sft_shroff = -1;        /* /// Added for SHARE - Ron Cemer */
-
-  /* /// Added for SHARE.  - Ron Cemer */
-  if (IsShareInstalled())
-  {
-    if ((sftp->sft_shroff = share_open_check
-         ((char far *)fname,
-          (unsigned short)cu_psp, mode & 0x03, (mode >> 2) & 0x07)) < 0)
-      return sftp->sft_shroff;
-  }
-/* /// End of additions for SHARE.  - Ron Cemer */
-
-  sftp->sft_status = dos_open(fname, mode);
-
-  if (sftp->sft_status >= 0)
-  {
-    f_node_ptr fnp = xlt_fd(sftp->sft_status);
-
-    sftp->sft_attrib = fnp->f_dir.dir_attrib;
-
-    /* Check permissions. -- JPP */
-    if ((sftp->sft_attrib & (D_DIR | D_VOLID)) ||
-        ((sftp->sft_attrib & D_RDONLY) && (mode != O_RDONLY)))
-    {
-      dos_close(sftp->sft_status);
-      return DE_ACCESS;
-    }
-
-    sftp->sft_size = dos_getfsize(sftp->sft_status);
-    dos_getftime(sftp->sft_status,
-                 (date FAR *) & sftp->sft_date,
-                 (time FAR *) & sftp->sft_time);
-    sftp->sft_count += 1;
-    sftp->sft_mode = mode;
-    sftp->sft_flags = drive;
-    DosGetFile(fname, sftp->sft_name);
-    return sft_idx;
-  }
-  else
-  {
-/* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
-    if (IsShareInstalled())
-    {
-      share_close_file(sftp->sft_shroff);
-      sftp->sft_shroff = -1;
-    }
-/* /// End of additions for SHARE.  - Ron Cemer */
-    return sftp->sft_status;
-  }
-}
-
-COUNT DosOpen(BYTE FAR * fname, COUNT mode)
-{
-  psp FAR *p = MK_FP(cu_psp, 0);
-  COUNT sft_idx, result, hndl;
-
-  /* test if mode is in range                     */
-  if ((mode & ~SFT_OMASK) != 0)
-    return DE_INVLDACC;
-
-  /* get a free handle                            */
-  if ((hndl = get_free_hndl()) < 0)
-    return hndl;
-
-  result = truename(fname, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
-    return result;
-  }
-
-  sft_idx = DosOpenSft(PriPathName, mode & 3);
-
-  if (sft_idx < SUCCESS)
-    return sft_idx;
-
-  p->ps_filetab[hndl] = sft_idx;
-  return hndl;
 }
 
 COUNT DosCloseSft(WORD sft_idx, BOOL commitonly)
 {
   sft FAR *sftp = idx_to_sft(sft_idx);
 
-  if (sftp == (sft FAR *) - 1)
+  if (FP_OFF(sftp) == (size_t) - 1)
     return DE_INVLDHNDL;
-
-  /* If this is not opened another error          */
-  if (sftp->sft_count == 0)
-    return DE_ACCESS;
 
   lpCurSft = sftp;
 /*
@@ -1004,8 +785,8 @@ COUNT DosClose(COUNT hndl)
   return ret;
 }
 
-BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc,
-                UCOUNT FAR * bps, UCOUNT FAR * nc)
+BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
+                UWORD * bps, UWORD * nc)
 {
   /* *nc==0xffff means: called from FatGetDrvData, fcbfns.c */
   struct dpb FAR *dpbp;
@@ -1050,12 +831,13 @@ BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc,
     return TRUE;
   }
 
-  dpbp = CDSp[drive].cdsDpb;
+  dpbp = cdsp->cdsDpb;
   if (dpbp == NULL)
     return FALSE;
 
   if (*nc == 0xffff)
   {
+      /* hazard: no error checking! */
     flush_buffers(dpbp->dpb_unit);
     dpbp->dpb_flags = M_CHANGED;
   }
@@ -1104,8 +886,8 @@ BOOL DosGetFree(UBYTE drive, UCOUNT FAR * spc, UCOUNT FAR * navc,
     /* fake for 64k clusters do confuse some DOS programs, but let
        others work without overflowing */
     *spc >>= 1;
-    *navc = (*navc < FAT_MAGIC16 / 2) ? (*navc << 1) : FAT_MAGIC16;
-    *nc = (*nc < FAT_MAGIC16 / 2) ? (*nc << 1) : FAT_MAGIC16;
+    *navc = ((unsigned)*navc < FAT_MAGIC16 / 2) ? ((unsigned)*navc << 1) : FAT_MAGIC16;
+    *nc = ((unsigned)*nc < FAT_MAGIC16 / 2) ? ((unsigned)*nc << 1) : FAT_MAGIC16;
   }
   return TRUE;
 }
@@ -1166,31 +948,38 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
 
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 {
-  BYTE FAR *cp;
+  BYTE *cp;
+  struct cds FAR *cdsp;
 
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
 
   /* first check for valid drive          */
-  if (drive >= lastdrive || !(CDSp[drive].cdsFlags & CDSVALID))
-  {
+  if (drive >= lastdrive)
     return DE_INVLDDRV;
-  }
 
-  current_ldt = &CDSp[drive];
+  cdsp = &CDSp[drive];
+  fmemcpy(&TempCDS, cdsp, sizeof(TempCDS));
+  if (!(TempCDS.cdsFlags & CDSVALID))
+    return DE_INVLDDRV;
+
+  cp = TempCDS.cdsCurrentPath;
   /* ensure termination of fstrcpy */
   cp[MAX_CDSPATH - 1] = '\0';
 
-  if ((current_ldt->cdsFlags & CDSNETWDRV) == 0)
+  if ((TempCDS.cdsFlags & CDSNETWDRV) == 0)
   {
-    if (current_ldt->cdsDpb == 0)
-      return DE_INVLDDRV;
-
-    if ((media_check(current_ldt->cdsDpb) < 0))
-      return DE_INVLDDRV;
+    /* dos_cd ensures that the path exists; if not, we
+       need to change to the root directory */
+    int result = dos_cd(cdsp, cp);
+    if (result == DE_PATHNOTFND)
+      cp[TempCDS.cdsBackslashOffset + 1] =
+        cdsp->cdsCurrentPath[TempCDS.cdsBackslashOffset + 1] = '\0';
+    else if (result < SUCCESS)
+      return result;
   }
 
-  cp = &current_ldt->cdsCurrentPath[current_ldt->cdsJoinOffset];
+  cp += TempCDS.cdsBackslashOffset;
   if (*cp == '\0')
     s[0] = '\0';
   else
@@ -1202,7 +991,6 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 #undef CHDIR_DEBUG
 COUNT DosChangeDir(BYTE FAR * s)
 {
-  REG COUNT drive;
   COUNT result;
   BYTE FAR *p;
 
@@ -1211,19 +999,11 @@ COUNT DosChangeDir(BYTE FAR * s)
     if (*p == '*' || *p == '?')
       return DE_PATHNOTFND;
 
-  drive = get_verify_drive(s);
-  if (drive < 0)
-  {
-    return drive;
-  }
-
-  result = truename(s, PriPathName, FALSE);
-  if (result != SUCCESS)
+  result = truename(s, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
   {
     return result;
   }
-
-  current_ldt = &CDSp[drive];
 
   if (strlen(PriPathName) > sizeof(current_ldt->cdsCurrentPath) - 1)
     return DE_PATHNOTFND;
@@ -1233,8 +1013,8 @@ COUNT DosChangeDir(BYTE FAR * s)
 #endif
   /* now get fs to change to new          */
   /* directory                            */
-  result = (current_ldt->cdsFlags & CDSNETWDRV) ? remote_chdir() :
-      dos_cd(current_ldt, PriPathName);
+  result = (result & IS_NETWORK ? remote_chdir() :
+      dos_cd(current_ldt, PriPathName));
 #if defined(CHDIR_DEBUG)
   printf("status = %04x, new_path='%Fs'\n", result, cdsd->cdsCurrentPath);
 #endif
@@ -1266,7 +1046,10 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 {
   COUNT rc;
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
-  BYTE FAR *p;
+
+  rc = truename(name, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (rc < SUCCESS)
+    return rc;
 
   /* /// Added code here to do matching against device names.
      DOS findfirst will match exact device names if the
@@ -1276,37 +1059,12 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
      in newstuff.c.
      - Ron Cemer */
 
-  fmemset(dta, 0, sizeof(dmatch));
+  fmemset(dmp, 0, sizeof(dmatch));
 
   /* initially mark the dta as invalid for further findnexts */
-  ((dmatch FAR *) dta)->dm_attr_fnd = D_DEVICE;
+  dmp->dm_attr_fnd = D_DEVICE;
 
   memset(&SearchDir, 0, sizeof(struct dirent));
-
-  rc = truename(name, PriPathName, FALSE);
-  if (rc != SUCCESS)
-    return rc;
-
-  if (IsDevice(PriPathName))
-  {
-    COUNT i;
-
-    /* Found a matching device. Hence there cannot be wildcards. */
-    SearchDir.dir_attrib = D_DEVICE;
-    SearchDir.dir_time = dos_gettime();
-    SearchDir.dir_date = dos_getdate();
-    p = get_root(PriPathName);
-    memset(SearchDir.dir_name, ' ', FNAME_SIZE + FEXT_SIZE);
-    for (i = 0; i < FNAME_SIZE && *p && *p != '.'; i++)
-      SearchDir.dir_name[i] = *p++;
-    if (*p == '.')
-      p++;
-    for (i = 0; i < FEXT_SIZE && *p && *p != '.'; i++)
-      SearchDir.dir_ext[i] = *p++;
-    pop_dmp(dmp);
-    return SUCCESS;
-  }
-  /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
 
   SAttr = (BYTE) attr;
 
@@ -1315,19 +1073,38 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 #endif
 
   fmemcpy(TempBuffer, dta, 21);
-  p = dta;
-  dta = (BYTE FAR *) TempBuffer;
+  dta = TempBuffer;
 
-  rc = current_ldt->cdsFlags & CDSNETWDRV ?
-      remote_findfirst((VOID FAR *) current_ldt) :
-      dos_findfirst(attr, PriPathName);
+  if (rc & IS_NETWORK)
+    rc = remote_findfirst(current_ldt);
+  else if (rc & IS_DEVICE)
+  {
+    const char *p;
+    COUNT i;
 
-  dta = p;
+    /* Found a matching device. Hence there cannot be wildcards. */
+    SearchDir.dir_attrib = D_DEVICE;
+    SearchDir.dir_time = dos_gettime();
+    SearchDir.dir_date = dos_getdate();
+    p = (char *)FP_OFF(get_root(PriPathName));
+    memset(SearchDir.dir_name, ' ', FNAME_SIZE + FEXT_SIZE);
+    for (i = 0; i < FNAME_SIZE && *p && *p != '.'; i++)
+      SearchDir.dir_name[i] = *p++;
+    if (*p == '.')
+      p++;
+    for (i = FNAME_SIZE; i < FNAME_SIZE + FEXT_SIZE && *p && *p != '.'; i++)
+      SearchDir.dir_name[i] = *p++;
+    rc = SUCCESS;
+    /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
+  }
+  else
+    rc = dos_findfirst(attr, PriPathName);
 
+  dta = (char FAR *) dmp;
   fmemcpy(dta, TempBuffer, 21);
-  pop_dmp((dmatch FAR *) dta);
+  pop_dmp(dmp);
   if (rc != SUCCESS)
-    ((dmatch FAR *) dta)->dm_attr_fnd = D_DEVICE;       /* mark invalid */
+    dmp->dm_attr_fnd = D_DEVICE;       /* mark invalid */
   return rc;
 }
 
@@ -1374,18 +1151,14 @@ COUNT DosFindNext(void)
   return rc;
 }
 
-COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
+COUNT DosGetFtime(COUNT hndl, date * dp, time * tp)
 {
   sft FAR *s;
 /*sfttbl FAR *sp;*/
 
   /* Get the SFT block that contains the SFT      */
-  if ((s = get_sft(hndl)) == (sft FAR *) - 1)
+  if (FP_OFF(s = get_sft(hndl)) == (size_t) - 1)
     return DE_INVLDHNDL;
-
-  /* If this is not opened another error          */
-  if (s->sft_count == 0)
-    return DE_ACCESS;
 
   /* If SFT entry refers to a device, return the date and time of opening */
   if (s->sft_flags & (SFT_FDEVICE | SFT_FSHARED))
@@ -1404,12 +1177,8 @@ COUNT DosSetFtimeSft(WORD sft_idx, date dp, time tp)
   /* Get the SFT block that contains the SFT      */
   sft FAR *s = idx_to_sft(sft_idx);
 
-  if (s == (sft FAR *) - 1)
+  if (FP_OFF(s) == (size_t) - 1)
     return DE_INVLDHNDL;
-
-  /* If this is not opened another error          */
-  if (s->sft_count == 0)
-    return DE_ACCESS;
 
   /* If SFT entry refers to a device, do nothing */
   if (s->sft_flags & SFT_FDEVICE)
@@ -1428,42 +1197,30 @@ COUNT DosSetFtimeSft(WORD sft_idx, date dp, time tp)
 
 COUNT DosGetFattr(BYTE FAR * name)
 {
-  COUNT result, drive;
+  COUNT result;
 
-  if (IsDevice(name))
-  {
-    return DE_FILENOTFND;
-  }
-
-  drive = get_verify_drive(name);
-  if (drive < 0)
-  {
-    return drive;
-  }
-
-  result = truename(name, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  result = truename(name, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
     return result;
-  }
-
+  
 /* /// Added check for "d:\", which returns 0x10 (subdirectory) under DOS.
        - Ron Cemer */
-  if ((PriPathName[0] != '\0')
-      && (PriPathName[1] == ':')
-      && ((PriPathName[2] == '/') || (PriPathName[2] == '\\'))
-      && (PriPathName[3] == '\0'))
-  {
-    return 0x10;
-  }
+           /* Theoretically: If the redirectory's qualify function
+               doesn't return nonsense this check can be reduced to
+               PriPathname[3] == 0, because local path names always
+               have the three-byte string ?:\ and UNC path shouldn't
+               validy consist of just two slashes.
+               -- 2001/09/03 ska*/
 
-  current_ldt = &CDSp[drive];
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
+  if (PriPathName[3] == '\0')
+    return 0x10;
+
+  if (result & IS_NETWORK)
     return remote_getfattr();
-  }
-  else
-  {
+
+  if (result & IS_DEVICE)
+    return DE_FILENOTFND;
+
 /* /// Use truename()'s result, which we already have in PriPathName.
        I copy it to tmp_name because PriPathName is global and seems
        to get trashed somewhere in transit.
@@ -1492,39 +1249,26 @@ COUNT DosGetFattr(BYTE FAR * name)
        shit.
        tom
      */
-    return dos_getfattr(PriPathName);
-
-  }
+  return dos_getfattr(PriPathName);
 }
 
+/* This function is almost identical to DosGetFattr().
+   Maybe it is nice to join both functions.
+       -- 2001/09/03 ska*/
 COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
 {
-  COUNT result, drive;
+  COUNT result;
 
-  if (IsDevice(name))
-  {
-    return DE_FILENOTFND;
-  }
-
-  drive = get_verify_drive(name);
-  if (drive < 0)
-  {
-    return drive;
-  }
-
-  result = truename(name, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  result = truename(name, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
     return result;
-  }
 
-  current_ldt = &CDSp[drive];
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
+  if (result & IS_NETWORK)
     return remote_setfattr(attrp);
-  }
-  else
-  {
+
+  if (result & IS_DEVICE)
+    return DE_FILENOTFND;
+
 /* /// Use truename()'s result, which we already have in PriPathName.
        I copy it to tmp_name because PriPathName is global and seems
        to get trashed somewhere in transit.
@@ -1536,9 +1280,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
           
           see DosGetAttr()
 */
-    return dos_setfattr(PriPathName, attrp);
-
-  }
+  return dos_setfattr(PriPathName, attrp);
 }
 
 UBYTE DosSelectDrv(UBYTE drv)
@@ -1558,137 +1300,90 @@ UBYTE DosSelectDrv(UBYTE drv)
 
 COUNT DosDelete(BYTE FAR * path, int attrib)
 {
-  COUNT result, drive;
+  COUNT result;
 
-  if (IsDevice(path))
-  {
-    return DE_FILENOTFND;
-  }
-
-  drive = get_verify_drive(path);
-  if (drive < 0)
-  {
-    return drive;
-  }
-  result = truename(path, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  result = truename(path, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
     return result;
-  }
-  current_ldt = &CDSp[drive];
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
+
+  if (result & IS_NETWORK)
     return remote_delete();
-  }
-  else
-  {
-    return dos_delete(PriPathName, attrib);
-  }
+
+  if (result & IS_DEVICE)
+    return DE_FILENOTFND;
+
+  return dos_delete(PriPathName, attrib);
 }
 
 COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
 {
-  COUNT drive1, drive2;
-
-  if (IsDevice(path1) || IsDevice(path2))
-  {
-    return DE_FILENOTFND;
-  }
-
-  drive1 = get_verify_drive(path1);
-  drive2 = get_verify_drive(path2);
-  if ((drive1 != drive2) || (drive1 < 0))
+  if (path1[0] != path2[0])
   {
     return DE_INVLDDRV;
   }
-  current_ldt = &CDSp[drive1];
   if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
     return remote_rename();
-  }
-  else
-  {
-    return dos_rename(PriPathName, SecPathName, attrib);
-  }
+
+  return dos_rename(path1, path2, attrib);
 }
 
 COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
 {
   COUNT result;
 
-  result = truename(path1, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  result = truename(path2, SecPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
     return result;
-  }
 
-  result = truename(path2, SecPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  if (!(result & IS_NETWORK) && (result & IS_DEVICE))
+    return DE_FILENOTFND;
+
+  result = truename(path1, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
     return result;
-  }
+
+  if (!(result & IS_NETWORK) && (result & IS_DEVICE))
+    return DE_FILENOTFND;
 
   return DosRenameTrue(PriPathName, SecPathName, D_ALL);
 }
 
-COUNT DosMkdir(BYTE FAR * dir)
+COUNT DosMkdir(const char FAR * dir)
 {
-  COUNT result, drive;
+  COUNT result;
 
-  if (IsDevice(dir))
-  {
-    return DE_PATHNOTFND;
-  }
-
-  drive = get_verify_drive(dir);
-  if (drive < 0)
-  {
-    return drive;
-  }
-  result = truename(dir, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  result = truename(dir, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  if (result < SUCCESS)
     return result;
-  }
-  current_ldt = &CDSp[drive];
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
+
+  if (result & IS_NETWORK)
     return remote_mkdir();
-  }
-  else
-  {
-    return dos_mkdir(PriPathName);
-  }
+
+  if (result & IS_DEVICE)
+    return DE_ACCESS;
+
+  return dos_mkdir(PriPathName);
 }
 
-COUNT DosRmdir(BYTE FAR * dir)
+/* This function is almost identical to DosMkdir().
+   Maybe it would be nice to merge both functions.
+       -- 2001/09/03 ska*/
+COUNT DosRmdir(const char FAR * dir)
 {
-  COUNT result, drive;
+  COUNT result;
 
-  if (IsDevice(dir))
-  {
-    return DE_PATHNOTFND;
-  }
+  result = truename(dir, PriPathName, CDS_MODE_CHECK_DEV_PATH);
 
-  drive = get_verify_drive(dir);
-  if (drive < 0)
-  {
-    return drive;
-  }
-  result = truename(dir, PriPathName, FALSE);
-  if (result != SUCCESS)
-  {
+  if (result < SUCCESS)
     return result;
-  }
-  current_ldt = &CDSp[drive];
-  if (CDSp[drive].cdsFlags & CDSNETWDRV)
-  {
+
+  if (result & IS_NETWORK)
     return remote_rmdir();
-  }
-  else
-  {
-    return dos_rmdir(PriPathName);
-  }
+
+  if (result & IS_DEVICE)
+    return DE_ACCESS;
+
+  return dos_rmdir(PriPathName);
 }
 
 /* /// Added for SHARE.  - Ron Cemer */
@@ -1698,7 +1393,7 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
   sft FAR *s;
 
   /* Get the SFT block that contains the SFT      */
-  if ((s = get_sft(hndl)) == (sft FAR *) - 1)
+  if (FP_OFF(s = get_sft(hndl)) == (size_t) - 1)
     return DE_INVLDHNDL;
 
   if (s->sft_flags & SFT_FSHARED)
@@ -1723,10 +1418,10 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
  */
 
 /* check for a device  */
-struct dhdr FAR *IsDevice(BYTE FAR * fname)
+struct dhdr FAR *IsDevice(const char FAR * fname)
 {
   struct dhdr FAR *dhp;
-  char FAR *froot = get_root(fname);
+  const char FAR *froot = get_root(fname);
   int i;
 
 /* /// BUG!!! This is absolutely wrong.  A filename of "NUL.LST" must be
@@ -1790,7 +1485,7 @@ BOOL IsShareInstalled(void)
            error.  If < 0 is returned, it is the negated error return
            code, so DOS simply negates this value and returns it in
            AX. */
-STATIC int share_open_check(char far * filename,        /* far pointer to fully qualified filename */
+STATIC int share_open_check(char * filename,            /* pointer to fully qualified filename */
                             unsigned short pspseg,      /* psp segment address of owner process */
                             int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
                             int sharemode)
@@ -1892,6 +1587,18 @@ STATIC int remote_lock_unlock(sft FAR *sftp,     /* SFT for file */
   regs.di = FP_OFF(sftp);
   intr(0x2f, &regs);
   return ((regs.flags & 1) ? -(int)regs.a.b.l : 0);
+}
+
+COUNT DosTruename(const char FAR *src, char FAR *dest)
+{
+  /* RBIL: The buffer has be unchanged, if the call fails.
+     Therefore, the name is created in an internal buffer
+     and copied into the user buffer only on success.
+  */  
+  COUNT rc = truename(src, PriPathName, 0);
+  if (rc >= SUCCESS)
+    fstrcpy(dest, PriPathName);
+  return rc;
 }
 
 

@@ -106,7 +106,7 @@ IntDosCal:
 ;  UWORD ip,cs,flags;
 ;  UWORD callerARG1; 
 ;};
-    Protect386Registers
+    Protect386Registers    
     push ax
     push cx
     push dx
@@ -131,7 +131,7 @@ IntDosCal:
     pop dx
     pop cx
     pop ax
-    Restore386Registers
+    Restore386Registers    
     
     iret
                     
@@ -255,6 +255,11 @@ _QRemote_Fn
                 global  _remote_printredir
 _remote_printredir:
                 mov     al, 25h
+                jmp     short call_int2f
+
+                global  _remote_extopen
+_remote_extopen:
+                mov     al, 2eh
                 
 call_int2f:
                 mov     ah, 11h
@@ -263,7 +268,6 @@ call_int2f:
                 push    es
                 push    si
                 push    di
-                push    dx
                 push    cx
                 push    bx
 
@@ -275,10 +279,6 @@ call_int2f:
                 je      print_doredir
                 cmp     al, 1fh
                 je      print_doredir
-                cmp     al, 21h        ; 21h, Lseek from eof
-                je      lseekeof
-                cmp     al, 23h
-                je      qremote_fn
                 cmp     al, 25h
                 je      remote_printredir
 
@@ -289,22 +289,27 @@ call_int2f:
                 je      remote_rw                
                 cmp     al, 0ch
                 je      remote_getfree
+                cmp     al, 21h        ; 21h, Lseek from eof
+                je      lseekeof
+                cmp     al, 23h
+                je      qremote_fn
         
 int2f_call_push:                
                 push    word [bp+8]    ; very fakey, HaHa ;)
 int2f_call:
-		clc		       ; set to succeed
+                xor     cx, cx         ; set to succeed; clear carry and CX
                 int     2fh
                 pop     bx
                 jc      no_clear_ax
 clear_ax:       
-                xor     ax,ax
+                mov     ax, cx         ; extended open -> status from CX in AX
+                                       ; otherwise CX was set to zero above
+                jmp     short no_neg_ax
 no_clear_ax:
                 neg     ax
 no_neg_ax:              
                 pop     bx
                 pop     cx
-                pop     dx
                 pop     di
                 pop     si
                 pop     es
@@ -314,8 +319,8 @@ no_neg_ax:
 lseekeof:              
                 mov     dx, [bp+8]
                 mov     cx, [bp+10]
-                jmp     int2f_call_push
-        
+                ; "fall through"
+
 remote_getfattr:        
                 clc                     ; set to succeed
                 int     2fh
@@ -358,17 +363,20 @@ remote_printredir:
                 mov     dx, [bp+4]
                 push    word [bp+6]
                 jmp     short int2f_call
+
+remote_rw:      jmp     short remote_rw1
                      
-qremote_fn:     
-                lds     si,[bp+4]
-                les     di,[bp+8]
+qremote_fn:
+                push    ds
+                lds     si,[bp+8]
                 clc
                 int     2fh
+                pop     ds
                 mov     ax,0xffff
                 jc      no_neg_ax
                 jmp     short clear_ax
 
-remote_rw:      mov     cx, [bp+8]
+remote_rw1:     mov     cx, [bp+8]
                 clc                     ; set to succeed
                 int     2fh
                 jc      int2f_carry
@@ -377,7 +385,7 @@ int2f_carry:    neg     ax
                 mov     di, [bp+10]
                 mov     [di], ax
                 mov     ax, cx
-                jmp     short no_neg_ax
+                jmp     no_neg_ax
                 
                 global  _remote_process_end
 _remote_process_end:                     ; Terminate process

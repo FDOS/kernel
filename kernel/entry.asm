@@ -376,7 +376,11 @@ int21_exit_nodec:
                 pop si
 
 %IFDEF I386
-		sub bp,8
+%ifdef WATCOM
+                sub bp, 4   ; for fs and gs only
+%else        
+		sub bp, 8   ; high parts of eax, ebx, ecx, edx
+%endif        
 %endif				
 
                 cli

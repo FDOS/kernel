@@ -20,7 +20,13 @@ extern __segment DosTextSeg;
 #define DOSFAR FAR
 #define DOSTEXTFAR FAR
 
+#elif !defined(I86)
+
+#define DOSFAR
+#define DOSTEXTFAR
+
 #else
+
 #pragma error("unknown compiler - please adjust")
 this should simply not compile ! !
 #endif

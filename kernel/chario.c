@@ -65,6 +65,40 @@ struct dhdr FAR *finddev(UWORD attr_mask)
 }
 #endif
 
+UCOUNT BinaryCharIO(struct dhdr FAR * dev, UCOUNT n, void FAR * bp, unsigned command, COUNT *err)
+{
+  *err = SUCCESS;
+    
+  FOREVER
+  {
+    CharReqHdr.r_length = sizeof(request);
+    CharReqHdr.r_command = command;
+    CharReqHdr.r_count = n;
+    CharReqHdr.r_trans = bp;
+    CharReqHdr.r_status = 0;
+    execrh(&CharReqHdr, dev);
+    if (CharReqHdr.r_status & S_ERROR)
+    {
+    charloop:
+      switch (char_error(&CharReqHdr, dev))
+      {
+        case ABORT:
+        case FAIL:
+          *err = DE_INVLDACC;
+          return 0;
+        case CONTINUE:
+          break;
+        case RETRY:
+          continue;
+        default:
+          goto charloop;
+      }
+    }
+    break;
+  }
+  return CharReqHdr.r_count;
+}
+
 VOID _cso(COUNT c)
 {
   if (syscon->dh_attr & ATTR_FASTCON)
@@ -72,7 +106,7 @@ VOID _cso(COUNT c)
 #if defined(__TURBOC__)
     _AL = c;
     __int__(0x29);
-#else
+#elif defined(I86)
     asm
     {
       mov al, byte ptr c;
@@ -81,14 +115,7 @@ VOID _cso(COUNT c)
 #endif
     return;
   }
-  CharReqHdr.r_length = sizeof(request);
-  CharReqHdr.r_command = C_OUTPUT;
-  CharReqHdr.r_count = 1;
-  CharReqHdr.r_trans = (BYTE FAR *) (&c);
-  CharReqHdr.r_status = 0;
-  execrh((request FAR *) & CharReqHdr, syscon);
-  if (CharReqHdr.r_status & S_ERROR)
-    char_error(&CharReqHdr, syscon);
+  BinaryCharIO(syscon, 1, &c, C_OUTPUT, &UnusedRetVal);
 }
 
 VOID cso(COUNT c)
@@ -97,7 +124,7 @@ VOID cso(COUNT c)
   con_hold();
 
   if (PrinterEcho)
-    DosWrite(STDPRN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal);
+    DosWrite(STDPRN, 1, (BYTE FAR *) & c, & UnusedRetVal);
 
   switch (c)
   {
@@ -125,7 +152,7 @@ VOID cso(COUNT c)
 
 VOID sto(COUNT c)
 {
-  DosWrite(STDOUT, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal);
+  DosWrite(STDOUT, 1, (BYTE FAR *) & c, & UnusedRetVal);
 }
 
 VOID mod_cso(REG UCOUNT c)
@@ -176,14 +203,7 @@ COUNT con_read(void)
 {
   BYTE c;
 
-  CharReqHdr.r_length = sizeof(request);
-  CharReqHdr.r_command = C_INPUT;
-  CharReqHdr.r_count = 1;
-  CharReqHdr.r_trans = (BYTE FAR *) & c;
-  CharReqHdr.r_status = 0;
-  execrh((request FAR *) & CharReqHdr, syscon);
-  if (CharReqHdr.r_status & S_ERROR)
-    char_error(&CharReqHdr, syscon);
+  BinaryCharIO(syscon, 1, &c, C_INPUT, &UnusedRetVal);
   if (c == CTL_C)
     handle_break();
   return c;
@@ -216,9 +236,8 @@ UCOUNT _sti(BOOL check_break)
   Do_DosIdle_loop();
   if (check_break)
     con_hold();
-  while (GenericRead
-         (STDIN, 1, (BYTE FAR *) & c, (COUNT FAR *) & UnusedRetVal,
-          TRUE) != 1) ;
+  while (BinaryRead(STDIN, &c, & UnusedRetVal) != 1)
+    ;
   return c;
 }
 

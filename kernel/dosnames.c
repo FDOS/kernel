@@ -41,9 +41,12 @@ const char _DirWildNameChars[] = "*?./\\\"[]:|<>+=;,";
 
 #define PathSep(c) ((c)=='/'||(c)=='\\')
 #define DriveChar(c) (((c)>='A'&&(c)<='Z')||((c)>='a'&&(c)<='z'))
-#define DirChar(c)  (!strchr(_DirWildNameChars+5, (c)))
-#define WildChar(c) (!strchr(_DirWildNameChars+2, (c)))
-#define NameChar(c) (!strchr(_DirWildNameChars, (c)))
+#define DirChar(c)  (((unsigned char)(c)) >= ' ' && \
+                     !strchr(_DirWildNameChars+5, (c)))
+#define WildChar(c) (((unsigned char)(c)) >= ' ' && \
+                     !strchr(_DirWildNameChars+2, (c)))
+#define NameChar(c) (((unsigned char)(c)) >= ' ' && \
+                     !strchr(_DirWildNameChars, (c)))
 
 VOID XlateLcase(BYTE * szFname, COUNT nChars);
 VOID DosTrimPath(BYTE * lpszPathNamep);
@@ -61,14 +64,6 @@ VOID XlateLcase(BYTE * szFname, COUNT nChars)
 }
 #endif
 
-VOID SpacePad(BYTE * szString, COUNT nChars)
-{
-  REG COUNT i;
-
-  for (i = strlen(szString); i < nChars; i++)
-    szString[i] = ' ';
-}
-
 /*
     MSD durring an FindFirst search string looks like this;
     (*), & (.)  == Current directory *.*
@@ -76,90 +71,73 @@ VOID SpacePad(BYTE * szString, COUNT nChars)
     (..)        == Back one directory *.*
 
     This always has a "truename" as input, so we may do some shortcuts
+
+    returns number of characters in the directory component (up to the
+    last backslash, including d:) or negative if error
  */
-COUNT ParseDosName(BYTE * lpszFileName,
-                   COUNT * pnDrive,
-                   BYTE * pszDir,
-                   BYTE * pszFile, BYTE * pszExt, BOOL bAllowWildcards)
+int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
 {
-  COUNT nDirCnt, nFileCnt, nExtCnt;
-  BYTE *lpszLclDir, *lpszLclFile, *lpszLclExt;
+  int nDirCnt, nFileCnt, nExtCnt;
+  const char *lpszLclDir, *lpszLclFile, *lpszLclExt;
 
   /* Initialize the users data fields                             */
-  if (pszDir)
-    *pszDir = '\0';
-  if (pszFile)
-    *pszFile = '\0';
-  if (pszExt)
-    *pszExt = '\0';
-  lpszLclFile = lpszLclExt = lpszLclDir = 0;
   nDirCnt = nFileCnt = nExtCnt = 0;
 
-  /* found a drive, fetch it and bump pointer past drive  */
   /* NB: this code assumes ASCII                          */
-  if (pnDrive)
-    *pnDrive = *lpszFileName - 'A';
-  lpszFileName += 2;
-  if (!pszDir && !pszFile && !pszExt)
-    return SUCCESS;
 
   /* Now see how long a directory component we have.              */
-  lpszLclDir = lpszLclFile = lpszFileName;
-  while (DirChar(*lpszFileName))
+  lpszLclDir = lpszLclFile = filename;
+  filename += 2;
+  
+  while (DirChar(*filename))
   {
-    if (*lpszFileName == '\\')
-      lpszLclFile = lpszFileName + 1;
-    ++lpszFileName;
+    if (*filename == '\\')
+      lpszLclFile = filename + 1;
+    ++filename;
   }
-  nDirCnt = FP_OFF(lpszLclFile) - FP_OFF(lpszLclDir);
+  nDirCnt = lpszLclFile - lpszLclDir;
   /* Fix lengths to maximums allowed by MS-DOS.                   */
   if (nDirCnt > PARSE_MAX - 1)
     nDirCnt = PARSE_MAX - 1;
 
   /* Parse out the file name portion.                             */
-  lpszFileName = lpszLclFile;
-  while (bAllowWildcards ? WildChar(*lpszFileName) :
-         NameChar(*lpszFileName))
+  filename = lpszLclFile;
+  while (bAllowWildcards ? WildChar(*filename) :
+         NameChar(*filename))
   {
     ++nFileCnt;
-    ++lpszFileName;
+    ++filename;
   }
 
   if (nFileCnt == 0)
+  {
 /* Lixing Yuan Patch */
     if (bAllowWildcards)        /* for find first */
     {
-      if (*lpszFileName != '\0')
+      if (*filename != '\0')
         return DE_FILENOTFND;
       if (nDirCnt == 1)         /* for d:\ */
         return DE_NFILES;
-      if (pszDir)
-      {
-        memcpy(pszDir, lpszLclDir, nDirCnt);
-        pszDir[nDirCnt] = '\0';
-      }
-      if (pszFile)
-        memcpy(pszFile, "????????", FNAME_SIZE + 1);
-      if (pszExt)
-        memcpy(pszExt, "???", FEXT_SIZE + 1);
-      return SUCCESS;
+      memset(fcbname, '?', FNAME_SIZE + FEXT_SIZE);
+      return nDirCnt;
     }
     else
       return DE_FILENOTFND;
-
+  }
+  
   /* Now we have pointers set to the directory portion and the    */
   /* file portion.  Now determine the existance of an extension.  */
-  lpszLclExt = lpszFileName;
-  if ('.' == *lpszFileName)
+  lpszLclExt = filename;
+  if ('.' == *filename)
   {
-    lpszLclExt = ++lpszFileName;
-    while (*lpszFileName)
+    lpszLclExt = ++filename;
+    while (*filename)
     {
-      if (bAllowWildcards ? WildChar(*lpszFileName) :
-          NameChar(*lpszFileName))
+      if (bAllowWildcards ? WildChar(*filename) :
+          NameChar(*filename))
       {
         ++nExtCnt;
-        ++lpszFileName;
+        ++filename;
       }
       else
       {
@@ -167,224 +145,19 @@ COUNT ParseDosName(BYTE * lpszFileName,
       }
     }
   }
-  else if (*lpszFileName)
+  else if (*filename)
     return DE_FILENOTFND;
 
   /* Finally copy whatever the user wants extracted to the user's */
   /* buffers.                                                     */
-  if (pszDir)
-  {
-    memcpy(pszDir, lpszLclDir, nDirCnt);
-    pszDir[nDirCnt] = '\0';
-  }
-  if (pszFile)
-  {
-    memcpy(pszFile, lpszLclFile, nFileCnt);
-    pszFile[nFileCnt] = '\0';
-  }
-  if (pszExt)
-  {
-    memcpy(pszExt, lpszLclExt, nExtCnt);
-    pszExt[nExtCnt] = '\0';
-  }
+  memset(fcbname, ' ', FNAME_SIZE + FEXT_SIZE);
+  memcpy(fcbname, lpszLclFile, nFileCnt);
+  memcpy(&fcbname[FNAME_SIZE], lpszLclExt, nExtCnt);
 
   /* Clean up before leaving                              */
 
-  return SUCCESS;
+  return nDirCnt;
 }
-
-#if 0
-/* not necessary anymore because of truename */
-COUNT ParseDosPath(BYTE * lpszFileName,
-                   COUNT * pnDrive, BYTE * pszDir, BYTE * pszCurPath)
-{
-  COUNT nDirCnt, nPathCnt;
-  BYTE *lpszLclDir, *pszBase = pszDir;
-
-  /* Initialize the users data fields                             */
-  *pszDir = '\0';
-  lpszLclDir = 0;
-  nDirCnt = nPathCnt = 0;
-
-  /* Start by cheking for a drive specifier ...                   */
-  if (DriveChar(*lpszFileName) && ':' == lpszFileName[1])
-  {
-    /* found a drive, fetch it and bump pointer past drive  */
-    /* NB: this code assumes ASCII                          */
-    if (pnDrive)
-    {
-      *pnDrive = *lpszFileName - 'A';
-      if (*pnDrive > 26)
-        *pnDrive -= ('a' - 'A');
-    }
-    lpszFileName += 2;
-  }
-  else
-  {
-    if (pnDrive)
-    {
-      *pnDrive = -1;
-    }
-  }
-
-  lpszLclDir = lpszFileName;
-  if (!PathSep(*lpszLclDir))
-  {
-    fstrncpy(pszDir, pszCurPath, PARSE_MAX - 1);
-     /*TE*/ nPathCnt = fstrlen(pszCurPath);
-    if (!PathSep(pszDir[nPathCnt - 1]) && nPathCnt < PARSE_MAX - 1)
-       /*TE*/ pszDir[nPathCnt++] = '\\';
-    if (nPathCnt > PARSE_MAX)
-      nPathCnt = PARSE_MAX;
-    pszDir += nPathCnt;
-  }
-
-  /* Now see how long a directory component we have.              */
-  while (NameChar(*lpszFileName)
-         || PathSep(*lpszFileName) || '.' == *lpszFileName)
-  {
-    ++nDirCnt;
-    ++lpszFileName;
-  }
-
-  /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if ((nDirCnt + nPathCnt) > PARSE_MAX - 1)
-     /*TE*/ nDirCnt = PARSE_MAX - 1 - nPathCnt;
-
-  /* Finally copy whatever the user wants extracted to the user's */
-  /* buffers.                                                     */
-  if (pszDir)
-  {
-    memcpy(pszDir, lpszLclDir, nDirCnt);
-    pszDir[nDirCnt] = '\0';
-  }
-
-  /* Clean up before leaving                              */
-  DosTrimPath(pszBase);
-
-  /* Before returning to the user, eliminate any useless          */
-  /* trailing "\\." since the path prior to this is sufficient.   */
-  nPathCnt = strlen(pszBase);
-  if (2 == nPathCnt)            /* Special case, root           */
-  {
-    if (!strcmp(pszBase, "\\."))
-      pszBase[1] = '\0';
-  }
-  else if (2 < nPathCnt)
-  {
-    if (!strcmp(&pszBase[nPathCnt - 2], "\\."))
-      pszBase[nPathCnt - 2] = '\0';
-  }
-
-  return SUCCESS;
-}
-
-VOID DosTrimPath(BYTE * lpszPathNamep)
-{
-  BYTE *lpszLast, *lpszNext, *lpszRoot = NULL;
-  COUNT nChars, flDotDot;
-
-  /* First, convert all '/' to '\'.  Look for root as we scan     */
-  if (*lpszPathNamep == '\\')
-    lpszRoot = lpszPathNamep;
-  for (lpszNext = lpszPathNamep; *lpszNext; ++lpszNext)
-  {
-    if (*lpszNext == '/')
-      *lpszNext = '\\';
-    if (!lpszRoot && *lpszNext == ':' && *(lpszNext + 1) == '\\')
-      lpszRoot = lpszNext + 1;
-  }
-
-  /* NAMEMAX + 2, must include C: TE */
-  for (lpszLast = lpszNext = lpszPathNamep, nChars = 0;
-       *lpszNext != '\0' && nChars < NAMEMAX + 2;)
-  {
-    /* Initialize flag for loop.                            */
-    flDotDot = FALSE;
-
-    /* If we are at a path seperator, check for extra path  */
-    /* seperator, '.' and '..' to reduce.                   */
-    if (*lpszNext == '\\')
-    {
-      /* If it's '\', just move everything down one.  */
-      if (*(lpszNext + 1) == '\\')
-        fstrncpy(lpszNext, lpszNext + 1, NAMEMAX);
-      /* also check for '.' and '..' and move down    */
-      /* as appropriate.                              */
-      else if (*(lpszNext + 1) == '.')
-      {
-        if (*(lpszNext + 2) == '.' && !(*(lpszNext + 3)))
-        {
-          /* At the end, just truncate    */
-          /* and exit.                    */
-          if (lpszLast == lpszRoot)
-            *(lpszLast + 1) = '\0';
-          else
-            *lpszLast = '\0';
-          return;
-        }
-
-        if (*(lpszNext + 2) == '.' && *(lpszNext + 3) == '\\')
-        {
-          fstrncpy(lpszLast, lpszNext + 3, NAMEMAX);
-          /* bump back to the last        */
-          /* seperator.                   */
-          lpszNext = lpszLast;
-          /* set lpszLast to the last one */
-          if (lpszLast <= lpszPathNamep)
-            continue;
-          do
-          {
-            --lpszLast;
-          }
-          while (lpszLast != lpszPathNamep && *lpszLast != '\\');
-          flDotDot = TRUE;
-        }
-        /* Note: we skip strange stuff that     */
-        /* starts with '.'                      */
-        else if (*(lpszNext + 2) == '\\')
-        {
-          fstrncpy(lpszNext, lpszNext + 2, NAMEMAX);
-          flDotDot = TRUE;
-        }
-        /* If we're at the end of a string,     */
-        /* just exit.                           */
-        else if (*(lpszNext + 2) == NULL)
-        {
-          return;
-        }
-        /*
-           Added this "else" because otherwise we might not pass
-           any of the foregoing tests, as in the case where the
-           incoming string refers to a suffix only, like ".bat"
-
-           -SRM
-         */
-        else
-        {
-          lpszLast = lpszNext++;
-        }
-      }
-      else
-      {
-        /* No '.' or '\' so mark it and bump    */
-        /* past                                 */
-        lpszLast = lpszNext++;
-        continue;
-      }
-
-      /* Done.  Now set last to next to mark this     */
-      /* instance of path seperator.                  */
-      if (!flDotDot)
-        lpszLast = lpszNext;
-    }
-    else
-      /* For all other cases, bump lpszNext for the   */
-      /* next check                                   */
-      ++lpszNext;
-  }
-}
-#endif
 
 /*
  * Log: dosnames.c,v - for newer log entries do "cvs log dosnames.c"

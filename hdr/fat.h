@@ -54,7 +54,8 @@ static BYTE *fat_hRcsId =
 #define FEXT_SIZE               3
 
 /* FAT deleted flag                                                     */
-#define DELETED         0xe5    /* if first char, delete file   */
+#define DELETED         '\x5'    /* if first char, delete file   */
+#define EXT_DELETED     '\xe5'   /* external deleted flag */
 
 /* FAT cluster to physical conversion macros                            */
 #define clus_add(cl_no)         ((ULONG) (((ULONG) cl_no - 2L) \
@@ -81,8 +82,7 @@ static BYTE *fat_hRcsId =
 
 /* FAT file system directory entry                                      */
 struct dirent {
-  UBYTE dir_name[FNAME_SIZE];   /* Filename                     */
-  UBYTE dir_ext[FEXT_SIZE];     /* Filename extension           */
+  char dir_name[FNAME_SIZE + FEXT_SIZE];   /* Filename + extension in FCB format */
   UBYTE dir_attrib;             /* File Attribute               */
   UBYTE dir_case;               /* File case                    */
   UBYTE dir_crtimems;           /* Milliseconds                 */

@@ -586,7 +586,7 @@ COUNT DosSetCountry(UWORD cntry)
 /*
  *	Called for DOS-66-01 get CP
  */
-COUNT DosGetCodepage(UWORD FAR * actCP, UWORD FAR * sysCP)
+COUNT DosGetCodepage(UWORD * actCP, UWORD * sysCP)
 {
   *sysCP = nlsInfo.sysCodePage;
   *actCP = nlsInfo.actPkg->cp;

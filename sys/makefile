@@ -20,7 +20,7 @@ SYS_EXE_dependencies =  \
 production:     bin2c.com ..\bin\sys.com
 
 bin2c.com:      bin2c.c
-		$(CL) $(CFLAGST) $(TINY) bin2c.c
+		$(CL) $(CFLAGS) $(TINY) bin2c.c
 
 ..\bin\sys.com: sys.com
 		copy sys.com ..\bin

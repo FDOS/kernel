@@ -74,13 +74,13 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 {
   /* create filename from current date and time */
   char FAR *ptmp = pathname;
-  BYTE wd, month, day;
-  BYTE h, m, s, hund;
-  WORD sh;
-  WORD year;
+  UBYTE wd, month, day;
+  UBYTE h, m, s, hund;
+  UWORD sh;
+  UWORD year;
   int rc;
   char name83[13];
-  int loop;
+  int loop = 0;
 
   while (*ptmp)
     ptmp++;
@@ -88,51 +88,152 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
   if (ptmp == pathname || (ptmp[-1] != '\\' && ptmp[-1] != '/'))
     *ptmp++ = '\\';
 
-  DosGetDate(&wd, &month, &day, (COUNT FAR *) & year);
+  DosGetDate(&wd, &month, &day, &year);
   DosGetTime(&h, &m, &s, &hund);
 
   sh = s * 100 + hund;
 
-  for (loop = 0; loop < 0xfff; loop++)
-  {
+  do {
     sprintf(name83, "%x%x%x%x%x%03x.%03x",
             year & 0xf, month & 0xf, day & 0xf, h & 0xf, m & 0xf,
             sh & 0xfff, loop & 0xfff);
 
     fmemcpy(ptmp, name83, 13);
 
-    if ((rc = DosOpen(pathname, 0)) < 0 && rc != DE_ACCESS      /* subdirectory ?? */
-        /* todo: sharing collision on
-           network drive
-         */
-        )
-      break;
+    /* only create new file -- 2001/09/22 ska*/
+    rc = (short)DosOpen(pathname, O_LEGACY | O_CREAT | O_RDWR, attr);
+  } while (rc == DE_FILEEXISTS && loop++ < 0xfff);
 
-    if (rc >= 0)
-      DosClose(rc);
-  }
-
-  if (rc == DE_FILENOTFND)
-  {
-    rc = DosCreat(pathname, attr);
-  }
   return rc;
 }
 
-COUNT get_verify_drive(char FAR * src)
+#ifdef DEBUG
+#define DEBUG_TRUENAME
+#endif
+
+#define drLetterToNr(dr) ((dr) - 'A')
+/* Convert an uppercased drive letter into the drive index */
+#define drNrToLetter(dr) ((dr) + 'A')
+/* the other direction */
+
+  /* In DOS there are no free-standing UNC paths, therefore there
+     is always a logical drive letter associated with a path
+     spec. This letter is also the index into the CDS */
+
+COUNT get_verify_drive(const char FAR * src)
 {
   UBYTE drive;
+  unsigned flags;
 
   /* Do we have a drive?                                          */
   if (src[1] == ':')
-    drive = ((src[0] - 1) | 0x20) - ('a' - 1);
+    drive = drLetterToNr(DosUpFChar(src[0]));
   else
-    return default_drive;
-  if (drive < lastdrive && CDSp[drive].cdsFlags & CDSVALID)
-    return drive;
-  else
+    drive = default_drive;
+
+  if (drive >= lastdrive)
     return DE_INVLDDRV;
+    
+  /* Entry is disabled or JOINed drives are accessable by the path only */
+  flags = CDSp[drive].cdsFlags;
+  if ((flags & CDSMODEMASK) == 0 || (flags & CDSJOINED) != 0)
+    return DE_INVLDDRV;
+
+  return drive;
 }
+
+/* 
+	Definition of functions for the handling of the Current
+	Directory Structure.
+
+	MUX-11-23: Qualify Remote Filename
+		DOS-0x60 calls this MUX functions to let the Network Redirector
+		qualify the filename. According INTRSPY MS DOS 6 does not pre-
+		process the passed in filename in any way (see attached transcripts).
+
+	The DOS-60 interface TRUENAME looks like this:
+
+	DosTruename(src, dest) {
+		if (MUX-11-23(src, dest) != Error)
+			return SUCCESS
+		return local_truename(src, dest);
+	}
+
+	The CDS has the following entries:
+
+    char cdsPath[CDSPATHLEN];
+    	The fully-qualified current working directory of this drive.
+    	The format is DOS <dr>:\[<path>{\<path>}]
+		or UNC \<id>\[<path>{\<path>}].
+		The drive <dr> indicates the physical drive letter and is the
+		index into the blk_device[].
+
+    UWORD cdsFlags;
+    	Indicates what kind this logical drive is:
+    		NETWORK: drive is NOT local \ If both are set, drive is IFS
+    		PHYSICAL: drive is local    / If none is set, drive is non-existant
+    		JOIN: drive is joined in as the path cdsPath. This Flag uses the
+    			index into the CDS table to indicate the physical drive.
+    		SUBST: drive substitutes the path cdsPath.
+    		HIDDEN: drive is not included into the redirector's list.
+
+    struct dpb FAR *cdsDpb;
+    	Pointer to the DPB driving the physical drive. In DOS-C, the physical
+    	drive letter is the index into the DPB[]. But for compatibly reason
+    	this field will be set correctly.
+
+	UWORD cdsStartCluster;
+		For local drives only: This holds the cluster number of
+		the start of the current working directory of this
+		logical drive. If 0000h, it's the root directory; if
+		0ffffh, the drive was never accessed and has to be read
+		again.
+
+	void FAR *cdsIFSrecord;
+	UWORD cdsIFSparameter;
+		For networked drives only: Holds pointer/parameters to/for IFS
+		driver. (Well, I don't know.)
+
+    UWORD cdsPathOff;
+    	Number of characters of the cdsPath[], which are hidden. The
+    	logical path is combined by the logical drive letter and the
+    	cdsPath[] part, which is not hidden.
+
+    IFS FAR *cdsIFSdrv;
+    	Will be zeroed for local drives.
+
+   Revision 1.2  1995/12/03 22:17:41  ska
+   bugfix: Scanning of file name in 8.3 failed on "." and on longer names.
+
+   Revision 1.1  1995/11/09 07:43:30  ska
+   #
+
+*/
+
+#define PATH_ERROR goto errRet
+#define PATHLEN 128
+
+
+/* Map a logical path into a physical one.
+
+	1) Uppercasing path.
+	2) Flipping '/' -> '\\'.
+	3) Removing empty directory components & ".".
+	4) Processing ".." components.
+	5) Convert path components into 8.3 convention.
+	6) Make it fully-qualified.
+	7) Map it to SUBST/UNC.
+        8) Map to JOIN.
+
+   Return:
+   	*cdsItem will be point to the appropriate CDS entry. This will allow
+   	the caller to aquire the DPB or the IFS informtion of this entry.
+   	error number
+   	Return value:
+   		DE_FILENOTFND, or DE_PATHNOTFND (as described in RBIL)
+   	If the output path pnfo->physPath exceeds the length MAX_PATH, the error
+   	DE_FILENOTFND will be returned.
+*/
 
 /*
  * Added support for external and internal calls.
@@ -157,26 +258,126 @@ COUNT get_verify_drive(char FAR * src)
 
 */
 
-COUNT truename(char FAR * src, char FAR * dest, COUNT t)
+#ifdef DEBUG_TRUENAME
+#define tn_printf(x) printf x
+#else
+#define tn_printf(x)
+#endif
+
+#define PNE_WILDCARD 1
+#define PNE_DOT 2
+
+#define addChar(c) \
+{ \
+  if (p - dest >= SFTMAX) PATH_ERROR; /* path too long */	\
+  *p++ = c; \
+}
+
+/* helper for truename: parses either name or extension */
+STATIC int parse_name_ext(int i, const char FAR **src, char **cp, char *dest)
 {
-  static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
-  char *bufp = buf + 3;
-  COUNT i, rootEndPos = 2;      /* renamed x to rootEndPos - Ron Cemer */
+  int retval = SUCCESS;
+  char *p = *cp;
+  char c;
+  
+  while(1) switch(c=*(*src)++)
+  {
+    case '.':
+      retval |= PNE_DOT;
+      /* fall through */
+    case '/':
+    case '\\':
+    case '\0':
+      *cp = p;
+      return retval;
+    case '*':
+      retval |= PNE_WILDCARD;
+      /* register the wildcard, even if no '?' is appended */
+      if (i) do
+      {
+        addChar('?');
+      } while(--i);
+      /** Alternative implementation:
+          if (i)
+          {
+            if (dest + SFTMAX - *p < i)
+              PATH_ERROR;
+            fmemset(p, '?', i);
+            p += i;
+          }		**/
+      break;
+    case '?':
+      retval |= PNE_WILDCARD;
+      /* fall through */
+    default:
+      if (i) {	/* name length in limits */
+        --i;
+        addChar(c);
+      }
+  }
+  
+ errRet:
+  return -1;
+}
+
+COUNT truename(const char FAR * src, char * dest, COUNT mode)
+{
+  COUNT i;
   struct dhdr FAR *dhp;
-  BYTE FAR *froot;
-  WORD d;
+  const char FAR *froot;
+  COUNT result;
+  int gotAnyWildcards = 0;
+  struct cds FAR *cdsEntry;
+  char *p = dest;	  /* dynamic pointer into dest */
+  char *rootPos;
+  enum { DONT_ADD, ADD, ADD_UNLESS_LAST } addSep;
 
-  dest[0] = '\0';
-
-  i = get_verify_drive(src);
-  if (i < 0)
-    return DE_INVLDDRV;
-
-  buf[0] = i + 'A';
-  buf[1] = ':';                 /* Just to be sure */
+  tn_printf(("truename(%S)\n", src));
 
   /* First, adjust the source pointer */
   src = adjust_far(src);
+
+  /* In opposite of the TRUENAME shell command, an empty string is
+     rejected by MS DOS 6 */
+  if (src[0] == '\0')
+    return DE_FILENOTFND;
+
+  result = get_verify_drive(src);
+  if (result < SUCCESS)
+    return result;
+
+  cdsEntry = &CDSp[result];
+  tn_printf(("CDS entry: #%u @%p (%u) '%S'\n", result, cdsEntry,
+            cdsEntry->cdsBackslashOffset, cdsEntry->cdsCurrentPath));
+  /* is the current_ldt thing necessary for compatibly??
+     -- 2001/09/03 ska*/
+  current_ldt = cdsEntry;
+  if (cdsEntry->cdsFlags & CDSNETWDRV)
+    result |= IS_NETWORK;
+  
+  dhp = IsDevice(src);
+  if (dhp)
+    result |= IS_DEVICE;
+
+  /* Try if the Network redirector wants to do it */
+  dest[0] = '\0';		/* better probable for sanity check below --
+                                   included by original truename() */
+  /* MUX succeeded and really something */
+  if (QRemote_Fn(dest, src) && dest[0] != '\0')
+  {
+    tn_printf(("QRemoteFn() returned: \"%S\"\n", dest));
+#ifdef DEBUG_TRUENAME
+    if (strlen(dest) >= SFTMAX)
+      panic("Truename: QRemote_Fn() overflowed output buffer");
+#endif
+    if (dest[2] == '/' && (result & IS_DEVICE))
+      result &= ~IS_NETWORK;
+    return result;
+  }
+
+  /* Redirector interface failed --> proceed with local mapper */
+  dest[0] = drNrToLetter(result & 0x1f);
+  dest[1] = ':';
 
   /* Do we have a drive? */
   if (src[1] == ':')
@@ -188,343 +389,319 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 */
   /* check for a device  */
 
-  if ((*src != '.') && (*src != '\\') && (*src != '/')
-      && ((dhp = IsDevice(src)) != NULL))
+  dest[2] = '\\';
+  if (result & IS_DEVICE)
   {
-
     froot = get_root(src);
-
-    /* /// Bugfix: NUL.LST is the same as NUL.  This is true for all
-       devices.  On a device name, the extension is irrelevant
-       as long as the name matches.
-       - Ron Cemer */
-
-    buf[2] = '/';
-    /* /// Bug: should be only copying up to first space.
-       - Ron Cemer */
-
-    for (d = 0;
-         d < FNAME_SIZE && dhp->dh_name[d] != 0 && dhp->dh_name[d] != ' ';
-         d++)
-      *bufp++ = dhp->dh_name[d];
-    /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
-       DOS will also return C:/NUL.??? if you pass NUL.* in.
-       Code added here to support this.
-       - Ron Cemer */
-    while ((*froot != '.') && (*froot != '\0'))
-      froot++;
-    if (*froot)
-      froot++;
-    if (*froot)
+    if (froot == src || froot == src + 5)
     {
-      *bufp++ = '.';
-      for (i = 0; i < FEXT_SIZE; i++)
+      if (froot == src + 5)
       {
-        if ((*froot == '\0') || (*froot == '.'))
-          break;
-        if (*froot == '*')
-        {
-          for (; i < FEXT_SIZE; i++)
-            *bufp++ = '?';
-          break;
-        }
-        *bufp++ = *froot++;
+        fmemcpy(dest + 3, src, 5);
+        DosUpMem(dest + 3, 5);
+        if (dest[3] == '/') dest[3] = '\\';
+        if (dest[7] == '/') dest[7] = '\\';
+      }
+      if (froot == src || memcmp(dest + 3, "\\DEV\\", 5) == 0)
+      {
+        /* /// Bugfix: NUL.LST is the same as NUL.  This is true for all
+           devices.  On a device name, the extension is irrelevant
+           as long as the name matches.
+           - Ron Cemer */
+        dest[2] = '/';
+        result &= ~IS_NETWORK;
+        /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
+           DOS will also return C:/NUL.??? if you pass NUL.* in.
+           Code added here to support this.
+           - Ron Cemer */
+        src = froot;
       }
     }
-    /* /// End of code additions.  - Ron Cemer */
-    goto exit_tn;
   }
-
-  /* /// Added to adjust for filenames which begin with ".\"
-   *     The problem was manifesting itself in the inability
-   *     to run an program whose filename (without the extension)
-   *     was longer than six characters and the PATH variable
-   *     contained ".", unless you explicitly specified the full
-   *     path to the executable file.
-   *     Jun 11, 2000 - rbc */
-  /* /// Changed to "while" from "if".  - Ron Cemer */
-  while ((src[0] == '.') && (src[1] == '\\'))
-    src += 2;
-
-  current_ldt = &CDSp[i];
-
-  /* Always give the redirector a chance to rewrite the filename */
-  fmemcpy(bufp - 1, src, sizeof(buf) - (bufp - buf));
-  if ((t == FALSE) && (QRemote_Fn(buf, dest) == SUCCESS)
-      && (dest[0] != '\0'))
+    
+  /* Make fully-qualified logical path */
+  /* register these two used characters and the \0 terminator byte */
+  /* we always append the current dir to stat the drive;
+     the only exceptions are devices without paths */
+  rootPos = p = dest + 2;
+  if (*p != '/') /* i.e., it's a backslash! */
   {
-    return SUCCESS;
-  }
-  else
-  {
-    bufp[-1] = '\\';
-  }
-  if (t == FALSE)
-  {
-    fmemcpy(buf, current_ldt->cdsCurrentPath, current_ldt->cdsJoinOffset);
-    bufp = buf + current_ldt->cdsJoinOffset;
-    rootEndPos = current_ldt->cdsJoinOffset;    /* renamed x to rootEndPos - Ron Cemer */
-    *bufp++ = '\\';
-  }
-
-  if (*src != '\\' && *src != '/')      /* append current dir */
-  {
-    DosGetCuDir((UBYTE) (i + 1), bufp);
-    if (*bufp)
+    if (!(mode & CDS_MODE_SKIP_PHYSICAL))
     {
-      while (*bufp)
-        bufp++;
-      *bufp++ = '\\';
-    }
-  }
-  else
-    src++;
+      tn_printf(("SUBSTing from: %S\n", cdsEntry->cdsCurrentPath));
+/* What to do now: the logical drive letter will be replaced by the hidden
+   portion of the associated path. This is necessary for NETWORK and
+   SUBST drives. For local drives it should not harm.
+   This is actually the reverse mechanism of JOINED drives. */
 
-/*move_name:*/
-
-  /* /// The block inside the "#if (0) ... #endif" is
-     seriously broken.  New code added below to replace it.
-     This eliminates many serious bugs, specifically
-     with FreeCOM where truename is required to work
-     according to the DOS specification in order for
-     the COPY and other file-related commands to work
-     properly.
-     This should be a major improvement to all apps which
-     use truename.
-     - Ron Cemer */
-
-#if (0)
-/*
- *  The code here is brain dead. It works long as the calling
- *  function are operating with in normal parms.
- *  jt
- */
-  n = 9;
-  /* convert all forward slashes to backslashes, and uppercase all characters */
-  while (*src)
-  {
-    char c;
-    c = *src++;
-    if (!n)
-      return DE_PATHNOTFND;     /* do this for now */
-    n--;
-    switch (c)
-    {
-      case '*':
-        if (*src == '.')
-        {
-          while (n--)
-            *bufp++ = '?';
-          break;
-        }
-        else
-        {
-          if (src[-2] == '.')
-          {
-            while (n--)
-              *bufp++ = '?';
-            break;
-          }
-          else
-          {
-            while (n--)
-              *bufp++ = '?';
-            break;
-          }
-        }
-      case '/':                /* convert to backslash */
-      case '\\':
-
-        if (bufp[-1] != '\\')
-        {
-          *bufp++ = '\\';
-          n = 9;
-        }
-        break;
-
-        /* look for '.' and '..' dir entries */
-      case '.':
-        if (bufp[-1] == '\\')
-        {
-          if (*src == '.' && (src[1] == '/' || src[1] == '\\' || !src[1]))
-          {
-            /* '..' dir entry: rewind bufp to last backslash */
-
-            for (bufp -= 2; *bufp != '\\'; bufp--)
-            {
-              if (bufp < buf + rootEndPos)      /* '..' illegal in root dir */
-                return DE_PATHNOTFND;
-            }
-            src++;
-            if (bufp[-1] == ':')
-              bufp++;
-          }
-          else if (*src == '/' || *src == '\\' || *src == 0)
-            break;
-          /*  --bufp; */
-          else
-            return DE_PATHNOTFND;
-        }
-        else if (*src == '/' || *src == '\\' || *src == 0)
-        {
-          break;
-        }
-        else
-        {
-          n = 4;
-          *bufp++ = c;
-        }
-        break;
-
-      default:
-        *bufp++ = c;
-        break;
-    }
-  }
-
-  /* remove trailing backslashes */
-  while (bufp[-1] == '\\')
-    --bufp;
-#endif
-
-/* /// Beginning of new code.  - Ron Cemer */
-  bufp--;
-  {
-    char c, *bufend = buf + (sizeof(buf) - 1);
-    int gotAnyWildcards = 0;
-    int seglen, copylen, state;
-    int error = DE_PATHNOTFND;
-    while ((*src) && (bufp < bufend))
-    {
-      /* Skip duplicated slashes. */
-      while ((*src == '/') || (*src == '\\'))
-        src++;
-      if (!(*src))
-        break;
-      /* Find the end of this segment in the source string. */
-      for (seglen = 0;; seglen++)
+      fmemcpy(dest, cdsEntry->cdsCurrentPath, cdsEntry->cdsBackslashOffset);
+      if (cdsEntry->cdsFlags & CDSSUBST)
       {
-        c = src[seglen];
-        if (c == '\0')
-        {
-          error = DE_FILENOTFND;
-          break;
+        /* The drive had been changed --> update the CDS pointer */
+        if (dest[1] == ':')
+        {  /* sanity check if this really is a local drive still */
+          unsigned i = drLetterToNr(dest[0]);
+          
+          if (i < lastdrive) /* sanity check #2 */
+            result = (result & 0xffe0) | i;
         }
-        else if ((c == '/') || (c == '\\'))
-          break;
       }
-      if (seglen > 0)
-      {
-        /* Ignore all ".\" or "\." path segments. */
-        if ((seglen != 1) || (*src != '.'))
-        {
-          /* Apply ".." to the path by removing
-             last path segment from buf. */
-          if ((seglen == 2) && (src[0] == '.') && (src[1] == '.'))
-          {
-            if (bufp > (buf + rootEndPos))
-            {
-              bufp--;
-              while ((bufp > (buf + rootEndPos))
-                     && (*bufp != '/') && (*bufp != '\\'))
-                bufp--;
-            }
-            else
-            {
-              /* .. in root dir illegal */
-              return error;
-            }
-          }
-          else
-          {
-            /* New segment.  If any wildcards in previous
-               segment(s), this is an invalid path. */
-            if (gotAnyWildcards || src[0] == '.')
-              return error;
-            /* Append current path segment to result. */
-            *(bufp++) = '\\';
-            if (bufp >= bufend)
-              break;
-            copylen = state = 0;
-            for (i = 0; ((i < seglen) && (bufp < bufend)); i++)
-            {
-              c = src[i];
-              gotAnyWildcards |= ((c == '?') || (c == '*'));
-              switch (state)
-              {
-                case 0:        /* Copying filename (excl. extension) */
-                  if (c == '*')
-                  {
-                    while (copylen < FNAME_SIZE)
-                    {
-                      *(bufp++) = '?';
-                      if (bufp >= bufend)
-                        break;
-                      copylen++;
-                    }
-                    break;
-                  }
-                  if (c == '.')
-                  {
-                    if (src[i + 1] != '.' && i + 1 < seglen)
-                      *(bufp++) = '.';
-                    copylen = 0;
-                    state = 1;  /* Copy extension next */
-                    break;
-                  }
-                  if (copylen < FNAME_SIZE)
-                  {
-                    *(bufp++) = c;
-                    copylen++;
-                    break;
-                  }
-                  break;
-                case 1:        /* Copying extension */
-                  if (c == '*')
-                  {
-                    while (copylen < FEXT_SIZE)
-                    {
-                      *(bufp++) = '?';
-                      if (bufp >= bufend)
-                        break;
-                      copylen++;
-                    }
-                  }
-                  if (c == '.')
-                    return error;
-                  if (copylen < FEXT_SIZE)
-                  {
-                    *(bufp++) = c;
-                    copylen++;
-                  }
-                  break;
-              }
-            }
-          }
-        }
-      }                         /* if (seglen > 0) */
-      src += seglen;
-      if (*src)
-        src++;
-    }                           /* while ( (*src) && (bufp < bufend) ) */
+      rootPos = p = dest + current_ldt->cdsBackslashOffset;
+      *p = '\\'; /* force backslash! */
+    }
+    p++;
+    DosGetCuDir((result & 0x1f) + 1, p);
+    if (*src != '\\' && *src != '/')
+      p += strlen(p);
+    else /* skip the absolute path marker */
+      src++;
+    /* remove trailing separator */
+    if (p[-1] == '\\') p--;
   }
-/* /// End of new code.  - Ron Cemer */
 
-  if (bufp == buf + 2)
-    ++bufp;
+  /* append the path specified in src */
+  addSep = ADD;			/* add separator */
 
-exit_tn:
+  while(*src)
+  {
+    /* New segment.  If any wildcards in previous
+       segment(s), this is an invalid path. */
+    if (gotAnyWildcards)
+      return DE_PATHNOTFND;
+    switch(*src++)
+    {   
+      case '/':
+      case '\\':	/* skip multiple separators (duplicated slashes) */
+        addSep = ADD;
+        break;
+      case '.':	/* special directory component */
+        switch(*src)
+        {
+          case '/':
+          case '\\':
+          case '\0':
+            /* current path -> ignore */
+            addSep = ADD_UNLESS_LAST;
+            /* If (/ or \) && no ++src
+               --> addSep = ADD next turn */
+            continue;	/* next char */
+          case '.':	/* maybe ".." entry */
+            switch(src[1])
+            {
+              case '/':
+              case '\\':
+              case '\0':
+                /* remove last path component */
+                while(*--p != '\\')
+                  if (p <= rootPos) /* already on root */
+                    return DE_PATHNOTFND;
+                /* the separator was removed -> add it again */
+                ++src;		/* skip the second dot */
+                /* If / or \, next turn will find them and
+                   assign addSep = ADD */
+                addSep = ADD_UNLESS_LAST;
+                continue;	/* next char */
+            }
+        }
+        
+        /* ill-formed .* or ..* entries => return error */
+    errRet:
+        /* The error is either PATHNOTFND or FILENOTFND
+           depending on if it is not the last component */
+        return fstrchr(src, '/') == 0 && fstrchr(src, '\\') == 0
+          ? DE_FILENOTFND
+          : DE_PATHNOTFND;
+      default:	/* normal component */
+        if (addSep != DONT_ADD)
+        {	/* append backslash */
+          addChar(*rootPos);
+          addSep = DONT_ADD;
+        }
+        
+        /* append component in 8.3 convention */
+        --src;
+        /* first character skipped in switch() */
+        i = parse_name_ext(FNAME_SIZE, &src, &p, dest);
+        if (i == -1)
+          PATH_ERROR;
+        if (i & PNE_WILDCARD)
+          gotAnyWildcards = TRUE;
+        /* strip trailing dot */
+        if ((i & PNE_DOT) && *src != '/' && *src != '\\' && *src != '\0')
+        {
+          /* we arrive here only when an extension-dot has been found */
+          addChar('.');
+          i = parse_name_ext(FEXT_SIZE, &src, &p, dest);
+          if (i == -1 || i & PNE_DOT) /* multiple dots are ill-formed */
+            PATH_ERROR;
+          if (i & PNE_WILDCARD)
+            gotAnyWildcards = TRUE;
+        }        
+        --src;			/* terminator or separator was skipped */
+        break;
+    }
+  }
+  if (addSep == ADD)
+  {
+    /* MS DOS preserves a trailing '\\', so an access to "C:\\DOS\\"
+       or "CDS.C\\" fails. */
+    /* But don't add the separator, if the last component was ".." */
+    addChar('\\');
+  }
+  
+  *p = '\0';				/* add the string terminator */
+  DosUpFString(rootPos);	        /* upcase the file/path name */
+  
+/** Note:
+    Only the portions passed in by the user are upcased, because it is
+    assumed that the CDS is configured correctly and if it contains
+    lower case letters, it is required so **/
+  
+  tn_printf(("Absolute logical path: \"%s\"\n", dest));
+  
+  /* Now, all the steps 1) .. 7) are fullfilled. Join now */
+  /* search, if this path is a joined drive */
 
-  *bufp++ = 0;
-
-  /* finally, uppercase everything */
-  DosUpString(buf);
-
-  /* copy to user's buffer */
-  fmemcpy(dest, buf, bufp - buf);
-
-  return SUCCESS;
+  if (dest[2] != '/' && (!(mode & CDS_MODE_SKIP_PHYSICAL)) && njoined)
+  {
+    for(i = 0; i < lastdrive; ++i)
+    {
+      /* How many bytes must match */
+      size_t j = fstrlen(CDSp[i].cdsCurrentPath);
+      /* the last component must end before the backslash offset and */
+      /* the path the drive is joined to leads the logical path */
+      if ((CDSp[i].cdsFlags & CDSJOINED) && (dest[j] == '\\' || dest[j] == '\0')
+         && fmemcmp(dest, CDSp[i].cdsCurrentPath, j) == 0)
+      { /* JOINed drive found */
+        dest[0] = drNrToLetter(i);	/* index is physical here */
+        dest[1] = ':';
+        if (dest[j] == '\0')
+        {	/* Reduce to root direc */
+          dest[2] = '\\';
+          dest[3] = 0;
+          /* move the relative path right behind the drive letter */
+        }
+        else if (j != 2)
+        {
+          strcpy(dest + 2, dest + j);
+        }
+        result = (result & 0xffe0) | i;
+        current_ldt = &CDSp[i];
+        result &= ~IS_NETWORK;
+        if (current_ldt->cdsFlags & CDSNETWDRV)
+          result |= IS_NETWORK;
+	tn_printf(("JOINed path: \"%S\"\n", dest));
+        return result;
+      }
+    }
+    /* nothing found => continue normally */
+  }
+  if ((mode & CDS_MODE_CHECK_DEV_PATH) && (result & IS_DEVICE) &&
+      !(result & IS_NETWORK) && dest[2] != '/' && !dir_exists(dest))
+    return DE_PATHNOTFND;
+  
+  tn_printf(("Physical path: \"%s\"\n", dest));
+  return result;
 }
+
+#if 0
+/**********************************************
+	Result of INTRSPY
+
+	Calling RBIL's INT.COM in MS DOS v6.22
+
+=== Script: MUX.SCR
+
+intercept 2fh
+    function 11h    ; network redirector
+    	subfunction 23h		; Qualify path and filename
+			on_entry
+				output "1123: IN: " (ds:SI->byte,asciiz,64)
+			on_exit
+				if (cflag == 1)
+					sameline " [FAIL " ax "]"
+				output "1123: OUT: " (es:dI->byte,asciiz,64)
+				output "1123: orig buffer: " (ds:sI->byte,asciiz,64)
+	function 12h
+		subfunction 21h
+			on_entry
+				output "1221: IN: " (ds:SI->byte,asciiz,64)
+			on_exit
+				if (cflag == 1)
+					sameline " [FAIL " ax "]"
+				output "1221: OUT: " (es:dI->byte,asciiz,64)
+
+=== Batch file: SPY_INT.BAT
+@echo off
+if exist report.out del report.out
+cmdspy stop
+cmdspy flush
+cmdspy restart
+int ax=0x6000 -buf ds:si="abcöflkgsxkf\0" -buf es:di="%256s" -int 0x21 -d es:di:128 >spy_int.out
+cmdspy stop
+cmdspy report report.out
+more report.out
+=== Intspy report file: REPORT.OUT
+1123: IN:  C:\INTRSPY\SPY_INT.BAT [FAIL 0001]
+1123: OUT:  
+1123: orig buffer:  C:\INTRSPY\SPY_INT.BAT
+1123: IN:  int.??? [FAIL 0001]
+1123: OUT:  C:\INTRSPY
+1123: orig buffer:  int.???
+1123: IN:  C:\TOOL\int.??? [FAIL 0001]
+1123: OUT:  C:\INTRSPY
+1123: orig buffer:  C:\TOOL\int.???
+1123: IN:  spy_int.out [FAIL 0001]
+1123: OUT:  C:\TOOL\INT.???
+1123: orig buffer:  spy_int.out
+1123: IN:  C:\TOOL\INT.COM [FAIL 0001]
+1123: OUT:  C:\INTRSPY\SPY_INT.OUT
+1123: orig buffer:  C:\TOOL\INT.COM
+1123: IN:  abcöflkgsxkf [FAIL 0001]
+1123: OUT:  C:\TOOL\INT.COM
+1123: orig buffer:  abcöflkgsxkf
+1123: IN:  C:\INTRSPY\SPY_INT.BAT [FAIL 0001]
+1123: OUT:  C:\INTRSPY\ABCÖFLKG
+1123: orig buffer:  C:\INTRSPY\SPY_INT.BAT
+1123: IN:  cmdspy.??? [FAIL 0001]
+1123: OUT:  C:\INTRSPY
+1123: orig buffer:  cmdspy.???
+1123: IN:  C:\INTRSPY\CMDSPY.EXE [FAIL 0001]
+1123: OUT:  C:\INTRSPY
+1123: orig buffer:  C:\INTRSPY\CMDSPY.EXE
+=== INT.COM output: SPY_INT.OUT
+              000   CX=0000   DX=0000
+SI=4A5E   DI=4A76   BP=FF70   SP=FF64
+CS=0000   DS=279D   ES=279D   SS=0000   CPU Flags: 0n00oditsz0a0p1c
+
+INT: 0x21
+
+AX=0059   BX=0000   CX=0000   DX=0000
+SI=4A5E   DI=4A76   BP=FF70   SP=FF64
+CS=0000   DS=279D   ES=279D   SS=0000   CPU Flags: 0N11odItSz0A0P1c
+DOSERR: 0000 (0)
+
+*<es:di:128> {
+43(C) 3A(:) 5C(\) 49(I) 4E(N) 54(T) 52(R) 53(S) 50(P) 59(Y) 5C(\) 41(A)
+42(B) 43(C) 99(Ö) 46(F) 4C(L) 4B(K) 47(G) 00(.) 3D(=) 30(0) 30(0) 30(0)
+30(0) 20( ) 20( ) 20( ) 43(C) 58(X) 3D(=) 30(0) 30(0) 30(0) 30(0) 28(()
+30(0) 29()) 20( ) 32(2) 38(8) 28(() 28(() 29()) 20( ) 33(3) 30(0) 28(()
+30(0) 29()) 20( ) 32(2) 39(9) 28(() 29()) 29()) 20( ) 32(2) 30(0) 28(()
+20( ) 29()) 20( ) 33(3) 32(2) 28(() 32(2) 29()) 20( ) 33(3) 38(8) 28(()
+38(8) 29()) 20( ) 32(2) 38(8) 28(() 28(() 29()) 20( ) 32(2) 38(8) 28(()
+28(() 29()) 20( ) 32(2) 39(9) 28(() 29()) 29()) 20( ) 32(2) 30(0) 28(()
+20( ) 29()) 20( ) 33(3) 33(3) 28(() 33(3) 29()) 20( ) 33(3) 30(0) 28(()
+30(0) 29()) 20( ) 32(2) 38(8) 28(() 28(() 29()) 20( ) 33(3) 30(0) 28(()
+30(0) 29()) 20( ) 32(2) 39(9) 28(() 29()) 29()) }
+===
+
+The actual interesting lines are the 6th "IN:" of the report file.
+The DOS interface passed _exactly_ the same string to MUX-11-23 as
+written on command line, the same applied to "con\0", a device driver.
+
+***************************************/
+
+#endif
 
 /*
  * Log: newstuff.c,v - for newer entries see "cvs log newstuff.c"

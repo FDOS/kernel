@@ -9,10 +9,31 @@
     * disabled fatal() in error.c
     * Disable the A20 line upon exec (int21/ah=4B). This is necessary for some
       brain-dead exepacked programs.
-    * removed unnecessary buffer fields
+    * removed unnecessary "BUFFERS" fields
     * proper check for network/non-existing drive for int25/26.
     * save more bytes on the stack at various places
+    * made the local registers for inthndlr.c "near" instead of "far".
+    * fix bug in strchr handling for fcbfns.c (FcbParseFname)
++ Changes Steffen (but changed a lot by Bart)
+    * new truename (Bart: but without mapPath() style struct)
+    * merge open/create functions into one extended open function
+    * also honor the sharing bits better for "open"
+    * use local 8+3 path names in fatfs.c; merge name+extension
+      into one array
+    * take care of filenames that start with ASCII 5: they should be
+      treated as starting with 0xe5
+    * exploit the fact that the filenames are already "truenames",
+      i.e., fully qualified in fatfs.c. This simplifies parsing a lot.
 + Changes Bart
+    * make "if exist c:\dir\nul" working
+    * honor "do not inherit handle on exec" flag for "open".
+    * improve the FCB functions so that they set the critical error code
+      properly
+    * next_cluster returns "1" instead of DE_xxx in case of failure.
+    * create one function to do binary character IO (used for CLOCK$
+      driver and character drivers such as CON)
+    * better handling of ABORT/FAIL
+    * merge all read and write functions
     * patchobj makefile correction
     * printf uses va_list etc.
     * quicker and more robust Watcom build
@@ -33,7 +54,6 @@
       merge as much as possible from DosExeLoader and DosComLoader
       (from Tom:) eliminate some structures in low memory
     * main.c: slightly cleanup "SHELL=" line parsing.
-
 2002 May 9 - Build 2026b
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

@@ -307,15 +307,7 @@ extern struct                   /* Path name parsing buffer             */
   BYTE _PriPathName[128];
 } ASM _PriPathBuffer;
 
-extern struct {
-  BYTE _fname[FNAME_SIZE];
-  BYTE _fext[FEXT_SIZE + 1];    /* space for 0 */
-} ASM szNames;
-
 #define PriPathName _PriPathBuffer._PriPathName
-#define szDirName TempCDS.cdsCurrentPath
-#define szFileName szNames._fname
-#define szFileExt szNames._fext
 
 extern struct                   /* Alternate path name parsing buffer   */
 {
@@ -440,25 +432,15 @@ COUNT con();
 #define fputword(vp, w) (*(UWORD FAR *)(vp)=w)
 #define fputbyte(vp, b) (*(UBYTE FAR *)(vp)=b)
 #else
-#ifdef PROTO
-WORD getword(VOID *);
-BYTE getbyte(VOID *);
-LONG fgetlong(VOID FAR *);
-WORD fgetword(VOID FAR *);
-BYTE fgetbyte(VOID FAR *);
+UDWORD getlong(VOID *);
+UWORD getword(VOID *);
+UBYTE getbyte(VOID *);
+UDWORD fgetlong(VOID FAR *);
+UWORD fgetword(VOID FAR *);
+UBYTE fgetbyte(VOID FAR *);
 VOID fputlong(VOID FAR *, UDWORD);
 VOID fputword(VOID FAR *, UWORD);
 VOID fputbyte(VOID FAR *, UBYTE);
-#else
-VOID getword();
-VOID getbyte();
-VOID fgetlong();
-VOID fgetword();
-VOID fgetbyte();
-VOID fputlong();
-VOID fputword();
-VOID fputbyte();
-#endif
 #endif
 
 #ifdef I86
