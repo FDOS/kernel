@@ -4,6 +4,9 @@ rem Create a distribution floppy
 rem
 rem $Header$
 rem $Log$
+rem Revision 1.3  2001/03/22 04:12:43  bartoldeman
+rem Change LF to CR/LF in batch files.
+rem
 rem Revision 1.2  2000/05/11 03:51:37  jimtabor
 rem Clean up and Release
 rem

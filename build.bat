@@ -5,6 +5,9 @@ rem batch file to build everything
 rem $Id$
 
 rem $Log$
+rem Revision 1.4  2001/03/22 04:13:30  bartoldeman
+rem Change LF to CR/LF in batch files.
+rem
 rem Revision 1.3  2000/05/25 20:56:19  jimtabor
 rem Fixed project history
 rem
