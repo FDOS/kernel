@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.20  2001/04/16 14:44:29  bartoldeman
+ * Removed debug printf.
+ *
  * Revision 1.19  2001/04/16 14:28:32  bartoldeman
  * Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
  *
@@ -1079,8 +1082,6 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
              (result=init_device(dhp, pLine, mode, top))==SUCCESS
             ; dhp = next_dhp)
     { 
-	
-      printf("result=%d\n", result);
       next_dhp = dhp->dh_next;
       if (FP_SEG(next_dhp) == 0xffff)
         /*  Does this ever occur with FP_OFF(next_dhp) != 0xffff ??? */
