@@ -94,6 +94,9 @@ int main(int argc, char **argv)
   short silentSegments[20], silentcount = 0, silentdone = 0;
   int UPX = FALSE;
 
+  /* if no arguments provided, show usage and exit */
+  if (argc < 4) usage();
+
   /* do optional argument processing here */
   for (i = 4; i < argc; i++)
   {
@@ -282,13 +285,14 @@ int main(int argc, char **argv)
     /* UPX trailer */
     /* hand assembled - so this remains ANSI C ;-)    */
     /* move kernel down to place CONFIG-block, which added above,
-       at 0x5e:0 instead 0x60:0 and store there boot drive number
+       at start_seg-2:0 (e.g. 0x5e:0) instead of 
+       start_seg:0 (e.g. 0x60:0) and store there boot drive number
        from BL; kernel.asm will then check presence of additional
        CONFIG-block at this address. */
     static char trailer[] = {
       0x0E,			/*  0 push cs			*/
       0x1F,			/*  1 pop  ds	; =0x60		*/
-      0xBF,0x5E,0x00,		/*  2 mov di,0x5E		*/
+      0xBF,0x5E,0x00,		/*  2 mov di,start_seg-2	*/
       0x8E,0xC7,		/*  5 mov es,di			*/
       0xFC,			/*  7 cld			*/
       0x33,0xFF,		/*  8 xor di,di			*/
@@ -303,6 +307,7 @@ int main(int argc, char **argv)
       0x33,0xFF,		/* 27 xor di,di			*/
       0xFF,0xE7,		/* 29 jmp di	; jmp 0		*/
     };
+    *(short *)&trailer[3] = start_seg - 2;
     *(short *)&trailer[15] = (short)size + 0x20;
     *(short *)&trailer[20] = start_seg + header.exInitSS;
     *(short *)&trailer[25] = header.exInitSP;
