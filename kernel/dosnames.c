@@ -116,8 +116,6 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
     {
       if (*filename != '\0')
         return DE_FILENOTFND;
-      if (nDirCnt == 1)         /* for d:\ */
-        return DE_NFILES;
       memset(fcbname, '?', FNAME_SIZE + FEXT_SIZE);
       return nDirCnt;
     }

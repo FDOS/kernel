@@ -518,8 +518,10 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         if (i & PNE_WILDCARD)
           gotAnyWildcards = TRUE;
         /* strip trailing dot */
-        if ((i & PNE_DOT) && *src != '/' && *src != '\\' && *src != '\0')
+        if ((i & PNE_DOT) && *src != '/' && *src != '\\')
         {
+          if (*src == '\0')
+            continue;
           /* we arrive here only when an extension-dot has been found */
           addChar('.');
           i = parse_name_ext(FEXT_SIZE, &src, &p, dest);
