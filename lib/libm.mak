@@ -5,8 +5,8 @@
 #
 
 # $Log$
-# Revision 1.1  2000/05/06 19:35:36  jhall1
-# Initial revision
+# Revision 1.2  2000/05/11 03:57:10  jimtabor
+# Clean up and Release
 #
 # Revision 1.6  1999/09/14 17:32:20  jprice
 # no message

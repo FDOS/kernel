@@ -5,8 +5,8 @@
 #
 
 # $Log$
-# Revision 1.1  2000/05/06 19:34:38  jhall1
-# Initial revision
+# Revision 1.2  2000/05/11 03:56:42  jimtabor
+# Clean up and Release
 #
 # Revision 1.3  1999/04/23 03:44:17  jprice
 # Ported to NASM by ror4. Improvements

@@ -4,8 +4,8 @@ rem Create a distribution floppy
 rem
 rem $Header$
 rem $Log$
-rem Revision 1.1  2000/05/06 19:34:23  jhall1
-rem Initial revision
+rem Revision 1.2  2000/05/11 03:51:37  jimtabor
+rem Clean up and Release
 rem
 rem Revision 1.3  1999/08/25 03:15:33  jprice
 rem ror4 patches to allow TC 2.01 compile.

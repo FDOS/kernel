@@ -30,8 +30,8 @@
 ; $Header$
 ;
 ; $Log$
-; Revision 1.1  2000/05/06 19:34:45  jhall1
-; Initial revision
+; Revision 1.2  2000/05/11 03:56:20  jimtabor
+; Clean up and Release
 ;
 ; Revision 1.3  1999/08/10 17:21:08  jprice
 ; ror4 2011-01 patch

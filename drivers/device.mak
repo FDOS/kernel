@@ -5,8 +5,8 @@
 #
 
 # $Log$
-# Revision 1.1  2000/05/06 19:34:43  jhall1
-# Initial revision
+# Revision 1.2  2000/05/11 03:56:20  jimtabor
+# Clean up and Release
 #
 # Revision 1.6  1999/08/25 03:16:36  jprice
 # ror4 patches to allow TC 2.01 compile.
