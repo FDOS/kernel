@@ -91,7 +91,7 @@ UWORD LBA_WRITE_VERIFY = 0x4302;
                  */
 UBYTE DiskTransferBuffer[1 * SEC_SIZE];
 
-static struct Access_info {
+struct Access_info {
   BYTE AI_spec;
   BYTE AI_Flag;
 };
@@ -135,7 +135,7 @@ typedef WORD dsk_proc(rqptr rq, ddt * pddt);
 typedef WORD dsk_proc();
 #endif
 
-STATIC dsk_proc _dsk_init, mediachk, bldbpb, blockio, IoctlQueblk,
+STATIC dsk_proc mediachk, bldbpb, blockio, IoctlQueblk,
     Genblkdev, Getlogdev, Setlogdev, blk_Open, blk_Close,
     blk_Media, blk_noerr, blk_nondr, blk_error;
 
@@ -152,7 +152,8 @@ STATIC WORD dskerr();
 
 static dsk_proc * const dispatch[NENTRY] =
 {
-  _dsk_init,                    /* Initialize                   */
+      /* disk init is done in diskinit.c, so this should never be called */
+      blk_error,                /* Initialize                   */
       mediachk,                 /* Media Check                  */
       bldbpb,                   /* Build BPB                    */
       blk_error,                /* Ioctl In                     */
@@ -196,15 +197,6 @@ COUNT ASMCFUNC FAR blk_driver(rqptr rp)
   }
   else
     return ((*dispatch[rp->r_command]) (rp, getddt(rp->r_unit)));
-}
-
-/* disk init is done in diskinit.c, so this should never be called */
-STATIC WORD _dsk_init(rqptr rp, ddt * pddt)
-{
-  UNREFERENCED_PARAMETER(rp);
-  UNREFERENCED_PARAMETER(pddt);
-  /*fatal("No disk init!");*/
-  return S_DONE;                /* to keep the compiler happy */
 }
 
 STATIC WORD play_dj(ddt * pddt)
@@ -419,8 +411,7 @@ STATIC WORD getbpb(ddt * pddt)
 /*TE ~ 200 bytes*/
 
   fmemcpy(pbpbarray, &DiskTransferBuffer[BT_BPB], sizeof(bpb));
-
-#ifdef WITHFAT32
+  
   /*?? */
   /*  2b is fat16 volume label. if memcmp, then offset 0x36.
      if (fstrncmp((BYTE *) & DiskTransferBuffer[0x36], "FAT16",5) == 0  ||
@@ -430,27 +421,21 @@ STATIC WORD getbpb(ddt * pddt)
      The number of sectors per FAT.
      Note: This member will always be zero in a FAT32 BPB.
      Use the values from A_BF_BPB_BigSectorsPerFat...
-   */
-  if (pbpbarray->bpb_nfsect != 0)
+  */
   {
-    /* FAT16/FAT12 boot sector */
-    pddt->ddt_serialno = getlong(&DiskTransferBuffer[0x27]);
-    memcpy(pddt->ddt_volume, &DiskTransferBuffer[0x2B], 11);
-    memcpy(pddt->ddt_fstype, &DiskTransferBuffer[0x36], 8);
+    struct FS_info *fs = (struct FS_info *)&DiskTransferBuffer[0x27];
+#ifdef WITHFAT32
+    if (pbpbarray->bpb_nfsect == 0)
+    {
+      /* FAT32 boot sector */
+      fs = (struct FS_info *)&DiskTransferBuffer[0x43];
+      pbpbarray->bpb_ndirent = 512;
+    }
+#endif    
+    pddt->ddt_serialno = getlong(&fs->serialno);
+    memcpy(pddt->ddt_volume, fs->volume, sizeof fs->volume);
+    memcpy(pddt->ddt_fstype, fs->fstype, sizeof fs->fstype);
   }
-  else
-  {
-    /* FAT32 boot sector */
-    pddt->ddt_serialno = getlong(&DiskTransferBuffer[0x43]);
-    memcpy(pddt->ddt_volume, &DiskTransferBuffer[0x47], 11);
-    memcpy(pddt->ddt_fstype, &DiskTransferBuffer[0x52], 8);
-    pbpbarray->bpb_ndirent = 512;
-  }
-#else
-  pddt->ddt_serialno = getlong(&DiskTransferBuffer[0x27]);
-  memcpy(pddt->ddt_volume, &DiskTransferBuffer[0x2B], 11);
-  memcpy(pddt->ddt_fstype, &DiskTransferBuffer[0x36], 8);
-#endif
 
 #ifdef DSK_DEBUG
   printf("BPB_NBYTE     = %04x\n", pbpbarray->bpb_nbyte);
@@ -698,13 +683,13 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
     case 0x46:                 /* set volume serial number */
       {
         struct Gioc_media FAR *gioc = (struct Gioc_media FAR *)rp->r_trans;
-        struct FS_info FAR *fs;
+        struct FS_info *fs;
 
         ret = getbpb(pddt);
         if (ret != 0)
           return (ret);
 
-        fs = (struct FS_info FAR *)&DiskTransferBuffer
+        fs = (struct FS_info *)&DiskTransferBuffer
             [(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x27 : 0x43)];
         fs->serialno = gioc->ioc_serialno;
         pddt->ddt_serialno = fs->serialno;
@@ -943,7 +928,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
   };
 
   unsigned count;
-  unsigned error_code;
+  unsigned error_code = 0;
   struct CHS chs;
   void FAR *transfer_address;
 
@@ -956,6 +941,17 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
   /* optionally change from A: to B: or back */
   play_dj(pddt);
 
+  if (!hd(pddt->ddt_descflags))
+  {
+    UBYTE FAR  *int1e_ptr = (UBYTE FAR *)getvec(0x1e);
+
+    if (int1e_ptr[4] != pddt->ddt_bpb.bpb_nsecs)
+    {
+      int1e_ptr[4] = pddt->ddt_bpb.bpb_nsecs;
+      fl_reset(pddt->ddt_driveno);
+    }
+  }
+        
   *transferred = 0;
 /*    
     if (LBA_address+totaltodo > pddt->total_sectors)
@@ -1000,7 +996,6 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
         if (pddt->ddt_WriteVerifySupported || mode != LBA_WRITE_VERIFY)
         {
-
           error_code = fl_lba_ReadWrite(pddt->ddt_driveno, mode, &dap);
         }
         else
@@ -1023,14 +1018,14 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
         /* avoid overflow at end of track */
 
-        if (chs.Sector + count > pddt->ddt_bpb.bpb_nsecs + 1)
+        if (chs.Sector + count > (unsigned)pddt->ddt_bpb.bpb_nsecs + 1)
         {
           count = pddt->ddt_bpb.bpb_nsecs + 1 - chs.Sector;
         }
 
         if (chs.Cylinder > 1023)
         {
-          printf("LBA-Transfer error : cylinder %u > 1023\n",
+          printf("LBA-Transfer error : cylinder %lu > 1023\n",
                  chs.Cylinder);
           return 1;
         }
