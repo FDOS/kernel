@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v3.1"
+#define SYS_VERSION "v3.2"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -437,9 +437,9 @@ int absread(int DosDrive, int nsects, int foo, void *diskReadPacket);
 #pragma aux absread =  \
       "push bp"           \
       "int 0x25"          \
+      "sbb ax, ax"        \
       "popf"              \
       "pop bp"            \
-      "sbb ax, ax"        \
       parm [ax] [cx] [dx] [bx] \
       modify [si di] \
       value [ax];
@@ -448,9 +448,9 @@ int abswrite(int DosDrive, int nsects, int foo, void *diskReadPacket);
 #pragma aux abswrite =  \
       "push bp"           \
       "int 0x26"          \
+      "sbb ax, ax"        \
       "popf"              \
       "pop bp"            \
-      "sbb ax, ax"        \
       parm [ax] [cx] [dx] [bx] \
       modify [si di] \
       value [ax];
@@ -709,6 +709,13 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
 
   bs = (struct bootsectortype *)&oldboot;
 
+  if (bs->bsBytesPerSec != SEC_SIZE)
+  {
+    printf("Sector size is not 512 but %d bytes - not currently supported!\n",
+      bs->bsBytesPerSec);
+    exit(1); /* Japan?! */
+  }
+
   {
    /* see "FAT: General Overview of On-Disk Format" v1.02, 5.V.1999
     * (http://www.nondot.org/sabre/os/files/FileSystems/FatFormat.pdf)
@@ -731,13 +738,6 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
       fs = FAT16;
     else
       fs = FAT32;
-  }
-
-  if (bs->bsBytesPerSec != SEC_SIZE)
-  {
-    printf("Sector size is not 512 but %d bytes - not currently supported!\n",
-      bs->bsBytesPerSec);
-    exit(1); /* Japan?! */
   }
 
   /* bit 0 set if function to use current BPB, clear if Device
