@@ -2418,6 +2418,7 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage)
 {
   int i;
+  struct CountrySpecificInfo *country;
   UNREFERENCED_PARAMETER(codePage);
   UNREFERENCED_PARAMETER(filename);
 
@@ -2425,30 +2426,34 @@ STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePa
 
 
 
-  for (i = 0; i < sizeof(specificCountriesSupported)/sizeof(specificCountriesSupported[0]); i++)
+  for (country = specificCountriesSupported;
+       country < specificCountriesSupported + LENGTH(specificCountriesSupported);
+       country++)
   {
-    if (specificCountriesSupported[i].CountryID == ctryCode)
+    if (country->CountryID == ctryCode)
     {
       int codepagesaved = nlsCountryInfoHardcoded.C.CodePage;
 
-      fmemcpy(&nlsCountryInfoHardcoded.C.CountryID, 
-              &specificCountriesSupported[i],
-              min(nlsCountryInfoHardcoded.TableSize, sizeof(struct CountrySpecificInfo)));
+      fmemcpy(&nlsCountryInfoHardcoded.C.CountryID,
+              country,
+              min(nlsCountryInfoHardcoded.TableSize, sizeof *country));
 
       nlsCountryInfoHardcoded.C.CodePage = codepagesaved;
 
       return 0;
     }
   }
-  
+
   printf("could not find country info for country ID %u\n"
          "current supported countries are ", ctryCode);
 
-  for (i = 0; i < sizeof(specificCountriesSupported)/sizeof(specificCountriesSupported[0]); i++)
+  for (country = specificCountriesSupported;
+       country < specificCountriesSupported + LENGTH(specificCountriesSupported);
+       country++)
   {
-    printf("%u ",specificCountriesSupported[i].CountryID);
+    printf("%u ", country->CountryID);
   }
-  printf("\n");       
+  printf("\n");
 
   return 1;
 }
