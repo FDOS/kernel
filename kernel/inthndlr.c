@@ -860,12 +860,9 @@ dispatch:
 
       /* Dos Create Directory                                         */
     case 0x39:
-      rc = DosMkdir(FP_DS_DX);
-      goto short_check;
-
       /* Dos Remove Directory                                         */
     case 0x3a:
-      rc = DosRmdir(FP_DS_DX);
+      rc = DosMkRmdir(FP_DS_DX, lr.AL);
       goto short_check;
 
       /* Dos Change Directory                                         */

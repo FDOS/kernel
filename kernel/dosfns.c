@@ -1327,7 +1327,7 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
   return DosRenameTrue(PriPathName, SecPathName, D_ALL);
 }
 
-COUNT DosMkdir(const char FAR * dir)
+COUNT DosMkRmdir(const char FAR * dir, int action)
 {
   COUNT result;
 
@@ -1336,33 +1336,12 @@ COUNT DosMkdir(const char FAR * dir)
     return result;
 
   if (result & IS_NETWORK)
-    return network_redirector(REM_MKDIR);
+    return network_redirector(action == 0x39 ? REM_MKDIR : REM_RMDIR);
 
   if (result & IS_DEVICE)
     return DE_ACCESS;
 
-  return dos_mkdir(PriPathName);
-}
-
-/* This function is almost identical to DosMkdir().
-   Maybe it would be nice to merge both functions.
-       -- 2001/09/03 ska*/
-COUNT DosRmdir(const char FAR * dir)
-{
-  COUNT result;
-
-  result = truename(dir, PriPathName, CDS_MODE_CHECK_DEV_PATH);
-
-  if (result < SUCCESS)
-    return result;
-
-  if (result & IS_NETWORK)
-    return network_redirector(REM_RMDIR);
-
-  if (result & IS_DEVICE)
-    return DE_ACCESS;
-
-  return dos_rmdir(PriPathName);
+  return (action == 0x39 ? dos_mkdir : dos_rmdir)(PriPathName);
 }
 
 /* /// Added for SHARE.  - Ron Cemer */
