@@ -206,7 +206,9 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     else
     {
       *fbp0 = (UBYTE)Cluster2;
-      *fbp1 = (*fbp1 & 0xf0) | (UBYTE)((unsigned)Cluster2 >> 8);
+      /* Cluster2 may be set to LONG_LAST_CLUSTER == 0x0FFFFFFFUL or 0xFFFF */
+      /* -- please don't optimize to (UBYTE)((unsigned)Cluster2 >> 8)!      */
+      *fbp1 = (*fbp1 & 0xf0) | ((UBYTE)((unsigned)Cluster2 >> 8) & 0x0f);
     }
   }
   else if (ISFAT16(dpbp)) 
