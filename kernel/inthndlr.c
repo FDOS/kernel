@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.29  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.28  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -1503,7 +1506,7 @@ dispatch:
     case 0x60:                 /* TRUENAME */
       CLEAR_CARRY_FLAG();
       if ((rc = truename(MK_FP(r->DS, r->SI),
-                      adjust_far(MK_FP(r->ES, r->DI)), TRUE)) != SUCCESS)
+                      adjust_far(MK_FP(r->ES, r->DI)), FALSE)) != SUCCESS)
         goto error_exit;
       break;
 

@@ -47,6 +47,9 @@ BYTE *RcsId = "$Id$";
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
  *
  * $Log$
+ * Revision 1.22  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.21  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -293,7 +296,6 @@ COUNT dos_open(BYTE * path, COUNT flag)
   /* new directory and name of new directory.                     */
   if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp);
     return DE_PATHNOTFND;
   }
 
@@ -366,20 +368,14 @@ COUNT dos_close(COUNT fd)
   if (fnp == (f_node_ptr)0 || fnp->f_count <= 0)
     return DE_INVLDHNDL;
 
-  if (fnp->f_mode != RDONLY)
+  if (fnp->f_mode != RDONLY && fnp->f_flags.f_dmod)
   {
-    /*TE experimental */
-    if (fnp->f_flags.f_dmod)
-        {
-        fnp->f_dir.dir_attrib |= D_ARCHIVE;
-        fnp->f_dir.dir_time = dos_gettime();
-        fnp->f_dir.dir_date = dos_getdate();
+    fnp->f_dir.dir_attrib |= D_ARCHIVE;
+    fnp->f_dir.dir_time = dos_gettime();
+    fnp->f_dir.dir_date = dos_getdate();
 
-        shrink_file(fnp);               /* reduce allocated filesize in FAT */
-        }
-    
+    shrink_file(fnp);               /* reduce allocated filesize in FAT */
     fnp->f_dir.dir_size = fnp->f_highwater;
-    fnp->f_flags.f_dmod = TRUE;
     merge_file_changes(fnp, FALSE);    /* /// Added - Ron Cemer */
   }
   fnp->f_flags.f_ddir = TRUE;
@@ -568,7 +564,6 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp);
     return DE_PATHNOTFND;
   }
 
@@ -668,7 +663,6 @@ COUNT dos_delete(BYTE * path)
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp);
     return DE_PATHNOTFND;
   }
 
@@ -720,7 +714,6 @@ COUNT dos_rmdir(BYTE * path)
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp);
     return DE_PATHNOTFND;
   }
 
@@ -742,9 +735,9 @@ COUNT dos_rmdir(BYTE * path)
     
     /* directories may have attributes, too. at least my WinNT disk
        has many 'archive' directories
-       we still don't allow SYSTEM or RDONLY directories to be deleted TE*/
+       we still don't allow RDONLY directories to be deleted TE*/
     
-    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE))
+    if (fnp->f_dir.dir_attrib & ~(D_DIR |D_HIDDEN|D_ARCHIVE|D_SYSTEM))
     {
       dir_close(fnp);
       return DE_ACCESS;
@@ -826,7 +819,6 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
   /* new file name and name of new file name                      */
   if ((fnp2 = split_path(path2, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp2);
     return DE_PATHNOTFND;
   }
 
@@ -842,7 +834,6 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
   /* old file name and name of old file name                      */
   if ((fnp1 = split_path(path1, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp1);
     dir_close(fnp2);
     return DE_PATHNOTFND;
   }
@@ -1192,7 +1183,6 @@ COUNT dos_mkdir(BYTE * dir)
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(dir, szFileName, szFileExt)) == NULL)
   {
-    dir_close(fnp);
     return DE_PATHNOTFND;
   }
   
@@ -1995,9 +1985,6 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
         }
 
 
-    fnp->f_flags.f_dmod = TRUE;  /* mark file as modified */
-
-
     /* update pointers and counters                         */
     ret_cnt += xfr_cnt;
     to_xfer -= xfr_cnt;
@@ -2439,8 +2426,12 @@ STATIC VOID shrink_file(f_node_ptr fnp)
     UCOUNT next,st;
     struct dpb FAR *dpbp = fnp->f_dpb;
 
-
+    if (fnp->f_flags.f_ddir)             /* can't shrink dirs */
+        return;
+    
     fnp->f_offset = fnp->f_highwater;     /* end of file */
+
+    if (fnp->f_offset) fnp->f_offset--;   /* last existing cluster */
     
     if (map_cluster(fnp, XFR_READ) != SUCCESS)  /* error, don't truncate */
         goto done;
@@ -2457,7 +2448,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
         goto done;
 
           /* Loop from start until either a FREE entry is         */
-          /* encountered (due to a fractured file system) of the  */
+          /* encountered (due to a damaged file system) or the    */
           /* last cluster is encountered.                         */
           /* zap the FAT pointed to                       */
 

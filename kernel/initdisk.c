@@ -34,8 +34,6 @@ static BYTE *dskRcsId = "$Id$";
 /*
     data shared between DSK.C and INITDISK.C
 */    
-extern ddt * FAR pddt0; /* Pointer to drive data tables  */
-
 extern UBYTE FAR DiskTransferBuffer[1 * SEC_SIZE];
 
 extern COUNT FAR nUnits;
@@ -189,6 +187,16 @@ struct DriveParamS
 
     struct CHS chs;             /* for normal   INT 13 */
 };
+
+struct PartTableEntry     /* INTERNAL representation of partition table entry */
+  {
+    UBYTE Bootable;
+    UBYTE FileSystem;
+    struct CHS Begin;
+    struct CHS End;
+    ULONG RelSect;
+    ULONG NumSect;
+  };
 
 /*
     internal global data
@@ -376,10 +384,9 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
 
 
 void DosDefinePartition(struct DriveParamS *driveParam,
-            ULONG StartSector, ULONG NumSectors, UBYTE FileSystem)
+            ULONG StartSector, struct PartTableEntry *pEntry)
 {
-      extern struct DynS FAR Dyn;
-      ddt FAR *pddt = &((ddt FAR *)&Dyn.Buffer[0])[nUnits];
+      ddt FAR *pddt = DynAlloc("ddt", 1, sizeof(ddt));
       struct CHS chs;
 
       if ( nUnits >= NDEV)
@@ -397,19 +404,20 @@ void DosDefinePartition(struct DriveParamS *driveParam,
                  DebugPrintf(("LBA enabled for drive %c:\n", 'A'+nUnits));
         
       pddt->ddt_offset  = StartSector;
-      
+
       pddt->ddt_defbpb.bpb_nbyte = SEC_SIZE;
       pddt->ddt_defbpb.bpb_mdesc = 0xf8;
       pddt->ddt_defbpb.bpb_nheads = driveParam->chs.Head;
       pddt->ddt_defbpb.bpb_nsecs = driveParam->chs.Sector;
       pddt->ddt_defbpb.bpb_nsize = 0;
-      if (NumSectors > 0xffff)
-        pddt->ddt_defbpb.bpb_huge = NumSectors;
+      pddt->ddt_defbpb.bpb_hidden = pEntry->RelSect;
+      if (pEntry->NumSect > 0xffff)
+        pddt->ddt_defbpb.bpb_huge = pEntry->NumSect;
       else
-        pddt->ddt_defbpb.bpb_nsize = (UWORD)NumSectors;
+        pddt->ddt_defbpb.bpb_nsize = (UWORD)(pEntry->NumSect);
 
       /* sectors per cluster, sectors per FAT etc. */
-      CalculateFATData(pddt, NumSectors, FileSystem);
+      CalculateFATData(pddt, pEntry->NumSect, pEntry->FileSystem);
       
       pddt->ddt_serialno = 0x12345678l;
       pddt->ddt_descflags = 0x200;  /* drive inaccessible until bldbpb successful */
@@ -425,7 +433,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
       printCHS(" CHS= ",&chs);
       
       printf(" start = %5luMB,size =%5lu",
-            StartSector/2048,NumSectors/2048);
+            StartSector/2048,pEntry->NumSect/2048);
       
       printf("\n");
 #endif                
@@ -583,16 +591,6 @@ ErrorReturn:
 
 
 
-struct PartTableEntry     /* INTERNAL representation of partition table entry */
-  {
-    UBYTE Bootable;
-    UBYTE FileSystem;
-    struct CHS Begin;
-    struct CHS End;
-    ULONG RelSect;
-    ULONG NumSect;
-  };
-
 /*
     converts physical into logical representation of partition entry
 */
@@ -740,7 +738,7 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
 
         partitionsToIgnore |= 1 << i;
         
-        DosDefinePartition(driveParam,partitionStart, pEntry->NumSect, pEntry->FileSystem);
+        DosDefinePartition(driveParam,partitionStart, pEntry);
 
         if (scan_type == SCAN_PRIMARYBOOT ||
             scan_type == SCAN_PRIMARY     )
@@ -1052,19 +1050,15 @@ void ReadAllPartitionTables(void)
 
     int HardDrive;
     int nHardDisk = BIOS_nrdrives();
-    ddt FAR *pddt;
     bpb FAR *pbpbarray;
     int Unit;
-
-    extern struct DynS FAR Dyn;
-/*       ddt *miarrayptr; /* Internal media info structs  */
-    
-    pddt0 = (ddt *)&Dyn.Buffer[0];
+    ddt FAR *pddt;
 
     /* Setup media info and BPBs arrays for floppies (this is a 360kb flop) */
     for (Unit = 0; Unit < nUnits; Unit++)
     {
-        pddt = &((ddt FAR *)&Dyn.Buffer[0])[Unit];
+        pddt = DynAlloc("ddt", 1, sizeof(ddt));
+        
         pbpbarray = &pddt->ddt_defbpb;    
 
         pbpbarray->bpb_nbyte = SEC_SIZE;
@@ -1138,10 +1132,6 @@ void ReadAllPartitionTables(void)
     {
         ProcessDisk(SCAN_PRIMARY2, HardDrive ,foundPartitions[HardDrive]);
     }
-
-
-    Dyn.UsedByDiskInit = nUnits * sizeof(ddt);
-
 }
 
 /* disk initialization: returns number of units */

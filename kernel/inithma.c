@@ -81,6 +81,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.7  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -106,6 +109,7 @@ static BYTE *RcsId = "$Id$";
  * initial creation
  */
  
+void ClaimHMA(VOID);
  
 BYTE DosLoadedInHMA=FALSE;    /* set to TRUE if loaded HIGH          */
 BYTE HMAclaimed=FALSE;        /* set to TRUE if claimed from HIMEM   */
@@ -174,34 +178,6 @@ fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len)
 }
 
 
-/* Enable / Disable borrowed without understanding from FDXMS. Thanks. 
-    gone done to KERNEL.ASM
-
-OutportWithDelay(WORD port, BYTE val)
-{
-    int loop;
-    
-    __outportb__(port,val);
-    
-    for (loop = 100; --loop && __inportb__(0x64) & 0x02;)
-        ; 
-}    
-
-
-void _EnableHMA()
-{
-    OutportWithDelay(0x64, 0xd1);
-    OutportWithDelay(0x60, 0xdf);
-    OutportWithDelay(0x64, 0xff);
-}    
-void _DisableHMA()
-{
-    OutportWithDelay(0x64, 0xd1);
-    OutportWithDelay(0x60, 0xdd);
-    OutportWithDelay(0x64, 0xff);
-}    
-*/
-
 /*
     this tests, if the HMA area can be enabled.
     if so, it simply leaves it on
@@ -261,20 +237,15 @@ int MoveKernelToHMA()
         return TRUE;
     }            
 
-    {   /* is very improbable - we are just booting - but
-           there might already a XMS handler installed
-           this is the case for DOSEMU
-        */  
-        
+    {
         void FAR *pXMS = DetectXMSDriver();
         
         if (pXMS != NULL) 
         {
             XMSDriverAddress = pXMS;
-            
-            printf("DOSEMU ? detected XMS driver at %p\n", XMSDriverAddress);
-            
         }
+        else
+            return FALSE;
     }        
     
 
@@ -297,7 +268,9 @@ int MoveKernelToHMA()
         printf("Can't enable HMA area (the famous A20), NOT moving to HMA\n"); 
         
         return FALSE;
-    }          
+    }
+
+    ClaimHMA();
     
     MoveKernel(0xffff);
 
@@ -326,12 +299,7 @@ errorReturn:
 }
 
 
-/*
-
-
-
-
-
+/* not necessary anymore : BO */
 /*   
     now protect against HIMEM/FDXMS/... by simulating a VDISK 
     FDXMS should detect us and not give HMA access to ohers
@@ -339,6 +307,7 @@ errorReturn:
 
     so: we install this after all drivers have been loaded
 */
+#if 0
 void InstallVDISK(VOID)
     {
         static struct {                /* Boot-Sektor of a RAM-Disk */
@@ -370,14 +339,14 @@ void InstallVDISK(VOID)
         
     *(WORD FAR *)MK_FP(0xffff,0x002e) = 1024+64;
     }
+#endif
 
 
 int  init_call_XMScall( void FAR * driverAddress, UWORD ax, UWORD dx);
 
 
 /*
-    after each driver, we try to allocate the HMA.
-    it might be HIMEM.SYS we just loaded.
+  allocate HMA through XMS driver
 */
 
 void ClaimHMA(VOID)
@@ -412,7 +381,7 @@ void ClaimHMA(VOID)
     on finalize, will install a VDISK
 */    
     
-    
+#if 0 /* not necessary anymore */ 
 
 void HMAconfig(int finalize)
 {
@@ -420,7 +389,8 @@ void HMAconfig(int finalize)
     
     if (finalize)
         InstallVDISK();
-}        
+}
+#endif
 
 /*
     this allocates some bytes from the HMA area

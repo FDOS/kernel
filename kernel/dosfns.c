@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.23  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.22  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -1172,6 +1175,8 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
 
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 {
+  BYTE FAR *cp;
+    
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
 
@@ -1182,8 +1187,11 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   
   current_ldt = &CDSp->cds_table[drive];
 
-  fsncopy((BYTE FAR *) & current_ldt->cdsCurrentPath[1 + current_ldt->cdsJoinOffset],
-          s, 64);
+  cp = &current_ldt->cdsCurrentPath[current_ldt->cdsJoinOffset];
+  if (*cp == '\0')
+    s[0]='\0';
+  else
+    fstrncpy(s, cp+1, 64);
 
   return SUCCESS;
 }
@@ -1264,7 +1272,7 @@ STATIC VOID pop_dmp(dmatch FAR * dmp)
 
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 {
-  COUNT nDrive, rc;
+  COUNT rc;
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
   BYTE FAR *p;
 
@@ -1277,6 +1285,10 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
            - Ron Cemer */
 
   fmemset(dta, 0, sizeof(dmatch));
+  
+  /* initially mark the dta as invalid for further findnexts */
+  ((dmatch FAR *)dta)->dm_attr_fnd = D_DEVICE;
+  
   memset(&SearchDir, 0, sizeof(struct dirent));
   
   rc = truename(name, PriPathName, FALSE);
@@ -1303,13 +1315,8 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
   }
   /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
 
-  nDrive=get_verify_drive(name);
-  if (nDrive < 0)
-      return nDrive;
   SAttr = (BYTE) attr;
 
-  current_ldt = &CDSp->cds_table[nDrive];
-  
 #if defined(FIND_DEBUG)
   printf("Remote Find: n='%Fs\n", PriPathName);
 #endif
@@ -1324,12 +1331,10 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 
   dta = p;
 
-  if (rc != SUCCESS)
-      return rc;
-  
   fmemcpy(dta, TempBuffer, 21);
   pop_dmp((dmatch FAR *)dta);
-  return SUCCESS;
+  if (rc != SUCCESS) ((dmatch FAR *)dta)->dm_attr_fnd = D_DEVICE; /* mark invalid */ 
+  return rc;
 }
 
 COUNT DosFindNext(void)
@@ -1371,12 +1376,9 @@ COUNT DosFindNext(void)
       dos_findnext();
   
   dta = p;
-  if (rc != SUCCESS)
-    return rc;
-
   fmemcpy(dta, TempBuffer, 21);
   pop_dmp((dmatch FAR *)dta);
-  return SUCCESS;
+  return rc;
 }
 
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)

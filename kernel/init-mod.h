@@ -73,7 +73,7 @@ extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
 #define NUMBUFF         6       /* Number of track buffers      */
                                         /* -- must be at least 3        */
 #define MAX_HARD_DRIVE  8
-#define NDEV            20      /* only one for demo            */
+#define NDEV            26      /* up to Z:                     */
 
 
 

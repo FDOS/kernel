@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.11  2001/07/28 18:13:06  bartoldeman
+; Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+;
 ; Revision 1.10  2001/07/22 01:58:58  bartoldeman
 ; Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
 ;
@@ -313,7 +316,7 @@ _QRemote_Fn
                 stc
                 int     2fh
                 mov     ax,0xffff
-                jnc     QRemote_Fn_out
+                jc      QRemote_Fn_out
                 xor     ax,ax
 QRemote_Fn_out:	
                 pop     di

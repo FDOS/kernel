@@ -89,6 +89,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.26  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.25  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -272,7 +275,8 @@ struct config Config
 
 BYTE FAR *lpBase;
 BYTE FAR *upBase;
-static BYTE FAR *lpOldLast;
+BYTE FAR *lpTop;
+BYTE FAR *lpOldTop;
 static COUNT nCfgLine;
 static COUNT nPass;
        COUNT UmbState;
@@ -364,17 +368,21 @@ INIT BYTE FAR *KernelAllocDma(WORD);
 
 BYTE *pLineStart;
 
-BYTE HMATextIsAvailable;
+BYTE HMAState;
+#define HMA_NONE 0 /* do nothing */
+#define HMA_REQ 1  /* DOS = HIGH detected */
+#define HMA_DONE 2 /* Moved kernel to HMA */
+#define HMA_LOW 3  /* Definitely LOW */
 
 void FAR * ConfigAlloc(COUNT bytes)
 {
     VOID FAR *p;
-    
+
     p = HMAalloc(bytes);
     
     if (p == NULL) p = KernelAlloc(bytes);
-    
-    /* printf("ConfigAllog %d at %p\n", bytes, p);*/
+
+    /* printf("ConfigAlloc %d at %p\n", bytes, p);*/
     
     return p;
 }    
@@ -389,15 +397,7 @@ INIT void PreConfig(void)
   UmbState = 0; 
  
   /* Initialize the base memory pointers                          */
-
-  DynFree(0);
-  
-  
-  if ( HMATextIsAvailable )
-      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _HMATextAvailable);
-    else
-      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _InitTextStart);
-
+      
 #ifdef DEBUG
  {
   extern BYTE FAR internal_data[];
@@ -412,7 +412,6 @@ INIT void PreConfig(void)
 
 
 
-  config_init_buffers( Config.cfgBuffers );
 /*  buffers = (struct buffer FAR *)
       KernelAlloc(Config.cfgBuffers * sizeof(struct buffer)); */
 #ifdef DEBUG
@@ -422,7 +421,6 @@ INIT void PreConfig(void)
   /* Initialize the file table                                    */
 /*  f_nodes = (f_node_ptr)
       KernelAlloc(Config.cfgFiles * sizeof(struct f_node));*/
-      
 
   f_nodes = (f_node_ptr)
       DynAlloc("f_nodes", Config.cfgFiles , sizeof(struct f_node));
@@ -433,6 +431,11 @@ INIT void PreConfig(void)
   /* FCBp = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
                   + Config.cfgFiles * sizeof(sft));*/
+
+  lpBase = AlignParagraph((BYTE FAR *)DynLast()+0x0f);
+
+  config_init_buffers( Config.cfgBuffers);
+
   sfthead->sftt_next = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
                   + (Config.cfgFiles-5) * sizeof(sft));
@@ -446,7 +449,7 @@ INIT void PreConfig(void)
       KernelAlloc(blk_dev.dh_name[0]*sizeof(struct dpb));
 
 #ifdef DEBUG
-  printf("Preliminary:\n f_node 0x%p",f_nodes);
+  printf("Preliminary:\n f_node 0x%x",f_nodes);
 /*  printf(" FCB table 0x%p\n",FCBp);*/
   printf(" sft table 0x%p\n",sfthead->sftt_next);
   printf(" CDS table 0x%p\n",CDSp);
@@ -487,10 +490,8 @@ INIT void PostConfig(void)
 
                         /* initialize NEAR allocated things */
 
-  DynFree(Config.cfgFiles * sizeof(struct f_node));
-  
-
   /* Initialize the file table                                    */
+  DynFree(f_nodes);
   f_nodes = (f_node_ptr)
       DynAlloc("f_nodes", Config.cfgFiles , sizeof(struct f_node));
   
@@ -505,25 +506,10 @@ INIT void PostConfig(void)
     and allocation starts after the kernel.
   */
 
-  if ( HMATextIsAvailable )
-      lpBase = AlignParagraph((BYTE FAR *)DynLast()+0x0f);
-  else
-      {
-      lpBase = AlignParagraph((BYTE FAR *)DynLast()+0x0f);
-
-      DebugPrintf(("HMA not available, moving text to %x\n",FP_SEG(lpBase)));
-      MoveKernel(FP_SEG(lpBase));
-      
-      lpBase = AlignParagraph((BYTE FAR *)lpBase + HMAFree + 0x0f);
-      
-      DebugPrintf(("kernel is low, start alloc at %p",lpBase));
-      }
-
+  lpBase = AlignParagraph((BYTE FAR *)DynLast()+0x0f);
       
   DebugPrintf(("starting FAR allocations at %p\n",lpBase));
       
-
-  lpOldLast = lpBase;        
 
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
@@ -532,14 +518,7 @@ INIT void PostConfig(void)
 #endif
 
 
-  config_init_buffers( Config.cfgBuffers );
-
-  /* buffers = (struct buffer FAR *)
-      KernelAlloc(Config.cfgBuffers * sizeof(struct buffer)); */
-
-#ifdef DEBUG
-  /* printf("%d buffers allocated at 0x%p\n", Config.cfgBuffers,buffers); */
-#endif
+  config_init_buffers(Config.cfgBuffers);
 
 /* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
@@ -560,7 +539,7 @@ INIT void PostConfig(void)
 
 
 #ifdef DEBUG
-  printf("Final: \n f_node 0x%p\n",f_nodes);
+  printf("Final: \n f_node 0x%x\n",f_nodes);
 /*  printf(" FCB table 0x%p\n",FCBp);*/
   printf(" sft table 0x%p\n",sfthead->sftt_next);
   printf(" CDS table 0x%p\n",CDSp);
@@ -580,9 +559,21 @@ INIT void PostConfig(void)
 /* This code must be executed after device drivers has been loaded */
 INIT VOID configDone(VOID)
 {
-    HMAconfig(TRUE);        /* final HMA processing */
-  
-  
+  if ( HMAState != HMA_DONE )
+      {
+      lpBase = AlignParagraph(lpBase);
+          
+      DebugPrintf(("HMA not available, moving text to %x\n",FP_SEG(lpBase)));
+      MoveKernel(FP_SEG(lpBase));
+      
+      lpBase = AlignParagraph((BYTE FAR *)lpBase + HMAFree + 0x0f);
+      
+      DebugPrintf(("kernel is low, start alloc at %p",lpBase));
+
+      /* final buffer processing, now upwards */
+      HMAState =  HMA_LOW;
+      config_init_buffers( Config.cfgBuffers);
+      }
 
   if (lastdrive < nblkdev) {
 
@@ -713,6 +704,10 @@ INIT VOID DoConfig(VOID)
             bEof = TRUE;
             break;
             }
+
+        /* immediately convert to upper case */
+        *pLine = toupper(*pLine);
+        
         if (pLine >= szLine + sizeof(szLine)-3)
             {
             CfgFailure(pLine);
@@ -1033,7 +1028,7 @@ INIT static VOID Lastdrive(BYTE * pLine)
 INIT STATIC VOID Dosmem(BYTE * pLine)
 {
     BYTE *pTmp;
-    BYTE  UMBwanted = FALSE, HMAwanted = FALSE;
+    BYTE  UMBwanted = FALSE;
 
 /*    extern BYTE FAR INITDataSegmentClaimed; */
 
@@ -1047,7 +1042,7 @@ INIT STATIC VOID Dosmem(BYTE * pLine)
     for (pTmp = szBuf ; ; )
     {
         if (fmemcmp(pTmp, "UMB" ,3) == 0) { UMBwanted = TRUE; pTmp += 3; }
-        if (fmemcmp(pTmp, "HIGH",4) == 0) { HMAwanted = TRUE; pTmp += 4; }
+        if (fmemcmp(pTmp, "HIGH",4) == 0) { HMAState = HMA_REQ; pTmp += 4; }
 /*        if (fmemcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }*/
         pTmp = skipwh(pTmp);
 
@@ -1062,10 +1057,9 @@ INIT STATIC VOID Dosmem(BYTE * pLine)
         uppermem_root = 0;
         UmbState = UMBwanted ? 2 : 0;
     }
-
-    if (HMAwanted)
-    {
-        HMATextIsAvailable = MoveKernelToHMA();    
+    /* Check if HMA is available straight away */
+    if (HMAState == HMA_REQ && MoveKernelToHMA()){
+        HMAState = HMA_DONE;
     }
 }
 
@@ -1280,27 +1274,6 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
        multiple devices in it. NUMEGA's SoftIce is such a beast
     */   
     
-    /*  that's a nice hack >:-)   
-    
-        although we don't want HIMEM.SYS,(it's not free), other people
-        might load HIMEM.SYS to see if they are compatible to it.
-
-        if it's HIMEM.SYS, we won't survive TESTMEM:ON
-        
-        so simply add TESTMEM:OFF to the commandline
-    */
-
-    if (DosLoadedInHMA)
-        if (stristr(szBuf, "HIMEM.SYS") != NULL)
-        {
-            if (stristr(szBuf, "/TESTMEM:OFF") == NULL)
-                {
-                strcat(szBuf, " /TESTMEM:OFF");
-                }
-        }
-    /* end of HIMEM.SYS HACK */    
-
-    
     /* add \r\n to the command line */
     strcat(szBuf, "\r\n");
     
@@ -1321,10 +1294,15 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
       /* Link in device driver and save nul_dev pointer to next */
       dhp->dh_next = nul_dev.dh_next;
       nul_dev.dh_next = dhp;
-    } 
-
-    HMAconfig(FALSE);   /* let the HMA claim HMA usage */
-
+    }
+    /* We could just have loaded FDXMS or HIMEM */
+    if (HMAState == HMA_REQ && MoveKernelToHMA())
+    {
+      /* final HMA processing: */
+      /* final buffer processing, now upwards */
+      HMAState = HMA_DONE;
+      config_init_buffers( Config.cfgBuffers);
+    }
   }
   else
     CfgFailure(pLine);
@@ -1580,6 +1558,7 @@ VOID config_init_buffers(COUNT anzBuffers)
   REG WORD i;
   struct buffer FAR *pbuffer;
   int HMAcount = 0;
+  BYTE FAR *tmplpBase = lpBase;
   
   anzBuffers = max(anzBuffers,6);
   if (anzBuffers > 99)
@@ -1587,6 +1566,11 @@ VOID config_init_buffers(COUNT anzBuffers)
     printf("BUFFERS=%u not supported, reducing to 99\n",anzBuffers);
     anzBuffers = 99;
     }
+  
+  lpTop = lpOldTop;
+
+  if (HMAState == HMA_NONE || HMAState == HMA_REQ)
+    lpTop = lpBase = lpTop - anzBuffers * (sizeof (struct buffer) + 0xf);
   
   firstbuf = ConfigAlloc(sizeof (struct buffer));
   
@@ -1606,7 +1590,7 @@ VOID config_init_buffers(COUNT anzBuffers)
     pbuffer->b_offset_hi = 0;
     pbuffer->b_next = NULL;
 
-    /* printf("init_buffers buffer %d at %p\n",i, pbuffer);*/
+    DebugPrintf(("init_buffers buffer %d at %p\n",i, pbuffer));
 
     if (i < (anzBuffers - 1))
         pbuffer->b_next = ConfigAlloc(sizeof (struct buffer));
@@ -1617,9 +1601,10 @@ VOID config_init_buffers(COUNT anzBuffers)
     pbuffer = pbuffer->b_next;        
   }
   
-  if (HMAcount > 0) 
-    printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
-                            HMAcount, HMAcount*sizeof (struct buffer));
+  DebugPrintf(("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
+                            HMAcount, HMAcount*sizeof (struct buffer)));
+  if (HMAState == HMA_NONE || HMAState == HMA_REQ)
+      lpBase = tmplpBase;
 }
 
 /*

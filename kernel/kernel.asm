@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.16  2001/07/28 18:13:06  bartoldeman
+; Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+;
 ; Revision 1.15  2001/07/22 01:58:58  bartoldeman
 ; Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
 ;
@@ -676,6 +679,8 @@ __ib_end:
 init_tos:
 ; the last paragraph of conventional memory might become an MCB
                 resb 16
+		global __init_end
+__init_end:
 init_end:        
 
 segment	_BSSEND
@@ -919,22 +924,6 @@ __HMARelocationTableEnd:
 ; will be only ever called, if HMA (DOS=HIGH) is enabled.
 ; for obvious reasons it should be located at the relocation table
 ;
-    global enableA20        ; to see it in the map
-    
-delay:
-     in al, 64h
-delay_check:
-     and al, 2
-     jnz delay
-     ret
-
-;void _EnableHMA()
-;{
-;    OutportWithDelay(0x64, 0xd1);
-;    OutportWithDelay(0x60, 0xdf);
-;    OutportWithDelay(0x64, 0xff);
-;}    
-
     global _XMSDriverAddress
 _XMSDriverAddress:  
                     dw 0            ; XMS driver, if detected
@@ -942,25 +931,6 @@ _XMSDriverAddress:
 
     global __EnableA20
 __EnableA20:
-    cmp word [cs:_XMSDriverAddress],0
-    jne enableUsingXMSdriver
-    cmp word [cs:_XMSDriverAddress+2],0
-    jne enableUsingXMSdriver
-
-
-                        ; we do it ourself, without an XMS driver
-     mov al,0d1h
-     out 64h,al
-     call delay
-     mov al,0dfh
-     out 60h,al
-     call delay
-     mov al,0ffh
-     out 64h,al
-     call delay
-     retf
-
-enableUsingXMSdriver:
     mov ah,3
 UsingXMSdriver:    
     push bx
@@ -971,27 +941,7 @@ UsingXMSdriver:
     global __DisableA20
 __DisableA20:
     mov ah,4
-    cmp word [cs:_XMSDriverAddress],0
-    jne UsingXMSdriver
-    cmp word [cs:_XMSDriverAddress+2],0
-    jne UsingXMSdriver
-
-                        ; we do it ourself, without an XMS driver
-                        ;OutportWithDelay(0x64, 0xd1);
-                        ;OutportWithDelay(0x60, 0xdd);
-                        ;OutportWithDelay(0x64, 0xff);
-     mov al,0d1h
-     out 64h,al
-     call delay
-     mov al,0ddh
-     out 60h,al
-     call delay
-     mov al,0ffh
-     out 64h,al
-     call delay
-
-     retf
-
+    jmp short UsingXMSdriver
 
 dslowmem  dw 0
 eshighmem dw 0ffffh

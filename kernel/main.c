@@ -62,8 +62,8 @@ extern struct dhdr FAR con_dev,               /* console device drive           
                    FAR blk_dev;               /* Block device (Disk) driver           */
 extern UWORD
     FAR ram_top;                      /* How much ram in Kbytes               */
-
 extern iregs FAR * FAR user_r;        /* User registers for int 21h call      */
+extern BYTE FAR _HMATextEnd[];
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId = "$Id$";
@@ -71,6 +71,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.20  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.19  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -218,8 +221,10 @@ static BYTE *mainRcsId = "$Id$";
 
 extern WORD days[2][13];
 extern BYTE FAR * lpBase;
+extern BYTE FAR * lpOldTop;
+extern BYTE FAR * lpTop;
 extern BYTE FAR * upBase;
-extern BYTE _ib_start[], _ib_end[]; 
+extern BYTE _ib_start[], _ib_end[], _init_end[];
 
 INIT VOID configDone(VOID);
 INIT static void InitIO(void);
@@ -282,6 +287,13 @@ INIT void init_kernel(void)
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();
 
+  /* move kernel to high conventional RAM, just below the init code */
+  lpTop = MK_FP(ram_top * 64 - (FP_OFF(_init_end)+15)/16 -
+      (FP_OFF(_HMATextEnd)+15)/16, 0);
+  
+  MoveKernel(FP_SEG(lpTop));
+  lpOldTop = lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
+
 /* Fake int 21h stack frame */
   user_r = (iregs FAR *) DOS_PSP + 0xD0;
 
@@ -316,10 +328,11 @@ INIT void init_kernel(void)
   /* we can read config.sys later.  */
   lastdrive = Config.cfgLastdrive;
 
-  PreConfig();
-
   /*  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top); */
   blk_dev.dh_name[0] = dsk_init();
+
+  PreConfig();
+
   /* Number of units */
   if (blk_dev.dh_name[0] > 0)
       update_dcb(&blk_dev);

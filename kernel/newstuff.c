@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.11  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -254,7 +257,6 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
   char *bufp = buf + 3;
   COUNT i, rootEndPos = 2;     /* renamed x to rootEndPos - Ron Cemer */
-  struct cds FAR *cdsp;
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
   WORD d;
@@ -329,21 +331,20 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     goto exit_tn;
   }
 
-  cdsp = &CDSp->cds_table[i];
-  current_ldt = cdsp;
+  current_ldt = &CDSp->cds_table[i];
 
   /* Always give the redirector a chance to rewrite the filename */
   fsncopy((BYTE FAR *) src, bufp -1, sizeof(buf) - (bufp - buf));
-  if ((QRemote_Fn(buf, dest) == SUCCESS) && (dest[0] != '\0')) {
+  if ((t == FALSE) && (QRemote_Fn(buf, dest) == SUCCESS) && (dest[0] != '\0')) {
     return SUCCESS;
   } else {
     bufp[-1] = '\\';
   }
     if (t == FALSE)
     {
-      fsncopy((BYTE FAR *) & cdsp->cdsCurrentPath[0], (BYTE FAR *) & buf[0], cdsp->cdsJoinOffset);
-      bufp = buf + cdsp->cdsJoinOffset;
-      rootEndPos = cdsp->cdsJoinOffset; /* renamed x to rootEndPos - Ron Cemer */
+      fsncopy((BYTE FAR *) & current_ldt->cdsCurrentPath[0], (BYTE FAR *) & buf[0], current_ldt->cdsJoinOffset);
+      bufp = buf + current_ldt->cdsJoinOffset;
+      rootEndPos = current_ldt->cdsJoinOffset; /* renamed x to rootEndPos - Ron Cemer */
       *bufp++ = '\\';
     }
 

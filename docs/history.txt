@@ -1,4 +1,19 @@
-2001 Jul 9 - Build 2024/e
+2001 Jul 28 - Build 2024/f
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ fixes Bart
+    * fixed get current directory - MSCDEX works now (always)
+    * initdisk.c correctly sets number of hidden sectors: necessary
+      for FORMAT - SYS chain to work
++ updates Bart
+    * initialisation memory situation changed: kernel is loaded
+      to the top of conventional memory in the beginning. Then
+      move it back low or high depending on DOS=HIGH and the presence
+      of an XMS driver.
+      DOS=HIGH without an XMS driver (such as FDXMS) has no effect anymore!
++ fixes Tom, Victor, Bart
+    * various fatfs.c fixes and clean ups
+
+2001 Jul 23 - Build 2024/e
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + fixes Tom
     * dyninit allocation fix

@@ -26,12 +26,17 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "dyndata.h"
+
 #ifdef VERSION_STRINGS
 static BYTE *dskRcsId = "$Id$";
 #endif
 
 /*
  * $Log$
+ * Revision 1.19  2001/07/28 18:13:06  bartoldeman
+ * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
+ *
  * Revision 1.18  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -216,11 +221,10 @@ struct FS_info
     BYTE  fstype[8];
 };
 
-ddt *pddt0; /* Internal media info structs  */
-/* STATIC bpb *bpbptrs[NDEV];      pointers to bpbs             */
+extern struct DynS Dyn;
 
 /*TE - array access functions */
-ddt *getddt(int dev) { return &pddt0[dev];}
+ddt *getddt(int dev) { return &(((ddt*)Dyn.Buffer)[dev]);}
 
 #define N_PART 4                /* number of partitions per
                    table partition              */

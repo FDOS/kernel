@@ -50,57 +50,36 @@ additionally:
 
 extern struct DynS FAR Dyn;
 
-void *DynAlloc(char FAR *what, unsigned num, unsigned size)
+void far *DynAlloc(char *what, unsigned num, unsigned size)
 {
-    void *now;
+    void far *now;
     unsigned total = num * size;
-    
+#ifndef DEBUG
     UNREFERENCED_PARAMETER(what);
+#endif
     
-    DebugPrintf(("DYNDATA:allocating %Fs - %u * %u bytes, total %u, %u..%u\n",
+    if ((ULONG)total + Dyn.Allocated > 0xffff)
+    {
+        printf("PANIC:Dyn %lu\n", (ULONG)total + Dyn.Allocated);
+        for (;;);
+    }
+                
+    DebugPrintf(("DYNDATA:allocating %s - %u * %u bytes, total %u, %u..%u\n",
         what, num, size, total, Dyn.Allocated,Dyn.Allocated+total));
     
-    if (total > Dyn.AllocMax - Dyn.Allocated)
-        {
-        printf("DYNDATA overflow");
-        for (;;);
-        }
-    now = (void*)&Dyn.Buffer[Dyn.Allocated];
+    now = (void far *)&Dyn.Buffer[Dyn.Allocated];
+    fmemset(now, 0, total);
     
     Dyn.Allocated += total;
-    
     
     return now;   
 }    
 
-void DynFree(unsigned memory_needed)
+void DynFree(void *ptr)
 {
-    if (memory_needed == 0)     /* this is pass  0 */
-        {
+    Dyn.Allocated = (char *)ptr - (char *)Dyn.Buffer;
+}
 
-        Dyn.Allocated = NDEV*sizeof(ddt);    /* this reserves space for initDisk */
-        Dyn.AllocMax  = sizeof(Dyn.Buffer);
-        }                        
-    else {
-                                /* enlarge kernel data segment to 64K */
-        if (memory_needed + Dyn.UsedByDiskInit > sizeof(Dyn.Buffer))
-            {     
-            if ((ULONG)memory_needed + Dyn.UsedByDiskInit > 0xffff)
-                {
-                printf("PANIC:Dyn %lu\n",memory_needed + Dyn.UsedByDiskInit);
-                for (;;);    
-                }                    
-                
-            MoveKernel(FP_SEG(&Dyn.UsedByDiskInit) + 0x1000);
-
-            Dyn.AllocMax  = 0xffff - (unsigned)&Dyn.Buffer;
-            }
-        Dyn.Allocated = Dyn.UsedByDiskInit;
-        }
-
-    DebugPrintf(("DYNDATA:free to %u, max %u\n",Dyn.Allocated,Dyn.AllocMax));
-}    
-    
 void FAR *DynLast()
 {
     DebugPrintf(("dynamic data end at %p\n",(void FAR *)(Dyn.Buffer+Dyn.Allocated)));
