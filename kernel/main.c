@@ -678,7 +678,7 @@ STATIC VOID InitSerialPorts(VOID)
 	booted from HD
 */
 
-EmulatedDriveStatus(int drive,char statusOnly)
+STATIC int EmulatedDriveStatus(int drive,char statusOnly)
 {
   iregs r;
   char buffer[0x13];

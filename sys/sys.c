@@ -455,7 +455,7 @@ int abswrite(int DosDrive, int nsects, int foo, void *diskReadPacket);
       modify [si di] \
       value [ax];
 
-fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
+int fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
 #pragma aux fat32readwrite =  \
       "mov ax, 0x7305"    \
       "mov cx, 0xffff"    \
