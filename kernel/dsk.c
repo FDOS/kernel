@@ -33,8 +33,15 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
+ *
  * Revision 1.2  2000/05/08 04:29:59  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
  *
  * Revision 1.6  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -118,7 +125,9 @@ BOOL fl_format();
 #define NDEV            8       /* only one for demo            */
 #define SEC_SIZE        512     /* size of sector in bytes      */
 #define N_RETRY         5       /* number of retries permitted  */
-#define NENTRY          25      /* total size of dispatch table */
+#define NENTRY          26      /* total size of dispatch table */
+
+extern BYTE FAR nblk_rel;
 
 union
 {
@@ -138,7 +147,15 @@ static struct media_info
   COUNT mi_partidx;             /* Index to partition array     */
 };
 
-static struct media_info miarray[NDEV];	/* Internal media info structs  */
+static struct FS_info
+{
+  ULONG fs_serialno;
+  BYTE  fs_volume[11];
+  BYTE  fs_fstype[8];
+};
+
+static struct media_info miarray[NDEV]; /* Internal media info structs  */
+static struct FS_info fsarray[NDEV];
 static bpb bpbarray[NDEV];      /* BIOS parameter blocks        */
 static bpb *bpbptrs[NDEV];      /* pointers to bpbs             */
 
@@ -177,6 +194,7 @@ WORD init(rqptr),
   mediachk(rqptr),
   bldbpb(rqptr),
   blockio(rqptr),
+  IoctlQueblk(rqptr),
   Genblkdev(rqptr),
   blk_error(rqptr);
 COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, LONG, byteptr);
@@ -221,12 +239,13 @@ static WORD(*dispatch[NENTRY]) () =
       blk_error,                /* Output till busy             */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
-      Genblkdev,                /* Generic Ioctl                */
+      Genblkdev,                /* Generic Ioctl Call           */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
       blk_error,                /* Get Logical Device           */
-      blk_error                 /* Set Logical Device           */
+      blk_error,                /* Set Logical Device           */
+      IoctlQueblk               /* Ioctl Query                  */
 };
 
 #define SIZEOF_PARTENT  16
@@ -391,6 +410,9 @@ static WORD init(rqptr rp)
     miarray[Unit].mi_offset = 0l;
     miarray[Unit].mi_drive = Unit;
 
+    fsarray[Unit].fs_serialno = 0x12345678;
+
+
     bpbarray[Unit].bpb_nbyte = SEC_SIZE;
     bpbarray[Unit].bpb_nsector = 2;
     bpbarray[Unit].bpb_nreserved = 1;
@@ -415,6 +437,7 @@ static WORD init(rqptr rp)
   rp->r_nunits = nUnits;
   rp->r_bpbptr = bpbptrs;
   rp->r_endaddr = device_end();
+  nblk_rel = nUnits;            /* make device header reflect units */
   return S_DONE;
 }
 
@@ -490,6 +513,10 @@ static WORD bldbpb(rqptr rp)
   getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NHEADS]), &bpbarray[rp->r_unit].bpb_nheads);
   getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HIDDEN])), &bpbarray[rp->r_unit].bpb_hidden);
   getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &bpbarray[rp->r_unit].bpb_huge);
+
+
+  getlong(&((((BYTE *) & buffer.bytes[0x27])[0])), &fsarray[rp->r_unit].fs_serialno);
+
 #ifdef DSK_DEBUG
   printf("BPB_NBYTE     = %04x\n", bpbarray[rp->r_unit].bpb_nbyte);
   printf("BPB_NSECTOR   = %02x\n", bpbarray[rp->r_unit].bpb_nsector);
@@ -511,6 +538,7 @@ static WORD bldbpb(rqptr rp)
   if (miarray[rp->r_unit].mi_size == 0)
     getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &miarray[rp->r_unit].mi_size);
   sector = miarray[rp->r_unit].mi_sectors;
+
   if (head == 0 || sector == 0)
   {
     tmark();
@@ -518,6 +546,7 @@ static WORD bldbpb(rqptr rp)
   }
   miarray[rp->r_unit].mi_cyls = count / (head * sector);
   tmark();
+
 #ifdef DSK_DEBUG
   printf("BPB_NSECS     = %04x\n", sector);
   printf("BPB_NHEADS    = %04x\n", head);
@@ -538,35 +567,87 @@ static COUNT write_and_verify(WORD drive, WORD head, WORD track, WORD sector,
   return fl_verify(drive, head, track, sector, count, buffer);
 }
 
+static WORD IoctlQueblk(rqptr rp)
+{
+    switch(rp->r_count){
+        case 0x0860:
+        case 0x0866:
+            break;
+        default:
+            return S_ERROR;
+    }
+  return S_DONE;
+
+}
+
 static WORD Genblkdev(rqptr rp)
 {
-    UWORD cmd = rp->r_count;
-
-
-    switch(cmd){
-        case 0x0860:
+    switch(rp->r_count){
+        case 0x0860:            /* get device parameters */
         {
-        struct gblkio FAR * gblp = rp->r_trans;
+        struct gblkio FAR * gblp = (struct gblkio FAR *) rp->r_trans;
+        REG COUNT x = 5,y = 1,z = 0;
 
-        gblp->gbio_devtype = 0x05;
-        gblp->gbio_devattrib = 0x01;
+        if (!hd(miarray[rp->r_unit].mi_drive)){
+            y = 2;
+            switch(miarray[rp->r_unit].mi_size)
+            {
+                case 640l:
+                case 720l:      /* 320-360 */
+                    x = 0;
+                    z = 1;
+                break;
+                case 1440l:     /* 720 */
+                    x = 2;
+                break;
+                case 2400l:     /* 1.2 */
+                    x = 1;
+                break;
+                case 2880l:     /* 1.44 */
+                    x = 7;
+                break;
+                case 5760l:     /* 2.88 almost forgot this one*/
+                    x = 9;
+                break;
+                default:
+                    x = 8;      /* any odd ball drives return this */
+            }
+        }
+        gblp->gbio_devtype = (UBYTE) x;
+        gblp->gbio_devattrib = (UWORD) y;
+        gblp->gbio_media = (UBYTE) z;
         gblp->gbio_ncyl = miarray[rp->r_unit].mi_cyls;
-        gblp->gbio_media = 0;
         gblp->gbio_bpb = bpbarray[rp->r_unit];
         gblp->gbio_nsecs = bpbarray[rp->r_unit].bpb_nsector;
-
-  printf("GenBlkIO = %08lx\n", rp->r_trans);
-  printf("GenBlkIO = %08lx\n", gblp);
         break;
         }
-        case 0x0866:
+        case 0x0866:        /* get volume serial number */
+        {
+        REG COUNT i;
+        struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
+        struct FS_info FAR * fs = &fsarray[rp->r_unit];
 
+            gioc->ioc_serialno = fs->fs_serialno;
 
+            for(i = 0; i < 12 ;i++ )
+                gioc->ioc_volume[i] = fs->fs_volume[i];
+            for(i = 0; i < 9; i++ )
+                gioc->ioc_fstype[i] = fs->fs_fstype[i];
+
+            printf("DSK_IOCTL SN %lx \n" , &fs->fs_serialno);
+            printf("DSK_IOCTL SN %lx \n" , &fs->fs_volume);
+            printf("DSK_IOCTL SN %lx \n" , &gioc->ioc_serialno);
+            printf("DSK_IOCTL SN %lx \n" , &gioc->ioc_volume);
+
+        }
         break;
+        default:
+            return S_ERROR;
     }
-
   return S_DONE;
 }
+
+
 static WORD blockio(rqptr rp)
 {
   REG retry = N_RETRY,

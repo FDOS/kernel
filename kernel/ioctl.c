@@ -35,8 +35,15 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
  *
  * Revision 1.4  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -147,17 +154,19 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 /* JT Fixed it */
 
       r->BL = ( r->BL == 0 ? default_drive : r->BL - 1);
+
+    printf("IOCTL bl = %04x\n", r->BL);
+
       if (r->BL > lastdrive)
       {
         *err = DE_INVLDDRV;
         return 0;
       }
       else
-        {
+      {
         cdsp = &CDSp->cds_table[r->BL];
         dpbp = cdsp->cdsDpb;
-        }
-
+      }
       break;
 
     case 0x0b:
@@ -186,7 +195,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x01:
       /* sft_flags is a file, return an error because you     */
       /* can't set the status of a file.                      */
-      if ((s->sft_flags & SFT_FDEVICE)) /* !*/
+      if (!(s->sft_flags & SFT_FDEVICE))
       {
         *err = DE_INVLDFUNC;
         return 0;
@@ -209,14 +218,12 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x03:
       nMode = C_IOCTLOUT;
     IoCharCommon:
-
       if ((s->sft_flags & SFT_FDEVICE)
-          || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
-          || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
-          /* ! ! */
+            || ((r->AL == 0x02 ) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+            || ((r->AL == 0x03 ) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+            || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
+            || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
       {
-        if (s->sft_dev->dh_attr & SFT_FIOCTL)
-        {
           CharReqHdr.r_unit = 0;
           CharReqHdr.r_length = sizeof(request);
           CharReqHdr.r_command = nMode;
@@ -234,7 +241,6 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
                 00 : 0xff;
           }
           break;
-        }
       }
       *err = DE_INVLDFUNC;
       return 0;
@@ -251,10 +257,10 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x05:
       nMode = C_IOCTLOUT;
     IoBlockCommon:
-      if ((dpbp->dpb_device->dh_attr & ATTR_IOCTL)
-      || ((r->AL == 0x11) && (dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
-          || ((r->AL == 0x0d) && (dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
-          /* ! ! */
+      if ( ((r->AL == 0x04 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
+            || ((r->AL == 0x05 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
+            || ((r->AL == 0x11) && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
+            || ((r->AL == 0x0d) && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
       {
         *err = DE_INVLDFUNC;
         return 0;
@@ -315,7 +321,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 
     case 0x09:
       if(cdsp->cdsFlags & CDSNETWDRV)
-        r->DX = 0x1000;
+        r->DX = ATTR_REMOTE;
       else
         r->DX = dpbp->dpb_device->dh_attr;
       break;

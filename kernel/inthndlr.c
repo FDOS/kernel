@@ -36,20 +36,21 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
+ *
  * Revision 1.3  2000/05/09 00:30:11  jimtabor
  * Clean up and Release
  *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
  *
- * Revision 1.25  2000/04/29 05:31:47  jtabor
- * fix history
+ * $Log$
+ * Revision 1.4  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
  *
  * Revision 1.24  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
- *
- * Revision 1.23  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
  *
  * Revision 1.22  2000/03/17 22:59:04  kernel
  * Steffen Kaiser's NLS changes
@@ -1021,11 +1022,9 @@ dispatch:
         }
         else
         {
-
-          if(r->AL == 0x02)
+        if((r->AL == 0x02) || (r->AL == 0x03) || (r->AL == 0x04) || (r->AL == 0x05))
             r->AX = r->CX;
-
-          r->FLAGS &= ~FLG_CARRY;
+        r->FLAGS &= ~FLG_CARRY;
         }
       }
       break;
@@ -1133,8 +1132,8 @@ dispatch:
           || ((psp FAR *) (MK_FP(cu_psp, 0)))->ps_parent == cu_psp)
         break;
       tsr = FALSE;
-      int2f_Remote_call(REM_PROCESS_END, 0, 0, 0, 0, 0, 0);
-   int2f_Remote_call(REM_CLOSEALL, 0, 0, 0, 0, 0, 0);
+        int2f_Remote_call(REM_PROCESS_END, 0, 0, 0, 0, 0, 0);
+        int2f_Remote_call(REM_CLOSEALL, 0, 0, 0, 0, 0, 0);
       if (ErrorMode)
       {
         ErrorMode = FALSE;
@@ -1556,25 +1555,34 @@ dispatch:
 
       /* Get/Set Serial Number */
     case 0x69:
-      r->BL = ( r->BL == 0 ? default_drive : r->BL - 1);
-      if (r->BL <= lastdrive)
+      rc = ( r->BL == 0 ? default_drive : r->BL - 1);
+      if (rc <= lastdrive)
       {
-        if (CDSp->cds_table[r->BL].cdsFlags & CDSNETWDRV) {
-          r->AX = 0x01;
-          goto error_out;
+        if (CDSp->cds_table[rc].cdsFlags & CDSNETWDRV) {
+          goto error_invalid;
         }
         switch(r->AL){
             case 0x00:
+            r->AL = 0x0d;
             r->CX = 0x0866;
             rc = DosDevIOctl(r, (COUNT FAR *) & rc1);
             break;
 
             case 0x01:
+            r->AL = 0x0d;
             r->CX = 0x0846;
             rc = DosDevIOctl(r, (COUNT FAR *) & rc1);
             break;
         }
-        r->FLAGS &= ~FLG_CARRY;
+        if (rc1 != SUCCESS)
+        {
+          r->FLAGS |= FLG_CARRY;
+          r->AX = -rc1;
+        }
+        else
+        {
+          r->FLAGS &= ~FLG_CARRY;
+        }
         break;
       }
       else
@@ -1582,11 +1590,37 @@ dispatch:
       break;
 
 #if 0
-
     /* Extended Open-Creat, not fully functional.*/
     case 0x6c:
         switch(r->DL) {
-        case 0x01:
+        case 0x12:
+            {
+                COUNT x = 0;
+            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) >= 0)
+            {
+                DosClose(rc);
+                x = 1;
+            }
+            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
+                goto error_exit;
+            else
+            {
+                x += 2;
+                r->CX = x;
+                r->AX = rc;
+                r->FLAGS &= ~FLG_CARRY;
+            }
+            }
+            break;
+        case 0x10:
+            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) >= 0)
+            {
+                DosClose(rc);
+                r->AX = 80;
+                r->FLAGS |= FLG_CARRY;
+            }
+            else
+            {
             if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
                 goto error_exit;
             else
@@ -1595,9 +1629,42 @@ dispatch:
                 r->AX = rc;
                 r->FLAGS &= ~FLG_CARRY;
             }
+            }
+            break;
+        case 0x02:
+            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) < 0)
+                goto error_exit;
+            DosClose(rc);
+            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
+                goto error_exit;
+            else
+            {
+                r->CX = 0x03;
+                r->AX = rc;
+                r->FLAGS &= ~FLG_CARRY;
+            }
             break;
 
-        case 0x10:
+        case 0x11:
+            if ((rc = DosOpen(MK_FP(r->DS, r->SI), 0)) >= 0)
+            {
+                r->CX = 0x01;
+                r->AX = rc;
+                r->FLAGS &= ~FLG_CARRY;
+            }
+            else{
+            if ((rc = DosCreat(MK_FP(r->DS, r->SI), r->CX )) < 0 )
+                goto error_exit;
+            else
+            {
+                r->CX = 0x02;
+                r->AX = rc;
+                r->FLAGS &= ~FLG_CARRY;
+            }
+            }
+            break;
+
+        case 0x01:
             if ((rc = DosOpen(MK_FP(r->DS, r->SI), r->BL )) < 0 )
                 goto error_exit;
             else

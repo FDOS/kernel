@@ -37,8 +37,15 @@ static BYTE *blockioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
+ *
  * Revision 1.2  2000/05/08 04:29:59  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
  *
  * Revision 1.15  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -547,7 +554,7 @@ BOOL dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode
 {
 /*  REG struct dpb *dpbp = &blk_devices[dsk]; */
 
-    REG struct dpb *dpbp = CDSp->cds_table[dsk].cdsDpb;
+    REG struct dpb *dpbp = (struct dpb *)CDSp->cds_table[dsk].cdsDpb;
 
   for (;;)
   {

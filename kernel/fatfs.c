@@ -36,8 +36,15 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
  *
  * Revision 1.23  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -2140,7 +2147,7 @@ struct dhdr FAR *select_unit(COUNT drive)
   /* Just get the header from the dhdr array                      */
 /*  return blk_devices[drive].dpb_device; */
 
-    return CDSp->cds_table[drive].cdsDpb;
+    return (struct dhdr FAR *)CDSp->cds_table[drive].cdsDpb;
 
 }
 
