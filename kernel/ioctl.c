@@ -85,13 +85,16 @@ COUNT DosDevIOctl(lregs * r)
         return DE_INVLDHNDL;
       
       switch (r->AL)
-      {  
+      {
+        unsigned attr = s->sft_dev->dh_attr;
+        unsigned flags = s->sft_flags;
+
         case 0x00:
           /* Get the flags from the SFT                           */
-          if (s->sft_flags & SFT_FDEVICE)
-            r->AX = (s->sft_dev->dh_attr & 0xff00) | s->sft_flags_lo;
+          if (flags & SFT_FDEVICE)
+            r->AX = (attr & 0xff00) | (flags & 0xff);
           else
-            r->AX = s->sft_flags;
+            r->AX = flags;
           /* Undocumented result, Ax = Dx seen using Pcwatch */
           r->DX = r->AX;
           break;
@@ -99,7 +102,7 @@ COUNT DosDevIOctl(lregs * r)
         case 0x01:
           /* sft_flags is a file, return an error because you     */
           /* can't set the status of a file.                      */
-          if (!(s->sft_flags & SFT_FDEVICE))
+          if (!(flags & SFT_FDEVICE))
             return DE_INVLDFUNC;
 
           /* Set it to what we got in the DL register from the    */
@@ -116,7 +119,7 @@ COUNT DosDevIOctl(lregs * r)
           goto IoCharCommon;
           
         case 0x06:
-          if (s->sft_flags & SFT_FDEVICE)
+          if (flags & SFT_FDEVICE)
           {
             nMode = C_ISTAT;
             goto IoCharCommon;
@@ -125,7 +128,7 @@ COUNT DosDevIOctl(lregs * r)
           break;
           
         case 0x07:
-          if (s->sft_flags & SFT_FDEVICE)
+          if (flags & SFT_FDEVICE)
           {
             nMode = C_OSTAT;
             goto IoCharCommon;
@@ -134,7 +137,7 @@ COUNT DosDevIOctl(lregs * r)
           break;
 
         case 0x0a:
-          r->DX = s->sft_flags;
+          r->DX = flags;
           r->AX = 0;
           break;
 
@@ -145,12 +148,11 @@ COUNT DosDevIOctl(lregs * r)
         case 0x10:
           nMode = C_IOCTLQRY;
         IoCharCommon:
-          if ((s->sft_flags & SFT_FDEVICE) &&
-              (  ((r->AL == 0x02) && (s->sft_dev->dh_attr & SFT_FIOCTL))
-              || ((r->AL == 0x03) && (s->sft_dev->dh_attr & SFT_FIOCTL))
+          if ((flags & SFT_FDEVICE) &&
+              (  ((r->AL == 0x02 || r->AL == 0x03) && (attr & ATTR_IOCTL))
               ||   r->AL == 0x06 || r->AL == 0x07
-              || ((r->AL == 0x10) && (s->sft_dev->dh_attr & ATTR_QRYIOCTL))
-              || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL))))
+              || ((r->AL == 0x10) && (attr & ATTR_QRYIOCTL))
+              || ((r->AL == 0x0c) && (attr & ATTR_GENIOCTL))))
           {
             CharReqHdr.r_unit = 0;
             CharReqHdr.r_command = nMode;
