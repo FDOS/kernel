@@ -23,8 +23,8 @@
 /*                                                              */
 /* You should have received a copy of the GNU General Public    */
 /* License along with DOS-C; see the file COPYING.  If not,     */
-/* write to the Free Software Foundation, 675 Mass Ave,         */
-/* Cambridge, MA 02139, USA.                                    */
+/* write to the Free Software Foundation, Inc.,                 */
+/* 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.     */
 /****************************************************************/
 
 #include "portab.h"
@@ -129,13 +129,13 @@ STATIC VOID DoMenu(void);
 STATIC VOID CfgMenuDefault(BYTE * pLine);
 STATIC BYTE * skipwh(BYTE * s);
 STATIC BYTE * scan(BYTE * s, BYTE * d);
-STATIC BOOL isnum(BYTE * pszString);
-STATIC BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
+STATIC BOOL isnum(char ch);
+STATIC char * GetNumber(REG const char *p, int *num);
 #if 0
 STATIC COUNT tolower(COUNT c);
 #endif
 STATIC COUNT toupper(COUNT c);
-STATIC VOID mcb_init(UCOUNT seg, UWORD size);
+STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type);
 STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
 
 STATIC VOID Stacks(BYTE * pLine);
@@ -298,6 +298,8 @@ void PreConfig(void)
 /* Do second pass initialization: near allocation and MCBs              */
 void PreConfig2(void)
 {
+  struct sfttbl FAR *sp;
+        
   /* initialize NEAR allocated things */
 
   /* Initialize the file table                                    */
@@ -318,13 +320,14 @@ void PreConfig2(void)
   base_seg = LoL->first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init(LoL->first_mcb, ram_top * 64 - LoL->first_mcb - 1);
+  mcb_init(base_seg, ram_top * 64 - LoL->first_mcb - 1, MCB_LAST);
   if (UmbState == 2)
     umb_init();    
 
-  LoL->sfthead->sftt_next = KernelAlloc(sizeof(sftheader) + 3 * sizeof(sft), 'F', 0);
-  LoL->sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
-  LoL->sfthead->sftt_next->sftt_count = 3;
+  sp = LoL->sfthead;
+  sp = sp->sftt_next = KernelAlloc(sizeof(sftheader) + 3 * sizeof(sft), 'F', 0);
+  sp->sftt_next = (sfttbl FAR *) - 1;
+  sp->sftt_count = 3;
 }
 
 /* Do third pass initialization.                                        */
@@ -402,18 +405,19 @@ VOID configDone(VOID)
   {
     mcb FAR *p;
     unsigned short kernel_seg;
+    unsigned short hma_paras = (HMAFree+0xf)/16;
 
-    allocmem((HMAFree+0xf)/16, &kernel_seg);
+    allocmem(hma_paras, &kernel_seg);
     p = para2far(kernel_seg - 1);
 
     p->m_name[0] = 'S';
     p->m_name[1] = 'C';
-    p->m_psp = 8;  
+    p->m_psp = 8;
 
     DebugPrintf(("HMA not available, moving text to %x\n", kernel_seg));
     MoveKernel(kernel_seg);
 
-    kernel_seg += (HMAFree + 0x0f)/16 + 1;
+    kernel_seg += hma_paras + 1;
 
     DebugPrintf(("kernel is low, start alloc at %x", kernel_seg));
   }
@@ -442,8 +446,6 @@ STATIC void umb_init(void)
 
   if (UMB_get_largest(&umb_seg, &umb_size))
   {
-    mcb FAR *p;
-
     UmbState = 1;
 
     /* reset root */
@@ -455,10 +457,7 @@ STATIC void umb_init(void)
     mumcb_init(LoL->uppermem_root, umb_seg - LoL->uppermem_root - 1);
 
     /* setup the real mcb for the devicehigh block */
-    mcb_init(umb_seg, umb_size - 2); 
-    p = para2far(umb_seg);
-    p->m_type = MCB_NORMAL;
-    p->m_psp = FREE_PSP;
+    mcb_init(umb_seg, umb_size - 2, MCB_NORMAL); 
 
     umb_base_seg = umb_max = umb_start = umb_seg;
     UMB_top = umb_size;
@@ -475,12 +474,11 @@ STATIC void umb_init(void)
       seg umb_prev, umb_next;
 
       /* setup the real mcb for the devicehigh block */
-      mcb_init(umb_seg, umb_size - 2);
+      mcb_init(umb_seg, umb_size - 2, MCB_NORMAL);
 
       /* determine prev and next umbs */
       umb_prev = prev_mcb(umb_seg, LoL->uppermem_root);
       umb_next = umb_prev + para2far(umb_prev)->m_size + 1;
-      para2far(umb_seg)->m_type = MCB_NORMAL;
 
       if (umb_seg < umb_max)
       {
@@ -774,12 +772,12 @@ STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg)
 {
   /* look for NUMBER                               */
   pLine = skipwh(pLine);
-  if (!isnum(pLine) && *pLine != '-')
+  if (!isnum(*pLine) && *pLine != '-')
   {
     CfgFailure(pLine);
     return (BYTE *) 0;
   }
-  return GetNumber(pLine, pnArg);
+  return (BYTE *)GetNumber(pLine, pnArg);
 }
 
 BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
@@ -980,7 +978,8 @@ STATIC VOID CfgSwitches(BYTE * pLine)
 {
   pLine = skipwh(pLine);
   if (commands[0].pass == 0) {
-    if ('=' != *pLine)
+    /* compatibility "device foo.sys" */
+    if ('=' != *pLine && ' ' != *pLine && '\t' != *pLine)
     {
       CfgFailure(pLine);
       return;
@@ -1326,27 +1325,23 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
   if (base == start)
   {
     mcb FAR *p = para2far(base);
-    mcb_init(base + 1, p->m_size - 1);
-    para2far(base+1)->m_type = p->m_type;
-    p->m_type = MCB_NORMAL;
-    p->m_psp = 8;
-    p->m_size = 0;
-    p->m_name[0] = 'S';
-    p->m_name[1] = 'D';
     base++;
+    mcb_init(base, p->m_size - 1, p->m_type);
+    mumcb_init(FP_SEG(p), 0);
+    p->m_name[1] = 'D';
   }
 
-  mcb_init(base + nPara + 1, para2far(base)->m_size - nPara - 1);
-  para2far(base + nPara + 1)->m_type = para2far(base)->m_type;
-  para2far(start)->m_size += nPara + 1;
+  nPara++;
+  mcb_init(base + nPara, para2far(base)->m_size - nPara, para2far(base)->m_type);
+  para2far(start)->m_size += nPara;
 
   p = (struct submcb FAR *)para2far(base);
   p->type = type;
   p->start = FP_SEG(p)+1;
-  p->size = nPara;
+  p->size = nPara-1;
   if (name)
     fmemcpy(p->name, name, 8);
-  base += nPara + 1;
+  base += nPara;
   if (mode)
     umb_base_seg = base;
   else
@@ -1368,7 +1363,7 @@ void FAR * KernelAlloc(size_t nBytes, char type, int mode)
   }
   else
   {
-    p = KernelAllocPara((nBytes + 15)/16, type, NULL, mode);
+    p = KernelAllocPara(nPara, type, NULL, mode);
   }
   fmemset(p, 0, nBytes);
   return p;
@@ -1419,10 +1414,10 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
 
   /* does the line start with "123?" */
 
-  if (isnum(s))
+  if (isnum(*s))
   {
     unsigned numbers = 0;
-    for ( ; isnum(s); s++)
+    for ( ; isnum(*s); s++)
         numbers |= 1 << (*s -'0');
     
     if (*s == '?')
@@ -1474,43 +1469,48 @@ BYTE *scan_seperator(BYTE * s, BYTE * d)
 }
 #endif
 
-STATIC BOOL isnum(BYTE * pLine)
+STATIC BOOL isnum(char ch)
 {
-  return (*pLine >= '0' && *pLine <= '9');
+  return (ch >= '0' && ch <= '9');
 }
 
 /* JPP - changed so will accept hex number. */
 /* ea - changed to accept hex digits in hex numbers */
-STATIC BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
+STATIC char * GetNumber(REG const char *p, int *num)
 {
-  BYTE Base = 10;
-  BOOL Sign = FALSE;
+  unsigned char base = 10;
+  int sign = 1;
+  int n = 0;
 
-  *pnNum = 0;
-  if (*pszString == '-')
+  if (*p == '-')
   {
-    pszString++;
-    Sign = TRUE;
+    p++;
+    sign = -1;
   }
 
-  while ( isnum(pszString) || toupper(*pszString) == 'X' ||
-    ( Base==16 && (toupper(*pszString)<='F') && (toupper(*pszString)>='A') ) )
+  for(;;p++)
   {
-    if (toupper(*pszString) == 'X')
+    unsigned char ch = toupper((unsigned char)*p);
+    if (ch == 'X')
     {
-      Base = 16;
-      pszString++;
+      base = 16;
+      continue;
     }
-    else if (isnum(pszString)) {
-      *pnNum = *pnNum * Base + (*pszString++ - '0');
+    if (isnum(ch))
+    {
+      n = n * base + ch - '0';
     }
-    else {
-      *pnNum = *pnNum * Base + (10 + toupper(*pszString++) - 'A');
+    else if (base == 16 && (ch<='F') && (ch>='A'))
+    {
+      n = n * base + 10 + ch - 'A';
+    }
+    else
+    {
+      break;
     }
   }
-  if (Sign)
-    *pnNum = -*pnNum;
-  return pszString;
+  *num = n * sign;
+  return (char *)p;
 }
 
 /* Yet another change for true portability (WDL)                        */
@@ -1536,33 +1536,28 @@ STATIC COUNT toupper(COUNT c)
 /* The following code is 8086 dependant                         */
 
 #if 1                           /* ifdef KERNEL */
-STATIC VOID mcb_init(UCOUNT seg, UWORD size)
+STATIC VOID mcb_init_copy(UCOUNT seg, UWORD size, mcb *near_mcb)
 {
-  COUNT i;
+  near_mcb->m_size = size;
+  fmemcpy(MK_FP(seg, 0), near_mcb, sizeof(mcb));
+}
 
-  mcb FAR *mcbp = para2far(seg);
-
-  mcbp->m_type = MCB_LAST;
-  mcbp->m_psp = FREE_PSP;
-
-  for (i = 0; i < 8; i++)
-    mcbp->m_name[i] = '\0';
-  
-  mcbp->m_size = size;
+STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type)
+{
+  static mcb near_mcb = {0};
+  near_mcb.m_type = type;
+  mcb_init_copy(seg, size, &near_mcb);
 }
 
 STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 {
-  COUNT i;
-  mcb FAR *mcbp = para2far(seg);
-
-  static char name[8] = "SC\0\0\0\0\0\0";
-
-  mcbp->m_type = MCB_NORMAL;
-  mcbp->m_psp = 8;
-  mcbp->m_size = size;
-  for (i = 0; i < 8; i++)
-    mcbp->m_name[i] = name[i];
+  static mcb near_mcb = {
+    MCB_NORMAL,
+    8, 0,
+    {0,0,0},
+    {"SC"}
+  };
+  mcb_init_copy(seg, size, &near_mcb);
 }
 #endif
 
@@ -2274,7 +2269,7 @@ STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePa
 */
 
 int  numInstallCmds = 0;
-struct {
+struct instCmds {
   char buffer[128];
   int mode;
 } InstallCommands[10];
@@ -2309,9 +2304,9 @@ STATIC VOID CmdInstallHigh(BYTE * pLine)
   _CmdInstall(pLine,0x80);	/* load high, if possible */
 }
 
-void InstallExec(char *cmd)
+STATIC VOID InstallExec(struct instCmds *icmd)
 {                            
-  BYTE filename[128],*args,*d;
+  BYTE filename[128], *args, *d, cmd = icmd->buffer;
   exec_blk exb;
 
   InstallPrintf(("installing %s\n",cmd));
@@ -2340,7 +2335,7 @@ void InstallExec(char *cmd)
 
   InstallPrintf(("cmd[%s] args [%u,%s]\n",filename,*args,args+1));
 
-  if (init_DosExec(0, &exb, filename) != SUCCESS)
+  if (init_DosExec(icmd->mode, &exb, filename) != SUCCESS)
   {
     CfgFailure(cmd);
   }
@@ -2389,7 +2384,7 @@ VOID DoInstall(void)
     r.b.b.l = InstallCommands[i].mode;
     init_call_intr(0x21, &r);
     
-    InstallExec(InstallCommands[i].buffer);
+    InstallExec(&InstallCommands[i]);
   }      
 
   r.a.x = 0x5801;             /* set memory allocation strategy */
