@@ -32,12 +32,11 @@
 
 segment	HMA_TEXT
 
-		global	_getvec
-_getvec:
+		global	GETVEC
+GETVEC:
 		pop	ax			; return address
 		pop	bx			; int #
-		push	bx			; restore stack
-		push	ax
+		push	ax			; restore stack
 		add	bx,bx
 		add	bx,bx                   ; Multiply by 4
                 xor     dx,dx                   ; and set segment to 0

@@ -33,11 +33,10 @@
 segment	HMA_TEXT
 
 ;
-;       BOOL ReadPCClock(Ticks)
-;       ULONG *Ticks;
+;       ULONG ReadPCClock(void)
 ;
-                global  _ReadPCClock
-_ReadPCClock:
+                global  READPCCLOCK
+READPCCLOCK:
                 mov     ah,0
                 int     1ah
 		extern  _DaysSinceEpoch   ;            ; update days if necessary

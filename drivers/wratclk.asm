@@ -39,25 +39,25 @@ segment	HMA_TEXT
 ;       BYTE bcdMinutes;
 ;       BYTE bcdSeconds;
 ;
-                global  _WriteATClock
-_WriteATClock:
+                global  WRITEATCLOCK
+WRITEATCLOCK:
                 push    bp
                 mov     bp,sp
-;               bcdSeconds = 10
-;               bcdMinutes = 8
-;               bcdHours = 6
-;               bcdDays = 4
-                mov     ch,byte [bp+6]      ;bcdHours
-                mov     cl,byte [bp+8]      ;bcdMinutes
-                mov     dh,byte [bp+10]     ;bcdSeconds
+;               bcdSeconds = 4
+;               bcdMinutes = 6
+;               bcdHours = 8
+;               bcdDays = 10
+                mov     ch,byte [bp+8]      ;bcdHours
+                mov     cl,byte [bp+6]      ;bcdMinutes
+                mov     dh,byte [bp+4]      ;bcdSeconds
                 mov     dl,0
                 mov     ah,3
                 int     1ah
-                mov     bx,word [bp+4]      ;bcdDays
+                mov     bx,word [bp+10]     ;bcdDays
                 mov     dx,word [bx]
                 mov     cx,word [bx+2]
                 mov     ah,5
                 int     1ah
                 pop     bp
-                ret
+                ret     8
 

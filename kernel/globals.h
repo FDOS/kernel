@@ -366,36 +366,22 @@ COUNT ASMCFUNC
     CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
                            struct dhdr FAR * lpDevice);
 
-#ifdef PROTO
 VOID ASMCFUNC FAR CharMapSrvc(VOID);
+#if 0
 VOID ASMCFUNC FAR set_stack(VOID);
 VOID ASMCFUNC FAR restore_stack(VOID);
+#endif
 /*VOID INRPT FAR handle_break(VOID); */
-BOOL ASMCFUNC ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
-ULONG ASMCFUNC ReadPCClock(VOID);
-VOID ASMCFUNC WriteATClock(BYTE *, BYTE, BYTE, BYTE);
-VOID ASMCFUNC WritePCClock(ULONG);
-BYTE FAR * ASMCFUNC device_end(VOID);
-COUNT ASMCFUNC kb_data(VOID);
-COUNT ASMCFUNC kb_input(VOID);
-COUNT ASMCFUNC kb_init(VOID);
-VOID ASMCFUNC setvec(UWORD, intvec);
-intvec ASMCFUNC getvec(UWORD);
-COUNT con(COUNT);
-#else
-VOID FAR CharMapSrvc();
-VOID FAR set_stack();
-VOID FAR restore_stack();
-WORD execrh();
-VOID exit();
-/*VOID INRPT FAR handle_break(); */
-BYTE FAR *device_end();
-COUNT kb_data();
-COUNT kb_input();
-COUNT kb_init();
-VOID setvec();
-intvec getvec();
-COUNT con();
+
+ULONG ASMPASCAL ReadPCClock(VOID);
+VOID ASMPASCAL WriteATClock(BYTE *, BYTE, BYTE, BYTE);
+VOID ASMPASCAL WritePCClock(ULONG);
+intvec ASMPASCAL getvec(UWORD);
+#ifdef __WATCOMC__
+#pragma aux (pascal) ReadPCClock modify exact [ax cx dx]
+#pragma aux (pascal) WriteATClock modify exact [ax bx cx dx]
+#pragma aux (pascal) WritePCClock modify exact [ax cx dx]
+#pragma aux (pascal) getvec modify exact [ax bx dx es]
 #endif
 
 /*                                                              */

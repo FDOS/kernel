@@ -36,15 +36,13 @@ segment HMA_TEXT
 ;       VOID WritePCClock(Ticks)
 ;       ULONG Ticks;
 ;
-                global  _WritePCClock
-_WritePCClock:
+                global  WRITEPCCLOCK
+WRITEPCCLOCK:
 ;               Ticks = 4
 		pop	ax			; return address
 		pop	dx
 		pop	cx			; Ticks
-		push	cx			; restore stack
-		push	dx
-		push	ax
+		push	ax			; restore stack
                 mov     ah,1
                 int     1ah
                 ret
