@@ -38,16 +38,6 @@
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.2  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.1  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- */
-
 #define filename Config.cfgCSYS_fnam
 #define cntry Config.cfgCSYS_cntry
 #define cp Config.cfgCSYS_cp
@@ -389,3 +379,12 @@ INIT BOOL LoadCountryInfo(char *fnam)
 		printf("Filename too long\n");
 	return 0;
 }
+
+/*
+ * Log: nls_load.c,v  for newer entries do "cvs log nls_load.c"
+ *
+ * Revision 1.1  2000/08/06 05:50:17  jimtabor
+ * Add new files and update cvs with patches and changes
+ *
+ */
+

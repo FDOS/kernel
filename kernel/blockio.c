@@ -35,145 +35,6 @@
 static BYTE *blockioRcsId = "$Id$";
 #endif
                                                                                                                                                                    
-/*
- * $Log$
- * Revision 1.15  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.14  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.13  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.12  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.11  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.10  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.9  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.8  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.7  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.6  2000/10/30 00:32:08  jimtabor
- * Minor Fixes
- *
- * Revision 1.5  2000/10/30 00:21:15  jimtabor
- * Adding Brian Reifsnyder Fix for Int 25/26
- * 2000/9/04   Brian Reifsnyder
- * Modified dskxfer() such that error codes are now returned.
- * Functions that rely on dskxfer() have also been modified accordingly.
- *
- * Revision 1.4  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.15  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.14  2000/03/09 06:07:10  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.13  1999/08/25 03:18:07  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.12  1999/08/10 18:03:39  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.11  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.10  1999/05/03 04:55:35  jprice
- * Changed getblock & getbuf so that they leave at least 3 buffer for FAT data.
- *
- * Revision 1.9  1999/04/21 01:44:40  jprice
- * no message
- *
- * Revision 1.8  1999/04/18 05:28:39  jprice
- * no message
- *
- * Revision 1.7  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.6  1999/04/16 00:53:32  jprice
- * Optimized FAT handling
- *
- * Revision 1.5  1999/04/12 23:41:53  jprice
- * Using getbuf to write data instead of getblock
- * using getblock made it read the block before it wrote it
- *
- * Revision 1.4  1999/04/11 05:28:10  jprice
- * Working on multi-block IO
- *
- * Revision 1.3  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.1.1.1  1999/03/29 15:41:43  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:43:27  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.3  1999/01/30 08:25:34  jprice
- * Clean up; Fixed bug with set attribute function.  If you tried to
- * change the attributes of a directory, it would erase it.
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.8   06 Dec 1998  8:43:16   patv
- * Changes in block I/O because of new I/O subsystem.
- *
- *    Rev 1.7   22 Jan 1998  4:09:00   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.6   04 Jan 1998 23:14:36   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   03 Jan 1998  8:36:02   patv
- * Converted data area to SDA format
- *
- *    Rev 1.4   16 Jan 1997 12:46:34   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.3   29 May 1996 21:15:10   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:46   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:28   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:04:06   patv
- * Initial revision.
- */
-
 /************************************************************************/
 /*                                                                      */
 /*                      block cache routines                            */
@@ -681,3 +542,100 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
 /* End of change */
 
 }
+
+/*
+ * 2000/9/04   Brian Reifsnyder
+ * Modified dskxfer() such that error codes are now returned.
+ * Functions that rely on dskxfer() have also been modified accordingly.
+ */ 
+
+/*
+ * Log: blockio.c,v - for newer entries do "cvs log blockio.c"
+ *
+ * Revision 1.15  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.14  2000/03/09 06:07:10  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.13  1999/08/25 03:18:07  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.12  1999/08/10 18:03:39  jprice
+ * ror4 2011-03 patch
+ *
+ * Revision 1.11  1999/05/03 06:25:45  jprice
+ * Patches from ror4 and many changed of signed to unsigned variables.
+ *
+ * Revision 1.10  1999/05/03 04:55:35  jprice
+ * Changed getblock & getbuf so that they leave at least 3 buffer for FAT data.
+ *
+ * Revision 1.9  1999/04/21 01:44:40  jprice
+ * no message
+ *
+ * Revision 1.8  1999/04/18 05:28:39  jprice
+ * no message
+ *
+ * Revision 1.7  1999/04/16 21:43:40  jprice
+ * ror4 multi-sector IO
+ *
+ * Revision 1.6  1999/04/16 00:53:32  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.5  1999/04/12 23:41:53  jprice
+ * Using getbuf to write data instead of getblock
+ * using getblock made it read the block before it wrote it
+ *
+ * Revision 1.4  1999/04/11 05:28:10  jprice
+ * Working on multi-block IO
+ *
+ * Revision 1.3  1999/04/11 04:33:38  jprice
+ * ror4 patches
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:43  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/09 02:54:23  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/01 01:43:27  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.3  1999/01/30 08:25:34  jprice
+ * Clean up; Fixed bug with set attribute function.  If you tried to
+ * change the attributes of a directory, it would erase it.
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.8   06 Dec 1998  8:43:16   patv
+ * Changes in block I/O because of new I/O subsystem.
+ *
+ *    Rev 1.7   22 Jan 1998  4:09:00   patv
+ * Fixed pointer problems affecting SDA
+ *
+ *    Rev 1.6   04 Jan 1998 23:14:36   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.5   03 Jan 1998  8:36:02   patv
+ * Converted data area to SDA format
+ *
+ *    Rev 1.4   16 Jan 1997 12:46:34   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.3   29 May 1996 21:15:10   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:46   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:28   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:04:06   patv
+ * Initial revision.
+ */

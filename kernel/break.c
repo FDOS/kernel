@@ -36,38 +36,6 @@ extern void ASMCFUNC spawn_int23(void);
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.7  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.6  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.2  2000/03/09 06:07:10  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.1  1999/04/16 21:18:17  jprice
- * Steffen contributed.
- *
- */
-
 #define CB_FLG *(UBYTE FAR*)MK_FP(0x40, 0x71)
 #define CB_MSK 0x80
 
@@ -102,3 +70,15 @@ void handle_break(void)
  
   spawn_int23();                /* invoke user INT-23 and never come back */
 }
+
+/*
+ * Log: break.c,v - for newer entries see "cvs log break.c"
+ *
+ * Revision 1.2  2000/03/09 06:07:10  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.1  1999/04/16 21:18:17  jprice
+ * Steffen contributed.
+ *
+ */
+

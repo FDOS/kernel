@@ -32,26 +32,52 @@
 static BYTE *miscRcsId = "$Id$";
 #endif
 
+#include "globals.h"
+#ifndef I86
+
+VOID strcpy(REG BYTE * d, REG BYTE * s)
+{
+  while (*s)
+    *d++ = *s++;
+  *d = '\0';
+}
+
+VOID fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s)
+{
+  while (*s)
+    *d++ = *s++;
+  *d = '\0';
+}
+
+VOID fstrncpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n)
+{
+  while (*s && n--)
+    *d++ = *s++;
+  *d = '\0';
+}
+
+VOID memcpy(REG VOID * d, REG VOID * s, REG COUNT n)
+{
+  while (n--)
+    *d++ = *s++;
+}
+
+VOID fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n)
+{
+  while (n--)
+    *((BYTE FAR *) d)++ = *((BYTE FAR *) s)++;
+}
+
+VOID fmemset(REG VOID FAR * s, REG int ch, REG COUNT n)
+{
+  while (n--)
+    *((BYTE FAR *) s)++ = ch;
+}
+
+#endif
+
 /*
- * $Log$
- * Revision 1.6  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: misc.c,v - for newer entries see "cvs log misc.c"
  *
  * Revision 1.4  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -94,46 +120,3 @@ static BYTE *miscRcsId = "$Id$";
  * Initial revision.
  */
 
-#include "globals.h"
-#ifndef I86
-
-VOID scopy(REG BYTE * s, REG BYTE * d)
-{
-  while (*s)
-    *d++ = *s++;
-  *d = '\0';
-}
-
-VOID fscopy(REG BYTE FAR * s, REG BYTE FAR * d)
-{
-  while (*s)
-    *d++ = *s++;
-  *d = '\0';
-}
-
-VOID fsncopy(BYTE FAR * s, BYTE FAR * d, REG COUNT n)
-{
-  while (*s && n--)
-    *d++ = *s++;
-  *d = '\0';
-}
-
-VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n)
-{
-  while (n--)
-    *d++ = *s++;
-}
-
-VOID fbcopy(REG VOID FAR * s, REG VOID FAR * d, REG COUNT n)
-{
-  while (n--)
-    *((BYTE FAR *) d)++ = *((BYTE FAR *) s)++;
-}
-
-VOID fmemset(REG VOID FAR * s, REG int ch, REG COUNT n)
-{
-  while (n--)
-    *((BYTE FAR *) s)++ = ch;
-}
-
-#endif

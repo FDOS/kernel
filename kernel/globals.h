@@ -27,176 +27,12 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
-/* $Logfile:   C:/usr/patv/dos-c/src/kernel/globals.h_v  $ */
 #ifdef VERSION_STRINGS
 #ifdef MAIN
 static BYTE *Globals_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.18  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.17  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.16  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.15  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.14  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.13  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.12  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.11  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.10  2001/04/02 23:18:30  bartoldeman
- * Misc, zero terminated device names and redirector bugs fixed.
- *
- * Revision 1.9  2001/03/30 20:11:14  bartoldeman
- * Truly got DOS=HIGH reporting for INT21/AX=0x3306 working now.
- *
- * Revision 1.8  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.7  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.6  2000/12/16 01:38:35  jimtabor
- * Added patches from Bart Oldeman
- *
- * Revision 1.5  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.17  2000/03/16 03:28:49  kernel
- * *** empty log message ***
- *
- * Revision 1.16  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.15  1999/09/23 04:40:47  jprice
- * *** empty log message ***
- *
- * Revision 1.13  1999/08/25 03:18:08  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.12  1999/08/10 18:03:43  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.11  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.10  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.9  1999/04/16 12:21:22  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.8  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.7  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.6  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.4  1999/04/04 22:57:47  jprice
- * no message
- *
- * Revision 1.3  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.2  1999/03/29 17:05:09  jprice
- * ror4 changes
- *
- * Revision 1.1.1.1  1999/03/29 15:40:58  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.3  1999/01/30 08:26:46  jprice
- * Clean up; commented out copyright messages while we debug.
- *
- * Revision 1.2  1999/01/22 04:13:26  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
-
- Rev 1.16   06 Dec 1998  8:45:56   patv
- Expanded due to new I/O subsystem.
-
- Rev 1.15   07 Feb 1998 20:38:00   patv
- Modified stack fram to match DOS standard
-
- Rev 1.14   02 Feb 1998 22:33:46   patv
- Fixed size of default_drive.  Caused failures when break_ena was not zero.
-
- Rev 1.13   22 Jan 1998  4:09:24   patv
- Fixed pointer problems affecting SDA
-
- Rev 1.12   04 Jan 1998 23:16:22   patv
- Changed Log for strip utility
-
- Rev 1.11   03 Jan 1998  8:36:50   patv
- Converted data area to SDA format
-
- Rev 1.10   06 Feb 1997 21:57:04   patv
- Changed version format string
-
- Rev 1.9   06 Feb 1997 21:35:08   patv
- Modified to support new version format
-
- Rev 1.8   22 Jan 1997 13:17:14   patv
- Changed to support version.h and pre-0.92 Svante Frey bug fixes.
-
- Rev 1.6   16 Jan 1997 12:47:00   patv
- pre-Release 0.92 feature additions
-
- Rev 1.5   13 Sep 1996 19:26:32   patv
- Fixed boot for hard drive
-
- Rev 1.4   29 Aug 1996 13:07:22   patv
- Bug fixes for v0.91b
-
- Rev 1.3   29 May 1996 21:03:34   patv
- bug fixes for v0.91a
-
- Rev 1.2   19 Feb 1996  3:23:04   patv
- Added NLS, int2f and config.sys processing
-
- Rev 1.1   01 Sep 1995 17:54:16   patv
- First GPL release.
-
- Rev 1.0   02 Jul 1995  8:31:00   patv
- Initial revision.
- */
 
 #include "device.h"
 #include "mcb.h"
@@ -280,6 +116,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #define ESC             0x1b
 #define CTL_BS          0x7f
 
+#define F1              0x3b
 #define F3              0x3d
 #define LEFT            0x4b
 #define RIGHT           0x4d
@@ -686,3 +523,116 @@ void handle_break(void);        /* break.c */
 GLOBAL BYTE ReturnAnyDosVersionExpected;
 
 GLOBAL COUNT UnusedRetVal;        /* put unused errors here (to save stack space) */
+
+/*
+ * Log: globals.h,v 
+ *
+ * Revision 1.17  2000/03/16 03:28:49  kernel
+ * *** empty log message ***
+ *
+ * Revision 1.16  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.15  1999/09/23 04:40:47  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.13  1999/08/25 03:18:08  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.12  1999/08/10 18:03:43  jprice
+ * ror4 2011-03 patch
+ *
+ * Revision 1.11  1999/05/03 06:25:45  jprice
+ * Patches from ror4 and many changed of signed to unsigned variables.
+ *
+ * Revision 1.10  1999/04/16 21:43:40  jprice
+ * ror4 multi-sector IO
+ *
+ * Revision 1.9  1999/04/16 12:21:22  jprice
+ * Steffen c-break handler changes
+ *
+ * Revision 1.8  1999/04/16 00:53:33  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.7  1999/04/12 03:21:17  jprice
+ * more ror4 patches.  Changes for multi-block IO
+ *
+ * Revision 1.6  1999/04/11 04:33:39  jprice
+ * ror4 patches
+ *
+ * Revision 1.4  1999/04/04 22:57:47  jprice
+ * no message
+ *
+ * Revision 1.3  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.2  1999/03/29 17:05:09  jprice
+ * ror4 changes
+ *
+ * Revision 1.1.1.1  1999/03/29 15:40:58  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.3  1999/01/30 08:26:46  jprice
+ * Clean up; commented out copyright messages while we debug.
+ *
+ * Revision 1.2  1999/01/22 04:13:26  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+
+ Rev 1.16   06 Dec 1998  8:45:56   patv
+ Expanded due to new I/O subsystem.
+
+ Rev 1.15   07 Feb 1998 20:38:00   patv
+ Modified stack fram to match DOS standard
+
+ Rev 1.14   02 Feb 1998 22:33:46   patv
+ Fixed size of default_drive.  Caused failures when break_ena was not zero.
+
+ Rev 1.13   22 Jan 1998  4:09:24   patv
+ Fixed pointer problems affecting SDA
+
+ Rev 1.12   04 Jan 1998 23:16:22   patv
+ Changed Log for strip utility
+
+ Rev 1.11   03 Jan 1998  8:36:50   patv
+ Converted data area to SDA format
+
+ Rev 1.10   06 Feb 1997 21:57:04   patv
+ Changed version format string
+
+ Rev 1.9   06 Feb 1997 21:35:08   patv
+ Modified to support new version format
+
+ Rev 1.8   22 Jan 1997 13:17:14   patv
+ Changed to support version.h and pre-0.92 Svante Frey bug fixes.
+
+ Rev 1.6   16 Jan 1997 12:47:00   patv
+ pre-Release 0.92 feature additions
+
+ Rev 1.5   13 Sep 1996 19:26:32   patv
+ Fixed boot for hard drive
+
+ Rev 1.4   29 Aug 1996 13:07:22   patv
+ Bug fixes for v0.91b
+
+ Rev 1.3   29 May 1996 21:03:34   patv
+ bug fixes for v0.91a
+
+ Rev 1.2   19 Feb 1996  3:23:04   patv
+ Added NLS, int2f and config.sys processing
+
+ Rev 1.1   01 Sep 1995 17:54:16   patv
+ First GPL release.
+
+ Rev 1.0   02 Jul 1995  8:31:00   patv
+ Initial revision.
+ */

@@ -25,53 +25,8 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Logfile:   C:/dos-c/hdr/stacks.inv  $
-;
 ; $Id$
 ;
-; $Log$
-; Revision 1.6  2001/11/04 19:47:39  bartoldeman
-; kernel 2025a changes: see history.txt
-;
-; Revision 1.5  2000/08/06 04:18:21  jimtabor
-; See history.txt
-;
-; Revision 1.4  2000/05/26 19:46:52  jimtabor
-; Read History file for Change info
-;
-; Revision 1.3  2000/05/25 20:56:19  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:28:22  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.3  2000/03/09 06:06:38  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.2  1999/08/10 17:56:26  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:39:35  jprice
-; New version without IPL.SYS
-;
-; Revision 1.3  1999/02/01 01:40:06  jprice
-; Clean up
-;
-; Revision 1.2  1999/01/22 04:17:40  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;
-;   Rev 1.0   07 Feb 1998 20:59:16   patv
-;Modified stack frame to match DOS standard
-; $EndLog$
-
 
 ;
 ; Standard stack frame used throughout DOS-C
@@ -216,3 +171,28 @@ irp_hi    equ 26
 	%endmacro
 
 %ENDIF
+
+; Log: stacks.inc,v 
+; Revision 1.3  2000/03/09 06:06:38  kernel
+; 2017f updates by James Tabor
+;
+; Revision 1.2  1999/08/10 17:56:26  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.1.1.1  1999/03/29 15:39:35  jprice
+; New version without IPL.SYS
+;
+; Revision 1.3  1999/02/01 01:40:06  jprice
+; Clean up
+;
+; Revision 1.2  1999/01/22 04:17:40  jprice
+; Formating
+;
+; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+; Imported sources
+;
+;
+;   Rev 1.0   07 Feb 1998 20:59:16   patv
+;Modified stack frame to match DOS standard
+; EndLog
+

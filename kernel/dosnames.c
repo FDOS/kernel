@@ -34,109 +34,15 @@
 static BYTE *dosnamesRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.12  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.11  2001/07/24 16:56:29  bartoldeman
- * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
- *
- * Revision 1.10  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.9  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.8  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.7  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.6  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.5  2000/06/01 06:37:38  jimtabor
- * Read History for Changes
- *
- * Revision 1.4  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.4  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:54  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/02 04:40:49  jprice
- * Steve Miller fixed a bug with doing "cd ." would lock the machine.
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.8   22 Jan 1998  4:09:00   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.7   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.6   03 Jan 1998  8:36:04   patv
- * Converted data area to SDA format
- *
- *    Rev 1.5   16 Jan 1997 12:46:36   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.4   29 May 1996 21:15:12   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:20:08   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:48:44   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:05:56   patv
- * Initial revision.
- *
- */
-
 #include "globals.h"
+
+char _DirWildNameChars[] = "*?./\\\"[]:|<>+=;,";
 
 #define PathSep(c) ((c)=='/'||(c)=='\\')
 #define DriveChar(c) (((c)>='A'&&(c)<='Z')||((c)>='a'&&(c)<='z'))
-#define DirChar(c) (!strchr("\"[]:|<>+=;,", (c)))
-#define NameChar(c) (!strchr(".\"/\\[]:|<>+=;,*?", (c)))
-#define WildChar(c) (!strchr(".\"/\\[]:|<>+=;,", (c)))
+#define DirChar(c)  (!strchr(_DirWildNameChars+5, (c)))
+#define WildChar(c) (!strchr(_DirWildNameChars+2, (c)))
+#define NameChar(c) (!strchr(_DirWildNameChars, (c)))
 
 VOID XlateLcase(BYTE * szFname, COUNT nChars);
 VOID DosTrimPath(BYTE * lpszPathNamep);
@@ -357,7 +263,7 @@ COUNT ParseDosPath(BYTE * lpszFileName,
   /* buffers.                                                     */
   if (pszDir)
   {
-    bcopy(lpszLclDir, pszDir, nDirCnt);
+    memcpy(pszDir, lpszLclDir, nDirCnt);
     pszDir[nDirCnt] = '\0';
   }
 
@@ -494,4 +400,64 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
   }
 }
 #endif
+
+/*
+ * Log: dosnames.c,v - for newer log entries do "cvs log dosnames.c"
+ *
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.4  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.3  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:54  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/02 04:40:49  jprice
+ * Steve Miller fixed a bug with doing "cd ." would lock the machine.
+ *
+ * Revision 1.3  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.8   22 Jan 1998  4:09:00   patv
+ * Fixed pointer problems affecting SDA
+ *
+ *    Rev 1.7   04 Jan 1998 23:14:38   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.6   03 Jan 1998  8:36:04   patv
+ * Converted data area to SDA format
+ *
+ *    Rev 1.5   16 Jan 1997 12:46:36   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.4   29 May 1996 21:15:12   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.3   19 Feb 1996  3:20:08   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:44   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:26   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:05:56   patv
+ * Initial revision.
+ *
+ */
 

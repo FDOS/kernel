@@ -34,23 +34,25 @@
 static BYTE *RcsId = "$Id$";
 #endif
 
+UWORD init_oem(void)
+{
+  UWORD top_k;
+
+#ifndef __TURBOC__
+  asm
+  {
+    int 0x12;
+    mov top_k,ax;
+  }
+#else
+  __int__(0x12);
+  top_k = _AX;
+#endif
+  return top_k;
+}
+
 /*
- * $Log$
- * Revision 1.5  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.4  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: initoem.c,v - for newer entries do "cvs log initoem.c"
  *
  * Revision 1.3  2000/03/09 06:07:11  kernel
  * 2017f updates by James Tabor
@@ -93,19 +95,3 @@ static BYTE *RcsId = "$Id$";
  * Initial revision.
  */
 
-UWORD init_oem(void)
-{
-  UWORD top_k;
-
-#ifndef __TURBOC__
-  asm
-  {
-    int 0x12;
-    mov top_k,ax;
-  }
-#else
-  __int__(0x12);
-  top_k = _AX;
-#endif
-  return top_k;
-}

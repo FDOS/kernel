@@ -34,20 +34,25 @@ static BYTE *file_hRcsId = "$Id$";
 #endif
 #endif
 
+
+/* 0 = CON, standard input, can be redirected                           */
+/* 1 = CON, standard output, can be redirected                          */
+/* 2 = CON, standard error                                              */
+/* 3 = AUX, auxiliary                                                   */
+/* 4 = PRN, list device                                                 */
+/* 5 = 1st user file ...                                                */
+#define STDIN           0
+#define STDOUT          1
+#define STDERR          2
+#define STDAUX          3
+#define STDPRN          4
+
+#define O_RDONLY        SFT_MREAD
+#define O_WRONLY        SFT_MWRITE
+#define O_RDWR          SFT_MRDWR
+
 /*
- * $Log$
- * Revision 1.4  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: file.h,v 
  *
  * Revision 1.1.1.1  1999/03/29 15:39:30  jprice
  * New version without IPL.SYS
@@ -80,19 +85,3 @@ static BYTE *file_hRcsId = "$Id$";
  *         Rev 1.0   02 Jul 1995 10:39:42   patv
  *      Initial revision.
  */
-
-/* 0 = CON, standard input, can be redirected                           */
-/* 1 = CON, standard output, can be redirected                          */
-/* 2 = CON, standard error                                              */
-/* 3 = AUX, auxiliary                                                   */
-/* 4 = PRN, list device                                                 */
-/* 5 = 1st user file ...                                                */
-#define STDIN           0
-#define STDOUT          1
-#define STDERR          2
-#define STDAUX          3
-#define STDPRN          4
-
-#define O_RDONLY        SFT_MREAD
-#define O_WRONLY        SFT_MWRITE
-#define O_RDWR          SFT_MRDWR

@@ -38,17 +38,20 @@ static BYTE *time_hRcsId = "$Id$";
 #endif
 #endif
 
+/* FAT Time notation in the form of hhhh hmmm mmmd dddd                 */
+
+#define TM_HOUR(t)      (((t)>>11)&0x1f)
+#define TM_MIN(t)       (((t)>>5)&0x3f)
+#define TM_DEC(t)       ((t)&0x1f)
+
+#define TM_ENCODE(h,m,d) ((((h&0x1f))<<11)|(((m)&0x3f)<<5)|((d)&0x1f))
+
+typedef UWORD time;
+
+#endif
+
 /*
- * $Log$
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: time.h,v 
  *
  * Revision 1.2  1999/08/25 03:17:11  jprice
  * ror4 patches to allow TC 2.01 compile.
@@ -85,14 +88,3 @@ static BYTE *time_hRcsId = "$Id$";
  *      Initial revision.
  */
 
-/* FAT Time notation in the form of hhhh hmmm mmmd dddd                 */
-
-#define TM_HOUR(t)      (((t)>>11)&0x1f)
-#define TM_MIN(t)       (((t)>>5)&0x3f)
-#define TM_DEC(t)       ((t)&0x1f)
-
-#define TM_ENCODE(h,m,d) ((((h&0x1f))<<11)|(((m)&0x3f)<<5)|((d)&0x1f))
-
-typedef UWORD time;
-
-#endif

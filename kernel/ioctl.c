@@ -34,99 +34,6 @@ static BYTE *RcsId = "$Id$";
 #endif
 
 /*
- * $Log$
- * Revision 1.13  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.12  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.11  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.10  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.9  2001/06/03 14:16:18  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.8  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.7  2001/03/30 22:27:42  bartoldeman
- * Saner lastdrive handling.
- *
- * Revision 1.6  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.5  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.4  2000/05/17 19:15:12  jimtabor
- * Cleanup, add and fix source.
- *
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.4  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:09  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:26  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.7   06 Dec 1998  8:48:22   patv
- * Expanded due to new I/O subsystem.
- *
- *    Rev 1.6   11 Jan 1998  2:06:22   patv
- * Added functionality to ioctl.
- *
- *    Rev 1.5   04 Jan 1998 23:15:18   patv
- * Changed Log for strip utility
- *
- *    Rev 1.4   16 Jan 1997 12:46:54   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.3   29 May 1996 21:03:30   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   19 Feb 1996  3:21:34   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.1   01 Sep 1995 17:54:16   patv
- * First GPL release.
- *
- *    Rev 1.0   02 Jul 1995  8:32:04   patv
- * Initial revision.
- */
-
-
-/*
  * WARNING:  this code is non-portable (8086 specific).
  */
 
@@ -431,4 +338,59 @@ COUNT DosDevIOctl(iregs FAR * r)
   }
   return SUCCESS;
 }
+
+/*
+ * Log: ioctl.c,v - for newer log entries do "cvs log ioctl.c"
+ *
+ * Revision 1.4  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.3  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:09  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:26  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.7   06 Dec 1998  8:48:22   patv
+ * Expanded due to new I/O subsystem.
+ *
+ *    Rev 1.6   11 Jan 1998  2:06:22   patv
+ * Added functionality to ioctl.
+ *
+ *    Rev 1.5   04 Jan 1998 23:15:18   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.4   16 Jan 1997 12:46:54   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.3   29 May 1996 21:03:30   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   19 Feb 1996  3:21:34   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.1   01 Sep 1995 17:54:16   patv
+ * First GPL release.
+ *
+ *    Rev 1.0   02 Jul 1995  8:32:04   patv
+ * Initial revision.
+ */
+
+
 

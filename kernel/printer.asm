@@ -27,34 +27,6 @@
 ;
 ; $Header$
 ;
-; $Log$
-; Revision 1.5  2001/09/24 02:21:14  bartoldeman
-; SYS and printer fixes
-;
-; Revision 1.4  2001/09/23 20:39:44  bartoldeman
-; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-;
-; Revision 1.3  2000/05/25 20:56:21  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:30:00  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.2  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:41:26  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; $EndLog$
-;
 
                 %include "io.inc"
 
@@ -269,5 +241,19 @@ PrtGnIoctl3:
 ;
 ; you must not simply print without asking for status
 ; as the BIOS has a LARGE timeout before aborting
+;
+
+; Log: printer.asm,v
+;
+; Revision 1.2  1999/08/10 17:57:13  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.1.1.1  1999/03/29 15:41:26  jprice
+; New version without IPL.SYS
+;
+; Revision 1.1  1999/02/08 05:55:57  jprice
+; Added Pat's 1937 kernel patches
+;
+; EndLog
 ;
 

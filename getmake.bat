@@ -1,4 +1,4 @@
-@if not \%MAKE% == \ goto make_set
+@if not "%MAKE%" == "" goto make_set
 
 @if \%COMPILER% == \TC2 set MAKE=%TC2_BASE%\make
 @if \%COMPILER% == \TURBOCPP set MAKE=%TP1_BASE%\bin\make

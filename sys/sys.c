@@ -25,121 +25,6 @@
  675 Mass Ave, Cambridge, MA 02139, USA.
 
 ***************************************************************/
-/* $Log$
- * Revision 1.12  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
-/* Revision 1.11  2001/11/04 19:47:39  bartoldeman
-/* kernel 2025a changes: see history.txt
-/*
-/* Revision 1.10  2001/09/24 02:28:14  bartoldeman
-/* Minor printf fixes.
-/*
-/* Revision 1.9  2001/09/24 02:21:14  bartoldeman
-/* SYS and printer fixes
-/*
-/* Revision 1.8  2001/09/23 20:39:44  bartoldeman
-/* FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-/*
-
-/* version 2.2 jeremyd 2001/9/20
-   Changed so if no source given or only source drive (no path)
-   given, then checks for kernel.sys & command.com in current
-   path (of current drive or given drive) and if not there
-   uses root (but only if source & destination drive are different).
-   Fix printf to include count(ret) if copy can't write all requested bytes
-*/
-/* version 2.1a jeremyd 2001/8/19
-   modified so takes optional 2nd parameter (similar to PC DOS)
-   where if only 1 argument is given, assume to be destination drive,
-   but if two arguments given, 1st is source (drive and/or path)
-   and second is destination drive
-*/
-
-/* Revision 1.7  2001/07/09 22:19:33  bartoldeman
-/* LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
-/*
-/* Revision 2.1 tomehlert 2001/4/26
-
-    changed the file system detection code.
-    
-
-*/
-
-/* Revision 2.0 tomehlert 2001/4/26
-   
-   no direct access to the disk any more, this is FORMAT's job
-   no floppy.asm anymore, no segmentation problems.
-   no access to partition tables
-   
-   instead copy boot sector using int25/int26 = absdiskread()/write
-   
-   if xxDOS is able to handle the disk, SYS should work
-   
-   additionally some space savers:
-   
-   replaced fopen() by open() 
-   
-   included (slighly modified) PRF.c from kernel
-   
-   size is no ~7500 byte vs. ~13690 before
-
-*/
-/* Revision 1.6  2001/04/29 17:34:41  bartoldeman
-/* A new SYS.COM/config.sys single stepping/console output/misc fixes.
-/*
-/* Revision 1.5  2001/03/25 17:11:54  bartoldeman
-/* Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
-/*
-/* Revision 1.4  2000/08/06 05:50:17  jimtabor
-/* Add new files and update cvs with patches and changes
-/*
- * Revision 1.3  2000/05/25 20:56:23  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/15 05:28:09  jimtabor
- * Cleanup CRs
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.10  2000/03/31 06:59:10  jprice
- * Added discription of program.
- *
- * Revision 1.9  1999/09/20 18:34:40  jprice
- * *** empty log message ***
- *
- * Revision 1.8  1999/09/20 18:27:19  jprice
- * Changed open/creat to fopen to make TC2 happy.
- *
- * Revision 1.7  1999/09/15 05:39:02  jprice
- * Changed boot sector writing code so easier to read.
- *
- * Revision 1.6  1999/09/14 17:30:44  jprice
- * Added debug log creation to sys.com.
- *
- * Revision 1.5  1999/08/25 03:19:51  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.4  1999/04/17 19:14:44  jprice
- * Fixed multi-sector code
- *
- * Revision 1.3  1999/04/01 07:24:05  jprice
- * SYS modified for new boot loader
- *
- * Revision 1.2  1999/03/29 16:24:48  jprice
- * Fixed error message
- *
- * Revision 1.1.1.1  1999/03/29 15:43:15  jprice
- * New version without IPL.SYS
- * Revision 1.3  1999/01/21 04:35:21  jprice Fixed comments.
- *   Added indent program
- *
- * Revision 1.2  1999/01/21 04:13:52  jprice Added messages to sys.  Also made
- *   it create a .COM file.
- *
- */
 
 /* 
     TE thinks, that the boot info storage should be done by FORMAT, noone else
@@ -793,4 +678,81 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   return TRUE;
 }
 
+/* Log: sys.c,v see "cvs log sys.c" for newer entries.
+
+/* version 2.2 jeremyd 2001/9/20
+   Changed so if no source given or only source drive (no path)
+   given, then checks for kernel.sys & command.com in current
+   path (of current drive or given drive) and if not there
+   uses root (but only if source & destination drive are different).
+   Fix printf to include count(ret) if copy can't write all requested bytes
+*/
+/* version 2.1a jeremyd 2001/8/19
+   modified so takes optional 2nd parameter (similar to PC DOS)
+   where if only 1 argument is given, assume to be destination drive,
+   but if two arguments given, 1st is source (drive and/or path)
+   and second is destination drive
+*/
+
+/* Revision 2.1 tomehlert 2001/4/26
+
+    changed the file system detection code.
+    
+
+*/
+
+/* Revision 2.0 tomehlert 2001/4/26
+   
+   no direct access to the disk any more, this is FORMAT's job
+   no floppy.asm anymore, no segmentation problems.
+   no access to partition tables
+   
+   instead copy boot sector using int25/int26 = absdiskread()/write
+   
+   if xxDOS is able to handle the disk, SYS should work
+   
+   additionally some space savers:
+   
+   replaced fopen() by open() 
+   
+   included (slighly modified) PRF.c from kernel
+   
+   size is no ~7500 byte vs. ~13690 before
+
+ * Revision 1.10  2000/03/31 06:59:10  jprice
+ * Added discription of program.
+ *
+ * Revision 1.9  1999/09/20 18:34:40  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.8  1999/09/20 18:27:19  jprice
+ * Changed open/creat to fopen to make TC2 happy.
+ *
+ * Revision 1.7  1999/09/15 05:39:02  jprice
+ * Changed boot sector writing code so easier to read.
+ *
+ * Revision 1.6  1999/09/14 17:30:44  jprice
+ * Added debug log creation to sys.com.
+ *
+ * Revision 1.5  1999/08/25 03:19:51  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.4  1999/04/17 19:14:44  jprice
+ * Fixed multi-sector code
+ *
+ * Revision 1.3  1999/04/01 07:24:05  jprice
+ * SYS modified for new boot loader
+ *
+ * Revision 1.2  1999/03/29 16:24:48  jprice
+ * Fixed error message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:43:15  jprice
+ * New version without IPL.SYS
+ * Revision 1.3  1999/01/21 04:35:21  jprice Fixed comments.
+ *   Added indent program
+ *
+ * Revision 1.2  1999/01/21 04:13:52  jprice Added messages to sys.  Also made
+ *   it create a .COM file.
+ *
+ */
 

@@ -33,104 +33,6 @@
 static BYTE *memmgrRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.16  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.15  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.14  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.13  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.12  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.11  2001/04/02 23:18:30  bartoldeman
- * Misc, zero terminated device names and redirector bugs fixed.
- *
- * Revision 1.10  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.9  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.8  2001/03/08 21:00:00  bartoldeman
- * UMB and MCB chain corruption (thanks Martin Stromberg) fixes
- *
- * Revision 1.7  2000/08/07 04:53:54  jimtabor
- * Cleanup code
- *
- * Revision 1.6  2000/08/07 04:48:50  jimtabor
- * Fixed LoadHigh probllem
- *
- * Revision 1.5  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.4  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.4  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.3  1999/08/25 03:18:09  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.2  1999/04/23 04:24:39  jprice
- * Memory manager changes made by ska
- *
- * Revision 1.1.1.1  1999/03/29 15:41:20  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:26  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.6   04 Jan 1998 23:15:18   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   16 Jan 1997 12:47:00   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.4   29 May 1996 21:03:34   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:21:36   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:54:20   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:51:58   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:33:08   patv
- * Initial revision.
- */
-
 VOID mcb_init();
 VOID mcb_print();
 VOID show_chain();
@@ -760,3 +662,54 @@ VOID ClaimINITDataSegment()
 }
 #endif
 #endif
+
+/*
+ * Log: memmgr.c,v - for newer log entries do "cvs log memmgr.c"
+ *
+ * Revision 1.4  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.3  1999/08/25 03:18:09  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.2  1999/04/23 04:24:39  jprice
+ * Memory manager changes made by ska
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:20  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:26  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.6   04 Jan 1998 23:15:18   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.5   16 Jan 1997 12:47:00   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.4   29 May 1996 21:03:34   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.3   19 Feb 1996  3:21:36   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.2   01 Sep 1995 17:54:20   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:51:58   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:33:08   patv
+ * Initial revision.
+ */
+

@@ -32,136 +32,6 @@
 static BYTE *dskRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.22  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.21  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.20  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.19  2001/07/28 18:13:06  bartoldeman
- * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
- *
- * Revision 1.18  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.17  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.17  2001/05/13           tomehlert
- * Added full support for LBA hard drives
- * initcode moved (mostly) to initdisk.c
- * lower interface partly redesigned
- *
- * Revision 1.16  2001/04/29           brianreifsnyder
- * Added phase 1 support for LBA hard drives
- *
- * Revision 1.15  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.14  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.13  2001/03/27 20:27:43  bartoldeman
- * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
- *
- * Revision 1.12  2001/03/24 22:13:05  bartoldeman
- * See history.txt: dsk.c changes, warning removal and int21 entry handling.
- *
- * Revision 1.11  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.9  2001/03/08 21:15:00  bartoldeman
- * Space saving fixes from Tom Ehlert
- *
- * Revision 1.8  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.7  2000/06/01 06:37:38  jimtabor
- * Read History for Changes
- *
- * Revision 1.6  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.5  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.4  2000/05/17 19:15:12  jimtabor
- * Cleanup, add and fix source.
- *
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.6  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.5  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.4  1999/08/10 18:07:57  jprice
- * ror4 2011-04 patch
- *
- * Revision 1.3  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.2  1999/04/16 00:53:32  jprice
- * Optimized FAT handling
- *
- * Revision 1.1.1.1  1999/03/29 15:40:51  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/14 04:26:46  jprice
- * Changed check media so that it checks if a floppy disk has been changed.
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:25  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.7   06 Dec 1998  8:45:18   patv
- * Changed due to new I/O subsystem.
- *
- *    Rev 1.6   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   10 Jan 1997  5:41:48   patv
- * Modified for extended partition support
- *
- *    Rev 1.4   29 May 1996 21:03:32   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:21:36   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:54:18   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:52:00   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:32:42   patv
- * Initial revision.
- */
-
 #if defined(DEBUG) 
     #define DebugPrintf(x) printf x 
 #else    
@@ -508,22 +378,22 @@ static WORD blk_Media(rqptr rp, ddt *pddt)
     return S_DONE;              /* Floppy */
 }
 
-static getbpb(ddt *pddt)
+static WORD getbpb(ddt *pddt)
 {
   ULONG count;
   bpb *pbpbarray = &pddt->ddt_bpb;
   WORD head,/*track,*/sector,ret;
 
-  ret = RWzero(pddt, LBA_READ);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[0]), &pbpbarray->bpb_nbyte);
-
   pddt->ddt_descflags |= DF_NOACCESS; /* set drive to not accessible and changed */
   if (diskchange(pddt) != M_NOT_CHANGED)
       pddt->ddt_descflags |= DF_DISKCHANGE;
 
+  ret = RWzero(pddt, LBA_READ);
   if (ret != 0)
       return (dskerr(ret));
       
+  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[0]), &pbpbarray->bpb_nbyte);
+
   if (DiskTransferBuffer[0x1fe]!=0x55 || DiskTransferBuffer[0x1ff]!=0xaa ||
       pbpbarray->bpb_nbyte != 512) {
       /* copy default bpb to be sure that there is no bogus data */
@@ -1196,3 +1066,117 @@ int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer,
 
   return(error_code);
 }
+
+/*
+ * Revision 1.17  2001/05/13           tomehlert
+ * Added full support for LBA hard drives
+ * initcode moved (mostly) to initdisk.c
+ * lower interface partly redesigned
+ */
+
+/* Log: dsk.c,v - for newer log entries: "cvs log dsk.c"
+ *
+ * Revision 1.16  2001/04/29           brianreifsnyder
+ * Added phase 1 support for LBA hard drives
+ *
+ * Revision 1.15  2001/04/16 01:45:26  bartoldeman
+ * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+ *
+ * Revision 1.14  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
+ * Revision 1.13  2001/03/27 20:27:43  bartoldeman
+ * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+ *
+ * Revision 1.12  2001/03/24 22:13:05  bartoldeman
+ * See history.txt: dsk.c changes, warning removal and int21 entry handling.
+ *
+ * Revision 1.11  2001/03/21 02:56:25  bartoldeman
+ * See history.txt for changes. Bug fixes and HMA support are the main ones.
+ *
+ * Revision 1.9  2001/03/08 21:15:00  bartoldeman
+ * Space saving fixes from Tom Ehlert
+ *
+ * Revision 1.8  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
+ * Revision 1.7  2000/06/01 06:37:38  jimtabor
+ * Read History for Changes
+ *
+ * Revision 1.6  2000/05/26 19:25:19  jimtabor
+ * Read History file for Change info
+ *
+ * Revision 1.5  2000/05/25 20:56:21  jimtabor
+ * Fixed project history
+ *
+ * Revision 1.4  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
+ * Revision 1.3  2000/05/11 04:26:26  jimtabor
+ * Added code for DOS FN 69 & 6C
+ *
+ * Revision 1.2  2000/05/08 04:29:59  jimtabor
+ * Update CVS to 2020
+ *
+ * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
+ * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+ * MS-DOS.  Distributed under the GNU GPL.
+ *
+ * Revision 1.6  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.5  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.4  1999/08/10 18:07:57  jprice
+ * ror4 2011-04 patch
+ *
+ * Revision 1.3  1999/04/16 21:43:40  jprice
+ * ror4 multi-sector IO
+ *
+ * Revision 1.2  1999/04/16 00:53:32  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.1.1.1  1999/03/29 15:40:51  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/14 04:26:46  jprice
+ * Changed check media so that it checks if a floppy disk has been changed.
+ *
+ * Revision 1.4  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:25  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.7   06 Dec 1998  8:45:18   patv
+ * Changed due to new I/O subsystem.
+ *
+ *    Rev 1.6   04 Jan 1998 23:15:16   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.5   10 Jan 1997  5:41:48   patv
+ * Modified for extended partition support
+ *
+ *    Rev 1.4   29 May 1996 21:03:32   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.3   19 Feb 1996  3:21:36   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.2   01 Sep 1995 17:54:18   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:52:00   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:32:42   patv
+ * Initial revision.
+ */

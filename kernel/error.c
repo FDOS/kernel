@@ -32,62 +32,6 @@
 static BYTE *errorRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.5  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.4  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.2  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.1.1.1  1999/03/29 15:41:55  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.5   06 Dec 1998  8:43:54   patv
- * Now handles errors like MS-DOS.
- *
- *    Rev 1.4   04 Jan 1998 23:14:36   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:15:10   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:46   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:06:14   patv
- * Initial revision.
- */
-
 #include "globals.h"
 
 #ifdef DEBUG
@@ -154,3 +98,45 @@ COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice)
                         rq->r_status & S_MASK,
                         lpDevice);
 }
+
+/*
+ * Log: error.c,v - for newer entries do "cvs log error.c"
+ *
+ * Revision 1.2  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:55  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/09 02:54:23  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.5   06 Dec 1998  8:43:54   patv
+ * Now handles errors like MS-DOS.
+ *
+ *    Rev 1.4   04 Jan 1998 23:14:36   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.3   29 May 1996 21:15:10   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:46   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:26   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:06:14   patv
+ * Initial revision.
+ */
+

@@ -82,165 +82,6 @@ static BYTE *mainRcsId = "$Id$";
 struct _KernelConfig InitKernelConfig = {"", 0, 0, 0, 0, 0, 0};
 
 
-/*
- * $Log$
- * Revision 1.23  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.22  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.21  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.20  2001/07/28 18:13:06  bartoldeman
- * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
- *
- * Revision 1.19  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.18  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.17  2001/06/03 14:16:18  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.16  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.15  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.14  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.13  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.12  2001/03/30 22:27:42  bartoldeman
- * Saner lastdrive handling.
- *
- * Revision 1.10  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.9  2001/03/25 17:11:54  bartoldeman
- * Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
- *
- * Revision 1.8  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.7  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.6  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.5  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.4  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.3  2000/05/17 19:15:12  jimtabor
- * Cleanup, add and fix source.
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.14  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.13  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.12  1999/09/23 04:40:48  jprice
- * *** empty log message ***
- *
- * Revision 1.10  1999/08/25 03:18:09  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.9  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.8  1999/04/16 12:21:22  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.7  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.6  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.5  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.3  1999/04/04 22:57:47  jprice
- * no message
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:18  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.3  1999/01/30 08:28:12  jprice
- * Clean up; Fixed bug with set attribute function.
- *
- * Revision 1.2  1999/01/22 04:13:26  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.12   06 Dec 1998  8:45:30   patv
- * Changed due to new I/O subsystem.
- *
- *    Rev 1.11   22 Jan 1998  4:09:24   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.10   04 Jan 1998 23:15:20   patv
- * Changed Log for strip utility
- *
- *    Rev 1.9   04 Jan 1998 17:26:16   patv
- * Corrected subdirectory bug
- *
- *    Rev 1.8   03 Jan 1998  8:36:48   patv
- * Converted data area to SDA format
- *
- *    Rev 1.7   06 Feb 1997 21:35:46   patv
- * Modified to support new version format and changed debug message to
- * output drive letter instead of number.
- *
- *    Rev 1.6   22 Jan 1997 13:05:02   patv
- * Now does correct default drive initialization.
- *
- *    Rev 1.5   16 Jan 1997 12:47:00   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.3   29 May 1996 21:03:32   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   19 Feb 1996  3:21:36   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.1   01 Sep 1995 17:54:18   patv
- * First GPL release.
- *
- *    Rev 1.0   02 Jul 1995  8:33:18   patv
- * Initial revision.
- */
-
 extern WORD days[2][13];
 extern BYTE FAR * lpBase;
 extern BYTE FAR * lpOldTop;
@@ -451,8 +292,7 @@ INIT VOID FsConfig(VOID)
   {
   	struct cds FAR *pcds_table = &CDSp->cds_table[i];
 
-    fbcopy((VOID FAR *) "A:\\\0",
-           (VOID FAR *) pcds_table->cdsCurrentPath, 4);
+    fmemcpy(pcds_table->cdsCurrentPath, "A:\\\0", 4);
 
     pcds_table->cdsCurrentPath[0] += i;
 
@@ -772,4 +612,98 @@ INIT VOID InitPrinters(VOID)
         init_call_intr(0x17,&r);
     }
 }
+
+/*
+ * Log: main.c,v - for newer log entries do "cvs log main.c"
+ *
+ * Revision 1.14  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.13  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.12  1999/09/23 04:40:48  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.10  1999/08/25 03:18:09  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.9  1999/04/16 21:43:40  jprice
+ * ror4 multi-sector IO
+ *
+ * Revision 1.8  1999/04/16 12:21:22  jprice
+ * Steffen c-break handler changes
+ *
+ * Revision 1.7  1999/04/16 00:53:33  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.6  1999/04/12 03:21:17  jprice
+ * more ror4 patches.  Changes for multi-block IO
+ *
+ * Revision 1.5  1999/04/11 04:33:39  jprice
+ * ror4 patches
+ *
+ * Revision 1.3  1999/04/04 22:57:47  jprice
+ * no message
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:18  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.3  1999/01/30 08:28:12  jprice
+ * Clean up; Fixed bug with set attribute function.
+ *
+ * Revision 1.2  1999/01/22 04:13:26  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.12   06 Dec 1998  8:45:30   patv
+ * Changed due to new I/O subsystem.
+ *
+ *    Rev 1.11   22 Jan 1998  4:09:24   patv
+ * Fixed pointer problems affecting SDA
+ *
+ *    Rev 1.10   04 Jan 1998 23:15:20   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.9   04 Jan 1998 17:26:16   patv
+ * Corrected subdirectory bug
+ *
+ *    Rev 1.8   03 Jan 1998  8:36:48   patv
+ * Converted data area to SDA format
+ *
+ *    Rev 1.7   06 Feb 1997 21:35:46   patv
+ * Modified to support new version format and changed debug message to
+ * output drive letter instead of number.
+ *
+ *    Rev 1.6   22 Jan 1997 13:05:02   patv
+ * Now does correct default drive initialization.
+ *
+ *    Rev 1.5   16 Jan 1997 12:47:00   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.3   29 May 1996 21:03:32   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   19 Feb 1996  3:21:36   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.1   01 Sep 1995 17:54:18   patv
+ * First GPL release.
+ *
+ *    Rev 1.0   02 Jul 1995  8:33:18   patv
+ * Initial revision.
+ */
+
 

@@ -34,79 +34,6 @@ static BYTE *fnode_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.10  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.9  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.8  2001/08/19 12:58:34  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.7  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.6  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.5  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.4  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.3  2000/03/09 06:06:38  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/16 00:52:10  jprice
- * Optimized FAT handling
- *
- * Revision 1.1.1.1  1999/03/29 15:39:30  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.3  1999/01/30 08:21:43  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.5   04 Jan 1998 23:14:18   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.4   29 May 1996 21:25:16   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:32   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:42   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:48   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:44   patv
- *      Initial revision.
- */
 
 struct f_node
 {
@@ -155,3 +82,47 @@ typedef struct lfn_inode FAR * lfn_inode_ptr;
 #endif
 
 typedef struct f_node * f_node_ptr;
+
+/*
+ * Log: fnode.h,v 
+ *
+ * Revision 1.3  2000/03/09 06:06:38  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/16 00:52:10  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.1.1.1  1999/03/29 15:39:30  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/01 01:40:06  jprice
+ * Clean up
+ *
+ * Revision 1.3  1999/01/30 08:21:43  jprice
+ * Clean up
+ *
+ * Revision 1.2  1999/01/22 04:17:40  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *         Rev 1.5   04 Jan 1998 23:14:18   patv
+ *      Changed Log for strip utility
+ *
+ *         Rev 1.4   29 May 1996 21:25:16   patv
+ *      bug fixes for v0.91a
+ *
+ *         Rev 1.3   19 Feb 1996  3:15:32   patv
+ *      Added NLS, int2f and config.sys processing
+ *
+ *         Rev 1.2   01 Sep 1995 17:35:42   patv
+ *      First GPL release.
+ *
+ *         Rev 1.1   30 Jul 1995 20:43:48   patv
+ *      Eliminated version strings in ipl
+ *
+ *         Rev 1.0   02 Jul 1995 10:39:44   patv
+ *      Initial revision.
+ */

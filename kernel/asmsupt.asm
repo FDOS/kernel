@@ -33,63 +33,6 @@
 ;
 ; $Id$
 ;
-; $Log$
-; Revision 1.6  2001/09/23 20:39:44  bartoldeman
-; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-;
-; Revision 1.5  2001/04/15 03:21:50  bartoldeman
-; See history.txt for the list of fixes.
-;
-; Revision 1.4  2001/03/21 02:56:25  bartoldeman
-; See history.txt for changes. Bug fixes and HMA support are the main ones.
-;
-; Revision 1.3  2000/05/25 20:56:21  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:29:59  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.3  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.2  1999/04/23 04:24:39  jprice
-; Memory manager changes made by ska
-;
-; Revision 1.1.1.1  1999/03/29 15:40:41  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:25  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;    Rev 1.4   06 Dec 1998  8:46:50   patv
-; Bug fixes.
-;
-;    Rev 1.3   03 Jan 1998  8:36:44   patv
-; Converted data area to SDA format
-;
-;    Rev 1.2   29 May 1996 21:03:38   patv
-; bug fixes for v0.91a
-;
-;    Rev 1.1   01 Sep 1995 17:54:26   patv
-; First GPL release.
-;
-;    Rev 1.0   05 Jul 1995 11:38:42   patv
-; Initial revision.
-; $EndLog$
-;
 
 		%include "segs.inc"
 
@@ -460,3 +403,42 @@ strncmp_done:
 		or   al,1
 strncmp_done2:  jmp  common_return
 
+; Log: asmsupt.asm,v 
+;
+; Revision 1.3  1999/08/10 17:57:12  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.2  1999/04/23 04:24:39  jprice
+; Memory manager changes made by ska
+;
+; Revision 1.1.1.1  1999/03/29 15:40:41  jprice
+; New version without IPL.SYS
+;
+; Revision 1.4  1999/02/08 05:55:57  jprice
+; Added Pat's 1937 kernel patches
+;
+; Revision 1.3  1999/02/01 01:48:41  jprice
+; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+;
+; Revision 1.2  1999/01/22 04:13:25  jprice
+; Formating
+;
+; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+; Imported sources
+;
+;    Rev 1.4   06 Dec 1998  8:46:50   patv
+; Bug fixes.
+;
+;    Rev 1.3   03 Jan 1998  8:36:44   patv
+; Converted data area to SDA format
+;
+;    Rev 1.2   29 May 1996 21:03:38   patv
+; bug fixes for v0.91a
+;
+;    Rev 1.1   01 Sep 1995 17:54:26   patv
+; First GPL release.
+;
+;    Rev 1.0   05 Jul 1995 11:38:42   patv
+; Initial revision.
+; EndLog
+;

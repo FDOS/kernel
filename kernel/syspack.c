@@ -34,53 +34,6 @@
 static BYTE *syspackRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.5  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.4  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.1.1.1  1999/03/29 15:42:21  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:15:12   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:42   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:05:34   patv
- * Initial revision.
- */
-
 #ifdef NONNATIVE
 VOID getlong(REG VOID * vp, LONG * lp)
 {
@@ -143,8 +96,8 @@ VOID fputbyte(BYTE FAR * bp, VOID FAR * vp)
 
 VOID getdirent(BYTE FAR * vp, struct dirent FAR * dp)
 {
-  fbcopy(&vp[DIR_NAME], dp->dir_name, FNAME_SIZE);
-  fbcopy(&vp[DIR_EXT], dp->dir_ext, FEXT_SIZE);
+  fmemcpy(dp->dir_name, &vp[DIR_NAME], FNAME_SIZE);
+  fmemcpy(dp->dir_ext, &vp[DIR_EXT], FEXT_SIZE);
   fgetbyte(&vp[DIR_ATTRIB], (BYTE FAR *) & dp->dir_attrib);
   fgetword(&vp[DIR_TIME], (WORD FAR *) & dp->dir_time);
   fgetword(&vp[DIR_DATE], (WORD FAR *) & dp->dir_date);
@@ -157,8 +110,8 @@ VOID putdirent(struct dirent FAR * dp, BYTE FAR * vp)
   REG COUNT i;
   REG BYTE FAR *p;
 
-  fbcopy(dp->dir_name, &vp[DIR_NAME], FNAME_SIZE);
-  fbcopy(dp->dir_ext, &vp[DIR_EXT], FEXT_SIZE);
+  fmemcpy(&vp[DIR_NAME], dp->dir_name, FNAME_SIZE);
+  fmemcpy(&vp[DIR_EXT], dp->dir_ext, FEXT_SIZE);
   fputbyte((BYTE FAR *) & dp->dir_attrib, &vp[DIR_ATTRIB]);
   fputword((WORD FAR *) & dp->dir_time, &vp[DIR_TIME]);
   fputword((WORD FAR *) & dp->dir_date, &vp[DIR_DATE]);
@@ -168,3 +121,35 @@ VOID putdirent(struct dirent FAR * dp, BYTE FAR * vp)
     *p++ = NULL;
 }
 #endif
+
+/*
+ * Log: syspack.c,v - for newer entries see "cvs log syspack.c"
+ *
+ * Revision 1.1.1.1  1999/03/29 15:42:21  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.3  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.4   04 Jan 1998 23:14:38   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.3   29 May 1996 21:15:12   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:42   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:26   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:05:34   patv
+ * Initial revision.
+ */

@@ -33,128 +33,6 @@
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.20  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.19  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.18  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.17  2001/08/20 20:32:15  bartoldeman
- * Truename, get free space and ctrl-break fixes.
- *
- * Revision 1.16  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.15  2001/07/24 16:56:29  bartoldeman
- * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
- *
- * Revision 1.14  2001/07/23 12:47:42  bartoldeman
- * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
- *
- * Revision 1.13  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.12  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.11  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.10  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.9  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.8  2001/03/30 22:27:42  bartoldeman
- * Saner lastdrive handling.
- *
- * Revision 1.7  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.6  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.5  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.4  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.7  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.6  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.5  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.4  1999/09/23 04:40:46  jprice
- * *** empty log message ***
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:42:15  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:18:37  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.7   06 Dec 1998  8:44:10   patv
- * Expanded fcb functions for new I/O subsystem.
- *
- *    Rev 1.6   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   03 Jan 1998  8:36:02   patv
- * Converted data area to SDA format
- *
- *    Rev 1.4   16 Jan 1997 12:46:38   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.3   29 May 1996 21:15:14   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:44   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:06:06   patv
- * Initial revision.
- */
-
 #define FCB_SUCCESS     0
 #define FCB_ERR_NODATA  1
 #define FCB_ERR_EOF     3
@@ -188,7 +66,7 @@ VOID FatGetDrvData(UCOUNT drive, UCOUNT FAR * spc, UCOUNT FAR * bps,
     
   /* get the data available from dpb                       */
   *nc = 0xffff; /* pass 0xffff to skip free count */
-  if (DosGetFree(drive, spc, &navc, bps, nc))
+  if (DosGetFree((UBYTE)drive, spc, &navc, bps, nc))
   /* Point to the media desctriptor for this drive               */
       *mdp = (BYTE FAR*)&(CDSp->cds_table[drive].cdsDpb->dpb_mdb);
 }
@@ -591,7 +469,7 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
       return FALSE;
 
   sftp = idx_to_sft(sft_idx);
-  sftp->sft_attrib |= SFT_MFCB;  
+  sftp->sft_mode |= SFT_MFCB;
 
   /* check for a device                                           */
   dhp = IsDevice(PriPathName);
@@ -665,7 +543,7 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
       return FALSE;
   
   sftp = idx_to_sft(sft_idx);
-  sftp->sft_attrib |= SFT_MFCB;
+  sftp->sft_mode |= SFT_MFCB;
   
   /* check for a device                                           */
   lpFcb->fcb_curec = 0;
@@ -866,7 +744,7 @@ VOID FcbCloseAll()
   sft FAR *sftp;
 
   for (idx = 0; (sftp = idx_to_sft(idx)) != (sft FAR *) -1; idx++)
-    if ((sftp->sft_attrib & SFT_MFCB) && sftp->sft_psp == cu_psp)
+    if ((sftp->sft_mode & SFT_MFCB) && sftp->sft_psp == cu_psp)
       DosCloseSft(idx);
 }
 
@@ -886,7 +764,7 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   if (lpXfcb->xfcb_flag == 0xff)
   {
     wAttr = lpXfcb->xfcb_attrib;
-    fbcopy(lpXfcb, lpDir, 7); 
+    fmemcpy(lpDir, lpXfcb, 7); 
     lpDir += 7;  
   }
   else
@@ -937,7 +815,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   /* Reconstrct the dirmatch structure from the fcb               */
   Dmatch.dm_drive = lpFcb->fcb_sftno;
 
-  fbcopy(lpFcb->fcb_fname, (BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
+  fmemcpy(Dmatch.dm_name_pat, lpFcb->fcb_fname, FNAME_SIZE + FEXT_SIZE);
   DosUpFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
 
   Dmatch.dm_attr_srch = wAttr;
@@ -947,7 +825,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   if ((xfcb FAR *) lpFcb != lpXfcb)
   {
     wAttr = lpXfcb->xfcb_attrib;
-    fbcopy(lpXfcb, lpDir, 7);
+    fmemcpy(lpDir, lpXfcb, 7);
     lpDir += 7;
   }
   else
@@ -977,5 +855,67 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   return TRUE;
 }
 #endif
+
+/*
+ * Log: fcbfns.c,v - for newer entries see "cvs log fcbfns.c"
+ *
+ * Revision 1.7  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.6  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
+ *
+ * Revision 1.5  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.4  1999/09/23 04:40:46  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:42:15  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/09 02:54:23  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/04 03:18:37  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.3  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.7   06 Dec 1998  8:44:10   patv
+ * Expanded fcb functions for new I/O subsystem.
+ *
+ *    Rev 1.6   04 Jan 1998 23:14:38   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.5   03 Jan 1998  8:36:02   patv
+ * Converted data area to SDA format
+ *
+ *    Rev 1.4   16 Jan 1997 12:46:38   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.3   29 May 1996 21:15:14   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:44   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:26   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:06:06   patv
+ * Initial revision.
+ */
 
 

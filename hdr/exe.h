@@ -34,17 +34,30 @@ static BYTE *exe_hRcsId = "$Id$";
 #endif
 #endif
 
+
+typedef struct
+{
+  UWORD exSignature;
+  UWORD exExtraBytes;
+  UWORD exPages;
+  UWORD exRelocItems;
+  UWORD exHeaderSize;
+  UWORD exMinAlloc;
+  UWORD exMaxAlloc;
+  UWORD exInitSS;
+  UWORD exInitSP;
+  UWORD exCheckSum;
+  UWORD exInitIP;
+  UWORD exInitCS;
+  UWORD exRelocTable;
+  UWORD exOverlay;
+}
+exe_header;
+
+#define MAGIC 0x5a4d
+
 /*
- * $Log$
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: exe.h,v 
  *
  * Revision 1.1.1.1  1999/03/29 15:39:28  jprice
  * New version without IPL.SYS
@@ -77,24 +90,3 @@ static BYTE *exe_hRcsId = "$Id$";
  *         Rev 1.0   02 Jul 1995 10:39:38   patv
  *      Initial revision.
  */
-
-typedef struct
-{
-  UWORD exSignature;
-  UWORD exExtraBytes;
-  UWORD exPages;
-  UWORD exRelocItems;
-  UWORD exHeaderSize;
-  UWORD exMinAlloc;
-  UWORD exMaxAlloc;
-  UWORD exInitSS;
-  UWORD exInitSP;
-  UWORD exCheckSum;
-  UWORD exInitIP;
-  UWORD exInitCS;
-  UWORD exRelocTable;
-  UWORD exOverlay;
-}
-exe_header;
-
-#define MAGIC 0x5a4d

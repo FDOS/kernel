@@ -35,78 +35,6 @@
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.7  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.6  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.3  1999/05/04 16:40:30  jprice
- * ror4 date fix
- *
- * Revision 1.2  1999/04/12 03:21:18  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.1.1.1  1999/03/29 15:41:34  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:58  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:14:07  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.6   06 Dec 1998  8:47:30   patv
- * Bug fixes.
- *
- *    Rev 1.5   04 Jan 1998 23:15:22   patv
- * Changed Log for strip utility
- *
- *    Rev 1.4   03 Jan 1998  8:36:50   patv
- * Converted data area to SDA format
- *
- *    Rev 1.3   29 May 1996 21:03:40   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   19 Feb 1996  3:21:34   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.1   01 Sep 1995 17:54:16   patv
- * First GPL release.
- *
- *    Rev 1.0   02 Jul 1995  8:32:20   patv
- * Initial revision.
- */
-
-    
 UWORD days[2][13] =
 {
   {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365},
@@ -263,3 +191,53 @@ UWORD Month,
     return char_error(&ClkReqHdr, (struct dhdr FAR *)clock);
   return SUCCESS;
 }
+
+/*
+ * Log: systime.c,v - see "cvs log systime.c" for newer entries
+ *
+ * Revision 1.3  1999/05/04 16:40:30  jprice
+ * ror4 date fix
+ *
+ * Revision 1.2  1999/04/12 03:21:18  jprice
+ * more ror4 patches.  Changes for multi-block IO
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:34  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:55:58  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/04 03:14:07  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:27  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.6   06 Dec 1998  8:47:30   patv
+ * Bug fixes.
+ *
+ *    Rev 1.5   04 Jan 1998 23:15:22   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.4   03 Jan 1998  8:36:50   patv
+ * Converted data area to SDA format
+ *
+ *    Rev 1.3   29 May 1996 21:03:40   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   19 Feb 1996  3:21:34   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.1   01 Sep 1995 17:54:16   patv
+ * First GPL release.
+ *
+ *    Rev 1.0   02 Jul 1995  8:32:20   patv
+ * Initial revision.
+ */

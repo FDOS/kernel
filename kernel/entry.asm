@@ -27,80 +27,6 @@
 ;
 ; $Id$
 ;
-; $Log$
-; Revision 1.16  2001/11/13 23:36:45  bartoldeman
-; Kernel 2025a final changes.
-;
-; Revision 1.15  2001/11/04 19:47:39  bartoldeman
-; kernel 2025a changes: see history.txt
-;
-; Revision 1.14  2001/09/23 20:39:44  bartoldeman
-; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-;
-; Revision 1.13  2001/04/21 22:32:53  bartoldeman
-; Init DS=Init CS, fixed stack overflow problems and misc bugs.
-;
-; Revision 1.12  2001/04/16 14:28:32  bartoldeman
-; Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
-;
-; Revision 1.11  2001/04/15 02:26:23  bartoldeman
-; Hans Lermen: critical error handler destroyed AH (entry.asm).
-;
-; Revision 1.10  2001/04/02 23:18:30  bartoldeman
-; Misc, zero terminated device names and redirector bugs fixed.
-;
-; Revision 1.9  2001/03/30 19:30:06  bartoldeman
-; Misc fixes and implementation of SHELLHIGH. See history.txt for details.
-;
-; Revision 1.8  2001/03/27 20:27:43  bartoldeman
-; dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
-;
-; Revision 1.6  2001/03/24 22:13:05  bartoldeman
-; See history.txt: dsk.c changes, warning removal and int21 entry handling.
-;
-; Revision 1.4  2001/03/21 02:56:25  bartoldeman
-; See history.txt for changes. Bug fixes and HMA support are the main ones.
-;
-; Revision 1.3  2000/05/25 20:56:21  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:29:59  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.5  2000/03/20 03:15:49  kernel
-; Change in Entry.asm
-;
-; Revision 1.4  1999/09/23 04:40:46  jprice
-; *** empty log message ***
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:40:53  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:25  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;     Rev 1.1   06 Dec 1998  8:48:40   patv
-;  New int 21h handler code.
-;
-;     Rev 1.0   07 Feb 1998 20:42:08   patv
-;  Modified stack frame to match DOS standard
-; $EndLog$
 
 		%include "segs.inc"
                 %include "stacks.inc"
@@ -738,3 +664,35 @@ CritErrAbort:
                 mov     [bp+reg_ax],ax
                 sti
                 jmp     int21_reentry              ; restart the system call
+
+; Log: entry.asm,v 
+; Revision 1.5  2000/03/20 03:15:49  kernel
+; Change in Entry.asm
+;
+; Revision 1.4  1999/09/23 04:40:46  jprice
+; *** empty log message ***
+;
+; Revision 1.2  1999/08/10 17:57:12  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.1.1.1  1999/03/29 15:40:53  jprice
+; New version without IPL.SYS
+;
+; Revision 1.4  1999/02/08 05:55:57  jprice
+; Added Pat's 1937 kernel patches
+;
+; Revision 1.3  1999/02/01 01:48:41  jprice
+; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+;
+; Revision 1.2  1999/01/22 04:13:25  jprice
+; Formating
+;
+; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+; Imported sources
+;
+;     Rev 1.1   06 Dec 1998  8:48:40   patv
+;  New int 21h handler code.
+;
+;     Rev 1.0   07 Feb 1998 20:42:08   patv
+;  Modified stack frame to match DOS standard
+; EndLog

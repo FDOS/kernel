@@ -34,114 +34,6 @@
 static BYTE *charioRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.13  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.12  2001/08/20 20:32:15  bartoldeman
- * Truename, get free space and ctrl-break fixes.
- *
- * Revision 1.11  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.10  2001/07/23 12:47:42  bartoldeman
- * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
- *
- * Revision 1.9  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.8  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.7  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.6  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:29:59  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.7  2000/03/09 06:07:10  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.6  1999/09/23 04:40:45  jprice
- * *** empty log message ***
- *
- * Revision 1.4  1999/08/25 03:18:07  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.3  1999/04/16 12:21:21  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.2  1999/04/04 18:51:42  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:45  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:18:37  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.9   06 Dec 1998  8:43:36   patv
- * changes in character I/O because of new I/O subsystem.
- *
- *    Rev 1.8   11 Jan 1998  2:06:08   patv
- * Added functionality to ioctl.
- *
- *    Rev 1.7   08 Jan 1998 21:36:40   patv
- * Changed automatic requestic packets to static to save stack space.
- *
- *    Rev 1.6   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   30 Dec 1997  4:00:20   patv
- * Modified to support SDA
- *
- *    Rev 1.4   16 Jan 1997 12:46:36   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.3   29 May 1996 21:15:12   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:42   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:05:44   patv
- * Initial revision.
- *
- */
-
 #include "globals.h"
 
 #ifdef PROTO
@@ -435,9 +327,11 @@ UCOUNT sti_0a(keyboard FAR * kp)
               break;
             }
 
+          case F1:  
           case RIGHT:
             c = local_buffer[kp->kb_count];
-            kbfill(kp, c, FALSE, &virt_pos);
+            if (c)
+              kbfill(kp, c, FALSE, &virt_pos);
             break;
         }
         break;
@@ -475,8 +369,7 @@ UCOUNT sti_0a(keyboard FAR * kp)
 
       case CR:
 #ifndef NOSPCL
-        fbcopy((BYTE FAR *) kp->kb_buf,
-               (BYTE FAR *) local_buffer, (COUNT) kp->kb_count);
+        fmemcpy(local_buffer, kp->kb_buf, (COUNT) kp->kb_count);
         local_buffer[kp->kb_count] = '\0';
 #endif
         kbfill(kp, CR, TRUE, &virt_pos);
@@ -521,3 +414,73 @@ UCOUNT sti(keyboard * kp)
   }
   return ReadCount;
 }
+
+/*
+ * Log: chario.c,v - for newer logs do "cvs log chario.c"
+ *
+ * Revision 1.7  2000/03/09 06:07:10  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.6  1999/09/23 04:40:45  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.4  1999/08/25 03:18:07  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.3  1999/04/16 12:21:21  jprice
+ * Steffen c-break handler changes
+ *
+ * Revision 1.2  1999/04/04 18:51:42  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:45  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/09 02:54:23  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/04 03:18:37  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.3  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.9   06 Dec 1998  8:43:36   patv
+ * changes in character I/O because of new I/O subsystem.
+ *
+ *    Rev 1.8   11 Jan 1998  2:06:08   patv
+ * Added functionality to ioctl.
+ *
+ *    Rev 1.7   08 Jan 1998 21:36:40   patv
+ * Changed automatic requestic packets to static to save stack space.
+ *
+ *    Rev 1.6   04 Jan 1998 23:14:38   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.5   30 Dec 1997  4:00:20   patv
+ * Modified to support SDA
+ *
+ *    Rev 1.4   16 Jan 1997 12:46:36   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.3   29 May 1996 21:15:12   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:42   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:26   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:05:44   patv
+ * Initial revision.
+ *
+ */
+

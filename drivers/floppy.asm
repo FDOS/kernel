@@ -25,78 +25,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Logfile:   C:/usr/patv/dos-c/src/drivers/floppy.asv  $
-;
 ; $Id$
-;
-; $Log$
-; Revision 1.9  2001/11/04 19:47:39  bartoldeman
-; kernel 2025a changes: see history.txt
-;
-; Revision 1.8  2001/09/23 20:39:44  bartoldeman
-; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-;
-; Revision 1.7  2001/07/09 22:19:33  bartoldeman
-; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
-;
-;
-; Revision 1.7  2001/04/29           brianreifsnyder
-; Added phase 1 support for LBA hard drives
-;
-; Revision 1.6  2001/04/22 01:19:33  bartoldeman
-; Avoid sys warning and have a VDISK signature in the HMA
-;
-; Revision 1.5  2001/04/15 03:21:50  bartoldeman
-; See history.txt for the list of fixes.
-;
-; Revision 1.4  2001/03/21 02:56:25  bartoldeman
-; See history.txt for changes. Bug fixes and HMA support are the main ones.
-;
-; Revision 1.3  2000/05/25 20:56:19  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/11 03:56:20  jimtabor
-; Clean up and Release
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.4  1999/08/10 17:21:08  jprice
-; ror4 2011-01 patch
-;
-; Revision 1.3  1999/04/16 21:29:17  jprice
-; ror4 multi-sector IO
-;
-; Revision 1.2  1999/03/29 17:08:31  jprice
-; ror4 changes
-;
-; Revision 1.1.1.1  1999/03/29 15:40:24  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/14 04:25:16  jprice
-; Added functions to check if a floppy disk has been changed.
-;
-; Revision 1.3  1999/02/08 05:49:47  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.2  1999/01/22 04:16:39  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:00  jprice
-; Imported sources
-;
-;   Rev 1.3   06 Dec 1998  8:43:00   patv
-;New floppy support functions.
-;
-;   Rev 1.2   29 Aug 1996 13:07:14   patv
-;Bug fixes for v0.91b
-;
-;   Rev 1.1   01 Sep 1995 18:50:34   patv
-;Initial GPL release.
-;
-;   Rev 1.0   02 Jul 1995  7:57:02   patv
-;Initial revision.
 ;
 
 %ifndef SYS
@@ -521,3 +450,41 @@ skipint1e:
                 ret
                 
                         
+; Log: floppy.asm,v 
+;
+; Revision 1.4  1999/08/10 17:21:08  jprice
+; ror4 2011-01 patch
+;
+; Revision 1.3  1999/04/16 21:29:17  jprice
+; ror4 multi-sector IO
+;
+; Revision 1.2  1999/03/29 17:08:31  jprice
+; ror4 changes
+;
+; Revision 1.1.1.1  1999/03/29 15:40:24  jprice
+; New version without IPL.SYS
+;
+; Revision 1.4  1999/02/14 04:25:16  jprice
+; Added functions to check if a floppy disk has been changed.
+;
+; Revision 1.3  1999/02/08 05:49:47  jprice
+; Added Pat's 1937 kernel patches
+;
+; Revision 1.2  1999/01/22 04:16:39  jprice
+; Formating
+;
+; Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+; Imported sources
+;
+;   Rev 1.3   06 Dec 1998  8:43:00   patv
+;New floppy support functions.
+;
+;   Rev 1.2   29 Aug 1996 13:07:14   patv
+;Bug fixes for v0.91b
+;
+;   Rev 1.1   01 Sep 1995 18:50:34   patv
+;Initial GPL release.
+;
+;   Rev 1.0   02 Jul 1995  7:57:02   patv
+;Initial revision.
+;

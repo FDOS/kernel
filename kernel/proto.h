@@ -32,169 +32,6 @@ static BYTE *Proto_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.24  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.23  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.22  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.21  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.20  2001/07/24 16:56:29  bartoldeman
- * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
- *
- * Revision 1.19  2001/07/23 12:47:42  bartoldeman
- * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
- *
- * Revision 1.18  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.17  2001/06/03 14:16:18  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.16  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.15  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.14  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.13  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.12  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.11  2001/03/27 20:27:43  bartoldeman
- * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
- *
- * Revision 1.10  2001/03/22 04:55:36  bartoldeman
- * Fix prototypes.
- *
- * Revision 1.9  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.8  2000/10/30 00:21:15  jimtabor
- * Adding Brian Reifsnyder Fix for Int 25/26
- *
- * Revision 1.7  2000/08/07 22:51:34  jimtabor
- * Remove unused code
- *
- * Revision 1.6  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.5  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.4  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.17  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.16  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.15  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.14  1999/09/23 04:40:48  jprice
- * *** empty log message ***
- *
- * Revision 1.10  1999/08/25 03:18:09  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.9  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.8  1999/04/23 04:24:39  jprice
- * Memory manager changes made by ska
- *
- * Revision 1.7  1999/04/16 21:43:40  jprice
- * ror4 multi-sector IO
- *
- * Revision 1.6  1999/04/16 12:21:22  jprice
- * Steffen c-break handler changes
- *
- * Revision 1.5  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.4  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:30  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *   Rev 1.11   06 Dec 1998  8:47:18   patv
- *Expanded due to new I/O subsystem.
- *
- *   Rev 1.10   07 Feb 1998 20:38:00   patv
- *Modified stack fram to match DOS standard
- *
- *   Rev 1.9   22 Jan 1998  4:09:26   patv
- *Fixed pointer problems affecting SDA
- *
- *   Rev 1.8   11 Jan 1998  2:06:22   patv
- *Added functionality to ioctl.
- *
- *   Rev 1.7   04 Jan 1998 23:16:22   patv
- *Changed Log for strip utility
- *
- *   Rev 1.6   03 Jan 1998  8:36:48   patv
- *Converted data area to SDA format
- *
- *   Rev 1.5   16 Jan 1997 12:46:44   patv
- *pre-Release 0.92 feature additions
- *
- *   Rev 1.4   29 May 1996 21:03:40   patv
- *bug fixes for v0.91a
- *
- *   Rev 1.3   19 Feb 1996  3:23:06   patv
- *Added NLS, int2f and config.sys processing
- *
- *   Rev 1.2   01 Sep 1995 17:54:26   patv
- *First GPL release.
- *
- *   Rev 1.1   30 Jul 1995 20:51:58   patv
- *Eliminated version strings in ipl
- *
- *   Rev 1.0   05 Jul 1995 11:32:16   patv
- *Initial revision.
- */
 
 /* blockio.c */
 ULONG getblkno(struct buffer FAR *);
@@ -417,30 +254,13 @@ VOID DosUmbLink(BYTE n);
 VOID mcb_print(mcb FAR * mcbp);
 
 /* misc.c */
-/*
-VOID scopy(REG BYTE * s, REG BYTE * d);
-#define strcpy(d, s)    scopy(s, d)
-VOID fbcopy(REG VOID FAR * s, REG VOID FAR * d, REG COUNT n);
-
-*/
 VOID strcpy(REG BYTE * d, REG BYTE * s);
-#define scopy(s, d)    strcpy(d,s)
 VOID ASMCFUNC fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n);
-#define fbcopy(s, d, n)    fmemcpy(d,s,n)
-
-
-/*VOID fscopy(REG BYTE FAR * s, REG BYTE FAR * d);*/
 VOID ASMCFUNC fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
-#define fscopy(s,d) fstrcpy(d,s)
-
 VOID ASMCFUNC fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s);
-
-/*VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n);*/
 void ASMCFUNC memcpy(REG void * d, REG VOID * s, REG COUNT n);
-#define bcopy(s,d,n) memcpy(d,s,n)
-
 void ASMCFUNC fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);
-void ASMCFUNC memset(REG VOID     * s, REG int ch, REG COUNT n);
+void ASMCFUNC memset(REG VOID * s, REG int ch, REG COUNT n);
 
 /* lfnapi.c */
 COUNT lfn_allocate_inode(VOID);
@@ -598,3 +418,95 @@ ULONG FAR ASMCFUNC MULULUL(ULONG mul1, ULONG mul2); /* MULtiply ULong by ULong *
 ULONG FAR ASMCFUNC DIVULUS(ULONG mul1, UWORD mul2); /* DIVide ULong by UShort */
 ULONG FAR ASMCFUNC DIVMODULUS(ULONG mul1, UWORD mul2,UWORD *rem); /* DIVide ULong by UShort */
 #endif
+
+/*
+ * Log: proto.h,v 
+ *
+ * Revision 1.17  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.16  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
+ *
+ * Revision 1.15  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.14  1999/09/23 04:40:48  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.10  1999/08/25 03:18:09  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.9  1999/05/03 06:25:45  jprice
+ * Patches from ror4 and many changed of signed to unsigned variables.
+ *
+ * Revision 1.8  1999/04/23 04:24:39  jprice
+ * Memory manager changes made by ska
+ *
+ * Revision 1.7  1999/04/16 21:43:40  jprice
+ * ror4 multi-sector IO
+ *
+ * Revision 1.6  1999/04/16 12:21:22  jprice
+ * Steffen c-break handler changes
+ *
+ * Revision 1.5  1999/04/12 03:21:17  jprice
+ * more ror4 patches.  Changes for multi-block IO
+ *
+ * Revision 1.4  1999/04/11 04:33:39  jprice
+ * ror4 patches
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:30  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:27  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *   Rev 1.11   06 Dec 1998  8:47:18   patv
+ *Expanded due to new I/O subsystem.
+ *
+ *   Rev 1.10   07 Feb 1998 20:38:00   patv
+ *Modified stack fram to match DOS standard
+ *
+ *   Rev 1.9   22 Jan 1998  4:09:26   patv
+ *Fixed pointer problems affecting SDA
+ *
+ *   Rev 1.8   11 Jan 1998  2:06:22   patv
+ *Added functionality to ioctl.
+ *
+ *   Rev 1.7   04 Jan 1998 23:16:22   patv
+ *Changed Log for strip utility
+ *
+ *   Rev 1.6   03 Jan 1998  8:36:48   patv
+ *Converted data area to SDA format
+ *
+ *   Rev 1.5   16 Jan 1997 12:46:44   patv
+ *pre-Release 0.92 feature additions
+ *
+ *   Rev 1.4   29 May 1996 21:03:40   patv
+ *bug fixes for v0.91a
+ *
+ *   Rev 1.3   19 Feb 1996  3:23:06   patv
+ *Added NLS, int2f and config.sys processing
+ *
+ *   Rev 1.2   01 Sep 1995 17:54:26   patv
+ *First GPL release.
+ *
+ *   Rev 1.1   30 Jul 1995 20:51:58   patv
+ *Eliminated version strings in ipl
+ *
+ *   Rev 1.0   05 Jul 1995 11:32:16   patv
+ *Initial revision.
+ */

@@ -1,11 +1,11 @@
 Begin3
 Title:          The FreeDOS Kernel
-Version:        1.1.25
-Entered-date:   26 Sep 2001
+Version:        2.0.25.b
+Entered-date:   17 Nov 2001
 Description:    The FreeDOS Kernel.
 Keywords:       kernel freedos dos msdos
 Author:         (developers)
-Maintained-by:  bart.oldeman@bristol.ac.uk
+Maintained-by:  bart@dosemu.org
 Primary-site:   http://freedos.sourceforge.net
 Alternate-site: www.dosemu.org/~bart
 Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel

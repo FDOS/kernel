@@ -34,71 +34,6 @@ static char *portab_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.10  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.9  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.8  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.7  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.5  2001/03/08 21:15:00  bartoldeman
- * Fixes for MK_FP and friends from Tom Ehlert; reduces kernel by 1.5k.
- *
- * Revision 1.4  2000/08/06 04:18:21  jimtabor
- * See history.txt
- *
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.2  1999/08/25 03:17:11  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.1.1.1  1999/03/29 15:39:33  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.5   04 Jan 1998 23:14:16   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.4   29 May 1996 21:25:16   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:32   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:44   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:50   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:50   patv
- *      Initial revision.
- */
-
 /****************************************************************/
 /*                                                              */
 /* Machine dependant portable types. Note that this section is  */
@@ -297,3 +232,39 @@ typedef signed long LONG;
     #define PROTO
 #endif
 
+/*
+ * Log: portab.h,v 
+ * Revision 1.2  1999/08/25 03:17:11  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.1.1.1  1999/03/29 15:39:33  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.3  1999/02/01 01:40:06  jprice
+ * Clean up
+ *
+ * Revision 1.2  1999/01/22 04:17:40  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *         Rev 1.5   04 Jan 1998 23:14:16   patv
+ *      Changed Log for strip utility
+ *
+ *         Rev 1.4   29 May 1996 21:25:16   patv
+ *      bug fixes for v0.91a
+ *
+ *         Rev 1.3   19 Feb 1996  3:15:32   patv
+ *      Added NLS, int2f and config.sys processing
+ *
+ *         Rev 1.2   01 Sep 1995 17:35:44   patv
+ *      First GPL release.
+ *
+ *         Rev 1.1   30 Jul 1995 20:43:50   patv
+ *      Eliminated version strings in ipl
+ *
+ *         Rev 1.0   02 Jul 1995 10:39:50   patv
+ *      Initial revision.
+ */

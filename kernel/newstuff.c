@@ -29,104 +29,6 @@
 static BYTE *mainRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.15  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.14  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.13  2001/08/20 20:32:15  bartoldeman
- * Truename, get free space and ctrl-break fixes.
- *
- * Revision 1.12  2001/07/28 18:13:06  bartoldeman
- * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
- *
- * Revision 1.11  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.10  2001/04/02 23:18:30  bartoldeman
- * Misc, zero terminated device names and redirector bugs fixed.
- *
- * Revision 1.9  2001/03/30 22:27:42  bartoldeman
- * Saner lastdrive handling.
- *
- * Revision 1.8  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.7  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.6  2000/06/01 06:37:38  jimtabor
- * Read History for Changes
- *
- * Revision 1.5  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.4  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.3  2000/05/17 19:15:12  jimtabor
- * Cleanup, add and fix source.
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.8  2000/04/02 06:11:35  jtabor
- * Fix ChgDir Code
- *
- * Revision 1.7  2000/04/02 05:30:48  jtabor
- * Fix ChgDir Code
- *
- * Revision 1.6  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.5  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.4  1999/08/25 03:18:09  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.3  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:22  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/08 05:55:57  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:26  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   06 Dec 1998  8:49:02   patv
- * Bug fixes.
- *
- *    Rev 1.3   04 Jan 1998 23:15:22   patv
- * Changed Log for strip utility
- *
- *    Rev 1.2   04 Jan 1998 17:26:14   patv
- * Corrected subdirectory bug
- *
- *    Rev 1.1   22 Jan 1997 13:21:22   patv
- * pre-0.92 Svante Frey bug fixes.
- */
-
 #include        "portab.h"
 #include        "globals.h"
 #include        "proto.h"
@@ -343,7 +245,7 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
   current_ldt = &CDSp->cds_table[i];
 
   /* Always give the redirector a chance to rewrite the filename */
-  fsncopy((BYTE FAR *) src, bufp -1, sizeof(buf) - (bufp - buf));
+  fstrncpy(bufp - 1, src, sizeof(buf) - (bufp - buf));
   if ((t == FALSE) && (QRemote_Fn(buf, dest) == SUCCESS) && (dest[0] != '\0')) {
     return SUCCESS;
   } else {
@@ -351,7 +253,7 @@ COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
   }
     if (t == FALSE)
     {
-      fsncopy((BYTE FAR *) & current_ldt->cdsCurrentPath[0], (BYTE FAR *) & buf[0], current_ldt->cdsJoinOffset);
+      fstrncpy(buf, current_ldt->cdsCurrentPath, current_ldt->cdsJoinOffset);
       bufp = buf + current_ldt->cdsJoinOffset;
       rootEndPos = current_ldt->cdsJoinOffset; /* renamed x to rootEndPos - Ron Cemer */
       *bufp++ = '\\';
@@ -594,8 +496,61 @@ exit_tn:
   DosUpString(buf);
 
   /* copy to user's buffer */
-  fbcopy(buf, dest, bufp - buf);
+  fmemcpy(dest, buf, bufp - buf);
 
   return SUCCESS;
 }
+
+/*
+ * Log: newstuff.c,v - for newer entries see "cvs log newstuff.c"
+ *
+ * Revision 1.8  2000/04/02 06:11:35  jtabor
+ * Fix ChgDir Code
+ *
+ * Revision 1.7  2000/04/02 05:30:48  jtabor
+ * Fix ChgDir Code
+ *
+ * Revision 1.6  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.5  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.4  1999/08/25 03:18:09  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.3  1999/04/11 04:33:39  jprice
+ * ror4 patches
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:22  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/08 05:55:57  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:26  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.4   06 Dec 1998  8:49:02   patv
+ * Bug fixes.
+ *
+ *    Rev 1.3   04 Jan 1998 23:15:22   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.2   04 Jan 1998 17:26:14   patv
+ * Corrected subdirectory bug
+ *
+ *    Rev 1.1   22 Jan 1997 13:21:22   patv
+ * pre-0.92 Svante Frey bug fixes.
+ */
 

@@ -21,7 +21,7 @@ LIBUTIL=$(COMPILERBIN)\wlib
 LIBPLUS=
 LIBTERM=
 
-CFLAGST=-mt
+CFLAGST=-zp=1 -mt
 CFLAGSC=-zp=1 -mc
 
 TARGET=KWC
@@ -69,7 +69,7 @@ MATH_INSERT= +i4d +i4m
 # -3		optimization for 386 - given in CONFIG.MAK, not here
 #
 
-ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -zq -os -ms -s -e=5 -j -zl -zp=1
+ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -zq -os -ms -s -e=5 -j -zl -zp=1 -we
 INITCFLAGS=$(ALLCFLAGS) -nt=INIT_TEXT -nc=INIT -g=IGROUP
 CFLAGS=$(ALLCFLAGS) -nt=HMA_TEXT -nc=HMA -g=HGROUP
 DYNCFLAGS=$(ALLCFLAGS)

@@ -1,5 +1,31 @@
+2001 Nov 17 - Build 2025b
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * fix a few more batch file and makefile details
+    * fix problems with command line editing: F1 and right key
+    * string merging in dosnames.c
+    * optimizations for MSC
++ Changes Bart
+    * fix readblock problem not properly detecting EOF - it sometimes
+      returned an error where it should just report a short count.
+      Also fnp->f_offset==0 is not a special case for blockread
+      (neither should it be for write - but that'll be for later)
+      For both cases it's perfectly legal to do a seek first.
+    * fix writeblock not setting highwater to offset when doing a 
+      truncate (count == 0)
+    * hopefully now really fix the floppy change problem -
+      dsk.c: getbpb() should query changeline BEFORE reading the BPB.
+    * fixed warnings from WATCOM compiler - one of them was in fact
+      a bug in fcbfns.c
+    * started big clean-up
+      - converted obsolete bcopy(), sncopy() and friends to memcpy(),
+        strncpy() etc.
+      - removed $Log entries that are also on the CVS server and
+        removed the $ so no new entries will be added in files.
+      indenting will be next - other fixes will be buried in diffs if
+      I do that now.
 2001 Nov 12 - Build 2025a
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
     * initialize LBA parameter struct to 0's - some BIOSes don't fill
       in everything. Thanks to Bernd Blaauw's bug report.
@@ -30,7 +56,7 @@
     * cleaned up map_cluster and dir_read (bug fixed by Bart)
     * updated LFN API (in development, not used yet)
 2001 Nov 4 - Build 2025a (test)
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Changes tom
     * config.sys processing: placing ? on the left side of '=' like
 	 ?device=  or device ?= 
@@ -80,7 +106,7 @@
     * more fatfs/fatdir clean-ups - now unnecessary fields dfull,
       dremote and dsize removed from fnodes.
 2001 Sep 24 - Build 2025
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes Victor
     * More FAT32 fixes
 + Fixes Tom
@@ -101,7 +127,7 @@
       uses root (but only if source & destination drive are different).
       Fix printf to include count(ret) if copy can't write all requested bytes
 2001 Sep 22 - Build 2025 (test)
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Added Victor
     * FAT32 support (credits to Martin Stromberg for boot32.asm optimizations)
     * Delete long file names if short file name given
@@ -132,13 +158,13 @@
       changed state).
     * attribute should be 8-bit fix
 2001 Aug 19 - Build 2024/h
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + fixes Bart
     * truename fixes (#580)
     * free space fixes (#249)
     * Ctrl-C/Ctrl-Break fix
 2001 Aug 19 - Build 2024/g
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + fixes Bart
     * set file time fixes
     * clock fixes
@@ -151,7 +177,7 @@
 + fixes Bart + Tom
     * fixed shsucdx /u unloading problem	
 2001 Jul 28 - Build 2024/f
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + fixes Bart
     * fixed get current directory - MSCDEX works now (always)
     * initdisk.c correctly sets number of hidden sectors: necessary
@@ -166,7 +192,7 @@
     * various fatfs.c fixes and clean ups
 
 2001 Jul 23 - Build 2024/e
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + fixes Tom
     * dyninit allocation fix
     * various clean ups
@@ -212,7 +238,7 @@
     * fixed task.c 'LOADHIGH executables': minAlloc == maxAlloc = 0
       and an fixed overwriting the MCB
 2001 Jul 9 - Build 2024/d
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + fixes Bart:
     * fixed Ctrl-C (Ctrl-S and Ctrl-Q still missing).
     * ioctl EOF fix (DJGPP less&gdb problem reported by Martin Stromberg)
@@ -260,7 +286,7 @@ from 2001 May 21: Build2024L
     * moved initialization for DISK (partition scanning) to INIT_CODE
 
 2001 Jun 2 - Build 2024
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Tom:
     * small fixes again.
     * one possible cause for data corruption (BFR_VALID) detected
@@ -279,7 +305,7 @@ from 2001 May 21: Build2024L
     * dos_mkdir tuned (was ~0.5 sec on 64K cluster partitions)
 
 2001 Apr 29 - Build 2024
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Bart:
 	 * fixed the "TYPE > FOO.TXT" poor man's editor.
 	 * use "fast console output" (int 29) when applicable.
@@ -301,7 +327,7 @@ from 2001 May 21: Build2024L
 	 * fixed not ignoring whitespace after '=' in config.sys
 	 * noted INT21/AX=3800 bug for getting the country. Put in a workaround for now.
 	 2001 Apr 21 - Build 2024
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Tom:
          * fixed a missing close_dir in fatfs.c.
          * many reductions of stack space requirements.
@@ -327,7 +353,7 @@ from 2001 May 21: Build2024L
 + Add    Tom:
          * Default interrupt 6 handler (invalid opcode).
 2001 Apr 16 - Build 2024
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  * Use turboc.cfg to avoid long command lines; edit ALLCFLAGS
            in config.mak to enable DEBUG etc.
          * Fixed critical error handler.
@@ -335,7 +361,7 @@ from 2001 May 21: Build2024L
          * Some device drivers require \r\n at the end of their
            parameter line.
 2001 Apr 16 - Build 2023
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  * Thanks to Martin Stromberg for pointing some bugs out:
          * more warnings fixed.
 	 * accidentally opened too many file handles at boot time.
@@ -344,7 +370,7 @@ from 2001 May 21: Build2024L
 + Add	 * added printf "%S" and "%Fs" to print far strings.
          * enabled and cleaned up INT21/AH=6C (extended open/create).
 2001 Apr 15 - Build 2023
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Tom: 
          * apisupt.asm not necessary anymore.
          * fix warnings.
@@ -387,7 +413,7 @@ from 2001 May 21: Build2024L
 	       GWBASIC/BASICA
 
 2001 Apr  2 - Build 2023
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Bart: Volkov Commander revealed a few bugs:
 	  -int 21/ah=55 forgot to set current psp to child psp.
   	  -memory allocation: mem_access_mode was a signed byte, and hence 0x80 was
@@ -413,7 +439,7 @@ from 2001 May 21: Build2024L
            drives.
          * Fixed bug wrt zero terminated device names (should be spaces terminated).
 2001 Mar 30 - Build 2023
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Tom: Kernel alloc initialises to 0. This avoids some weird errors.
               Implemented default divide by 0 handler (INT 0)
               FILES= fixes from config.sys. fatfs.c ignored it and always
@@ -432,10 +458,10 @@ from 2001 May 21: Build2024L
 + Fixes  Bug fix release 2023b: dsk.c (reported by Nagy Daniel), inthndlr and
 	 int25/26 fixes by Tom Ehlert.
 2001 Mar 27 - Build 2023
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Bug fix release 2023a: fixed stack segment bug in entry.asm.
 2001 Mar 25 - Build 2023
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  sys.com compilation: it is a proper .com and works again.
 	 Suggestions from Martin Stromberg: warning removal and some
 	 debugging related changes.
@@ -443,14 +469,14 @@ from 2001 May 21: Build2024L
          in config.sys. Also implemented strcasecmp.
 	 Updated intfns.txt; reported version is now 5.0.
 2001 Mar 24 - Build 2022
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  Tom and Bart: cli/sti handling and other fixes in entry.asm,
          procsupt.asm and apisupt.asm.
          Bart: warning removal + other compile time fixes.
          Tom: * more partition detection fixes in dsk.c.
               * dos_gettime() fix.
 2001 Mar 21 - Build 2022
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Clean  A lot of space savings by Tom Ehlert, merely because Turbo C 2.01 does not
          do it. And several more complicated situations as well, like coding some
 	 string functions in assembly (asmsupt.asm).
@@ -475,7 +501,7 @@ from 2001 May 21: Build2024L
 + Fixes  a few small ones from Tom I forgot.
 
 2001 Mar 08 - Build 2022
--------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
+-------- Bart Oldeman (bart@dosemu.org)
 + Fixes  MCB chain corruption fix (thanks Tom Ehlert and Martin Stromberg)
          Redirector fixes (CDROMs and DOSEmu lredir'ed drives appear to work fine now)
          UMB fixes
@@ -492,7 +518,7 @@ from 2001 May 21: Build2024L
 
 2000 Dec 15 - Build 2022
 -------- James Tabor (jimtabor@infohwy.com)
-+ Fixes	 Added Patches from Bart Oldeman (Bart.Oldeman@bristol.ac.uk)
++ Fixes	 Added Patches from Bart Oldeman (bart@dosemu.org)
          Fix for NLAST in globals.h and change default return in inthndlr.c.
 
 2000 Oct 29 - Build 2022
@@ -540,7 +566,7 @@ from 2001 May 21: Build2024L
 
 2000 Jun 20 - Build 2021
 -------- James Tabor (jimtabor@infohwy.com)
-+ Fix	 Bart Oldeman (Bart.Oldeman@bristol.ac.uk) found bugs with copy
++ Fix	 Bart Oldeman (bart@dosemu.org) found bugs with copy
          command using Dosemu Lredir. Fixed Dosfns return for ReadCount, 
          WriteCount and  DosGetFattr. Fixed the return in int2f.asm for
          Read/Write Remote. By adding xor ax,ax.

@@ -34,8 +34,19 @@ static BYTE *dosnames_hRcsId = "$Id$";
 #endif
 #endif
 
+
+#define PARSE_MAX 64
+
+struct dosnames
+{
+  UBYTE dn_drive;               /* the drive that was parsed    */
+  UBYTE dn_network[PARSE_MAX];  /* specified network            */
+  UBYTE dn_path[PARSE_MAX];     /* the path                     */
+  UBYTE dn_name[FNAME_SIZE + FEXT_SIZE + 1];	/* the file name       */
+};
+
 /*
- * $Log$
+ * Log: dosnames.h,v 
  * Revision 1.2  2000/05/08 04:28:22  jimtabor
  * Update CVS to 2020
  *
@@ -67,13 +78,3 @@ static BYTE *dosnames_hRcsId = "$Id$";
  *         Rev 1.0   02 Jul 1995 10:39:34   patv
  *      Initial revision.
  */
-
-#define PARSE_MAX 64
-
-struct dosnames
-{
-  UBYTE dn_drive;               /* the drive that was parsed    */
-  UBYTE dn_network[PARSE_MAX];  /* specified network            */
-  UBYTE dn_path[PARSE_MAX];     /* the path                     */
-  UBYTE dn_name[FNAME_SIZE + FEXT_SIZE + 1];	/* the file name       */
-};

@@ -43,31 +43,6 @@ static BYTE *RcsId = "$Id$";
 #endif
 
 /*
- * $Log$
- * Revision 1.9  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.8  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.7  2001/06/03 14:16:18  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.6  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.5  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.4  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.1  2000/03/23 02:44:21  ska
- * Initial revision
- *
- */
-
-/*
  *	assertDSeqSS() - test if DS == SS
  *	Otherwise pointers to local variables (that ones on the stack) will
  *	be referenced via DS, which will cause to use wrong values.
@@ -635,7 +610,12 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
 UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
 {	struct nlsPackage FAR*nls;	/* addressed NLS package */
 
-	UNREFERENCED_PARAMETER (flags || cs || ip || ds || es || si);
+	UNREFERENCED_PARAMETER (flags);
+	UNREFERENCED_PARAMETER (cs);
+	UNREFERENCED_PARAMETER (ip);
+	UNREFERENCED_PARAMETER (ds);
+	UNREFERENCED_PARAMETER (es);
+	UNREFERENCED_PARAMETER (si);
 
 log( ("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n",
 	AL, BX, DX) );
@@ -680,3 +660,12 @@ log( ("NLS: MUX14(FILE_UPMEM): len=%u, %04x:%04x=\"", CX, ES, DI) );
 log( ("NLS: MUX14(): Invalid function %x\n", AL) );
 	return DE_INVLDFUNC;	/* no such function */
 }
+
+/*
+ * Log: nls.c,v - for newer log entries see "cvs log nls.c"
+ *
+ * Revision 1.1  2000/03/23 02:44:21  ska
+ * Initial revision
+ *
+ */
+

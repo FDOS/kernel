@@ -33,77 +33,6 @@
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.9  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.8  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.7  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.6  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.1.1.1  1999/03/29 15:41:33  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:58  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:14:07  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:03:48   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   19 Feb 1996  3:21:34   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.1   01 Sep 1995 17:54:18   patv
- * First GPL release.
- *
- *    Rev 1.0   02 Jul 1995  8:32:30   patv
- * Initial revision.
- */
-
 #ifdef PROTO
 BOOL ASMCFUNC ReadPCClock(ULONG *);
 VOID ASMCFUNC WriteATClock(BYTE *, BYTE, BYTE, BYTE);
@@ -267,12 +196,12 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
         clk.clkHundredths = remainder % 100ul;
       }
       
-      fbcopy((BYTE FAR *) & clk, rp->r_trans, min(sizeof(struct ClockRecord),rp->r_count ));
+      fmemcpy(rp->r_trans, &clk, min(sizeof(struct ClockRecord),rp->r_count ));
       return S_DONE;
 
     case C_OUTPUT:
       rp->r_count = min(rp->r_count,sizeof(struct ClockRecord)); 
-      fbcopy(rp->r_trans, (BYTE FAR *) & clk, rp->r_count);
+      fmemcpy(&clk, rp->r_trans, rp->r_count);
 
       /* Set PC Clock first                                   */
       DaysSinceEpoch = clk.clkDays;
@@ -391,3 +320,48 @@ VOID DayToBcd(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr)
   x[3] = ByteToBcd(*yr / 100);
   x[2] = ByteToBcd(*yr % 100);
 }
+
+/*
+ * Log: sysclk.c,v - for newer entries do "cvs log sysclk.c"
+ *
+ * Revision 1.3  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/12 03:21:17  jprice
+ * more ror4 patches.  Changes for multi-block IO
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:33  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:55:58  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/04 03:14:07  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:27  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.4   04 Jan 1998 23:15:16   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.3   29 May 1996 21:03:48   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   19 Feb 1996  3:21:34   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.1   01 Sep 1995 17:54:18   patv
+ * First GPL release.
+ *
+ *    Rev 1.0   02 Jul 1995  8:32:30   patv
+ * Initial revision.
+ */
+

@@ -28,9 +28,6 @@
 ;
 ; $Id$
 ;
-;   Rev 1.0   02 Jul 1995  9:04:50   patv
-;Initial revision.
-; $EndLog$
 ;
 
 		%include "segs.inc"

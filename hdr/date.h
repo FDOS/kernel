@@ -36,17 +36,26 @@ static BYTE *date_hRcsId = "$Id$";
 #endif
 #endif
 
+/* FAT file date - takes the form of yyyy yyym mmmd dddd where physical */
+/* year=1980+yyyyyy                                                     */
+
+#define DT_YEAR(d)      (((d)>>9)&0x7f)
+#define DT_MONTH(d)     (((d)>>5)&0x0f)
+#define DT_DAY(d)       ((d)&0x1f)
+
+#define DT_ENCODE(m,d,y) ((((m)&0x0f)<<5)|((d)&0x1f)|(((y)&0x7f)<<9))
+
+#define EPOCH_WEEKDAY   2       /* Tuesday (i. e.-  0 == Sunday)        */
+#define EPOCH_MONTH     1       /* January                              */
+#define EPOCH_DAY       1       /* 1 for January 1                      */
+#define EPOCH_YEAR      1980    /* for Tues 1-1-80 epoch                */
+
+typedef UWORD date;
+
+#endif
+
 /*
- * $Log$
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: date.h,v 
  *
  * Revision 1.2  1999/08/25 03:17:11  jprice
  * ror4 patches to allow TC 2.01 compile.
@@ -82,21 +91,3 @@ static BYTE *date_hRcsId = "$Id$";
  *         Rev 1.0   02 Jul 1995 10:39:28   patv
  *      Initial revision.
  */
-
-/* FAT file date - takes the form of yyyy yyym mmmd dddd where physical */
-/* year=1980+yyyyyy                                                     */
-
-#define DT_YEAR(d)      (((d)>>9)&0x7f)
-#define DT_MONTH(d)     (((d)>>5)&0x0f)
-#define DT_DAY(d)       ((d)&0x1f)
-
-#define DT_ENCODE(m,d,y) ((((m)&0x0f)<<5)|((d)&0x1f)|(((y)&0x7f)<<9))
-
-#define EPOCH_WEEKDAY   2       /* Tuesday (i. e.-  0 == Sunday)        */
-#define EPOCH_MONTH     1       /* January                              */
-#define EPOCH_DAY       1       /* 1 for January 1                      */
-#define EPOCH_YEAR      1980    /* for Tues 1-1-80 epoch                */
-
-typedef UWORD date;
-
-#endif

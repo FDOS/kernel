@@ -33,151 +33,6 @@
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.19  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.18  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.17  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.16  2001/07/23 12:47:42  bartoldeman
- * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
- *
- * Revision 1.15  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.14  2001/06/03 14:16:18  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.13  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.12  2001/04/16 14:28:32  bartoldeman
- * Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
- *
- * Revision 1.11  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.10  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.9  2001/03/31 20:54:52  bartoldeman
- * Made SHELLHIGH behave more like LOADHIGH.
- *
- * Revision 1.8  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.7  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.6  2001/03/08 21:00:00  bartoldeman
- * UMB fixes to DosComLoader
- *
- * Revision 1.5  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.4  2000/05/26 19:25:19  jimtabor
- * Read History file for Change info
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.8  2000/03/31 05:40:09  jtabor
- * Added Eric W. Biederman Patches
- *
- * Revision 1.7  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.6  1999/08/25 03:18:10  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.5  1999/04/23 04:24:39  jprice
- * Memory manager changes made by ska
- *
- * Revision 1.4  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.3  1999/04/11 04:33:39  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/03/29 17:05:09  jprice
- * ror4 changes
- *
- * Revision 1.1.1.1  1999/03/29 15:41:41  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:55:58  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:14:07  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.15   06 Dec 1998  8:46:28   patv
- * Bug fixes.
- *
- *    Rev 1.14   07 Feb 1998 20:38:32   patv
- * Modified stack fram to match DOS standard
- *
- *    Rev 1.13   31 Jan 1998 14:39:20   patv
- * Corrected type in load high code.
- *
- *    Rev 1.12   31 Jan 1998 14:02:52   patv
- * Added load high in memory option in DosExeLoader.
- *
- *    Rev 1.11   22 Jan 1998 22:17:14   patv
- * Eliminated warnings.
- *
- *    Rev 1.10   22 Jan 1998 21:31:36   patv
- * Corrected short .COM problem.
- *
- *    Rev 1.9   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.8   22 Jan 1997 13:18:14   patv
- * pre-0.92 Svante Frey bug fixes.
- *
- *    Rev 1.7   16 Jan 1997 12:46:56   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.5   29 Aug 1996 13:07:22   patv
- * Bug fixes for v0.91b
- *
- *    Rev 1.4   29 May 1996 21:03:36   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:21:48   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:54:22   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:51:58   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:34:06   patv
- * Initial revision.
- */
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))
 
 #define LOADNGO 0
@@ -291,14 +146,15 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* copy the environment */
   if (pSrc)
   {
-    fbcopy(pSrc, pDest, nEnvSize);
+    fmemcpy(pDest, pSrc, nEnvSize);
     pDest += nEnvSize;
   }
   else
     *pDest++ = '\0';            /* create an empty environment */
 
                                 /* initialize 'extra strings' count */
-  *((UWORD FAR *) pDest)++ = 1;
+  *((UWORD FAR *) pDest) = 1;
+  pDest += sizeof(UWORD);
 
   /* copy complete pathname */
   if ((RetCode = truename(pathname, pDest, TRUE)) != SUCCESS) {
@@ -407,9 +263,9 @@ STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR *exb,
   psp = MK_FP(pspseg, 0);
 
   /* complete the psp by adding the command line and FCBs     */
-  fbcopy(exb->exec.cmd_line->ctBuffer, psp->ps_cmd, 127);
-  fbcopy(exb->exec.fcb_1, &psp->ps_fcb1, 16);
-  fbcopy(exb->exec.fcb_2, &psp->ps_fcb2, 16);
+  fmemcpy(psp->ps_cmd, exb->exec.cmd_line->ctBuffer, 127);
+  fmemcpy(&psp->ps_fcb1, exb->exec.fcb_1, 16);
+  fmemcpy(&psp->ps_fcb2, exb->exec.fcb_2, 16);
   psp->ps_cmd_count = exb->exec.cmd_line->ctCount;
 
   /* identify the mcb as this functions'                  */
@@ -557,8 +413,8 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
          /* BUG !! in case of LH, memory may be smaller then 64K TE*/
          
          
-      if ((ULONG)com_size > ((ULONG)asize << 4))  /* less memory than the .COM file has */
-        (ULONG)com_size = (ULONG)asize << 4;
+      if (com_size > ((LONG)asize << 4))  /* less memory than the .COM file has */
+        com_size = (LONG)asize << 4;
     }
     do
     {
@@ -1051,4 +907,92 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   return rc;
 }
 
+/*
+ * Log: task.c,v - for newer log entries do "cvs log task.c"
+ *
+ * Revision 1.8  2000/03/31 05:40:09  jtabor
+ * Added Eric W. Biederman Patches
+ *
+ * Revision 1.7  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.6  1999/08/25 03:18:10  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.5  1999/04/23 04:24:39  jprice
+ * Memory manager changes made by ska
+ *
+ * Revision 1.4  1999/04/16 00:53:33  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.3  1999/04/11 04:33:39  jprice
+ * ror4 patches
+ *
+ * Revision 1.2  1999/03/29 17:05:09  jprice
+ * ror4 changes
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:41  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:55:58  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/04 03:14:07  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:27  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.15   06 Dec 1998  8:46:28   patv
+ * Bug fixes.
+ *
+ *    Rev 1.14   07 Feb 1998 20:38:32   patv
+ * Modified stack fram to match DOS standard
+ *
+ *    Rev 1.13   31 Jan 1998 14:39:20   patv
+ * Corrected type in load high code.
+ *
+ *    Rev 1.12   31 Jan 1998 14:02:52   patv
+ * Added load high in memory option in DosExeLoader.
+ *
+ *    Rev 1.11   22 Jan 1998 22:17:14   patv
+ * Eliminated warnings.
+ *
+ *    Rev 1.10   22 Jan 1998 21:31:36   patv
+ * Corrected short .COM problem.
+ *
+ *    Rev 1.9   04 Jan 1998 23:15:16   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.8   22 Jan 1997 13:18:14   patv
+ * pre-0.92 Svante Frey bug fixes.
+ *
+ *    Rev 1.7   16 Jan 1997 12:46:56   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.5   29 Aug 1996 13:07:22   patv
+ * Bug fixes for v0.91b
+ *
+ *    Rev 1.4   29 May 1996 21:03:36   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.3   19 Feb 1996  3:21:48   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.2   01 Sep 1995 17:54:22   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:51:58   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:34:06   patv
+ * Initial revision.
+ */
 

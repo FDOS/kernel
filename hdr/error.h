@@ -34,67 +34,6 @@ static BYTE *error_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.6  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.5  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.4  2000/11/02 06:56:53  jimtabor
- * Fix Share Patch
- *
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.1.1.1  1999/03/29 15:39:27  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:58:24  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.3  1999/01/30 08:21:43  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.6   06 Dec 1998  8:41:00   patv
- *      Added new errors for new I/O subsystem.
- *
- *         Rev 1.5   04 Jan 1998 23:14:16   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.4   29 May 1996 21:25:18   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:28   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:38   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:42:28   patv
- *      fixed ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:36   patv
- *      Initial revision.
- */
 
 /* Internal system error returns                                */
 #define SUCCESS         0       /* Function was successful      */
@@ -146,3 +85,47 @@ static BYTE *error_hRcsId = "$Id$";
 #define RETRY           1
 #define ABORT           2
 #define FAIL            3
+
+/*
+ * Log: error.h,v 
+ *
+ * Revision 1.1.1.1  1999/03/29 15:39:27  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:58:24  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/01 01:40:06  jprice
+ * Clean up
+ *
+ * Revision 1.3  1999/01/30 08:21:43  jprice
+ * Clean up
+ *
+ * Revision 1.2  1999/01/22 04:17:40  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *         Rev 1.6   06 Dec 1998  8:41:00   patv
+ *      Added new errors for new I/O subsystem.
+ *
+ *         Rev 1.5   04 Jan 1998 23:14:16   patv
+ *      Changed Log for strip utility
+ *
+ *         Rev 1.4   29 May 1996 21:25:18   patv
+ *      bug fixes for v0.91a
+ *
+ *         Rev 1.3   19 Feb 1996  3:15:28   patv
+ *      Added NLS, int2f and config.sys processing
+ *
+ *         Rev 1.2   01 Sep 1995 17:35:38   patv
+ *      First GPL release.
+ *
+ *         Rev 1.1   30 Jul 1995 20:42:28   patv
+ *      fixed ipl
+ *
+ *         Rev 1.0   02 Jul 1995 10:39:36   patv
+ *      Initial revision.
+ */

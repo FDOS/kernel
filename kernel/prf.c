@@ -48,111 +48,6 @@ COUNT ASMCFUNC fstrlen (BYTE FAR * s);        /* don't want globals.h, sorry */
 static BYTE *prfRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.13  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.12  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.11  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.10  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.9  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.8  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.7  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.6  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.5  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.4  2001/03/07 10:00:00 tomehlert
- * recoded for smaller object footprint, added main() for testing+QA
- *
- * $Log$
- * Revision 1.13  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.12  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.11  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.10  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.9  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.8  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.7  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.6  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.5  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.3  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:42:20  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.4   04 Jan 1998 23:14:38   patv
- * Changed Log for strip utility
- *
- *    Rev 1.3   29 May 1996 21:15:10   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.2   01 Sep 1995 17:48:42   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:26   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:05:10   patv
- * Initial revision.
- */
-
 static BYTE *charp = 0;
 
 #ifdef PROTO
@@ -383,23 +278,27 @@ COUNT
 
       case 'p':
             {
-            WORD w[2];
+            UWORD w[2];
             static char pointerFormat[] = "%04x:%04x";
-            w[1] = *((unsigned int*) arg)++;
-            w[0] = *((unsigned int*) arg)++;
+            w[1] = *((UWORD *) arg);
+            arg += sizeof(UWORD);
+            w[0] = *((UWORD *) arg);
+            arg += sizeof(UWORD);
             do_printf(pointerFormat,(BYTE**)&w);
     	    continue;
     	    }
 
       case 's':
-            p = *((BYTE **) arg)++;
+            p = *((BYTE **) arg);
+            arg += sizeof(BYTE *);
 	    goto do_outputstring;
             
       case 'F':
             fmt++;
             /* we assume %Fs here */
       case 'S':
-            p = *((BYTE FAR **) arg)++;
+            p = *((BYTE FAR **) arg);
+            arg += sizeof(BYTE FAR *);
             goto do_outputstring;
 
       case 'i':
@@ -421,11 +320,16 @@ COUNT
 
           lprt:
           	if (longarg)
-          		currentArg = *((LONG *) arg)++;
+                {
+                    currentArg = *((LONG *) arg);
+                    arg += sizeof(LONG);
+                }
           	else
-          		if (base < 0) currentArg = *((int*) arg)++;	
-          		else          currentArg = *((unsigned int*) arg)++;	
-          			
+                {
+                    if (base < 0) currentArg = *((int*) arg);	
+                    else          currentArg = *((unsigned int*) arg);
+                    arg += sizeof(int);
+                }	
           
             ltob(currentArg, s, base);
 
@@ -566,3 +470,45 @@ main()
 	}
 }
 #endif
+
+/*
+ * Log: prf.c,v - see "cvs log prf.c" for newer entries
+ *
+ * Revision 1.4  2001/03/07 10:00:00 tomehlert
+ * recoded for smaller object footprint, added main() for testing+QA
+ *
+ * Revision 1.3  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:42:20  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.3  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.4   04 Jan 1998 23:14:38   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.3   29 May 1996 21:15:10   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:42   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:26   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:05:10   patv
+ * Initial revision.
+ */
+

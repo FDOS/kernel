@@ -79,43 +79,7 @@ extern BYTE
 static BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.10  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.9  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.8  2001/07/28 18:13:06  bartoldeman
- * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
- *
- * Revision 1.7  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.6  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.5  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.4  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.3  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.2  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.1  2001/03/21 03:01:45  bartoldeman
- * New file by Tom Ehlert for HMA initialization.
- *
- * Revision 0.1 2001/03/16 12:00:00  tom ehlert
- * initial creation
- */
- 
- 
+
 BYTE DosLoadedInHMA=FALSE;    /* set to TRUE if loaded HIGH          */
 BYTE HMAclaimed=FALSE;        /* set to TRUE if claimed from HIMEM   */
 WORD HMAFree = 0;             /* first byte in HMA not yet used      */
@@ -547,3 +511,10 @@ void MoveKernel(unsigned NewKernelSegment)
 errorReturn:
     for (;;);    
 }
+
+/*
+ * Log: inithma.c,v - for newer entries do "cvs log inithma.c"
+ *
+ * Revision 0.1 2001/03/16 12:00:00  tom ehlert
+ * initial creation
+ */

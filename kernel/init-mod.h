@@ -55,7 +55,6 @@ COUNT ASMCFUNC strlen(REG BYTE * s);
 
 #undef LINESIZE
 #define LINESIZE KBD_MAXLENGTH
-#define fbcopy(s, d, n)    fmemcpy(d,s,n)
 
 /*inithma.c*/
 extern BYTE DosLoadedInHMA;

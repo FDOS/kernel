@@ -27,55 +27,6 @@
 ;
 ; $Header$
 ;
-; $Log$
-; Revision 1.11  2001/11/04 19:47:39  bartoldeman
-; kernel 2025a changes: see history.txt
-;
-; Revision 1.10  2001/09/23 20:39:44  bartoldeman
-; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-;
-; Revision 1.9  2001/04/29 17:34:40  bartoldeman
-; A new SYS.COM/config.sys single stepping/console output/misc fixes.
-;
-; Revision 1.8  2001/04/21 22:32:53  bartoldeman
-; Init DS=Init CS, fixed stack overflow problems and misc bugs.
-;
-; Revision 1.7  2001/03/21 02:56:26  bartoldeman
-; See history.txt for changes. Bug fixes and HMA support are the main ones.
-;
-; Revision 1.6  2000/06/21 18:16:46  jimtabor
-; Add UMB code, patch, and code fixes
-;
-; Revision 1.5  2000/06/01 06:37:38  jimtabor
-; Read History for Changes
-;
-; Revision 1.4  2000/05/26 19:25:19  jimtabor
-; Read History file for Change info
-;
-; Revision 1.3  2000/05/25 20:56:21  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:30:00  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.3  2000/03/09 06:07:11  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:41:07  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; $EndLog$
-;
 
                 %include "segs.inc"
 
@@ -654,3 +605,18 @@ clk_and_blk_common:
                 popf
                 retf
 
+; Log: io.asm,v 
+; Revision 1.3  2000/03/09 06:07:11  kernel
+; 2017f updates by James Tabor
+;
+; Revision 1.2  1999/08/10 17:57:12  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.1.1.1  1999/03/29 15:41:07  jprice
+; New version without IPL.SYS
+;
+; Revision 1.1  1999/02/08 05:55:57  jprice
+; Added Pat's 1937 kernel patches
+;
+; EndLog
+;

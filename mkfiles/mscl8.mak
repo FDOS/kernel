@@ -38,7 +38,8 @@ TARGET=KMS
 # heavy stuff - building
 
 
-ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -nologo -Zl -Fc -Zp1 -Gs -Os -WX
+ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -nologo -Zl -Fc -Zp1 -WX -Gr -f- -Os -Gs -Ob1 -OV4 -Gy -Oe
+
 INITCFLAGS=$(ALLCFLAGS) -NTINIT_TEXT -AT
 CFLAGS=$(ALLCFLAGS) -NTHMA_TEXT
 DYNCFLAGS=$(ALLCFLAGS) -NTHMA_TEXT 

@@ -26,84 +26,6 @@
 ; Cambridge, MA 02139, USA.
 ;
 ;
-; $Log$
-; Revision 1.5  2001/11/13 23:36:45  bartoldeman
-; Kernel 2025a final changes.
-;
-; Revision 1.4  2001/04/29 17:34:39  bartoldeman
-; A new SYS.COM/config.sys single stepping/console output/misc fixes.
-;
-; Revision 1.3  2000/05/25 20:56:19  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/11 03:56:42  jimtabor
-; Clean up and Release
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.12  1999/09/25 06:42:18  jprice
-; Optimize boot loader.  Documentation.
-;
-; Revision 1.11  1999/09/24 19:04:55  jprice
-; Added changes recommended by Jens Horstmeier
-
-; to make their bootable CD work.
-;
-; Revision 1.10  1999/09/23 04:39:02  jprice
-; *** empty log message ***
-;
-; Revision 1.7  1999/04/23 03:43:46  jprice
-; Ported to NASM by ror4
-;
-; Revision 1.6  1999/04/17 19:14:03  jprice
-; Fixed multi-sector code
-;
-; Revision 1.5  1999/04/17 06:23:26  jprice
-; Changed so multi-sector IO is optional.
-;
-; Revision 1.4  1999/04/13 15:52:22  jprice
-; Moves boot sector to top of mem
-;
-; Revision 1.3  1999/04/06 22:53:36  jprice
-; Put back code to read multiple sectors at a time.
-;
-; Revision 1.2  1999/04/01 07:23:20  jprice
-; New boot loader
-;
-; Revision 1.1.1.1  1999/03/29 15:39:39  jprice
-; New version without IPL.SYS
-;
-; Revision 1.3  1999/03/02 06:57:14  jprice
-; Added entry address for more recent versions of TLINK
-;
-; Revision 1.2  1999/01/21 05:03:58  jprice
-; Formating.
-;
-; Revision 1.1.1.1  1999/01/20 05:51:00  jprice
-; Imported sources
-;
-;
-;          Rev 1.5   10 Jan 1997  4:58:06   patv
-;       Corrected copyright
-;
-;          Rev 1.4   10 Jan 1997  4:52:50   patv
-;       Re-written to support C drive and eliminate restrictions on IPL.SYS
-;
-;          Rev 1.3   29 Aug 1996 13:06:50   patv
-;       Bug fixes for v0.91b
-;
-;          Rev 1.2   01 Sep 1995 17:56:44   patv
-;       First GPL release.
-;
-;          Rev 1.1   30 Jul 1995 20:37:38   patv
-;       Initialized stack before use.
-;
-;          Rev 1.0   02 Jul 1995 10:57:52   patv
-;       Initial revision.
-;
-
 ;	+--------+
 ;	|        |
 ;	|        |
@@ -606,3 +528,67 @@ filename        db      "KERNEL  SYS"
 		times	0x01fe-$+$$ db 0
 
 sign            dw      0xAA55
+
+; Log: boot.asm,v 
+;
+; Revision 1.12  1999/09/25 06:42:18  jprice
+; Optimize boot loader.  Documentation.
+;
+; Revision 1.11  1999/09/24 19:04:55  jprice
+; Added changes recommended by Jens Horstmeier
+
+; to make their bootable CD work.
+;
+; Revision 1.10  1999/09/23 04:39:02  jprice
+; *** empty log message ***
+;
+; Revision 1.7  1999/04/23 03:43:46  jprice
+; Ported to NASM by ror4
+;
+; Revision 1.6  1999/04/17 19:14:03  jprice
+; Fixed multi-sector code
+;
+; Revision 1.5  1999/04/17 06:23:26  jprice
+; Changed so multi-sector IO is optional.
+;
+; Revision 1.4  1999/04/13 15:52:22  jprice
+; Moves boot sector to top of mem
+;
+; Revision 1.3  1999/04/06 22:53:36  jprice
+; Put back code to read multiple sectors at a time.
+;
+; Revision 1.2  1999/04/01 07:23:20  jprice
+; New boot loader
+;
+; Revision 1.1.1.1  1999/03/29 15:39:39  jprice
+; New version without IPL.SYS
+;
+; Revision 1.3  1999/03/02 06:57:14  jprice
+; Added entry address for more recent versions of TLINK
+;
+; Revision 1.2  1999/01/21 05:03:58  jprice
+; Formating.
+;
+; Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+; Imported sources
+;
+;
+;          Rev 1.5   10 Jan 1997  4:58:06   patv
+;       Corrected copyright
+;
+;          Rev 1.4   10 Jan 1997  4:52:50   patv
+;       Re-written to support C drive and eliminate restrictions on IPL.SYS
+;
+;          Rev 1.3   29 Aug 1996 13:06:50   patv
+;       Bug fixes for v0.91b
+;
+;          Rev 1.2   01 Sep 1995 17:56:44   patv
+;       First GPL release.
+;
+;          Rev 1.1   30 Jul 1995 20:37:38   patv
+;       Initialized stack before use.
+;
+;          Rev 1.0   02 Jul 1995 10:57:52   patv
+;       Initial revision.
+;
+

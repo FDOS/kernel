@@ -34,232 +34,6 @@
 BYTE *RcsId = "$Id$";
 #endif
 
-/*
- * TE 12 jun 2001 bugs corrected
- *      handles disk full (in a incompatible way :-( )
- *      allows use of last cluster
- *      prevents mkdir, if disk is full (was creating crosslinked dirs)
- *   bugs detected, but NOT corrected
- *      on disk full, MSDOS will NOT write any byte, simply return SUCCESS, 0 bytes
- *      FreeDOS will write all possible bytes, then close file(BUG)
- *
- * the dos_mkdir/extenddir (with getblock() instead of getblockOver) was a real
- * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
- *
- * $Log$
- * Revision 1.26  2001/11/13 23:36:45  bartoldeman
- * Kernel 2025a final changes.
- *
- * Revision 1.25  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.24  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.23  2001/08/19 12:58:36  bartoldeman
- * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
- *
- * Revision 1.22  2001/07/28 18:13:06  bartoldeman
- * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
- *
- * Revision 1.21  2001/07/24 16:56:29  bartoldeman
- * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
- *
- * Revision 1.20  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.19  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.18  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.17  2001/04/29 17:34:40  bartoldeman
- * A new SYS.COM/config.sys single stepping/console output/misc fixes.
- *
- * Revision 1.16  2001/04/21 22:32:53  bartoldeman
- * Init DS=Init CS, fixed stack overflow problems and misc bugs.
- *
- * Revision 1.15  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.14  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.13  2001/03/30 19:30:06  bartoldeman
- * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
- *
- * Revision 1.12  2001/03/24 22:13:05  bartoldeman
- * See history.txt: dsk.c changes, warning removal and int21 entry handling.
- *
- * Revision 1.11  2001/03/22 04:26:14  bartoldeman
- * dos_gettime() fix by Tom Ehlert.
- *
- * Revision 1.10  2001/03/21 02:56:25  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.9  2001/03/08 21:00:00  bartoldeman
- * Disabled select_unit() since it's not used
- *
- * Revision 1.8  2000/10/29 23:51:56  jimtabor
- * Adding Share Support by Ron Cemer
- *
- * Revision 1.7  2000/09/05 00:56:50  jimtabor
- * *** empty log message ***
- *
- *
- * ///  2000/08/12 22:49:00  Ron Cemer
- * Fixed writeblock() to only use getbuf() if writing a
- * complete sector; otherwise use getbloc() and do a
- * read-modify-write to prevent writing garbage back
- * over pre-existing data in the file.
- * This was a major BUG.
- *
- * Revision 1.6  2000/08/06 05:50:17  jimtabor
- * Add new files and update cvs with patches and changes
- *
- * Revision 1.5  2000/06/21 18:16:46  jimtabor
- * Add UMB code, patch, and code fixes
- *
- * Revision 1.4  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.23  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.19  2000/03/17 22:59:04  kernel
- * Steffen Kaiser's NLS changes
- *
- * Revision 1.18  2000/03/17 04:13:12  kernel
- * Added Change for media_check
- *
- * Revision 1.17  2000/03/17 04:01:20  kernel
- * Added Change for media_check
- *
- * Revision 1.16  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.15  1999/09/23 04:40:46  jprice
- * *** empty log message ***
- *
- * Revision 1.12  1999/09/14 01:01:54  jprice
- * Fixed bug where you could write over directories.
- *
- * Revision 1.11  1999/08/25 03:18:08  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.10  1999/08/10 18:03:42  jprice
- * ror4 2011-03 patch
- *
- * Revision 1.9  1999/05/03 06:25:45  jprice
- * Patches from ror4 and many changed of signed to unsigned variables.
- *
- * Revision 1.8  1999/05/03 05:00:24  jprice
- * Fixed bug in map_cluster function
- *
- * Revision 1.7  1999/04/16 00:53:33  jprice
- * Optimized FAT handling
- *
- * Revision 1.6  1999/04/12 23:41:54  jprice
- * Using getbuf to write data instead of getblock
- * using getblock made it read the block before it wrote it
- *
- * Revision 1.5  1999/04/12 03:21:17  jprice
- * more ror4 patches.  Changes for multi-block IO
- *
- * Revision 1.4  1999/04/11 04:33:38  jprice
- * ror4 patches
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:42:07  jprice
- * New version without IPL.SYS
- *
- * Revision 1.8  1999/03/23 23:37:39  jprice
- * Fixed mkdir DOS function so it will create a directory with same name as the volument label
- *
- * Revision 1.7  1999/03/02 07:00:51  jprice
- * Fixed bugs with dos set attribute function.  Now returns correct
- * error code, and errors if user tries to set bits 6 & 7.
- *
- * Revision 1.6  1999/02/09 02:54:23  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.5  1999/02/04 03:18:37  jprice
- * Formating.  Added comments.
- *
- * Revision 1.4  1999/02/01 01:43:28  jprice
- * Fixed findfirst function to find volume label with Windows long filenames
- *
- * Revision 1.3  1999/01/30 08:25:34  jprice
- * Clean up; Fixed bug with set attribute function.  If you tried to
- * change the attributes of a directory, it would erase it.
- *
- * Revision 1.2  1999/01/22 04:15:28  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
- * Imported sources
- *
- *
- *    Rev 1.14   06 Dec 1998  8:44:26   patv
- * Bug fixes.
- *
- *    Rev 1.13   09 Feb 1998  5:43:30   patv
- * Eliminated FAT12 EOF and error useage.
- *
- *    Rev 1.12   03 Feb 1998 11:28:04   patv
- * Fixed lseek bug.
- *
- *    Rev 1.11   22 Jan 1998  5:38:08   patv
- * Corrected remaining file name and extension copies that did not
- * account for far file nodes due to allocated FILES= spec.
- *
- *    Rev 1.10   22 Jan 1998  4:09:00   patv
- * Fixed pointer problems affecting SDA
- *
- *    Rev 1.9   04 Jan 1998 23:14:40   patv
- * Changed Log for strip utility
- *
- *    Rev 1.8   04 Jan 1998 17:24:14   patv
- * Corrected subdirectory bug
- *
- *    Rev 1.7   03 Jan 1998  8:36:04   patv
- * Converted data area to SDA format
- *
- *    Rev 1.6   22 Jan 1997 13:00:30   patv
- * pre-0.92 bug fixes
- *
- *    Rev 1.5   16 Jan 1997 12:46:24   patv
- * pre-Release 0.92 feature additions
- *
- *    Rev 1.4   29 May 1996 21:15:16   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:20:10   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:48:40   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:50:24   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:04:46   patv
- * Initial revision.
- */
-
 /*                                                                      */
 /*      function prototypes                                             */
 /*                                                                      */
@@ -440,7 +214,7 @@ f_node_ptr
   /* directory...                                                 */
   if (!szDirName[2])
   {
-    fsncopy(cdsp->cdsCurrentPath, (BYTE FAR *) szDirName, PARSE_MAX);
+    fstrncpy(szDirName, cdsp->cdsCurrentPath, PARSE_MAX);
   }
 
 /*  11/29/99 jt
@@ -667,8 +441,8 @@ COUNT dos_creat(BYTE * path, COUNT attrib)
     }
 
     /* put the fnode's name into the directory.             */
-    bcopy(szFileName, fnp->f_dir.dir_name, FNAME_SIZE);
-    bcopy(szFileExt, fnp->f_dir.dir_ext, FEXT_SIZE);
+    memcpy(fnp->f_dir.dir_name, szFileName, FNAME_SIZE);
+    memcpy(fnp->f_dir.dir_ext, szFileExt, FEXT_SIZE);
   }
   /* Set the fnode to the desired mode                    */
   /* Updating the directory entry first.                  */
@@ -923,8 +697,8 @@ COUNT dos_rename(BYTE * path1, BYTE * path2)
     return ret;
 
   /* put the fnode's name into the directory.                     */
-  bcopy(szFileName, (BYTE *)fnp2->f_dir.dir_name, FNAME_SIZE);
-  bcopy(szFileExt, (BYTE *)fnp2->f_dir.dir_ext, FEXT_SIZE);
+  memcpy(fnp2->f_dir.dir_name, szFileName, FNAME_SIZE);
+  memcpy(fnp2->f_dir.dir_ext, szFileExt, FEXT_SIZE);
 
   /* Set the fnode to the desired mode                            */
   fnp2->f_dir.dir_size = fnp1->f_dir.dir_size;
@@ -1344,8 +1118,8 @@ COUNT dos_mkdir(BYTE * dir)
     
 
     /* put the fnode's name into the directory.             */
-    bcopy(szFileName, (BYTE *) fnp->f_dir.dir_name, FNAME_SIZE);
-    bcopy(szFileExt, (BYTE *) fnp->f_dir.dir_ext, FEXT_SIZE);
+    memcpy(fnp->f_dir.dir_name, szFileName, FNAME_SIZE);
+    memcpy(fnp->f_dir.dir_ext, szFileExt, FEXT_SIZE);
 
     /* Set the fnode to the desired mode                            */
     fnp->f_mode = WRONLY;
@@ -1385,8 +1159,8 @@ COUNT dos_mkdir(BYTE * dir)
   }
 
   /* Create the "." entry                                 */
-  bcopy(".       ", (BYTE *) DirEntBuffer.dir_name, FNAME_SIZE);
-  bcopy("   ", (BYTE *) DirEntBuffer.dir_ext, FEXT_SIZE);
+  memcpy(DirEntBuffer.dir_name, ".       ", FNAME_SIZE);
+  memcpy(DirEntBuffer.dir_ext, "   ", FEXT_SIZE);
   DirEntBuffer.dir_attrib = D_DIR;
   DirEntBuffer.dir_time = dos_gettime();
   DirEntBuffer.dir_date = dos_getdate();
@@ -1397,7 +1171,7 @@ COUNT dos_mkdir(BYTE * dir)
   putdirent((struct dirent FAR *)&DirEntBuffer, (BYTE FAR *) bp->b_buffer);
 
   /* create the ".." entry                                */
-  bcopy("..      ", (BYTE *) DirEntBuffer.dir_name, FNAME_SIZE);
+  memcpy(DirEntBuffer.dir_name, "..      ", FNAME_SIZE);
 #ifdef WITHFAT32
   if (ISFAT32(dpbp) && parent == dpbp->dpb_xrootclst) {
      parent = 0;
@@ -1780,23 +1554,20 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   /* can utilize memory management in future DOS-C versions.      */
   while (ret_cnt < count)
   {
+    /* Do an EOF test and return whatever was transferred   */
+    /* but only for regular files.                          */
+    if (!(fnp->f_flags.f_ddir)
+        && (fnp->f_offset >= fnp->f_highwater))
+    {
+      *err = SUCCESS;
+      return ret_cnt;
+    }
+
     /* Position the file to the fnode's pointer position. This is   */
     /* done by updating the fnode's cluster, block (sector) and     */
     /* byte offset so that read becomes a simple data move          */
     /* out of the block data buffer.                                */
-    if (fnp->f_offset == 0l)
-    {
-      /* complete the common operations of            */
-      /* initializing to the starting cluster and     */
-      /* setting all offsets to zero.                 */
-      fnp->f_cluster = fnp->f_flags.f_ddir ? fnp->f_dirstart :
-          getdstart(fnp->f_dir);
 
-      fnp->f_cluster_offset = 0l;
-      fnp->f_back = LONG_LAST_CLUSTER;
-      fnp->f_sector = 0;
-      fnp->f_boff = 0;
-    }
     /* The more difficult scenario is the (more common)     */
     /* file offset case. Here, we need to take the fnode's  */
     /* offset pointer (f_offset) and translate it into a    */
@@ -1814,17 +1585,14 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* The algorithm in this function takes advantage of    */
     /* the blockio block buffering scheme to simplify the   */
     /* task.                                                */
-    else
-    {
 #ifdef DISPLAY_GETBLOCK
-      printf("readblock: ");
+    printf("readblock: ");
 #endif
-      if (map_cluster(fnp, XFR_READ) != SUCCESS)
-      {
-        *err = DE_SEEK;
-        dir_close(fnp);
-        return ret_cnt;
-      }
+    if (map_cluster(fnp, XFR_READ) != SUCCESS)
+    {
+      *err = DE_SEEK;
+      dir_close(fnp);
+      return ret_cnt;
     }
 
     /* Compute the block within the cluster and the offset  */
@@ -1832,9 +1600,6 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
     fnp->f_boff = fnp->f_offset & (secsize - 1);
 
-
-
-    
     currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
 
     /* see comments above */
@@ -1884,7 +1649,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
         DeleteBlockInBufferCache(currentblock, 
                                  currentblock + sectors_to_read - 1,
                                  fnp->f_dpb->dpb_unit);
-
+        
         if (dskxfer(fnp->f_dpb->dpb_unit,
                     currentblock,
                     (VOID FAR *) buffer, sectors_to_read, DSKREAD))
@@ -1903,7 +1668,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 
          
                 /* normal read: just the old, buffer = sector based read */
-normal_read:    
+normal_read:
 
 
 #ifdef DSK_DEBUG
@@ -1912,14 +1677,6 @@ normal_read:
            fnp->f_diroff,
            fnp->f_cluster);
 #endif
-    /* Do an EOF test and return whatever was transferred   */
-    /* but only for regular files.                          */
-    if (!(fnp->f_flags.f_ddir)
-        && (fnp->f_offset >= fnp->f_highwater))
-    {
-      *err = SUCCESS;
-      return ret_cnt;
-    }
 
     /* Get the block we need from cache                     */
     bp = getblock(currentblock /*clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector*/,
@@ -1945,7 +1702,7 @@ normal_read:
       xfr_cnt = (UWORD)min(min(to_xfer, secsize - fnp->f_boff),
                     fnp->f_highwater - fnp->f_offset);
 
-    fbcopy((BYTE FAR *) & bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
+    fmemcpy(buffer, &bp->b_buffer[fnp->f_boff], xfr_cnt);
 
                                         /* complete buffer read ? 
                                            probably not reused later
@@ -2114,6 +1871,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* FAT allocation has to be extended if necessary              TE */
     /* Now done in dos_extend                                      BO */
     /* remove all the following allocated clusters in shrink_file     */  
+    fnp->f_highwater = fnp->f_offset;
     shrink_file(fnp);
     return 0;
   }
@@ -2246,7 +2004,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
        - Ron Cemer
     xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
 */
-    fbcopy(buffer, (BYTE FAR *) & bp->b_buffer[fnp->f_boff], xfr_cnt);
+    fmemcpy(&bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
     if (xfr_cnt == sizeof(bp->b_buffer)) /* probably not used later */
@@ -2712,4 +2470,151 @@ done:
     fnp->f_offset = lastoffset;    /* has to be restored */
     
 }
+
+/*
+ * TE 12 jun 2001 bugs corrected
+ *      handles disk full (in a incompatible way :-( )
+ *      allows use of last cluster
+ *      prevents mkdir, if disk is full (was creating crosslinked dirs)
+ *   bugs detected, but NOT corrected
+ *      on disk full, MSDOS will NOT write any byte, simply return SUCCESS, 0 bytes
+ *      FreeDOS will write all possible bytes, then close file(BUG)
+ *
+ * the dos_mkdir/extenddir (with getblock() instead of getblockOver) was a real
+ * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
+ *
+ * Log: fatfs.c,v - for newer log entries do "cvs log fatfs.c"
+ *
+ * ///  2000/08/12 22:49:00  Ron Cemer
+ * Fixed writeblock() to only use getbuf() if writing a
+ * complete sector; otherwise use getbloc() and do a
+ * read-modify-write to prevent writing garbage back
+ * over pre-existing data in the file.
+ * This was a major BUG.
+ *
+ * Revision 1.23  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.19  2000/03/17 22:59:04  kernel
+ * Steffen Kaiser's NLS changes
+ *
+ * Revision 1.18  2000/03/17 04:13:12  kernel
+ * Added Change for media_check
+ *
+ * Revision 1.17  2000/03/17 04:01:20  kernel
+ * Added Change for media_check
+ *
+ * Revision 1.16  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.15  1999/09/23 04:40:46  jprice
+ * *** empty log message ***
+ *
+ * Revision 1.12  1999/09/14 01:01:54  jprice
+ * Fixed bug where you could write over directories.
+ *
+ * Revision 1.11  1999/08/25 03:18:08  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.10  1999/08/10 18:03:42  jprice
+ * ror4 2011-03 patch
+ *
+ * Revision 1.9  1999/05/03 06:25:45  jprice
+ * Patches from ror4 and many changed of signed to unsigned variables.
+ *
+ * Revision 1.8  1999/05/03 05:00:24  jprice
+ * Fixed bug in map_cluster function
+ *
+ * Revision 1.7  1999/04/16 00:53:33  jprice
+ * Optimized FAT handling
+ *
+ * Revision 1.6  1999/04/12 23:41:54  jprice
+ * Using getbuf to write data instead of getblock
+ * using getblock made it read the block before it wrote it
+ *
+ * Revision 1.5  1999/04/12 03:21:17  jprice
+ * more ror4 patches.  Changes for multi-block IO
+ *
+ * Revision 1.4  1999/04/11 04:33:38  jprice
+ * ror4 patches
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:42:07  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.8  1999/03/23 23:37:39  jprice
+ * Fixed mkdir DOS function so it will create a directory with same name as the volument label
+ *
+ * Revision 1.7  1999/03/02 07:00:51  jprice
+ * Fixed bugs with dos set attribute function.  Now returns correct
+ * error code, and errors if user tries to set bits 6 & 7.
+ *
+ * Revision 1.6  1999/02/09 02:54:23  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.5  1999/02/04 03:18:37  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.4  1999/02/01 01:43:28  jprice
+ * Fixed findfirst function to find volume label with Windows long filenames
+ *
+ * Revision 1.3  1999/01/30 08:25:34  jprice
+ * Clean up; Fixed bug with set attribute function.  If you tried to
+ * change the attributes of a directory, it would erase it.
+ *
+ * Revision 1.2  1999/01/22 04:15:28  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:00  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.14   06 Dec 1998  8:44:26   patv
+ * Bug fixes.
+ *
+ *    Rev 1.13   09 Feb 1998  5:43:30   patv
+ * Eliminated FAT12 EOF and error useage.
+ *
+ *    Rev 1.12   03 Feb 1998 11:28:04   patv
+ * Fixed lseek bug.
+ *
+ *    Rev 1.11   22 Jan 1998  5:38:08   patv
+ * Corrected remaining file name and extension copies that did not
+ * account for far file nodes due to allocated FILES= spec.
+ *
+ *    Rev 1.10   22 Jan 1998  4:09:00   patv
+ * Fixed pointer problems affecting SDA
+ *
+ *    Rev 1.9   04 Jan 1998 23:14:40   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.8   04 Jan 1998 17:24:14   patv
+ * Corrected subdirectory bug
+ *
+ *    Rev 1.7   03 Jan 1998  8:36:04   patv
+ * Converted data area to SDA format
+ *
+ *    Rev 1.6   22 Jan 1997 13:00:30   patv
+ * pre-0.92 bug fixes
+ *
+ *    Rev 1.5   16 Jan 1997 12:46:24   patv
+ * pre-Release 0.92 feature additions
+ *
+ *    Rev 1.4   29 May 1996 21:15:16   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.3   19 Feb 1996  3:20:10   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.2   01 Sep 1995 17:48:40   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:50:24   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:04:46   patv
+ * Initial revision.
+ */
 

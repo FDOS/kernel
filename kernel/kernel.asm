@@ -27,131 +27,6 @@
 ;
 ; $Id$
 ;
-; $Log$
-; Revision 1.20  2001/11/13 23:36:45  bartoldeman
-; Kernel 2025a final changes.
-;
-; Revision 1.19  2001/11/04 19:47:39  bartoldeman
-; kernel 2025a changes: see history.txt
-;
-; Revision 1.18  2001/09/23 20:39:44  bartoldeman
-; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
-;
-; Revision 1.17  2001/08/19 12:58:36  bartoldeman
-; Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
-;
-; Revision 1.16  2001/07/28 18:13:06  bartoldeman
-; Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
-;
-; Revision 1.15  2001/07/22 01:58:58  bartoldeman
-; Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
-;
-; Revision 1.14  2001/07/09 22:19:33  bartoldeman
-; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
-;
-; Revision 1.13  2001/06/03 14:16:18  bartoldeman
-; BUFFERS tuning and misc bug fixes/cleanups (2024c).
-;
-; Revision 1.12  2001/04/29 17:34:40  bartoldeman
-; A new SYS.COM/config.sys single stepping/console output/misc fixes.
-;
-; Revision 1.11  2001/04/22 01:19:34  bartoldeman
-; Avoid sys warning and have a VDISK signature in the HMA
-;
-; Revision 1.9  2001/04/15 03:21:50  bartoldeman
-; See history.txt for the list of fixes.
-;
-; Revision 1.8  2001/03/30 19:30:06  bartoldeman
-; Misc fixes and implementation of SHELLHIGH. See history.txt for details.
-;
-; Revision 1.7  2001/03/21 02:56:26  bartoldeman
-; See history.txt for changes. Bug fixes and HMA support are the main ones.
-;
-; Revision 1.6  2001/03/08 21:15:00  bartoldeman
-; uppermem_root initialised to 0 (no UMBs).
-;
-; Revision 1.5  2000/08/06 05:50:17  jimtabor
-; Add new files and update cvs with patches and changes
-;
-; Revision 1.4  2000/06/21 18:16:46  jimtabor
-; Add UMB code, patch, and code fixes
-;
-; Revision 1.3  2000/05/25 20:56:21  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:30:00  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.6  2000/03/09 06:07:11  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.5  1999/09/23 04:40:47  jprice
-; *** empty log message ***
-;
-; Revision 1.3  1999/08/10 17:57:13  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.2  1999/04/13 15:52:57  jprice
-; changes for boot loader
-;
-; Revision 1.1.1.1  1999/03/29 15:41:14  jprice
-; New version without IPL.SYS
-;
-; Revision 1.4  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; Revision 1.3  1999/02/01 01:48:41  jprice
-; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
-;
-; Revision 1.2  1999/01/22 04:13:26  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
-; Imported sources
-;
-;   Rev 1.11   06 Dec 1998  8:48:04   patv
-;Bug fixes.
-;
-;   Rev 1.10   03 Feb 1998 23:30:08   patv
-;Added a start-up stack for loadable device drivers.  Need the separate
-;stack so that all int 21h functions can be called.
-;
-;   Rev 1.9   22 Jan 1998  4:09:24   patv
-;Fixed pointer problems affecting SDA
-;
-;   Rev 1.8   06 Jan 1998 20:12:32   patv
-;Reduced device driver stack sizes.
-;
-;   Rev 1.7   04 Jan 1998 17:26:18   patv
-;Corrected subdirectory bug
-;
-;   Rev 1.6   03 Jan 1998  8:36:50   patv
-;Converted data area to SDA format
-;
-;   Rev 1.5   06 Feb 1997 22:43:18   patv
-;Reduced stack sizes for block and clock devices.
-;
-;   Rev 1.4   06 Feb 1997 19:05:48   patv
-;Added hooks for tsc command
-;
-;   Rev 1.3   29 May 1996 21:03:44   patv
-;bug fixes for v0.91a
-;
-;   Rev 1.2   19 Feb 1996  3:24:06   patv
-;Added NLS, int2f and config.sys processing
-;
-;   Rev 1.1   01 Sep 1995 17:54:24   patv
-;First GPL release.
-;
-;   Rev 1.0   02 Jul 1995  9:05:44   patv
-;Initial revision.
-;
-; $EndLog$
-;
 
                 %include "segs.inc"
 
@@ -1101,3 +976,70 @@ segment INIT_TEXT
 _INIT_DGROUP dw DGROUP
 
 
+; Log: kernel.asm,v
+; Revision 1.6  2000/03/09 06:07:11  kernel
+; 2017f updates by James Tabor
+;
+; Revision 1.5  1999/09/23 04:40:47  jprice
+; *** empty log message ***
+;
+; Revision 1.3  1999/08/10 17:57:13  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.2  1999/04/13 15:52:57  jprice
+; changes for boot loader
+;
+; Revision 1.1.1.1  1999/03/29 15:41:14  jprice
+; New version without IPL.SYS
+;
+; Revision 1.4  1999/02/08 05:55:57  jprice
+; Added Pat's 1937 kernel patches
+;
+; Revision 1.3  1999/02/01 01:48:41  jprice
+; Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+;
+; Revision 1.2  1999/01/22 04:13:26  jprice
+; Formating
+;
+; Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+; Imported sources
+;
+;   Rev 1.11   06 Dec 1998  8:48:04   patv
+;Bug fixes.
+;
+;   Rev 1.10   03 Feb 1998 23:30:08   patv
+;Added a start-up stack for loadable device drivers.  Need the separate
+;stack so that all int 21h functions can be called.
+;
+;   Rev 1.9   22 Jan 1998  4:09:24   patv
+;Fixed pointer problems affecting SDA
+;
+;   Rev 1.8   06 Jan 1998 20:12:32   patv
+;Reduced device driver stack sizes.
+;
+;   Rev 1.7   04 Jan 1998 17:26:18   patv
+;Corrected subdirectory bug
+;
+;   Rev 1.6   03 Jan 1998  8:36:50   patv
+;Converted data area to SDA format
+;
+;   Rev 1.5   06 Feb 1997 22:43:18   patv
+;Reduced stack sizes for block and clock devices.
+;
+;   Rev 1.4   06 Feb 1997 19:05:48   patv
+;Added hooks for tsc command
+;
+;   Rev 1.3   29 May 1996 21:03:44   patv
+;bug fixes for v0.91a
+;
+;   Rev 1.2   19 Feb 1996  3:24:06   patv
+;Added NLS, int2f and config.sys processing
+;
+;   Rev 1.1   01 Sep 1995 17:54:24   patv
+;First GPL release.
+;
+;   Rev 1.0   02 Jul 1995  9:05:44   patv
+;Initial revision.
+;
+; EndLog
+;

@@ -34,17 +34,20 @@ static BYTE *tail_hRcsId = "$Id$";
 #endif
 #endif
 
+
+#ifndef LINESIZE
+#define LINESIZE       127
+#endif
+
+typedef struct
+{
+  UBYTE ctCount;                /* number of bytes returned             */
+  BYTE ctBuffer[LINESIZE];      /* the buffer itself            */
+}
+CommandTail;
+
 /*
- * $Log$
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
+ * Log: tail.h,v 
  *
  * Revision 1.1.1.1  1999/03/29 15:39:36  jprice
  * New version without IPL.SYS
@@ -77,14 +80,3 @@ static BYTE *tail_hRcsId = "$Id$";
  *         Rev 1.0   02 Jul 1995 10:39:54   patv
  *      Initial revision.
  */
-
-#ifndef LINESIZE
-#define LINESIZE       127
-#endif
-
-typedef struct
-{
-  UBYTE ctCount;                /* number of bytes returned             */
-  BYTE ctBuffer[LINESIZE];      /* the buffer itself            */
-}
-CommandTail;

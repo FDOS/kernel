@@ -33,91 +33,6 @@ static BYTE *device_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.9  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.8  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.7  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.6  2001/06/03 14:16:17  bartoldeman
- * BUFFERS tuning and misc bug fixes/cleanups (2024c).
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.3  2000/05/11 04:24:51  jimtabor
- * Added Boot blk structs
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.4  2000/04/29 05:13:16  jtabor
- *  Added new functions and clean up code
- *
- * Revision 1.3  2000/03/09 06:06:38  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/04 18:50:14  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:39:26  jprice
- * New version without IPL.SYS
- *
- * Revision 1.5  1999/02/08 05:58:24  jprice
- * Added Pat's 1937 kernel patches
- *
- * Revision 1.4  1999/02/04 03:08:47  jprice
- * no message
- *
- * Revision 1.3  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.8   06 Dec 1998  8:41:30   patv
- *      Changed for new I/O subsystem
- *
- *         Rev 1.7   11 Jan 1998  2:05:54   patv
- *      Added functionality to ioctl.
- *
- *         Rev 1.6   04 Jan 1998 23:14:20   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.5   16 Jan 1997 12:46:06   patv
- *      pre-Release 0.92 feature additions
- *
- *         Rev 1.4   29 May 1996 21:25:12   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:30   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:40   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:48   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:30   patv
- *      Initial revision.
- */
 
 /*
  *      Status Word Bits
@@ -574,3 +489,61 @@ typedef struct dhdr FAR *dhdrptr;
  *      end of device.h
  */
 
+/*
+ * Log: device.h,v 
+ *
+ * Revision 1.4  2000/04/29 05:13:16  jtabor
+ *  Added new functions and clean up code
+ *
+ * Revision 1.3  2000/03/09 06:06:38  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/04 18:50:14  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:39:26  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.5  1999/02/08 05:58:24  jprice
+ * Added Pat's 1937 kernel patches
+ *
+ * Revision 1.4  1999/02/04 03:08:47  jprice
+ * no message
+ *
+ * Revision 1.3  1999/02/01 01:40:06  jprice
+ * Clean up
+ *
+ * Revision 1.2  1999/01/22 04:17:40  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *         Rev 1.8   06 Dec 1998  8:41:30   patv
+ *      Changed for new I/O subsystem
+ *
+ *         Rev 1.7   11 Jan 1998  2:05:54   patv
+ *      Added functionality to ioctl.
+ *
+ *         Rev 1.6   04 Jan 1998 23:14:20   patv
+ *      Changed Log for strip utility
+ *
+ *         Rev 1.5   16 Jan 1997 12:46:06   patv
+ *      pre-Release 0.92 feature additions
+ *
+ *         Rev 1.4   29 May 1996 21:25:12   patv
+ *      bug fixes for v0.91a
+ *
+ *         Rev 1.3   19 Feb 1996  3:15:30   patv
+ *      Added NLS, int2f and config.sys processing
+ *
+ *         Rev 1.2   01 Sep 1995 17:35:40   patv
+ *      First GPL release.
+ *
+ *         Rev 1.1   30 Jul 1995 20:43:48   patv
+ *      Eliminated version strings in ipl
+ *
+ *         Rev 1.0   02 Jul 1995 10:39:30   patv
+ *      Initial revision.
+ */

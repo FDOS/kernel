@@ -33,67 +33,6 @@ static BYTE *sft_hRcsId = "$Id$";
 #endif
 #endif
 
-/*
- * $Log$
- * Revision 1.6  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.5  2001/07/22 01:58:58  bartoldeman
- * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
- *
- * Revision 1.4  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.3  2000/03/09 06:06:38  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.2  1999/04/04 18:50:25  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:39:35  jprice
- * New version without IPL.SYS
- *
- * Revision 1.3  1999/02/01 01:40:06  jprice
- * Clean up
- *
- * Revision 1.2  1999/01/22 04:17:40  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *         Rev 1.6   04 Jan 1998 23:14:18   patv
- *      Changed Log for strip utility
- *
- *         Rev 1.5   16 Jan 1997 12:46:04   patv
- *      pre-Release 0.92 feature additions
- *
- *         Rev 1.4   29 May 1996 21:25:18   patv
- *      bug fixes for v0.91a
- *
- *         Rev 1.3   19 Feb 1996  3:15:34   patv
- *      Added NLS, int2f and config.sys processing
- *
- *         Rev 1.2   01 Sep 1995 17:35:44   patv
- *      First GPL release.
- *
- *         Rev 1.1   30 Jul 1995 20:43:50   patv
- *      Eliminated version strings in ipl
- *
- *         Rev 1.0   02 Jul 1995 10:39:52   patv
- *      Initial revision.
- */
 
 #define SFTMAX  128
 
@@ -215,3 +154,46 @@ sfttbl;
 #define sft_flags_lo  sft_flags_union._split_sft_flags._sft_flags_lo
 
 
+/*
+ * Log: sft.h,v 
+ *
+ * Revision 1.3  2000/03/09 06:06:38  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.2  1999/04/04 18:50:25  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:39:35  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.3  1999/02/01 01:40:06  jprice
+ * Clean up
+ *
+ * Revision 1.2  1999/01/22 04:17:40  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *         Rev 1.6   04 Jan 1998 23:14:18   patv
+ *      Changed Log for strip utility
+ *
+ *         Rev 1.5   16 Jan 1997 12:46:04   patv
+ *      pre-Release 0.92 feature additions
+ *
+ *         Rev 1.4   29 May 1996 21:25:18   patv
+ *      bug fixes for v0.91a
+ *
+ *         Rev 1.3   19 Feb 1996  3:15:34   patv
+ *      Added NLS, int2f and config.sys processing
+ *
+ *         Rev 1.2   01 Sep 1995 17:35:44   patv
+ *      First GPL release.
+ *
+ *         Rev 1.1   30 Jul 1995 20:43:50   patv
+ *      Eliminated version strings in ipl
+ *
+ *         Rev 1.0   02 Jul 1995 10:39:52   patv
+ *      Initial revision.
+ */

@@ -34,30 +34,45 @@ static BYTE *dirmatch_hRcsId = "$Id$";
 #endif
 #endif
 
+
+typedef struct
+{
+  BYTE dm_drive;
+  BYTE dm_name_pat[FNAME_SIZE + FEXT_SIZE];
+  BYTE dm_attr_srch;
+  UWORD dm_entry;
+#ifdef WITHFAT32  
+  ULONG dm_dircluster;
+#else  
+  UWORD dm_dircluster;
+  UWORD reserved;
+#endif
+
+  struct
+  {
+    BITS                        /* directory has been modified  */
+    f_dmod:1;
+    BITS                        /* directory is the root        */
+    f_droot:1;
+    BITS                        /* fnode is new and needs fill  */
+    f_dnew:1;
+    BITS                        /* fnode is assigned to dir     */
+    f_ddir:1;
+    BITS                        /* filler to avoid a bad bug (feature?) in */
+    f_filler:12;                /* TC 2.01           */
+  }
+  dm_flags;                     /* file flags                   */
+
+  BYTE dm_attr_fnd;             /* found file attribute         */
+  time dm_time;                 /* file time                    */
+  date dm_date;                 /* file date                    */
+  LONG dm_size;                 /* file size                    */
+  BYTE dm_name[FNAME_SIZE + FEXT_SIZE + 2];	/* file name    */
+}
+dmatch;
+
 /*
- * $Log$
- * Revision 1.7  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.6  2001/09/23 20:39:44  bartoldeman
- * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
- *
- * Revision 1.5  2001/07/09 22:19:33  bartoldeman
- * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
- *
- * Revision 1.4  2001/04/16 01:45:26  bartoldeman
- * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
- *
- * Revision 1.3  2000/05/25 20:56:19  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:28:22  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
+ * Log: dirmatch.h,v 
  * Revision 1.3  2000/03/09 06:06:38  kernel
  * 2017f updates by James Tabor
  *
@@ -99,40 +114,3 @@ static BYTE *dirmatch_hRcsId = "$Id$";
  * Initial revision.
  *
  */
-
-typedef struct
-{
-  BYTE dm_drive;
-  BYTE dm_name_pat[FNAME_SIZE + FEXT_SIZE];
-  BYTE dm_attr_srch;
-  UWORD dm_entry;
-#ifdef WITHFAT32  
-  ULONG dm_dircluster;
-#else  
-  UWORD dm_dircluster;
-  UWORD reserved;
-#endif
-
-  struct
-  {
-    BITS                        /* directory has been modified  */
-    f_dmod:1;
-    BITS                        /* directory is the root        */
-    f_droot:1;
-    BITS                        /* fnode is new and needs fill  */
-    f_dnew:1;
-    BITS                        /* fnode is assigned to dir     */
-    f_ddir:1;
-    BITS                        /* filler to avoid a bad bug (feature?) in */
-    f_filler:12;                /* TC 2.01           */
-  }
-  dm_flags;                     /* file flags                   */
-
-  BYTE dm_attr_fnd;             /* found file attribute         */
-  time dm_time;                 /* file time                    */
-  date dm_date;                 /* file date                    */
-  LONG dm_size;                 /* file size                    */
-  BYTE dm_name[FNAME_SIZE + FEXT_SIZE + 2];	/* file name    */
-}
-dmatch;
-

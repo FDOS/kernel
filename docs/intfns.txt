@@ -194,15 +194,7 @@ See COPYING in DOS-C root directory for license.
 
 $Id$
 
-$Log$
-Revision 1.4  2001/03/25 17:11:53  bartoldeman
-Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
-
-Revision 1.3  2000/05/09 00:29:50  jimtabor
-Clean up and Release
-
-Revision 1.2  2000/05/08 04:27:48  jimtabor
-Update CVS to 2020
+Log: intfns.txt,v 
 
 Revision 1.2  2000/03/18 05:51:55  kernel
 changes in supported functions

@@ -32,74 +32,6 @@
 static BYTE *stringsRcsId = "$Id$";
 #endif
 
-/*
- * $Log$
- * Revision 1.6  2001/11/04 19:47:39  bartoldeman
- * kernel 2025a changes: see history.txt
- *
- * Revision 1.5  2001/04/15 03:21:50  bartoldeman
- * See history.txt for the list of fixes.
- *
- * Revision 1.4  2001/03/21 02:56:26  bartoldeman
- * See history.txt for changes. Bug fixes and HMA support are the main ones.
- *
- * Revision 1.3  2000/05/25 20:56:21  jimtabor
- * Fixed project history
- *
- * Revision 1.2  2000/05/08 04:30:00  jimtabor
- * Update CVS to 2020
- *
- * Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
- * The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
- * MS-DOS.  Distributed under the GNU GPL.
- *
- * Revision 1.4  2000/03/09 06:07:11  kernel
- * 2017f updates by James Tabor
- *
- * Revision 1.3  1999/08/25 03:18:09  jprice
- * ror4 patches to allow TC 2.01 compile.
- *
- * Revision 1.2  1999/04/04 18:51:43  jprice
- * no message
- *
- * Revision 1.1.1.1  1999/03/29 15:41:32  jprice
- * New version without IPL.SYS
- *
- * Revision 1.4  1999/02/04 03:14:07  jprice
- * Formating.  Added comments.
- *
- * Revision 1.3  1999/02/01 01:48:41  jprice
- * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
- *
- * Revision 1.2  1999/01/22 04:13:27  jprice
- * Formating
- *
- * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
- * Imported sources
- *
- *
- *    Rev 1.6   04 Jan 1998 23:15:16   patv
- * Changed Log for strip utility
- *
- *    Rev 1.5   31 Dec 1997  3:59:30   patv
- * Added new far string functions.
- *
- *    Rev 1.4   29 May 1996 21:03:30   patv
- * bug fixes for v0.91a
- *
- *    Rev 1.3   19 Feb 1996  3:21:36   patv
- * Added NLS, int2f and config.sys processing
- *
- *    Rev 1.2   01 Sep 1995 17:54:22   patv
- * First GPL release.
- *
- *    Rev 1.1   30 Jul 1995 20:51:58   patv
- * Eliminated version strings in ipl
- *
- *    Rev 1.0   02 Jul 1995  8:33:46   patv
- * Initial revision.
- */
-
 #ifndef I86
 COUNT strlen(REG BYTE * s)
 {
@@ -205,3 +137,54 @@ BYTE *strchr(BYTE * s, BYTE c)
   return 0;
 }
 #endif
+
+/*
+ * Log: strings.c,v - see "cvs log strings.c" for newer entries
+ *
+ * Revision 1.4  2000/03/09 06:07:11  kernel
+ * 2017f updates by James Tabor
+ *
+ * Revision 1.3  1999/08/25 03:18:09  jprice
+ * ror4 patches to allow TC 2.01 compile.
+ *
+ * Revision 1.2  1999/04/04 18:51:43  jprice
+ * no message
+ *
+ * Revision 1.1.1.1  1999/03/29 15:41:32  jprice
+ * New version without IPL.SYS
+ *
+ * Revision 1.4  1999/02/04 03:14:07  jprice
+ * Formating.  Added comments.
+ *
+ * Revision 1.3  1999/02/01 01:48:41  jprice
+ * Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+ *
+ * Revision 1.2  1999/01/22 04:13:27  jprice
+ * Formating
+ *
+ * Revision 1.1.1.1  1999/01/20 05:51:01  jprice
+ * Imported sources
+ *
+ *
+ *    Rev 1.6   04 Jan 1998 23:15:16   patv
+ * Changed Log for strip utility
+ *
+ *    Rev 1.5   31 Dec 1997  3:59:30   patv
+ * Added new far string functions.
+ *
+ *    Rev 1.4   29 May 1996 21:03:30   patv
+ * bug fixes for v0.91a
+ *
+ *    Rev 1.3   19 Feb 1996  3:21:36   patv
+ * Added NLS, int2f and config.sys processing
+ *
+ *    Rev 1.2   01 Sep 1995 17:54:22   patv
+ * First GPL release.
+ *
+ *    Rev 1.1   30 Jul 1995 20:51:58   patv
+ * Eliminated version strings in ipl
+ *
+ *    Rev 1.0   02 Jul 1995  8:33:46   patv
+ * Initial revision.
+ */
+

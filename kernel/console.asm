@@ -27,55 +27,6 @@
 ;
 ; $Header$
 ;
-; $Log$
-; Revision 1.7  2001/07/09 22:19:33  bartoldeman
-; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
-;
-; Revision 1.6  2001/04/15 03:21:50  bartoldeman
-; See history.txt for the list of fixes.
-;
-; Revision 1.5  2001/03/21 02:56:25  bartoldeman
-; See history.txt for changes. Bug fixes and HMA support are the main ones.
-;
-; Revision 1.4  2000/05/26 19:25:19  jimtabor
-; Read History file for Change info
-;
-; Revision 1.3  2000/05/25 20:56:21  jimtabor
-; Fixed project history
-;
-; Revision 1.2  2000/05/08 04:29:59  jimtabor
-; Update CVS to 2020
-;
-; Revision 1.1.1.1  2000/05/06 19:34:53  jhall1
-; The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
-; MS-DOS.  Distributed under the GNU GPL.
-;
-; Revision 1.8  2000/03/09 06:07:10  kernel
-; 2017f updates by James Tabor
-;
-; Revision 1.7  1999/09/23 04:40:46  jprice
-; *** empty log message ***
-;
-; Revision 1.5  1999/09/14 16:31:38  jprice
-; no message
-;
-; Revision 1.4  1999/09/13 22:16:14  jprice
-; Fix 210B function
-;
-; Revision 1.3  1999/09/13 21:00:19  jprice
-; Changes from Helmut Fritsch to fix INT21 func B
-;
-; Revision 1.2  1999/08/10 17:57:12  jprice
-; ror4 2011-02 patch
-;
-; Revision 1.1.1.1  1999/03/29 15:40:47  jprice
-; New version without IPL.SYS
-;
-; Revision 1.1  1999/02/08 05:55:57  jprice
-; Added Pat's 1937 kernel patches
-;
-; $EndLog$
-;
 
                 %include "io.inc"
 
@@ -296,3 +247,31 @@ ConNoChar:
                 jmp     _IODone                 ; no key ready (busy=1)
 
 
+; Log: console.asm,v 
+;
+; Revision 1.8  2000/03/09 06:07:10  kernel
+; 2017f updates by James Tabor
+;
+; Revision 1.7  1999/09/23 04:40:46  jprice
+; *** empty log message ***
+;
+; Revision 1.5  1999/09/14 16:31:38  jprice
+; no message
+;
+; Revision 1.4  1999/09/13 22:16:14  jprice
+; Fix 210B function
+;
+; Revision 1.3  1999/09/13 21:00:19  jprice
+; Changes from Helmut Fritsch to fix INT21 func B
+;
+; Revision 1.2  1999/08/10 17:57:12  jprice
+; ror4 2011-02 patch
+;
+; Revision 1.1.1.1  1999/03/29 15:40:47  jprice
+; New version without IPL.SYS
+;
+; Revision 1.1  1999/02/08 05:55:57  jprice
+; Added Pat's 1937 kernel patches
+;
+; EndLog
+;
