@@ -30,9 +30,9 @@
 
 ;       Code for stack switching during hardware interrupts.
 
-group	LGROUP	_LOWTEXT
+%include "segs.inc"
 
-segment	_LOWTEXT	class=LCODE
+segment	_LOWTEXT
 
 old_vectors     times 16 dd 0
 stack_size      dw      0
@@ -155,7 +155,7 @@ dont_switch:    pushf
                 iret
 
 
-segment	INIT_TEXT class=INIT
+segment	INIT_TEXT
 
 global  _init_stacks
 ; VOID    init_stacks(VOID FAR *stack_base, COUNT nStacks, WORD stackSize);

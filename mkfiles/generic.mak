@@ -27,7 +27,6 @@ NASMFLAGS   = $(NASMFLAGS) -i../hdr/
 
 LINK=$(XLINK)
 
-STDPATCH=@rem
 INITPATCH=@rem
 
 !include "..\mkfiles\$(COMPILER).mak"

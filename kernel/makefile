@@ -27,7 +27,6 @@ HDR=../hdr/
 
 .c.obj :
 	$(CC) $(CFLAGS) $<
-	$(STDPATCH) $*.obj
 
 #               *List Macros*
 
