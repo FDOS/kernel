@@ -272,11 +272,11 @@ int FDKrnConfigMain(int argc, char **argv);
    boot sector (optionally included).
 */
 typedef struct DOSBootFiles {
-  const char * kernel;   // filename boot sector loads and chains to
-  const char * dos;      // optional secondary file for OS
-  WORD         loadseg;  // segment kernel file expects to start at
-  BOOL         stdbs;    // use FD boot sector (T) or oem compat one (F)
-  LONG         minsize;  // smallest dos file can be and be valid, 0=existance optional
+  const char * kernel;   /* filename boot sector loads and chains to */
+  const char * dos;      /* optional secondary file for OS */
+  WORD         loadseg;  /* segment kernel file expects to start at */
+  BOOL         stdbs;    /* use FD boot sector (T) or oem compat one (F) */
+  LONG         minsize;  /* smallest dos file can be and be valid, 0=existance optional */
 } DOSBootFiles;
 DOSBootFiles bootFiles[] = {
   /* Note: This order is the order OEM:AUTO uses to determine DOS flavor. */
