@@ -1194,7 +1194,7 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   if (*cp == '\0')
     s[0] = '\0';
   else
-    fstrcpy(s, cp + 1, 64);
+    fstrcpy(s, cp + 1);
 
   return SUCCESS;
 }
