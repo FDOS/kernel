@@ -34,18 +34,18 @@ static BYTE *stringsRcsId =
 #endif
 
 #ifndef I86
-COUNT strlen(REG BYTE * s)
+size_t strlen(REG CONST BYTE * s)
 {
-  REG WORD cnt = 0;
+  REG size_t cnt = 0;
 
   while (*s++ != 0)
     ++cnt;
   return cnt;
 }
 
-COUNT fstrlen(REG BYTE FAR * s)
+size_t fstrlen(REG CONST BYTE FAR * s)
 {
-  REG WORD cnt = 0;
+  REG size_t cnt = 0;
 
   while (*s++ != 0)
     ++cnt;
@@ -59,15 +59,17 @@ VOID _fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s)
   *d = 0;
 }
 
-VOID strncpy(REG BYTE * d, REG BYTE * s, COUNT l)
+char *strncpy(register char *d, register const char *s, size_t l)
 {
-  COUNT idx = 1;
+  size_t idx = 1;
+  char *tmp = d;
   while (*s != 0 && idx++ <= l)
     *d++ = *s++;
   *d = 0;
+  return tmp;
 }
 
-COUNT strcmp(REG BYTE * d, REG BYTE * s)
+int strcmp(REG CONST BYTE * d, REG CONST BYTE * s)
 {
   while (*s != '\0' && *d != '\0')
   {
@@ -91,9 +93,9 @@ COUNT fstrcmp(REG BYTE FAR * d, REG BYTE FAR * s)
   return *d - *s;
 }
 
-COUNT strncmp(REG BYTE * d, REG BYTE * s, COUNT l)
+int strncmp(register const char *d, register const char *s, size_t l)
 {
-  COUNT index = 1;
+  size_t index = 1;
   while (*s != '\0' && *d != '\0' && index++ <= l)
   {
     if (*d == *s)
@@ -125,14 +127,27 @@ VOID fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l)
   *d = 0;
 }
 
-BYTE *strchr(BYTE * s, BYTE c)
+char *strchr(const char * s, int c)
 {
-  REG BYTE *p;
+  REG CONST BYTE *p;
   p = s - 1;
   do
   {
-    if (*++p == c)
-      return p;
+    if (*++p == (char)c)
+      return (char *)p;
+  }
+  while (*p);
+  return 0;
+}
+
+void *memchr(const void * s, int c)
+{
+  REG unsigned char *p;
+  p = (unsigned char *)s - 1;
+  do
+  {
+    if (*++p == (unsigned char)c)
+      return (void *)p;
   }
   while (*p);
   return 0;

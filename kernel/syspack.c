@@ -97,8 +97,7 @@ VOID fputbyte(VOID FAR * vp, UBYTE b)
 
 VOID getdirent(UBYTE FAR * vp, struct dirent FAR * dp)
 {
-  fmemcpy(dp->dir_name, &vp[DIR_NAME], FNAME_SIZE);
-  fmemcpy(dp->dir_ext, &vp[DIR_EXT], FEXT_SIZE);
+  fmemcpy(dp->dir_name, &vp[DIR_NAME], FNAME_SIZE + FEXT_SIZE);
   dp->dir_attrib = fgetbyte(&vp[DIR_ATTRIB]);
   dp->dir_time = fgetword(&vp[DIR_TIME]);
   dp->dir_date = fgetword(&vp[DIR_DATE]);
@@ -111,8 +110,7 @@ VOID putdirent(struct dirent FAR * dp, UBYTE FAR * vp)
   REG COUNT i;
   REG BYTE FAR *p;
 
-  fmemcpy(&vp[DIR_NAME], dp->dir_name, FNAME_SIZE);
-  fmemcpy(&vp[DIR_EXT], dp->dir_ext, FEXT_SIZE);
+  fmemcpy(&vp[DIR_NAME], dp->dir_name, FNAME_SIZE + FEXT_SIZE);
   fputbyte(&vp[DIR_ATTRIB], dp->dir_attrib);
   fputword(&vp[DIR_TIME], dp->dir_time);
   fputword(&vp[DIR_DATE], dp->dir_date);

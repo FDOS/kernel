@@ -29,9 +29,8 @@
 /****************************************************************/
 
 #include "portab.h"
-#include "globals.h"
+#include "init-mod.h"
 //#include "pcb.h"
-#include <nls.h>
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -49,9 +48,9 @@ STATIC int err(void)
 }
 
 #define readStruct(s)	readStructure(&(s), sizeof(s), fd)
-STATIC int readStructure(void *buf, int size, COUNT fd)
+STATIC int readStructure(void *buf, unsigned size, COUNT fd)
 {
-  if (DosRead(fd, buf, size) == size)
+  if (read(fd, buf, size) == size)
     return 1;
 
   return err();
@@ -61,15 +60,15 @@ STATIC int readStructure(void *buf, int size, COUNT fd)
 #define readFct(p,f)	readFct_((p), (f), fd)
 int readFct_(void *buf, struct csys_function *fct, COUNT fd)
 {
-  if (DosLseek(fd, fct->csys_rpos, 0) >= 0)
+  if (lseek(fd, fct->csys_rpos, 0) >= 0)
     return readStructure(buf, fct->csys_length, fd);
   return err();
 }
 
 #define seek(n)	rseek((LONG)(n), fd)
-static rseek(LONG rpos, COUNT fd)
+static int rseek(LONG rpos, COUNT fd)
 {
-  if (DosLseek(fd, rpos, 1) >= 0)
+  if (lseek(fd, rpos, 1) >= 0)
     return 1;
 
   return err();
@@ -80,20 +79,20 @@ COUNT csysOpen(void)
   COUNT fd;
   struct nlsCSys_fileHeader header;
 
-  if ((fd = DosOpen((BYTE FAR *) filename, 0)) < 0)
+  if ((fd = open(filename, 0)) < 0)
   {
     printf("Cannot open: \"%s\"\n", filename);
     return 1;
   }
 
-  if (DosRead(fd, &header, sizeof(header)) != sizeof(header);
+  if ((read(fd, &header, sizeof(header)) != sizeof(header))
       ||strcmp(header.csys_idstring, CSYS_FD_IDSTRING) != 0
-      || DosLseek(fd, (LONG) sizeof(csys_completeFileHeader), 0)
-      != (LONG) sizeof(csys_completeFileHeader))
+      || lseek(fd, (LONG) sizeof(struct csys_completeFileHeader), 0)
+      != (LONG) sizeof(struct csys_completeFileHeader))
   {
     printf("No valid COUNTRY.SYS: \"%s\"\n\nTry NLSFUNC /i %s\n", filename,
            filename);
-    DosClose(fd);
+    close(fd);
     return -1;
   }
 
@@ -115,9 +114,9 @@ STATIC int chkTable(int idx, int fctID, struct csys_function *fcts,
       if (i == idx)             /* already best place */
         return 1;
       /* Swap both places */
-      memcpy(&hfct, fct, sizeof(hfct));
-      memcpy(fct, &fcts[idx], sizeof(hfct));
-      memcpy(&fcts[idx], &hfct, sizeof(hfct));
+      fmemcpy(&hfct, fct, sizeof(hfct));
+      fmemcpy(fct, &fcts[idx], sizeof(hfct));
+      fmemcpy(&fcts[idx], &hfct, sizeof(hfct));
       return 1;
     }
 
@@ -266,7 +265,7 @@ int csysLoadPackage(COUNT fd)
             }
         }
         /* Search if the subfunction is already there */
-        for (j = 0; j < numFcts && fcts[j].csys_fctID != fct.csys_fctID;
+        for (j = 0; j < numFct && fcts[j].csys_fctID != fct.csys_fctID;
              ++j) ;
         if (j != numFct)
         {
@@ -304,7 +303,7 @@ int csysLoadPackage(COUNT fd)
          one additional byte is required by table 1, but which is
          already within totalSize as the length of pseudo-table
          0x23 has been counted. */
-      nls = KernelAlloc((data = sizeof(nlsPackage)
+      nls = KernelAlloc((data = sizeof(struct nlsPackage)
                          + (numFct - 3) * sizeof(struct nlsPointer)) +
                         totalSize);
       /* data := first byte not used by the control area of
@@ -388,7 +387,7 @@ int csysLoadPackage(COUNT fd)
   return 0;
 }
 
-INIT BOOL LoadCountryInfo(char *fnam)
+BOOL LoadCountryInfo(char *fnam)
 {
   COUNT fd;
   int rc;
@@ -399,7 +398,7 @@ INIT BOOL LoadCountryInfo(char *fnam)
     if ((fd = csysOpen()) >= 0)
     {
       rc = csysLoadPackage(fd);
-      DosClose(fd);
+      close(fd);
       return rc;
     }
   }

@@ -36,40 +36,47 @@ static BYTE *miscRcsId =
 #include "globals.h"
 #ifndef I86
 
-VOID strcpy(REG BYTE * d, REG BYTE * s)
+char *strcpy(REG BYTE * d, REG CONST BYTE * s)
+{
+  char *tmp = d;
+  
+  while ((*d++ = *s++) != '\0')
+    ;
+
+  return tmp;
+}
+
+VOID fstrcpy(REG BYTE FAR * d, REG CONST BYTE FAR * s)
 {
   while (*s)
     *d++ = *s++;
   *d = '\0';
 }
 
-VOID fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s)
-{
-  while (*s)
-    *d++ = *s++;
-  *d = '\0';
-}
-
-VOID fstrncpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n)
+VOID fstrncpy(BYTE FAR * d, BYTE CONST FAR * s, REG size_t n)
 {
   while (*s && n--)
     *d++ = *s++;
   *d = '\0';
 }
 
-VOID memcpy(REG VOID * d, REG VOID * s, REG COUNT n)
+VOID * memcpy(REG VOID * d, REG CONST VOID * s, REG size_t n)
 {
+  char *cd = d;
+  CONST char *cs = s;
+  
   while (n--)
-    *d++ = *s++;
+    *cd++ = *cs++;
+  return d;
 }
 
-VOID fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n)
+VOID fmemcpy(REG VOID FAR * d, REG CONST VOID FAR * s, REG size_t n)
 {
   while (n--)
     *((BYTE FAR *) d)++ = *((BYTE FAR *) s)++;
 }
 
-VOID fmemset(REG VOID FAR * s, REG int ch, REG COUNT n)
+VOID fmemset(REG VOID FAR * s, REG int ch, REG size_t n)
 {
   while (n--)
     *((BYTE FAR *) s)++ = ch;
