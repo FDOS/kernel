@@ -97,7 +97,6 @@ static BYTE *fat_hRcsId =
 */
 #define _ISFAT32(dpbp)  (((dpbp)->dpb_fatsize)==0)
 #define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC   && ((dpbp)->dpb_size)<=FAT_MAGIC16 )
-#define ELSE_ISFAT16(dpbp) (((dpbp)->dpb_size)<=FAT_MAGIC16 )
 #define ISFAT12(dpbp)   ((((dpbp)->dpb_size)-1)<FAT_MAGIC)
 /* dpb_size == 0 for FAT32, hence doing -1 here */
 

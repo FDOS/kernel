@@ -618,6 +618,12 @@ COUNT dos_rmdir(BYTE * path)
     /* "." and ".." are permissable.                */
     fnp->f_flags.f_dmod = FALSE;
     fnp1 = dir_open(path);
+    if (fnp1 == NULL)
+    {
+      dir_close(fnp);
+      return DE_ACCESS;
+    }
+    
     dir_read(fnp1);
     if (fnp1->f_dir.dir_name[0] != '.')
     {

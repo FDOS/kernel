@@ -261,3 +261,4 @@ typedef VOID (FAR ASMCFUNC * intvec) (void);
 #define PROTO
 #endif
 
+#define LENGTH(x) (sizeof(x)/sizeof(x[0]))

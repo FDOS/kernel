@@ -192,7 +192,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
       *fbp1 = (*fbp1 & 0xf0) | ((Cluster2 >> 8) & 0x0f);
     }
   }
-  else if (ELSE_ISFAT16(dpbp))
+  else if (ISFAT16(dpbp)) 
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
@@ -328,7 +328,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
       return LONG_BAD;
     return idx;
   }
-  else if (ELSE_ISFAT16(dpbp))
+  else if (ISFAT16(dpbp)) 
   {
     UWORD res;
 
