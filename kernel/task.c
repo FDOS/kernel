@@ -659,8 +659,8 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     if (mode != OVERLAY)
     {
       exe_size -= sizeof(psp) / 16;
-      start_seg += sizeof(psp) /16;
-      if (exe_size > 0 && (ExeHeader.exMinAlloc == 0) && (ExeHeader.exMaxAlloc == 0))
+      start_seg += sizeof(psp) / 16;
+      if (exe_size > 0 && (ExeHeader.exMinAlloc | ExeHeader.exMaxAlloc) == 0)
       {
         mcb FAR *mp = MK_FP(mem - 1, 0);
         
@@ -675,12 +675,12 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     int nBytesRead, toRead = CHUNK;
     seg sp = start_seg;
 
-    while (toRead == CHUNK)
+    while (1)
     {
       if (exe_size < CHUNK/16)
         toRead = exe_size*16;
       nBytesRead = (int)DosRWSft(fd, toRead, MK_FP(sp, 0), XFR_READ);
-      if (nBytesRead < toRead)
+      if (nBytesRead < toRead || exe_size <= CHUNK/16)
         break;
       sp += CHUNK/16;
       exe_size -= CHUNK/16;
