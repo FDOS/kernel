@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -186,6 +189,7 @@ INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
 INIT COUNT tolower(COUNT c);
 INIT COUNT toupper(COUNT c);
 INIT VOID mcb_init(mcb FAR * mcbp, UWORD size);
+INIT VOID umcb_init(mcb FAR * mcbp, UWORD size);
 INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 
 /* dosfns.c */
@@ -354,7 +358,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err);
 
 /* main.c */
 INIT VOID main(void);
-INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine);
+INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT top);
 
 /* memmgr.c */
 seg far2para(VOID FAR * p);
@@ -459,7 +463,7 @@ COUNT QRemote_Fn(char FAR * s, char FAR * d);
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err);
-COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dmp);
+COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp);
 
 /* procsupt.asm */
 VOID INRPT FAR exec_user(iregs FAR * irp);

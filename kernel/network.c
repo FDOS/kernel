@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.5  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -112,7 +115,7 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
 /*
 
  */
-COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dmp )
+COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
 {
   COUNT i, x;
   char FAR *p, *q;
@@ -142,7 +145,7 @@ COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dm
   dta = (BYTE FAR *) &TempBuffer;
   i = int2f_Remote_call(func, 0, 0, 0, test, 0, 0);
   dta = p;
-  fsncopy((BYTE FAR *) &TempBuffer[0], &dta[0], 21);
+  fsncopy((BYTE FAR *) &TempBuffer, dta, 21);
 
   if (i != 0)
     return i;

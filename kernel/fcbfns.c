@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -143,7 +146,7 @@ VOID FatGetDrvData(COUNT drive, COUNT FAR * spc, COUNT FAR * bps,
   printf("FGDD\n");
 
   /* first check for valid drive                                  */
-	if ((drive < 0) || (drive > lastdrive) || (drive > NDEVS))
+    if ((drive < 0) || (drive > (lastdrive -1)) || (drive > NDEVS))
   {
     *spc = -1;
     return;
@@ -226,7 +229,7 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
     if (Drive < 'A' || Drive > 'Z')
       return PARSE_RET_BADDRIVE;
     Drive -= ('A' - 1);
-    if (Drive > lastdrive)
+    if (Drive > (lastdrive -1))
       return PARSE_RET_BADDRIVE;
     else
       lpFcb->fcb_drive = Drive;
@@ -650,7 +653,7 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
         sftp->sft_mode = O_RDWR;
         sftp->sft_attrib = 0;
         sftp->sft_flags =
-            (dhp->dh_attr & ~SFT_MASK) | SFT_FDEVICE | SFT_FEOF;
+            ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
         sftp->sft_psp = cu_psp;
         fbcopy(lpFcb->fcb_fname, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
         sftp->sft_dev = dhp;
@@ -786,7 +789,7 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
         sftp->sft_mode = O_RDWR;
         sftp->sft_attrib = 0;
         sftp->sft_flags =
-            (dhp->dh_attr & ~SFT_MASK) | SFT_FDEVICE | SFT_FEOF;
+            ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
         sftp->sft_psp = cu_psp;
         fbcopy(lpFcb->fcb_fname, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
         sftp->sft_dev = dhp;
@@ -800,7 +803,7 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
         return TRUE;
   }
   fbcopy((BYTE FAR *) & lpFcb->fcb_fname, (BYTE FAR *) & sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
-  if ((FcbDrive < 0) || (FcbDrive > lastdrive)) {
+  if ((FcbDrive < 0) || (FcbDrive > (lastdrive -1))) {
     return DE_INVLDDRV;
   }
   if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
@@ -846,7 +849,7 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
   /* Build a traditional DOS file name                            */
   CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
-  if ((FcbDrive < 0) || (FcbDrive > lastdrive)) {
+  if ((FcbDrive < 0) || (FcbDrive > (lastdrive -1))) {
     return DE_INVLDDRV;
   }
   current_ldt = &CDSp->cds_table[FcbDrive];
@@ -1123,8 +1126,19 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   }
 
   MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
+
   lpFcb->fcb_dirclst = Dmatch.dm_cluster;
   lpFcb->fcb_diroff = Dmatch.dm_entry;
+/*
+    This is undocumented and seen using Pcwatch.
+    The First byte is the current directory count and the second seems
+    to be the attribute byte.
+ */
+#if 0
+  lpFcb->fcb_cublock = Dmatch.dm_entry;
+  lpFcb->fcb_cublock *= 0x100;
+  lpFcb->fcb_cublock += wAttr;
+#endif
   dta = lpPsp->ps_dta;
   return TRUE;
 }
@@ -1159,6 +1173,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
 
   fbcopy(lpFcb->fcb_fname, (BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
   upFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
+
   Dmatch.dm_attr_srch = wAttr;
   Dmatch.dm_entry = lpFcb->fcb_diroff;
   Dmatch.dm_cluster = lpFcb->fcb_dirclst;
@@ -1166,6 +1181,7 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   if (dos_findnext() != SUCCESS)
   {
     dta = lpPsp->ps_dta;
+    CritErrCode = 0x12;
     return FALSE;
   }
 
@@ -1173,6 +1189,11 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   lpFcb->fcb_dirclst = Dmatch.dm_cluster;
   lpFcb->fcb_diroff = Dmatch.dm_entry;
   dta = lpPsp->ps_dta;
+#if 0
+  lpFcb->fcb_cublock = Dmatch.dm_entry;
+  lpFcb->fcb_cublock *= 0x100;
+  lpFcb->fcb_cublock += wAttr;
+#endif
   return TRUE;
 }
 #endif

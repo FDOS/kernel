@@ -33,6 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.7  2000/06/01 06:37:38  jimtabor
  * Read History for Changes
  *
@@ -215,9 +218,13 @@ WORD init(rqptr),
   blockio(rqptr),
   IoctlQueblk(rqptr),
   Genblkdev(rqptr),
+  Getlogdev(rqptr),
+  Setlogdev(rqptr),
   blk_Open(rqptr),
   blk_Close(rqptr),
   blk_Media(rqptr),
+  blk_noerr(rqptr),
+  blk_nondr(rqptr),
   blk_error(rqptr);
 COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, LONG, byteptr);
 WORD dskerr(COUNT);
@@ -229,9 +236,13 @@ WORD init(),
   blockio(),
   IoctlQueblk(),
   Genblkdev(),
+  Getlogdev(),
+  Setlogdev(),
   blk_Open(),
   blk_Close(),
   blk_Media(),
+  blk_noerr(),
+  blk_nondr(),
   blk_error();
 WORD dskerr();
 COUNT processtable();
@@ -247,31 +258,31 @@ static WORD(*dispatch[NENTRY]) (rqptr) =
 static WORD(*dispatch[NENTRY]) () =
 #endif
 {
-  init,                         /* Initialize                   */
+      init,                     /* Initialize                   */
       mediachk,                 /* Media Check                  */
       bldbpb,                   /* Build BPB                    */
       blk_error,                /* Ioctl In                     */
       blockio,                  /* Input (Read)                 */
-      blk_error,                /* Non-destructive Read         */
-      blk_error,                /* Input Status                 */
-      blk_error,                /* Input Flush                  */
+      blk_nondr,                /* Non-destructive Read         */
+      blk_noerr,                /* Input Status                 */
+      blk_noerr,                /* Input Flush                  */
       blockio,                  /* Output (Write)               */
       blockio,                  /* Output with verify           */
-      blk_error,                /* Output Status                */
-      blk_error,                /* Output Flush                 */
+      blk_noerr,                /* Output Status                */
+      blk_noerr,                /* Output Flush                 */
       blk_error,                /* Ioctl Out                    */
       blk_Open,                 /* Device Open                  */
       blk_Close,                /* Device Close                 */
       blk_Media,                /* Removable Media              */
-      blk_error,                /* Output till busy             */
+      blk_noerr,                /* Output till busy             */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
       Genblkdev,                /* Generic Ioctl Call           */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
-      blk_error,                /* Get Logical Device           */
-      blk_error,                /* Set Logical Device           */
+      Getlogdev,                /* Get Logical Device           */
+      Setlogdev,                /* Set Logical Device           */
       IoctlQueblk               /* Ioctl Query                  */
 };
 
@@ -535,10 +546,30 @@ static WORD RWzero(rqptr rp, WORD t)
   return ret;
 }
 
+/*
+   0 if not set, 1 = a, 2 = b, etc, assume set.
+   page 424 MS Programmer's Ref.
+ */
+static WORD Getlogdev(rqptr rp)
+{
+    BYTE x = rp->r_unit;
+    x++;
+    if( x > nblk_rel )
+        return failure(E_UNIT);
+
+    rp->r_unit = x;
+    return S_DONE;
+}
+
+static WORD Setlogdev(rqptr rp)
+{
+    return S_DONE;
+}
+
 static WORD blk_Open(rqptr rp)
 {
-   miarray[rp->r_unit].mi_FileOC++;
-   return S_DONE;
+    miarray[rp->r_unit].mi_FileOC++;
+    return S_DONE;
 }
 
 static WORD blk_Close(rqptr rp)
@@ -547,11 +578,14 @@ static WORD blk_Close(rqptr rp)
    return S_DONE;
 }
 
+static WORD blk_nondr(rqptr rp)
+{
+    return S_BUSY|S_DONE;
+}
+
 static WORD blk_Media(rqptr rp)
 {
-  COUNT drive = miarray[rp->r_unit].mi_drive;
-
-  if (hd(drive))
+  if (hd( miarray[rp->r_unit].mi_drive))
     return S_BUSY|S_DONE;	/* Hard Drive */
   else
     return S_DONE;      	/* Floppy */
@@ -652,7 +686,7 @@ static WORD IoctlQueblk(rqptr rp)
         case 0x0867:
             break;
         default:
-            return S_ERROR;
+            return failure(E_CMD);
     }
   return S_DONE;
 
@@ -738,7 +772,7 @@ static WORD Genblkdev(rqptr rp)
         case 0x0847:        /* set access flag, no real use*/
         break;
         default:
-            return S_ERROR;
+            return failure(E_CMD);
     }
   return S_DONE;
 }
@@ -816,6 +850,12 @@ static WORD blk_error(rqptr rp)
 {
   rp->r_count = 0;
   return failure(E_FAILURE);    /* general failure */
+}
+
+
+static WORD blk_noerr(rqptr rp)
+{
+    return S_DONE;
 }
 
 static WORD dskerr(COUNT code)

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.7  2000/06/01 06:46:57  jimtabor
  * Removed Debug printf
  *
@@ -190,7 +193,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   {
     drive = default_drive;
   }
-  if (drive > lastdrive) {
+  if (drive > (lastdrive-1)) {
     release_f_node(fnp);
     return NULL;
   }
@@ -580,7 +583,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   fscopy(name, (BYTE FAR *)&Tname);
 /*
   printf("ff %s", Tname);
-*/
+ */
   /* The findfirst/findnext calls are probably the worst of the   */
   /* DOS calls. They must work somewhat on the fly (i.e. - open   */
   /* but never close). Since we don't want to lose fnodes every   */
@@ -611,7 +614,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   else
     nDrive = default_drive;
 
-  if (nDrive > lastdrive) {
+  if (nDrive > (lastdrive -1)) {
     return DE_INVLDDRV;
   }
   current_ldt = &CDSp->cds_table[nDrive];
@@ -658,7 +661,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
-    if (Remote_find(REM_FINDFIRST, attr, name, dmp) != 0)
+    if (Remote_find(REM_FINDFIRST, name, dmp) != 0)
       return DE_FILENOTFND;
     return SUCCESS;
   }
@@ -751,7 +754,7 @@ COUNT dos_findnext(void)
  */
   nDrive = dmp->dm_drive & 0x1f;
 
-  if (nDrive > lastdrive) {
+  if (nDrive > (lastdrive -1)) {
     return DE_INVLDDRV;
   }
   current_ldt = &CDSp->cds_table[nDrive];
@@ -763,7 +766,7 @@ COUNT dos_findnext(void)
 
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
-    if (Remote_find(REM_FINDNEXT, 0, 0, dmp) != 0)
+    if (Remote_find(REM_FINDNEXT, 0, dmp) != 0)
       return DE_FILENOTFND;
     return SUCCESS;
   }
@@ -777,7 +780,7 @@ COUNT dos_findnext(void)
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
-  if (dmp->dm_drive > lastdrive) {
+  if (dmp->dm_drive > (lastdrive -1)) {
     return DE_INVLDDRV;
   }
   /* Select the default to help non-drive specified path          */
@@ -815,6 +818,12 @@ COUNT dos_findnext(void)
     {
       if (fcmp_wild((BYTE FAR *) (dmp->dm_name_pat), (BYTE FAR *) fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
       {
+        /*
+            MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.
+            Bits 0x21 seem to get set some where in MSD so Rd and Arc
+            files are returned. FD assumes the user knows what they need
+            to see.
+         */
         /* Test the attribute as the final step */
         if (!(~dmp->dm_attr_srch & fnp->f_dir.dir_attrib))
         {

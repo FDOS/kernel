@@ -34,6 +34,9 @@ static BYTE *dosfnsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.6  2000/06/01 06:37:38  jimtabor
  * Read History for Changes
  *
@@ -230,13 +233,7 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
   if (s->sft_flags & SFT_FSHARED)
   {
     ReadCount = Remote_RW(REM_READ, n, bp, s, err);
-    if (err)
-    {
-      *err = SUCCESS;
-      return ReadCount;
-    }
-    else
-      return 0;
+    return *err == SUCCESS ? ReadCount : 0;
   }
   /* Do a device read if device                   */
   if (s->sft_flags & SFT_FDEVICE)
@@ -346,12 +343,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
   if (s->sft_flags & SFT_FSHARED)
   {
     WriteCount = Remote_RW(REM_WRITE, n, bp, s, err);
-    if (err)
-    {
-      return WriteCount;
-    }
-    else
-      return 0;
+    return *err == SUCCESS ? WriteCount : 0;
   }
 
   /* Do a device write if device                  */
@@ -962,7 +954,7 @@ VOID DosGetFree(COUNT drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
   drive = (drive == 0 ? default_drive : drive - 1);
 
 	/* first check for valid drive          */
-	if (drive < 0 || drive > lastdrive)
+    if (drive < 0 || drive > (lastdrive - 1))
   {
 		*spc = -1;
     return;
@@ -1011,7 +1003,7 @@ COUNT DosGetCuDir(COUNT drive, BYTE FAR * s)
   drive = (drive == 0 ? default_drive : drive - 1);
 
 	/* first check for valid drive          */
-	if (drive < 0 || drive > lastdrive) {
+    if (drive < 0 || drive > (lastdrive - 1)) {
 		return DE_INVLDDRV;
 	}
 
@@ -1190,6 +1182,7 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
 	else {
 		result =  dos_getfattr(name, attrp);
 	}
+    return result;
 }
 
 COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
@@ -1228,7 +1221,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 
 BYTE DosSelectDrv(BYTE drv)
 {
-  if ((drv <= lastdrive) && (CDSp->cds_table[drv].cdsFlags & 0xf000))
+  if ((drv <= (lastdrive -1 )) && (CDSp->cds_table[drv].cdsFlags & 0xf000))
   {
     current_ldt = &CDSp->cds_table[drv];
     default_drive = drv;

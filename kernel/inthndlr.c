@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.7  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -335,6 +338,7 @@ dispatch:
     error_exit:
       r->AX = -rc;
     error_out:
+      CritErrCode = r->AX;  /* Maybe set */
       r->FLAGS |= FLG_CARRY;
       break;
 
@@ -504,23 +508,19 @@ dispatch:
 
     case 0x14:
       {
-        COUNT nErrorCode;
-
-        if (FcbRead(MK_FP(r->DS, r->DX), &nErrorCode))
+        if (FcbRead(MK_FP(r->DS, r->DX), &CritErrCode))
           r->AL = 0;
         else
-          r->AL = nErrorCode;
+          r->AL = CritErrCode;
         break;
       }
 
     case 0x15:
       {
-        COUNT nErrorCode;
-
-        if (FcbWrite(MK_FP(r->DS, r->DX), &nErrorCode))
+        if (FcbWrite(MK_FP(r->DS, r->DX), &CritErrCode))
           r->AL = 0;
         else
-          r->AL = nErrorCode;
+          r->AL = CritErrCode;
         break;
       }
 
@@ -596,12 +596,13 @@ dispatch:
 
       /* Get default DPB                                              */
     case 0x1f:
-      if (default_drive <= lastdrive)
+      if (default_drive <= (lastdrive -1))
       {
         struct dpb FAR *dpb = (struct dpb FAR *)CDSp->cds_table[default_drive].cdsDpb;
         if (dpb == 0)
         {
           r->AL = 0xff;
+          CritErrCode = 0x0f;
           break;
         }
 
@@ -609,31 +610,29 @@ dispatch:
         r->BX = FP_OFF(dpb);
         r->AL = 0;
       }
-      else
+      else{
         r->AL = 0xff;
+        CritErrCode = 0x0f;
+        }
       break;
 
       /* Random read using FCB */
     case 0x21:
       {
-        COUNT nErrorCode;
-
-        if (FcbRandomRead(MK_FP(r->DS, r->DX), &nErrorCode))
+        if (FcbRandomRead(MK_FP(r->DS, r->DX), &CritErrCode))
           r->AL = 0;
         else
-          r->AL = nErrorCode;
+          r->AL = CritErrCode;
         break;
       }
 
       /* Random write using FCB */
     case 0x22:
       {
-        COUNT nErrorCode;
-
-        if (FcbRandomWrite(MK_FP(r->DS, r->DX), &nErrorCode))
+        if (FcbRandomWrite(MK_FP(r->DS, r->DX), &CritErrCode))
           r->AL = 0;
         else
-          r->AL = nErrorCode;
+          r->AL = CritErrCode;
         break;
       }
 
@@ -671,24 +670,20 @@ dispatch:
       /* Read random record(s) using FCB */
     case 0x27:
       {
-        COUNT nErrorCode;
-
-        if (FcbRandomBlockRead(MK_FP(r->DS, r->DX), r->CX, &nErrorCode))
+        if (FcbRandomBlockRead(MK_FP(r->DS, r->DX), r->CX, &CritErrCode))
           r->AL = 0;
         else
-          r->AL = nErrorCode;
+          r->AL = CritErrCode;
         break;
       }
 
       /* Write random record(s) using FCB */
     case 0x28:
       {
-        COUNT nErrorCode;
-
-        if (FcbRandomBlockWrite(MK_FP(r->DS, r->DX), r->CX, &nErrorCode))
+        if (FcbRandomBlockWrite(MK_FP(r->DS, r->DX), r->CX, &CritErrCode))
           r->AL = 0;
         else
-          r->AL = nErrorCode;
+          r->AL = CritErrCode;
         break;
       }
 
@@ -782,20 +777,24 @@ dispatch:
       /* Get DPB                                                      */
     case 0x32:
       r->DL = ( r->DL == 0 ? default_drive : r->DL - 1);
-      if (r->DL <= lastdrive)
+      if (r->DL <= (lastdrive - 1))
       {
         struct dpb FAR *dpb = CDSp->cds_table[r->DL].cdsDpb;
         if (dpb == 0)
         {
           r->AL = 0xff;
+          CritErrCode = 0x0f;
           break;
         }
         r->DS = FP_SEG(dpb);
         r->BX = FP_OFF(dpb);
         r->AL = 0;
       }
-      else
+      else {
         r->AL = 0xFF;
+        CritErrCode = 0x0f;
+
+        }
       break;
 
       /* Get InDOS flag                                               */
@@ -943,8 +942,8 @@ dispatch:
 
       if (rc1 != SUCCESS)
       {
-        r->FLAGS |= FLG_CARRY;
         r->AX = -rc1;
+        goto error_out;
       }
       else
       {
@@ -958,8 +957,8 @@ dispatch:
       rc = DosWrite(r->BX, r->CX, MK_FP(r->DS, r->DX), (COUNT FAR *) & rc1);
       if (rc1 != SUCCESS)
       {
-        r->FLAGS |= FLG_CARRY;
         r->AX = -rc1;
+        goto error_out;
       }
       else
       {
@@ -973,8 +972,8 @@ dispatch:
       rc = DosDelete((BYTE FAR *) MK_FP(r->DS, r->DX));
       if (rc < 0)
       {
-        r->FLAGS |= FLG_CARRY;
         r->AX = -rc;
+        goto error_out;
       }
       else
         r->FLAGS &= ~FLG_CARRY;
@@ -1026,13 +1025,10 @@ dispatch:
 
         if (rc1 != SUCCESS)
         {
-          r->FLAGS |= FLG_CARRY;
           r->AX = -rc1;
+          goto error_out;
         }
-        else
-        {
-        if((r->AL == 0x02) || (r->AL == 0x03) || (r->AL == 0x04) || (r->AL == 0x05))
-            r->AX = r->CX;
+        else{
         r->FLAGS &= ~FLG_CARRY;
         }
       }
@@ -1198,8 +1194,7 @@ dispatch:
 
           if (r->AX == 2)
             r->AX = 18;
-
-          r->FLAGS |= FLG_CARRY;
+          goto error_out;
         }
         else
         {
@@ -1282,14 +1277,24 @@ dispatch:
           break;
 
         case 0x01:
-          if (((COUNT) r->BX) < 0 || r->BX > 2)
+/*          if (((COUNT) r->BX) < 0 || r->BX > 2)
             goto error_invalid;
           else
-          {
+          {   */
+
             mem_access_mode = r->BX;
             r->FLAGS &= ~FLG_CARRY;
-          }
+
+/*          }*/
           break;
+
+        case 0x02:
+            r->AL = uppermem_link;
+            break;
+
+        case 0x03:
+            uppermem_link = r->BL;
+            break;
 
         default:
           goto error_invalid;
@@ -1299,6 +1304,17 @@ dispatch:
           break;
 #endif
       }
+      break;
+
+      /* Get Extended Error */
+    case 0x59:
+        r->AX = CritErrCode;
+        r->ES = FP_SEG(CritErrDev);
+        r->DI = FP_OFF(CritErrDev);
+        r->CH = CritErrLocus;
+        r->BH = CritErrClass;
+        r->BL = CritErrAction;
+        r->FLAGS &= ~FLG_CARRY;
       break;
 
       /* Create Temporary File */
@@ -1318,7 +1334,7 @@ dispatch:
       {
         DosClose(rc);
         r->AX = 80;
-        r->FLAGS |= FLG_CARRY;
+        goto error_out;
       }
       else
       {
@@ -1367,7 +1383,7 @@ dispatch:
 	    result = int2f_Remote_call(REM_PRINTREDIR, 0, 0, r->DX, 0, 0, (MK_FP(0, Int21AX)));
 	    r->AX = result;
 	    if (result != SUCCESS) {
-	      r->FLAGS |= FLG_CARRY;
+          goto error_out;
 	    } else {
 	      r->FLAGS &= ~FLG_CARRY;
 	    }
@@ -1395,7 +1411,7 @@ dispatch:
             result = int2f_Remote_call(REM_PRINTSET, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
 	    r->AX = result;
 	    if (result != SUCCESS) {
-	  	    r->FLAGS |= FLG_CARRY;
+            goto error_out;
 	    } else {
 	  	    r->FLAGS &= ~FLG_CARRY;
 	    }
@@ -1408,13 +1424,13 @@ dispatch:
       switch (r->AL)
       {
         case 0x07:
-          if (r->DL <= lastdrive) {
+          if (r->DL <= (lastdrive -1)) {
           CDSp->cds_table[r->DL].cdsFlags |= 0x100;
 	  }
           break;
 
         case 0x08:
-          if (r->DL <= lastdrive) {
+          if (r->DL <= (lastdrive -1)) {
           CDSp->cds_table[r->DL].cdsFlags &= ~0x100;
 	  }
           break;
@@ -1425,7 +1441,7 @@ dispatch:
             result = int2f_Remote_call(REM_DOREDIRECT, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
 	    r->AX = result;
 	    if (result != SUCCESS) {
-	  	    r->FLAGS |= FLG_CARRY;
+            goto error_out;
 	    } else {
 	  	    r->FLAGS &= ~FLG_CARRY;
 	    }
@@ -1563,7 +1579,7 @@ dispatch:
       /* Get/Set Serial Number */
     case 0x69:
       rc = ( r->BL == 0 ? default_drive : r->BL - 1);
-      if (rc <= lastdrive)
+      if (rc <= (lastdrive -1))
       {
         if (CDSp->cds_table[rc].cdsFlags & CDSNETWDRV) {
           goto error_invalid;
@@ -1583,8 +1599,8 @@ dispatch:
         }
         if (rc1 != SUCCESS)
         {
-          r->FLAGS |= FLG_CARRY;
           r->AX = -rc1;
+          goto error_out;
         }
         else
         {
@@ -1771,7 +1787,7 @@ VOID int25_handler(struct int25regs FAR * r)
     buf = MK_FP(r->ds, r->bx);
   }
 
-  if (drv >= nblkdev)
+  if (drv >= (lastdrive - 1))
   {
     r->ax = 0x202;
     r->flags |= FLG_CARRY;
@@ -1814,7 +1830,7 @@ VOID int26_handler(struct int25regs FAR * r)
     buf = MK_FP(r->ds, r->bx);
   }
 
-  if (drv >= nblkdev)
+  if (drv >= (lastdrive -1))
   {
     r->ax = 0x202;
     r->flags |= FLG_CARRY;

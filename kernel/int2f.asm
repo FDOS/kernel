@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2000/06/21 18:16:46  jimtabor
+; Add UMB code, patch, and code fixes
+;
 ; Revision 1.4  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -108,9 +111,27 @@ Int2f3:
                 iret                            ; Default, interrupt return
 
 ;
+;return dos data seg.
+IntDosCal:
+                cmp     al,03
+                jne     IntDosCal_1
+                push    ax
+                mov     ax, seg _nul_dev
+                mov     ds,ax
+                pop     ax
+                clc
+                jmp     FarTabRetn
+;
+;Set FastOpen but does nothing.
+IntDosCal_1:
+                cmp     al,02ah
+                jne     IntDosCal_2
+                clc
+                jmp     FarTabRetn
+;
 ;   added by James Tabor For Zip Drives
 ;Return Null Device Pointer
-IntDosCal:
+IntDosCal_2:
                 cmp     al,02ch
                 jne     Int2f2
                 mov     ax,_nul_dev
@@ -157,6 +178,7 @@ int2f_r_1:
                 jnc     short int2f_skip1
                 jmp     int2f_rfner
 int2f_skip1:
+                xor     ax,ax
                 les     di,[bp+18]          ; do return data stuff
                 mov     [es:di],cx
                 jmp     short int2f_rfner
@@ -170,6 +192,7 @@ int2f_r_2:
                 mov     [es:di+2],bx
                 mov     [es:di+4],cx
                 mov     [es:di+6],dx
+                xor     ax,ax
                 jmp     short int2f_rfner
 int2f_r_3:
                 cmp     al,0fh              ; Get Remote File Attrib
@@ -183,7 +206,7 @@ int2f_r_3:
                 mov     [es:di+4],bx    ; high
                 mov     [es:di+6],cx
                 mov     [es:di+8],dx
-                mov     ax,0000h
+                xor     ax,ax
                 jmp     short int2f_rfner
 int2f_r_4:
                 cmp     al,01eh
@@ -214,8 +237,8 @@ int2f_r_7:
 ;   everything else goes through here.
 ;
                 call    int2f_call
-                jc	int2f_rfner
-                xor	ax,ax
+                jc      int2f_rfner
+                xor     ax,ax
 int2f_rfner:
                 pop     bx
                 pop     cx
@@ -242,9 +265,9 @@ _QRemote_Fn
                 les     di,[bp+8]
                 stc
                 int     2fh
-                mov	ax,0xffff
-                jnc	QRemote_Fn_out
-                xor	ax,ax
+                mov     ax,0xffff
+                jnc     QRemote_Fn_out
+                xor     ax,ax
 QRemote_Fn_out:	
                 pop     di
                 pop     si

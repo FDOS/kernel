@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.5  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -117,7 +120,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
   BYTE FAR *pBuffer = MK_FP(r->DS, r->DX);
-  COUNT nMode;
+  COUNT nMode , dev;
 
   /* Test that the handle is valid                                */
   switch (r->AL)
@@ -159,17 +162,16 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 /* JPP - changed to use default drive if drive=0 */
 /* JT Fixed it */
 
-      r->BL = ( r->BL == 0 ? default_drive : r->BL - 1);
+      dev = ( r->BL == 0 ? default_drive : r->BL - 1);
 
-
-      if (r->BL > lastdrive)
+      if (dev > (lastdrive -1))
       {
         *err = DE_INVLDDRV;
         return 0;
       }
       else
       {
-        cdsp = &CDSp->cds_table[r->BL];
+        cdsp = &CDSp->cds_table[dev];
         dpbp = cdsp->cdsDpb;
       }
       break;
@@ -191,10 +193,10 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
   {
     case 0x00:
       /* Get the flags from the SFT                           */
-      r->DX = r->AX = s->sft_flags;
-
-/*      r->DX = r->AX = s->sft_dev->dh_attr;*/
-
+      r->AX = s->sft_dev->dh_attr;
+      r->DH = r->AH;
+/* Undocumented result, Ax = Dx seen using Pcwatch */
+      r->DL = r->AL = s->sft_flags;
       break;
 
     case 0x01:
@@ -238,12 +240,23 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
           execrh((request FAR *) & CharReqHdr, s->sft_dev);
 
           if (CharReqHdr.r_status & S_ERROR)
-            return char_error(&CharReqHdr, s->sft_dev);
+          {
+            *err = DE_DEVICE;
+            return 0;
+          }
           if (r->AL == 0x07)
           {
-            r->AL =
-                CharReqHdr.r_status & S_BUSY ?
-                00 : 0xff;
+            r->AL = CharReqHdr.r_status & S_BUSY ? 00 : 0xff;
+
+          }
+          if (r->AL == 0x02 || r->AL == 0x03)
+          {
+            r->AX = CharReqHdr.r_count;
+          }
+
+          if (r->AL == 0x0c || r->AL == 0x10)
+          {
+            r->AX = CharReqHdr.r_status;
           }
           break;
       }
@@ -262,6 +275,11 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x05:
       nMode = C_IOCTLOUT;
     IoBlockCommon:
+      if(!dpbp)
+      {
+        *err = DE_INVLDDRV;
+        return 0;
+      }
       if ( ((r->AL == 0x04 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x05 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x11) && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
@@ -271,7 +289,8 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
         return 0;
       }
 
-      CharReqHdr.r_unit = r->BL;
+
+      CharReqHdr.r_unit = dev;
       CharReqHdr.r_length = sizeof(request);
       CharReqHdr.r_command = nMode;
       CharReqHdr.r_count = r->CX;
@@ -279,24 +298,28 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       CharReqHdr.r_status = 0;
       execrh((request FAR *) & CharReqHdr,
              dpbp->dpb_device);
-      if (r->AL == 0x08)
-      {
+
         if (CharReqHdr.r_status & S_ERROR)
         {
-          *err = DE_DEVICE;
-          return 0;
+            *err = DE_DEVICE;
+            return 0;
         }
-        r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
-      }
-      else
-      {
-        if (CharReqHdr.r_status & S_ERROR)
+        if (r->AL == 0x08)
         {
-          *err = DE_DEVICE;
-          return 0;
+            r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
+
         }
-      }
-      break;
+
+        if (r->AL == 0x04 || r->AL == 0x05)
+        {
+            r->AX = CharReqHdr.r_count;
+
+        }
+        if (r->AL == 0x0d || r->AL == 0x11)
+        {
+            r->AX = CharReqHdr.r_status;
+        }
+        break;
 
     case 0x06:
       if (s->sft_flags & SFT_FDEVICE)
@@ -310,12 +333,18 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x07:
       if (s->sft_flags & SFT_FDEVICE)
       {
+        nMode = C_OSTAT;
         goto IoCharCommon;
       }
       r->AL = 0;
       break;
 
     case 0x08:
+      if(!dpbp)
+      {
+        *err = DE_INVLDDRV;
+        return 0;
+      }
       if (dpbp->dpb_device->dh_attr & ATTR_EXCALLS)
       {
         nMode = C_REMMEDIA;
@@ -326,13 +355,26 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 
     case 0x09:
       if(cdsp->cdsFlags & CDSNETWDRV)
-        r->DX = ATTR_REMOTE;
-      else
-        r->DX = dpbp->dpb_device->dh_attr;
+        {
+            r->DX = ATTR_REMOTE ;
+            r->AX = S_DONE|S_BUSY;
+        }
+        else
+        {
+            if(!dpbp)
+            {
+                *err = DE_INVLDDRV;
+                return 0;
+            }
+/* Need to add subst bit 15  */
+            r->DX = dpbp->dpb_device->dh_attr;
+            r->AX = S_DONE|S_BUSY;
+        }
       break;
 
     case 0x0a:
-      r->DX = s->sft_flags & SFT_FSHARED;
+      r->DX = s->sft_flags;
+      r->AX = 0;
       break;
 
     case 0x0e:
@@ -341,12 +383,16 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x0f:
       nMode = C_SETLDEV;
     IoLogCommon:
+      if(!dpbp)
+      {
+        *err = DE_INVLDDRV;
+        return 0;
+      }
       if ((dpbp->dpb_device->dh_attr & ATTR_GENIOCTL))
       {
-        if (r->BL == 0)
-          r->BL = default_drive;
 
-        CharReqHdr.r_unit = r->BL;
+
+        CharReqHdr.r_unit = dev;
         CharReqHdr.r_length = sizeof(request);
         CharReqHdr.r_command = nMode;
         CharReqHdr.r_count = r->CX;
@@ -358,7 +404,10 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
         if (CharReqHdr.r_status & S_ERROR)
           *err = DE_ACCESS;
         else
-          *err = SUCCESS;
+        {
+            r->AL = CharReqHdr.r_unit;
+            *err = SUCCESS;
+        }
         return 0;
       }
       *err = DE_INVLDFUNC;

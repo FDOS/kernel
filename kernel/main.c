@@ -39,6 +39,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.5  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -147,6 +150,8 @@ static BYTE *mainRcsId = "$Id$";
 
 extern UWORD DaysSinceEpoch;
 extern WORD days[2][13];
+extern BYTE FAR * lpBase;
+extern BYTE FAR * upBase;
 
 INIT BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
 VOID FAR init_call_WritePCClock(ULONG);
@@ -188,6 +193,8 @@ INIT static VOID init_kernel(void)
 
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();
+
+  UMB_top = 3; /* testing for now*
 
 /* Fake int 21h stack frame */
   user_r = (iregs FAR *) DOS_PSP + 0xD0;
@@ -359,7 +366,7 @@ INIT VOID FsConfig(VOID)
   default_drive = BootDrive - 1;
 
   /* Initialzie the current directory structures    */
-  for (i = 0; i < lastdrive + 1; i++)
+  for (i = 0; i < lastdrive  ; i++)
   {
 
     fbcopy((VOID FAR *) "A:\\\0",
@@ -427,14 +434,13 @@ INIT static VOID kernel()
   p_0();
 }
 
-extern BYTE FAR *lpBase;
-
 /* If cmdLine is NULL, this is an internal driver */
 
-BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
+BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_top)
 {
   request rq;
-  ULONG memtop = ((ULONG) ram_top) << 10;
+
+  ULONG memtop = ((ULONG) r_top) << 10;
   ULONG maxmem = memtop - ((ULONG) FP_SEG(dhp) << 4);
 
   if (maxmem >= 0x10000)
@@ -455,10 +461,14 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine)
   if (rq.r_status & S_ERROR)
     return TRUE;
 
-  if (cmdLine)
-    lpBase = rq.r_endaddr;
+  if(cmdLine){
+    if (mode)
+        upBase = rq.r_endaddr;
+    else
+        lpBase = rq.r_endaddr;
+    }
 
-  /* check for a block device and update  device control block    */
+/* check for a block device and update  device control block    */
   if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
   {
     REG COUNT Index;
@@ -497,9 +507,9 @@ INIT static void InitIO(void)
   /* Initialize driver chain                                      */
   nul_dev.dh_next = (struct dhdr FAR *)&con_dev;
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
-  init_device((struct dhdr FAR *)&con_dev, NULL);
-  init_device((struct dhdr FAR *)&clk_dev, NULL);
-  init_device((struct dhdr FAR *)&blk_dev, NULL);
+  init_device((struct dhdr FAR *)&con_dev, NULL, NULL, ram_top);
+  init_device((struct dhdr FAR *)&clk_dev, NULL, NULL, ram_top);
+  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top);
   /* If AT clock exists, copy AT clock time to system clock */
   if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
   {

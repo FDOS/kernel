@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -107,10 +110,10 @@ VOID show_chain();
 #define para2far(seg) (mcb FAR *)MK_FP((seg) , 0)
 
 /*
- *                                                                            Join any following unused MCBs to MCB 'p'.
- *                                                                              Return:
- *                                                                                                                                                              SUCCESS: on success
- *                                                                                                                                                              else: error number <<currently DE_MCBDESTRY only>>
+ * Join any following unused MCBs to MCB 'p'.
+ *  Return:
+ *  SUCCESS: on success
+ *  else: error number <<currently DE_MCBDESTRY only>>
  */
 static COUNT joinMCBs(mcb FAR * p)
 {
@@ -142,7 +145,7 @@ seg long2para(LONG size)
 }
 
 /*
- *                                                                            Add a displacement to a far pointer and return the result normalized.
+ * Add a displacement to a far pointer and return the result normalized.
  */
 VOID FAR *add_far(VOID FAR * fp, ULONG off)
 {
@@ -152,7 +155,7 @@ VOID FAR *add_far(VOID FAR * fp, ULONG off)
 }
 
 /*
- *                                                                            Return a normalized far pointer
+ * Return a normalized far pointer
  */
 VOID FAR *adjust_far(VOID FAR * fp)
 {
@@ -297,12 +300,12 @@ COUNT FAR init_call_DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FA
 }
 
 /*
- *                                                                            Unlike the name and the original prototype could suggest, this function
- *                                                                              is used to return the _size_ of the largest available block rather than
- *                                                                              the block itself.
+ * Unlike the name and the original prototype could suggest, this function
+ * is used to return the _size_ of the largest available block rather than
+ * the block itself.
  *
- *                                                                              Known bug: a memory area with a size of the data area of 0 (zero) is
- *                                                                              not considered a "largest" block. <<Perhaps this is a feature ;-)>>
+ * Known bug: a memory area with a size of the data area of 0 (zero) is
+ * not considered a "largest" block. <<Perhaps this is a feature ;-)>>
  */
 COUNT DosMemLargest(UWORD FAR * size)
 {
@@ -345,9 +348,9 @@ COUNT DosMemLargest(UWORD FAR * size)
 }
 
 /*
- *                                                                            Deallocate a memory block. para is the segment of the MCB itself
- *                                                                              This function can be called with para == 0, which eases other parts
- *                                                                              of the kernel.
+ * Deallocate a memory block. para is the segment of the MCB itself
+ * This function can be called with para == 0, which eases other parts
+ * of the kernel.
  */
 COUNT DosMemFree(UWORD para)
 {
@@ -400,12 +403,12 @@ COUNT DosMemFree(UWORD para)
 }
 
 /*
- *                                                                            Resize an allocated memory block.
- *                                                                              para is the segment of the data portion of the block rather than
- *                                                                              the segment of the MCB itself.
+ * Resize an allocated memory block.
+ * para is the segment of the data portion of the block rather than
+ * the segment of the MCB itself.
  *
- *                                                                              If the block shall grow, it is resized to the maximal size less than
- *                                                                              or equal to size. This is the way MS DOS is reported to work.
+ * If the block shall grow, it is resized to the maximal size less than
+ * or equal to size. This is the way MS DOS is reported to work.
  */
 COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
 {
@@ -461,7 +464,7 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
 }
 
 /*
- *                                                                            Check the MCB chain for allocation corruption
+ * Check the MCB chain for allocation corruption
  */
 COUNT DosMemCheck(void)
 {

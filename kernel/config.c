@@ -39,6 +39,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -140,7 +143,9 @@ void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
 #endif
 
 BYTE FAR *lpBase;
+BYTE FAR *upBase;
 static BYTE FAR *lpOldLast;
+static BYTE FAR *upOldLast;
 static COUNT nCfgLine;
 static COUNT nPass;
 static BYTE szLine[256];
@@ -148,14 +153,19 @@ static BYTE szBuf[256];
 
 int singleStep = 0;
 
+INIT VOID  zumcb_init(mcb FAR * mcbp, UWORD size);
+
 INIT VOID Buffers(BYTE * pLine);
 INIT VOID sysScreenMode(BYTE * pLine);
 INIT VOID sysVersion(BYTE * pLine);
 INIT VOID Break(BYTE * pLine);
 INIT VOID Device(BYTE * pLine);
+INIT VOID DeviceHigh(BYTE * pLine);
 INIT VOID Files(BYTE * pLine);
 INIT VOID Fcbs(BYTE * pLine);
 INIT VOID Lastdrive(BYTE * pLine);
+INIT VOID LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
+INIT VOID Dosmem(BYTE * pLine);
 INIT VOID Country(BYTE * pLine);
 INIT VOID InitPgm(BYTE * pLine);
 INIT VOID Switchar(BYTE * pLine);
@@ -190,6 +200,8 @@ static struct table commands[] =
   {"command", 1, InitPgm},
   {"country", 1, Country},
   {"device", 2, Device},
+  {"devicehigh", 2, DeviceHigh},
+  {"dos", 1, Dosmem},
   {"fcbs", 1, Fcbs},
   {"files", 1, Files},
   {"lastdrive", 1, Lastdrive},
@@ -251,7 +263,7 @@ INIT void PreConfig(void)
                   + Config.cfgFiles * sizeof(sft));
 
   CDSp = (cdstbl FAR *)
-      KernelAlloc(0x58 * (lastdrive + 1));
+      KernelAlloc(0x58 * (lastdrive));
 
 #ifdef DEBUG
 
@@ -289,13 +301,15 @@ INIT void PreConfig(void)
 /* Also, run config.sys to load drivers.                                */
 INIT void PostConfig(void)
 {
+
+  COUNT tmp = 0xc000;
+
   /* Set pass number                                              */
   nPass = 2;
-
   /* compute lastdrive ... */
   lastdrive = Config.cfgLastdrive;
-  if (lastdrive < nblkdev -1) 
-    lastdrive = nblkdev -1;
+  if (lastdrive < nblkdev )
+    lastdrive = nblkdev ;
 
   /* Initialize the base memory pointers from last time.          */
   lpBase = AlignParagraph(lpOldLast);
@@ -326,7 +340,7 @@ INIT void PostConfig(void)
                   + Config.cfgFiles * sizeof(sft));
 
   CDSp = (cdstbl FAR *)
-      KernelAlloc(0x58 * (lastdrive + 1));
+      KernelAlloc(0x58 * (lastdrive));
 
 #ifdef DEBUG
 
@@ -353,6 +367,21 @@ INIT void PostConfig(void)
   printf("Allocation completed: top at 0x%04x:0x%04x\n",
          FP_SEG(lpBase), FP_OFF(lpBase));
 #endif
+
+    if(uppermem_link)
+    {
+        upBase = MK_FP(tmp , 0);
+        uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+         umcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)), 0 );
+
+         upBase += 16;
+
+#ifdef DEBUG
+  printf("UMB Allocation completed: top at 0x%04x:0x%04x\n",
+         FP_SEG(upBase), FP_OFF(upBase));
+#endif
+    }
+
 }
 
 /* This code must be executed after device drivers has been loaded */
@@ -360,19 +389,26 @@ INIT VOID configDone(VOID)
 {
   COUNT i;
 
-  if (lastdrive < nblkdev -1) {
+  if (lastdrive < nblkdev) {
 #ifdef DEBUG
     printf("lastdrive %c too small upping it to: %c\n", lastdrive + 'A', nblkdev + 'A' -1);
 #endif /* DEBUG */
-    lastdrive = nblkdev -1;
+    lastdrive = nblkdev;
     CDSp = (cdstbl FAR *)
-       KernelAlloc(0x58 * (lastdrive +1));
+       KernelAlloc(0x58 * (lastdrive ));
   }
   first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
   mcb_init((mcb FAR *) (MK_FP(first_mcb, 0)),
            (ram_top << 6) - first_mcb - 1);
+
+    if(uppermem_link)
+    {
+        uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+         zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
+                    (UMB_top << 6) - uppermem_root - 1);
+    }
 
   /* The standard handles should be reopened here, because
      we may have loaded new console or printer drivers in CONFIG.SYS */
@@ -636,7 +672,27 @@ INIT static VOID Lastdrive(BYTE * pLine)
     return;
   }
   drv -= 'A';
+  drv++;                    /* Make real number*/
   Config.cfgLastdrive = max(Config.cfgLastdrive, drv);
+}
+
+INIT static VOID Dosmem(BYTE * pLine)
+{
+    COUNT tmp;
+    COUNT FAR * u = MK_FP(0xc000, 0);
+
+    GetStringArg(pLine, szBuf);
+    uppermem_link = strcmp(szBuf, "UMB") ? 1 : 0;
+
+    if(uppermem_link)
+    {
+        tmp = *u;
+        *u = 0x1234;
+        if(*u  == 0x1234)
+            *u = tmp;
+        else
+            uppermem_link = 0;
+    }
 }
 
 INIT static VOID Switchar(BYTE * pLine)
@@ -769,14 +825,37 @@ INIT static VOID Break(BYTE * pLine)
   break_ena = strcmp(szBuf, "OFF") ? 1 : 0;
 }
 
+INIT static VOID DeviceHigh(BYTE * pLine)
+{
+    if(uppermem_link)
+    {
+        LoadDevice(pLine, UMB_top, TRUE);
+    }
+    else
+    {
+        printf("UMB's unavalable!\n");
+        LoadDevice(pLine, ram_top, FALSE);
+    }
+}
+
 INIT static VOID Device(BYTE * pLine)
+{
+    LoadDevice(pLine, ram_top, FALSE);
+}
+
+INIT static VOID LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 {
   VOID FAR *driver_ptr;
   BYTE *pTmp;
   exec_blk eb;
   struct dhdr FAR *dhp;
   struct dhdr FAR *next_dhp;
-  UWORD dev_seg = (((ULONG) FP_SEG(lpBase) << 4) + FP_OFF(lpBase) + 0xf) >> 4;
+  UWORD dev_seg;
+
+  if(mode)
+    dev_seg = (((ULONG) FP_SEG(upBase) << 4) + FP_OFF(upBase) + 0xf) >> 4;
+  else
+    dev_seg = (((ULONG) FP_SEG(lpBase) << 4) + FP_OFF(lpBase) + 0xf) >> 4;
 
   /* Get the device driver name                                   */
   GetStringArg(pLine, szBuf);
@@ -797,7 +876,7 @@ INIT static VOID Device(BYTE * pLine)
     next_dhp = dhp->dh_next = nul_dev.dh_next;
     nul_dev.dh_next = dhp;
 
-    if(init_device(dhp, pLine)){
+    if(init_device(dhp, pLine, mode, top)){
         nul_dev.dh_next = next_dhp;     /* return orig pointer if error */
     }
   }
@@ -961,6 +1040,26 @@ INIT VOID
   for (i = 0; i < 8; i++)
     mcbp->m_name[i] = '\0';
   mem_access_mode = FIRST_FIT;
+}
+INIT VOID
+  umcb_init(mcb FAR * mcbp, UWORD size)
+{
+  COUNT i;
+  static char name[8] = "UMB     ";
+
+  mcbp->m_type = 0x4d;
+  mcbp->m_psp = 0x08;
+  mcbp->m_size = size;
+  for (i = 0; i < 8; i++)
+    mcbp->m_name[i] = name[i];
+}
+INIT VOID
+  zumcb_init(mcb FAR * mcbp, UWORD size)
+{
+  COUNT i;
+  mcbp->m_type = MCB_LAST;
+  mcbp->m_psp = FREE_PSP;
+  mcbp->m_size = size;
 }
 #endif
 

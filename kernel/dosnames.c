@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.5  2000/06/01 06:37:38  jimtabor
  * Read History for Changes
  *
@@ -138,7 +141,13 @@ VOID SpacePad(BYTE * szString, COUNT nChars)
   for (i = strlen(szString); i < nChars; i++)
     szString[i] = ' ';
 }
+/*
+    MSD durring an FindFirst search string looks like this;
+    (*), & (.)  == Current directory *.*
+    (\)         == Root directory *.*
+    (..)        == Back one directory *.*
 
+ */
 COUNT ParseDosName(BYTE FAR * lpszFileName,
                    COUNT * pnDrive,
                    BYTE * pszDir,
@@ -254,8 +263,9 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
         ++nExtCnt;
         ++lpszFileName;
       }
-      else
+      else{
         return DE_FILENOTFND;
+        }
     }
   }
   else if (*lpszFileName)

@@ -36,6 +36,9 @@ static BYTE *mcb_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -85,6 +88,12 @@ static BYTE *mcb_hRcsId = "$Id$";
 #define FIRST_FIT       0
 #define BEST_FIT        1
 #define LAST_FIT        2
+#define FIRST_FIT_UO    0x40
+#define BEST_FIT_UO     0x41
+#define LAST_FIT_UO     0x42
+#define FIRST_FIT_U     0x80
+#define BEST_FIT_U      0x81
+#define LAST_FIT_U      0x82
 
 #define MCB_NORMAL      0x4d
 #define MCB_LAST        0x5a

@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.6  2000/06/01 06:37:38  jimtabor
  * Read History for Changes
  *
@@ -214,7 +217,7 @@ COUNT get_verify_drive(char FAR *src)
   }
   else
     drive = default_drive;
-  if ((drive < 0) || (drive > lastdrive)) {
+  if ((drive < 0) || (drive > (lastdrive - 1))) {
     drive = DE_INVLDDRV;
   }
   return drive;
@@ -248,7 +251,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   {
     buf[0] = (src[0] | 0x20) + 'A' - 'a';
 
-    if (buf[0] > lastdrive + 'A')
+    if (buf[0] > (lastdrive - 1) + 'A')
       return DE_PATHNOTFND;
 
     src += 2;

@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.6  2000/06/21 18:16:46  jimtabor
+; Add UMB code, patch, and code fixes
+;
 ; Revision 1.5  2000/06/01 06:37:38  jimtabor
 ; Read History for Changes
 ;
@@ -559,8 +562,8 @@ blk_entry:
                 pop     cx
                 pop     cx
                 les     bx,[cs:_ReqPktPtr]		; now return completion code
-                mov     word [es:bx+status],ax		; mark operation complete
-                cli                                     ; no interrupts
+                mov     word [es:bx+status],ax  ; mark operation complete
+                cli                             ; no interrupts
                 mov     sp,[blk_dos_stk]		; use dos stack
                 mov     ss,[blk_dos_seg]
                 pop     es

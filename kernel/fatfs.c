@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -329,7 +332,7 @@ static struct f_node FAR *
   SpacePad(fname, FNAME_SIZE);
   SpacePad(fext, FEXT_SIZE);
 
-  if (nDrive > lastdrive) {
+  if (nDrive > (lastdrive -1)) {
     return (struct f_node FAR *)0;
   }
   cdsp = &CDSp->cds_table[nDrive];

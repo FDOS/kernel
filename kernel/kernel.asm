@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.4  2000/06/21 18:16:46  jimtabor
+; Add UMB code, patch, and code fixes
+;
 ; Revision 1.3  2000/05/25 20:56:21  jimtabor
 ; Fixed project history
 ;
@@ -178,7 +181,7 @@ floppy:		mov	byte [_BootDrive],bl ; tell where we came from
 
                 mov     ax,ds
                 mov     es,ax
-		jmp	_main
+        jmp _main
 
 segment	INIT_TEXT_END
 init_end:
@@ -291,7 +294,7 @@ setverPtr       dw      0,0             ; 0037 setver list
                 dw      1               ; 003F number of buffers
                 dw      1               ; 0041 size of pre-read buffer
                 global  _BootDrive
-_BootDrive      dw      0               ; 0043 drive we booted from
+_BootDrive      db      0               ; 0043 drive we booted from
                 db      0               ; 0044 cpu type (1 if >=386)
                 dw      0               ; 0045 Extended memory in KBytes
 buf_info        dd      0               ; 0047 disk buffer chain
@@ -301,14 +304,17 @@ buf_info        dd      0               ; 0047 disk buffer chain
                 db      0               ; 0053 00=conv 01=HMA
                 dw      0               ; 0054 deblock buf in conv
 deblock_seg     dw      0               ; 0056 (offset always zero)
-                times 3 db 0       ; 0058 unknown
+                times 3 db 0            ; 0058 unknown
                 dw      0               ; 005B unknown
                 db      0, 0FFh, 0      ; 005D unknown
                 db      0               ; 0060 unknown
                 dw      0               ; 0061 unknown
-dmd_upper_link  db      0               ; 0063 upper memory link flag
-                dw      0               ; 0064 unknown
-dmd_upper_root  dw      0FFFFh          ; 0066 dmd_upper_root
+                global  _uppermem_link
+_uppermem_link  db      0               ; 0063 upper memory link flag
+                global  _UMB_top
+_UMB_top        dw      0               ; 0064 unknown UMB_top will do for now
+                global  _uppermem_root
+_uppermem_root  dw      0FFFFh          ; 0066 dmd_upper_root
                 dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
@@ -471,15 +477,12 @@ _SAttr          db      0           ;24D - Attribute Mask for Dir Search
                 global  _OpenMode
 _OpenMode       db      0           ;24E - File Open Attribute
 
-;                times 3 db 0
-;                global  _Server_Call
-;_Server_Call    db      0           ;252 - Server call Func 5D sub 0
-                        
-
-                ; Pad to 0570h
-                times (250h - ($ - _internal_data)) db 0
+                times 3 db 0
+                global  _Server_Call
+_Server_Call    db      0           ;252 - Server call Func 5D sub 0
+                db      0
                 global  _lpUserStack
-_lpUserStack    dd      0               ;250 - pointer to user stack frame
+_lpUserStack    dd      0               ;254 - pointer to user stack frame
 
                 ; Pad to 057Ch
                 times (25ch - ($ - _internal_data)) db 0

@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -419,7 +422,9 @@ extern BYTE NetDelay,
   NetRetry;
 
 extern UWORD
-  first_mcb;                    /* Start of user memory                 */
+  first_mcb,                    /* Start of user memory                 */
+  UMB_top,
+  uppermem_root;                /* Start of umb chain ? */
 extern struct dpb
 FAR *DPBp;                      /* First drive Parameter Block          */
 extern sfttbl
@@ -441,7 +446,8 @@ extern WORD
   nprotfcb;                     /* number of protected fcbs             */
 extern BYTE
   nblkdev,                      /* number of block devices              */
-  lastdrive;                    /* value of last drive                  */
+  lastdrive,                    /* value of last drive                  */
+  uppermem_link;                /* UMB Link flag */
 extern struct dhdr
   nul_dev;
 extern BYTE
@@ -452,9 +458,15 @@ extern BYTE
   OpenMode,                     /* File Open Attributes                 */
   SAttr,                        /* Attrib Mask for Dir Search           */
   dosidle_flag,
+  Server_Call,
+  CritErrLocus,
+  CritErrAction,
+  CritErrClass,
   njoined;                      /* number of joined devices             */
 
 extern UWORD Int21AX;
+extern COUNT CritErrCode;
+extern BYTE FAR * CritErrDev;
 
 extern struct dirent
   SearchDir;
@@ -545,9 +557,9 @@ extern BYTE
   return_code;                  /*     "        "       "               */
 
 extern BYTE
+  BootDrive,                    /* Drive we came up from                */
   scr_pos;                      /* screen position for bs, ht, etc      */
 extern WORD
-  BootDrive,                    /* Drive we came up from                */
   NumFloppies;                  /* How many floppies we have            */
 
 extern keyboard
@@ -639,7 +651,7 @@ VOID FAR CharMapSrvc(VOID);
 VOID FAR set_stack(VOID);
 VOID FAR restore_stack(VOID);
 #ifndef IN_INIT_MOD
-VOID execrh(request FAR *, struct dhdr FAR *);
+WORD execrh(request FAR *, struct dhdr FAR *);
 #endif
 VOID FAR init_call_execrh(request FAR *, struct dhdr FAR *);
 VOID exit(COUNT);
@@ -659,7 +671,7 @@ VOID putdirent(struct dirent FAR *, BYTE FAR *);
 VOID FAR CharMapSrvc();
 VOID FAR set_stack();
 VOID FAR restore_stack();
-VOID execrh();
+WORD execrh();
 VOID exit();
 /*VOID INRPT FAR handle_break(); */
 VOID tmark();
