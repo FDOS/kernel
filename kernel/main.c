@@ -39,6 +39,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/03/30 20:11:14  bartoldeman
+ * Truly got DOS=HIGH reporting for INT21/AX=0x3306 working now.
+ *
  * Revision 1.10  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -321,7 +324,6 @@ INIT void init_kernel(void)
   mem_access_mode = FIRST_FIT;
   verify_ena = FALSE;
   InDOS = 0;
-  version_flags = 0;
   pDirFileNode = 0;
   dosidle_flag = 0;
   

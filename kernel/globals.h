@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/30 20:11:14  bartoldeman
+ * Truly got DOS=HIGH reporting for INT21/AX=0x3306 working now.
+ *
  * Revision 1.8  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -387,7 +390,13 @@ GLOBAL BYTE
  ,
 #endif
 
-  version_flags;                /* minor version number                 */
+  version_flags                 /* minor version number                 */
+#ifdef MAIN
+= 0;
+#else
+  ; 
+#endif
+
 #ifdef DEBUG
 GLOBAL WORD bDumpRegs
 #ifdef MAIN
