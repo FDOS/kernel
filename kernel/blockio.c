@@ -406,7 +406,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
     IoReqHdr.r_status = 0;
     IoReqHdr.r_meddesc = dpbp->dpb_mdb;
     IoReqHdr.r_count = numblocks;
-    if (blkno >= MAXSHORT)
+    if ((dpbp->dpb_device->dh_attr & ATTR_HUGE) || blkno >= MAXSHORT)
     {
       IoReqHdr.r_start = HUGECOUNT;
       IoReqHdr.r_huge = blkno;
