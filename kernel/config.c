@@ -89,6 +89,9 @@ extern UWORD DOSFAR ASM uppermem_root, DOSFAR ASM LoL_nbuffers;
 UWORD umb_start = 0, UMB_top = 0;
 UWORD ram_top = 0; /* How much ram in Kbytes               */
 
+static UBYTE ErrorAlreadyPrinted[128];
+
+
 struct config Config = {
   NUMBUFF,
   NFILES,
@@ -258,7 +261,10 @@ STATIC void FAR* ConfigAlloc(COUNT bytes)
 void PreConfig(void)
 {
   VgaSet = 0;
-  UmbState = 0;
+  UmbState = 0;   
+  
+  memset(ErrorAlreadyPrinted,0,sizeof(ErrorAlreadyPrinted));
+
 
   /* Initialize the base memory pointers                          */
 
@@ -1204,7 +1210,6 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
 STATIC VOID CfgFailure(BYTE * pLine)
 {
   BYTE *pTmp = pLineStart;
-  static UBYTE ErrorAlreadyPrinted[128];
 
   /* suppress multiple printing of same unrecognized lines */
 
