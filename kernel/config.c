@@ -1247,6 +1247,8 @@ err:printf("%s has invalid format\n", filename);
                                                      != entry.codepage
          && cpage)
           continue;
+        nlsPackageHardcoded.cntry = entry.country;
+        nlsPackageHardcoded.cp = entry.codepage;
         subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
                 min(subf_data.length, sizeof(struct CountrySpecificInfo));
       }
@@ -1255,7 +1257,7 @@ err:printf("%s has invalid format\n", filename);
     }
     goto ret;
   }
-  printf("couldn't find country info for country ID %u\n", ccode);
+  printf("couldn't find info for country ID %u\n", ccode);
 ret:
   close(fd);
 }
@@ -1796,11 +1798,7 @@ STATIC void config_init_fnodes(int f_nodes_cnt)
 */
 STATIC void SetAnyDos(PCStr p)
 {
-  if (*p) /* garbage at line end? */
-  {
-    CfgFailure(p);
-    return;
-  }
+  UNREFERENCED_PARAMETER(p);
   ReturnAnyDosVersionExpected = TRUE;
 }
 

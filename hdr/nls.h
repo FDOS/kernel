@@ -476,7 +476,7 @@ struct nlsInfoBlock {           /* This block contains all information
 };
 
 extern struct nlsInfoBlock nlsInfo;
-extern struct nlsPackage ASM nlsPackageHardcoded;
+extern struct nlsPackage      FAR ASM nlsPackageHardcoded;
         /* These are the "must have" tables within the hard coded NLS pkg */
 extern struct nlsFnamTerm     FAR ASM nlsFnameTermHardcoded;
 extern struct nlsDBCS         FAR ASM nlsDBCSHardcoded;

@@ -350,6 +350,7 @@
         * portab.h: pragma aux default to gain ~800B unpacked size (Watcom)
           (the last 2 changes proposed by Bart Oldeman)
  + Changes Eduardo
+        * config.c: update hardcoded country and codepage IDs
         * country.asm: added NLS uppercase/collating tables (437,850,857,858)
         * inthndlr.c:
           - added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
