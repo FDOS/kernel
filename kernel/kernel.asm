@@ -119,23 +119,28 @@ kernel_start:
                 pop bx
                 pop ax
 
-		mov	ax,cs
+		mov	ax,seg init_tos
 		cli
 		mov	ss,ax
 		mov	sp,init_tos
 		int	12h		; move the init code to higher memory
 		mov	cl,6
 		shl	ax,cl
-		mov	dx,init_end+15
+		mov	dx,15 + init_end wrt INIT_TEXT
 		mov	cl,4
 		shr	dx,cl
 		sub	ax,dx
 		mov	es,ax
+		mov	dx,__INIT_DATA_START wrt INIT_TEXT
+		shr	dx,cl
+		add	ax,dx
+		mov	ss,ax		; set SS to init data segment
+		sti                     ; now enable them
 		mov	ax,cs
 		mov	ds,ax
 		xor	si,si
 		xor	di,di
-		mov	cx,init_end+1
+		mov	cx,1 + init_end wrt INIT_TEXT
 		shr	cx,1
 		cld
 		rep	movsw
@@ -143,14 +148,10 @@ kernel_start:
 		mov	ax,cont
 		push	ax
 		retf
-cont:		mov     ax,cs
-                mov     ss,ax
-                ; Now set up call frame
+cont:		; Now set up call frame
                 mov     ds,[cs:_INIT_DGROUP]
                 mov     bp,sp           ; and set up stack frame for c
-                sti                     ; now enable them
 
-                push ax
                 push bx
                 pushf              
                 mov ax, 0e33h           ; '3' Tracecode - kernel entered
@@ -158,7 +159,6 @@ cont:		mov     ax,cs
                 int 010h
                 popf
                 pop bx
-                pop ax
 
 		mov	byte [_BootDrive],bl ; tell where we came from
 
@@ -171,7 +171,7 @@ cont:		mov     ax,cs
                 mov     ax,ss
                 mov     ds,ax
                 mov     es,ax
-        jmp _FreeDOSmain
+		jmp	_FreeDOSmain
 
 %ifdef WATCOM
 global _IU4M

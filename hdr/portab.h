@@ -82,8 +82,13 @@ void __int__(int);
 #define VA_CDECL
 #define PASCAL  pascal
 #define __int__(intno) asm int intno;
-#define _SS SS()
-static unsigned short __inline SS(void)
+#define _CS getCS()
+static unsigned short __inline getCS(void)
+{
+  asm mov ax, cs;
+}
+#define _SS getSS()
+static unsigned short __inline getSS(void)
 {
   asm mov ax, ss;
 }
@@ -97,9 +102,12 @@ static unsigned short __inline SS(void)
 #define CDECL   __cdecl
 #define VA_CDECL
 #define PASCAL  pascal
-#define _SS SS()
-unsigned short SS(void);
-#pragma aux SS = "mov dx,ss" value [dx];
+#define _CS getCS()
+unsigned short getCS(void);
+#pragma aux getCS = "mov dx,cs" value [dx] modify exact[dx];
+#define _SS getSS()
+unsigned short getSS(void);
+#pragma aux getSS = "mov dx,ss" value [dx] modify exact[dx];
 /* enable Possible loss of precision warning for compatibility with Borland */
 #pragma enable_message(130)
 
