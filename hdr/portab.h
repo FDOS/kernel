@@ -249,18 +249,11 @@ typedef signed long LONG;
 typedef VOID (FAR ASMCFUNC * intvec) (void);
 
 /*
-	this suppresses the warning 
+	this suppresses the warning
 	unreferenced parameter 'x'
 	and (hopefully) generates no code
 */
-
-#if defined(__TURBOC__)
-#define UNREFERENCED_PARAMETER(x) if (x);
-#elif defined(__GNUC__)
-#define UNREFERENCED_PARAMETER(x) x = 0;
-#else
-#define UNREFERENCED_PARAMETER(x) x;
-#endif
+#define UNREFERENCED_PARAMETER(x) (void)x;
 
 #ifdef I86                      /* commandline overflow - removing /DPROTO TE */
 #define PROTO
