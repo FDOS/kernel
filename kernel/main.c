@@ -507,7 +507,7 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
 
   for (p = q = cmdLine; *p && *p != ' ' && *p != '\t'; p++)
   {
-    if (*p == '\\' || *p == '/' && *p == ':')
+    if (*p == '\\' || *p == '/' || *p == ':')
       q = p + 1;
   }
   for (i = 0; i < 8; i++) {
