@@ -1325,7 +1325,7 @@ void put_boot(SYSOptions *opts)
     {
       /* load segment hard coded to 0x70 in oem compatible boot sector */
       if (opts->kernel.loadseg != 0x70)
-        printf("%s: Warning: ignoring load segment, compat bs always uses 0x70!\n");
+        printf("%s: Warning! ignoring load segment, compat bs always uses 0x70!\n", pgm);
       bsBiosMovOff = 0x4F;
     }
   }
