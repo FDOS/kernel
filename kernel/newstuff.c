@@ -39,7 +39,7 @@ static BYTE *mainRcsId =
 */
 int SetJFTSize(UWORD nHandles)
 {
-  UWORD block, maxBlock;
+  UWORD block, maxBlock, i;
   psp FAR *ppsp = MK_FP(cu_psp, 0);
   UBYTE FAR *newtab;
 
@@ -56,8 +56,10 @@ int SetJFTSize(UWORD nHandles)
   ++block;
   newtab = MK_FP(block, 0);
 
-  fmemset(newtab, 0xff, nHandles);
-  fmemcpy(newtab, ppsp->ps_filetab, ppsp->ps_maxfiles);
+  i = ppsp->ps_maxfiles;
+  /* copy existing part and fill up new part by "no open file" */
+  fmemcpy(newtab, ppsp->ps_filetab, i);
+  fmemset(newtab + i, 0xff, nHandles - i);
 
   ppsp->ps_maxfiles = nHandles;
   ppsp->ps_filetab = newtab;
