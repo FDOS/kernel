@@ -5,7 +5,7 @@
 #
 
 
-!include "..\mkfiles\generic.mak"
+!include "../mkfiles/generic.mak"
 
 production:     fat12com.bin fat16com.bin fat32chs.bin fat32lba.bin
 

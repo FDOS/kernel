@@ -5,7 +5,7 @@
 #
 
 
-!include "..\mkfiles\generic.mak"
+!include "../mkfiles/generic.mak"
 
 
 libm.lib:	$(CLIB)

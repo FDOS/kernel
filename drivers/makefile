@@ -5,7 +5,7 @@
 #
 
 
-!include "..\mkfiles\generic.mak"
+!include "../mkfiles/generic.mak"
 
 
 # MICROSOFT C
@@ -22,10 +22,9 @@
 #AFLAGS = /Mx /Dmem$(MODEL)=1
 #LIBFLAGS = /c
 
-OBJS   = floppy.obj getvec.obj rdpcclk.obj rdatclk.obj \
-wrpcclk.obj wratclk.obj
+OBJS   = floppy.obj getvec.obj rdpcclk.obj wrpcclk.obj wratclk.obj
 
-LIBOBJS= +floppy +getvec +rdpcclk +rdatclk +wrpcclk +wratclk
+LIBOBJS= +floppy +getvec +rdpcclk +wrpcclk +wratclk
 
 
 

@@ -16,7 +16,7 @@ LIB=    $(COMPILERBASE)\lib
 LIBPATH = .
 #AFLAGS      = /Mx /DSTANDALONE=1 /I..\HDR
 
-LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
+LIBS        =..\lib\device.lib ..\lib\libm.lib
 #INITCFLAGS =$(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zDIB -zRID -zTID -zPIGROUP -zBIB \
 #-zGIGROUP -zSIGROUP
 #CFLAGS     =$(ALLCFLAGS) -zAHMA -zCHMA_TEXT
@@ -31,56 +31,19 @@ HDR=../hdr/
 #               *List Macros*
 
 
-EXE_dependencies =  \
- apisupt.obj  \
- asmsupt.obj  \
- blockio.obj  \
- break.obj    \
- chario.obj   \
- config.obj   \
- console.obj  \
- dosidle.obj  \
- dosfns.obj   \
- dosnames.obj \
- dsk.obj      \
- initdisk.obj      \
- initclk.obj      \
- entry.obj    \
- error.obj    \
- execrh.obj   \
- fatdir.obj   \
- fatfs.obj    \
- fattab.obj   \
- fcbfns.obj   \
- initoem.obj  \
- int2f.obj    \
- inthndlr.obj \
- io.obj       \
- intr.obj     \
- ioctl.obj    \
- irqstack.obj \
- kernel.obj   \
- lfnapi.obj   \
- main.obj     \
- memmgr.obj   \
- misc.obj     \
- newstuff.obj \
- network.obj  \
- nls.obj      \
- nls_hc.obj   \
- nlssupt.obj  \
- prf.obj      \
- iprf.obj  \
- printer.obj  \
- procsupt.obj \
- serial.obj   \
- strings.obj  \
- sysclk.obj   \
- syspack.obj  \
- systime.obj  \
- task.obj     \
- inithma.obj  \
- dyninit.obj
+OBJS1=kernel.obj entry.obj io.obj console.obj serial.obj printer.obj dsk.obj \
+sysclk.obj
+OBJS2=asmsupt.obj execrh.obj nlssupt.obj procsupt.obj dosidle.obj int2f.obj \
+nls_hc.obj
+OBJS3= apisupt.obj intr.obj irqstack.obj blockio.obj chario.obj systime.obj \
+error.obj
+OBJS4=break.obj dosfns.obj fatdir.obj fatfs.obj fattab.obj fcbfns.obj \
+inthndlr.obj
+OBJS5=ioctl.obj dosnames.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
+OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj
+OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
+initdisk.obj initclk.obj
+OBJS = $(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
 
 #               *Explicit Rules*
 
@@ -104,22 +67,22 @@ clean:
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 
-kernel.res: $(EXE_dependencies) $(LIBS)
-	-$(RM) kernel.res
-	..\utils\echoto kernel.res kernel.obj iprf.obj+
-	..\utils\echoto kernel.res entry.obj io.obj blockio.obj chario.obj dosfns.obj console.obj+
-	..\utils\echoto kernel.res printer.obj serial.obj dsk.obj initdisk.obj initclk.obj error.obj fatdir.obj fatfs.obj+
-	..\utils\echoto kernel.res fattab.obj fcbfns.obj initoem.obj initHMA.obj inthndlr.obj ioctl.obj nls_hc.obj+
-	..\utils\echoto kernel.res main.obj config.obj memmgr.obj misc.obj newstuff.obj nls.obj intr.obj+
-	..\utils\echoto kernel.res dosnames.obj prf.obj strings.obj network.obj sysclk.obj syspack.obj+
-	..\utils\echoto kernel.res systime.obj task.obj int2f.obj irqstack.obj apisupt.obj+
-	..\utils\echoto kernel.res asmsupt.obj execrh.obj nlssupt.obj procsupt.obj  break.obj+
-	..\utils\echoto kernel.res dosidle.obj dyninit.obj lfnapi.obj
-	..\utils\echoto kernel.res kernel.exe
-	..\utils\echoto kernel.res kernel.map
-	..\utils\echoto kernel.res ..\lib\libm.lib ..\lib\device.lib
+ECHOTO=..\utils\echoto
 
-kernel.exe: kernel.res $(EXE_dependencies) $(LIBS)
+kernel.res: $(OBJS) $(LIBS)
+	-$(RM) kernel.res
+	$(ECHOTO) kernel.res $(OBJS1)+
+	$(ECHOTO) kernel.res $(OBJS2)+
+	$(ECHOTO) kernel.res $(OBJS3)+
+	$(ECHOTO) kernel.res $(OBJS4)+
+	$(ECHOTO) kernel.res $(OBJS5)+
+	$(ECHOTO) kernel.res $(OBJS6)+
+	$(ECHOTO) kernel.res $(OBJS7)
+	$(ECHOTO) kernel.res kernel.exe
+	$(ECHOTO) kernel.res kernel.map
+	$(ECHOTO) kernel.res $(LIBS)
+
+kernel.exe: kernel.res $(OBJS) $(LIBS)
 	$(LINK) @kernel.res;
 
 #               *Individual File Dependencies*
@@ -211,7 +174,7 @@ nls.obj: nls.c            $(HEADERS) $(CONFIGURATION)
 # \
 # 001-437.nls
 
-prf.obj: prf.c  $(HDR)\portab.h $(CONFIGURATION)
+prf.obj: prf.c  $(HDR)portab.h $(CONFIGURATION)
 
 strings.obj: strings.c  $(CONFIGURATION)
 
@@ -258,6 +221,6 @@ initclk.obj: initclk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)
 	$(INITPATCH) $*.obj
 
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
-iprf.obj: iprf.c prf.c $(HDR)\portab.h $(CONFIGURATION)
+iprf.obj: iprf.c prf.c $(HDR)portab.h $(CONFIGURATION)
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj

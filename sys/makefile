@@ -4,7 +4,7 @@
 # $Id$
 #
 
-!include "..\mkfiles\generic.mak"
+!include "../mkfiles/generic.mak"
 
 CFLAGS = -I$(INCLUDEPATH) -I..\hdr -DFORSYS -DWITHFAT32 $(CFLAGST)
 NASMFLAGS = -DSYS=1
