@@ -9,7 +9,7 @@
 
 if "%1" == "$SUMMARY" goto summary
 
-set onerror=if not "%%XERROR%%" == "" goto daswarwohlnix
+set onerror=if not "%XERROR%" == "" goto daswarwohlnix
 
 :***** MSCL kernels
 
