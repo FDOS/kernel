@@ -37,17 +37,19 @@ static BYTE *charioRcsId =
 
 #include "globals.h"
 
-STATIC int CharRequest(struct dhdr FAR *dev)
+STATIC int CharRequest(struct dhdr FAR **pdev, unsigned command)
 {
+  struct dhdr FAR *dev = *pdev;
+  CharReqHdr.r_command = command;
   CharReqHdr.r_unit = 0;
   CharReqHdr.r_status = 0;
   CharReqHdr.r_length = sizeof(request);
   execrh(&CharReqHdr, dev);
   if (CharReqHdr.r_status & S_ERROR)
   {
-  charloop:
-    switch (char_error(&CharReqHdr, dev))
-    {
+    for (;;) {
+      switch (char_error(&CharReqHdr, dev))
+      {
       case ABORT:
       case FAIL:
         return DE_INVLDACC;
@@ -56,147 +58,134 @@ STATIC int CharRequest(struct dhdr FAR *dev)
         return 0;
       case RETRY:
         return 1;
-      default:
-        goto charloop;
+      }
     }
   }
-  return 0;
+  return SUCCESS;
 }
 
-long BinaryCharIO(struct dhdr FAR * dev, size_t n, void FAR * bp, unsigned command)
+long BinaryCharIO(struct dhdr FAR **pdev, size_t n, void FAR * bp,
+                  unsigned command)
 {
-  int err = SUCCESS;
+  int err;
   do
   {
-    CharReqHdr.r_command = command;
     CharReqHdr.r_count = n;
     CharReqHdr.r_trans = bp;
-  } while ((err = CharRequest(dev)) == 1);
+    err = CharRequest(pdev, command);
+  } while (err == 1);
   return err == SUCCESS ? (long)CharReqHdr.r_count : err;
+}
+
+STATIC int CharIO(struct dhdr FAR **pdev, unsigned char ch, unsigned command)
+{
+  int err = (int)BinaryCharIO(pdev, 1, &ch, command);
+  if (err == 0)
+    return 256;
+  if (err < 0)
+    return err;
+  return ch;
 }
 
 /* STATE FUNCTIONS */
 
-STATIC struct dhdr FAR *idx_to_dev(int sft_idx)
+void CharCmd(struct dhdr FAR **pdev, unsigned command)
 {
-  sft FAR *s = idx_to_sft(sft_idx);
-  if (FP_OFF(s) == (size_t)-1 || (s->sft_mode & SFT_MWRITE) ||
-      !(s->sft_flags & SFT_FDEVICE))
+  while (CharRequest(pdev, command) == 1);
+}
+
+STATIC int Busy(struct dhdr FAR **pdev)
+{
+  CharCmd(pdev, C_ISTAT);
+  return CharReqHdr.r_status & S_BUSY;
+}
+
+void con_flush(struct dhdr FAR **pdev)
+{
+  CharCmd(pdev, C_IFLUSH);
+}
+
+/* if the sft is invalid, then we just monitor syscon */
+struct dhdr FAR *sft_to_dev(sft FAR *s)
+{
+  if (FP_OFF(s) == (size_t) -1)
     return syscon;
-  else
-    return s->sft_dev;
-}
-
-/* if sft_idx is invalid, then we just monitor syscon */
-STATIC BOOL Busy(int sft_idx)
-{
-  sft FAR *s = idx_to_sft(sft_idx);
-
   if (s->sft_flags & SFT_FDEVICE)
-  {
-    struct dhdr FAR *dev = idx_to_dev(sft_idx);
-    do {
-      CharReqHdr.r_command = C_ISTAT;
-    } while(CharRequest(dev) == 1);
-    if (CharReqHdr.r_status & S_BUSY)
-      return TRUE;
-    else
-      return FALSE;
-  }
-  else
-    return s->sft_posit >= s->sft_size;
+    return s->sft_dev;
+  return NULL;
 }
 
-BOOL StdinBusy(void)
+int StdinBusy(void)
 {
-  return Busy(get_sft_idx(STDIN));
+  sft FAR *s = get_sft(STDIN);
+  struct dhdr FAR *dev = sft_to_dev(s);
+
+  if (dev)
+    return Busy(&dev);
+
+  return s->sft_posit >= s->sft_size;
 }
 
-STATIC void Do_DosIdle_loop(int sft_idx)
+STATIC void Do_DosIdle_loop(struct dhdr FAR **pdev)
 {
-  /* the idle loop is only safe if we're using the character stack */  
+  /* the idle loop is only safe if we're using the character stack */
   if (user_r->AH < 0xd)
-    while (Busy(sft_idx))
+    while (Busy(pdev) && Busy(&syscon))
       DosIdle_int();
 }
 
 /* get character from the console - this is how DOS gets
    CTL_C/CTL_S/CTL_P when outputting */
-STATIC int ndread(int sft_idx)
+STATIC int ndread(struct dhdr FAR **pdev)
 {
-  struct dhdr FAR *dev = idx_to_dev(sft_idx);
-  do {
-    CharReqHdr.r_command = C_NDREAD;
-  } while(CharRequest(dev) == 1);
+  CharCmd(pdev, C_NDREAD);
   if (CharReqHdr.r_status & S_BUSY)
     return -1;
   return CharReqHdr.r_ndbyte;
 }
 
-STATIC int con_get_char(int sft_idx)
+STATIC void con_skip_char(struct dhdr FAR **pdev)
 {
-  unsigned char c;
-  BinaryCharIO(idx_to_dev(sft_idx), 1, &c, C_INPUT);
-  if (c == CTL_C)
-    handle_break(sft_idx);
-  return c;
+  if (CharIO(pdev, 0, C_INPUT) == CTL_C)
+    handle_break(pdev);
 }
 
-STATIC void con_hold(int sft_idx)
+STATIC void con_hold(struct dhdr FAR **pdev)
 {
-  int c;
-  if (control_break())
-    handle_break(-1);
-  c = ndread(sft_idx);
-  if (c == CTL_S)
+  int c = check_handle_break();
+  if (*pdev != syscon)
+    c = ndread(pdev);
+  if (c == CTL_S || c == CTL_C)
   {
-    con_get_char(sft_idx);
-    Do_DosIdle_loop(sft_idx);
+    con_skip_char(pdev);
+    Do_DosIdle_loop(pdev);
     /* just wait */
-    c = con_get_char(sft_idx);
-  }
-  if (c == CTL_C)
-  {
-    con_get_char(sft_idx);
-    handle_break(sft_idx);
+    check_handle_break();
+    con_skip_char(pdev);
   }
 }
 
-BOOL con_break(void)
+int con_break(void)
 {
-  if (ndread(-1) == CTL_C)
-  {
-    con_get_char(-1);
-    return TRUE;
-  }
-  else
-    return FALSE;
+  int c = ndread(&syscon);
+  if (c == CTL_C)
+    con_skip_char(&syscon);
+  return c;
 }
 
 /* OUTPUT FUNCTIONS */
 
 #ifdef __WATCOMC__
-void int29(char c);
-#pragma aux int29 = "int 29h" parm[al] modify exact [bx]
-#endif
+void fast_put_char(char c);
+#pragma aux fast_put_char = "int 29h" parm[al] modify exact [bx]
+#else
 
-/* writes a character in raw mode; use int29 if possible
-   for speed */
-STATIC int raw_put_char(int sft_idx, int c)
+/* writes a character in raw mode using int29 for speed */
+STATIC void fast_put_char(unsigned char chr)
 {
-  struct dhdr FAR *dev = idx_to_dev(sft_idx);
-  unsigned char chr = (unsigned char)c;
-  
-  if (PrinterEcho)
-    DosWrite(STDPRN, 1, &chr);
-
-  if (dev->dh_attr & ATTR_FASTCON)
-  {
 #if defined(__TURBOC__)
     _AL = chr;
     __int__(0x29);
-#elif defined(__WATCOMC__)
-    int29(chr);
 #elif defined(I86)
     asm
     {
@@ -204,59 +193,79 @@ STATIC int raw_put_char(int sft_idx, int c)
       int 0x29;
     }
 #endif
-    return 0;
-  }
-  c = (int)BinaryCharIO(dev, 1, &chr, C_OUTPUT);
-  if (c < 0)
-    return c;
-  else
-    return chr;
 }
+#endif
 
 /* writes a character in cooked mode; maybe with printer echo;
    handles TAB expansion */
-STATIC int cooked_put_char(int sft_idx, int c)
+STATIC int cooked_write_char(struct dhdr FAR **pdev,
+                      unsigned char c,
+                      unsigned char *fast_counter)
 {
-  int err = 0;
   unsigned char scrpos = scr_pos;
-  
-  /* Test for hold char */
-  con_hold(sft_idx);
+  unsigned char count = 1;
 
-  switch (c)
-  {
-    case CR:
-      scrpos = 0;
-      break;
-    case LF:
-    case BELL:
-      break;
-    case BS:
-      if (scrpos > 0)
-        scrpos--;
-      break;
-    case HT:
-      do
-        err = raw_put_char(sft_idx, ' ');
-      while (err >= 0 && ((++scrpos) & 7));
-      break;
-    default:
-      scrpos++;
+  if (c == CR)
+    scrpos = 0;
+  else if (c == BS) {
+    if (scrpos > 0)
+      scrpos--;
+  } else if (c != LF && c != BELL) {
+    if (c == HT) {
+      count = 8 - (scrpos & 7);
+      c = ' ';
+    }
+    scrpos += count;
   }
   scr_pos = scrpos;
-  if (c != HT)
-    err = raw_put_char(sft_idx, c);
-  return err;
+
+  do {
+
+    /* if not fast then < 0x80; always check
+       otherwise check every 32 characters */
+    if (*fast_counter <= 0x80)
+      /* Test for hold char and ctl_c */
+      con_hold(pdev);
+    *fast_counter += 1;
+    *fast_counter &= 0x9f;
+
+    if (PrinterEcho)
+      DosWrite(STDPRN, 1, &c);
+    if (*fast_counter & 0x80)
+    {
+      fast_put_char(c);
+    }
+    else
+    {
+      int err = CharIO(pdev, c, C_OUTPUT);
+      if (err < 0)
+        return err;
+    }
+  } while (--count > 0);
+  return SUCCESS;
 }
 
-long cooked_write(int sft_idx, size_t n, char FAR *bp)
+long cooked_write(struct dhdr FAR **pdev, size_t n, char FAR *bp)
 {
-  size_t xfer;
-  int err = SUCCESS;
-        
-  for (xfer = 0; err >= SUCCESS && xfer < n && *bp != CTL_Z; bp++, xfer++)
-    err = cooked_put_char(sft_idx, *bp);
-  return err < SUCCESS ? (long)err : xfer;
+  size_t xfer = 0;
+  unsigned char fast_counter;
+
+  /* bit 7 means fastcon; low 5 bits count number of characters */
+  fast_counter = ((*pdev)->dh_attr & ATTR_FASTCON) << 3;
+
+  for (xfer = 0; xfer < n; xfer++)
+  {
+    int err;
+    unsigned char c = *bp++;
+
+    if (c == CTL_Z)
+      break;
+
+    err = cooked_write_char(pdev, c, &fast_counter);
+    if (err < 0)
+      return err;
+  }
+  return xfer;
 }
 
 /* writes character for disk file or device */
@@ -276,13 +285,13 @@ void write_char_stdout(int c)
 /* this is for handling things like ^C, mostly used in echoed input */
 STATIC int echo_char(int c, int sft_idx)
 {
+  int out = c;
   if (iscntrl(c) && c != HT && c != LF && c != CR)
   {
     write_char('^', sft_idx);
-    write_char(c + '@', sft_idx);
+    out += '@';
   }
-  else
-    write_char(c, sft_idx);
+  write_char(out, sft_idx);
   return c;
 }
 
@@ -300,28 +309,28 @@ STATIC void destr_bs(int sft_idx)
 
 /* READ FUNCTIONS */
 
-STATIC int raw_get_char(int sft_idx, BOOL check_break)
+STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break)
 {
-  unsigned char c;
-  int err;
-  
-  Do_DosIdle_loop(sft_idx);
+  Do_DosIdle_loop(pdev);
   if (check_break)
-    con_hold(sft_idx);
-  
-  err = (int)BinaryCharIO(idx_to_dev(sft_idx), 1, &c, C_INPUT);
-  return err < 0 ? err : c;
+  {
+    con_hold(pdev);
+    Do_DosIdle_loop(pdev);
+  }
+  return CharIO(pdev, 0, C_INPUT);
 }
 
-long cooked_read(int sft_idx, size_t n, char FAR *bp)
+long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
 {
   unsigned xfer = 0;
   int c;
   while(n--)
   {
-    c = raw_get_char(sft_idx, TRUE);
+    c = raw_get_char(pdev, TRUE);
     if (c < 0)
       return c;
+    if (c == 256)
+      break;
     *bp++ = c;
     xfer++;
     if (bp[-1] == CTL_Z)
@@ -333,10 +342,10 @@ long cooked_read(int sft_idx, size_t n, char FAR *bp)
 unsigned char read_char(int sft_idx, BOOL check_break)
 {
   unsigned char c;
-  sft FAR *s = idx_to_sft(sft_idx);
+  struct dhdr FAR *dev = sft_to_dev(idx_to_sft(sft_idx));
 
-  if ((FP_OFF(s) == (size_t) -1) || (s->sft_flags & SFT_FDEVICE))
-    return raw_get_char(sft_idx, check_break);
+  if (dev)
+    return (unsigned char)raw_get_char(&dev, check_break);
 
   DosRWSft(sft_idx, 1, &c, XFR_READ);
   return c;
@@ -350,18 +359,6 @@ STATIC unsigned char read_char_check_break(int sft_idx)
 unsigned char read_char_stdin(BOOL check_break)
 {
   return read_char(get_sft_idx(STDIN), check_break);
-}
-
-void KbdFlush(int sft_idx)
-{
-  struct dhdr FAR *dev = idx_to_dev(sft_idx);
-
-  do {
-    CharReqHdr.r_unit = 0;
-    CharReqHdr.r_status = 0;
-    CharReqHdr.r_command = C_IFLUSH;
-    CharReqHdr.r_length = sizeof(request);
-  } while (CharRequest(dev) == 1);
 }
 
 /* reads a line (buffered, called by int21/ah=0ah, 3fh) */

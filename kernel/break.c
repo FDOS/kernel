@@ -47,9 +47,14 @@ static BYTE *RcsId =
  *                                                                              1) flag at 40:71 bit 7
  *                                                                              2) STDIN stream via con_break()
  */
-int control_break(void)
+int check_handle_break(void)
 {
-  return (CB_FLG & CB_MSK) || con_break();
+  if (CB_FLG & CB_MSK) {
+    CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
+    handle_break(&syscon);
+  }
+  /* con_break will call handle_break() for CTL_C */
+  return con_break();
 }
 
 /*
@@ -61,13 +66,10 @@ int control_break(void)
  *                                                                              3) decrease the InDOS flag as the kernel drops back to user space
  *                                                                              4) invoke INT-23 and never come back
  */
-void handle_break(int sft_idx)
+void handle_break(struct dhdr FAR **pdev)
 {
-  if (CB_FLG & CB_MSK)          /* Ctrl-Break pressed */
-    CB_FLG &= ~CB_MSK;          /* reset the ^Break flag */
-  else                          /* Ctrl-C pressed */
-    echo_char_stdin(CTL_C);
-  KbdFlush(sft_idx);            /* Er, this is con_flush() */
+  echo_char_stdin(CTL_C);
+  con_flush(pdev);
   if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
     if (InDOS)
       --InDOS;                  /* fail-safe */

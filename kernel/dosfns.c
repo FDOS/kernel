@@ -230,10 +230,12 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   /* Do a device transfer if device                   */
   if (s->sft_flags & SFT_FDEVICE)
   {
+    struct dhdr FAR *dev = s->sft_dev;
+
     /* Now handle raw and cooked modes      */
     if (s->sft_flags & SFT_FBINARY)
     {
-      long rc = BinaryCharIO(s->sft_dev, n, bp,
+      long rc = BinaryCharIO(&dev, n, bp,
                              mode == XFR_READ ? C_INPUT : C_OUTPUT);
       if (mode == XFR_WRITE && rc > 0 && (s->sft_flags & SFT_FCONOUT))
       {
@@ -266,7 +268,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     if (mode==XFR_READ)
     {
       long rc;
-      
+
       /* Test for eof and exit                */
       /* immediately if it is                 */
       if (!(s->sft_flags & SFT_FEOF) || (s->sft_flags & SFT_FNUL))
@@ -275,21 +277,21 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
       if (s->sft_flags & SFT_FCONIN)
         rc = read_line_handle(sft_idx, n, bp);
       else
-        rc = cooked_read(sft_idx, n, bp);
+        rc = cooked_read(&dev, n, bp);
       if (*(char *)bp == CTL_Z)
         s->sft_flags &= ~SFT_FEOF;
       return rc;
     }
     else
     {
-      /* reset EOF state (set to no EOF)      */  
+      /* reset EOF state (set to no EOF)      */
       s->sft_flags |= SFT_FEOF;
 
       /* if null just report full transfer    */
       if (s->sft_flags & SFT_FNUL)
         return n;
       else
-        return cooked_write(sft_idx, n, bp);
+        return cooked_write(&dev, n, bp);
     }
   }
 
@@ -1399,13 +1401,13 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
 
     for (i = 0; i < FNAME_SIZE; i++)
     {
-      char c1 = froot[i];
+      unsigned char c1 = (unsigned char)froot[i];
       if (c1 == '.' || c1 == '\0')
       {
         /* check if remainder of device name consists of spaces or nulls */
         for (; i < FNAME_SIZE; i++)
         {
-          char c2 = dhp->dh_name[i];
+          unsigned char c2 = dhp->dh_name[i];
           if (c2 != ' ' && c2 != '\0')
             break;
         }

@@ -373,7 +373,6 @@ VOID ASMCFUNC int21_service(iregs FAR * r)
 
 #define FP_DS_DX (MK_FP(lr.DS, lr.DX))
 #define FP_ES_DI (MK_FP(lr.ES, lr.DI))
-                                                   
 
 #define CLEAR_CARRY_FLAG()  r->FLAGS &= ~FLG_CARRY
 #define SET_CARRY_FLAG()    r->FLAGS |= FLG_CARRY
@@ -407,23 +406,8 @@ dispatch:
 
 
   /* Check for Ctrl-Break */
-  switch (lr.AH)
-  {
-    default:
-      if (!break_ena)
-        break;
-    case 0x01:
-    case 0x02:
-    case 0x03:
-    case 0x04:
-    case 0x05:
-    case 0x08:
-    case 0x09:
-    case 0x0a:
-    case 0x0b:
-      if (control_break())
-        handle_break(-1);
-  }
+  if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))
+    check_handle_break;
 
   /* The dispatch handler                                         */
   switch (lr.AH)
@@ -436,13 +420,16 @@ dispatch:
 
       /* Read Keyboard with Echo                      */
     case 0x01:
+  DOS_01:
       lr.AL = read_char_stdin(TRUE);
       write_char_stdout(lr.AL);
       break;
 
       /* Display Character                                            */
     case 0x02:
-      write_char_stdout(lr.DL);
+  DOS_02:
+      lr.AL = lr.DL;
+      write_char_stdout(lr.AL);
       break;
 
       /* Auxiliary Input                                                      */
@@ -461,27 +448,28 @@ dispatch:
 
       /* Direct Console I/O                                            */
     case 0x06:
+  DOS_06:
       if (lr.DL != 0xff)
-        write_char_stdout(lr.DL);
-      else if (StdinBusy())
-      {
-        lr.AL = 0x00;
-        r->FLAGS |= FLG_ZERO;
-      }
-      else
-      {
-        r->FLAGS &= ~FLG_ZERO;
-        lr.AL = read_char_stdin(FALSE);
-      }
+        goto DOS_02;
+
+      lr.AL = 0x00;
+      r->FLAGS |= FLG_ZERO;
+      if (StdinBusy())
+        break;
+
+      r->FLAGS &= ~FLG_ZERO;
+      lr.AL = read_char_stdin(FALSE);
       break;
 
       /* Direct Console Input                                         */
     case 0x07:
+  DOS_07:
       lr.AL = read_char_stdin(FALSE);
       break;
 
       /* Read Keyboard Without Echo                                   */
     case 0x08:
+  DOS_08:
       lr.AL = read_char_stdin(TRUE);
       break;
 
@@ -501,35 +489,34 @@ dispatch:
 
       /* Buffered Keyboard Input                                      */
     case 0x0a:
+  DOS_0A:
       read_line(get_sft_idx(STDIN), get_sft_idx(STDOUT), FP_DS_DX);
       break;
 
       /* Check Stdin Status                                           */
     case 0x0b:
+      lr.AL = 0xFF;
       if (StdinBusy())
         lr.AL = 0x00;
-      else
-        lr.AL = 0xFF;
       break;
 
       /* Flush Buffer, Read Keyboard                                 */
     case 0x0c:
-      KbdFlush(get_sft_idx(STDIN));
+    {
+      struct dhdr FAR *dev = sft_to_dev(get_sft(STDIN));
+      if (dev)
+        con_flush(&dev);
       switch (lr.AL)
       {
-        case 0x01:
-        case 0x06:
-        case 0x07:
-        case 0x08:
-        case 0x0a:
-          lr.AH = lr.AL;
-          goto dispatch;
-
-        default:
-          lr.AL = 0x00;
-          break;
+      case 0x01: goto DOS_01;
+      case 0x06: goto DOS_06;
+      case 0x07: goto DOS_07;
+      case 0x08: goto DOS_08;
+      case 0x0a: goto DOS_0A;
       }
+      lr.AL = 0x00;
       break;
+    }
 
       /* Reset Drive                                                  */
     case 0x0d:
@@ -1819,45 +1806,43 @@ struct int2f12regs {
 
 extern short AllocateHMASpace (size_t lowbuffer, size_t highbuffer);
 
+/* WARNING: modifications in `r' are used outside of int2F_12_handler()
+ * On input r.ax==0x12xx, 0x4A01 or 0x4A02
+ */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 {
   UWORD function = r.ax & 0xff;
-  
-  /* dont use 
+
+  /* dont use
      QueryFreeHMASpace(&p);
      here; DS !=SS
   */
   if ((r.ax & 0xff00) == 0x4a00)
   {
-    size_t wantedBytes = r.bx; 
-    
-    r.bx = 0;               
-    r.es = FP_SEG(firstAvailableBuf);
-    r.di = FP_OFF(firstAvailableBuf);
+    size_t wantedBytes, offs;
+
+    if (function != 1 && function != 2)
+      return;
+
+    wantedBytes = r.bx;
+    r.es = r.di = 0xffff;
+    r.bx = 0;
     if (FP_SEG(firstAvailableBuf) != 0xffff)
-    {
       return;
-    }
-    
-    if (r.ax == 0x4a01)
-    {  
-      r.bx = 0 - FP_OFF(firstAvailableBuf);     
-      return;
-    }
-    
-    if (r.ax == 0x4a02)
+
+    offs = FP_OFF(firstAvailableBuf);
+    r.di = offs;
+
+    if (function == 0x02)
     {
-      if (wantedBytes > 0 - FP_OFF(firstAvailableBuf))
-      {
-        r.bx = 0;
-        return;  
-      }
+      if (wantedBytes > ~offs)
+        return;
       AllocateHMASpace(FP_OFF(firstAvailableBuf),
                        FP_OFF(firstAvailableBuf)+wantedBytes);
       firstAvailableBuf += wantedBytes;
-      
-      return;
+      r.bx = wantedBytes;
     }
+    return;
   }
 
   if (function > 0x31)

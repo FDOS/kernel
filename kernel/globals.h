@@ -429,6 +429,9 @@ VOID fputbyte(VOID FAR *, UBYTE);
 /*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 
 /* ^Break handling */
+#ifdef __WATCOMC__
+#pragma aux (cdecl) spawn_int23 aborts;
+#endif
 void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
