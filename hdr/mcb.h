@@ -36,8 +36,14 @@ static BYTE *mcb_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/08/06 04:27:07  jimtabor
+ * See history.txt
+ *
  * Revision 1.5  2000/08/06 04:18:21  jimtabor
  * See history.txt
+ *
+ * Revision 1.4  2000/06/21 18:16:46  jimtabor
+ * Add UMB code, patch, and code fixes
  *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
