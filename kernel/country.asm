@@ -92,7 +92,7 @@ __ua dw 12,380,848,0,0
 __me dw 12,785,864,0,0
      dd _me
 __il dw 12,972,862,0,0
-     dd _me
+     dd _il
 
 ; subfunction headers (so far only for subfunction 1, "CTYINFO")
 ; (count, size, id, offset)
@@ -173,7 +173,7 @@ _ua dw 1,6,1
 _me dw 1,6,1
  dd me
 _il dw 1,6,1
- dd me
+ dd il
 
 %define MDY 0 ; month/day/year
 %define DMY 1 ; day/month/year
