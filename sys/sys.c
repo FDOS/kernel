@@ -448,6 +448,7 @@ unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size);
       "mov ax, 0x7303"    \
       "push ds"           \
       "pop es"            \
+      "stc"		  \
       "int 0x21"          \
       "mov ax, 0"         \
       "adc ax, ax"        \
@@ -483,7 +484,7 @@ unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size)
   regs.x.cx = buf_size;
 
   int86x(0x21, &regs, &regs, &sregs);
-  return regs.x.cflag;
+  return regs.x.ax == 0x7300 || regs.x.cflag;
 }
 
 #endif
@@ -497,7 +498,8 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 #endif
   int fs;
   char drivename[] = "A:\\";
-  unsigned char x[0x40];
+  static unsigned char x[0x40]; /* we make this static to be 0 by default -
+				   this avoids FAT misdetections */
   unsigned total_clusters;
 
 #ifdef DEBUG
