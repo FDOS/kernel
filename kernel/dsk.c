@@ -413,8 +413,8 @@ STATIC WORD getbpb(ddt * pddt)
 
 /*TE ~ 200 bytes*/
 
-  fmemcpy(pbpbarray, &DiskTransferBuffer[BT_BPB], sizeof(bpb));
-  
+  memcpy(pbpbarray, &DiskTransferBuffer[BT_BPB], sizeof(bpb));
+
   /*?? */
   /*  2b is fat16 volume label. if memcmp, then offset 0x36.
      if (fstrncmp((BYTE *) & DiskTransferBuffer[0x36], "FAT16",5) == 0  ||
@@ -769,6 +769,7 @@ STATIC WORD blockio(rqptr rp, ddt * pddt)
 {
   ULONG start, size;
   WORD ret;
+  UWORD done;
 
   int action;
   bpb *pbpb;
@@ -804,7 +805,8 @@ STATIC WORD blockio(rqptr rp, ddt * pddt)
 
   ret = LBA_Transfer(pddt, action,
                      rp->r_trans,
-                     start, rp->r_count, (UWORD *) & rp->r_count);
+                     start, rp->r_count, &done);
+  rp->r_count = done;
 
   if (ret != 0)
   {
