@@ -259,9 +259,9 @@ STATIC void init_kernel(void)
   InitPrinters();
   InitSerialPorts();
 
+  init_PSPSet(DOS_PSP);
   set_DTA(MK_FP(DOS_PSP, 0x80));
   PSPInit();
-  init_PSPSet(DOS_PSP);
 
   Init_clk_driver();
 
