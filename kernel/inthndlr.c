@@ -1884,7 +1884,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       rc = DosClose(r.BX);
       goto short_check;
 
-#if 0
     case 0x28:                 /* move file pointer */
       /*
        * RBIL says: "sets user stack frame pointer to dummy buffer,
@@ -1895,6 +1894,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       CritErrCode = SUCCESS;
       if (r.BP < 0x4200 || r.BP > 0x4202)
         goto error_invalid;
+#if 0
       {
         sft FAR *s = get_sft(r.BX);
         if ((rc = _SftSeek(s, MK_ULONG(r.CX, r.DX), r.BP & 0xff)) >= SUCCESS)
@@ -1904,6 +1904,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         }
       }
       goto short_check;
+#else
+        goto error_invalid;
 #endif
 
     case 0x29:                 /* read from file */
