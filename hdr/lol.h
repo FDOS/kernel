@@ -26,6 +26,8 @@
 /* Boston, MA  02111-1307  USA.                                 */
 /****************************************************************/
 
+enum {LOC_CONV=0, LOC_HMA=1};
+
 /* note: we start at DOSDS:0, but the "official" list of lists starts a
    little later at DOSDS:26 (this is what is returned by int21/ah=52) */
 
@@ -60,7 +62,7 @@ struct lol {
   struct buffer far *lookahead;/* 4d pointer to lookahead buffer          */
   unsigned short slookahead;   /* 51 number of lookahead sectors          */
   unsigned char bufloc;        /* 53 BUFFERS loc (1=HMA)                  */
-  struct buffer far *deblock;  /* 54 pointer to workspace buffer          */
+  char far *deblock_buf;       /* 54 pointer to workspace buffer          */
   char filler2[5];             /* 58 ???/unused                           */
   unsigned char int24fail;     /* 5d int24 fail while making i/o stat call*/
   unsigned char memstrat;      /* 5e memory allocation strat during exec  */

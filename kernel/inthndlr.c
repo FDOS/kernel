@@ -89,6 +89,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
             irp->DL = break_ena;
             break_ena = tmp != 0;
           }
+          break;
 
           /* Get Boot Drive                                       */
         case 0x05:

@@ -226,20 +226,6 @@ BYTE HMAState = 0;
 #define HMA_DONE 2              /* Moved kernel to HMA */
 #define HMA_LOW 3               /* Definitely LOW */
 
-STATIC void FAR* ConfigAlloc(COUNT bytes, char type)
-{
-  VOID FAR *p;
-
-  p = HMAalloc(bytes);
-
-  if (p == NULL)
-    p = KernelAlloc(bytes, type, 0);
-
-  /* printf("ConfigAlloc %d at %p\n", bytes, p); */
-
-  return p;
-}
-
 /* Do first time initialization.  Store last so that we can reset it    */
 /* later.                                                               */
 void PreConfig(void)
@@ -1242,7 +1228,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
    */
 
   /* add \r\n to the command line */
-  strcat(szBuf, "\r\n");
+  strcat(szBuf, " \r\n");
 
   dhp = MK_FP(base, 0);
 
@@ -1639,9 +1625,23 @@ VOID config_init_buffers(COUNT anzBuffers)
   lpTop = lpOldTop;
 
   LoL->inforecptr = &LoL->firstbuf;
-  LoL->firstbuf = ConfigAlloc(sizeof(struct buffer) * anzBuffers, 'B');
+  
+  {
+    size_t bytes = sizeof(struct buffer) * anzBuffers;
+    pbuffer = HMAalloc(bytes);
 
-  pbuffer = LoL->firstbuf;
+    if (pbuffer == NULL)
+    {
+      pbuffer = KernelAlloc(bytes, 'B', 0);
+    }
+    else
+    {
+      LoL->bufloc = LOC_HMA;
+      LoL->deblock_buf = KernelAlloc(SEC_SIZE, 'B', 0);
+    }
+  }
+
+  LoL->firstbuf = pbuffer;
 
   DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
   DebugPrintf((" (%p)", LoL->firstbuf));

@@ -219,6 +219,7 @@ STATIC void init_kernel(void)
   set_DTA(MK_FP(DOS_PSP, 0x80));
   init_PSPSet(DOS_PSP);
   init_PSPInit(DOS_PSP);
+  ((psp far *)MK_FP(DOS_PSP, 0))->ps_environ = DOS_PSP + 8;
 
   Init_clk_driver();
 
@@ -531,7 +532,7 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
 /*
  *  Added needed Error handle
  */
-  if (rq.r_status & S_ERROR)
+  if ((rq.r_status & (S_ERROR | S_DONE)) == S_ERROR)
     return TRUE;
 
   if (cmdLine)

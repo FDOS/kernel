@@ -291,7 +291,7 @@ STATIC BOOL flush1(struct buffer FAR * bp)
 
   UWORD result;                 /* BER 9/4/00 */
 
-  if ((bp->b_flag & BFR_VALID) && (bp->b_flag & BFR_DIRTY))
+  if ((bp->b_flag & (BFR_VALID | BFR_DIRTY)) == (BFR_VALID | BFR_DIRTY))
   {
     /* BER 9/4/00  */
     result = dskxfer(bp->b_unit, bp->b_blkno, bp->b_buffer, 1, DSKWRITE);
@@ -405,7 +405,6 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
 
     IoReqHdr.r_status = 0;
     IoReqHdr.r_meddesc = dpbp->dpb_mdb;
-    IoReqHdr.r_trans = (BYTE FAR *) buf;
     IoReqHdr.r_count = numblocks;
     if (blkno >= MAXSHORT)
     {
@@ -414,8 +413,26 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
     }
     else
       IoReqHdr.r_start = blkno;
-    execrh((request FAR *) & IoReqHdr, dpbp->dpb_device);
-    if (!(IoReqHdr.r_status & S_ERROR) && (IoReqHdr.r_status & S_DONE))
+    /*
+     * Some drivers normalise transfer address so HMA transfers are disastrous!
+     * Then transfer block through xferbuf (DiskTransferBuffer doesn't work!)
+     * (But this won't work for multi-block HMA transfers... are there any?)
+     */
+    if (FP_SEG(buf) >= 0xa000 && numblocks == 1 && bufloc != LOC_CONV)
+    {
+      IoReqHdr.r_trans = deblock_buf;
+      if (mode == DSKWRITE)
+        fmemcpy(deblock_buf, buf, SEC_SIZE);
+      execrh((request FAR *) & IoReqHdr, dpbp->dpb_device);
+      if (mode == DSKREAD)
+        fmemcpy(buf, deblock_buf, SEC_SIZE);
+    }
+    else
+    {
+      IoReqHdr.r_trans = (BYTE FAR *) buf;
+      execrh((request FAR *) & IoReqHdr, dpbp->dpb_device);
+    }
+    if ((IoReqHdr.r_status & (S_ERROR | S_DONE)) == S_DONE)
       break;
 
     /* INT25/26 (_SEEMS_ TO) return immediately with 0x8002,

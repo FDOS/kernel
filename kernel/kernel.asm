@@ -318,8 +318,10 @@ _firstbuf       dd      0               ; 0047 disk buffer chain
                 dw      0               ; 004B Number of dirty buffers
                 dd      0               ; 004D pre-read buffer
                 dw      0               ; 0051 number of look-ahead buffers
-                db      0               ; 0053 00=conv 01=HMA
-deblock_buf     dd      0               ; 0054 deblock buffer
+		global	_bufloc
+_bufloc         db      0               ; 0053 00=conv 01=HMA
+		global	_deblock_buf
+_deblock_buf    dd      0               ; 0054 deblock buffer
                 times 3 db 0            ; 0058 unknown
                 dw      0               ; 005B unknown
                 db      0, 0FFh, 0      ; 005D unknown
