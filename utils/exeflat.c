@@ -241,7 +241,9 @@ int main(int argc, char **argv)
       2,                        /* SkipConfigSeconds           db 2  */
       0,                        /* ForceLBA                    db 0  */
       1,                        /* GlobalEnableLBAsupport      db 1  */
-      'u', 'n', 'u', 's', 'e', 'd',     /* unused filler bytes                              */
+      0,                        /* BootHarddiskSeconds               */
+      
+      'n', 'u', 's', 'e', 'd',     /* unused filler bytes                              */
       8, 7, 6, 5, 4, 3, 2, 1,
       /* real-entry: jump over the 'real' image do the trailer */
       0xe9, 0, 0                /* 100: jmp 103 */

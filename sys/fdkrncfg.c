@@ -182,6 +182,13 @@ void displayConfigSettings(KernelConfig * cfg)
          cfg->GlobalEnableLBAsupport);
   }
 
+  if (cfg->ConfigSize >= 6)
+  {
+    printf
+        ("BootHarddiskSeconds=%d :      *0=no else seconds to wait for key\n",
+         cfg->BootHarddiskSeconds);
+  }
+
 #if 0                           /* we assume that SYS is as current as the kernel */
 
   /* Print value any options added that are unknown as hex dump */
@@ -431,6 +438,11 @@ int FDKrnConfigMain(int argc, char **argv)
     {
       setByteOption(&(cfg.GlobalEnableLBAsupport),
                     cptr, 1, &updates, "GLOBALENABLELBASUPPORT");
+    }
+    else if (memicmp(argptr, "BootHarddiskSeconds", 3) == 0)
+    {
+      setSByteOption(&(cfg.BootHarddiskSeconds),
+                     cptr, 0, 127, &updates, "BootHarddiskSeconds");
     }
     else
     {

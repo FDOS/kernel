@@ -695,7 +695,7 @@ STATIC ULONG GetBiosTime(VOID)
   return *(ULONG FAR *) (MK_FP(0x40, 0x6c));
 }
 
-STATIC UWORD GetBiosKey(int timeout)
+UWORD GetBiosKey(int timeout)
 {
   iregs r;
 
@@ -2421,3 +2421,4 @@ VOID DoInstall(void)
   InstallPrintf(("Done with installing commands\n"));
   return;
 }
+

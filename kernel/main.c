@@ -74,7 +74,7 @@ static BYTE *mainRcsId =
     "$Id$";
 #endif
 
-struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0 };
+struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0, 0 };
 
 extern WORD days[2][13];
 extern BYTE FAR *lpOldTop;
@@ -90,6 +90,7 @@ STATIC VOID signon(VOID);
 STATIC VOID kernel(VOID);
 STATIC VOID FsConfig(VOID);
 STATIC VOID InitPrinters(VOID);
+void CheckContinueBootFromHarddisk();
 
 extern void Init_clk_driver(void);
 
@@ -132,6 +133,8 @@ void fmemcpy(void far *dest, const void far *src, unsigned n)
   while(n--) *d++ = *s++;
 }
 
+void CheckContinueBootFromHarddisk(void);
+
 VOID ASMCFUNC FreeDOSmain(void)
 {
 #ifdef _MSC_VER
@@ -164,10 +167,19 @@ VOID ASMCFUNC FreeDOSmain(void)
     fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
   }
   
+  
+  
+
+  
   setvec(0, int0_handler);      /* zero divide */
   setvec(1, empty_handler);     /* single step */
   setvec(3, empty_handler);     /* debug breakpoint */
   setvec(6, int6_handler);      /* invalid opcode */
+
+
+  CheckContinueBootFromHarddisk();
+
+
 
   /* clear the Init BSS area (what normally the RTL does */
   memset(_ib_start, 0, _ib_end - _ib_start);
@@ -630,3 +642,90 @@ STATIC VOID InitPrinters(VOID)
   }
 }
 
+/*****************************************************************
+	if kernel.config.BootHarddiskSeconds is set,
+	the default is to boot from harddisk, because
+	the user is assumed to just have forgotten to
+	remove the floppy/bootable CD from the drive.
+	
+	user has some seconds to hit ANY key to continue
+	to boot from floppy/cd, else the system is 
+	booted from HD
+*/
+
+extern UWORD GetBiosKey(int timeout);
+
+EmulatedDriveStatus(int drive,char statusOnly)
+{
+  iregs r;
+  char buffer[13];
+  buffer[0] = 0x13;
+
+  r.a.b.h = 0x4b;               /* bootable CDROM - get status */
+  r.a.b.l = statusOnly;
+  r.d.b.l = (char)drive;          
+  r.si  = (int)buffer;
+  init_call_intr(0x13, &r);     
+  
+  if (r.flags & 1)
+  	return FALSE;
+  
+  return TRUE;	
+}
+
+void CheckContinueBootFromHarddisk(void)
+{
+  char *bootedFrom = "CD";
+  iregs r;
+
+  if (InitKernelConfig.BootHarddiskSeconds == 0)
+    return;
+
+  if (BootDrive >= 3)
+  {
+    if (!EmulatedDriveStatus(0x80,1))
+    {
+      /* already booted from HD */
+      return;
+    }
+  }
+  else {
+    if (!EmulatedDriveStatus(0x00,1))
+      bootedFrom = "Floppy";
+  }
+
+  printf("\n"
+         "\n"
+         "\n"
+         "     Hit any key within %d seconds to continue booot from %s\n"
+         "     else continue to boot from Harddisk\n",
+         InitKernelConfig.BootHarddiskSeconds,
+         bootedFrom
+    );
+
+  if (GetBiosKey(InitKernelConfig.BootHarddiskSeconds) != -1)
+  {
+    /* user has hit a key, continue to boot from floppy/CD */
+    printf("\n");
+    return;
+  }
+
+  /* reboot from harddisk */
+  EmulatedDriveStatus(0x00,0);
+  EmulatedDriveStatus(0x80,0);
+
+  /* now jump and run */
+  r.a.x = 0x0201;
+  r.c.x = 0x0001;
+  r.d.x = 0x0080;
+  r.b.x = 0x7c00;
+  r.es  = 0;
+
+  init_call_intr(0x13, &r);
+
+  {
+    void (far *reboot)() = (void (far*)()) MK_FP(0x0,0x7c00);
+
+    (*reboot)();
+  }
+}

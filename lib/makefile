@@ -11,7 +11,7 @@
 libm.lib:	$(CLIB)
 	-$(RM) libm.lib
 	$(LIBUTIL) $(CLIB) $(MATH_EXTRACT) $(LIBTERM)
-	for %i in (*.obj) do ..\utils\patchobj CODE=LCODE TEXT=_LOWTEXT %i
+	for %i in (*.obj) do ..\utils\patchobj CODE=LCODE %i
 	$(LIBUTIL) libm $(MATH_INSERT)     $(LIBTERM)
 	-$(RM) *.OBJ
 

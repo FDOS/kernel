@@ -1,4 +1,32 @@
-2002 Mar 14 - Build 2029
+2003 Jun xx - Build 2030
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+if user left accidentally floppy or CD in drive,
+give him a chance to continue to boot from HD.
+disabled by default, enablable by SYS CONFIG
+
++ Changes Bart
+    * flip some slashes in drivers/*.asm 
+      (enables cross-assembly on Linux)
+    * remove superfluous printf("\n") in patchobj.c
+    * combine the INIT class with the CODE class (classes can span
+      multiple physical segments)
+    * re-add _TEXT to LGROUP to be able to simplify the patchobj magic
+    * don't specify -zPI_GROUP for the init code in Borland compilers
+      (unnecessary, it will be put there because of segs.inc)
+    * remove STDPATCH; it is no longer necessary
+    * add FILESHIGH, LASTDRIVEHIGH, and STACKSHIGH and DOSDATA=UMB
+      to load these structures into UMBs
+    * make DOS sub-MCBs visible (seen by MEM)
+    * preliminary allocation of FILES etc. now takes place at the
+      top of conventional memory, and device drivers are loaded before
+      the final allocation takes place.
+    * handle multiple UMBs more correctly (but config.sys can use
+      only one UMB for devicehigh -- /Ln,xxxx is not yet implemented)
+    * minor size optimizations in chario.c, dosfns.c;
+      asmsupt.asm: correct fmemchr (all n's) and *memset/*memcpy (n==0)
+    185 relocs, 54 not shown
+2003 Mar 14 - Build 2029
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
     * fattab.c, fat.h removed the wrong ELSE_ISFAT32()
