@@ -109,6 +109,8 @@ struct config {
   /* where the loaded data is for PostConfig() */
   UBYTE cfgP_0_startmode;
   /* load command.com high or not */
+  unsigned ebda2move;
+  /* value for switches=/E:nnnn */
 };
 
 extern struct config Config;
@@ -139,7 +141,9 @@ int MoveKernelToHMA(void);
 VOID FAR * HMAalloc(COUNT bytesToAllocate);
 
 /* initoem.c */
-UWORD init_oem(void);
+unsigned init_oem(void);
+void movebda(int bytes, unsigned new_seg);
+unsigned ebdasize(void);
 
 /* intr.asm */
 

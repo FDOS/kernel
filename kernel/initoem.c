@@ -35,20 +35,38 @@ static BYTE *RcsId =
     "$Id$";
 #endif
 
-UWORD init_oem(void)
-{
-  UWORD top_k = 0;
+#define EBDASEG 0x40e
+#define RAMSIZE 0x413
 
-#ifdef __TURBOC__
-  __int__(0x12);
-  top_k = _AX;
-#elif defined(I86)
-  asm
-  {
-    int 0x12;
-    mov top_k, ax;
-  }
-#endif
-  return top_k;
+unsigned init_oem(void)
+{
+  iregs r;
+  init_call_intr(0x12, &r);
+  return r.a.x;
 }
 
+void movebda(size_t bytes, unsigned new_seg)
+{
+  unsigned old_seg = peek(0, EBDASEG);
+  fmemcpy(MK_FP(new_seg, 0), MK_FP(old_seg, 0), bytes);
+  poke(0, EBDASEG, new_seg);
+  poke(0, RAMSIZE, ram_top);
+}
+
+unsigned ebdasize(void)
+{
+  unsigned ebdaseg = peek(0, EBDASEG);
+  unsigned ramsize = ram_top;
+
+  if (ramsize * 64 == ebdaseg && ramsize < 640 && peek(0, RAMSIZE) == ramsize)
+  {
+    unsigned ebdasz = peekb(ebdaseg, 0);
+
+    /* sanity check: is there really no more than 63 KB?
+     * must be at 640k (all other values never seen and are untested)
+     */
+    if (ebdasz <= 63 && ramsize + ebdasz == 640)
+      return ebdasz * 1024U;
+  }
+  return 0;
+}

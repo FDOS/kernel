@@ -70,11 +70,12 @@ struct config Config = {
       , 0                       /* amount required memory */
       , 0                       /* pointer to loaded data */
       , 0                       /* strategy for command.com is low by default */
+      , 0xFFFF                  /* default value for switches=/E:nnnn */
 };
                         /* MSC places uninitialized data into COMDEF records,
-                           that end up in DATA segment. this can't be tolerated 
+                           that end up in DATA segment. this can't be tolerated
                            in INIT code.
-                           please make sure, that ALL data in INIT is initialized !! 
+                           please make sure, that ALL data in INIT is initialized !!
                          */
 STATIC seg base_seg = 0;
 STATIC seg umb_base_seg = 0;
@@ -285,7 +286,8 @@ void PreConfig(void)
 void PreConfig2(void)
 {
   struct sfttbl FAR *sp;
-        
+  unsigned ebda_size;
+
   /* initialize NEAR allocated things */
 
   /* Initialize the file table                                    */
@@ -297,7 +299,7 @@ void PreConfig2(void)
 
   /* Initialize the base memory pointers from last time.          */
   /*
-     if the kernel could be moved to HMA, everything behind the dynamic 
+     if the kernel could be moved to HMA, everything behind the dynamic
      near data is free.
      otherwise, the kernel is moved down - behind the dynamic allocated data,
      and allocation starts after the kernel.
@@ -305,15 +307,24 @@ void PreConfig2(void)
 
   base_seg = LoL->first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
 
+  ebda_size = ebdasize();
+  if (ebda_size > Config.ebda2move)
+    ebda_size = Config.ebda2move;
+  ram_top += ebda_size / 1024;
+
   /* We expect ram_top as Kbytes, so convert to paragraphs */
   mcb_init(base_seg, ram_top * 64 - LoL->first_mcb - 1, MCB_LAST);
-  if (UmbState == 2)
-    umb_init();    
 
   sp = LoL->sfthead;
   sp = sp->sftt_next = KernelAlloc(sizeof(sftheader) + 3 * sizeof(sft), 'F', 0);
   sp->sftt_next = (sfttbl FAR *) - 1;
   sp->sftt_count = 3;
+
+  if (ebda_size)  /* move the Extended BIOS Data Area from top of RAM here */
+    movebda(ebda_size, FP_SEG(KernelAlloc(ebda_size, 'I', 0)));
+
+  if (UmbState == 2)
+    umb_init();
 }
 
 /* Do third pass initialization.                                        */
@@ -991,6 +1002,28 @@ STATIC VOID CfgSwitches(BYTE * pLine)
       case 'F':
         InitKernelConfig.SkipConfigSeconds = 0;
         break;
+      case 'E': /* /E[[:]nnnn]  Set the desired EBDA amount to move in bytes */
+        {       /* Note that if there is no EBDA, this will have no effect */
+          char *p;
+          int n = 0;
+          if (*++pLine == ':')
+            pLine++;                    /* skip optional separator */
+          if ((p = GetNumArg(pLine, &n)) == 0) {
+            Config.ebda2move = 0;
+            break;
+          }
+          pLine = p - 1;              /* p points past number */
+          /* allowed values: [0..1024] bytes, multiples of 16
+           * e.g. AwardBIOS: 48, AMIBIOS: 1024
+           * (Phoenix, MRBIOS, Unicore = ????)
+           */
+          if (n >= 48 && n <= 1024)
+          {
+            Config.ebda2move = (n + 15) & 0xfff0;
+            break;
+          }
+          /* else fall through (failure) */
+        }
       default:
         CfgFailure(pLine);
       }
@@ -998,7 +1031,7 @@ STATIC VOID CfgSwitches(BYTE * pLine)
       CfgFailure(pLine);
     }
     pLine = skipwh(pLine+1);
-  }               
+  }
   commands[0].pass = 1;
 }
 
@@ -1349,7 +1382,6 @@ void FAR * KernelAlloc(size_t nBytes, char type, int mode)
     /* prealloc */
     lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop));
     return AlignParagraph(lpTop);
-    
   }
   else
   {
