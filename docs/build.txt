@@ -12,10 +12,11 @@ kernel come out, you can extract them over your previous source, and
 not have to worry about resetting up your configuration because your
 CONFIG.BAT file will not get replaced!
 
-You will also need to download the latest version of NASM and Turbo C
-2.01.  Install Turbo C and NASM somewhere (it doesn't really matter
-where) and then be sure to edit the CONFIG.BAT file to reflect where
-you put the tools.
+The recommended compiler and assembler at the time of writing (2004/01/31)
+are OpenWatcom 1.2 and NASM 0.98.38.
+
+You may need to download the latest version of NASM and a C compiler
+Be sure to edit the CONFIG.BAT file to reflect where you put the tools.
 
 You can find NASM at http://nasm.sourceforge.net. Version 0.98.36 or
 later is strongly recommended. The older 0.98 will also work fine, but
@@ -35,14 +36,16 @@ other Borland compilers, Microsoft C and (Open)Watcom C.
 The OpenWatcom 1.0 compiler (or later) for DOS can now be downloaded at
 www.openwatcom.org: you need at least the following zips from
 ftp://ftp.openwatcom.org/watcom/zips/
+(see ftp://ftp.openwatcom.org/watcom/zips/layout.txt)
 
 cm_core_all     - Core binaries (All hosts)
+cm_core_dos     - Core binaries (DOS host)
+cm_core_doswin  - Core binaries (DOS & Win hosts)
 cm_clib_hdr     - C runtime library header files
 cm_clib_a16     - C runtime libraries (16-bit all targets)
-clib_a16        - C runtime libraries (16-bit all targets)
 cm_clib_d16     - C runtime libraries (16-bit DOS)
+clib_a16        - C runtime libraries (16-bit all targets)
 clib_d16        - C runtime libraries (16-bit DOS)
-cm_core_dos     - Core binaries (DOS host)
 core_doswin     - Core binaries (DOS & Win16 hosts)
 c_doswin        - C compiler (DOS & Win16 hosts)
 ext_dos4gw      - DOS/4GW DOS extender

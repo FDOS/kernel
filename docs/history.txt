@@ -1,3 +1,98 @@
+2004 Jan 31 - Build 2033
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * config.c: allow "0" in full-screen config menus and plug a
+      few potential related overflows.
+    * sys.c: correct sectors/track, head and hidden sector values
+      if the boot sector disagrees with the default bpb (unless the
+      default bpb says that the number of hidden sectors is zero (usual
+      for floppies)).
+    * config.c, main.c: Only put PATH= in the environment if
+      it's still empty just before executing the shell. This repairs
+      SET PATH=.... in config.sys without confusing anyone.
+    * fatdir.c, fatfs.c: Fixed bug #1722: dir_close() was
+      called for normal files (via map_cluster and find_fat_free). This
+      completely messed up rwblock. Removed these calls (for
+      directories they are already covered at a higher level) and added
+      a few sanity checks to dir_close and dir_write.
+    * chario.c, inthndlr.c: Expand tabs for int21/ah=2,9 even
+      in raw device modes and if stdout is redirected. This solves bug
+      1737 (grep2msg problem)
+    * ioctl.c: Adapted from Chris Rodie's patch for bugzilla
+      #1730: do a device input status request for int21/ax=4406 for
+      devices (not for files). Save ~100 bytes by replacing
+      s->sft_flags with flags, s->sft_dev->dh_attr with attr and
+      simplifying the if() statement a bit
+    * hdr/sft.h, dosfns.c: Adapted from Chris Rodie's patch
+      (bugzilla #1729): "open" and "close" should call the open/close
+      functions for devices using a device request when appropriate.
+    * hdr/fat.h, fatdir.c, fatfs.c, fattab.c, prf.c, proto.h: 
+      + FAT32 kernels should ignore the upper word of the cluster
+        number for FAT16 partitions (just like FAT16 kernels do)
+      + added extra checks to make sure that invalid FAT entries are
+        never followed 
+      +	print a message in case of FAT corruption
+      + some small optimizations and header cleanups (some suggested by
+        Arkady)
+    * config.c: Make strupr code unambiguous
+    * filelist, sys/makefile, sys/sys.c, sys/talloc.c: ~1K size
+      reduction for sys.com by using Tom's talloc.c malloc/free
+      functions and using our own filelength for watcomc.
+    * initdisk.c: Better (for FAT32) and simpler FAT default
+      value calculations.  Also use 16-bit instead of 32-bit quantities
+      where possible to save code size. Use a FAT32 table so that FATs
+      won't be too big for drives <= 64 GB
+    * dosfns.c: Do not clobber the DTA if findfirst or findnext fails.
+      Fixes bug #1712
+    * fatfs.c: Rename blockio by rqblockio (namespace conflict with dsk.c)
+    * inthndlr.c: FAT32 kernels should fail int21/ah=71 with
+      al=0, carry set.
+    * hdr/portab.h, nls.c: (as reported by Tom) Fix nls upcase problem
+      with SS!=DS.
+    * fatfs.c: Move permission check to better place (only for
+      necessary for opening existing files), not for creating them --
+      suggested by Steffen. Force r/o open for FCB and legacy creat
+      if the file is read-only
+    * fatfs.c: Move common code in media_check() to a new
+      blockio() function.
+    * fcbfns.c, globals.h, inthndlr.c: Change FcbReadWrite to
+      handle multiple records at once; this allows for the optimization
+      of FcbRandomBlockIO.
+    * fcbfns.c: Divide optimisation (ceiling) + some small cleanups
+    * fcbfns.c, globals.h, kernel.asm: Rename the global lpFcb
+      variable to sda_lpFcb. Then use local lpFcb variables where
+      necessary. This clears up the confusing shadowing.
+    * fcbfns.c, inthndlr.c, proto.h: Fix FCB problems with
+      int21/ah=27,28 (RandomBlockIO)
+    * boot32.asm: jmp -> jmp short (necessary for nasm 0.98)
+    * dosfns.c, inthndlr.c, proto.h: Implement support for
+      int2f/ax=1220.  Fix int2f/ax=1216 (needs sft handles, not psp
+      handles, and to return the relative handle in BX, and to deal
+      with carry)
+    * boot.asm: Fix problem with FAT12
++ Changes Eric Luttmann <ecl@users.sourceforge.net>:
+    * main.c: Fix for multisegmented device drivers: If there are multiple
+      device drivers in a single driver file, only the END ADDRESS
+      returned by the last INIT call should be the used.  It is
+      recommended that all the device drivers in the file return the
+      same address.  This fixes a load problem with DUSE.
+    * config.c, init-mod.h, main.c: fix for multi-segment device
+      drivers; preserve rq_endaddr between init calls for the same driver.
++ Changes Lucho:
+    * inthndlr.c: Remove AL=0 check for AH=6c (from Arkady) Optimize DL check.
+    * main.c, serial.asm: (with some help from Tom):
+      initialize serial ports and retry serial reads on timeout.
+    * sys.c, boot.asm, boot32.asm, boot32lb.asm:
+      SYS 3.0 changes: added /L parameter to SYS to be able to change
+      the kernel boot segment + a few boot sector changes to get the 
+      pointer at the same magic place for all boot sectors.
+    * makefile: clean up *.lnk files for "clean" and "clobber".
+    * dsk.c: the DJ mechanism needs to affect MEM 0050h:0004h - MS-DOS
+      LOGICAL DRIVE FOR SINGLE-FLOPPY SYSTEM (A: / B:) Size:BYTE
+    * int2f.asm, generic.mak: basic implementation of INT 2F/ax=4a33 -
+      CHECK MS-DOS VERSION 7; necessary for SpinRite (Steve Gibson)
+    * inthndlr.c: implement int2f/ax=1211 NORMALIZE ASCIZ FILENAME
+    * config.c, init-mod.h, main.c: Added SET support to config.sys
 2003 Sep 24 - Build 2032a
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Bart
