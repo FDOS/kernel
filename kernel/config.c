@@ -148,7 +148,7 @@ struct config Config = {
       , 0                       /* amount required memory */
       , 0                       /* pointer to loaded data */
       , 0                       /* strategy for command.com is low by default */
-      , 0xFFFF                  /* default value for switches=/E:nnnn */
+      , 0                       /* default value for switches=/E:nnnn */
 };
 
 STATIC seg base_seg BSS_INIT(0);
@@ -1115,7 +1115,6 @@ STATIC VOID CfgSwitches(BYTE * pLine)
           if (!isnum(*pLine))
           {
             pLine--;
-            Config.ebda2move = 0;
             break;
           }
           pLine = GetNumArg(pLine, &n) - 1;
@@ -1123,7 +1122,12 @@ STATIC VOID CfgSwitches(BYTE * pLine)
            * e.g. AwardBIOS: 48, AMIBIOS: 1024
            * (Phoenix, MRBIOS, Unicore = ????)
            */
-          if (n >= 48 && n <= 1024)
+          if (n == -1)
+          {
+            Config.ebda2move = 0xffff;
+            break;
+          }
+          else if (n >= 48 && n <= 1024)
           {
             Config.ebda2move = (n + 15) & 0xfff0;
             break;
