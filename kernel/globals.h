@@ -335,8 +335,8 @@ extern BYTE ASM TempBuffer[],       /* Temporary general purpose buffer     */
   FAR ASM swap_indos[],             /*  "    "                              */
   ASM tsr,                          /* true if program is TSR               */
   ASM break_flg,                    /* true if break was detected           */
-  ASM break_ena,                    /* break enabled flag                   */
-  FAR * ASM dta;                    /* Disk transfer area (kludge)          */
+  ASM break_ena;                    /* break enabled flag                   */
+extern BYTE FAR * ASM dta;          /* Disk transfer area (kludge)          */
 extern seg ASM cu_psp;              /* current psp segment                  */
 extern iregs FAR * ASM user_r;      /* User registers for int 21h call      */
 
@@ -380,10 +380,6 @@ GLOBAL WORD dump_regs;          /* dump registers of bad call           */
 GLOBAL f_node_ptr f_nodes;      /* pointer to the array                 */
 
 GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
-
-/*!! GLOBAL iregs
-      FAR * ustackp,                /* user stack                           */
-/*!!  FAR * kstackp; *//* kernel stack                         */
 
 /*                                                                      */
 /* Function prototypes - automatically generated                        */

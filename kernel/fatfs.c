@@ -1626,7 +1626,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
     fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset & (secsize - 1);
+    fnp->f_boff = fnp->f_offset % secsize;
 
     currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
 
@@ -1780,7 +1780,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
     fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset & (secsize - 1);
+    fnp->f_boff = fnp->f_offset % secsize;
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
@@ -1966,7 +1966,7 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
     fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = fnp->f_offset & (secsize - 1);
+    fnp->f_boff = fnp->f_offset % secsize;
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
@@ -2253,6 +2253,10 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
   ULONG size;
   REG UWORD shftcnt;
 
+  for (shftcnt = 0; (bpbp->bpb_nsector >> shftcnt) > 1; shftcnt++)
+    ;
+  dpbp->dpb_shftcnt = shftcnt;
+
   dpbp->dpb_mdb = bpbp->bpb_mdesc;
   dpbp->dpb_secsize = bpbp->bpb_nbyte;
   dpbp->dpb_clsmask = bpbp->bpb_nsector - 1;
@@ -2261,14 +2265,11 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
   dpbp->dpb_dirents = bpbp->bpb_ndirent;
   size = bpbp->bpb_nsize == 0 ? bpbp->bpb_huge : (ULONG) bpbp->bpb_nsize;
   dpbp->dpb_fatsize = bpbp->bpb_nfsect;
-  dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
-      + dpbp->dpb_fats * dpbp->dpb_fatsize;
+  dpbp->dpb_dirstrt = dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_fatsize;
   dpbp->dpb_data = dpbp->dpb_dirstrt
-      + ((DIRENT_SIZE * (ULONG) dpbp->dpb_dirents
-          + (dpbp->dpb_secsize - 1)) / dpbp->dpb_secsize);
-/* Michal Meller <maceman@priv4,onet.pl> patch to jimtabor */
-  dpbp->dpb_size = ((size - dpbp->dpb_data)
-                    / ((ULONG) bpbp->bpb_nsector) + 1);
+      + (dpbp->dpb_dirents + dpbp->dpb_secsize/DIRENT_SIZE - 1) /
+          (dpbp->dpb_secsize/DIRENT_SIZE);
+  dpbp->dpb_size = ((size - dpbp->dpb_data) >> shftcnt) + 1;
   dpbp->dpb_flags = 0;
   dpbp->dpb_cluster = UNKNCLUSTER;
   /* number of free clusters */
@@ -2299,17 +2300,12 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
       dpbp->dpb_size = 0;
       dpbp->dpb_xdata =
           dpbp->dpb_fatstrt + dpbp->dpb_fats * dpbp->dpb_xfatsize;
-      dpbp->dpb_xsize =
-          ((size - dpbp->dpb_xdata) / ((ULONG) bpbp->bpb_nsector) + 1);
+      dpbp->dpb_xsize = ((size - dpbp->dpb_xdata) >> shftcnt) + 1;
       dpbp->dpb_xrootclst = bpbp->bpb_xrootclst;
       read_fsinfo(dpbp);
     }
   }
 #endif
-
-  for (shftcnt = 0; (bpbp->bpb_nsector >> shftcnt) > 1; shftcnt++)
-    ;
-  dpbp->dpb_shftcnt = shftcnt;
 }
 
 COUNT media_check(REG struct dpb FAR * dpbp)

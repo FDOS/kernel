@@ -1,7 +1,7 @@
 2002 Feb xx - Build 2026test
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
-    * FCB clean-ups and fixes
+    * FCB clean-ups and fixes (CYRUS CHESS, bug #1014)
     * initial config.sys menus (see config.txt)
     * execrh
     * make kernel UPX-able
@@ -24,14 +24,19 @@
     * implement lock/unlock for remote drives
     * implement commit file (int21/ah=68,6a)
     * implement ioctl get/set logical drive map (int21/ax=440E--F)
-    * implement get drive data table (int2f/ax=0803)
-    * fix "get SDA" (int21/ax=5d06)
+    * implement get address of drive data table (int2f/ax=0803)
+    * fix "get address of SDA" (int21/ax=5d06)
     * do not use CHS if the root extended partition of the relevant
-      logical partition is labelled LBA
+      logical partition is labelled LBA (bug #1011)
+    * hopefully avoid format problem (bug #1030) by not setting drive
+      to "non-accessible" while reading the bpb.
     * boot sector fixes:
       enable booting beyond cylinder x where x * number of heads >= 65536.
       still uses CHS to boot (not able to boot beyond cylinder 1023)
-      recognize FF8-FFF as FAT12 ending (was only FFF)
+      recognize FF8-FFF as FAT12 ending (was only FFF) (bug #1021)
+    * avoid using LIB when linking the kernel by echo-ing to a linker
+      resource file. Use a batch file to bypass Borlands Make 2.0
+      unwillingness to redirect stdout.	
 2001 Nov 18 - Build 2025c
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Bart

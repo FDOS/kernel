@@ -111,7 +111,7 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
                  BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
         WritePCClock(Ticks);
       }
-      rp->r_endaddr = device_end();
+      /* rp->r_endaddr = device_end(); not needed - bart */
       rp->r_nunits = 0;
       return S_DONE;
 

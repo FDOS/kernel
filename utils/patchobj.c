@@ -55,8 +55,6 @@ void define_replace(char *sin)
 int main(int argc, char *argv[])
 {
   char *argptr;
-  int argloop;
-  int cont;
   FILE *fd, *fdo;
   char *inname = 0, *outname = "~patchob.tmp";
 

@@ -21,8 +21,8 @@ LIBUTIL=$(COMPILERBIN)\wlib
 LIBPLUS=
 LIBTERM=
 
-CFLAGST=-zp=1 -mt
-CFLAGSC=-zp=1 -mc
+CFLAGST=-zp=1 -mt -os -s -we -e=3 -w=2
+CFLAGSC=-zp=1 -mc -os -s -we -e=3 -w=2
 
 TARGET=KWC
 
@@ -30,13 +30,6 @@ TARGET=KWC
 
 CLIB=$(COMPILERPATH)\lib286\dos\clibm.lib
 
-#
-#MATH_EXTRACT=*i4d *i4m
-#MATH_INSERT= +i4d +i4m
-#
-# these are NOT usable, as they are called NEAR, and are in TEXT segment.
-# so we can't use them, when moving the kernel. called ~15 times
-# 
 # we use our own ones, which override these ones when linking.
 #  
 

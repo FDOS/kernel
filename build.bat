@@ -64,17 +64,13 @@ if \%COMPILER%      == \ goto end
 @if \%COMPILER% == \TURBOCPP set XLINK=%TP1_BASE%\bin\tlink /m/c
 @if \%COMPILER% == \TC3 set XLINK=%TC3_BASE%\bin\tlink /m/c
 @if \%COMPILER% == \BC5 set XLINK=%BC5_BASE%\bin\tlink /m/c
-@if \%COMPILER% == \WATCOM goto watcom_problem
+@if \%COMPILER% == \WATCOM set XLINK=..\utils\wlinker /ma/nologo
 @if \%COMPILER% == \MSCL8 set XLINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
 goto link_set
 
-:watcom_problem
-@echo you MUST set XLINK for Watcom in config.bat as WLINK is not suitable
-goto end
-
 :link_set   
 
-echo linker ist %XLINK%
+echo linker is %XLINK%
 
 @if not "%XUPX%" == "" goto upx_set
 @set XUPX=@rem
@@ -150,6 +146,8 @@ set XERROR=1
 @set MS_BASE=
 @set XNASM=
 @set XERROR=
+@set XUPX=
+@set UPXOPT=
 
 :-  Log: build.bat,v 
 :- 

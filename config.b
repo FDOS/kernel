@@ -38,8 +38,7 @@ set COMPILER=TC2
 :- set COMPILER=BC5
 :- Microsoft C
 :- set COMPILER=MSCL8
-
-:- warning: watcom can compile but the result does not work yet.
+:- Watcom C
 :- set COMPILER=WATCOM
 
 :-**********************************************************************
@@ -63,26 +62,23 @@ set TC2_BASE=c:\tc201
 :- where is UPX and which options to use?
 :-**********************************************************************
 set XUPX=upx --8086
-:- or use set XUPX= 
+:- or use set XUPX=
 :- if you don't want to use it
 
 :-**********************************************************************
 :- (optionally) which linker to use:
 :- (otherwise will be determined automatically)
-:- WATCOM wlink is not (yet) suitable for linking
-:- (the map file and syntax are not compatible)
-:- Turbo C 2.01 TLINK 2.0 can't link WATCOM (but can link TC2) 
-:- Turbo C++ 1.01 and higher TLINK 3.01+ are ok
-:- or get TLINK 4 (creates nice map file) from simtel at
-:- ftp://ftp.simtel.net/pub/simtelnet/msdos/borland/tlink4.zip 
 :-
 :- WARNING TLINK needs to be in your PATH!
 :-**********************************************************************
 
 :- Turbo Link
-:- set XLINK=%TC2_BASE%\tlink /m/c
+:- set XLINK=tlink /m/c/s/l
 :- Microsoft Link
+:- set XLINK=d:\qb\link /ma
 :- set XLINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
+:- WATCOM Link (wlinker is a batch file calling ms2wlink and wlink)
+:- set XLINK=..\utils\wlinker /ma /nologo
 
 :- set path for Turbo Link - use OLDPATH to restore normal path
 :- set OLDPATH=%PATH%

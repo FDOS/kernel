@@ -20,10 +20,13 @@ char PROGRAM[] = "SYS CONFIG";
 char KERNEL[] = "KERNEL.SYS";
 
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 #include <io.h>
 #include <fcntl.h>
+
+#include "portab.h"
+extern WORD CDECL printf(CONST BYTE * fmt, ...);
+extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 #define FAR far
 #include "kconfig.h"
@@ -85,10 +88,6 @@ void showUsage(void)
 */
 int readConfigSettings(int kfile, char *kfilename, KernelConfig * cfg)
 {
-  int ch;
-  int configBlkFound;
-  word cfgSize;
-
   /* Seek to start of kernel file */
   if (lseek(kfile, 2, SEEK_SET) != 2)
     printf("can't seek to offset 2\n"), exit(1);

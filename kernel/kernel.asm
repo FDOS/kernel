@@ -603,7 +603,6 @@ _VirtOpen       db      0               ;782 - virtual open flag
 
                 ; controlled variables end at offset 78Ch so pad to end
                 times (78ch - ($ - _internal_data)) db 0
-_swap_indos:
 
 ;
 ; end of controlled variables
@@ -643,7 +642,7 @@ init_tos:
 __init_end:
 init_end:        
 
-segment	_BSSEND
+segment	_DATA
 ; blockdev private stack
                 global  blk_stk_top
                 times 192 dw 0
@@ -654,21 +653,22 @@ blk_stk_top:
                 times 64 dw 0
 clk_stk_top:
             
-; this is nowhere needed
-; interrupt stack
-;                global  intr_stk_top
-;                times 256 dw 0
-;intr_stk_top:
-
-global        __bssend
-__bssend:
-
 ; Dynamic data:
 ; member of the DOS DATA GROUP
 ; and marks definitive end of all used data in kernel data segment
 ;
 
+segment _DATAEND
+
+_swap_indos:
+; we don't know precisely what needs to be swapped before this, so set it here.
+; this is just after FIXED_DATA+BSS+DATA and before (D)CONST+BSS
+; probably, the clock and block stacks and disktransferbuffer should go past
+; _swap_indos but only if int2a ah=80/81 (critical section start/end)
+; are called upon entry and exit of the device drivers
+
 segment DYN_DATA
+
         global _Dyn
 _Dyn:
         DynAllocated dw 0

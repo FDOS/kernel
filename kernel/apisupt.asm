@@ -29,13 +29,14 @@
 
 		%include "segs.inc"
 
+segment HMA_TEXT
+%if 0
+
                 extern  _api_sp:wrt DGROUP      ; api stacks - for context
                 extern  _api_ss:wrt DGROUP      ; switching
                 extern  _usr_sp:wrt DGROUP      ; user stacks
                 extern  _usr_ss:wrt DGROUP
 
-segment	HMA_TEXT
-%if 0
                 global  _set_stack
 ;
 ; void set_stack(void) -

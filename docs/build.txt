@@ -3,17 +3,14 @@ to make life easier.  This file is in the FDKERNEL directory of the
 distribution.  In addition, there is a corresponding batch file
 (CLEAN.BAT) to clean up the source directories.
 
-There is a CONFIG.M file that specifies all the paths and names of
+There is a CONFIG.B file that specifies all the paths and names of
 the compiler, assembler, etc. that you want to use.  You MUST copy
-it to CONFIG.MAK first, then edit it to reflect your setup.
-
-Likewise, there is a CONFIG.B file that should be copied to
-CONFIG.BAT, and then edited to reflect your setup.
+it to CONFIG.BAT first, then edit it to reflect your setup.
 
 The reason for this copying of files is that when new releases of the
 kernel come out, you can extract them over your previous source, and
 not have to worry about resetting up your configuration because your
-CONFIG.BAT and CONFIG.MAK files will not get replaced!
+CONFIG.BAT file will not get replaced!
 
 You will also need to download the latest version of NASM and Turbo C
 2.01.  Install Turbo C and NASM somewhere (it doesn't really matter
@@ -32,8 +29,7 @@ or a mirror of ftp.kernel.org.
 
 This program will now compile with Turbo C 2.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
-other Borland compilers and Microsoft C as well. Watcom C can compile
-it but the result does not work yet.
+other Borland compilers, Microsoft C and Watcom C.
 
 If you feel hardy, read on to understand the directory structure.  A
 more complete description of the build environment is contained in a

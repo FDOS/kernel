@@ -51,10 +51,13 @@
 #include <memory.h>
 #endif
 #include <string.h>
+#ifdef __TURBOC__
 #include <dir.h>
+#endif
 #define SYS_MAXPATH   260
 #include "portab.h"
 extern WORD CDECL printf(CONST BYTE * fmt, ...);
+extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 #include "b_fat12.h"
 #include "b_fat16.h"
@@ -71,7 +74,7 @@ COUNT DiskRead(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 COUNT DiskWrite(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 
 #define SEC_SIZE        512
-#define COPY_SIZE       24576u
+#define COPY_SIZE	32768u
 
 #ifdef _MSC_VER
 #pragma pack(1)
@@ -159,7 +162,7 @@ int main(int argc, char **argv)
   COUNT drive;                  /* destination drive */
   COUNT drivearg = 0;           /* drive argument position */
   BYTE *bsFile = NULL;          /* user specified destination boot sector */
-  COUNT srcDrive;               /* source drive */
+  unsigned srcDrive;            /* source drive */
   BYTE srcPath[SYS_MAXPATH];    /* user specified source drive and/or path */
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
   WORD slen;
@@ -221,7 +224,7 @@ int main(int argc, char **argv)
   else                          /* src doesn't specify drive, so assume current drive */
   {
 #ifdef __TURBOC__
-    srcDrive = getdisk();
+    srcDrive = (unsigned) getdisk();
 #else
     _dos_getdrive(&srcDrive);
 #endif
@@ -309,7 +312,6 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
     unsigned short count;
     void far *address;
   } diskReadPacket;
-  int retval;
   union REGS regs;
 
   diskReadPacket.sectorNumber = sector;
@@ -342,9 +344,6 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
 
 VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 {
-  COUNT i, z;
-  WORD head, track, sector, ret;
-  WORD count;
   ULONG temp;
   struct bootsectortype *bs;
 #ifdef WITHFAT32
@@ -599,7 +598,6 @@ BYTE copybuffer[COPY_SIZE];
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 {
   BYTE dest[SYS_MAXPATH], source[SYS_MAXPATH];
-  COUNT ifd, ofd;
   unsigned ret;
   int fdin, fdout;
   ULONG copied = 0;
@@ -660,6 +658,13 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
     setftime(fdout, &ftime);
   }
 #endif
+#ifdef __WATCOMC__
+  {
+    unsigned short date, time;	  
+    _dos_getftime(fdin, &date, &time);
+    _dos_setftime(fdout, date, time);
+  }
+#endif  
 
   close(fdin);
   close(fdout);

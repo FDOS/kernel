@@ -104,21 +104,24 @@ clean:
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 kernel.exe: $(EXE_dependencies) $(LIBS) 
-	-$(RM) kernel.lib
-	$(LIBUTIL) kernel.lib $(LIBPLUS)entry.obj $(LIBPLUS)io.obj $(LIBPLUS)blockio.obj $(LIBPLUS)chario.obj $(LIBPLUS)dosfns.obj $(LIBPLUS)console.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)printer.obj $(LIBPLUS)serial.obj $(LIBPLUS)dsk.obj $(LIBPLUS)initdisk.obj $(LIBPLUS)error.obj $(LIBPLUS)fatdir.obj $(LIBPLUS)fatfs.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)fattab.obj $(LIBPLUS)fcbfns.obj $(LIBPLUS)initoem.obj $(LIBPLUS)initHMA.obj $(LIBPLUS)inthndlr.obj $(LIBPLUS)ioctl.obj $(LIBPLUS)nls_hc.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)main.obj $(LIBPLUS)config.obj $(LIBPLUS)memmgr.obj $(LIBPLUS)misc.obj $(LIBPLUS)newstuff.obj $(LIBPLUS)nls.obj $(LIBPLUS)intr.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)dosnames.obj $(LIBPLUS)prf.obj $(LIBPLUS)strings.obj $(LIBPLUS)network.obj $(LIBPLUS)sysclk.obj $(LIBPLUS)syspack.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)systime.obj $(LIBPLUS)task.obj $(LIBPLUS)int2f.obj $(LIBPLUS)irqstack.obj $(LIBPLUS)apisupt.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)asmsupt.obj $(LIBPLUS)execrh.obj $(LIBPLUS)nlssupt.obj $(LIBPLUS)procsupt.obj  $(LIBPLUS)break.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)dosidle.obj $(LIBPLUS)dyninit.obj $(LIBPLUS)lfnapi.obj $(LIBTERM)
-	-$(RM) kernel.bak
-	$(LINK) kernel iprf,kernel,kernel,kernel+$(LIBS)+..\lib\libm.lib;
-	-$(RM) kernel.lib
+	-$(RM) kernel.res
+	..\utils\echoto kernel.res kernel.obj iprf.obj+
+	..\utils\echoto kernel.res entry.obj io.obj blockio.obj chario.obj dosfns.obj console.obj+
+	..\utils\echoto kernel.res printer.obj serial.obj dsk.obj initdisk.obj error.obj fatdir.obj fatfs.obj+
+	..\utils\echoto kernel.res fattab.obj fcbfns.obj initoem.obj initHMA.obj inthndlr.obj ioctl.obj nls_hc.obj+
+	..\utils\echoto kernel.res main.obj config.obj memmgr.obj misc.obj newstuff.obj nls.obj intr.obj+
+	..\utils\echoto kernel.res dosnames.obj prf.obj strings.obj network.obj sysclk.obj syspack.obj+
+	..\utils\echoto kernel.res systime.obj task.obj int2f.obj irqstack.obj apisupt.obj+
+	..\utils\echoto kernel.res asmsupt.obj execrh.obj nlssupt.obj procsupt.obj  break.obj+
+	..\utils\echoto kernel.res dosidle.obj dyninit.obj lfnapi.obj
+	..\utils\echoto kernel.res kernel.exe
+	..\utils\echoto kernel.res kernel.map
+	..\utils\echoto kernel.res ..\lib\libm.lib ..\lib\device.lib
+	$(LINK) @kernel.res;
+	-$(RM) kernel.res
 
 #               *Individual File Dependencies*
-kernel.obj: kernel.asm segs.inc
+kernel.obj: kernel.asm segs.inc ludivmul.inc
 
 console.obj: console.asm io.inc
 

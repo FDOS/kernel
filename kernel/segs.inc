@@ -29,7 +29,7 @@
 
 group   PGROUP          PSP
 group   TGROUP          _TEXT _IO_TEXT _IO_FIXED_DATA
-group   DGROUP          _FIXED_DATA _DATA _BSSSTART _BSS _BSSEND DYN_DATA DCONST
+group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA
 group   I_GROUP         INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA I_BSS IB_B IB IB_E
 group   HGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 
@@ -37,11 +37,13 @@ segment PSP             class=PSP
 segment	_TEXT		class=CODE
 segment	_IO_TEXT	class=CODE
 segment	_IO_FIXED_DATA	class=CODE align=2
-segment	_FIXED_DATA	class=DATA align=16
-segment	_DATA		class=DATA align=2
-segment	_BSSSTART       class=BSS align=2
+segment	_FIXED_DATA	class=FDATA align=16
 segment	_BSS		class=BSS align=2
-segment	_BSSEND		class=BSS
+segment _DATA           class=DATA align=2
+segment _DATAEND        class=DATA align=1
+;for WATCOM
+segment CONST		class=DATA align=2
+segment CONST2		class=DATA align=2
 ;for MSC
 segment	DCONST      	class=DCONST   align=2     
 segment	DYN_DATA        class=DYN_DATA
