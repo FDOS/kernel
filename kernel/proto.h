@@ -195,8 +195,8 @@ struct dhdr FAR * select_unit(COUNT drive);
 /* fattab.c */
 void read_fsinfo(struct dpb FAR * dpbp);
 void write_fsinfo(struct dpb FAR * dpbp);
-UCOUNT link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
-                REG CLUSTER Cluster2);
+CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
+                 REG CLUSTER Cluster2);
 CLUSTER next_cluster(struct dpb FAR * dpbp, REG CLUSTER ClusterNum);
 
 /* fcbfns.c */
