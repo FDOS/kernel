@@ -475,9 +475,8 @@ VOID DosUpMem(VOID FAR * str, unsigned len)
 unsigned char ASMCFUNC DosUpChar(unsigned char ch)
  /* upcase a single character */
 {
-  assertDSeqSS();               /* because "&ch" */
   log(("NLS: DosUpChar(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
-  DosUpMem((UBYTE FAR *) & ch, 1);
+  DosUpMem(MK_FP(_SS, &ch), 1);
   log(("NLS: DosUpChar(): upcased ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
   return ch;
 }

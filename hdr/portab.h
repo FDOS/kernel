@@ -72,6 +72,11 @@ void __int__(int);
 #define CDECL   _cdecl
 #define PASCAL  pascal
 #define __int__(intno) asm int intno;
+#define _SS SS()
+static unsigned short __inline SS(void)
+{
+  asm mov ax, ss;
+}
 
 #if defined(M_I286)             /* /G3 doesn't set M_I386, but sets M_I286 TE */
 #define I386
@@ -85,6 +90,9 @@ void __int__(int);
 #define far __far
 #define CDECL   __cdecl
 #define PASCAL  pascal
+#define _SS SS()
+unsigned short SS(void);
+#pragma aux SS = "mov dx,ss" value [dx];
 
 #if _M_IX86 >= 300
 #define I386
