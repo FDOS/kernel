@@ -1,3 +1,6 @@
+2001 Mar 27 - Build 2023
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Bug fix release 2023a: fixed stack segment bug in entry.asm.
 2001 Mar 25 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  sys.com compilation: it is a proper .com and works again.

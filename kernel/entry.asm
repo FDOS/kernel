@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.7  2001/03/27 02:56:58  bartoldeman
+; Fixed bugs in entry.asm: stack segment and int 2A/82 Ralf Brown compliant.
+;
 ; Revision 1.6  2001/03/24 22:13:05  bartoldeman
 ; See history.txt: dsk.c changes, warning removal and int21 entry handling.
 ;
@@ -219,7 +222,7 @@ reloc_call_int21_handler:
                 ; NB: stack frame is MS-DOS dependent and not compatible
                 ; with compiler interrupt stack frames.
                 ;
-		sti
+                sti
                 PUSH$ALL
 
                 ;
@@ -255,12 +258,12 @@ int21_user:
 ; 
 ; DX=DGROUP
 ; CX=STACK
-; AX=userSS
+; SI=userSS
 ; BX=userSP
 
 
 int21_1:
-                mov ax,ss   ; save user stack, to be retored later
+                mov si,ss   ; save user stack, to be retored later
                 mov bx,sp
 
 
@@ -304,7 +307,7 @@ int21_onerrorstack:
                 mov     sp,cx
                 sti
                 
-                push    ax  ; user SS:SP
+                push    si  ; user SS:SP
                 push    bx
                 
                 call    _int21_service
@@ -312,9 +315,13 @@ int21_onerrorstack:
                 
 
 int21_2:        inc     byte [_InDOS]
+                mov     cx,_char_api_tos
+                or      ah,ah   
+                jz      int21_3
                 cmp     ah,0ch
-                mov     cx,_char_api_tos 
                 jle     int21_normalentry
+                cmp     ah,59h
+                je      int21_normalentry
 
 int21_3:
                 call    dos_crit_sect
@@ -332,7 +339,7 @@ int21_normalentry:
                 ; int21_syscall and remainder of kernel.
                 ;
                 
-                push    ax  ; user SS:SP
+                push    si  ; user SS:SP
                 push    bx
                 call    _int21_service
 
@@ -346,10 +353,10 @@ int21_exit:     dec     byte [_InDOS]
                 
 int21_exit_nodec:
                 pop bx      ; get back user stack
-                pop ax
+                pop si
 
                 cli
-                mov     ss,ax
+                mov     ss,si
                 mov     sp,bx
                 sti
 int21_ret:      POP$ALL
