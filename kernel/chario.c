@@ -534,7 +534,7 @@ size_t read_line_handle(int sft_idx, size_t n, char FAR * bp)
     }   
   }
 
-  if (inputptr > bufend - n)
+  if (n > bufend - inputptr)
     n = bufend - inputptr;
 
   fmemcpy(bp, inputptr, n);
