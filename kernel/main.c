@@ -688,7 +688,7 @@ void CheckContinueBootFromHarddisk(void)
 
   key = GetBiosKey(InitKernelConfig.BootHarddiskSeconds);
   
-  if (key != (UWORD)-1 && (key & 0xff) != 'h' && (key & 0xff) != 'H' )
+  if (key != -1 && (key & 0xff) != 'h' && (key & 0xff) != 'H')
   {
     /* user has hit a key, continue to boot from floppy/CD */
     printf("\n");
