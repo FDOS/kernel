@@ -849,7 +849,7 @@ _XMSDriverAddress:
 
     global __EnableA20
 __EnableA20:
-    mov ah,3
+    mov ah,5
 UsingXMSdriver:    
     push bx
     call far [cs:_XMSDriverAddress]
@@ -858,7 +858,7 @@ UsingXMSdriver:
 
     global __DisableA20
 __DisableA20:
-    mov ah,4
+    mov ah,6
     jmp short UsingXMSdriver
 
 dslowmem  dw 0
