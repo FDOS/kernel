@@ -39,9 +39,8 @@ static BYTE *mainRcsId =
 /* The Holy Copyright Message. Do NOT remove it or you'll be cursed forever! */
 
 static char copyright[] =
-"Copyright 1995-2004 Pasquale J. Villani and The FreeDOS Project.\n"
-"This free software has ABSOLUTELY NO WARRANTY and is licensed under\n"
-"the GNU General Public License (http://www.gnu.org/licenses/gpl.html)\n\n";
+"Copyright 1995-2005 Pasquale J. Villani and The FreeDOS Project.\n"
+"NO WARRANTY. Licensed under the GNU General Public License version 2.\n\n";
 
 struct _KernelConfig InitKernelConfig BSS_INIT({0});
 
