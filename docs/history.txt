@@ -45,7 +45,8 @@
     * avoid more relocations in the asm files by loading ds from
       [cs:_DGROUP_]
     * Fix problem with attributes with the volume label bit + findnext
-    *
+    * SYS: avoid copying kernel.sys and command.com if the destination
+      is identical to the source.
 2003 Mar 14 - Build 2029
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
