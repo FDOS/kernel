@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.8"
+#define SYS_VERSION "v2.9"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -111,10 +111,9 @@ int write(int fd, const void *buf, unsigned count)
 int stat(const char *file_name, struct stat *buf)
 {
   struct find_t find_tbuf;
-  int ret = _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
-  if (!ret)
-    buf->st_size = find_tbuf.size;
-  return ret;
+  UNREFERENCED_PARAMETER(buf);
+
+  return _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
 }
 
 /* WATCOM's getenv is case-insensitive which wastes a lot of space
@@ -143,7 +142,7 @@ char *getenv(const char *name)
 
 BYTE pgm[] = "SYS";
 
-void put_boot(COUNT, BYTE *, BOOL);
+void put_boot(int, char *, char *, int);
 BOOL check_space(COUNT, ULONG);
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
 
@@ -228,11 +227,16 @@ int main(int argc, char **argv)
 {
   COUNT drive;                  /* destination drive */
   COUNT drivearg = 0;           /* drive argument position */
+  COUNT srcarg = 0;             /* source argument position */
   BYTE *bsFile = NULL;          /* user specified destination boot sector */
   unsigned srcDrive;            /* source drive */
   BYTE srcPath[SYS_MAXPATH];    /* user specified source drive and/or path */
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
   WORD slen;
+  int argno = 0;
+  int bootonly = 0;
+  int both = 0;
+  char *kernel_name = "KERNEL.SYS";
 
   printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
@@ -241,14 +245,71 @@ int main(int argc, char **argv)
     exit(FDKrnConfigMain(argc, argv));
   }
 
-  srcPath[0] = '\0';
-  if (argc > 1 && argv[1][1] == ':' && argv[1][2] == '\0')
-    drivearg = 1;
-
-  if (argc > 2 && argv[2][1] == ':' && argv[2][2] == '\0')
+  for(argno = 1; argno < argc; argno++)
   {
-    drivearg = 2;
-    strncpy(srcPath, argv[1], SYS_MAXPATH - 12);
+    char *argp = argv[argno];
+
+    if (argp[1] == ':' && argp[2] == '\0' && drivearg <= srcarg)
+      drivearg = argno;
+
+    if (srcarg == 0)
+    {
+      srcarg = argno;
+    }
+    else if (argp[0] == '/' && toupper(argp[1]) == 'K' && argno + 1 < argc)
+    {
+      argno++;
+      kernel_name = argv[argno];
+    }
+    else if (memicmp(argp, "BOOTONLY", 8) == 0 && !bootonly)
+    {
+      bootonly = 1;
+    }
+    else if (memicmp(argp, "BOTH", 4) == 0 && !both)
+    {
+      both = 1;
+    }
+    else if (drivearg != argno)
+    {
+      if (bsFile == NULL)
+      {
+        bsFile = argp;
+      }
+      else
+      {
+        drivearg = 0;
+        break;
+      }
+    }
+  }
+
+  if (drivearg == 0)
+  {
+    printf(
+      "Usage: %s [source] drive: [bootsect [BOTH]] [BOOTONLY] [/K name]\n"
+      "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
+      "  drive    = A,B,etc.\n"
+      "  bootsect = name of 512-byte boot sector file image for drive:\n"
+      "             to write to *instead* of real boot sector\n"
+      "  BOTH     : write to *both* the real boot sector and the image file\n"
+      "  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n"
+      "  /K name  : name of kernel to use instead of KERNEL.SYS\n"
+      "%s CONFIG /help\n", pgm, pgm);
+    exit(1);
+  }
+  drive = toupper(argv[drivearg][0]) - 'A';
+
+  if (drive < 0 || drive >= 26)
+  {
+    printf("%s: drive %c must be A:..Z:\n", pgm,
+           *argv[(argc == 3 ? 2 : 1)]);
+    exit(1);
+  }
+
+  srcPath[0] = '\0';
+  if (drivearg > srcarg && srcarg)
+  {
+    strncpy(srcPath, argv[srcarg], SYS_MAXPATH - 12);
     /* leave room for COMMAND.COM\0 */
     srcPath[SYS_MAXPATH - 13] = '\0';
     /* make sure srcPath + "file" is a valid path */
@@ -260,28 +321,6 @@ int main(int argc, char **argv)
       slen++;
       srcPath[slen] = '\0';
     }
-  }
-
-  if (drivearg == 0)
-  {
-    printf(
-      "Usage: %s [source] drive: [bootsect [BOTH]] [BOOTONLY]\n"
-      "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
-      "  drive    = A,B,etc.\n"
-      "  bootsect = name of 512-byte boot sector file image for drive:\n"
-      "             to write to *instead* of real boot sector\n"
-      "  BOTH     : write to *both* the real boot sector and the image file\n"
-      "  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n"
-      "%s CONFIG /help\n", pgm, pgm);
-    exit(1);
-  }
-  drive = toupper(argv[drivearg][0]) - 'A';
-
-  if (drive < 0 || drive >= 26)
-  {
-    printf("%s: drive %c must be A:..Z:\n", pgm,
-           *argv[(argc == 3 ? 2 : 1)]);
-    exit(1);
   }
 
   /* Get source drive */
@@ -305,22 +344,15 @@ int main(int argc, char **argv)
   else
     sprintf(rootPath, "%c:\\", 'A' + srcDrive);
 
-  if (argc > drivearg + 1 && memicmp(argv[drivearg + 1], "BOOTONLY", 8) != 0)
-    bsFile = argv[drivearg + 1]; /* don't write to file "BOOTONLY" */
-    
   printf("Processing boot sector...\n");
-  put_boot(drive, bsFile,
-           (argc > drivearg + 2)
-           && memicmp(argv[drivearg + 2], "BOTH", 4) == 0);
+  put_boot(drive, bsFile, kernel_name, both);
 
-  if (argc <= drivearg + (bsFile ? 2 : 1)
-      || memicmp(argv[drivearg + (bsFile ? 2 : 1)], "BOOTONLY", 8) != 0
-      && memicmp(argv[drivearg + (bsFile ? 3 : 2)], "BOOTONLY", 8) != 0)
+  if (!bootonly)
   {
-    printf("\nCopying KERNEL.SYS...\n");
-    if (!copy(drive, srcPath, rootPath, "KERNEL.SYS"))
+    printf("\nCopying %s...\n", kernel_name);
+    if (!copy(drive, srcPath, rootPath, kernel_name))
     {
-      printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
+      printf("\n%s: cannot copy \"%s\"\n", pgm, kernel_name);
       exit(1);
     } /* copy kernel */
 
@@ -336,11 +368,11 @@ int main(int argc, char **argv)
       }
       if (comspec == NULL)
       {
-        printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);      
+        printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);
         exit(1);
       }
     } /* copy shell */
-  } 
+  }
 
   printf("\nSystem transferred.\n");
   return 0;
@@ -613,7 +645,7 @@ BOOL haveLBA(void)
 }
 #endif
 
-VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
+void put_boot(int drive, char *bsFile, char *kernel_name, int both)
 {
 #ifdef WITHFAT32
   struct bootsectortype32 *bs32;
@@ -728,17 +760,31 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
          bs->bsFATsecs, bs->bsFATs);
 #endif
   {
-    struct stat sbuf;
-    static char metakern[] = "A:\\METAKERN.SYS";
-    metakern[0] = drive + 'A';
-    if (!stat(metakern, &sbuf) && sbuf.st_size && !(sbuf.st_size & SEC_SIZE-1))
+    int i = 0;
+    memset(&newboot[0x1f1], ' ', 11);
+    while (kernel_name[i] && kernel_name[i] != '.')
     {
-      memcpy(&newboot[0x1f1], "METAKERNSYS", 11);
-#ifdef DEBUG
-      printf("%s found - boot sector patched to load it!\n", metakern);
-#endif
+      if (i < 8)
+        newboot[0x1f1+i] = toupper(kernel_name[i]);
+      i++;
+    }
+    if (kernel_name[i] == '.')
+    {
+      /* copy extension */
+      int j = 0;
+      i++;
+      while (kernel_name[i+j] && j < 3)
+      {
+        newboot[0x1f9+j] = toupper(kernel_name[i+j]);
+        j++;
+      }
     }
   }
+
+#ifdef DEBUG
+  /* there's a zero past the kernel name in all boot sectors */
+  printf("Boot sector kernel name set to %s\n", &newboot[0x1f1]);
+#endif
 
 #ifdef DDEBUG
   printf("\nNew Boot Sector:\n");
