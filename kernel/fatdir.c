@@ -423,7 +423,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
   /* volume id bit set.                                           */
-  if (attr == D_VOLID)
+  if (attr & D_VOLID)
     i = 3;
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
@@ -445,7 +445,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* Copy the raw pattern from our data segment to the DTA. */
   fmemcpy(dmp->dm_name_pat, SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
-  if (attr == D_VOLID)
+  if (attr & D_VOLID)
   {
     /* Now do the search                                    */
     while (dir_read(fnp) == 1)
@@ -467,7 +467,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
     /* Now that we've done our failed search, close it and  */
     /* return an error.                                     */
     dir_close(fnp);
-    return DE_FILENOTFND;
+    return DE_NFILES;
   }
   /* Otherwise just do a normal find next                         */
   else
