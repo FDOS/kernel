@@ -1913,15 +1913,24 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         r.ax -= 'a' - 'A';
       break;
 
-    case 0x16:                 /* get address of system file table entry - used by NET.EXE
-                                   BX system file table entry number ( such as returned from 2F/1220)
-                                   returns
-                                   ES:DI pointer to SFT entry */
+    case 0x16:
+      /* get address of system file table entry - used by NET.EXE
+         BX system file table entry number ( such as returned from 2F/1220)
+         returns
+         ES:DI pointer to SFT entry
+         BX relative entry number within SFT */
       {
-        sft FAR *p = get_sft(r.bx);
+        int rel_idx = idx_to_sft_(r.bx);
 
-        r.es = FP_SEG(p);
-        r.di = FP_OFF(p);
+        if (rel_idx == (size_t) - 1)
+        {
+          r.flags |= FLG_CARRY;
+          break;
+        }
+        r.flags &= ~FLG_CARRY;
+        r.bx = rel_idx;
+        r.es = FP_SEG(lpCurSft);
+        r.di = FP_OFF(lpCurSft);
         break;
       }
 
@@ -1961,6 +1970,24 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
     case 0x1b:                 /* #days in February - valid until 2099. */
 
       r.ax = (r.ax & 0xff00) | (r.cx & 3 ? 28 : 29);
+      break;
+
+    case 0x20:                 /* get job file table entry */
+      {
+        psp FAR *p = MK_FP(cu_psp, 0);
+        unsigned char FAR *idx;
+
+        if (r.bx >= p->ps_maxfiles)
+        {
+          r.ax = (r.ax & 0xff00) | (-DE_INVLDHNDL);
+          r.flags |= FLG_CARRY;
+          break;
+        }
+        idx = &p->ps_filetab[r.bx];
+        r.flags &= ~FLG_CARRY;
+        r.es = FP_SEG(idx);
+        r.di = FP_OFF(idx);
+      }
       break;
 
     case 0x21:                 /* truename */

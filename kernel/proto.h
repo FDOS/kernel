@@ -114,6 +114,7 @@ COUNT DosRmdir(const char FAR * dir);
 struct dhdr FAR *IsDevice(const char FAR * FileName);
 BOOL IsShareInstalled(void);
 COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
+int idx_to_sft_(int SftIndex);
 sft FAR *idx_to_sft(int SftIndex);
 int get_sft_idx(UCOUNT hndl);
 struct cds FAR *get_cds(unsigned dsk);

@@ -143,35 +143,41 @@ STATIC VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
   fmemcpy(lpszDosFileName, fcbname, FNAME_SIZE + FEXT_SIZE);
 }
 
-sft FAR * idx_to_sft(int SftIndex)
+int idx_to_sft_(int SftIndex)
 {
+  /*called from below and int2f/ax=1216*/
   sfttbl FAR *sp;
 
+  lpCurSft = (sft FAR *) - 1;
   if (SftIndex < 0)
-    return (sft FAR *) - 1;
+    return -1;
 
   /* Get the SFT block that contains the SFT      */
   for (sp = sfthead; sp != (sfttbl FAR *) - 1; sp = sp->sftt_next)
   {
     if (SftIndex < sp->sftt_count)
     {
-      lpCurSft = (sft FAR *) & (sp->sftt_table[SftIndex]);
-
-      /* if not opened, the SFT is useless            */
-      if (lpCurSft->sft_count == 0)
-        return (sft FAR *) - 1;
-      
       /* finally, point to the right entry            */
-      return lpCurSft;
+      lpCurSft = (sft FAR *) & (sp->sftt_table[SftIndex]);
+      return SftIndex;
     }
-    else
-      SftIndex -= sp->sftt_count;
+    SftIndex -= sp->sftt_count;
   }
-  /* If not found, return an error                */
 
-  return (sft FAR *) - 1;
+  /* If not found, return an error                */
+  return -1;
 }
 
+sft FAR * idx_to_sft(int SftIndex)
+{
+  /* called internally only */
+  SftIndex = idx_to_sft_(SftIndex);
+  /* if not opened, the SFT is useless            */
+  if (SftIndex == -1 || lpCurSft->sft_count == 0)
+    return (sft FAR *) - 1;
+  return lpCurSft;
+}
+      
 int get_sft_idx(unsigned hndl)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
