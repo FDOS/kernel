@@ -72,7 +72,7 @@ long BinaryCharIO(struct dhdr FAR * dev, size_t n, void FAR * bp, unsigned comma
     CharReqHdr.r_count = n;
     CharReqHdr.r_trans = bp;
   } while ((err = CharRequest(dev)) == 1);
-  return err == SUCCESS ? CharReqHdr.r_count : err;
+  return err == SUCCESS ? (long)CharReqHdr.r_count : err;
 }
 
 /* STATE FUNCTIONS */
@@ -256,7 +256,7 @@ long cooked_write(int sft_idx, size_t n, char FAR *bp)
         
   for (xfer = 0; err >= SUCCESS && xfer < n && *bp != CTL_Z; bp++, xfer++)
     err = cooked_put_char(sft_idx, *bp);
-  return err < SUCCESS ? err : xfer;
+  return err < SUCCESS ? (long)err : xfer;
 }
 
 /* writes character for disk file or device */
@@ -513,7 +513,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
 /* called by handle func READ (int21/ah=3f) */
 size_t read_line_handle(int sft_idx, size_t n, char FAR * bp)
 {
-  char *bufend = &kb_buf.kb_buf[kb_buf.kb_count + 2];
+  size_t chars_left;
     
   if (inputptr == NULL)
   {
@@ -524,22 +524,22 @@ size_t read_line_handle(int sft_idx, size_t n, char FAR * bp)
       kb_buf.kb_size = LINEBUFSIZECON;
     }
     read_line(sft_idx, sft_idx, &kb_buf);
-    bufend = &kb_buf.kb_buf[kb_buf.kb_count + 2];
-    bufend[-1] = echo_char(LF, sft_idx);
+    kb_buf.kb_buf[kb_buf.kb_count + 1] = echo_char(LF, sft_idx);
     inputptr = kb_buf.kb_buf;
     if (*inputptr == CTL_Z)
     {
       inputptr = NULL;
       return 0;
-    }   
+    }
   }
 
-  if (n > bufend - inputptr)
-    n = bufend - inputptr;
+  chars_left = &kb_buf.kb_buf[kb_buf.kb_count + 2] - inputptr;
+  if (n > chars_left)
+    n = chars_left;
 
   fmemcpy(bp, inputptr, n);
   inputptr += n;
-  if (inputptr == bufend)
+  if (n == chars_left)
     inputptr = NULL;
   return n;
 }

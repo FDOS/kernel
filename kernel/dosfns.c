@@ -224,7 +224,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     dta = bp;
     XferCount = (mode == XFR_READ ? remote_read : remote_write)(s, n, &err);
     dta = save_dta;
-    return err == SUCCESS ? XferCount : err;
+    return err == SUCCESS ? (long)XferCount : err;
   }
 
   /* Do a device transfer if device                   */
