@@ -62,16 +62,16 @@ size_t ASMPASCAL fstrlen(const char FAR *s);
 #ifdef __WATCOMC__
 /* dx and es not used or clobbered for all asmsupt.asm functions except
    (f)memchr/(f)strchr (which preserve es) */
-#pragma aux (pascal) pascal_abc modify exact [ax bx cx]
-#pragma aux (pascal_abc) init_memset
-#pragma aux (pascal_abc) init_fmemset
-#pragma aux (pascal_abc) init_memcpy
-#pragma aux (pascal_abc) init_fmemcpy
-#pragma aux (pascal_abc) init_memcmp modify nomemory
-#pragma aux (pascal_abc) init_fmemcmp modify nomemory
-#pragma aux (pascal_abc) init_strcpy
-#pragma aux (pascal_abc) init_strlen modify nomemory
-#pragma aux (pascal_abc) init_fstrlen modify nomemory
+#pragma aux (pascal) pascal_ax modify exact [ax]
+#pragma aux (pascal_ax) init_memset
+#pragma aux (pascal_ax) init_fmemset
+#pragma aux (pascal_ax) init_memcpy
+#pragma aux (pascal_ax) init_fmemcpy
+#pragma aux (pascal_ax) init_memcmp modify nomemory
+#pragma aux (pascal_ax) init_fmemcmp modify nomemory
+#pragma aux (pascal_ax) init_strcpy
+#pragma aux (pascal_ax) init_strlen modify nomemory
+#pragma aux (pascal_ax) init_fstrlen modify nomemory
 #endif
 
 #undef LINESIZE

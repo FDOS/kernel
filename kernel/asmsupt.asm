@@ -106,6 +106,8 @@ pascal_setup:
                 push    bp                      ; Standard C entry
                 mov     bp,sp
 %ifdef WATCOM
+                push    bx
+                push    cx
                 push    es
 %endif
                 push    si
@@ -240,19 +242,24 @@ MEMSET:
 
 ;*****
 pascal_return:
-		pop	ds
+                lds     di, [bp]    ; return address in es, saved bp in di
+                mov     bh, 0
+                add     bp, bx      ; point bp to "as if there were 0 args"
+                mov     [bp+2], ds  ; put return address at first arg
+                mov     [bp], di    ; saved bp below that one
+
+                pop     ds
                 pop     di
                 pop     si
 %ifdef WATCOM
                 pop     es
+                pop     cx
+                pop     bx
 %endif
+                mov     sp,bp
                 pop     bp
+                ret
 
-		pop	cx
-		sub	bh,bh
-		add	sp,bx
-		jmp	cx
-                
 ;*****************************************************************
                 
 ; fstrcpy (void FAR*dest, void FAR *src);
