@@ -63,8 +63,10 @@ int control_break(void)
  */
 void handle_break(int sft_idx)
 {
-  echo_char_stdin(CTL_C);
-  CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
+  if (CB_FLG & CB_MSK)          /* Ctrl-Break pressed */
+    CB_FLG &= ~CB_MSK;          /* reset the ^Break flag */
+  else                          /* Ctrl-C pressed */
+    echo_char_stdin(CTL_C);
   KbdFlush(sft_idx);            /* Er, this is con_flush() */
   if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
     if (InDOS)
