@@ -118,12 +118,17 @@ VOID hdump(BYTE FAR * p)
     if so, it simply leaves it on
 */
 
+STATIC int checkHMA(void)
+{
+  return fmemcmp(MK_FP(0, 0), MK_FP(0xffff, 0x0010), 128);
+}
+
 int EnableHMA(VOID)
 {
 
   _EnableA20();
 
-  if (fmemcmp(MK_FP(0x0000, 0x0000), MK_FP(0xffff, 0x0010), 128) == 0)
+  if (!checkHMA())
   {
     printf("HMA can't be enabled\n");
     return FALSE;
@@ -132,14 +137,14 @@ int EnableHMA(VOID)
   _DisableA20();
 
 #ifdef DEBUG
-  if (fmemcmp(MK_FP(0x0000, 0x0000), MK_FP(0xffff, 0x0010), 128) != 0)
+  if (!checkHMA())
   {
     printf("HMA can't be disabled - no problem for us\n");
   }
 #endif
 
   _EnableA20();
-  if (fmemcmp(MK_FP(0x0000, 0x0000), MK_FP(0xffff, 0x0010), 128) == 0)
+  if (!checkHMA())
   {
     printf("HMA can't be enabled second time\n");
     return FALSE;
