@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/04/16 14:28:32  bartoldeman
+ * Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
+ *
  * Revision 1.11  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -734,6 +737,18 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     exe_size = (LONG) long2para(image_size) + header.exMinAlloc;
     /* + long2para((LONG) sizeof(psp)); ?? see above
        image_size += sizeof(psp) -- 1999/04/21 ska */
+    if (exe_size > asize && (mem_access_mode & 0x80))
+    {
+      /* First try low memory */
+      mem_access_mode &= ~0x80;
+      rc = DosMemLargest((seg FAR *) & asize);
+      mem_access_mode |= 0x80;
+      if (rc != SUCCESS)
+      {
+        DosMemFree(env);
+        return rc;
+      }
+    }
     if (exe_size > asize)
     {
       DosMemFree(env);

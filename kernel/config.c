@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/04/16 14:28:32  bartoldeman
+ * Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
+ *
  * Revision 1.18  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -1017,7 +1020,6 @@ INIT void Device(BYTE * pLine)
 
 INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 {
-  BYTE *pTmp;
   exec_blk eb;
   struct dhdr FAR *dhp;
   struct dhdr FAR *next_dhp;
@@ -1052,25 +1054,29 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
             
             so simply add TESTMEM:OFF to the commandline
         */
-        pTmp = pLine;
     
         if (DosLoadedInHMA)
             if (stristr(szBuf, "HIMEM.SYS") != NULL)
             {
                 if (stristr(pLine, "/TESTMEM:OFF") == NULL)
                     {
-                    pTmp = szBuf;
-                    strcpy(pTmp, pLine);
-                    strcat(pTmp, " /TESTMEM:OFF\r\n");
+                    strcpy(szBuf+2, pLine);
+		    pLine=szBuf+2;
+                    strcat(pLine, " /TESTMEM:OFF");
                     }
             }
         /* end of HIMEM.SYS HACK */ 
+
+        /* add \r\n to the command line */
+        pLine-=2;
+        strcpy(pLine, pLine+2);
+        strcat(pLine, "\r\n");
 
     /* TE this fixes the loading of devices drivers with
        multiple devices in it. NUMEGA's SoftIce is such a beast
     */   
     for (next_dhp=NULL; FP_OFF(next_dhp) != 0xffff &&
-             (result=init_device(dhp, pTmp, mode, top))==SUCCESS
+             (result=init_device(dhp, pLine, mode, top))==SUCCESS
             ; dhp = next_dhp)
     { 
 	

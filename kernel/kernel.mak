@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.9  2001/04/16 14:28:32  bartoldeman
+# Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
+#
 # Revision 1.8  2001/04/15 03:21:50  bartoldeman
 # See history.txt for the list of fixes.
 #
@@ -131,12 +134,8 @@ INCLUDEPATH = ..\HDR
 #AFLAGS      = /Mx /DSTANDALONE=1 /I..\HDR
 NASMFLAGS   = -i../hdr/
 LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
-#ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
-#    -D__STDC__=0;DEBUG;KERNEL;I86;PROTO;ASMSUPT
-ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
-     -D__STDC__=0;I86;ASMSUPT -w -g1
 INITCFLAGS =$(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP -zDIB -zRID -zTID
-CFLAGS     =$(ALLCFLAGS) -zAHMA  -zCHMA_TEXT  
+CFLAGS     =$(ALLCFLAGS) -zAHMA -zCHMA_TEXT
 HDR=../hdr/
 
 #               *Implicit Rules*
@@ -273,7 +272,7 @@ config.obj: config.c init-mod.h $(HDR)portab.h globals.h \
  $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h \
  $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h \
  $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h \
- $(HDR)error.h $(HDR)version.h proto.h
+ $(HDR)error.h $(HDR)version.h proto.h turboc.cfg
 	$(CC) $(INITCFLAGS) -c config.c
 
 initoem.obj: initoem.c init-mod.h $(HDR)portab.h globals.h \
@@ -281,7 +280,7 @@ initoem.obj: initoem.c init-mod.h $(HDR)portab.h globals.h \
  $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h \
  $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h \
  $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h \
- $(HDR)error.h $(HDR)version.h proto.h
+ $(HDR)error.h $(HDR)version.h proto.h turboc.cfg
 	$(CC) $(INITCFLAGS) -c initoem.c
 
 main.obj: main.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
@@ -289,7 +288,7 @@ main.obj: main.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 	$(CC) $(INITCFLAGS) -c main.c
 
 initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
@@ -297,7 +296,7 @@ initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 	$(CC) $(INITCFLAGS) -c initHMA.c
 
 # XXX: I generated these using `gcc -MM' and `sed', so they may not be
@@ -307,155 +306,160 @@ blockio.obj: blockio.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 break.obj: break.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 chario.obj: chario.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 dosfns.obj: dosfns.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 dosnames.obj: dosnames.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 dsk.obj: dsk.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
- $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h
+ $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
+ turboc.cfg
 
 error.obj: error.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 fatdir.obj: fatdir.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 fatfs.obj: fatfs.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 fattab.obj: fattab.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 fcbfns.obj: fcbfns.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 inthndlr.obj: inthndlr.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 ioctl.obj: ioctl.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 memmgr.obj: memmgr.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 misc.obj: misc.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
- $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h
+ $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
+ turboc.cfg
 
 newstuff.obj: newstuff.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 network.obj: network.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 nls.obj: nls.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
- $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h
+ $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
+ turboc.cfg
 
 # \
 # 001-437.nls
 
-prf.obj: prf.c $(HDR)portab.h
+prf.obj: prf.c $(HDR)portab.h turboc.cfg
 
-strings.obj: strings.c $(HDR)portab.h
+strings.obj: strings.c $(HDR)portab.h turboc.cfg
 
 sysclk.obj: sysclk.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 syspack.obj: syspack.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 systime.obj: systime.c $(HDR)portab.h $(HDR)time.h $(HDR)date.h \
  globals.h $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h $(HDR)fat.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h
+ $(HDR)version.h proto.h turboc.cfg
 
 task.obj: task.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
- $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h
+ $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
+ turboc.cfg
+
 

@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.12  2001/04/16 14:28:32  bartoldeman
+; Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
+;
 ; Revision 1.11  2001/04/15 02:26:23  bartoldeman
 ; Hans Lermen: critical error handler destroyed AH (entry.asm).
 ;
@@ -270,6 +273,7 @@ reloc_call_int21_handler:
                 ; NB: At this point, SS != DS and won't be set that way
                 ; until later when which stack to run on is determined.
                 ;
+int21_reentry_crit:        
                 mov     dx,DGROUP
                 mov     ds,dx
 
@@ -681,11 +685,10 @@ CritErrAbort:
                 cli
                 mov     bp,word [_user_r+2]   ;Get frame
                 mov     ss,bp
-                mov     es,bp
                 mov     bp,word [_user_r]
                 mov     sp,bp
                 mov     byte [_ErrorMode],1        ; flag abort
                 mov     ax,4C00h
-                mov     [es:reg_ax],ax
+                mov     [bp+reg_ax],ax
                 sti
-                jmp     int21_reentry           ; restart the system call
+                jmp     int21_reentry_crit         ; restart the system call

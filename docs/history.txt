@@ -1,4 +1,12 @@
-2001 Apr 16 - Build 2023                                                                                                             
+2001 Apr 16 - Build 2024
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  * Use turboc.cfg to avoid long command lines; edit ALLCFLAGS
+           in config.mak to enable DEBUG etc.
+         * Fixed critical error handler.
+         * Fixed loading .exe's in UMBs if not enough space available.
+         * Some device drivers require \r\n at the end of their
+           parameter line.
+2001 Apr 16 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  * Thanks to Martin Stromberg for pointing some bugs out:
          * more warnings fixed.
