@@ -391,8 +391,8 @@ _winPatchTable: ; returns offsets to various internal variables
         ; The setver variants are used so we report to Windows
         ; editable (fake) DOS version user wanted.
 		global	_os_setver_minor, _os_setver_major
-_os_setver_major	db	0
 _os_setver_minor	db	0
+_os_setver_major	db	0
 %IFDEF WIN31SUPPORT
                 dw save_DS     ; where DS stored during int21h dispatch
                 dw save_BX     ; where BX stored during int21h dispatch
