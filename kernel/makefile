@@ -140,7 +140,7 @@ execrh.obj: execrh.asm segs.inc
 
 int2f.obj: int2f.asm segs.inc
 
-intr.obj: intr.asm segs.inc intr.h
+intr.obj: intr.asm segs.inc
 
 io.obj: io.asm segs.inc
 
