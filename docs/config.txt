@@ -1,15 +1,19 @@
-advanced CONFIG.SYS processing
+Advanced - FreeDOS specific - CONFIG.SYS processing
 
 a new command ECHO
-ECHO does ECHO it's argument (surprised ?-) and is executed at 
-the time the DEVICE= lines are executed. 
-use it similar to
+ECHO does ECHO its argument (surprised ?-) and is executed at
+the time the DEVICE= lines are executed.
+use it similarly to
 
 	ECHO loading driver 1
 	device=Driver1.sys
 	ECHO driver1 successfully loaded
 
-
+an undocumented command SCREEN=xx
+SCREEN= switches into videomode xxx  (INT10/11xx/000)
+useful 
+	SCREEN=0x11   -- 28    lines
+	SCREEN=0x12   -- 43/50 lines (on EGA/VGA)
 
 
 
@@ -37,13 +41,13 @@ normal
 configuration management - you may compose several configurations,
 using following special commands:
 
-MENU  
+MENU
 MENU  select your configuration
-MENU  
+MENU
 MENU  use (0) for basic configuration
 MENU  use (1) for CDROM operation
 MENU  use (2) for NETWORK configuration
-MENU  
+MENU
 MENUDEFAULT=0,1				( configuration 0, wait 1 second)
 
 
@@ -55,13 +59,29 @@ MENUDEFAULT=0,1				( configuration 0, wait 1 second)
 
 
 Although this is definitively worse then MSDOS menuing possibilities,
-IMHO it's better then nothing
+IMHO it's better then nothing. Unfortunately your MENU text gets completely 
+uppercase..
+
+It's also possible to combine menu options, to avoid writing thing every 
+time again.
+constructions like 0?devicehigh?=cdrom.sys are also possible
+("if menu option 0 chosen, ask if you want to load this driver")
 
 the selected configuration can be determined in AUTOEXEC.BAT in the
 environment variable CONFIG like
 
         if %CONFIG% == 0 echo configuration 0 selected
 
+however, if you have no menu's in config.sys, then %config% has no value,
+thus resulting in "IF == 0 echo configuration 0 selected."
+(which causes syntax errors as there's nothing on the left side of == )
+
+That's why you better use something like:
+if [%config%]==[0] echo configuration 0 selected.        -or-
+if "%config%"=="0" echo configuration 0 selected.
+
+then if there is no menu you have: "IF []==[0] echo configuration 0 selected."
+(which will of course output nothing)
 
 thus my config.sys now looks like
 
@@ -72,48 +92,31 @@ thus my config.sys now looks like
 !buffers=30
 !screen=0x12
 !lastdrive=z
+!shellhigh=a:\command.com /p /e:512 /MSG
 
-MENU
 MENU
 MENU 0 - SoftIce+HIMEM+Network (default)
 MENU 1 - SoftIce+HIMEM
-MENU 2 - HIMEM+EMM386
+MENU 2 -         HIMEM+EMM386
 MENU
 MENUDEFAULT=0,0
 
 
-0? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
-0? DEVICE=himem.exe
-0? DEVICE=UMBPCI.SYS
+01? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
+012?DEVICE=himem.exe
+01? DEVICE=UMBPCI.SYS
+2?  DEVICE=EMM386.EXE NOEMS
 
 0?device=c:\ntclient\ifshlp.sys
-0?device=c:\ntclient\protman.dos /i:c:\ntclient
-0?device=c:\ntclient\dm9pci.dos
-0?device=c:\ntclient\ndishlp.sys
-0?device=c:\ntclient\nemm.dos
-0?device=c:\ntclient\tcpdrv.dos
 
-
-
-1? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
-1? DEVICE=himem.exe
-1? DEVICE=UMBPCI.SYS
-
-
-
-2? DEVICE=himem.exe
-2? DEVICE=emm386.exe NOEMS
-
-
-rem DEVICE=CDROM.SYS /D:MSCD000
-
-shellhigh=a:\command.com /p /e:512 /MSG
+DEVICE=CDROM.SYS /D:MSCD000
 
 
 
 
 
-12/14/01 - tom ehlert
+
+2002-11-28 - Tom Ehlert
 
 
 
