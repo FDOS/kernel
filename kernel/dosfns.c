@@ -37,8 +37,8 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
- * Revision 1.27  2001/09/24 02:21:14  bartoldeman
- * SYS and printer fixes
+ * Revision 1.28  2001/09/26 01:06:05  bartoldeman
+ * Change dir gives error for path too long, 2025 without test.
  *
  * Revision 1.26  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
@@ -1325,6 +1325,9 @@ COUNT DosChangeDir(BYTE FAR * s)
 
   cdsp = &CDSp->cds_table[drive];
   current_ldt = cdsp;
+
+  if (strlen(PriPathName) > sizeof(cdsp->cdsCurrentPath)-1)
+    return DE_PATHNOTFND;
 
 	if (cdsp->cdsFlags & CDSNETWDRV)
   {
