@@ -29,6 +29,7 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "proto.h"
 
 extern void ASMCFUNC spawn_int23(void);
 
@@ -60,11 +61,11 @@ int control_break(void)
  *                                                                              3) decrease the InDOS flag as the kernel drops back to user space
  *                                                                              4) invoke INT-23 and never come back
  */
-void handle_break(void)
+void handle_break(int sft_idx)
 {
-  mod_cso(CTL_C);
+  echo_char_stdin(CTL_C);
   CB_FLG &= ~CB_MSK;            /* reset the ^Break flag */
-  KbdFlush();                   /* Er, this is con_flush() */
+  KbdFlush(sft_idx);            /* Er, this is con_flush() */
   if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
     if (InDOS)
       --InDOS;                  /* fail-safe */

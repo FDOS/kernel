@@ -45,9 +45,20 @@ static BYTE *time_hRcsId =
 #define TM_MIN(t)       (((t)>>5)&0x3f)
 #define TM_DEC(t)       ((t)&0x1f)
 
-#define TM_ENCODE(h,m,d) ((((h&0x1f))<<11)|(((m)&0x3f)<<5)|((d)&0x1f))
+#define TM_ENCODE(h,m,d) ((((h)&0x1f)<<11)|(((m)&0x3f)<<5)|((d)&0x1f))
 
 typedef UWORD time;
+
+struct dostime
+{
+  unsigned char minute, hour, hundredth, second;
+};
+
+struct dosdate
+{
+  unsigned short year;
+  unsigned char monthday, month;
+};
 
 #endif
 

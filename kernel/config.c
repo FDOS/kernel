@@ -144,7 +144,7 @@ STATIC VOID DeviceHigh(BYTE * pLine);
 STATIC VOID Files(BYTE * pLine);
 STATIC VOID Fcbs(BYTE * pLine);
 STATIC VOID CfgLastdrive(BYTE * pLine);
-STATIC BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
+STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode);
 STATIC VOID Dosmem(BYTE * pLine);
 STATIC VOID Country(BYTE * pLine);
 STATIC VOID InitPgm(BYTE * pLine);
@@ -155,6 +155,15 @@ STATIC VOID CfgIgnore(BYTE * pLine);
 STATIC VOID CfgMenu(BYTE * pLine);
 STATIC VOID DoMenu(void);
 STATIC VOID CfgMenuDefault(BYTE * pLine);
+STATIC BYTE * skipwh(BYTE * s);
+STATIC BYTE * scan(BYTE * s, BYTE * d);
+STATIC BOOL isnum(BYTE * pszString);
+STATIC BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
+#if 0
+STATIC COUNT tolower(COUNT c);
+#endif
+STATIC COUNT toupper(COUNT c);
+STATIC VOID mcb_init(UCOUNT seg, UWORD size);
 
 STATIC VOID Stacks(BYTE * pLine);
 STATIC VOID SetAnyDos(BYTE * pLine);
@@ -170,8 +179,9 @@ STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
 void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
 
+#ifdef I86
 STATIC VOID FAR * AlignParagraph(VOID FAR * lpPtr);
-#ifndef I86
+#else
 #define AlignParagraph(x) ((VOID *)x)
 #endif
 
@@ -659,12 +669,12 @@ STATIC struct table * LookUp(struct table *p, BYTE * token)
             0x..LL : asciicode in lower half
 */
 
-ULONG GetBiosTime(VOID)
+STATIC ULONG GetBiosTime(VOID)
 {
   return *(ULONG FAR *) (MK_FP(0x40, 0x6c));
 }
 
-UWORD GetBiosKey(int timeout)
+STATIC UWORD GetBiosKey(int timeout)
 {
   iregs r;
 
@@ -1106,25 +1116,25 @@ STATIC VOID DeviceHigh(BYTE * pLine)
 {
   if (UmbState == 1)
   {
-    if (LoadDevice(pLine, UMB_top, TRUE) == DE_NOMEM)
+    if (LoadDevice(pLine, MK_FP(umb_start + UMB_top, 0), TRUE) == DE_NOMEM)
     {
       printf("Not enough free memory in UMB's: loading low\n");
-      LoadDevice(pLine, ram_top, FALSE);
+      LoadDevice(pLine, lpTop, FALSE);
     }
   }
   else
   {
     printf("UMB's unavailable!\n");
-    LoadDevice(pLine, ram_top, FALSE);
+    LoadDevice(pLine, lpTop, FALSE);
   }
 }
 
 STATIC void Device(BYTE * pLine)
 {
-  LoadDevice(pLine, ram_top, FALSE);
+  LoadDevice(pLine, lpTop, FALSE);
 }
 
-STATIC BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
+STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
 {
   exec_blk eb;
   struct dhdr FAR *dhp;

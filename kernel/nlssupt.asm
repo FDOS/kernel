@@ -43,18 +43,18 @@ _reloc_call_CharMapSrvc:
                 Protect386Registers
                 push    ds
                 push    es
-                push    bp
-                push    si
-                push    di
+;                push    bp
+;                push    si
+;                push    di
                 push    dx
                 push    cx
                 push    bx
 
                 push    ax          ; arg of _upChar
-                push ax
+;                push ax
                 mov  ax,DGROUP   
                 mov     ds, ax
-                pop ax
+;                pop ax
 
                 call    _DosUpChar
                 ;add     sp, byte 2	// next POP retrieves orig AX
@@ -65,9 +65,9 @@ _reloc_call_CharMapSrvc:
                 pop     bx
                 pop     cx
                 pop     dx
-                pop     di
-                pop     si
-                pop     bp
+;                pop     di
+;                pop     si
+;                pop     bp
                 pop     es
                 pop     ds
                 Restore386Registers

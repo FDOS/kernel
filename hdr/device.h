@@ -204,7 +204,7 @@ struct _bios_LBA_address_packet
 };
 
 struct CHS {
-  ULONG Cylinder;
+  UWORD Cylinder;
   UWORD Head;
   UWORD Sector;
 };
@@ -365,7 +365,7 @@ typedef struct {
       LONG _r_huge;             /* for > 32Mb drives    */
     } _r_rw;
     struct {
-      BYTE _r_ndbyte;           /*  Byte Read From Device       */
+      unsigned char _r_ndbyte;  /*  Byte Read From Device       */
     } _r_nd;
   } _r_x;
 } request;

@@ -36,7 +36,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.4"
+#define SYS_VERSION "v2.5"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -293,13 +293,6 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  printf("\nCopying COMMAND.COM...\n");
-  if (!copy(drive, srcPath, rootPath, "command.com"))
-  {
-    printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);
-    exit(1);
-  }
-
   if (argc > drivearg + 1)
     bsFile = argv[drivearg + 1];
 
@@ -307,6 +300,23 @@ int main(int argc, char **argv)
   put_boot(drive, bsFile,
            (argc > drivearg + 2)
            && memicmp(argv[drivearg + 2], "BOTH", 4) == 0);
+
+  printf("\nCopying COMMAND.COM...\n");
+  if (!copy(drive, srcPath, rootPath, "COMMAND.COM"))
+  {
+    char *comspec = getenv("COMSPEC");
+    if (comspec != NULL)
+    {
+      printf("%s: Trying \"%s\"\n", pgm, comspec);
+      if (!copy(drive, comspec, NULL, "COMMAND.COM"))
+        comspec = NULL;
+    }
+    if (comspec == NULL)
+    {
+      printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);      
+      exit(1);
+    }
+  }
 
   printf("\nSystem transferred.\n");
   return 0;
@@ -743,7 +753,9 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   struct stat fstatbuf;
 
   sprintf(dest, "%c:\\%s", 'A' + drive, file);
-  sprintf(source, "%s%s", srcPath, file);
+  strcpy(source, srcPath);
+  if (rootPath != NULL) /* trick for comspec */
+    strcat(source, file);
 
   if (stat(source, &fstatbuf))
   {

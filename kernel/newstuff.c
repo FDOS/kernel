@@ -69,36 +69,33 @@ int SetJFTSize(UWORD nHandles)
   return SUCCESS;
 }
 
-/* this is the same, is shorter (~170)and slightly easier to understand TE*/
 int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 {
   /* create filename from current date and time */
-  char FAR *ptmp = pathname;
-  UBYTE wd, month, day;
-  UBYTE h, m, s, hund;
-  UWORD sh;
-  UWORD year;
+  char FAR *ptmp;
+  unsigned long randvar;
   int rc;
-  char name83[13];
-  int loop = 0;
+  int loop;
 
-  while (*ptmp)
-    ptmp++;
-
+  ptmp = pathname + fstrlen(pathname);
   if (ptmp == pathname || (ptmp[-1] != '\\' && ptmp[-1] != '/'))
     *ptmp++ = '\\';
+  ptmp[8] = '\0';
 
-  DosGetDate(&wd, &month, &day, &year);
-  DosGetTime(&h, &m, &s, &hund);
+  randvar = ((unsigned long)dos_getdate() << 16) | dos_gettime();
 
-  sh = s * 100 + hund;
-
+  loop = 0;
   do {
-    sprintf(name83, "%x%x%x%x%x%03x.%03x",
-            year & 0xf, month & 0xf, day & 0xf, h & 0xf, m & 0xf,
-            sh & 0xfff, loop & 0xfff);
+    unsigned long tmp = randvar++;
+    int i;
+    for(i = 7; i >= 0; tmp >>= 4, i--)
+      ptmp[i] = (tmp & 0xf) + 'A';
 
-    fmemcpy(ptmp, name83, 13);
+    /* DOS versions: > 5: characters A - P
+       < 5: hex digits */
+    if (os_major < 5)
+      for (i = 0; i < 8; i++)
+        ptmp[i] -= (ptmp[i] < 'A' + 10) ? '0' - 'A' : 10;
 
     /* only create new file -- 2001/09/22 ska*/
     rc = (short)DosOpen(pathname, O_LEGACY | O_CREAT | O_RDWR, attr);
@@ -122,8 +119,7 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 
 COUNT get_verify_drive(const char FAR * src)
 {
-  UBYTE drive;
-  unsigned flags;
+  int drive;
 
   /* Do we have a drive?                                          */
   if (src[1] == ':')
@@ -131,14 +127,9 @@ COUNT get_verify_drive(const char FAR * src)
   else
     drive = default_drive;
 
-  if (drive >= lastdrive)
+  if (get_cds(drive) == NULL)
     return DE_INVLDDRV;
     
-  /* Entry is disabled or JOINed drives are accessable by the path only */
-  flags = CDSp[drive].cdsFlags;
-  if ((flags & CDSMODEMASK) == 0 || (flags & CDSJOINED) != 0)
-    return DE_INVLDDRV;
-
   return drive;
 }
 
@@ -363,7 +354,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   dest[0] = '\0';		/* better probable for sanity check below --
                                    included by original truename() */
   /* MUX succeeded and really something */
-  if (QRemote_Fn(dest, src) && dest[0] != '\0')
+  if (QRemote_Fn(dest, src) == SUCCESS && dest[0] != '\0')
   {
     tn_printf(("QRemoteFn() returned: \"%S\"\n", dest));
 #ifdef DEBUG_TRUENAME
@@ -450,7 +441,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
       *p = '\\'; /* force backslash! */
     }
     p++;
-    DosGetCuDir((result & 0x1f) + 1, p);
+    DosGetCuDir((UBYTE)((result & 0x1f) + 1), p);
     if (*src != '\\' && *src != '/')
       p += strlen(p);
     else /* skip the absolute path marker */
@@ -541,11 +532,12 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         break;
     }
   }
-  if (addSep == ADD)
+  if (addSep == ADD || p == dest + 2)
   {
     /* MS DOS preserves a trailing '\\', so an access to "C:\\DOS\\"
        or "CDS.C\\" fails. */
     /* But don't add the separator, if the last component was ".." */
+    /* we must also add a seperator if dest = "c:" */  
     addChar('\\');
   }
   
@@ -564,14 +556,15 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
 
   if (dest[2] != '/' && (!(mode & CDS_MODE_SKIP_PHYSICAL)) && njoined)
   {
-    for(i = 0; i < lastdrive; ++i)
+    struct cds FAR *cdsp = CDSp;
+    for(i = 0; i < lastdrive; ++i, ++cdsp)
     {
       /* How many bytes must match */
-      size_t j = fstrlen(CDSp[i].cdsCurrentPath);
+      size_t j = fstrlen(cdsp->cdsCurrentPath);
       /* the last component must end before the backslash offset and */
       /* the path the drive is joined to leads the logical path */
-      if ((CDSp[i].cdsFlags & CDSJOINED) && (dest[j] == '\\' || dest[j] == '\0')
-         && fmemcmp(dest, CDSp[i].cdsCurrentPath, j) == 0)
+      if ((cdsp->cdsFlags & CDSJOINED) && (dest[j] == '\\' || dest[j] == '\0')
+         && fmemcmp(dest, cdsp->cdsCurrentPath, j) == 0)
       { /* JOINed drive found */
         dest[0] = drNrToLetter(i);	/* index is physical here */
         dest[1] = ':';
@@ -586,9 +579,9 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
           strcpy(dest + 2, dest + j);
         }
         result = (result & 0xffe0) | i;
-        current_ldt = &CDSp[i];
+        current_ldt = cdsp;
         result &= ~IS_NETWORK;
-        if (current_ldt->cdsFlags & CDSNETWDRV)
+        if (cdsp->cdsFlags & CDSNETWDRV)
           result |= IS_NETWORK;
 	tn_printf(("JOINed path: \"%S\"\n", dest));
         return result;

@@ -369,7 +369,7 @@ cluster_next:   lodsw                           ; AX = next cluster to read
 
 
 boot_error:     call    print
-                db      13,10,"BOOT error!",13,10,0
+                db      13,10,"BOOT err!",0
 
 		xor	ah,ah
 		int	0x16			; wait for a key
@@ -417,6 +417,10 @@ read_next:      push    dx
   		mov 	ah,041h		;
         	mov 	bx,055aah	;
                 mov     dl, [drive]
+		test	dl,dl			; don't use LBA addressing on A:
+		jz	read_normal_BIOS	; might be a (buggy)
+						; CDROM-BOOT floppy emulation
+
                 int     0x13
                 jc	read_normal_BIOS
 

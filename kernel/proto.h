@@ -40,7 +40,6 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk);
 struct buffer FAR *getblockOver(ULONG blkno, COUNT dsk);
 VOID setinvld(REG COUNT dsk);
 BOOL flush_buffers(REG COUNT dsk);
-BOOL flush1(struct buffer FAR * bp);
 BOOL flush(void);
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk);
 BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk);
@@ -49,20 +48,24 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
               COUNT mode);
 /* *** End of change */
 
+/* break.c */
+int control_break(void);
+void handle_break(int sft_idx);
+
 /* chario.c */
-UCOUNT BinaryCharIO(struct dhdr FAR * dev, UCOUNT n, void FAR * bp, unsigned command, COUNT *err);
-VOID sto(COUNT c);
-VOID cso(COUNT c);
-unsigned mod_cso(unsigned c);
-VOID destr_bs(void);
-UCOUNT _sti(BOOL check_break);
-VOID con_hold(void);
+long BinaryCharIO(struct dhdr FAR * dev, size_t n, void FAR * bp, unsigned command);
+int echo_char_stdin(int c);
 BOOL con_break(void);
 BOOL StdinBusy(void);
-VOID KbdFlush(void);
-VOID Do_DosIdle_loop(void);
-void sti_0a(keyboard FAR * kp);
-unsigned sti(unsigned n, char FAR * bp);
+void KbdFlush(int sft_idx);
+unsigned char read_char(int sft_idx, BOOL check_break);
+unsigned char read_char_stdin(BOOL check_break);
+long cooked_read(int sft_idx, size_t n, char FAR *bp);
+void read_line(int sft_in, int sft_out, keyboard FAR * kp);
+size_t read_line_handle(int sft_idx, size_t n, char FAR * bp);
+void write_char(int c, int sft_idx);
+void write_char_stdin(int c);
+long cooked_write(int sft_idx, size_t n, char FAR *bp);
 
 sft FAR *get_sft(UCOUNT);
 
@@ -71,21 +74,21 @@ const char FAR *get_root(const char FAR *);
 BOOL check_break(void);
 UCOUNT GenericReadSft(sft far * sftp, UCOUNT n, void FAR * bp,
                       COUNT * err, BOOL force_binary);
-COUNT SftSeek(sft FAR * sftp, LONG new_pos, COUNT mode);
+COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode);
 /*COUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err); */
-UCOUNT BinaryReadSft(sft FAR * s, void *bp, COUNT *err);
-#define BinaryRead(hndl, bp, err) BinaryReadSft(get_sft(hndl), bp, err)
-UCOUNT DosRWSft(sft FAR * s, UCOUNT n, void FAR * bp, COUNT *err, int mode);
-#define DosRead(hndl, n, bp, err) DosRWSft(get_sft(hndl), n, bp, err, XFR_READ)
-#define DosWrite(hndl, n, bp, err) DosRWSft(get_sft(hndl), n, bp, err, XFR_WRITE)
-ULONG DosSeek(COUNT hndl, LONG new_pos, COUNT mode);
+void BinarySftIO(int sft_idx, void *bp, int mode);
+#define BinaryIO(hndl, bp, mode) BinarySftIO(get_sft_idx(hndl), bp, mode)
+long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode);
+#define DosRead(hndl, n, bp) DosRWSft(get_sft_idx(hndl), n, bp, XFR_READ)
+#define DosWrite(hndl, n, bp) DosRWSft(get_sft_idx(hndl), n, bp, XFR_WRITE)
+ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode);
 long DosOpen(char FAR * fname, unsigned flags, unsigned attrib);
 COUNT CloneHandle(unsigned hndl);
 long DosDup(unsigned Handle);
 COUNT DosForceDup(unsigned OldHandle, unsigned NewHandle);
 long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib);
 COUNT DosClose(COUNT hndl);
-COUNT DosCloseSft(WORD sft_idx, BOOL commitonly);
+COUNT DosCloseSft(int sft_idx, BOOL commitonly);
 #define DosCommit(hndl) DosCloseSft(get_sft_idx(hndl), TRUE)
 BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
                 UWORD * bps, UWORD * nc);
@@ -94,7 +97,7 @@ COUNT DosChangeDir(BYTE FAR * s);
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name);
 COUNT DosFindNext(void);
 COUNT DosGetFtime(COUNT hndl, date * dp, time * tp);
-COUNT DosSetFtimeSft(WORD sft_idx, date dp, time tp);
+COUNT DosSetFtimeSft(int sft_idx, date dp, time tp);
 #define DosSetFtime(hndl, dp, tp) DosSetFtimeSft(get_sft_idx(hndl), (dp), (tp))
 COUNT DosGetFattr(BYTE FAR * name);
 COUNT DosSetFattr(BYTE FAR * name, UWORD attrp);
@@ -107,8 +110,9 @@ COUNT DosRmdir(const char FAR * dir);
 struct dhdr FAR *IsDevice(const char FAR * FileName);
 BOOL IsShareInstalled(void);
 COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
-sft FAR *idx_to_sft(COUNT SftIndex);
-COUNT get_sft_idx(UCOUNT hndl);
+sft FAR *idx_to_sft(int SftIndex);
+int get_sft_idx(UCOUNT hndl);
+struct cds FAR *get_cds(int dsk);
 COUNT DosTruename(const char FAR * src, char FAR * dest);
 
 /*dosidle.asm */
@@ -134,6 +138,7 @@ void ConvertName83ToNameSZ(BYTE FAR * destSZ, BYTE FAR * srcFCBName);
 int FileName83Length(BYTE * filename83);
 
 /* fatfs.c */
+struct dpb FAR *get_dpb(COUNT dsk);
 ULONG clus2phys(CLUSTER cl_no, struct dpb FAR * dpbp);
 long dos_open(char * path, unsigned flag, unsigned attrib);
 BOOL fcbmatch(const char *fcbname1, const char *fcbname2);
@@ -162,7 +167,7 @@ BOOL dir_exists(char * path);
 
 VOID trim_path(BYTE FAR * s);
 
-COUNT dos_cd(struct cds FAR * cdsp, BYTE * PathName);
+int dos_cd(char * PathName);
 
 f_node_ptr get_f_node(void);
 VOID release_f_node(f_node_ptr fnp);
@@ -230,18 +235,6 @@ VOID show_chain(void);
 VOID DosUmbLink(BYTE n);
 VOID mcb_print(mcb FAR * mcbp);
 
-/* misc.c */
-char * ASMCFUNC strcpy(char * d, const char * s);
-void ASMCFUNC fmemcpyBack(void FAR * d, const void FAR * s, size_t n);
-void ASMCFUNC fmemcpy(void FAR * d, const void FAR * s, size_t n);
-void ASMCFUNC fstrcpy(char FAR * d, const char FAR * s);
-void * ASMCFUNC memcpy(void *d, const void * s, size_t n);
-void ASMCFUNC fmemset(void FAR * s, int ch, size_t n);
-void * ASMCFUNC memset(void * s, int ch, size_t n);
-
-int ASMCFUNC memcmp(const void *m1, const void *m2, size_t n);
-int ASMCFUNC fmemcmp(const void FAR *m1, const void FAR *m2, size_t n);
-
 /* lfnapi.c */
 COUNT lfn_allocate_inode(VOID);
 COUNT lfn_free_inode(COUNT handle);
@@ -277,24 +270,42 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP);
 UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
 
 /* prf.c */
-VOID put_console(COUNT c);
+#ifdef DEBUG
 int CDECL printf(CONST BYTE * fmt, ...);
 int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+#endif
+VOID put_console(COUNT c);
 VOID hexd(char *title, VOID FAR * p, COUNT numBytes);
+void put_unsigned(unsigned n, int base, int width);
+void put_string(const char *s);
 
 /* strings.c */
-size_t ASMCFUNC strlen(const char * s);
-size_t ASMCFUNC fstrlen(const char FAR * s);
-char FAR * ASMCFUNC _fstrcpy(char FAR * d, const char FAR * s);
-char * ASMCFUNC strncpy(char * d, const char * s, size_t l);
-int ASMCFUNC strcmp(const char * d, const char * s);
-int ASMCFUNC fstrcmp(const char FAR * d, const char FAR * s);
-int ASMCFUNC fstrncmp(const char FAR * d, const char FAR * s, size_t l);
-int ASMCFUNC strncmp(const char * d, const char * s, size_t l);
-void ASMCFUNC fstrncpy(char FAR * d, const char FAR * s, size_t l);
-char * ASMCFUNC strchr(const char * s, int c);
-char FAR * ASMCFUNC fstrchr(const char FAR * s, int c);
-void FAR * ASMCFUNC fmemchr(const void FAR * s, int c, size_t n);
+size_t /* ASMCFUNC */ ASMPASCAL strlen(const char * s);
+size_t /* ASMCFUNC */ ASMPASCAL fstrlen(const char FAR * s);
+char FAR * /*ASMCFUNC*/ ASMPASCAL _fstrcpy(char FAR * d, const char FAR * s);
+char * /*ASMCFUNC*/ ASMPASCAL strncpy(char * d, const char * s, size_t l);
+int /*ASMCFUNC*/ ASMPASCAL strcmp(const char * d, const char * s);
+int /*ASMCFUNC*/ ASMPASCAL fstrcmp(const char FAR * d, const char FAR * s);
+int /*ASMCFUNC*/ ASMPASCAL fstrncmp(const char FAR * d, const char FAR * s, size_t l);
+int /*ASMCFUNC*/ ASMPASCAL strncmp(const char * d, const char * s, size_t l);
+void /*ASMCFUNC*/ ASMPASCAL fstrncpy(char FAR * d, const char FAR * s, size_t l);
+char * /*ASMCFUNC*/ ASMPASCAL strchr(const char * s, int c);
+char FAR * /*ASMCFUNC*/ ASMPASCAL fstrchr(const char FAR * s, int c);
+void FAR * /*ASMCFUNC*/ ASMPASCAL fmemchr(const void FAR * s, int c, size_t n);
+
+/* misc.c */
+char * /*ASMCFUNC*/ ASMPASCAL strcpy(char * d, const char * s);
+void /*ASMCFUNC*/ ASMPASCAL fmemcpyBack(void FAR * d, const void FAR * s, size_t n);
+void /*ASMCFUNC*/ ASMPASCAL fmemcpy(void FAR * d, const void FAR * s, size_t n);
+void /*ASMCFUNC*/ ASMPASCAL fstrcpy(char FAR * d, const char FAR * s);
+void * /*ASMCFUNC*/ ASMPASCAL memcpy(void *d, const void * s, size_t n);
+void * /*ASMCFUNC*/ ASMPASCAL fmemset(void FAR * s, int ch, size_t n);
+void * /*ASMCFUNC*/ ASMPASCAL memset(void * s, int ch, size_t n);
+
+int /*ASMCFUNC*/ ASMPASCAL memcmp(const void *m1, const void *m2, size_t n);
+int /*ASMCFUNC*/ ASMPASCAL fmemcmp(const void FAR *m1, const void FAR *m2, size_t n);
+
+
 
 /* sysclk.c */
 COUNT BcdToByte(COUNT x);
@@ -312,19 +323,19 @@ VOID putdirent(struct dirent FAR * dp, UBYTE FAR * vp);
 #endif
 
 /* systime.c */
-VOID DosGetTime(UBYTE * hp, UBYTE * mp, UBYTE * sp, UBYTE * hdp);
-COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd);
-VOID DosGetDate(UBYTE * wdp, UBYTE * mp, UBYTE * mdp, UWORD * yp);
-COUNT DosSetDate(UWORD Month, UWORD DayOfMonth, UWORD Year);
+void DosGetTime(struct dostime *dt);
+int DosSetTime(const struct dostime *dt);
+unsigned char DosGetDate(struct dosdate *dd);
+int DosSetDate(const struct dosdate *dd);
 
 const UWORD *is_leap_year_monthdays(UWORD year);
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
 
 /* task.c */
-VOID new_psp(psp FAR * p, int psize);
+VOID new_psp(seg para, int psize);
 VOID return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
-ULONG DosGetFsize(COUNT hndl);
+ULONG SftGetFsize(int sft_idx);
 VOID InitPSP(VOID);
 
 /* newstuff.c */

@@ -348,7 +348,7 @@ STATIC int nlsGetData(struct nlsPackage FAR * nls, int subfct,
 VOID nlsCPchange(UWORD cp)
 {
   UNREFERENCED_PARAMETER(cp);
-  printf("\7\nchange codepage not yet done ska\n");
+  put_string("\7\nchange codepage not yet done ska\n");
 }
 
 /*

@@ -58,18 +58,13 @@ static BYTE *RcsId =
            + 1 byte: '\0'
            -- 1999/04/21 ska */
 
-ULONG DosGetFsize(COUNT hndl)
+ULONG SftGetFsize(int sft_idx)
 {
-  sft FAR *s;
-/*  sfttbl FAR *sp;*/
+  sft FAR *s = idx_to_sft(sft_idx);
 
   /* Get the SFT block that contains the SFT      */
-  if ((s = get_sft(hndl)) == (sft FAR *) - 1)
+  if (FP_OFF(s) == (size_t) -1)
     return DE_INVLDHNDL;
-
-  /* If this is not opened another error          */
-  if (s->sft_count == 0)
-    return DE_ACCESS;
 
   /* If SFT entry refers to a device, return the date and time of opening */
   if (s->sft_flags & (SFT_FDEVICE | SFT_FSHARED))
@@ -163,11 +158,12 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
 }
 
 /* The following code is 8086 dependant                         */
-VOID new_psp(psp FAR * p, int psize)
+void new_psp(seg para, int psize)
 {
-  REG COUNT i;
+  psp FAR *p = MK_FP(para, 0);
   psp FAR *q = MK_FP(cu_psp, 0);
-
+  int i;
+        
   /* Clear out new psp first                              */
   fmemset(p, 0, sizeof(psp));
 
@@ -193,10 +189,7 @@ VOID new_psp(psp FAR * p, int psize)
   /* memory size in paragraphs                            */
   p->ps_size = psize;
   /* environment paragraph                                */
-  p->ps_environ = 0;
-  /* process dta                                          */
-  p->ps_dta = (BYTE FAR *) (&p->ps_cmd_count);
-
+  /* p->ps_environ = 0; cleared above */
   /* terminate address                                    */
   p->ps_isv22 = getvec(0x22);
   /* break address                                        */
@@ -204,45 +197,32 @@ VOID new_psp(psp FAR * p, int psize)
   /* critical error address                               */
   p->ps_isv24 = getvec(0x24);
 
-  /* File System parameters                               */
   /* user stack pointer - int 21                          */
   p->ps_stack = q->ps_stack;
-  /* file table - 0xff is unused                          */
 
-  for (i = 0; i < 20; i++)
-    p->ps_files[i] = 0xff;
-
+  /* File System parameters                               */
   /* maximum open files                                   */
   p->ps_maxfiles = 20;
+  fmemset(p->ps_files, 0xff, 20);
+
   /* open file table pointer                              */
   p->ps_filetab = p->ps_files;
 
-  /* clone the file table                                 */
-  if (p != q)
-  {
-    REG COUNT i;
-
-    for (i = 0; i < 20; i++)
-    {
-      if (q->ps_filetab[i] != 0xff && CloneHandle(i) >= 0)
-        p->ps_filetab[i] = q->ps_filetab[i];
-      else
-        p->ps_filetab[i] = 0xff;
-    }
-  }
+  /* clone the file table -- 0xff is unused               */
+  for (i = 0; i < 20; i++)
+    if (CloneHandle(i) >= 0)
+      p->ps_files[i] = q->ps_filetab[i];
 
   /* first command line argument                          */
-  p->ps_fcb1.fcb_drive = 0;
+  /* p->ps_fcb1.fcb_drive = 0; already set                */
   fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
   /* second command line argument                         */
-  p->ps_fcb2.fcb_drive = 0;
+  /* p->ps_fcb2.fcb_drive = 0; already set                */
   fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
 
   /* local command line                                   */
-  p->ps_cmd_count = 0;          /* command tail                 */
-  p->ps_cmd[0] = 0;             /* command tail                 */
-  if (RootPsp == (seg) ~ 0)
-    RootPsp = FP_SEG(p);
+  /* p->ps_cmd.ctCount = 0;     command tail, already set */
+  p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
 }
 
 STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR * exb,
@@ -258,24 +238,22 @@ STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR * exb,
   psp = MK_FP(pspseg, 0);
 
   /* complete the psp by adding the command line and FCBs     */
-  fmemcpy(psp->ps_cmd, exb->exec.cmd_line->ctBuffer, 127);
+  fmemcpy(&psp->ps_cmd, exb->exec.cmd_line, sizeof(CommandTail));
   if (FP_OFF(exb->exec.fcb_1) != 0xffff)
   {
     fmemcpy(&psp->ps_fcb1, exb->exec.fcb_1, 16);
     fmemcpy(&psp->ps_fcb2, exb->exec.fcb_2, 16);
   }
-  psp->ps_cmd_count = exb->exec.cmd_line->ctCount;
 
   /* identify the mcb as this functions'                  */
   pspmcb->m_psp = pspseg;
   /* Patch in environment segment, if present, also adjust its MCB */
   if (envseg)
   {
-    psp->ps_environ = envseg + 1;
     ((mcb FAR *) MK_FP(envseg, 0))->m_psp = pspseg;
+    envseg++;
   }
-  else
-    psp->ps_environ = 0;
+  psp->ps_environ = envseg;
 
   /* use the file name less extension - left adjusted and */
   np = fnam;
@@ -300,10 +278,8 @@ set_name:
     pspmcb->m_name[i] = '\0';
 
   /* return value: AX value to be passed based on FCB values */
-  return ((psp->ps_fcb1.fcb_drive < lastdrive &&
-           CDSp[psp->ps_fcb1.fcb_drive].cdsFlags & CDSVALID) ? 0 : 0xff) +
-         ((psp->ps_fcb2.fcb_drive < lastdrive &&
-           CDSp[psp->ps_fcb2.fcb_drive].cdsFlags & CDSVALID) ? 0 : 0xff) * 0x100;
+  return (get_cds(psp->ps_fcb1.fcb_drive) ? 0 : 0xff) |
+         (get_cds(psp->ps_fcb2.fcb_drive) ? 0 : 0xff00);
 }
 
 int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
@@ -318,7 +294,8 @@ int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
   user_r->FLAGS &= ~FLG_CARRY;
   
   cu_psp = ds;
-  dta = p->ps_dta;
+  /* process dta                                          */
+  dta = &p->ps_cmd;
   
   if (mode == LOADNGO)
   {
@@ -350,16 +327,21 @@ int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
    considering a threshold, trying HIGH then LOW */
 STATIC int ExecMemLargest(UWORD *asize, UWORD threshold)
 {
-  int rc = DosMemLargest(asize);
-  /* less memory than the .COM/.EXE file has:
-     try low memory first */
-  if ((mem_access_mode & 0x80) &&
-      (rc != SUCCESS || *asize < threshold))
+  int rc;
+  if (mem_access_mode & 0x80)
   {
     mem_access_mode &= ~0x80;
+    mem_access_mode |= 0x40;
     rc = DosMemLargest(asize);
+    mem_access_mode &= ~0x40;
+    /* less memory than the .COM/.EXE file has:
+       try low memory first */
+    if (rc != SUCCESS || *asize < threshold)
+      rc = DosMemLargest(asize);
     mem_access_mode |= 0x80;
   }
+  else
+    rc = DosMemLargest(asize);
   return (*asize < threshold ? DE_NOMEM : rc);
 }
 
@@ -406,7 +388,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
   {
     UWORD com_size;
     {
-      ULONG com_size_long = DosGetFsize(fd);
+      ULONG com_size_long = SftGetFsize(fd);
       /* maximally 64k - 256 bytes stack -
          256 bytes psp */
       com_size = (min(com_size_long, 0xfe00u) >> 4) + 0x10;
@@ -471,10 +453,10 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
        -- 1999/04/21 ska */
 
     /* rewind to start */
-    DosSeek(fd, 0, 0);
+    SftSeek(fd, 0, 0);
     /* read everything, but at most 64K - sizeof(PSP)             */
-    DosRead(fd, 0xff00, sp, &UnusedRetVal);
-    DosClose(fd);
+    DosRWSft(fd, 0xff00, sp, XFR_READ);
+    DosCloseSft(fd, FALSE);
   }
 
   if (mode == OVERLAY)
@@ -485,7 +467,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     
     /* point to the PSP so we can build it                  */
     setvec(0x22, MK_FP(user_r->CS, user_r->IP));
-    new_psp(MK_FP(mem, 0), mem + asize);
+    new_psp(mem, mem + asize);
   
     fcbcode = patchPSP(mem - 1, env, exp, namep);
     /* set asize to end of segment */
@@ -536,7 +518,6 @@ VOID return_user(void)
 
   cu_psp = p->ps_parent;
   q = MK_FP(cu_psp, 0);
-  dta = q->ps_dta;
 
   irp = (iregs FAR *) q->ps_stack;
 
@@ -583,7 +564,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       exe_size = (ULONG) long2para(image_size) + ExeHeader.exMinAlloc;
       
       /* Clone the environement and create a memory arena     */
-      if ((mode & 0x7f) != OVERLAY && (mode & 0x80))
+      if (mode & 0x80)
       {
         DosUmbLink(1);          /* link in UMB's */
         mem_access_mode |= 0x80;
@@ -645,7 +626,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
     /* Now load the executable                              */
     /* offset to start of image                             */
-    if (DosSeek(fd, image_offset, 0) != image_offset)
+    if (SftSeek(fd, image_offset, 0) != SUCCESS)
     {
       if (mode != OVERLAY)
       {
@@ -674,16 +655,16 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
   /* read in the image in 32K chunks                      */
   {
-    UCOUNT nBytesRead;
+    int nBytesRead;
     BYTE FAR *sp = MK_FP(start_seg, 0x0);
     
     while (exe_size > 0)
     {
       nBytesRead =
-        DosRead(fd,
+        (int)DosRWSft(fd,
                 (COUNT) (exe_size < CHUNK ? exe_size : CHUNK),
-                (VOID FAR *) sp, &UnusedRetVal);
-      if (nBytesRead == 0)
+                (VOID FAR *) sp, XFR_READ);
+      if (nBytesRead <= 0)
         break;
       sp = add_far((VOID FAR *) sp, nBytesRead);
       exe_size -= nBytesRead;
@@ -695,12 +676,11 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     UWORD reloc[2];
     seg FAR *spot;
 
-    DosSeek(fd, ExeHeader.exRelocTable, 0);
+    SftSeek(fd, ExeHeader.exRelocTable, 0);
     for (i = 0; i < ExeHeader.exRelocItems; i++)
     {
-      if (DosRead
-          (fd, sizeof(reloc), (VOID FAR *) & reloc[0],
-           &UnusedRetVal) != sizeof(reloc))
+      if (DosRWSft
+          (fd, sizeof(reloc), (VOID FAR *) & reloc[0], XFR_READ) != sizeof(reloc))
       {
         return DE_INVLDDATA;
       }
@@ -719,7 +699,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
   }
 
   /* and finally close the file                           */
-  DosClose(fd);
+  DosCloseSft(fd, FALSE);
 
   /* exit here for overlay                                */
   if (mode == OVERLAY)
@@ -730,7 +710,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
     /* point to the PSP so we can build it                  */
     setvec(0x22, MK_FP(user_r->CS, user_r->IP));
-    new_psp(MK_FP(mem, 0), mem + asize);
+    new_psp(mem, mem + asize);
 
     fcbcode = patchPSP(mem - 1, env, exp, namep);
     exp->exec.stack =
@@ -762,12 +742,12 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   /* If file not found - free ram and return error        */
 
   if (IsDevice(lp) ||        /* we don't want to execute C:>NUL */
-      (fd = (short)DosOpen(lp, O_LEGACY | O_OPEN | O_RDONLY, 0)) < 0)
+      (fd = (short)DosOpenSft(lp, O_LEGACY | O_OPEN | O_RDONLY, 0)) < 0)
   {
     return DE_FILENOTFND;
   }
   
-  rc = DosRead(fd, sizeof(exe_header), (BYTE FAR *)&ExeHeader, &UnusedRetVal);
+  rc = (int)DosRWSft(fd, sizeof(exe_header), (BYTE FAR *)&ExeHeader, XFR_READ);
 
   if (rc == sizeof(exe_header) &&
       (ExeHeader.exSignature == MAGIC || ExeHeader.exSignature == OLD_MAGIC))
@@ -779,7 +759,7 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
     rc = DosComLoader(lp, &TempExeBlock, mode, fd);
   }
 
-  DosClose(fd);
+  DosCloseSft(fd, FALSE);
 
   if (mode == LOAD && rc == SUCCESS)
     fmemcpy(ep, &TempExeBlock, sizeof(exec_blk));

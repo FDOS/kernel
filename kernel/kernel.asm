@@ -420,7 +420,7 @@ _net_name       db      '               ' ;-27 - 15 Character Network Name
                 global  _dta
                 global  _cu_psp, _default_drive
                 global  _break_ena
-                global  _return_code, _return_mode
+                global  _return_code
                 global  _internal_data
 
                 global  _CritPatch
@@ -439,12 +439,11 @@ _CritErrCode    dw      0               ; 04 - DOS format error Code
 _CritErrAction  db      0               ; 06 - Error Action Code
 _CritErrClass   db      0               ; 07 - Error Class
 _CritErrDev     dd      0               ; 08 - Failing Device Address
-_dta            dw      _TempBuffer, seg _TempBuffer
+_dta            dw      _sda_tmp_dm, seg _sda_tmp_dm
                                         ; 0C - current DTA, initialize to TempBuffer.
 _cu_psp         dw      0               ; 10 - Current PSP
 break_sp        dw      0               ; 12 - used in int 23
-_return_code    db      0               ; 14 - return code from process
-_return_mode    db      0               ; 15 - reason for process terminate
+_return_code    dw      0               ; 14 - return code from process
 _default_drive  db      0               ; 16 - Current Drive
 _break_ena      db      1               ; 17 - Break Flag (default TRUE)
                 db      0               ; 18 - flag, code page switching
@@ -481,10 +480,10 @@ daysSince1980   dw      0FFFFh          ; 34 - number of days since epoch
                                         ; force rebuild on first clock read
                 global  _DayOfWeek
 _DayOfWeek      db      2               ; 36 - day of week
-                global  _Year
-_Year           dw      1980            ; 37 - year
-                global  _dosidle_flag
-_dosidle_flag   db      0               ; 39 - unknown *no more*
+_console_swap   db      0               ; 37 console swapped during read from dev
+                global  _dosidle_flag        
+_dosidle_flag   db      1               ; 38 - safe to call int28 if nonzero
+_abort_progress db      0               ; 39 - abort in progress
                 global  _CharReqHdr
 _CharReqHdr:
                 global  _ClkReqHdr
@@ -502,8 +501,8 @@ _ClkRecord      times 6 db 0       ; 96 - CLOCK$ transfer record
 __PriPathBuffer times 80h db 0     ; 9E - buffer for file name
                 global  __SecPathBuffer
 __SecPathBuffer times 80h db 0     ;11E - buffer for file name
-                global  _TempBuffer
-_TempBuffer     times 21 db 0      ;19E - 21 byte srch state
+                global  _sda_tmp_dm
+_sda_tmp_dm     times 21 db 0      ;19E - 21 byte srch state
                 global  _SearchDir
 _SearchDir      times 32 db 0      ;1B3 - 32 byte dir entry
                 global  _TempCDS
@@ -523,10 +522,7 @@ _OpenMode       db      0           ;24E - File Open Attribute
                 global  _Server_Call
 _Server_Call    db      0           ;252 - Server call Func 5D sub 0
                 db      0
-                global  _lpUserStack
-_lpUserStack    dd      0               ;254 - pointer to user stack frame
-
-                ; Pad to 057Ch
+                ; Pad to 05CCh
                 times (25ch - ($ - _internal_data)) db 0
 
                 global  _tsr            ; used by break and critical error

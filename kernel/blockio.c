@@ -43,6 +43,8 @@ static BYTE *blockioRcsId =
 /************************************************************************/
 /* #define DISPLAY_GETBLOCK */
 
+STATIC BOOL flush1(struct buffer FAR * bp);
+
 /*                                                                      */
 /* Initialize the buffer structure                                      */
 /*                                                                      */
@@ -76,7 +78,7 @@ STATIC VOID setblkno(struct buffer FAR * bp, ULONG blkno)
     bp->b_blkno = blkno;
 /*    bp->b_dpbp = &blk_devices[bp->b_unit]; */
 
-    bp->b_dpbp = CDSp[bp->b_unit].cdsDpb;
+    bp->b_dpbp = get_cds(bp->b_unit)->cdsDpb;
 
   }
 }
@@ -101,7 +103,7 @@ STATIC VOID setblkno(struct buffer FAR * bp, ULONG blkno)
     
 */
 
-BOOL searchblock(ULONG blkno, COUNT dsk, struct buffer FAR ** pBuffp)
+STATIC BOOL searchblock(ULONG blkno, COUNT dsk, struct buffer FAR ** pBuffp)
 {
   int fat_count = 0;
   struct buffer FAR *bp;
@@ -337,7 +339,7 @@ BOOL flush_buffers(REG COUNT dsk)
 /*                                                                      */
 /*      Write one disk buffer                                           */
 /*                                                                      */
-BOOL flush1(struct buffer FAR * bp)
+STATIC BOOL flush1(struct buffer FAR * bp)
 {
 /* All lines with changes on 9/4/00 by BER marked below */
 
@@ -409,20 +411,11 @@ BOOL flush(void)
 /* Transfer one or more blocks to/from disk                             */
 /*                                                                      */
 
-/* Changed to UWORD  9/4/00  BER */
 UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
               COUNT mode)
-/* End of change */
 {
-/*  REG struct dpb *dpbp = &blk_devices[dsk]; */
-
-  REG struct dpb FAR *dpbp = CDSp[dsk].cdsDpb;
-
-  if ((UCOUNT) dsk >= lastdrive)
-  {
-    return 0x0201;              /* illegal command */
-  }
-  if ((CDSp[dsk].cdsFlags & (CDSPHYSDRV | CDSNETWDRV)) != CDSPHYSDRV)
+  register struct dpb FAR *dpbp = get_dpb(dsk);
+  if (dpbp == NULL)
   {
     return 0x0201;              /* illegal command */
   }

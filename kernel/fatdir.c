@@ -72,6 +72,7 @@ f_node_ptr dir_open(register const char *dirname)
 {
   f_node_ptr fnp;
   int i;
+  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (f_node_ptr) 0)
@@ -83,22 +84,7 @@ f_node_ptr dir_open(register const char *dirname)
   fnp->f_mode = RDWR;
 
   /* determine what drive and dpb we are using...                 */
-  fnp->f_dpb = CDSp[dirname[0]-'A'].cdsDpb;
-  if (fnp->f_dpb == 0)
-  {
-    release_f_node(fnp);
-    return NULL;
-  }
-
-/* for testing only for now */
-#if 0
-  if ((CDSp[dirname[0]-'A'].cdsFlags & CDSNETWDRV))
-  {
-    printf("FailSafe %x \n", Int21AX);
-    return fnp;
-  }
-#endif
-
+  fnp->f_dpb = get_dpb(dirname[0]-'A');
   /* Perform all directory common handling after all special      */
   /* handling has been performed.                                 */
 
@@ -133,13 +119,13 @@ f_node_ptr dir_open(register const char *dirname)
     /* comparison...                                        */
     /* first the file name with trailing spaces...          */
 
-    memset(TempBuffer, ' ', FNAME_SIZE + FEXT_SIZE);
+    memset(fcbname, ' ', FNAME_SIZE + FEXT_SIZE);
 
     for (i = 0; i < FNAME_SIZE; i++)
     {
       if (*dirname != '\0' && *dirname != '.' && *dirname != '/' &&
           *dirname != '\\')
-        TempBuffer[i] = *dirname++;
+        fcbname[i] = *dirname++;
       else
         break;
     }
@@ -152,7 +138,7 @@ f_node_ptr dir_open(register const char *dirname)
     {
       if (*dirname != '\0' && *dirname != '.' && *dirname != '/' &&
           *dirname != '\\')
-        TempBuffer[i + FNAME_SIZE] = *dirname++;
+        fcbname[i + FNAME_SIZE] = *dirname++;
       else
         break;
     }
@@ -164,7 +150,7 @@ f_node_ptr dir_open(register const char *dirname)
     while (dir_read(fnp) == 1)
     {
       if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
-          fcbmatch(TempBuffer, fnp->f_dir.dir_name))
+          fcbmatch(fcbname, fnp->f_dir.dir_name))
       {
         i = TRUE;
         break;
@@ -410,7 +396,7 @@ VOID dir_close(REG f_node_ptr fnp)
 COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 {
   REG f_node_ptr fnp;
-  REG dmatch *dmp = (dmatch *) TempBuffer;
+  REG dmatch *dmp = &sda_tmp_dm;
   REG COUNT i;
 
 /*  printf("ff %Fs\n", name);*/
@@ -507,9 +493,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 
 COUNT dos_findnext(void)
 {
-  REG dmatch *dmp = (dmatch *) TempBuffer;
   REG f_node_ptr fnp;
   BOOL found = FALSE;
+  REG dmatch *dmp = &sda_tmp_dm;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (f_node_ptr) 0)
@@ -524,7 +510,7 @@ COUNT dos_findnext(void)
 
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
-  fnp->f_dpb = CDSp[dmp->dm_drive].cdsDpb;
+  fnp->f_dpb = get_dpb(dmp->dm_drive);
   if (media_check(fnp->f_dpb) < 0)
   {
     release_f_node(fnp);

@@ -1,8 +1,8 @@
 These are the know contributors of the FreeDOS kernel.  If you have
 contributed in any way to the kernel, but are not on this list,
-please email me at linux-guru@gcfl.net so I can add you to the list!
+please email me at bart@dosemu.org so I can add you to the list!
 
-Thanx to all the following for contributing to the FreeDOS kernel:
+Thanks to all the following for contributing to the FreeDOS kernel:
 
 ror4 (ror4@angelfire.com)
 Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
@@ -18,6 +18,9 @@ Jeremy Davis (jeremyd@computer.org)
 Martin Stromberg (ams@ludd.luth.se)
 Bart Oldeman (bart@dosemu.org)
 
-And last, but not least, a big thanx to Pasquale J. Villani
+At this place we should also thank Ralf Brown for his interrupt list.
+It is a truely invaluable resource for us.
+
+And last, but not least, a big thanks to Pasquale J. Villani
 (patv@iop.com), who was the original author of DOS-C, in which the
 FreeDOS kernel was based.

@@ -201,13 +201,7 @@ COUNT DosDevIOctl(lregs * r)
 
       CharReqHdr.r_unit = (r->BL == 0 ? default_drive : r->BL - 1);
 
-      if (CharReqHdr.r_unit >= lastdrive)
-        return DE_INVLDDRV;
-      else
-      {
-/*        cdsp = &CDSp[CharReqHdr.r_unit];	*/
-        dpbp = CDSp[CharReqHdr.r_unit].cdsDpb;
-      }
+      dpbp = get_dpb(CharReqHdr.r_unit);
 
       switch (r->AL)
       {
@@ -229,7 +223,7 @@ COUNT DosDevIOctl(lregs * r)
           }
           return DE_INVLDFUNC;
         case 0x09:
-          if (CDSp[CharReqHdr.r_unit].cdsFlags & CDSNETWDRV)
+          if (get_cds(CharReqHdr.r_unit) != NULL && dpbp == NULL)
           {
             r->DX = ATTR_REMOTE;
             r->AX = S_DONE | S_BUSY;

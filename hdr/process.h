@@ -79,8 +79,7 @@ typedef struct {
   UWORD ps_maxfiles;            /* 32 maximum open files           */
   UBYTE FAR *ps_filetab;        /* 34 open file table pointer      */
   VOID FAR *ps_prevpsp;         /* 38 previous psp pointer         */
-  BYTE FAR *ps_dta;             /* 3c process dta address          */
-  BYTE ps_fill2[16];            /* 40 */
+  BYTE ps_fill2[20];            /* 3c */
   UBYTE ps_unix[3];             /* 50 unix style call - 0xcd 0x21 0xcb */
   BYTE ps_fill3[9];             /* 53 */
   union {
@@ -93,18 +92,14 @@ typedef struct {
     } _u2;
     struct {
       BYTE fill5[36];
-      struct {
-        BYTE _ps_cmd_count;
-        BYTE _ps_cmd[127];      /* command tail      */
-      } _u4;
+      CommandTail _ps_cmd;
     } _u3;
   } _u;
 } psp;
 
 #define ps_fcb1 _u._u1._ps_fcb1
 #define ps_fcb2 _u._u2._ps_fcb2
-#define ps_cmd  _u._u3._u4._ps_cmd
-#define ps_cmd_count    _u._u3._u4._ps_cmd_count
+#define ps_cmd  _u._u3._ps_cmd
 
 /*
  * Log: process.h,v 

@@ -63,12 +63,14 @@ static char *portab_hRcsId =
 
 #define I86
 #define CDECL   cdecl
+#define PASCAL  pascal
 void __int__(int);
 
 #elif defined	(_MSC_VER)
 
 #define I86
 #define CDECL   _cdecl
+#define PASCAL  pascal
 #define __int__(intno) asm int intno;
 
 #if defined(M_I286)             /* /G3 doesn't set M_I386, but sets M_I286 TE */
@@ -82,6 +84,7 @@ void __int__(int);
 #define asm __asm
 #define far __far
 #define CDECL   __cdecl
+#define PASCAL  pascal
 
 #if _M_IX86 >= 300
 #define I386
@@ -112,6 +115,7 @@ anyone knows a _portable_ way to create nice errors ? ?
 #define NONNATIVE
 #define PARASIZE       4096     /* "paragraph" size     */
 #define CDECL
+#define PASCAL
 #ifdef __GNUC__
 #define CONST          const
 #define PROTO
@@ -137,6 +141,7 @@ typedef unsigned       size_t;
               have a certain calling standard. These are declared
               as 'ASMCFUNC', and is (and will be ?-) cdecl */
 #define ASMCFUNC CDECL
+#define ASMPASCAL PASCAL
 #define ASM ASMCFUNC
 /*                                                              */
 /* Boolean type & definitions of TRUE and FALSE boolean values  */
@@ -210,13 +215,23 @@ typedef signed long LONG;
 /* General far pointer macros                                           */
 #ifdef I86
 #ifndef MK_FP
+
 #ifdef __WATCOMC__
 #define MK_FP(seg,ofs) 	      (((UWORD)(seg)):>((VOID *)(ofs)))
+#elif defined(__TURBOC__) && (__TURBOC__ > 0x202)
+#define MK_FP(seg,ofs)        ((void _seg *)(seg) + (void near *)(ofs))
 #else
 #define MK_FP(seg,ofs)        ((void FAR *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
 #endif
-#define FP_SEG(fp)            ((unsigned)(UWORD)((ULONG)(VOID FAR *)(fp)>>16))
-#define FP_OFF(fp)            ((unsigned)(UWORD)(fp))
+
+#if defined(__TURBOC__) && (__TURBOC__ > 0x202)
+#define FP_SEG(fp)            ((unsigned)(void _seg *)(void far *)(fp))
+#else
+#define FP_SEG(fp)            ((unsigned)((ULONG)(VOID FAR *)(fp)>>16))
+#endif
+
+#define FP_OFF(fp)            ((unsigned)(fp))
+
 #endif
 #endif
 

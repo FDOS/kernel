@@ -28,6 +28,8 @@
 
 #include "portab.h"
 
+#if defined(DEBUG) || defined(FORSYS) || defined(_INIT)
+
 #ifdef FORSYS
 #include <io.h>
 #include <stdarg.h>
@@ -86,7 +88,7 @@ COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
   return i;
 }
 #else
-COUNT ASMCFUNC fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
+COUNT /*ASMCFUNC*/ pascal fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
 #endif
 
 /* special console output routine */
@@ -370,24 +372,78 @@ COUNT do_printf(CONST BYTE * fmt, va_list arg)
   return 0;
 }
 
-#ifndef _INIT
+#else
+void put_console(int c)
+{
+  if (c == '\n')
+    put_console('\r');
+
+#if defined(__TURBOC__)
+  _AX = 0x0e00 | c;
+  _BX = 0x0070;
+  __int__(0x10);
+#elif defined(I86)
+  __asm
+  {
+    mov al, byte ptr c;
+    mov ah, 0x0e;
+    mov bx, 0x0070;
+    int 0x10;
+  }
+#endif                          /* __TURBO__ */
+}
+
+extern void put_string(const char *);
+extern void put_unsigned(unsigned, int, int);
+
 void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
 {
   int loop, start = 0;
-  printf("%s", title);
+  put_string(title);
   if (numBytes > 16)
-    printf("\n");
+    put_console('\n');
 
   for (start = 0; start < numBytes; start += 16)
   {
-    printf("%p|", p+start);
+    put_unsigned(FP_SEG(p), 16, 4);
+    put_console(':');
+    put_unsigned(FP_OFF(p + start), 16, 4);
+    put_console('|');
     for (loop = start; loop < numBytes && loop < start+16;loop++)
-      printf("%02x ", p[loop]);
+    {
+      put_unsigned(p[loop], 16, 2);
+      put_console(' ');
+    }   
     for (loop = start; loop < numBytes && loop < start+16;loop++)
-      printf("%c", p[loop] < 0x20 ? '.' : p[loop]);
-    printf("\n");
+      put_console(p[loop] < 0x20 ? '.' : p[loop]);
+    put_console('\n');
   }
 }
+
+/* put_unsigned -- print unsigned int in base 2--16 */
+void put_unsigned(unsigned n, int base, int width)
+{
+  char s[6];
+  int i;
+
+  for (i = 0; i < width; i++)
+  {                             /* generate digits in reverse order */
+    s[i] = "0123456789abcdef"[(UWORD) (n % base)];
+    n /= base;
+  }
+
+  while(i != 0)
+  {                             /* print digits in reverse order */
+    put_console(s[--i]);
+  }
+}
+
+void put_string(const char *s)
+{
+  while(*s != '\0')
+    put_console(*s++);
+}
+
 #endif
 
 #ifdef TEST

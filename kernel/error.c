@@ -51,7 +51,9 @@ VOID dump(void)
 /* issue a panic message for corrupted data structures          */
 VOID panic(BYTE * s)
 {
-  printf("\nPANIC: %s\nSystem halted\n", s);
+  put_string("\nPANIC: ");
+  put_string(s);
+  put_string("\nSystem halted");
   for (;;) ;
 }
 

@@ -54,7 +54,7 @@ segment HMA_TEXT
 ; fmemset(void FAR *dest, int ch, int count);
 ; fstrncpy(void FAR*dest, void FAR *src, int count);
 ;  strcpy (void    *dest, void     *src);
-; fstrcpy (void FAR*dest, void FAR *src, int count);
+; fstrcpy (void FAR*dest, void FAR *src);
 ;  strlen (void    *dest);
 ; fstrlen (void FAR*dest);
 ; fmemchr (BYTE FAR *src , int ch);
@@ -68,52 +68,51 @@ segment HMA_TEXT
 ;  memcmp(BYTE     *s1 , BYTE     *s2, int count);
 
 ;***********************************************
-; common_setup - set up the standard calling frame for C-functions
+; pascal_setup - set up the standard calling frame for C-functions
 ;                and save registers needed later
 ;                also preload the args for the near functions
 ;                di=arg1
 ;                si=arg2
 ;                cx=arg3
 ;
-common_setup:
-                pop     bx                      ; get return address
+pascal_setup:
+                pop     ax                      ; get return address
                 
                 push    bp                      ; Standard C entry
                 mov     bp,sp
                 push    si
                 push    di
-                push    es
                 push    ds
                 ; Set both ds and es to same segment (for near copy)
-                pop     es
                 push    ds
+                pop     es
 
                 ; Set direction to autoincrement
                 cld
 
-                                ; to conserve even some more bytes,
-                                ; the registers for the near routines
-                                ; are preloaded here
+                mov bl,6       ; majority (4) wants that
+                mov cx,[4+bp]  ; majority (8) wants that (near and far)
+                mov si,[6+bp]  ; majority (3) wants that (near)
+                mov di,[8+bp]  ; majority (3) wants that (near)
                 
-                ; the destination pointer, d = arg1
-                mov             di,[bp+4]
-
-                ; Get the source pointer,  s = arg2
-                mov             si,[bp+6]
-
-                ; Get the repitition count, n = arg3
-                mov             cx,[bp+8]
-
-                jmp bx
+                jmp ax
 
 
+
+        
 ;***********************************************
 ;
 ;       VOID memcpy(REG BYTE *s, REG BYTE *d, REG COUNT n);
 ;
-                global  _memcpy
-_memcpy:
-                call common_setup
+                global  MEMCPY
+MEMCPY:
+                call pascal_setup
+
+                ;mov cx,[4+bp] - preset above
+                ;mov si,[6+bp] - preset above
+                ;mov di,[8+bp] - preset above
+
+                ;mov bl,6 - preset above
 
 
 domemcpy:
@@ -124,19 +123,15 @@ domemcpy:
                 jnc     memcpy_return
                 movsb
 memcpy_return:
+%if 0                           ; only needed for fmemcpyback
                 cld
+%endif        
 
 ;
-; common_return - pop saved registers and do return
+; pascal_return - pop saved registers and do return
 ;
-
-common_return:
-		pop	ds
-		pop     es
-                pop     di
-                pop     si
-                pop     bp
-                ret
+        
+                jmp short pascal_return
 
 
 
@@ -145,24 +140,24 @@ common_return:
 ;       VOID fmemcpy(REG BYTE FAR *d, REG BYTE FAR *s,REG COUNT n);
 ;       VOID fmemcpyBack(REG BYTE FAR *d, REG BYTE FAR *s,REG COUNT n);
 ;
-                global  _fmemcpy
+                global  FMEMCPY
 %if 0
-                global  _fmemcpyBack
-_fmemcpyBack:
+                global  FMEMCPYBACK
+FMEMCPYBACK:
                 std             ; force to copy the string in reverse order
 %endif
-_fmemcpy:
-                call common_setup
+FMEMCPY:
+                call pascal_setup
+
+                ; Get the repetition count, n preset above
+                ; mov     cx,[bp+4]
 
                 ; Get the far source pointer, s
-                lds     si,[bp+8]
+                lds     si,[bp+6]
 
                 ; Get the far destination pointer d
-                les     di,[bp+4]
-
-                ; Get the repetition count, n
-                mov     cx,[bp+12]
-
+                les     di,[bp+10]
+		mov	bl,10
 
                 jmp short domemcpy
 
@@ -170,56 +165,69 @@ _fmemcpy:
 ;
 ;       VOID fmemset(REG VOID FAR *d, REG BYTE ch, REG COUNT n);
 ;
-                global  _fmemset
-_fmemset:
-                call common_setup
+                global  FMEMSET
+FMEMSET:
+                call pascal_setup
 
-                ; Get the repetition count, n
-                mov     cx,[bp+10]
+                ; Get the repetition count, n - preset above
+                ; mov     cx,[bp+4]
 
-                ; Get the far source pointer, s
-                les     di,[bp+4]
-
-                ; Get the far destination pointer ch
-                mov     al,[bp+8]
+                ; Get the fill byte ch
+                mov     ax,[bp+6]
                 
+                ; Get the far source pointer, s
+                les     di,[bp+8]
+		mov	bl,8
+
 domemset:                
                 mov		ah, al
 
                 shr    cx,1
                 rep     stosw
-                jnc     common_return
+                jnc     pascal_return
                 stosb
                 
-                jmp  short common_return
+                jmp  short pascal_return
 
 ;***************************************************************
 ;
 ;       VOID memset(REG VOID *d, REG BYTE ch, REG COUNT n);
 ;
-                global  _memset
-_memset:
-                call common_setup
+                global  MEMSET
+MEMSET:
+                call pascal_setup
                 
-                                ; Get the far source pointer, s
-                ; mov      di,[bp+4]
+                ; Get the repitition count, n - preset above
+                ; mov     cx,[bp+4]
 
                 ; Get the char ch
-                mov     ax,si   ; mov al, [bp+6]
+                mov     ax, [bp+6]
 
-                ; Get the repititon count, n
-                ; mov     cx,[bp+8]
+                ; Get the far source pointer, d - preset above
+                ; mov      di,[bp+8]
+
+		;mov	bl, 6   ; preset above
 
                 jmp short domemset
 
+;*****
+pascal_return:
+		pop	ds
+                pop     di
+                pop     si
+                pop     bp
 
-                
+		pop	cx
+		sub	bh,bh
+		add	sp,bx
+		jmp	cx
                 
 ;***************************************************************
-%if 0                
+%if 0
+nix pascal - still untested
                 global  _fstrncpy
 _fstrncpy:
-                call common_setup
+                call pascal_setup
 
                 ; Get the source pointer, ss
                 lds             si,[bp+8]
@@ -229,7 +237,7 @@ _fstrncpy:
 
                 mov             cx,[bp+12]
                 
-                jcxz    common_return
+                jcxz    pascal_return
                 ;;                 dec     cx
                 ;          jcxz    store_one_byte
 strncpy_loop:   lodsb
@@ -243,35 +251,39 @@ store_one_byte: xor al,al
                                     ; to fill remaining part of buffer
                 stosb
                 
-                jmp  short common_return
+                jmp  short pascal_return
 %endif                
 ;*****************************************************************
                 
+; fstrcpy (void FAR*dest, void FAR *src);
 
 
-                global  _fstrcpy
-_fstrcpy:
-                call common_setup
+                global  FSTRCPY
+FSTRCPY:
+                call pascal_setup
 
                 ; Get the source pointer, ss
-                lds             si,[bp+8]
+                lds   si,[bp+4]
 
                 ; and the destination pointer, d
-                les             di,[bp+4]
+                les   di,[bp+8]
+
+		mov   bl,8
                 
                 jmp short dostrcpy
 
 ;******
-                global  _strcpy
-_strcpy:
-                call common_setup
+                global  STRCPY
+STRCPY:
+                call pascal_setup
 
 
                 ; Get the source pointer, ss
-                ;mov             si,[bp+6]
+                mov   si,[bp+4]
 
                 ; and the destination pointer, d
-                ;mov             di,[bp+4]
+                mov   di,[bp+6]
+		mov   bl,4
 
 dostrcpy:
 
@@ -281,25 +293,27 @@ strcpy_loop:
                 test al,al
                 jne  strcpy_loop
                 
-		jmp  short common_return
+		jmp  short pascal_return
 
 ;******************************************************************                
                 
-                global  _fstrlen
-_fstrlen:
-                call common_setup
+                global  FSTRLEN
+FSTRLEN:
+                call pascal_setup
 
                 ; Get the source pointer, ss
-                les             di,[bp+4]
+                les   di,[bp+4]
+		mov   bl,4
 
                 jmp short dostrlen
 
 ;**********************************************
-                global  _strlen
-_strlen:
-                call common_setup
-
-                ; The source pointer, ss, arg1 was loaded as di
+                global  STRLEN
+STRLEN:
+                call pascal_setup
+                ; Get the source pointer, ss
+                mov   di,[bp+4]
+		mov   bl,2
 
 dostrlen:           
                 mov al,0
@@ -310,22 +324,23 @@ dostrlen:
                 not ax                
                 dec ax
 
-                jmp short common_return
+                jmp short pascal_return
 
 ;************************************************************
-                global  _strchr
-_strchr:
-                call common_setup
+; strchr (BYTE *src , int ch);
+
+                global  STRCHR
+STRCHR:
+                call pascal_setup
 
                 ; Get the source pointer, ss
-                ; mov             si,[bp+4]
-                ; mov             bx,[bp+6]
-                mov bx,si
-                mov si,di
+                ; mov             cx,[bp+4] - preset above
+                ; mov             si,[bp+6] - preset above
+		mov bl,4
 
 strchr_loop:                
                 lodsb
-                cmp  al,bl
+                cmp  al,cl
                 je   strchr_found
                 test al,al
                 jne  strchr_loop
@@ -333,7 +348,7 @@ strchr_loop:
 strchr_retzero:
                 xor ax, ax               ; return NULL if not found
                 mov dx, ax               ; for fstrchr()
-                jmp  common_return
+                jmp short pascal_return
                 
 strchr_found:
                 mov ax, si
@@ -341,22 +356,40 @@ strchr_found:
 strchr_found1:
                 dec ax
 
-                jmp common_return
+                jmp short pascal_return
+
+
+;*****
+;  fstrchr (BYTE     far *src , int ch);
+                global  FSTRCHR
+FSTRCHR:
+                call pascal_setup
+
+                ; Get ch (preset above)
+                ;mov cx, [bp+4]
+                
+                ;and the source pointer, src
+                lds si, [bp+6]
+
+		;mov	bl, 6 - preset above
+
+                jmp short strchr_loop
 
 ;******
-%if 0
-                global  _fmemchr
-_fmemchr:
-                call common_setup
+                global  FMEMCHR
+FMEMCHR:
+                call pascal_setup
 
-                ; Get the source pointer, ss
-                les di, [bp+4]
+                ; Get the length - preset above
+                ; mov cx, [bp+4]
 
                 ; and the search value
-                mov al, [bp+8]
+                mov ax, [bp+6]
 
-                ; and the length
-                mov cx, [bp+10]
+                ; and the source pointer, ss
+                les di, [bp+8]
+
+		mov bl, 8
                 
                 repne scasb
                 jne strchr_retzero
@@ -364,25 +397,13 @@ _fmemchr:
                 mov ax, di
                 dec ax
                 jmp short strchr_found1
-%endif
-
-                global  _fstrchr
-_fstrchr:
-                call common_setup
-
-                ; Get the source pointer, ss
-                lds si, [bp+4]
-
-                ; and the destination pointer, d
-                mov bx, [bp+8]
-                
-                jmp short strchr_loop
 
 ;**********************************************************************
 %if 0
+nix pascal - still untested
                 global  _fstrcmp
 _fstrcmp:
-                call common_setup
+                call pascal_setup
 
                 ; Get the source pointer, ss
                 lds             si,[bp+4]
@@ -395,7 +416,7 @@ _fstrcmp:
 ;******
                 global  _strcmp
 _strcmp:
-                call common_setup
+                call pascal_setup
 
 
                 ; Get the source pointer, ss
@@ -413,9 +434,9 @@ dostrcmp:
 
                 
 ;**********************************************************************
-                global  _fstrncmp
-_fstrncmp:
-                call common_setup
+                global  FSTRNCMP
+FSTRNCMP:
+                call pascal_setup
 
                 ; Get the source pointer, ss
                 lds             si,[bp+4]
@@ -429,7 +450,7 @@ _fstrncmp:
 ;******
                 global  _strncmp
 _strncmp:
-                call common_setup
+                call pascal_setup
 
                 ; Get the source pointer, ss
                 ;mov             si,[bp+4]
@@ -455,36 +476,41 @@ strncmp_retzero:
 strncmp_done:
                 lahf
 		ror  ah,1
-strncmp_done2:  jmp  common_return
+strncmp_done2:  jmp  pascal_return
 
 
 ;**********************************************************************
-                global  _fmemcmp
-_fmemcmp:
-                call common_setup
+; fmemcmp(BYTE FAR *s1 , BYTE FAR *s2, int count);
+                global  FMEMCMP
+FMEMCMP:
+                call pascal_setup
 
+                ; the length - preset above
+                ; mov cx, [bp+4]
+                
                 ; Get the source pointer, ss
-                lds si,[bp+4]
+                les di,[bp+6]
 
                 ; and the destination pointer, d
-                les di,[bp+8]
+                lds si,[bp+10]
 
-                ; the length
-                mov cx, [bp+12]
-                
+		mov bl,10
+
                 jmp short domemcmp
 
 ;******
-                global  _memcmp
-_memcmp:
-                call common_setup
+;  memcmp(BYTE     *s1 , BYTE     *s2, int count);        
+                global  MEMCMP
+MEMCMP:
+                call pascal_setup
 
-                ; Get the source pointer, ss
+                ; all preset: Get the source pointer, ss
                 ;mov             si,[bp+6]
 
                 ; and the destination pointer, d
-                ;mov             di,[bp+4]
-                ;mov             cx,[bp+8]
+                ;mov             di,[bp+8]
+                ;mov             cx,[bp+4]
+		;mov		 bl,6
                 xchg si,di
 
 domemcmp:

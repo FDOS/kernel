@@ -110,6 +110,7 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 /* internal transfer direction flags                                    */
 #define XFR_READ        1
 #define XFR_WRITE       2
+#define XFR_FORCE_WRITE 3
 
 #define RDONLY          0
 #define WRONLY          1
@@ -131,17 +132,17 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 #define ESC             0x1b
 #define CTL_BS          0x7f
 
-#define INS             0x52
-#define DEL             0x53
+#define INS             0x5200
+#define DEL             0x5300
 
-#define F1              0x3b
-#define F2              0x3c
-#define F3              0x3d
-#define F4              0x3e
-#define F5              0x3f
-#define F6              0x40
-#define LEFT            0x4b
-#define RIGHT           0x4d
+#define F1              0x3b00
+#define F2              0x3c00
+#define F3              0x3d00
+#define F4              0x3e00
+#define F5              0x3f00
+#define F6              0x4000
+#define LEFT            0x4b00
+#define RIGHT           0x4d00
 
 /* Blockio constants                                                    */
 #define DSKWRITE        1       /* dskxfr function parameters   */
@@ -324,14 +325,15 @@ extern UWORD ASM wAttr;
 
 extern BYTE ASM default_drive;      /* default drive for dos                */
 
-extern BYTE ASM TempBuffer[],       /* Temporary general purpose buffer     */
+extern dmatch ASM sda_tmp_dm;       /* Temporary directory match buffer     */
+extern BYTE
   FAR ASM internal_data[],          /* sda areas                            */
   FAR ASM swap_always[],            /*  "    "                              */
   FAR ASM swap_indos[],             /*  "    "                              */
   ASM tsr,                          /* true if program is TSR               */
   ASM break_flg,                    /* true if break was detected           */
   ASM break_ena;                    /* break enabled flag                   */
-extern BYTE FAR * ASM dta;          /* Disk transfer area (kludge)          */
+extern void FAR * ASM dta;          /* Disk transfer area (kludge)          */
 extern seg ASM cu_psp;              /* current psp segment                  */
 extern iregs FAR * ASM user_r;      /* User registers for int 21h call      */
 
@@ -343,11 +345,10 @@ extern fcb FAR * ASM lpFcb;         /* Pointer to users fcb                 */
 extern sft FAR * ASM lpCurSft;
 
 extern BYTE ASM verify_ena,         /* verify enabled flag                  */
-  ASM switchar,                     /* switch char                          */
-  ASM return_mode,                  /* Process termination rets             */
-  ASM return_code;                  /*     "        "       "               */
+  ASM switchar;                     /* switch char                          */
+extern UWORD ASM return_code;       /* Process termination rets             */
 
-extern BYTE ASM BootDrive,          /* Drive we came up from                */
+extern UBYTE ASM BootDrive,         /* Drive we came up from                */
   ASM scr_pos;                      /* screen position for bs, ht, etc      */
 /*extern WORD
   NumFloppies; !!*//* How many floppies we have            */
@@ -359,12 +360,6 @@ extern struct cds
   ASM TempCDS;
 
 /* start of uncontrolled variables                                      */
-GLOBAL seg RootPsp;             /* Root process -- do not abort         */
-
-/* don't know what it should do, but its no longer in use TE
-GLOBAL struct f_node
- *pDirFileNode;
-*/
 
 #ifdef DEBUG
 GLOBAL iregs error_regs;        /* registers for dump                   */
@@ -455,12 +450,8 @@ VOID fputbyte(VOID FAR *, UBYTE);
 
 /* ^Break handling */
 void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
-int control_break(void);        /* break.c */
-void handle_break(void);        /* break.c */
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
-
-GLOBAL COUNT UnusedRetVal;      /* put unused errors here (to save stack space) */
 
 /*
  * Log: globals.h,v 

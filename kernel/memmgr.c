@@ -299,6 +299,15 @@ COUNT DosMemLargest(UWORD FAR * size)
   seg dummy;
   *size = 0;
   DosMemAlloc(0xffff, LARGEST, &dummy, size);
+  if (mem_access_mode & 0x80) /* then the largest block is probably low! */
+  {
+    UWORD lowsize = 0;
+    mem_access_mode &= ~0x80;
+    DosMemAlloc(0xffff, LARGEST, &dummy, &lowsize);
+    mem_access_mode |= 0x80;
+    if (lowsize > *size)
+      *size = lowsize;
+  }
   return *size ? SUCCESS : DE_NOMEM;
 }
 
@@ -395,7 +404,6 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
   }
 
   /*       shrink it down                                         */
-  /* From here on, nothing can fail */
   if (size < p->m_size)
   {
     /* make q a pointer to the new next block               */
@@ -414,6 +422,10 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     q->m_psp = FREE_PSP;
     for (i = 0; i < 8; i++)
       q->m_name[i] = '\0';
+
+    /* try to join q with the free mcb's following it if possible */
+    if (joinMCBs(q) != SUCCESS)
+      return DE_MCBDESTRY;
   }
 
   /* MS network client NET.EXE: DosMemChange sets the PSP              *
@@ -441,8 +453,9 @@ COUNT DosMemCheck(void)
     /* check for corruption                         */
     if (p->m_type != MCB_NORMAL)
     {
-      printf("dos mem corrupt, first_mcb=%04x\n", first_mcb);
-      hexd("prev ", pprev, 16);
+      put_string("dos mem corrupt, first_mcb=");
+      put_unsigned(first_mcb, 16, 4);
+      hexd("\nprev ", pprev, 16);
       hexd("notMZ", p, 16);
       return DE_MCBDESTRY;
     }

@@ -51,11 +51,10 @@ extern UBYTE DOSFAR ASM nblkdev, DOSFAR ASM lastdrive;  /* value of last drive  
 
 GLOBAL BYTE DOSFAR os_major,    /* major version number                 */
   DOSFAR os_minor,              /* minor version number                 */
-  DOSFAR dosidle_flag, DOSFAR ASM BootDrive,        /* Drive we came up from                */
   DOSFAR ASM default_drive;         /* default drive for dos                */
+GLOBAL UBYTE DOSFAR ASM BootDrive;  /* Drive we came up from                */
 
 GLOBAL BYTE DOSFAR os_release[];
-GLOBAL seg DOSFAR RootPsp;      /* Root process -- do not abort         */
 
 extern struct dpb FAR *DOSFAR ASM DPBp;     /* First drive Parameter Block          */
 extern struct cds FAR *DOSFAR ASM CDSp; /* Current Directory Structure          */
@@ -85,7 +84,6 @@ extern BYTE FAR *upBase;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
 extern UWORD ram_top;               /* How much ram in Kbytes               */
 
-VOID configDone(VOID);
 STATIC VOID InitIO(void);
 
 STATIC VOID update_dcb(struct dhdr FAR *);
@@ -156,7 +154,7 @@ VOID ASMCFUNC FreeDOSmain(void)
     
     BootDrive = *(BYTE FAR *)MK_FP(0x50,0xe0) + 1;
         
-    if ((unsigned)BootDrive >= 0x80)
+    if (BootDrive >= 0x80)
       BootDrive = 3; /* C: */
     
     *(DWORD FAR *)MK_FP(0x50,0xe0+2) = 0; 
@@ -339,18 +337,22 @@ STATIC VOID FsConfig(VOID)
 
   /* The system file tables need special handling and are "hand   */
   /* built. Included is the stdin, stdout, stdaux and stdprn. */
+  /* a little bit of shuffling is necessary for compatibility */
 
-  /* 0 is /dev/con (stdin) */
+  /* sft_idx=0 is /dev/aux                                        */
+  open("AUX", O_RDWR);
+
+  /* handle 1, sft_idx=1 is /dev/con (stdout) */
   open("CON", O_RDWR);
 
-  /* 1 is /dev/con (stdout)     */
-  dup2(STDIN, STDOUT);
+  /* 3 is /dev/aux                */
+  dup2(STDIN, STDAUX);
 
-  /* 2 is /dev/con (stderr)     */
-  dup2(STDIN, STDERR);
+  /* 0 is /dev/con (stdin)        */
+  dup2(STDOUT, STDIN);
 
-  /* 3 is /dev/aux                                                */
-  open("AUX", O_RDWR);
+  /* 2 is /dev/con (stdin)        */
+  dup2(STDOUT, STDERR);
 
   /* 4 is /dev/prn                                                */
   open("PRN", O_WRONLY);
@@ -415,8 +417,6 @@ STATIC void kernel()
 
   exb.exec.env_seg = DOS_PSP + 8;
   fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
-
-  RootPsp = ~0;
 
   /* process 0       */
   /* Execute command.com /P from the drive we just booted from    */
@@ -541,22 +541,15 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
 /* If cmdLine is NULL, this is an internal driver */
 
 BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode,
-                 COUNT r_top)
+                 char FAR *r_top)
 {
   request rq;
-
-  UCOUNT maxmem = ((UCOUNT) r_top << 6) - FP_SEG(dhp);
-
-  if (maxmem >= 0x1000)
-    maxmem = 0xFFFF;
-  else
-    maxmem <<= 4;
 
   rq.r_unit = 0;
   rq.r_status = 0;
   rq.r_command = C_INIT;
   rq.r_length = sizeof(request);
-  rq.r_endaddr = MK_FP(FP_SEG(dhp), maxmem);
+  rq.r_endaddr = r_top;
   rq.r_bpbptr = (void FAR *)(cmdLine ? cmdLine : "\n");
   rq.r_firstunit = nblkdev;
 
@@ -605,8 +598,8 @@ STATIC void InitIO(void)
 {
   /* Initialize driver chain                                      */
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
-  init_device(&con_dev, NULL, NULL, ram_top);
-  init_device(&clk_dev, NULL, NULL, ram_top);
+  init_device(&con_dev, NULL, NULL, lpTop);
+  init_device(&clk_dev, NULL, NULL, lpTop);
 }
 
 /* issue an internal error message                              */

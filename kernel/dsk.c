@@ -199,6 +199,9 @@ COUNT ASMCFUNC FAR blk_driver(rqptr rp)
     return ((*dispatch[rp->r_command]) (rp, getddt(rp->r_unit)));
 }
 
+STATIC char template_string[] = "XXXXXX diskette in drive X:\n";
+#define DRIVE_POS (sizeof(template_string) - 2)
+
 STATIC WORD play_dj(ddt * pddt)
 {
   /* play the DJ ... */
@@ -215,12 +218,16 @@ STATIC WORD play_dj(ddt * pddt)
     }
     if (i == nUnits)
     {
-      printf("Error in the DJ mechanism!\n");   /* should not happen! */
+      put_string("Error in the DJ mechanism!\n");   /* should not happen! */
       return M_CHANGED;
     }
-    printf("Remove diskette in drive %c:\n", 'A' + pddt2->ddt_logdriveno);
-    printf("Insert diskette in drive %c:\n", 'A' + pddt->ddt_logdriveno);
-    printf("Press the any key to continue ... \n");
+    memcpy(template_string, "Remove", 6);
+    template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
+    put_string(template_string);
+    memcpy(template_string, "Insert", 6);
+    template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
+    put_string(template_string);
+    put_string("Press the any key to continue ... \n");
     fl_readkey();
     pddt2->ddt_descflags &= ~DF_CURLOG;
     pddt->ddt_descflags |= DF_CURLOG;
@@ -863,11 +870,13 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-STATIC void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
+STATIC int LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
 {
   /* we need the defbpb values since those are taken from the
      BIOS, not from some random boot sector, except when
      we're dealing with a floppy */
+  unsigned long cylinder;
+    
   bpb *pbpb = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
 
   chs->Sector = LBA_address % pbpb->bpb_nsecs + 1;
@@ -875,7 +884,20 @@ STATIC void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
   LBA_address /= pbpb->bpb_nsecs;
 
   chs->Head = LBA_address % pbpb->bpb_nheads;
-  chs->Cylinder = LBA_address / pbpb->bpb_nheads;
+
+  cylinder = LBA_address / pbpb->bpb_nheads;
+
+  if (cylinder > 1023ul)
+  {
+#ifdef DEBUG
+    printf("LBA-Transfer error : cylinder %lu > 1023\n", cylinder);
+#else
+    put_string("LBA-Transfer error : cylinder > 1023\n");
+#endif
+    return 1;
+  }
+  chs->Cylinder = cylinder;
+  return 0;
 }
 
   /* Test for 64K boundary crossing and return count small        */
@@ -1014,7 +1036,8 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
       else
       {                         /* transfer data, using old bios functions */
 
-        LBA_to_CHS(&chs, LBA_address, pddt);
+        if (LBA_to_CHS(&chs, LBA_address, pddt))
+          return 1;
 
         /* avoid overflow at end of track */
 
@@ -1023,21 +1046,13 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
           count = pddt->ddt_bpb.bpb_nsecs + 1 - chs.Sector;
         }
 
-        if (chs.Cylinder > 1023)
-        {
-          printf("LBA-Transfer error : cylinder %lu > 1023\n",
-                 chs.Cylinder);
-          return 1;
-        }
-
         error_code = (mode == LBA_READ ? fl_read :
                       mode == LBA_VERIFY ? fl_verify :
                       mode ==
                       LBA_FORMAT ? fl_format : fl_write) (pddt->
                                                           ddt_driveno,
                                                           chs.Head,
-                                                          (UWORD) chs.
-                                                          Cylinder,
+                                                          chs.Cylinder,
                                                           chs.Sector,
                                                           count,
                                                           transfer_address);
@@ -1045,7 +1060,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
         if (error_code == 0 && mode == LBA_WRITE_VERIFY)
         {
           error_code = fl_verify(pddt->ddt_driveno,
-                                 chs.Head, (UWORD) chs.Cylinder,
+                                 chs.Head, chs.Cylinder,
                                  chs.Sector, count, transfer_address);
         }
       }

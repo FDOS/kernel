@@ -99,11 +99,12 @@ clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
 
 clean:
-		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err
+		-$(RM) *.res *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
-kernel.exe: $(EXE_dependencies) $(LIBS) 
+
+kernel.res: $(EXE_dependencies) $(LIBS)
 	-$(RM) kernel.res
 	..\utils\echoto kernel.res kernel.obj iprf.obj+
 	..\utils\echoto kernel.res entry.obj io.obj blockio.obj chario.obj dosfns.obj console.obj+
@@ -117,8 +118,9 @@ kernel.exe: $(EXE_dependencies) $(LIBS)
 	..\utils\echoto kernel.res kernel.exe
 	..\utils\echoto kernel.res kernel.map
 	..\utils\echoto kernel.res ..\lib\libm.lib ..\lib\device.lib
+
+kernel.exe: kernel.res $(EXE_dependencies) $(LIBS)
 	$(LINK) @kernel.res;
-	-$(RM) kernel.res
 
 #               *Individual File Dependencies*
 kernel.obj: kernel.asm segs.inc ludivmul.inc

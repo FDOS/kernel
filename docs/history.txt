@@ -1,4 +1,39 @@
-2002 Aug xx - Build 2027
+2002 Oct xx - Build 2027rc
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * reorganized chario.c, got F1-F6, Ins, Del, etc working
+    * fixed bug in extended open
+    * fixed bug in memory manager (realloc should try to defragment; 
+      UMB fixes)
+    * consistently pass sft_idx around for all SFT functions (instead of 
+      the far pointer)
+    * lpUserStack is gone :)
+    * Idle interrupt: now uses disk i/o stack instead of error stack if it
+      re-enters DOS; can not be called from int21/ah=3f. It also checks 
+      InDos now (as documented in "undocumented dos").
+    * int21/ah=59 should use the disk i/o stack, not the character stack.
+    * get_cds: a uniform way to get the CDS for drive X which can do error
+      checking too. get_dpb: similar.
+    * task.c uses mid-level system file handles instead of PSP handles.
+    * SFT sequence is MS/DR DOS like: 0=AUX 1=CON 2=PRN
+    * int21/ah=4d needs to clear the return code after returning it.
+    * Removed need for unusedretval because some functions return a long int
+      now.
+    * Do not warn for some additional LBA partition layouts (begin/end
+      cylinder=1023) in initdisk.c.
+    * support int2f/ax=1213 (uppercase character) (ASCII only for now).
+    * fix for top of memory parameter to device driver - fixes problem
+      with DRDOS emm386
+    * eliminated printf for non-init code -- use put_unsigned and 
+      put_string instead
+    * better MK_FP for Turbo C++ 1.01 and later
+    * PSP related task.c cleanups
+    Changes Tom and Bart:
+    * Use Pascal calling convention for memcpy and friends in asmsupt.asm
+    * Fixed make temp file
+    * fix bug in DosFindNext
+    * misc makefile fixes
+2002 Aug xx - Build 2027test
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
     * enable LBA FAT16 booting

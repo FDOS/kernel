@@ -37,86 +37,190 @@ static BYTE *charioRcsId =
 
 #include "globals.h"
 
-/*      Return a pointer to the first driver in the chain that
- *      matches the attributes.
- *      not necessary because we have the syscon pointer.
- */
-#if 0
-struct dhdr FAR *finddev(UWORD attr_mask)
+STATIC int CharRequest(struct dhdr FAR *dev)
 {
-  struct dhdr far *dh;
-
-  for (dh = nul_dev.dh_next; FP_OFF(dh) != 0xFFFF; dh = dh->dh_next)
+  CharReqHdr.r_unit = 0;
+  CharReqHdr.r_status = 0;
+  CharReqHdr.r_length = sizeof(request);
+  execrh(&CharReqHdr, dev);
+  if (CharReqHdr.r_status & S_ERROR)
   {
-    if (dh->dh_attr & attr_mask)
-      return dh;
+  charloop:
+    switch (char_error(&CharReqHdr, dev))
+    {
+      case ABORT:
+      case FAIL:
+        return DE_INVLDACC;
+      case CONTINUE:
+        CharReqHdr.r_count = 0;
+        return 0;
+      case RETRY:
+        return 1;
+      default:
+        goto charloop;
+    }
   }
-
-  /* return dev/null if no matching driver found */
-  return &nul_dev;
+  return 0;
 }
-#endif
 
-UCOUNT BinaryCharIO(struct dhdr FAR * dev, UCOUNT n, void FAR * bp, unsigned command, COUNT *err)
+long BinaryCharIO(struct dhdr FAR * dev, size_t n, void FAR * bp, unsigned command)
 {
-  *err = SUCCESS;
-    
-  FOREVER
+  int err = SUCCESS;
+  do
   {
-    CharReqHdr.r_length = sizeof(request);
     CharReqHdr.r_command = command;
     CharReqHdr.r_count = n;
     CharReqHdr.r_trans = bp;
-    CharReqHdr.r_status = 0;
-    execrh(&CharReqHdr, dev);
-    if (CharReqHdr.r_status & S_ERROR)
-    {
-    charloop:
-      switch (char_error(&CharReqHdr, dev))
-      {
-        case ABORT:
-        case FAIL:
-          *err = DE_INVLDACC;
-          return 0;
-        case CONTINUE:
-          break;
-        case RETRY:
-          continue;
-        default:
-          goto charloop;
-      }
-    }
-    break;
-  }
-  return CharReqHdr.r_count;
+  } while ((err = CharRequest(dev)) == 1);
+  return err == SUCCESS ? CharReqHdr.r_count : err;
 }
 
-VOID _cso(COUNT c)
+/* STATE FUNCTIONS */
+
+STATIC struct dhdr FAR *idx_to_dev(int sft_idx)
 {
-  if (syscon->dh_attr & ATTR_FASTCON)
+  sft FAR *s = idx_to_sft(sft_idx);
+  if (FP_OFF(s) == (size_t)-1 || (s->sft_mode & SFT_MWRITE) ||
+      !(s->sft_flags & SFT_FDEVICE))
+    return syscon;
+  else
+    return s->sft_dev;
+}
+
+/* if sft_idx is invalid, then we just monitor syscon */
+STATIC BOOL Busy(int sft_idx)
+{
+  sft FAR *s = idx_to_sft(sft_idx);
+
+  if (s->sft_flags & SFT_FDEVICE)
+  {
+    struct dhdr FAR *dev = idx_to_dev(sft_idx);
+    do {
+      CharReqHdr.r_command = C_ISTAT;
+    } while(CharRequest(dev) == 1);
+    if (CharReqHdr.r_status & S_BUSY)
+      return TRUE;
+    else
+      return FALSE;
+  }
+  else
+    return s->sft_posit >= s->sft_size;
+}
+
+BOOL StdinBusy(void)
+{
+  return Busy(get_sft_idx(STDIN));
+}
+
+STATIC void Do_DosIdle_loop(int sft_idx)
+{
+  /* the idle loop is only safe if we're using the character stack */  
+  if (user_r->AH < 0xd)
+    while (Busy(sft_idx))
+      DosIdle_int();
+}
+
+/* get character from the console - this is how DOS gets
+   CTL_C/CTL_S/CTL_P when outputting */
+STATIC int ndread(int sft_idx)
+{
+  struct dhdr FAR *dev = idx_to_dev(sft_idx);
+  do {
+    CharReqHdr.r_command = C_NDREAD;
+  } while(CharRequest(dev) == 1);
+  if (CharReqHdr.r_status & S_BUSY)
+    return -1;
+  return CharReqHdr.r_ndbyte;
+}
+
+STATIC int con_get_char(int sft_idx)
+{
+  unsigned char c;
+  BinaryCharIO(idx_to_dev(sft_idx), 1, &c, C_INPUT);
+  if (c == CTL_C)
+    handle_break(sft_idx);
+  return c;
+}
+
+STATIC void con_hold(int sft_idx)
+{
+  int c;
+  if (control_break())
+    handle_break(-1);
+  c = ndread(sft_idx);
+  if (c == CTL_S)
+  {
+    con_get_char(sft_idx);
+    Do_DosIdle_loop(sft_idx);
+    /* just wait */
+    c = con_get_char(sft_idx);
+  }
+  if (c == CTL_C)
+  {
+    con_get_char(sft_idx);
+    handle_break(sft_idx);
+  }
+}
+
+BOOL con_break(void)
+{
+  if (ndread(-1) == CTL_C)
+  {
+    con_get_char(-1);
+    return TRUE;
+  }
+  else
+    return FALSE;
+}
+
+/* OUTPUT FUNCTIONS */
+
+#ifdef __WATCOMC__
+void int29(char c);
+#pragma aux int29 = "int 29h" parm[al] modify exact [bx]
+#endif
+
+/* writes a character in raw mode; use int29 if possible
+   for speed */
+STATIC int raw_put_char(int sft_idx, int c)
+{
+  struct dhdr FAR *dev = idx_to_dev(sft_idx);
+  unsigned char ch = (unsigned char)c;
+  
+  if (PrinterEcho)
+    DosWrite(STDPRN, 1, &ch);
+
+  if (dev->dh_attr & ATTR_FASTCON)
   {
 #if defined(__TURBOC__)
-    _AL = c;
+    _AL = ch;
     __int__(0x29);
+#elif defined(__WATCOMC__)
+    int29(ch);
 #elif defined(I86)
     asm
     {
-      mov al, byte ptr c;
+      mov al, byte ptr ch;
       int 0x29;
     }
 #endif
-    return;
+    return 0;
   }
-  BinaryCharIO(syscon, 1, &c, C_OUTPUT, &UnusedRetVal);
+  c = (int)BinaryCharIO(dev, 1, &ch, C_OUTPUT);
+  if (c < 0)
+    return c;
+  else
+    return ch;
 }
 
-VOID cso(COUNT c)
+/* writes a character in cooked mode; maybe with printer echo;
+   handles TAB expansion */
+STATIC int cooked_put_char(int sft_idx, int c)
 {
+  int err = 0;
+  
   /* Test for hold char */
-  con_hold();
-
-  if (PrinterEcho)
-    DosWrite(STDPRN, 1, (BYTE FAR *) & c, & UnusedRetVal);
+  con_hold(sft_idx);
 
   switch (c)
   {
@@ -132,157 +236,139 @@ VOID cso(COUNT c)
       break;
     case HT:
       do
-        _cso(' ');
-      while ((++scr_pos) & 7);
+        err = raw_put_char(sft_idx, ' ');
+      while (err >= 0 && ((++scr_pos) & 7));
       break;
     default:
       scr_pos++;
   }
   if (c != HT)
-    _cso(c);
+    err = raw_put_char(sft_idx, c);
+  return err;
 }
 
-VOID sto(COUNT c)
+long cooked_write(int sft_idx, size_t n, char FAR *bp)
 {
-  DosWrite(STDOUT, 1, (BYTE FAR *) & c, & UnusedRetVal);
+  size_t xfer;
+  int err = SUCCESS;
+        
+  for (xfer = 0; err >= SUCCESS && xfer < n && *bp != CTL_Z; bp++, xfer++)
+    err = cooked_put_char(sft_idx, *bp);
+  return err < SUCCESS ? err : xfer;
 }
 
-unsigned mod_cso(register unsigned c)
+/* writes character for disk file or device */
+void write_char(int c, int sft_idx)
 {
-  if (c < ' ' && c != HT)
+  unsigned char ch = (unsigned char)c;
+  DosRWSft(sft_idx, 1, &ch, XFR_FORCE_WRITE);
+}
+
+void write_char_stdin(int c)
+{
+  write_char(c, get_sft_idx(STDIN));
+}
+
+#define iscntrl(c) ((unsigned char)(c) < ' ')
+
+/* this is for handling things like ^C, mostly used in echoed input */
+STATIC int echo_char(int c, int sft_idx)
+{
+  if (iscntrl(c) && c != HT && c != LF && c != CR)
   {
-    cso('^');
-    cso(c + '@');
+    write_char('^', sft_idx);
+    write_char(c + '@', sft_idx);
   }
   else
-    cso(c);
+    write_char(c, sft_idx);
   return c;
 }
 
-VOID destr_bs(void)
+int echo_char_stdin(int c)
 {
-  cso(BS);
-  cso(' ');
-  cso(BS);
+  return echo_char(get_sft_idx(STDIN), c);
 }
 
-VOID Do_DosIdle_loop(void)
+STATIC void destr_bs(int sft_idx)
 {
-  FOREVER
-  {
-    if (!StdinBusy())
-      return;
-    else
-    {
-      DosIdle_int();
-      continue;
-    }
-  }
+  write_char(BS, sft_idx);
+  write_char(' ', sft_idx);
+  write_char(BS, sft_idx);
 }
 
-COUNT ndread(void)
-{
-  CharReqHdr.r_unit = 0;
-  CharReqHdr.r_status = 0;
-  CharReqHdr.r_command = C_NDREAD;
-  CharReqHdr.r_length = sizeof(request);
-  execrh((request FAR *) & CharReqHdr, syscon);
-  if (CharReqHdr.r_status & S_BUSY)
-    return -1;
-  return CharReqHdr.r_ndbyte;
-}
+/* READ FUNCTIONS */
 
-COUNT con_read(void)
+STATIC int raw_get_char(int sft_idx, BOOL check_break)
 {
-  BYTE c;
-
-  BinaryCharIO(syscon, 1, &c, C_INPUT, &UnusedRetVal);
-  if (c == CTL_C)
-    handle_break();
-  return c;
-}
-
-VOID con_hold(void)
-{
-  UBYTE c = ndread();
-  if (c == CTL_S)
-  {
-    con_read();
-    Do_DosIdle_loop();
-    /* just wait */
-    c = con_read();
-  }
-  if (c == CTL_C)
-  {
-    con_read();
-    handle_break();
-  }
-}
-
-UCOUNT _sti(BOOL check_break)
-{
-  UBYTE c;
-  /*
-   * XXX: If there's a read error, this will just keep retrying the read until
-   * the error disappears. Maybe it should do something else instead. -- ror4
-   */
-  Do_DosIdle_loop();
+  unsigned char c;
+  int err;
+  
+  Do_DosIdle_loop(sft_idx);
   if (check_break)
-    con_hold();
-  while (BinaryRead(STDIN, &c, & UnusedRetVal) != 1)
-    ;
+    con_hold(sft_idx);
+  
+  err = (int)BinaryCharIO(idx_to_dev(sft_idx), 1, &c, C_INPUT);
+  return err < 0 ? err : c;
+}
+
+long cooked_read(int sft_idx, size_t n, char FAR *bp)
+{
+  unsigned xfer = 0;
+  int c;
+  while(n--)
+  {
+    c = raw_get_char(sft_idx, TRUE);
+    if (c < 0)
+      return c;
+    *bp++ = c;
+    xfer++;
+    if (bp[-1] == CTL_Z)
+      break;
+  }
+  return xfer;
+}
+
+unsigned char read_char(int sft_idx, BOOL check_break)
+{
+  unsigned char c;
+  sft FAR *s = idx_to_sft(sft_idx);
+
+  if ((FP_OFF(s) == (size_t) -1) || (s->sft_flags & SFT_FDEVICE))
+    return raw_get_char(sft_idx, check_break);
+
+  DosRWSft(sft_idx, 1, &c, XFR_READ);
   return c;
 }
 
-BOOL con_break(void)
+STATIC unsigned char read_char_check_break(int sft_idx)
 {
-  if (ndread() == CTL_C)
-  {
-    con_read();
-    return TRUE;
-  }
-  else
-    return FALSE;
+  return read_char(sft_idx, TRUE);
 }
 
-BOOL StdinBusy(void)
+unsigned char read_char_stdin(BOOL check_break)
 {
-  sft FAR *s;
+  return read_char(get_sft_idx(STDIN), check_break);
+}
 
-  if ((s = get_sft(STDIN)) == (sft FAR *) - 1)
-    return FALSE;               /* XXX */
-  if (s->sft_count == 0 || (s->sft_mode & SFT_MWRITE))
-    return FALSE;               /* XXX */
-  if (s->sft_flags & SFT_FDEVICE)
-  {
+void KbdFlush(int sft_idx)
+{
+  struct dhdr FAR *dev = idx_to_dev(sft_idx);
+
+  do {
     CharReqHdr.r_unit = 0;
     CharReqHdr.r_status = 0;
-    CharReqHdr.r_command = C_ISTAT;
+    CharReqHdr.r_command = C_IFLUSH;
     CharReqHdr.r_length = sizeof(request);
-    execrh((request FAR *) & CharReqHdr, s->sft_dev);
-    if (CharReqHdr.r_status & S_BUSY)
-      return TRUE;
-    else
-      return FALSE;
-  }
-  else
-    return FALSE;               /* XXX */
+  } while (CharRequest(dev) == 1);
 }
 
-VOID KbdFlush(void)
+/* reads a line (buffered, called by int21/ah=0ah, 3fh) */
+void read_line(int sft_in, int sft_out, keyboard FAR * kp)
 {
-  CharReqHdr.r_unit = 0;
-  CharReqHdr.r_status = 0;
-  CharReqHdr.r_command = C_IFLUSH;
-  CharReqHdr.r_length = sizeof(request);
-  execrh((request FAR *) & CharReqHdr, syscon);
-}
-
-/* reads a line */
-void sti_0a(keyboard FAR * kp)
-{
-  REG UWORD c, cu_pos = scr_pos;
-  unsigned count = 0, stored_pos = 0, size = kp->kb_size, stored_size = kp->kb_count;
+  unsigned c;
+  unsigned cu_pos = scr_pos;
+  unsigned count = 0, stored_pos = 0;
+  unsigned size = kp->kb_size, stored_size = kp->kb_count; 
   BOOL insert = FALSE;
 
   if (size == 0)
@@ -290,86 +376,76 @@ void sti_0a(keyboard FAR * kp)
 
   /* the stored line is invalid unless it ends with a CR */
   if (kp->kb_buf[stored_size] != CR)
-  {
     stored_size = 0;
-  }
       
-  while ((c = _sti(TRUE)) != CR)
+  do
   {
+    unsigned new_pos = stored_size;
+    
+    c = read_char_check_break(sft_in);
+    if (c == 0)
+      c = (unsigned)read_char_check_break(sft_in) << 8;
     switch (c)
     {
-      case CTL_C:
-        handle_break();
       case CTL_F:
         continue;
 
-#ifndef NOSPCL
-      case SPCL:
-        switch (c = _sti(TRUE))
-        {
-          case LEFT:
-            goto backspace;
-
-          case RIGHT:
-          case F1:
-            if (stored_pos < stored_size && count < size - 1)
-              local_buffer[count++] = mod_cso(kp->kb_buf[stored_pos++]);
-            break;
-            
-          case F2:
-            c = _sti(TRUE);
-            /* insert up to character c */
-        insert_to_c:            
-            while (stored_pos < stored_size && count < size - 1)
-            {
-              char c2 = kp->kb_buf[stored_pos];
-              if (c2 == c)
-                break;
-              stored_pos++;
-              local_buffer[count++] = mod_cso(c2);
-            }
-            break;
-            
-          case F3:
-            c = (unsigned)-1;
-            goto insert_to_c;
-
-          case F4:
-            c = _sti(TRUE); 
-            /* delete up to character c */
-            while (stored_pos < stored_size && c != kp->kb_buf[stored_pos])
-              stored_pos++;
-            break;
-            
-          case F5:
-            fmemcpy(kp->kb_buf, local_buffer, count);
-            stored_size = count;
-            cso('@');
-            goto start_new_line;
-
-          case F6:
-            c = CTL_Z;
-            goto default_case;
-
-          case INS:
-            insert = !insert;
-            break;
-            
-          case DEL:
-            stored_pos++;
-            break;
-        }
+      case RIGHT:
+      case F1:
+        if (stored_pos < stored_size && count < size - 1)
+          local_buffer[count++] = echo_char(kp->kb_buf[stored_pos++], sft_out);
         break;
-#endif
+            
+      case F2:
+      case F4:
+        /* insert/delete up to character c */
+        {
+          unsigned char c2 = read_char_check_break(sft_in);
+          new_pos = stored_pos;
+          if (c2 == 0)
+          {
+            read_char_check_break(sft_in);
+          }
+          else
+          {
+            char FAR *sp = fmemchr(&kp->kb_buf[stored_pos],
+                                   c2, stored_size - stored_pos);
+            if (sp != NULL)
+                new_pos = (FP_OFF(sp) - FP_OFF(&kp->kb_buf[stored_pos])) + 1;
+          }
+        }
+        /* fall through */
+      case F3:
+        if (c != F4) /* not delete */
+        {
+          while (stored_pos < new_pos && count < size - 1)
+              local_buffer[count++] = echo_char(kp->kb_buf[stored_pos++], sft_out);
+        }
+        stored_pos = new_pos;
+        break;
+        
+      case F5:
+        fmemcpy(kp->kb_buf, local_buffer, count);
+        stored_size = count;
+        write_char('@', sft_out);
+        goto start_new_line;
 
+      case INS:
+        insert = !insert;
+        break;
+            
+      case DEL:
+        stored_pos++;
+        break;
+
+      case LEFT:
       case CTL_BS:
       case BS:
-      backspace:
         if (count > 0)
         {
           unsigned new_pos;
-          c = local_buffer[--count];
-          if (c == HT)
+          char c2 = local_buffer[--count];
+          if (c2 == HT)
           {
             unsigned i;
             new_pos = cu_pos;
@@ -377,66 +453,63 @@ void sti_0a(keyboard FAR * kp)
             {
               if (local_buffer[i] == HT)
                 new_pos = (new_pos + 8) & ~7;
-              else if (local_buffer[i] < ' ')
+              else if (iscntrl(local_buffer[i]))
                 new_pos += 2;
               else
                 new_pos++;
             }
             do
-              destr_bs();
+              destr_bs(sft_out);
             while (scr_pos > new_pos);
           }
           else
           {
-            if (c < ' ')
-              destr_bs();
-            destr_bs();
+            if (iscntrl(c2))
+              destr_bs(sft_out);
+            destr_bs(sft_out);
           }
         }
-        if (stored_pos > 0 && !insert)
+        if (stored_pos > 0)
           stored_pos--;
         break;
 
-      case LF:
-        cso(CR);
-        cso(LF);
-        break;
-
       case ESC:
-        cso('\\');
+        write_char('\\', sft_out);
     start_new_line:
-        cso(CR);
-        cso(LF);
-        for (c = 0; c < cu_pos; c++)
-          cso(' ');
+        write_char(CR, sft_out);
+        write_char(LF, sft_out);
+        for (count = 0; count < cu_pos; count++)
+          write_char(' ', sft_out);
         count = 0;
         stored_pos = 0;
         insert = FALSE;
         break;
 
+      case F6:
+        c = CTL_Z;
         /* fall through */
+
       default:
-    default_case:
-        if (count < size - 1)
-          local_buffer[count++] = mod_cso(c);
+        if (count < size - 1 || c == CR)
+          local_buffer[count++] = echo_char(c, sft_out);
         else
-          cso(BELL);
+          write_char(BELL, sft_out);
         if (stored_pos < stored_size && !insert)
           stored_pos++;
         break;
     }
-  }
-  local_buffer[count] = CR;
-  cso(CR);
-  fmemcpy(kp->kb_buf, local_buffer, count + 1);
+  } while (c != CR);
+  fmemcpy(kp->kb_buf, local_buffer, count);
   /* if local_buffer overflows into the CON default buffer we
      must invalidate it */
   if (count > LINEBUFSIZECON)
     kb_buf.kb_size = 0;
-  kp->kb_count = count;
+  /* kb_count does not include the final CR */
+  kp->kb_count = count - 1;
 }
 
-unsigned sti(unsigned n, char FAR * bp)
+/* called by handle func READ (int21/ah=3f) */
+size_t read_line_handle(int sft_idx, size_t n, char FAR * bp)
 {
   char *bufend = &kb_buf.kb_buf[kb_buf.kb_count + 2];
     
@@ -448,10 +521,9 @@ unsigned sti(unsigned n, char FAR * bp)
       kb_buf.kb_count = 0;
       kb_buf.kb_size = LINEBUFSIZECON;
     }
-    sti_0a(&kb_buf);
+    read_line(sft_idx, sft_idx, &kb_buf);
     bufend = &kb_buf.kb_buf[kb_buf.kb_count + 2];
-    bufend[-1] = LF;
-    cso(LF);
+    bufend[-1] = echo_char(LF, sft_idx);
     inputptr = kb_buf.kb_buf;
     if (*inputptr == CTL_Z)
     {

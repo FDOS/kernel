@@ -51,7 +51,7 @@ VOID unicode_to_lfn(UNICODE FAR **name, struct lfn_entry FAR *lep);
 COUNT lfn_allocate_inode(VOID)
 {
   f_node_ptr fnp = get_f_node();
-  struct cds FAR *cdsp;
+  struct dpb FAR *dpbp;
   COUNT handle;
   if (fnp == 0) return LHE_NOFREEHNDL;
 
@@ -64,17 +64,17 @@ COUNT lfn_allocate_inode(VOID)
     }
 
   /* Check that default drive is a block device */
-  cdsp = &CDSp[default_drive];
+  dpbp = get_dpb(default_drive);
 
-  if (cdsp->cdsDpb == 0)
+  if (dpbp == 0)
     {
       release_f_node(fnp);
       return LHE_INVLDDRV;
     }
 
-  fnp->f_dpb = cdsp->cdsDpb;
+  fnp->f_dpb = dpbp;
 
-  if (media_check(fnp->f_dpb) < 0)
+  if (media_check(dpbp) < 0)
     {
       release_f_node(fnp);
       return LHE_INVLDDRV;

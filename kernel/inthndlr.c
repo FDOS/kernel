@@ -415,7 +415,7 @@ dispatch:
     case 0x0a:
     case 0x0b:
       if (control_break())
-        handle_break();
+        handle_break(-1);
   }
 
   /* The dispatch handler                                         */
@@ -429,33 +429,33 @@ dispatch:
 
       /* Read Keyboard with Echo                      */
     case 0x01:
-      lr.AL = _sti(TRUE);
-      sto(lr.AL);
+      lr.AL = read_char_stdin(TRUE);
+      write_char_stdin(lr.AL);
       break;
 
       /* Display Character                                            */
     case 0x02:
-      sto(lr.DL);
+      write_char_stdin(lr.DL);
       break;
 
       /* Auxiliary Input                                                      */
     case 0x03:
-      BinaryRead(STDAUX, &lr.AL, &UnusedRetVal);
+      lr.AL = read_char(get_sft_idx(STDAUX), TRUE);
       break;
 
       /* Auxiliary Output                                                     */
     case 0x04:
-      DosWrite(STDAUX, 1, (BYTE FAR *) & lr.DL, & UnusedRetVal);
+      write_char(get_sft_idx(STDAUX), lr.DL);
       break;
       /* Print Character                                                      */
     case 0x05:
-      DosWrite(STDPRN, 1, (BYTE FAR *) & lr.DL, & UnusedRetVal);
+      write_char(get_sft_idx(STDPRN), lr.DL);
       break;
 
       /* Direct Console I/O                                            */
     case 0x06:
       if (lr.DL != 0xff)
-        sto(lr.DL);
+        write_char_stdin(lr.DL);
       else if (StdinBusy())
       {
         lr.AL = 0x00;
@@ -464,38 +464,37 @@ dispatch:
       else
       {
         r->FLAGS &= ~FLG_ZERO;
-        lr.AL = _sti(FALSE);
+        lr.AL = read_char_stdin(FALSE);
       }
       break;
 
       /* Direct Console Input                                         */
     case 0x07:
-      lr.AL = _sti(FALSE);
+      lr.AL = read_char_stdin(FALSE);
       break;
 
       /* Read Keyboard Without Echo                                   */
     case 0x08:
-      lr.AL = _sti(TRUE);
+      lr.AL = read_char_stdin(TRUE);
       break;
 
       /* Display String                                               */
     case 0x09:
-      {         
-        unsigned count;
-        
-        for (count = 0; ; count++)
-        	if (((UBYTE FAR *)FP_DS_DX)[count] == '$')
-        		break;
+      {
+        size_t count = 0;
+        char FAR *bp = FP_DS_DX;
 
-        DosWrite(STDOUT, count, FP_DS_DX,
-                 & UnusedRetVal);
+        while (bp[count] != '$')
+          count++;
+
+        DosWrite(STDOUT, count, bp);
+        lr.AL = '$';
       }
-      lr.AL = '$';
       break;
 
       /* Buffered Keyboard Input                                      */
     case 0x0a:
-      sti_0a((keyboard FAR *) FP_DS_DX);
+      read_line(get_sft_idx(STDIN), get_sft_idx(STDOUT), FP_DS_DX);
       break;
 
       /* Check Stdin Status                                           */
@@ -506,9 +505,9 @@ dispatch:
         lr.AL = 0xFF;
       break;
 
-      /* Flush Buffer, Read Keayboard                                 */
+      /* Flush Buffer, Read Keyboard                                 */
     case 0x0c:
-      KbdFlush();
+      KbdFlush(get_sft_idx(STDIN));
       switch (lr.AL)
       {
         case 0x01:
@@ -598,12 +597,7 @@ dispatch:
 
       /* Set DTA                                                      */
     case 0x1a:
-      {
-        psp FAR *p = MK_FP(cu_psp, 0);
-
-        p->ps_dta = FP_DS_DX;
-        dos_setdta(p->ps_dta);
-      }
+      dos_setdta(FP_DS_DX);
       break;
 
       /* Get Default Drive Data                                       */
@@ -658,7 +652,7 @@ dispatch:
       {
         psp FAR *p = MK_FP(cu_psp, 0);
 
-        new_psp((psp FAR *) MK_FP(lr.DX, 0), p->ps_size);
+        new_psp(lr.DX, p->ps_size);
       }
       break;
 
@@ -683,34 +677,23 @@ dispatch:
 
       /* Get Date                                                     */
     case 0x2a:
-      DosGetDate(&lr.AL,        /* WeekDay              */
-                 &lr.DH,        /* Month                */
-                 &lr.DL,        /* MonthDay             */
-                 &lr.CX);       /* Year                 */
+      lr.AL = DosGetDate((struct dosdate *)&lr.CX);
       break;
 
       /* Set Date                                                     */
     case 0x2b:
-      rc = DosSetDate(lr.DH,    /* Month                */
-                      lr.DL,    /* MonthDay             */
-                      lr.CX);   /* Year                 */
+      rc = DosSetDate((struct dosdate *)&lr.CX);
       lr.AL = (rc != SUCCESS ? 0xff : 0);
       break;
 
       /* Get Time                                                     */
     case 0x2c:
-      DosGetTime(&lr.CH,        /* Hour                 */
-                 &lr.CL,        /* Minutes              */
-                 &lr.DH,        /* Seconds              */
-                 &lr.DL);       /* Hundredths           */
+      DosGetTime((struct dostime *)&lr.CL);
       break;
 
       /* Set Date                                                     */
     case 0x2d:
-      rc = DosSetTime(lr.CH,    /* Hour                 */
-                      lr.CL,    /* Minutes              */
-                      lr.DH,    /* Seconds              */
-                      lr.DL);   /* Hundredths           */
+      rc = DosSetTime((struct dostime *)&lr.CL);
       lr.AL = (rc != SUCCESS ? 0xff : 0);
       break;
 
@@ -765,8 +748,7 @@ dispatch:
       /* Keep Program (Terminate and stay resident) */
     case 0x31:
       DosMemChange(cu_psp, lr.DX < 6 ? 6 : lr.DX, 0);
-      return_mode = 3;
-      return_code = lr.AL;
+      return_code = lr.AL | 0x300;
       tsr = TRUE;
       return_user();
       break;
@@ -778,23 +760,10 @@ dispatch:
       /* r->DL is NOT changed by MS 6.22 */
       /* INT21/32 is documented to reread the DPB */
       {
-        struct dpb FAR *dpb;
-        UCOUNT drv = lr.DL;
-
-        if (drv == 0 || lr.AH == 0x1f)
-          drv = default_drive;
-        else
-          drv--;
-
-        if (drv >= lastdrive)
-        {
-          lr.AL = 0xFF;
-          CritErrCode = 0x0f;
-          break;
-        }
-
-        dpb = CDSp[drv].cdsDpb;
-        if (dpb == 0 || CDSp[drv].cdsFlags & CDSNETWDRV)
+        int drv = (lr.DL == 0 || lr.AH == 0x1f) ? default_drive : lr.DL - 1;
+        struct dpb FAR *dpb = get_dpb(drv);
+        
+        if (dpb == NULL)
         {
           lr.AL = 0xFF;
           CritErrCode = 0x0f;
@@ -950,17 +919,29 @@ dispatch:
       break;
 
       /* Dos Read                                                     */
-    case 0x3f:
-      lr.AX = DosRead(lr.BX, lr.CX, FP_DS_DX, & rc);
-      if (rc != SUCCESS)
-        goto error_exit;
+      case 0x3f:
+      {
+        long lrc = DosRead(lr.BX, lr.CX, FP_DS_DX);
+        if (lrc < SUCCESS)
+        {
+          rc = (int)lrc;
+          goto error_exit;
+        }
+        lr.AX = (UWORD)lrc;
+      }
       break;
 
       /* Dos Write                                                    */
     case 0x40:
-      lr.AX = DosWrite(lr.BX, lr.CX, FP_DS_DX, & rc);
-      if (rc != SUCCESS)
-        goto error_exit;
+      {
+        long lrc = DosWrite(lr.BX, lr.CX, FP_DS_DX);
+        if (lrc < SUCCESS)
+        {
+          rc = (int)lrc;
+          goto error_exit;
+        }
+        lr.AX = (UWORD)lrc;
+      }
       break;
 
       /* Dos Delete File                                              */
@@ -1002,6 +983,8 @@ dispatch:
 
         case 0x01:
           rc = DosSetFattr((BYTE FAR *) FP_DS_DX, lr.CX);
+          if (rc >= SUCCESS)
+            lr.AX = lr.CX;
           break;
 
         default:
@@ -1058,6 +1041,10 @@ dispatch:
            DosMemAlloc(lr.BX, mem_access_mode, &(lr.AX), &(lr.BX))) < 0)
       {
         DosMemLargest(&(lr.BX));
+        {
+                        if (DosMemCheck() != SUCCESS)
+                                panic("MCB chain corrupted");
+        }
         goto error_exit;
       }
       else
@@ -1067,11 +1054,18 @@ dispatch:
       /* Free memory */
     case 0x49:
       if ((rc = DosMemFree((lr.ES) - 1)) < 0)
-        goto error_exit;
+        {
+                        if (DosMemCheck() != SUCCESS)
+                                panic("MCB chain corrupted");
+                        goto error_exit;
+        }
       break;
 
       /* Set memory block size */
     case 0x4a:
+        if (DosMemCheck() != SUCCESS)
+          panic("before 4a: MCB chain corrupted");
+
       if ((rc = DosMemChange(lr.ES, lr.BX, &lr.BX)) < 0)
       {
 #if 0
@@ -1084,6 +1078,8 @@ dispatch:
           p->ps_size = lr.BX + cu_psp;
         }
 #endif
+        if (DosMemCheck() != SUCCESS)
+          panic("after 4a: MCB chain corrupted");
         goto error_exit;
       }
       break;
@@ -1102,25 +1098,24 @@ dispatch:
 
       /* End Program                                                  */
     case 0x4c:
-      if (cu_psp == RootPsp
-          || ((psp FAR *) (MK_FP(cu_psp, 0)))->ps_parent == cu_psp)
+      if (((psp FAR *)MK_FP(cu_psp, 0))->ps_parent == cu_psp)
         break;
       tsr = FALSE;
       if (ErrorMode)
       {
         ErrorMode = FALSE;
-        return_mode = 2;
+        rc = 2;
       }
       else if (break_flg)
       {
         break_flg = FALSE;
-        return_mode = 1;
+        rc = 1;
       }
       else
       {
-        return_mode = 0;
+        rc = 0;
       }
-      return_code = lr.AL;
+      return_code = lr.AL | (rc << 8);
       if (DosMemCheck() != SUCCESS)
         panic("MCB chain corrupted");
 #ifdef TSC
@@ -1131,8 +1126,9 @@ dispatch:
 
       /* Get Child-program Return Value                               */
     case 0x4d:
-      lr.AL = return_code;
-      lr.AH = return_mode;
+      lr.AX = return_code;
+      /* needs to be cleared (RBIL) */
+      return_code = 0;
       break;
 
       /* Dos Find First                                               */
@@ -1182,7 +1178,7 @@ dispatch:
       /* ************UNDOCUMENTED************************************* */
       /* Dos Create New Psp & set p_size                              */
     case 0x55:
-      new_psp((psp FAR *) MK_FP(lr.DX, 0), lr.SI);
+      new_psp(lr.DX, lr.SI);
       cu_psp = lr.DX;
       break;
 
@@ -1368,40 +1364,46 @@ dispatch:
 
     case 0x5f:
       CLEAR_CARRY_FLAG();
-      switch (lr.AL)
+      if (lr.AL == 7 || lr.AL == 8)
       {
-        case 0x07:
-          if (lr.DL < lastdrive)
+        struct cds FAR *cdsp;
+        if (lr.DL < lastdrive)
+        {
+          rc = DE_INVLDDRV;
+          goto error_exit;
+        }
+        else
+        {
+          cdsp = &CDSp[lr.DL];
+          if (lr.AL == 7)
           {
-            CDSp[lr.DL].cdsFlags |= 0x100;
+            cdsp->cdsFlags |= 0x100;
           }
-          break;
-
-        case 0x08:
-          if (lr.DL < lastdrive)
+          else
           {
-            CDSp[lr.DL].cdsFlags &= ~0x100;
+            cdsp->cdsFlags &= ~0x100;
           }
-          break;
-
-        default:
+        }
+      }
+      else
+      {
 /*              
             void int_2f_111e_call(iregs FAR *r);
             int_2f_111e_call(r);          
           break;*/
 
-          rc = remote_doredirect(lr.BX, lr.CX, lr.DX,
+        rc = remote_doredirect(lr.BX, lr.CX, lr.DX,
                                  (FP_ES_DI), lr.SI,
                                  (MK_FP(lr.DS, Int21AX)));
-          /* the remote function manipulates *r directly !,
-             so we should not copy lr to r here            */
-          if (rc != SUCCESS)
-          {
-            CritErrCode = -rc;      /* Maybe set */
-            SET_CARRY_FLAG();
-          }
-          r->AX = -rc;
-          goto real_exit;
+        /* the remote function manipulates *r directly !,
+           so we should not copy lr to r here            */
+        if (rc != SUCCESS)
+        {
+          CritErrCode = -rc;      /* Maybe set */
+          SET_CARRY_FLAG();
+        }
+        r->AX = -rc;
+        goto real_exit;
       }
       break;
 
@@ -1537,34 +1539,26 @@ dispatch:
     case 0x69:
       CLEAR_CARRY_FLAG();
       rc = (lr.BL == 0 ? default_drive : lr.BL - 1);
-      if (rc < lastdrive)
+      if (lr.AL == 0 || lr.AL == 1)
       {
         UWORD saveCX = lr.CX;
-        if (CDSp[rc].cdsFlags & CDSNETWDRV)
-        {
+        if (get_cds(rc) == NULL)
+          rc = DE_INVLDDRV;
+        else if (get_dpb(rc) == NULL)
           goto error_invalid;
-        }
-        switch (lr.AL)
+        else
         {
-          case 0x00:
-            lr.AL = 0x0d;
-            lr.CX = 0x0866;
-            rc = DosDevIOctl(&lr);
-            break;
-
-          case 0x01:
-            lr.AL = 0x0d;
-            lr.CX = 0x0846;
-            rc = DosDevIOctl(&lr);
-            break;
+          lr.CX = lr.AL == 0 ? 0x0866 : 0x0846;
+          lr.AL = 0x0d;
+          rc = DosDevIOctl(&lr);
+          lr.CX = saveCX;
+          if (rc != SUCCESS)
+            goto error_exit;
+          break;
         }
-        lr.CX = saveCX;
-        if (rc != SUCCESS)
-          goto error_exit;
-        break;
       }
       else
-        lr.AL = 0xFF;
+        goto error_invalid;
       break;
 /*
     case 0x6a: see case 0x68
@@ -1580,7 +1574,7 @@ dispatch:
             (lr.DL & 0x0f) > 0x2 || (lr.DL & 0xf0) > 0x10)
           goto error_invalid;
         lrc = DosOpen(MK_FP(lr.DS, lr.SI),
-                      (lr.BX & 0x7000) | ((lr.DL & 3) << 8) |
+                      (lr.BX & 0x70ff) | ((lr.DL & 3) << 8) |
                       ((lr.DL & 0x10) << 6), lr.CL);
         if (lrc < 0)
         {
@@ -1731,12 +1725,14 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
   }
 
 #ifdef WITHFAT32
-  if (!(CDSp[drv].cdsFlags & CDSNETWDRV) &&
-      ISFAT32(CDSp[drv].cdsDpb))
   {
-    r->ax = 0x207;
-    r->flags |= FLG_CARRY;
-    return;
+    struct dpb FAR *dpbp = get_dpb(drv);
+    if (dpbp != NULL && ISFAT32(dpbp))
+    {
+      r->ax = 0x207;
+      r->flags |= FLG_CARRY;
+      return;
+    }
   }
 #endif
 
@@ -1801,13 +1797,20 @@ STATIC VOID StartTrace(VOID)
     and serves the internal dos calls - int2f/12xx
 */
 struct int2f12regs {
+#ifdef I386
+#ifdef __WATCOMC__
+  /* UWORD gs, fs;  ** GS/FS are protected through SI/DI */
+#else
+  UWORD high_edx, high_ecx, high_ebx, high_eax;
+#endif
+#endif
   UWORD es, ds;
   UWORD di, si, bp, bx, dx, cx, ax;
   UWORD ip, cs, flags;
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
 
-VOID ASMCFUNC int2F_12_handler(volatile struct int2f12regs r)
+VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 {
   UWORD function = r.ax & 0xff;
 
@@ -1873,6 +1876,14 @@ VOID ASMCFUNC int2F_12_handler(volatile struct int2f12regs r)
 
       break;
 
+    case 0x13:
+      /* uppercase character */  
+      /* for now, ASCII only because nls.c cannot handle DS!=SS */
+      r.ax = (unsigned char)r.callerARG1;
+      if (r.ax >= 'a' && r.ax <= 'z')
+        r.ax -= 'a' - 'A';
+      break;
+
     case 0x16:                 /* get address of system file table entry - used by NET.EXE
                                    BX system file table entry number ( such as returned from 2F/1220)
                                    returns
@@ -1899,14 +1910,14 @@ VOID ASMCFUNC int2F_12_handler(volatile struct int2f12regs r)
                                    ; probable use: get sizeof(CDSentry)
                                  */
       {
-        UWORD drv = r.callerARG1 & 0xff;
+        struct cds FAR *cdsp = get_cds(r.callerARG1 & 0xff);
 
-        if (drv >= lastdrive)
+        if (cdsp == NULL)
           r.flags |= FLG_CARRY;
         else
         {
-          r.ds = FP_SEG(CDSp);
-          r.si = FP_OFF(&CDSp[drv]);
+          r.ds = FP_SEG(cdsp);
+          r.si = FP_OFF(cdsp);
           r.flags &= ~FLG_CARRY;
         }
         break;
@@ -1974,8 +1985,9 @@ VOID ASMCFUNC int2F_12_handler(volatile struct int2f12regs r)
       break;
 
     default:
-      printf("unimplemented internal dos function INT2F/12%02x\n",
-             function);
+      put_string("unimplemented internal dos function INT2F/12");
+      put_unsigned(function, 16, 2);
+      put_string("\n");
       r.flags |= FLG_CARRY;
       break;
 

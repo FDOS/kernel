@@ -31,7 +31,7 @@
 
 		%include "segs.inc"
 
-                extern  _lpUserStack:wrt DGROUP
+                extern  _user_r:wrt DGROUP
 
                 extern  _break_flg:wrt DGROUP   ; break detected flag
                 extern  _int21_handler:wrt TGROUP ; far call system services
@@ -140,8 +140,8 @@ _spawn_int23:
 ;      
 ;      this patch helps FreeDos to survive CtrlC,
 ;      but should clearly be done somehow else.
-                mov     ss, [_lpUserStack+2]
-                mov     sp, [_lpUserStack]
+                mov     ss, [_user_r+2]
+                mov     sp, [_user_r]
 
                 sti
 

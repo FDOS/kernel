@@ -101,12 +101,12 @@ IntDosCal:
                         ; set up register frame
 ;struct int2f12regs
 ;{
+;  [space for 386 regs]
 ;  UWORD es,ds;
 ;  UWORD di,si,bp,bx,dx,cx,ax;
 ;  UWORD ip,cs,flags;
 ;  UWORD callerARG1; 
-;};
-    Protect386Registers    
+;}      
     push ax
     push cx
     push dx
@@ -117,10 +117,30 @@ IntDosCal:
     push ds
     push es
 
+    cld
+
+%IFDEF I386
+  %ifdef WATCOM
+    mov si,fs
+    mov di,gs 
+  %else 
+    Protect386Registers    
+  %endif
+%endif          
+
     mov ax,DGROUP
     mov ds,ax    
     extern   _int2F_12_handler:wrt HGROUP
     call _int2F_12_handler
+
+%IFDEF I386
+  %ifdef WATCOM
+    mov fs,si
+    mov gs,di
+  %else
+    Restore386Registers    
+  %endif
+%endif      
     
     pop es
     pop ds
@@ -131,7 +151,6 @@ IntDosCal:
     pop dx
     pop cx
     pop ax
-    Restore386Registers    
     
     iret
                     
@@ -346,6 +365,7 @@ print_doredir:
                 pop     bx
                 pop     ds
                 jc      no_clear_ax
+                xor     cx, cx
                 jmp     short clear_ax
 
 remote_getfree:
@@ -357,6 +377,7 @@ remote_getfree:
                 mov     [di+2],bx
                 mov     [di+4],cx
                 mov     [di+6],dx
+                xor     cx, cx
                 jmp     short clear_ax
 
 remote_printredir:       
@@ -374,6 +395,7 @@ qremote_fn:
                 pop     ds
                 mov     ax,0xffff
                 jc      no_neg_ax
+                xor     cx, cx
                 jmp     short clear_ax
 
 remote_rw1:     mov     cx, [bp+8]
@@ -534,23 +556,23 @@ _UMB_get_largest:
 
                 cmp     ax,1
                 jne     umbt_error
-                                                ; now return the segment
-                                                ; and the size
+                                        ; now return the segment
+                                        ; and the size
 
-                mov cx,bx                       ; *seg = segment
-                mov bx, [bp+4]
-                mov [bx],cx
+                mov 	cx,bx           ; *seg = segment
+                mov 	bx, [bp+4]
+                mov 	[bx],cx
 
-                mov bx, [bp+6]                  ; *size = size
-                mov [bx],dx
+                mov 	bx, [bp+6]      ; *size = size
+                mov 	[bx],dx
 
 umbt_ret:
                 mov     sp,bp
                 pop     bp
-                ret                ; this was called NEAR!!
+                ret                	; this was called NEAR!!
 
-umbt_error:     xor ax,ax
-                jmp umbt_ret
+umbt_error:     xor 	ax,ax
+                jmp 	short umbt_ret
 
 ; Log: int2f.asm,v
 ; Revision 1.4  2000/03/31 05:40:09  jtabor

@@ -47,8 +47,6 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect);
 STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2);
     /* /// Added - Ron Cemer */
 STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
-date dos_getdate(VOID);
-time dos_gettime(VOID);
 BOOL find_free(f_node_ptr);
 CLUSTER find_fat_free(f_node_ptr);
 VOID wipe_out(f_node_ptr);
@@ -67,6 +65,37 @@ ULONG clus2phys(CLUSTER cl_no, struct dpb FAR * dpbp)
 #endif
       dpbp->dpb_data;
   return ((ULONG) (cl_no - 2) << dpbp->dpb_shftcnt) + data;
+}
+
+struct dpb FAR *get_dpb(COUNT dsk)
+{
+  register struct cds FAR *cdsp = get_cds(dsk);
+  
+  if (cdsp == NULL || cdsp->cdsFlags & CDSNETWDRV)
+    return NULL;
+  return cdsp->cdsDpb;
+}
+
+/* initialize all direntry fields except for the name */
+STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
+                          CLUSTER cluster)
+{
+  struct dostime dt;
+
+  dentry->dir_size = 0l;
+#ifndef WITHFAT32
+  dentry->dir_start_high = 0;
+#endif          
+  setdstart((*dentry), cluster);
+  dentry->dir_attrib = attrib;
+  dentry->dir_case = 0;
+  DosGetTime(&dt);
+  dentry->dir_crtimems = dt.hundredth;
+  if (dt.second & 1)
+    dentry->dir_crtimems += 100;
+  dentry->dir_time = dentry->dir_crtime =
+    TM_ENCODE(dt.hour, dt.minute, dt.second >> 1);
+  dentry->dir_date = dentry->dir_crdate = dentry->dir_accdate = dos_getdate();
 }
 
 /************************************************************************/
@@ -174,13 +203,8 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   fnp->f_mode = flags & 3;
     
   if (status != S_OPENED)
-  {  
-    fnp->f_dir.dir_size = 0l;
-    setdstart(fnp->f_dir, FREE);
-    fnp->f_dir.dir_attrib = attrib;
-    fnp->f_dir.dir_time = dos_gettime();
-    fnp->f_dir.dir_date = dos_getdate();
-    
+  {
+    init_direntry(&fnp->f_dir, attrib, FREE);
     fnp->f_flags.f_dmod = TRUE;
     fnp->f_flags.f_ddate = FALSE;
     fnp->f_flags.f_dnew = FALSE;
@@ -320,7 +344,7 @@ f_node_ptr split_path(char * path, char * fcbname)
 
  */
 #ifdef DEBUG
-  if (CDSp[path[0]-'A'].cdsFlags & CDSNETWDRV)
+  if (get_cds(path[0]-'A')->cdsFlags & CDSNETWDRV)
   {
     printf("split path called for redirected file: `%s'\n",
            fcbname);
@@ -808,30 +832,27 @@ STATIC BOOL find_free(f_node_ptr fnp)
 /*                                                              */
 /* dos_getdate for the file date                                */
 /*                                                              */
-date dos_getdate()
+date dos_getdate(void)
 {
-  UBYTE WeekDay, Month, MonthDay;
-  UWORD Year;
-  date Date;
+  struct dosdate dd;
 
   /* First - get the system date set by either the user   */
   /* on start-up or the CMOS clock                        */
-  DosGetDate(&WeekDay, &Month, &MonthDay, &Year);
-  Date = DT_ENCODE(Month, MonthDay, Year - EPOCH_YEAR);
-  return Date;
+  DosGetDate(&dd);
+  return DT_ENCODE(dd.month, dd.monthday, dd.year - EPOCH_YEAR);
 }
 
 /*                                                              */
 /* dos_gettime for the file time                                */
 /*                                                              */
-time dos_gettime()
+time dos_gettime(void)
 {
-  UBYTE Hour, Minute, Second, Hundredth;
+  struct dostime dt;
 
   /* First - get the system time set by either the user   */
   /* on start-up or the CMOS clock                        */
-  DosGetTime(&Hour, &Minute, &Second, &Hundredth);
-  return TM_ENCODE(Hour, Minute, Second / 2);
+  DosGetTime(&dt);
+  return TM_ENCODE(dt.hour, dt.minute, dt.second >> 1);
 }
 
 /*                                                              */
@@ -1093,10 +1114,7 @@ COUNT dos_mkdir(BYTE * dir)
   fnp->f_mode = WRONLY;
   fnp->f_back = LONG_LAST_CLUSTER;
 
-  fnp->f_dir.dir_size = 0l;
-  fnp->f_dir.dir_attrib = D_DIR;
-  fnp->f_dir.dir_time = dos_gettime();
-  fnp->f_dir.dir_date = dos_getdate();
+  init_direntry(&fnp->f_dir, D_DIR, free_fat);
 
   fnp->f_flags.f_dmod = TRUE;
   fnp->f_flags.f_dnew = FALSE;
@@ -1107,7 +1125,6 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* Mark the cluster in the FAT as used                  */
   fnp->f_cluster = free_fat;
-  setdstart(fnp->f_dir, free_fat);
   dpbp = fnp->f_dpb;
   link_fat(dpbp, free_fat, LONG_LAST_CLUSTER);
 
@@ -1127,11 +1144,7 @@ COUNT dos_mkdir(BYTE * dir)
   /* Create the "." entry                                 */
   DirEntBuffer.dir_name[0] = '.';
   memset(DirEntBuffer.dir_name + 1, ' ', FNAME_SIZE + FEXT_SIZE - 1);
-  DirEntBuffer.dir_attrib = D_DIR;
-  DirEntBuffer.dir_time = dos_gettime();
-  DirEntBuffer.dir_date = dos_getdate();
-  setdstart(DirEntBuffer, free_fat);
-  DirEntBuffer.dir_size = 0l;
+  init_direntry(&DirEntBuffer, D_DIR, free_fat);
 
   /* And put it out                                       */
   putdirent(&DirEntBuffer, bp->b_buffer);
@@ -1177,7 +1190,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* flush the drive buffers so that all info is written  */
   /* hazard: no error checking! */
-  flush_buffers((COUNT) (dpbp->dpb_unit));
+  flush_buffers(dpbp->dpb_unit);
 
   /* Close the directory so that the entry is updated     */
   fnp->f_flags.f_dmod = TRUE;
@@ -1258,7 +1271,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 
   /* flush the drive buffers so that all info is written          */
   /* hazard: no error checking! */
-  flush_buffers((COUNT) (fnp->f_dpb->dpb_unit));
+  flush_buffers(fnp->f_dpb->dpb_unit);
 
   return SUCCESS;
 
@@ -1875,13 +1888,10 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
 }
 
 #ifndef IPL
-COUNT dos_cd(struct cds FAR * cdsp, BYTE * PathName)
+int dos_cd(char * PathName)
 {
   f_node_ptr fnp;
-
-  /* first check for valid drive          */
-  if (cdsp->cdsDpb == 0)
-    return DE_INVLDDRV;
+  struct cds FAR *cdsp = get_cds(PathName[0] - 'A');
 
   if ((media_check(cdsp->cdsDpb) < 0))
     return DE_INVLDDRV;
@@ -2050,6 +2060,9 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
 
 COUNT media_check(REG struct dpb FAR * dpbp)
 {
+  if (dpbp == NULL)
+    return DE_INVLDDRV;
+  
   /* First test if anyone has changed the removable media         */
   FOREVER
   {
@@ -2152,17 +2165,6 @@ COUNT xlt_fnp(f_node_ptr fnp)
 {
   return (COUNT) (fnp - f_nodes);
 }
-
-#if 0
-struct dhdr FAR *select_unit(COUNT drive)
-{
-  /* Just get the header from the dhdr array                      */
-/*  return blk_devices[drive].dpb_device; */
-
-  return (struct dhdr FAR *)CDSp[drive].cdsDpb;
-
-}
-#endif
 
 /* TE
     if the current filesize in FAT is larger then the dir_size

@@ -38,7 +38,6 @@ segment	HMA_TEXT
                 extern   _error_tos:wrt DGROUP
                 extern   _char_api_tos:wrt DGROUP
                 extern   _disk_api_tos:wrt DGROUP
-                extern   _lpUserStack:wrt DGROUP
                 extern   _user_r:wrt DGROUP
                 extern   _ErrorMode:wrt DGROUP
                 extern   _InDOS:wrt DGROUP
@@ -49,7 +48,6 @@ segment	HMA_TEXT
                 extern   int21regs_seg:wrt DGROUP
                 extern   int21regs_off:wrt DGROUP
 
-                extern   _dosidle_flag:wrt DGROUP
                 extern   _Int21AX:wrt DGROUP
 
 
@@ -117,28 +115,6 @@ cpm_error:      mov     al,0
                 iret
 
 ;
-; Restart the int 21h system call.  Call never returns.
-;
-;       VOID
-;       RestartSysCall(VOID);
-;
-; NOTE: On exit, DS must point to kernel stack, SS:SP user stack after
-; PUSH$ALL and BP == SP.
-;
-%if 0 ; this is dead code now
-_RestartSysCall:
-                cli                     ; no interrupts
-                mov     bp,word [_lpUserStack+2] ;Get frame
-                mov     ss,bp
-                mov     bp,word [_lpUserStack]
-                mov     sp,bp
-                sti
-                POP$ALL                 ; get the original regs
-                jmp     short int21_reentry     ; restart the system call
-%endif
-
-
-;
 ; interrupt zero divide handler:
 ; print a message 'Interrupt divide by zero'
 ; Terminate the current process
@@ -203,6 +179,9 @@ stack_loop:
 												
                 mov ax,04c7fh       ; terminate with errorlevel 127                                                
                 int 21h
+		sti
+thats_it:	hlt
+		jmp short thats_it  ; it might be command.com that nukes
 
 invalid_opcode_message db 0dh,0ah,'Invalid Opcode at ',0
 
@@ -272,7 +251,7 @@ int21_user:
                 call    _int21_syscall
                 pop     cx
                 pop     cx
-                jmp     int21_ret
+                jmp     short int21_ret
 
 ;
 ; normal entry, use one of our 4 stacks
@@ -292,9 +271,7 @@ int21_1:
                 ;
                 ; I don't know who needs that, but ... (TE)
                 ;
-                mov     word [_lpUserStack+2],ss
                 mov     word [_user_r+2],ss
-                mov     word [_lpUserStack],bp        ; store and init
                 mov     word [_user_r],bp  			  ; store and init
 
                 ;
@@ -311,16 +288,12 @@ int21_1:
                 ; call number.  Finally, all others run on the disk stack.
                 ; They are evaluated in that order.
 
-
-                cmp     byte [_InDOS],0
-                jne     int21_onerrorstack
-
                 cmp     byte [_ErrorMode],0
                 je      int21_2
 
 int21_onerrorstack:                
                 mov     cx,_error_tos
-                
+
 
                 cli
                 mov     ss,dx
@@ -332,16 +305,14 @@ int21_onerrorstack:
                 
                 call    _int21_service
                 jmp     short int21_exit_nodec
-                
 
+                
 int21_2:        inc     byte [_InDOS]
                 mov     cx,_char_api_tos
                 or      ah,ah   
                 jz      int21_3
                 cmp     ah,0ch
                 jle     int21_normalentry
-                cmp     ah,59h
-                je      int21_normalentry
 
 int21_3:
                 call    dos_crit_sect
@@ -436,7 +407,7 @@ reloc_call_low_int26_handler:
                 pushf
                 push    ax
                 mov     ax,026h
-                jmp     int2526
+                jmp     short int2526
 reloc_call_low_int25_handler:
                 sti
                 pushf

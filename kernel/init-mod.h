@@ -109,14 +109,8 @@ extern struct config Config;
 VOID PreConfig(VOID);
 VOID DoConfig(int pass);
 VOID PostConfig(VOID);
+VOID configDone(VOID);
 VOID FAR * KernelAlloc(size_t nBytes);
-BYTE * skipwh(BYTE * s);
-BYTE * scan(BYTE * s, BYTE * d);
-BOOL isnum(BYTE * pszString);
-BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
-COUNT tolower(COUNT c);
-COUNT toupper(COUNT c);
-VOID mcb_init(UCOUNT seg, UWORD size);
 char *strcat(char * d, const char * s);
 COUNT ASMCFUNC Umb_Test(void);
 COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
@@ -174,7 +168,7 @@ VOID ASMCFUNC FAR int2f_handler(void);
 /* main.c */
 VOID ASMCFUNC FreeDOSmain(void);
 BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine,
-                      COUNT mode, COUNT top);
+                      COUNT mode, char FAR *top);
 VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */

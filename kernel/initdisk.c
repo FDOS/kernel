@@ -354,18 +354,21 @@ COUNT init_getdriveparm(UBYTE drive, bpb FAR * pbpbarray)
 void init_LBA_to_CHS(struct CHS *chs, ULONG LBA_address,
                      struct DriveParamS *driveparam)
 {
+  unsigned long cylinder;
+  
   chs->Sector = LBA_address % driveparam->chs.Sector + 1;
 
   LBA_address /= driveparam->chs.Sector;
 
   chs->Head = LBA_address % driveparam->chs.Head;
-  chs->Cylinder = LBA_address / driveparam->chs.Head;
+  cylinder = LBA_address / driveparam->chs.Head;
+  chs->Cylinder = cylinder >= 0x10000ul ? 0xffffu : cylinder;
 }
 
 void printCHS(char *title, struct CHS *chs)
 {
   printf("%s", title);
-  printf("%4lu-%u-%u", chs->Cylinder, chs->Head, chs->Sector);
+  printf("%4u-%u-%u", chs->Cylinder, chs->Head, chs->Sector);
 }
 
 /*
@@ -845,10 +848,11 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
        > 8 GB cyl = 1023, other (cyl&1023)
      */
 
-    if (((chs.Cylinder & 0x3ff) != pEntry->Begin.Cylinder &&
-         1023 != pEntry->Begin.Cylinder) ||
-        chs.Head != pEntry->Begin.Head ||
-        chs.Sector != pEntry->Begin.Sector)
+    if (!((chs.Cylinder & 0x3ff) == pEntry->Begin.Cylinder ||
+          1023 == pEntry->Begin.Cylinder ||
+          (chs.Cylinder == pEntry->Begin.Cylinder &&
+           chs.Head == pEntry->Begin.Head &&
+           chs.Sector == pEntry->Begin.Sector)))
     {
       printf("WARNING: using suspect partition %s FS %02x:",
              partitionName, pEntry->FileSystem);
@@ -859,9 +863,11 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
 
     }
 
-    if (((end.Cylinder & 0x3ff) != pEntry->End.Cylinder &&
-         1023 != pEntry->End.Cylinder) ||
-        end.Head != pEntry->End.Head || end.Sector != pEntry->End.Sector)
+    if (!((end.Cylinder & 0x3ff) == pEntry->End.Cylinder ||
+          1023 == pEntry->End.Cylinder ||
+          (end.Cylinder == pEntry->End.Cylinder &&
+           end.Head == pEntry->End.Head &&
+           end.Sector == pEntry->End.Sector)))
     {
       if (pEntry->NumSect == 0)
       {
@@ -982,7 +988,7 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
     }
     else
     {                           /* transfer data, using old bios functions */
-      init_LBA_to_CHS(&chs, LBA_address, driveParam);
+      LBA_to_CHS(&chs, LBA_address, driveParam);
       /* avoid overflow at end of track */
 
       if (chs.Cylinder > 1023)
