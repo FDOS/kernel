@@ -7,6 +7,7 @@
          Bart:
          * fixed "copy con" and INT21/AH=0B. The SFT_FEOF flag,
            strangely enough, if true indicates NOT end-of-file.
+         * VDISK signature required in HMA (bug 701 dborca@usa.net).  
          Alan Kamrowski
          * fixed intr: it wasn't putting the flags back correctly
            and swapped si and bp.
