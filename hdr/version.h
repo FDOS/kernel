@@ -48,7 +48,7 @@ static BYTE *date_hRcsId =
 #define REVISION_MAJOR  1
 #define REVISION_MINOR  1
 #define REVISION_SEQ    35
-#define BUILD           "2035a"
-#define SUB_BUILD	"-UNSTABLE"
-#define KERNEL_VERSION_STRING "1.1.35a" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
-#define KERNEL_BUILD_STRING "2035a-UNSTABLE"   /*#BUILD SUB_BUILD */
+#define BUILD           "2035"
+#define SUB_BUILD	"w-UNSTABLE"  /* only use w=WorkInProgress for UNSTABLE branch */
+#define KERNEL_VERSION_STRING "1.1.35w" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
+#define KERNEL_BUILD_STRING "2035w-UNSTABLE"   /*#BUILD SUB_BUILD */
