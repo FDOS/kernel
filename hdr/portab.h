@@ -224,6 +224,11 @@ typedef signed long LONG;
 #define MK_FP(seg,ofs)        ((void FAR *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
 #endif
 
+#define pokeb(seg, ofs, b) (*((unsigned char far *)MK_FP(seg,ofs)) = b)
+#define poke(seg, ofs, w) (*((unsigned far *)MK_FP(seg,ofs)) = w)
+#define peekb(seg, ofs) (*((unsigned char far *)MK_FP(seg,ofs)))
+#define peek(seg, ofs) (*((unsigned far *)MK_FP(seg,ofs)))
+
 #if defined(__TURBOC__) && (__TURBOC__ > 0x202)
 #define FP_SEG(fp)            ((unsigned)(void _seg *)(void far *)(fp))
 #else
