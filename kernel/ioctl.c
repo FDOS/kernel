@@ -119,7 +119,7 @@ COUNT DosDevIOctl(lregs * r)
           if (s->sft_flags & SFT_FDEVICE)
             r->AL = s->sft_flags & SFT_FEOF ? 0xFF : 0;
           else
-            r->AL = s->sft_posit >= s->sft_size ? 0xFF : 0;
+            r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
           break;
           
         case 0x07:
