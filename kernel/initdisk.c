@@ -381,7 +381,6 @@ void printCHS(char *title, struct CHS *chs)
 */
 VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
 {
-  ULONG fatlength, maxclust, clust;
   UBYTE maxclustsize;
   ULONG fatdata;
 
@@ -408,31 +407,30 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
 
     case FAT12:
     case FAT12_LBA:
+    {
+      unsigned fatdat, fatlength, clust, maxclust;
       /* in DOS, FAT12 defaults to 4096kb (8 sector) - clusters. */
       defbpb->bpb_nsector = 8;
       /* Force maximal fatdata=32696 sectors since with our only possible sector
          size (512 bytes) this is the maximum for 4k clusters.
          #clus*secperclus+#fats*fatlength= 4077 * 8 + 2 * 12 = 32640.
          max FAT12 size for FreeDOS = 16,728,064 bytes */
+      fatdat = (unsigned)fatdata;
       if (fatdata > 32640)
-        fatdata = 32640;
-      /* The factor 2 below avoids cut-off errors for nr_fats == 1.
-       * The "defbpb->bpb_nfat*3" is for the reserved first two FAT entries */
-      clust =
-          2 * ((ULONG) fatdata * defbpb->bpb_nbyte +
-               defbpb->bpb_nfat * 3) / (2 * (ULONG) defbpb->bpb_nsector *
-                                        defbpb->bpb_nbyte +
-                                        defbpb->bpb_nfat * 3);
-      fatlength = cdiv(((clust + 2) * 3 + 1) >> 1, defbpb->bpb_nbyte);
-      /* Need to recalculate number of clusters, since the unused parts of the
+        fatdat = 32640;
+      /* The "+2*defbpb->bpb_nsector" is for the reserved first two FAT entries */
+      fatlength = cdiv(fatdat + 2 * defbpb->bpb_nsector,
+                       defbpb->bpb_nbyte * 2 * defbpb->bpb_nsector / 3 +
+                       defbpb->bpb_nfat);
+      /* Need to calculate number of clusters, since the unused parts of the
        * FATS and data area together could make up space for an additional,
        * not really present cluster. */
       clust =
-          (fatdata - defbpb->bpb_nfat * fatlength) / defbpb->bpb_nsector;
+          (fatdat - defbpb->bpb_nfat * fatlength) / defbpb->bpb_nsector;
       maxclust = (fatlength * 2 * defbpb->bpb_nbyte) / 3;
       if (maxclust > FAT12MAX)
         maxclust = FAT12MAX;
-      DebugPrintf(("FAT12: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%u\n",
+      DebugPrintf(("FAT12: #clu=%u, fatlength=%u, maxclu=%u, limit=%u\n",
                    clust, fatlength, maxclust, FAT12MAX));
       if (clust > maxclust - 2)
       {
@@ -442,10 +440,13 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
       defbpb->bpb_nfsect = fatlength;
       fmemcpy(pddt->ddt_fstype, MSDOS_FAT12_SIGN, 8);
       break;
-
+    }
     case FAT16SMALL:
     case FAT16LARGE:
     case FAT16_LBA:
+    {
+      unsigned fatlength;
+      unsigned long clust, maxclust;
       /* FAT16: start at 4 sectors per cluster */
       defbpb->bpb_nsector = 4;
       /* Force maximal fatdata=8387584 sectors (NumSectors=8387617)
@@ -460,13 +461,10 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
         DebugPrintf(("Trying with %d sectors/cluster:\n",
                      defbpb->bpb_nsector));
 
-        clust =
-            ((ULONG) fatdata * defbpb->bpb_nbyte +
-             defbpb->bpb_nfat * 4) / ((ULONG) defbpb->bpb_nsector *
-                                      defbpb->bpb_nbyte +
-                                      defbpb->bpb_nfat * 2);
-        fatlength = cdiv((clust + 2) * 2, defbpb->bpb_nbyte);
-        /* Need to recalculate number of clusters, since the unused parts of the
+        fatlength = (unsigned)cdiv(fatdata + 2 * defbpb->bpb_nsector,
+                         (ULONG)defbpb->bpb_nbyte * defbpb->bpb_nsector / 2 +
+                         defbpb->bpb_nfat);
+        /* Need to calculate number of clusters, since the unused parts of the
          * FATS and data area together could make up space for an additional,
          * not really present cluster. */
         clust =
@@ -474,7 +472,7 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
         maxclust = (fatlength * defbpb->bpb_nbyte) / 2;
         if (maxclust > FAT16MAX)
           maxclust = FAT16MAX;
-        DebugPrintf(("FAT16: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%u\n",
+        DebugPrintf(("FAT16: #clu=%lu, fatlen=%u, maxclu=%lu, limit=%u\n",
                      clust, fatlength, maxclust, FAT_MAGIC16));
         if (clust > maxclust - 2)
         {
@@ -496,24 +494,23 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
       defbpb->bpb_nfsect = fatlength;
       fmemcpy(pddt->ddt_fstype, MSDOS_FAT16_SIGN, 8);
       break;
-
+    }
 #ifdef WITHFAT32
     case FAT32:
     case FAT32_LBA:
+    {
+      unsigned long fatlength, clust, maxclust;
+
       /* For FAT32, use 4k clusters on sufficiently large file systems,
        * otherwise 1 sector per cluster. This is also what M$'s format
        * command does for FAT32. */
       defbpb->bpb_nsector = (NumSectors >= 512 * 1024ul ? 8 : 1);
       do
       {
-        /* simple calculation - no long long available */
-        clust = (ULONG) fatdata / defbpb->bpb_nsector;
-        /* this calculation below yields a smaller value - the above is non-optimal
-           but should not be dangerous */
-        /* clust = ((long long) fatdata *defbpb->bpb_nbyte + defbpb->bpb_nfat*8) /
-           ((int) defbpb->bpb_nsector * defbpb->bpb_nbyte + defbpb->bpb_nfat*4); */
-        fatlength = cdiv((clust + 2) * 4, defbpb->bpb_nbyte);
-        /* Need to recalculate number of clusters, since the unused parts of the
+        fatlength = cdiv(fatdata + 2 * defbpb->bpb_nsector,
+                         (ULONG)defbpb->bpb_nbyte * defbpb->bpb_nsector / 4 +
+                         defbpb->bpb_nfat);
+        /* Need to calculate number of clusters, since the unused parts of the
          * FATS and data area together could make up space for an additional,
          * not really present cluster. */
         clust =
@@ -543,6 +540,7 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
       defbpb->bpb_xbackupsec = 6;
       fmemcpy(pddt->ddt_fstype, MSDOS_FAT32_SIGN, 8);
       break;
+    }
 #endif
   }
   pddt->ddt_fstype[8] = '\0';
