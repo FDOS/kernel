@@ -204,8 +204,8 @@ STATIC void init_kernel(void)
 {
   COUNT i;
 
-  LoL->os_major = MAJOR_RELEASE;
-  LoL->os_minor = MINOR_RELEASE;
+  LoL->os_setver_major = LoL->os_major = MAJOR_RELEASE;
+  LoL->os_setver_minor = LoL->os_minor = MINOR_RELEASE;
 
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();

@@ -95,7 +95,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
           irp->DL = BootDrive;
           break;
 
-          /* Get DOS-C version                                    */
+          /* Get (real) DOS-C version                             */
         case 0x06:
           irp->BL = os_major;
           irp->BH = os_minor;
@@ -109,6 +109,12 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
         default:               /* set AL=0xFF as error, NOT carry */
           irp->AL = 0xff;
           break;
+
+	  /* set FreeDOS returned version for int 21.30 from BX */
+	case 0xfc:             /* 0xfc ... 0xff are FreeDOS extensions */
+	  os_setver_major = irp->BL;
+	  os_setver_minor = irp->BH;
+	  break;
 
           /* Toggle DOS-C rdwrblock trace dump                    */
         case 0xfd:
@@ -708,10 +714,10 @@ dispatch:
       lr.BX = FP_OFF(dta);
       break;
 
-      /* Get DOS Version                                              */
+      /* Get (editable) DOS Version                                   */
     case 0x30:
-      lr.AL = os_major;
-      lr.AH = os_minor;
+      lr.AL = os_setver_major;
+      lr.AH = os_setver_minor;
       lr.BH = OEM_ID;
       lr.CH = REVISION_MAJOR;   /* JPP */
       lr.CL = REVISION_MINOR;

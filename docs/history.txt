@@ -1,10 +1,20 @@
 2003 Jun xx - Build 2030
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
-if user left accidentally floppy or CD in drive,
-give him a chance to continue to boot from HD.
-disabled by default, enablable by SYS CONFIG
-
+    * if user left accidentally floppy or CD in drive,
+      give him a chance to continue to boot from HD.
+      disabled by default, enablable by SYS CONFIG
+      (BOOTHARDDISKSECONDS)
++ Changes Lixing Yuan
+    * dosnames.c cleanup, fix for truename if the filename
+      contains wildcards and a trailing dot.
++ Changes Eric Auer
+    * add sanity check to initdisk.c for (driveParam->chs.Sector == 0)
+      + some display tweaks
+    * add ANYDOS, KBDRATE, VIDMODE, MENUCOLOR and EECHO support to the
+      config.sys parser.
+    * distinguish between the builtin DOS version and the settable
+      DOS version.
 + Changes Bart
     * flip some slashes in drivers/*.asm 
       (enables cross-assembly on Linux)
@@ -23,9 +33,15 @@ disabled by default, enablable by SYS CONFIG
       the final allocation takes place.
     * handle multiple UMBs more correctly (but config.sys can use
       only one UMB for devicehigh -- /Ln,xxxx is not yet implemented)
-    * minor size optimizations in chario.c, dosfns.c;
-      asmsupt.asm: correct fmemchr (all n's) and *memset/*memcpy (n==0)
-    185 relocs, 54 not shown
+    * minor size optimizations in newstuff.c, chario.c, dosfns.c and fcbfns.c.
+      asmsupt.asm: correct fmemchr (all n's) and *memset/*memcpy
+      (n==0)
+    * introduce lol structure for list of lists; avoid lots of
+      relocations
+    * avoid more relocations in the asm files by loading ds from
+      [cs:_DGROUP_]
+    * Fix problem with attributes with the volume label bit + findnext
+    *
 2003 Mar 14 - Build 2029
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

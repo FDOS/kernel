@@ -178,7 +178,9 @@ extern struct ClockRecord
 /*                                                                      */
 /* Global variables                                                     */
 /*                                                                      */
-extern BYTE os_major,           /* major version number                 */
+extern BYTE os_setver_major,    /* editable major version number        */
+  os_setver_minor,              /* editable minor version number        */
+  os_major,                     /* major version number                 */
   os_minor,                     /* minor version number                 */
   rev_number,                   /* minor version number                 */
   version_flags;                /* minor version number                 */

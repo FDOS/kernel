@@ -335,6 +335,10 @@ _uppermem_root	dw	0ffffh		; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 ;; FreeDOS specific entries
+		global	_os_setver_minor
+_os_setver_minor	db	0
+		global	_os_setver_major
+_os_setver_major	db	5
 		global	_os_minor
 _os_minor	db	0
 		global	_os_major	       

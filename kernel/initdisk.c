@@ -367,6 +367,7 @@ void init_LBA_to_CHS(struct CHS *chs, ULONG LBA_address,
 void printCHS(char *title, struct CHS *chs)
 {
   printf("%s", title);
+  /* has no fixed size for head/sect: is often 1/1 in our context */
   printf("%4u-%u-%u", chs->Cylinder, chs->Head, chs->Sector);
 }
 
@@ -621,13 +622,13 @@ void DosDefinePartition(struct DriveParamS *driveParam,
     printf("\r%c: HD%d", 'A' + nUnits, (driveParam->driveno & 0x7f) + 1);
 
     if (extendedPartNo)
-      printf(" Ext:%d", extendedPartNo);
+      printf(", Ext[%2d]", extendedPartNo);
     else
-      printf(" Pri:%d", PrimaryNum + 1);
+      printf(", Pri[%2d]", PrimaryNum + 1);
 
-    printCHS(" CHS= ", &chs);
+    printCHS(", CHS= ", &chs);
 
-    printf(" start = %5luMB,size =%5lu",
+    printf(", start=%6lu MB, size=%6lu MB",
            StartSector / 2048, pEntry->NumSect / 2048);
 
     printf("\n");
@@ -704,7 +705,7 @@ int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
       lba_bios_parameters.sectors > 0xffff ||
       lba_bios_parameters.totalSectHigh != 0)
   {
-    printf("Drive is too large to handle, using only 1'st 8 GB\n"
+    printf("Drive is too large to handle, using only 1st 8 GB\n"
            " drive %02x heads %lu sectors %lu , total=0x%lx-%08lx\n",
            drive,
            (ULONG) lba_bios_parameters.heads,
@@ -740,6 +741,12 @@ StandardBios:                  /* old way to get parameters */
   driveParam->chs.Head = (regs.d.x >> 8) + 1;
   driveParam->chs.Sector = (regs.c.x & 0x3f);
   driveParam->chs.Cylinder = (regs.c.x >> 8) | ((regs.c.x & 0xc0) << 2);
+  
+  if (driveParam->chs.Sector == 0) {
+    /* happens e.g. with Bochs 1.x if no harddisk defined */
+    driveParam->chs.Sector = 63; /* avoid division by zero...! */
+    printf("BIOS reported 0 sectors/track, assuming 63!\n");
+  }
 
   if (!driveParam->LBA_supported)
   {
