@@ -75,7 +75,24 @@ extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 #else
 
-extern long filelength(int __handle);
+long filelength(int __handle);
+#pragma aux filelength = \
+      "mov ax, 0x4202" \
+      "xor cx, cx" \
+      "xor dx, dx" \
+      "int 0x21" \
+      "push ax" \
+      "push dx" \
+      "mov ax, 0x4200" \
+      "xor cx, cx" \
+      "xor dx, dx" \
+      "int 0x21" \
+      "pop dx" \
+      "pop ax" \
+      parm [bx] \
+      modify [cx] \
+      value [dx ax];
+
 extern int unlink(const char *pathname);
 
 /* some non-conforming functions to make the executable smaller */

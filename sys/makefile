@@ -14,7 +14,8 @@ NASMFLAGS = -DSYS=1
 SYS_EXE_dependencies =  \
  sys.obj \
  fdkrncfg.obj \
- prf.obj
+ prf.obj \
+ talloc.obj
 
 #		*Explicit Rules*
 production:     bin2c.com ..\bin\sys.com
@@ -41,6 +42,8 @@ prf.obj:	..\kernel\prf.c
 		$(CC) $(CFLAGS) ..\kernel\prf.c
 
 fdkrncfg.obj:   fdkrncfg.c ..\hdr\kconfig.h
+
+talloc.obj:     talloc.c
 
 sys.com:        $(SYS_EXE_dependencies)
 		$(CL) $(CFLAGST) $(TINY) $(SYS_EXE_dependencies)

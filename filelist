@@ -146,6 +146,7 @@
 */*/sys/bin2c.c
 */*/sys/makefile
 */*/sys/sys.c
+*/*/sys/talloc.c
 */*/utils/echoto.bat
 */*/utils/exeflat.c
 */*/utils/indent.ini
