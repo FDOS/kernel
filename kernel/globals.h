@@ -54,7 +54,6 @@ static BYTE *Globals_hRcsId =
 #include "error.h"
 #include "version.h"
 #include "network.h"
-#include "config.h"
 #include "buffer.h"
 #include "dcb.h"
 #include "xstructs.h"

@@ -27,11 +27,29 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
-#ifdef DEBUG
-        /* Enable debugging of NLS part */
-
-        /* Caution: Enabling NLS debugging usually generates
-           _a_lot_ of noise. */
-/*& #define NLS_DEBUG */
-
-#endif
+struct config {     /* Configuration variables */
+  UBYTE cfgDosDataUmb;
+  BYTE cfgBuffers;           /* number of buffers in the system */
+  UBYTE cfgFiles;            /* number of available files */
+  UBYTE cfgFilesHigh;
+  UBYTE cfgFcbs;             /* number of available FCBs */
+  UBYTE cfgProtFcbs;         /* number of protected FCBs */
+  BYTE cfgInit[NAMEMAX];     /* init of command.com */
+  BYTE cfgInitTail[NAMEMAX]; /* command.com's tail */
+  UBYTE cfgLastdrive;        /* last drive */
+  UBYTE cfgLastdriveHigh;
+  BYTE cfgStacks;            /* number of stacks */
+  BYTE cfgStacksHigh;
+  UWORD cfgStackSize;        /* stacks size for each stack */
+  /* COUNTRY=
+   * In Pass #1 these information is collected and in PostConfig()
+   * the NLS package is loaded into memory.      -- 2000/06/11 ska
+   */
+  WORD cfgCSYS_cntry;        /* country ID to be loaded */
+  UWORD cfgCSYS_cp;          /* requested codepage; NLS_DEFAULT if default */
+  BYTE cfgCSYS_fnam[NAMEMAX];/* filename of COUNTRY= */
+  WORD cfgCSYS_memory;       /* # of bytes required for the NLS pkg; 0 if none */
+  VOID FAR *cfgCSYS_data;    /* where the loaded data is for PostConfig() */
+  UBYTE cfgP_0_startmode;    /* load command.com high or not */
+  unsigned ebda2move;        /* value for switches=/E:nnnn */
+};

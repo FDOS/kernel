@@ -80,54 +80,10 @@ void MoveKernel(unsigned NewKernelSegment);
 #define MAX_HARD_DRIVE  8
 #define NDEV            26      /* up to Z:                     */
 
-/* Start of configuration variables                                     */
-struct config {
-  UBYTE cfgDosDataUmb;
-  BYTE cfgBuffers;
-  /* number of buffers in the system      */
-  UBYTE cfgFiles;
-  UBYTE cfgFilesHigh;
-  /* number of available files            */
-  UBYTE cfgFcbs;
-  /* number of available FCBs             */
-  UBYTE cfgProtFcbs;
-  /* number of protected FCBs             */
-  BYTE cfgInit[NAMEMAX];
-  /* init of command.com          */
-  BYTE cfgInitTail[NAMEMAX];
-  /* command.com's tail           */
-  UBYTE cfgLastdrive;
-  UBYTE cfgLastdriveHigh;
-  /* last drive                           */
-  BYTE cfgStacks;
-  BYTE cfgStacksHigh;
-  /* number of stacks                     */
-  UWORD cfgStackSize;
-  /* stacks size for each stack           */
-  /* COUNTRY=
-     In Pass #1 these information is collected and in PostConfig()
-     the NLS package is loaded into memory.
-     -- 2000/06/11 ska */
-  WORD cfgCSYS_cntry;
-  /* country ID to be loaded */
-  UWORD cfgCSYS_cp;
-  /* requested codepage; NLS_DEFAULT if default */
-  BYTE cfgCSYS_fnam[NAMEMAX];
-  /* filename of COUNTRY= */
-  WORD cfgCSYS_memory;
-  /* number of bytes required for the NLS pkg;
-     0 if none */
-  VOID FAR *cfgCSYS_data;
-  /* where the loaded data is for PostConfig() */
-  UBYTE cfgP_0_startmode;
-  /* load command.com high or not */
-  unsigned ebda2move;
-  /* value for switches=/E:nnnn */
-};
-
-extern struct config Config;
+#include "config.h" /* config structure */
 
 /* config.c */
+extern struct config Config;
 VOID PreConfig(VOID);
 VOID PreConfig2(VOID);
 VOID DoConfig(int pass);
@@ -183,7 +139,6 @@ VOID ASMCFUNC int21_service(iregs far * r);
 VOID ASMCFUNC FAR int0_handler(void);
 VOID ASMCFUNC FAR int6_handler(void);
 VOID ASMCFUNC FAR empty_handler(void);
-VOID ASMCFUNC FAR got_cbreak(void);     /* procsupt.asm */
 VOID ASMCFUNC FAR int20_handler(void);
 VOID ASMCFUNC FAR int21_handler(void);
 VOID ASMCFUNC FAR int22_handler(void);
@@ -206,6 +161,9 @@ VOID init_fatal(BYTE * err_msg);
 /* prf.c */
 WORD CDECL init_printf(CONST BYTE * fmt, ...);
 WORD CDECL init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+
+/* procsupt.asm */
+VOID ASMCFUNC FAR got_cbreak(void);
 
 /* initclk.c */
 extern void Init_clk_driver(void);

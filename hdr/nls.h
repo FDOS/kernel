@@ -615,3 +615,12 @@ struct nlsCSys_loadPackage {
 
 /* standard alignment */
 #include <algndflt.h>
+
+#ifdef DEBUG
+        /* Enable debugging of NLS part */
+
+        /* Caution: Enabling NLS debugging usually generates
+           _a_lot_ of noise. */
+/*& #define NLS_DEBUG */
+
+#endif
