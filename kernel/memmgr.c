@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.10  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -286,9 +289,9 @@ searchAgain:
 
   if (!foundSeg || !foundSeg->m_size)
   {                             /* no block to fullfill the request */
-    if((mode != LARGEST) && (mode & FIRST_FIT_UO) &&
+    if((mode != LARGEST) && (mode & FIRST_FIT_U) &&
        uppermem_link && uppermem_root) {
-      mode &= !FIRST_FIT_UO;
+      mode &= ~FIRST_FIT_U;
       goto searchAgain;
     }      
     if (asize)
@@ -603,6 +606,7 @@ COUNT DosGetLargestBlock(UWORD FAR * block)
 }
 #endif
 
+#ifdef DEBUG
 VOID show_chain(void)
 {
   mcb FAR *p, FAR *u;
@@ -617,6 +621,7 @@ VOID show_chain(void)
       p = nxtMCB(p);
   }
 }
+#endif
 
 VOID mcb_print(mcb FAR * mcbp)
 {

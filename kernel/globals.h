@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.9  2001/03/30 20:11:14  bartoldeman
  * Truly got DOS=HIGH reporting for INT21/AX=0x3306 working now.
  *
@@ -480,8 +483,10 @@ extern BYTE
 extern struct dhdr
   nul_dev;
 extern BYTE
-  LocalPath[PARSE_MAX + 3],     /* Room for drive spec                  */
-  mem_access_mode,              /* memory allocation scheme             */
+  LocalPath[PARSE_MAX + 3];     /* Room for drive spec                  */
+extern UBYTE
+  mem_access_mode;              /* memory allocation scheme             */
+extern BYTE
   ErrorMode,                    /* Critical error flag                  */
   InDOS,                        /* In DOS critical section              */
   OpenMode,                     /* File Open Attributes                 */

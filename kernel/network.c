@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.9  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -144,12 +147,12 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
   else
     test = (VOID FAR *) &TempBuffer;
 
-  fsncopy(dta, (BYTE FAR *) &TempBuffer, 21);
+  fmemcpy((BYTE FAR *) &TempBuffer, dta, 21);
   p = dta;
   dta = (BYTE FAR *) &TempBuffer;
   i = int2f_Remote_call(func, 0, 0, 0, test, 0, 0);
   dta = p;
-  fsncopy((BYTE FAR *) &TempBuffer, dta, 21);
+  fmemcpy(dta, (BYTE FAR *) &TempBuffer, 21);
 
   if (i != 0)
     return i;

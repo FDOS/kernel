@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.8  2001/04/02 23:18:30  bartoldeman
+; Misc, zero terminated device names and redirector bugs fixed.
+;
 ; Revision 1.7  2001/03/21 02:56:26  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -95,6 +98,7 @@ segment	HMA_TEXT
             extern  _nul_dev:wrt DGROUP
             extern  _umb_start:wrt DGROUP
             extern  _UMB_top:wrt DGROUP
+            extern  _cu_psp:wrt DGROUP
             extern _syscall_MUX14:wrt HMA_TEXT
 
                 global  reloc_call_int2f_handler
@@ -210,7 +214,7 @@ int2f_skip1:
                 xor     ax,ax
                 les     di,[bp+18]          ; do return data stuff
                 mov     [es:di],cx
-                jmp     short int2f_rfner
+                jmp     int2f_rfner
 int2f_r_2:
                 cmp     al,0ch              ; Get Remote DPB
                 jne     short int2f_r_3
@@ -262,9 +266,15 @@ int2f_r_6:
                 xor     ax,ax
                 jmp     short int2f_rfner
 int2f_r_7:
+                cmp     al,022h             ; Terminate process
+                jne     short int2f_r_8
+                mov     ds,[_cu_psp]
+                call    int2f_call
+                jmp     short int2f_rfner
 ;
 ;   everything else goes through here.
 ;
+int2f_r_8:      
                 call    int2f_call
                 jc      int2f_rfner
                 xor     ax,ax
@@ -364,12 +374,13 @@ _Umb_Test
                 push    es              ; save driver entry point
                 push    bx
 
-                mov     dx,0xffff       ; go for broke!
-                mov     ax,1000h        ; get the umb's
                 push    cs              ; setup far return
-                push    word umbt1
+		mov	ax, umbt1
+                push    ax
                 push    es              ; push the driver entry point
                 push    bx
+                mov     dx,0xffff       ; go for broke!
+                mov     ax,1000h        ; get the umb's
                 retf                    ; Call the driver
 umbt1:
 ;
@@ -389,11 +400,12 @@ umbtc:
                 pop     bx              ; restore driver entry
                 pop     es
 
-                mov     ax,1000h        ; dx set with largest size
                 push    cs
-                push    word umbt2
+		mov	ax, umbt2
+                push    ax
                 push    es
                 push    bx
+                mov     ax,1000h        ; dx set with largest size
                 retf
 umbt2:
                 cmp     ax,1

@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/04/02 23:18:30  bartoldeman
+; Misc, zero terminated device names and redirector bugs fixed.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -102,16 +105,34 @@ _execrh:
                 push    es              ; sometimes it get lost
                 push    ds
 
-                lds     si,[bp+8]           ; ds:si = device header
-                les     bx,[bp+4]           ; es:bx = request header
+                lds     si,[bp+8]       ; ds:si = device header
+                les     bx,[bp+4]       ; es:bx = request header
 
-                push    cs                  ; do this, the right way!
-                push    word exit_execrh    ; like 68k code
-                push    ds
-                push    word [ds:si+8]      ; interrupt
-                push    ds
-                push    word [ds:si+6]      ; strategy
+                push ds                 ; needed later
+                push si
+                
+                mov bp, execrh_ret1     ; construct return frame
+                push cs
+                push bp
+                
+                push ds                 ; call far the strategy
+                push word [si+6]
+
                 retf
+execrh_ret1:                
+                pop si                  ; these were saved
+                pop ds 
+                
+                mov bp, execrh_ret2     ; construct return frame
+                push cs
+                push bp
+                
+                push ds                 ; call far the interrupt
+                push word [si+8]
+                
+                retf
+execrh_ret2:                
+
 exit_execrh:    sti                         ; damm driver turn off ints
                 cld                         ; has gone backwards
                 pop     ds

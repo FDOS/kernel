@@ -1,3 +1,29 @@
+2001 Apr  2 - Build 2023
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Bart: Volkov Commander revealed a few bugs:
+	  -int 21/ah=55 forgot to set current psp to child psp.
+  	  -memory allocation: mem_access_mode was a signed byte, and hence 0x80 was
+  	   translated to 0xff80 and not 0x0080 when converting to a COUNT. Hence
+  	   changed it to become a UBYTE.
+  	  -An error in memmgr.c: search again in low mem for modes 0x80,81,82, not
+  	   0x40,0x41,0x42
+	 * execrh.asm & int2f.asm: made code executable on a 8088 (no push
+	   constant)
+	 * entry.asm: made sure dos_crit_sect is executed when required to.
+	 * Another redirector fix. int 2f/1122 needed DS=current psp. This caused a
+           bug for me: after compiling FreeCOM on a redirected drive "dir" did not
+  	   work any more.
+	 * The nansi.sys problem: as it was, the initialisation phase of nansi
+  	   called int/ah=30, which checked control-break, which checks the console
+  	   driver, which at that point is the still not initialized nansi. This
+  	   messed up the request header passed to it. A solution I found is to link
+  	   a device into the device chain _after_ initialisation, not before.
+	 * Redirector fix: network.c uses fmemcpy instead of fsncopy.
+	 * Fixed INT 21/AH=6 (direct console input).
+         Tom: 
+         * DE_NFILES instead of DE_FILENOTFOUND to allow Volkov Commander to browse empty
+           drives.
+         * Fixed bug wrt zero terminated device names (should be spaces terminated).
 2001 Mar 30 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  Tom: Kernel alloc initialises to 0. This avoids some weird errors.

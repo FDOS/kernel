@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.9  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -113,6 +116,10 @@ static BYTE *mainRcsId = "$Id$";
 #include        "globals.h"
 #include        "proto.h"
 
+/*
+    TE-TODO: if called repeatedly by same process, 
+    last allocation must be freed. if handle count < 20, copy back to PSP
+*/
 int SetJFTSize(UWORD nHandles)
 {
   UWORD block,
@@ -236,13 +243,27 @@ COUNT get_verify_drive(char FAR *src)
  * MSD returns \\D.\A.\????????.??? with SHSUCDX. So, this code is not
  * compatible MSD Func 60h.
  */
+ 
+/*TE TODO:
+
+    experimenting with NUL on MSDOS 7.0 (win95)
+    
+                        WIN95           FREEDOS
+    TRUENAME NUL        C:/NUL             OK
+    TRUENAME .\NUL      C:\DOS\NUL         
+    TRUENAME ..\NUL     C:\NUL
+    TRUENAME ..\..\NUL  path not found
+    TRUENAME Z:NUL      invalid drive (not lastdrive!!)
+    TRUENAME A:NUL      A:/NUL             OK
+    TRUENAME A:\NUL     A:\NUL
+
+*/ 
+ 
 COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
-    /* /// Changed to FNAME_SIZE from 8 for cleanliness.  - Ron Cemer */
-  static char Name[FNAME_SIZE];
   char *bufp = buf + 3;
-  COUNT i, n, rootEndPos = 2;     /* renamed x to rootEndPos - Ron Cemer */
+  COUNT i, rootEndPos = 2;     /* renamed x to rootEndPos - Ron Cemer */
   struct cds FAR *cdsp;
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
@@ -258,8 +279,8 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   {
     buf[0] = (src[0] | 0x20) + 'A' - 'a';
 
-    if (buf[0] >= lastdrive + 'A')
-      return DE_PATHNOTFND;
+    if (buf[0] >= lastdrive + 'A')       /* BUG:should be: drive exists */
+      return DE_INVLDDRV;
 
     src += 2;
   }
@@ -282,62 +303,44 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     MSD returns X:/CON for truename con. Not X:\CON
 */
   /* check for a device  */
-  froot = get_root(src);
-  for (d = 0; d < FNAME_SIZE; d++)
-  {
-    if (*froot != '\0' && *froot != '.')
-      Name[d] = *froot++;
-    else
-      break;
-  }
   
-  for (; d < FNAME_SIZE; d++)
-    Name[d] = ' ';
+  if ((dhp = IsDevice(src)) != NULL)
+    {
+  
+    froot = get_root(src);
 
     /* /// Bugfix: NUL.LST is the same as NUL.  This is true for all
            devices.  On a device name, the extension is irrelevant
            as long as the name matches.
            - Ron Cemer */
-#if (0)
-  /* if we have an extension, can't be a device   */
-  if (*froot != '.')
-  {
-#endif
-    for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
-    {
-      if (fnmatch((BYTE FAR *) &Name, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
-      {
-        buf[2] ='/';
-            /* /// Bug: should be only copying up to first space.
-                   - Ron Cemer
-        for (d = 0; d < FNAME_SIZE || Name[d] == ' '; d++) */
-        for (d = 0; ( (d < FNAME_SIZE) && (Name[d] != ' ') ); d++)
-            *bufp++ = Name[d];
-            /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
-                   DOS will also return C:/NUL.??? if you pass NUL.* in.
-                   Code added here to support this.
-                   - Ron Cemer */
-        while ( (*froot != '.') && (*froot != '\0') ) froot++;
-        if (*froot) froot++;
-        if (*froot) {
-            *bufp++ = '.';
-            for (i = 0; i < FEXT_SIZE; i++) {
-                if ( (*froot == '\0') || (*froot == '.') )
-                    break;
-                if (*froot == '*') {
-                    for (; i < FEXT_SIZE; i++) *bufp++ = '?';
-                    break;
-                }
-                *bufp++ = *froot++;
+           
+    buf[2] ='/';
+        /* /// Bug: should be only copying up to first space.
+               - Ron Cemer */
+        
+    for (d = 0; d < FNAME_SIZE && dhp->dh_name[d] != 0 && dhp->dh_name[d] != ' '; d++)
+        *bufp++ = dhp->dh_name[d];
+        /* /// DOS will return C:/NUL.LST if you pass NUL.LST in.
+               DOS will also return C:/NUL.??? if you pass NUL.* in.
+               Code added here to support this.
+               - Ron Cemer */
+    while ( (*froot != '.') && (*froot != '\0') ) froot++;
+    if (*froot) froot++;
+    if (*froot) {
+        *bufp++ = '.';
+        for (i = 0; i < FEXT_SIZE; i++) {
+            if ( (*froot == '\0') || (*froot == '.') )
+                break;
+            if (*froot == '*') {
+                for (; i < FEXT_SIZE; i++) *bufp++ = '?';
+                break;
             }
+            *bufp++ = *froot++;
         }
-            /* /// End of code additions.  - Ron Cemer */
-        goto exit_tn;
-      }
     }
-#if (0)
+        /* /// End of code additions.  - Ron Cemer */
+    goto exit_tn;
   }
-#endif
 
   cdsp = &CDSp->cds_table[i];
   current_ldt = cdsp;
@@ -370,7 +373,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   else
     src++;
 
-move_name:
+/*move_name:*/
 
     /* /// The block inside the "#if (0) ... #endif" is
            seriously broken.  New code added below to replace it.

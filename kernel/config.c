@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.15  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -1034,16 +1037,6 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
    
    for ( ; ; )
    { 
-      struct dhdr FAR *previous_nul_dhp;
-    
-        previous_nul_dhp = nul_dev.dh_next;
-        
-        next_dhp = dhp->dh_next;
-        
-        /* Link in device driver and save nul_dev pointer to next */
-        dhp->dh_next = nul_dev.dh_next;
-        nul_dev.dh_next = dhp;
-        
         /*  that's a nice hack >:-)   
         
             although we don't want HIMEM.SYS,(it's not free), other people
@@ -1068,8 +1061,12 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
         /* end of HIMEM.SYS HACK */    
 
         result=init_device(dhp, pTmp, mode, top);
-        if(result){
-            nul_dev.dh_next = previous_nul_dhp;     /* return orig pointer if error */
+
+        if(!result){
+            next_dhp = dhp->dh_next;
+            /* Link in device driver and save nul_dev pointer to next */
+            dhp->dh_next = nul_dev.dh_next;
+            nul_dev.dh_next = dhp;
         }
       
                                                     /* multiple devices end */

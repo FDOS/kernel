@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.14  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.13  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -277,8 +280,8 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
                    BOOL force_binary)
 {
   sft FAR *s;
-  WORD sys_idx;
-  sfttbl FAR *sp;
+/*  WORD sys_idx;*/
+/*sfttbl FAR *sp;*/
   UCOUNT ReadCount;
 
   /* Test that the handle is valid                */
@@ -406,8 +409,8 @@ UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
 UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
 {
   sft FAR *s;
-  WORD sys_idx;
-  sfttbl FAR *sp;
+/*  WORD sys_idx;*/
+/*sfttbl FAR *sp;*/
   UCOUNT WriteCount;
 
   /* Test that the handle is valid                */
@@ -496,7 +499,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     }
     else
     {
-      REG WORD c,
+      REG WORD /*c,*/
         cnt = n,
         spaces_left = 0,
         next_pos,
@@ -703,7 +706,7 @@ static WORD get_free_hndl(void)
   return 0xff;
 }
 
-static sft FAR *get_free_sft(WORD FAR * sft_idx)
+sft FAR *get_free_sft(WORD FAR * sft_idx)
 {
   WORD sys_idx = 0;
   sfttbl FAR *sp;
@@ -769,8 +772,8 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
 	WORD hndl, sft_idx;
   sft FAR *sftp;
   struct dhdr FAR *dhp;
-  BYTE FAR *froot;
-  WORD i;
+/*  BYTE FAR *froot;*/
+/*  WORD i;*/
 	COUNT result, drive;
 
   /* get a free handle  */
@@ -940,8 +943,8 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   WORD sft_idx;
   sft FAR *sftp;
   struct dhdr FAR *dhp;
-  BYTE FAR *froot;
-  WORD i;
+/*  BYTE FAR *froot;*/
+/*  WORD i;*/
 	COUNT drive, result;
 
 /* /// Added to adjust for filenames which begin with ".\"
@@ -1192,12 +1195,13 @@ COUNT DosChangeDir(BYTE FAR * s)
   REG COUNT drive;
 	COUNT result;
 	BYTE FAR *p;
-
-    /* don't do wildcard CHDIR --TE*/
-    /* although this should be handled somewhere else */    
+	
+	                            /* don't do wildcard CHDIR --TE*/
     for (p = s; *p; p++)
         if (*p == '*' || *p == '?')
             return DE_PATHNOTFND;
+	
+	
 
     drive = get_verify_drive(s);
     if (drive < 0 ) {
@@ -1263,7 +1267,7 @@ COUNT DosFindNext(void)
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
 {
   sft FAR *s;
-  sfttbl FAR *sp;
+/*sfttbl FAR *sp;*/
 
   /* Test that the handle is valid                */
   if (hndl < 0)
@@ -1292,7 +1296,7 @@ COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
 COUNT DosSetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
 {
   sft FAR *s;
-  sfttbl FAR *sp;
+/*sfttbl FAR *sp;*/
 
   /* Test that the handle is valid                */
   if (hndl < 0)
@@ -1469,7 +1473,7 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
 
     drive1 = get_verify_drive(path1);
     result = truename(path1, PriPathName, FALSE);
-	if (result != SUCCESS) {
+    if (result != SUCCESS) {
 		return result;
 	}
     drive2 = get_verify_drive(path2);
@@ -1575,21 +1579,22 @@ struct dhdr FAR * IsDevice(BYTE FAR * fname)
   struct dhdr FAR *dhp;
   BYTE FAR *froot;
   WORD i;
+  BYTE tmpPathName[FNAME_SIZE+1];
 
   /* check for a device  */
   froot = get_root(fname);
   for (i = 0; i < FNAME_SIZE; i++)
   {
     if (*froot != '\0' && *froot != '.')
-      SecPathName[i] = *froot++;
+      tmpPathName[i] = *froot++;
     else
       break;
   }
 
   for (; i < FNAME_SIZE; i++)
-    SecPathName[i] = ' ';
+    tmpPathName[i] = ' ';
 
-  SecPathName[i] = 0;
+  tmpPathName[i] = 0;
 
 /* /// BUG!!! This is absolutely wrong.  A filename of "NUL.LST" must be
        treated EXACTLY the same as a filename of "NUL".  The existence or
@@ -1600,10 +1605,23 @@ struct dhdr FAR * IsDevice(BYTE FAR * fname)
   if (*froot != '.')
   {
 */
+
     for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1; dhp = dhp->dh_next)
     {
-      if (fnmatch((BYTE FAR *) SecPathName, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
+
+                    /*  BUGFIX: MSCD000<00> should be handled like MSCD000<20> TE */
+
+      char dev_name_buff[FNAME_SIZE];
+
+      int namelen = fstrlen(dhp->dh_name);
+      
+      memset(dev_name_buff, ' ', FNAME_SIZE);
+      
+      fmemcpy(dev_name_buff,dhp->dh_name, min(namelen,FNAME_SIZE)); 
+      
+      if (fnmatch((BYTE FAR *) tmpPathName, (BYTE FAR *) dev_name_buff, FNAME_SIZE, FALSE))
       {
+	memcpy(SecPathName, tmpPathName, i+1);
         return dhp;
       }
     }

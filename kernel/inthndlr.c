@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.18  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -428,13 +431,13 @@ dispatch:
         sto(r->DL);
       else if (StdinBusy())
       {
-        r->AL = 0x00;
-        r->FLAGS |= FLG_ZERO;
+        r->FLAGS &= ~FLG_ZERO;
+        r->AL = _sti();
       }
       else
       {
-        r->FLAGS &= ~FLG_ZERO;
-        r->AL = _sti();
+        r->AL = 0x00;
+        r->FLAGS |= FLG_ZERO;
       }
       break;
 
@@ -1294,6 +1297,7 @@ dispatch:
       /* Dos Create New Psp & set p_size                              */
     case 0x55:
       new_psp((psp FAR *) MK_FP(r->DX, 0), r->SI);
+      cu_psp = r->DX;
       break;
 
       /* Dos Rename                                                   */
@@ -1343,12 +1347,13 @@ dispatch:
       switch (r->AL)
       {
         case 0x00:
-          r->AX = mem_access_mode;
+          r->AL = mem_access_mode;
+          r->AH = 0;
           break;
 
         case 0x01:
         {
-            switch (r->BX)
+            switch (r->BL)
             {
             case LAST_FIT:
             case LAST_FIT_U:
@@ -1360,7 +1365,7 @@ dispatch:
             case FIRST_FIT:
             case FIRST_FIT_U:
             case FIRST_FIT_UO:
-                mem_access_mode = r->BX;
+                mem_access_mode = r->BL;
                 break;
 
             default:

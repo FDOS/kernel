@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/04/02 23:18:30  bartoldeman
+ * Misc, zero terminated device names and redirector bugs fixed.
+ *
  * Revision 1.12  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -167,9 +170,9 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   struct f_node FAR *fnp;
   COUNT drive;
   BYTE *p;
-  WORD i,
-    x;
-  BYTE *s;
+  WORD i;
+    /*TEunused x; */
+/*  BYTE *s;*/
   struct cds FAR *cdsp;
   BYTE *pszPath = &TempCDS.cdsCurrentPath[2];
 
@@ -209,18 +212,19 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     release_f_node(fnp);
     return NULL;
   }
-  TempCDS.cdsDpb = CDSp->cds_table[drive].cdsDpb;
 
   cdsp = &CDSp->cds_table[drive];
+
+  TempCDS.cdsDpb = cdsp->cdsDpb;
 
   TempCDS.cdsCurrentPath[0] = 'A' + drive;
   TempCDS.cdsCurrentPath[1] = ':';
   TempCDS.cdsJoinOffset = 2;
 
-  x = cdsp->cdsJoinOffset;
+  i = cdsp->cdsJoinOffset;
 
   /* Generate full path name                                      */
-  ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[x]);
+  ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[i]);
 
 /* for testing only for now */
 #if 0
@@ -346,8 +350,9 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
 
 COUNT dir_read(REG struct f_node FAR * fnp)
 {
-  REG i;
-  REG j;
+/* REG i; */
+/* REG j; */
+
   struct buffer FAR *bp;
 
   /* Directories need to point to their current offset, not for   */
@@ -584,7 +589,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   REG COUNT i;
   COUNT nDrive;
   BYTE *p;
-  BYTE FAR *ptr;
+/*  BYTE FAR *ptr;*/
 
   static BYTE local_name[FNAME_SIZE + 1],
     local_ext[FEXT_SIZE + 1];
@@ -678,35 +683,26 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
         }
     }
     if (!wild) {
-        struct dhdr FAR *dhp;
-        for (dhp = (struct dhdr FAR *)&nul_dev;
-             dhp != (struct dhdr FAR *)-1;
-             dhp = dhp->dh_next) {
-            if (fnmatch
-                ((BYTE FAR *)&Name,
-                 (BYTE FAR *)dhp->dh_name,
-                 FNAME_SIZE,
-                 FALSE)) {
-                    /* Found a matching device. */
-                dmp->dm_entry = 0;
-                dmp->dm_cluster = 0;
-                dmp->dm_flags.f_dmod = 0;
-                dmp->dm_flags.f_droot = 0;
-                dmp->dm_flags.f_dnew = 0;
-                dmp->dm_flags.f_ddir = 0;
-                dmp->dm_flags.f_dfull = 0;
-                dmp->dm_dirstart = 0;
-                dmp->dm_attr_fnd = D_DEVICE;
-                dmp->dm_time = dos_gettime();
-                dmp->dm_date = dos_getdate();
-                dmp->dm_size = 0L;
-                for (d = 0; ( (d < FNAME_SIZE) && (Name[d] != ' ') ); d++)
-                    dmp->dm_name[d] = Name[d];
-                dmp->dm_name[d] = '\0';
-                return SUCCESS;
+        if (IsDevice(Name)) {
+                                /* Found a matching device. */
+            dmp->dm_entry = 0;
+            dmp->dm_cluster = 0;
+            dmp->dm_flags.f_dmod = 0;
+            dmp->dm_flags.f_droot = 0;
+            dmp->dm_flags.f_dnew = 0;
+            dmp->dm_flags.f_ddir = 0;
+            dmp->dm_flags.f_dfull = 0;
+            dmp->dm_dirstart = 0;
+            dmp->dm_attr_fnd = D_DEVICE;
+            dmp->dm_time = dos_gettime();
+            dmp->dm_date = dos_getdate();
+            dmp->dm_size = 0L;
+            for (d = 0; ( (d < FNAME_SIZE) && (Name[d] != ' ') ); d++)
+                dmp->dm_name[d] = Name[d];
+            dmp->dm_name[d] = '\0';
+            return SUCCESS;
             }
         }
-    }
   }
     /* /// End of additions.  - Ron Cemer */
 
@@ -779,8 +775,8 @@ COUNT dos_findnext(void)
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
   REG struct f_node FAR *fnp;
   BOOL found = FALSE;
-  BYTE FAR *p;
-  BYTE FAR *q;
+/*  BYTE FAR *p;*/
+/*  BYTE FAR *q;*/
   COUNT nDrive;
 
   /* assign our match parameters pointer.                         */
@@ -809,7 +805,7 @@ COUNT dos_findnext(void)
 
 #if 0
   printf("findnext: %c %s\n", 
-	  nDrive + 'A', (cdsp->cdsFlags & CDSNETWDRV)?"remote":"local");
+	  nDrive + 'A', (current_ldt->cdsFlags & CDSNETWDRV)?"remote":"local");
 #endif
 
   if (current_ldt->cdsFlags & CDSNETWDRV)
@@ -891,7 +887,7 @@ COUNT dos_findnext(void)
   /* return the result                                            */
   release_f_node(fnp);
 
-  return found ? SUCCESS : DE_FILENOTFND;
+  return found ? SUCCESS : DE_NFILES;
 }
 
 static VOID pop_dmp(dmatch FAR * dmp, struct f_node FAR * fnp)
