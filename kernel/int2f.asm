@@ -273,20 +273,14 @@ SHARE_LOCK_UNLOCK:
 ; sumtimes return data *ptr is the push stack word
 ;        
 
-                global  _remote_rmdir
-_remote_rmdir:  
-                mov     al, 01h
-                jmp     short call_int2f
-
-                global  _remote_mkdir
-_remote_mkdir:  
-                mov     al, 03h
-                jmp     short call_int2f
-
-                global  _remote_chdir
-_remote_chdir:  
-                mov     al, 05h
-                jmp     short call_int2f
+                global  NETWORK_REDIRECTOR
+NETWORK_REDIRECTOR:
+                push    bp
+                mov     bp, sp
+                mov     al, [bp+4]
+                pop     bp
+                call    call_int2f
+                ret     2
 
                 global  _remote_close
 _remote_close: 
@@ -316,21 +310,6 @@ _remote_setfattr:
                 mov     al, 0eh
                 jmp     short call_int2f
 
-                global  _remote_getfattr
-_remote_getfattr:
-                mov     al, 0fh
-                jmp     short call_int2f
-                
-                global  _remote_rename
-_remote_rename: 
-                mov     al, 11h
-                jmp     short call_int2f
-
-                global  _remote_delete
-_remote_delete: 
-                mov     al, 13h
-                jmp     short call_int2f
-
                 global  _remote_open
 _remote_open: 
                 mov     al, 16h
@@ -351,11 +330,6 @@ _remote_findnext:
                 mov     al, 1ch
                 jmp     short call_int2f
 
-                global  _remote_close_all
-_remote_close_all: 
-                mov     al, 1dh
-                jmp     short call_int2f
-
                 global  _remote_doredirect
 _remote_doredirect:
                 mov     al, 1eh
@@ -364,11 +338,6 @@ _remote_doredirect:
                 global  _remote_printset
 _remote_printset:
                 mov     al, 1fh
-                jmp     short call_int2f
-
-                global  _remote_flushall
-_remote_flushall: 
-                mov     al, 20h
                 jmp     short call_int2f
 
                 global  _remote_lseek

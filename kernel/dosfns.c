@@ -997,7 +997,8 @@ COUNT DosChangeDir(BYTE FAR * s)
 #endif
   /* now get fs to change to new          */
   /* directory                            */
-  result = (result & IS_NETWORK ? remote_chdir() : dos_cd(PriPathName));
+  result = (result & IS_NETWORK ? network_redirector(REM_CHDIR) :
+            dos_cd(PriPathName));
 #if defined(CHDIR_DEBUG)
   printf("status = %04x, new_path='%Fs'\n", result, cdsd->cdsCurrentPath);
 #endif
@@ -1195,7 +1196,7 @@ COUNT DosGetFattr(BYTE FAR * name)
     return 0x10;
 
   if (result & IS_NETWORK)
-    return remote_getfattr();
+    return network_redirector(REM_GETATTRZ);
 
   if (result & IS_DEVICE)
     return DE_FILENOTFND;
@@ -1281,7 +1282,7 @@ COUNT DosDelete(BYTE FAR * path, int attrib)
     return result;
 
   if (result & IS_NETWORK)
-    return remote_delete();
+    return network_redirector(REM_DELETE);
 
   if (result & IS_DEVICE)
     return DE_FILENOTFND;
@@ -1296,7 +1297,7 @@ COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
     return DE_DEVICE; /* not same device */
   }
   if (FP_OFF(current_ldt) == 0xFFFF || (current_ldt->cdsFlags & CDSNETWDRV))
-    return remote_rename();
+    return network_redirector(REM_RENAME);
 
   return dos_rename(path1, path2, attrib);
 }
@@ -1331,7 +1332,7 @@ COUNT DosMkdir(const char FAR * dir)
     return result;
 
   if (result & IS_NETWORK)
-    return remote_mkdir();
+    return network_redirector(REM_MKDIR);
 
   if (result & IS_DEVICE)
     return DE_ACCESS;
@@ -1352,7 +1353,7 @@ COUNT DosRmdir(const char FAR * dir)
     return result;
 
   if (result & IS_NETWORK)
-    return remote_rmdir();
+    return network_redirector(REM_RMDIR);
 
   if (result & IS_DEVICE)
     return DE_ACCESS;

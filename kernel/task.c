@@ -522,11 +522,13 @@ VOID return_user(void)
   setvec(0x24, p->ps_isv24);
 
   /* And free all process memory if not a TSR return      */
-  remote_process_end();         /* might be a good idea to do that after closing
-                                   but doesn't help NET either TE */
+  network_redirector(REM_PROCESS_END);
+  /* might be a good idea to do that after closing
+     but doesn't help NET either TE */
+
   if (!tsr)
   {
-    remote_close_all();
+    network_redirector(REM_CLOSEALL);
     for (i = 0; i < p->ps_maxfiles; i++)
     {
       DosClose(i);

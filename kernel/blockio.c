@@ -342,7 +342,7 @@ BOOL flush(void)
   }
   while (FP_OFF(bp) != FP_OFF(firstbuf));
 
-  remote_flushall();
+  network_redirector(REM_FLUSHALL);
 
   return (ok);
 }

@@ -379,21 +379,14 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr);
 COUNT truename(const char FAR * src, char * dest, COUNT t);
 
 /* network.c */
+COUNT ASMPASCAL network_redirector(unsigned cmd);
 COUNT ASMCFUNC remote_doredirect(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                  UWORD i, VOID FAR * data);
 COUNT ASMCFUNC remote_printset(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                UWORD i, VOID FAR * data);
-COUNT ASMCFUNC remote_rename(VOID);
-COUNT ASMCFUNC remote_delete(VOID);
-COUNT ASMCFUNC remote_chdir(VOID);
-COUNT ASMCFUNC remote_mkdir(VOID);
-COUNT ASMCFUNC remote_rmdir(VOID);
-COUNT ASMCFUNC remote_close_all(VOID);
 COUNT ASMCFUNC remote_process_end(VOID);
-COUNT ASMCFUNC remote_flushall(VOID);
 COUNT ASMCFUNC remote_findfirst(VOID FAR * s);
 COUNT ASMCFUNC remote_findnext(VOID FAR * s);
-COUNT ASMCFUNC remote_getfattr(VOID);
 COUNT ASMCFUNC remote_getfree(VOID FAR * s, VOID * d);
 COUNT ASMCFUNC remote_open(sft FAR * s, COUNT mode);
 int ASMCFUNC remote_extopen(sft FAR * s, unsigned attr);
@@ -412,16 +405,8 @@ COUNT ASMCFUNC QRemote_Fn(char FAR * d, const char FAR * s);
 #pragma aux cdecl_axdx "_*" parm caller [] modify exact [ax dx]
 #pragma aux (cdecl_axdx) remote_doredirect
 #pragma aux (cdecl_axdx) remote_printset
-#pragma aux (cdecl_axdx) remote_rename
-#pragma aux (cdecl_axdx) remote_delete
-#pragma aux (cdecl_axdx) remote_chdir
-#pragma aux (cdecl_axdx) remote_mkdir
-#pragma aux (cdecl_axdx) remote_rmdir
-#pragma aux (cdecl_axdx) remote_close_all
-#pragma aux (cdecl_axdx) remote_flushall
 #pragma aux (cdecl_axdx) remote_findfirst
 #pragma aux (cdecl_axdx) remote_findnext
-#pragma aux (cdecl_axdx) remote_getfattr
 #pragma aux (cdecl_axdx) remote_getfree
 #pragma aux (cdecl_axdx) remote_open
 #pragma aux (cdecl_axdx) remote_extopen
@@ -434,6 +419,7 @@ COUNT ASMCFUNC QRemote_Fn(char FAR * d, const char FAR * s);
 #pragma aux (cdecl_axdx) remote_commit
 #pragma aux (cdecl_axdx) remote_close
 #pragma aux (cdecl_axdx) QRemote_Fn
+#pragma aux (pascal) network_redirector modify exact [ax dx]
 #endif
 
 UWORD get_machine_name(BYTE FAR * netname);
