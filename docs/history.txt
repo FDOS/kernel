@@ -1,3 +1,10 @@
+2001 Mar 24 - Build 2022
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Tom and Bart: cli/sti handling and other fixes in entry.asm,
+         procsupt.asm and apisupt.asm.
+         Bart: warning removal + other compile time fixes.
+         Tom: * more partition detection fixes in dsk.c.
+              * dos_gettime() fix.
 2001 Mar 21 - Build 2022
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Clean  A lot of space savings by Tom Ehlert, merely because Turbo C 2.01 does not

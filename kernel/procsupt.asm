@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/03/24 22:13:05  bartoldeman
+; See history.txt: dsk.c changes, warning removal and int21 entry handling.
+;
 ; Revision 1.4  2001/03/21 02:56:26  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -113,18 +116,19 @@ segment	_TEXT
                 global  _exec_user
 _exec_user:
 
-                PUSH$ALL
-                mov     ds,[_DGROUP_]
+;                PUSH$ALL
+;                mov     ds,[_DGROUP_]
+;                cld
+;
+;
+;
                 mov     bp,sp
-                cld
+
+                mov     ax,word [bp+6]        ; irp (user ss:sp)
+                mov     dx,word [bp+8]
                 cli
-;
-;
-;
-                mov     ax,word [bp+irp_low]        ; irp (user ss:sp)
-                mov     dx,word [bp+irp_hi]
-                mov     sp,ax                   ; set-up user stack
                 mov     ss,dx
+                mov     sp,ax                   ; set-up user stack
                 sti
 ;
                 POP$ALL
@@ -308,7 +312,6 @@ _spawn_int23:
 
                 global _init_call_spawn_int23
 _init_call_spawn_int23:
-                int 3
                 call _spawn_int23
                 retf
 ;

@@ -28,8 +28,8 @@
 ; $Id$
 ;
 ; $Log$
-; Revision 1.5  2001/03/22 20:46:46  bartoldeman
-; cli/sti corrections (Bart) and int25, 26 stack corrections (Tom)
+; Revision 1.6  2001/03/24 22:13:05  bartoldeman
+; See history.txt: dsk.c changes, warning removal and int21 entry handling.
 ;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
@@ -80,6 +80,7 @@
 
 segment	HMA_TEXT
                 extern   _int21_syscall:wrt HGROUP
+                extern   _int21_service:wrt HGROUP
                 extern   _int25_handler:wrt HGROUP
                 extern   _int26_handler:wrt HGROUP
                 extern   _set_stack:wrt HGROUP
@@ -218,6 +219,7 @@ reloc_call_int21_handler:
                 ; NB: stack frame is MS-DOS dependent and not compatible
                 ; with compiler interrupt stack frames.
                 ;
+		sti
                 PUSH$ALL
 
                 ;
@@ -226,18 +228,51 @@ reloc_call_int21_handler:
                 ; NB: At this point, SS != DS and won't be set that way
                 ; until later when which stack to run on is determined.
                 ;
-                mov     bp,DGROUP
-                mov     ds,bp
+                mov     dx,DGROUP
+                mov     ds,dx
+
+int21_reentry:
+                cmp     ah,33h
+                je      int21_user
+                cmp     ah,50h
+                je      int21_user
+                cmp     ah,51h
+                je      int21_user
+                cmp     ah,62h
+                jne     int21_1
+
+int21_user:     
+                mov     bp,sp
+                push    ss
+                push    bp
+                call    _int21_syscall
+                pop     cx
+                pop     cx
+                jmp     int21_ret
+
+;
+; normal entry, use one of our 4 stacks
+; 
+; DX=DGROUP
+; CX=STACK
+; AX=userSS
+; BX=userSP
+
+
+int21_1:
+                mov ax,ss   ; save user stack, to be retored later
+                mov bx,sp
+
 
                 ;
-                ; Now DS is set, let's save our stack for rentry
+                ; Now DS is set, let's save our stack for rentry (???TE)
                 ;
-                mov     bp,ss
-                mov     word [_lpUserStack+2],bp
-                mov     word [_user_r+2],bp
-                mov     bp,sp
-                mov     word [_lpUserStack],bp        ; store and init
-                mov     word [_user_r],bp     ; store and init
+                ; I don't know who needs that, but ... (TE)
+                ;
+                mov     word [_lpUserStack+2],ss
+                mov     word [_user_r+2],ss
+                mov     word [_lpUserStack],sp        ; store and init
+                mov     word [_user_r],sp     ; store and init
 
                 ;
                 ; Decide which stack to run on.
@@ -253,82 +288,69 @@ reloc_call_int21_handler:
                 ; call number.  Finally, all others run on the disk stack.
                 ; They are evaluated in that order.
 
-int21_reentry:
-                cmp     ah,33h
-                je      int21_user
-                cmp     ah,50h
-                je      int21_user
-                cmp     ah,51h
-                je      int21_user
-                cmp     ah,62h
-                jne     int21_1
 
-int21_user:     sti
-                push    word [_user_r+2]
-                push    word [_user_r]
-                call    _int21_syscall
-                pop     cx
-                pop     cx
-                jmp     int21_ret
+                cmp     byte [_InDOS],0
+                jne     int21_onerrorstack
 
-int21_1:        cli
                 cmp     byte [_ErrorMode],0
                 je      int21_2
-                mov     bp,ds
-                mov     ss,bp
-                mov     bp,_error_tos
-                mov     sp,bp
+
+int21_onerrorstack:                
+                mov     cx,_error_tos
+                
+
+                cli
+                mov     ss,dx
+                mov     sp,cx
                 sti
-                push    word [_user_r+2]
-                push    word [_user_r]
-                call    _int21_syscall
-                jmp     short int21_exit
+                
+                push    ax  ; user SS:SP
+                push    bx
+                
+                call    _int21_service
+                jmp     short int21_exit_nodec
+                
 
 int21_2:        inc     byte [_InDOS]
                 cmp     ah,0ch
-                jg      int21_3
-;
-;   Make FreeDOS better than the others!
-;
-                cmp     byte [_dosidle_flag],0
-                jne     int21_user
-
-                mov     bp,ds
-                mov     ss,bp
-                mov     bp,_char_api_tos
-                mov     sp,bp
-                sti
-                push    word [_user_r+2]
-                push    word [_user_r]
-                call    _int21_syscall
-                jmp     short int21_exit
+                mov     cx,_char_api_tos 
+                jle     int21_normalentry
 
 int21_3:
                 call    dos_crit_sect
+                mov     cx,_disk_api_tos
 
-                mov     bp,ds
-                mov     ss,bp
-                mov     bp,_disk_api_tos
-                mov     sp,bp
+int21_normalentry:
+
+                cli
+                mov     ss,dx
+                mov     sp,cx
                 sti
+
                 ;
                 ; Push the far pointer to the register frame for
                 ; int21_syscall and remainder of kernel.
                 ;
-                push    word [_user_r+2]
-                push    word [_user_r]
-                call    _int21_syscall
+                
+                push    ax  ; user SS:SP
+                push    bx
+                call    _int21_service
+
+int21_exit:     dec     byte [_InDOS]
 
                 ;
                 ; Recover registers from system call.  Registers and flags
                 ; were modified by the system call.
                 ;
-int21_exit:     cli
-                mov     bp,word [_user_r+2]
-                mov     ss,bp
-                mov     bp,word [_user_r]     ; store and init
-                mov     sp,bp
-                dec     byte [_InDOS]
+
+                
+int21_exit_nodec:
+                pop bx      ; get back user stack
+                pop ax
+
+                cli
+                mov     ss,ax
+                mov     sp,bx
                 sti
 int21_ret:      POP$ALL
 

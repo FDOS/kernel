@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/03/24 22:13:05  bartoldeman
+ * See history.txt: dsk.c changes, warning removal and int21 entry handling.
+ *
  * Revision 1.11  2001/03/22 04:26:14  bartoldeman
  * dos_gettime() fix by Tom Ehlert.
  *
@@ -216,7 +219,7 @@ static void merge_file_changes(struct f_node FAR *fnp, int collect);
     /* /// Added - Ron Cemer */
 static int is_same_file(struct f_node FAR *fnp1, struct f_node FAR *fnp2);
     /* /// Added - Ron Cemer */
-static int copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst);
+static void copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst);
 date dos_getdate(VOID);
 time dos_gettime(VOID);
 BOOL find_free(struct f_node FAR *);
@@ -507,7 +510,7 @@ static int is_same_file(struct f_node FAR *fnp1, struct f_node FAR *fnp2) {
 }
 
     /* /// Added - Ron Cemer */
-static int copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst) {
+static void copy_file_changes(struct f_node FAR *src, struct f_node FAR *dst) {
     dst->f_highwater = src->f_highwater;
     dst->f_dir.dir_start = src->f_dir.dir_start;
     dst->f_dir.dir_size = src->f_dir.dir_size;

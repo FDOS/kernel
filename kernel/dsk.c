@@ -33,6 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/03/24 22:13:05  bartoldeman
+ * See history.txt: dsk.c changes, warning removal and int21 entry handling.
+ *
  * Revision 1.11  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -251,7 +254,7 @@ WORD _dsk_init(rqptr),
   blk_error(rqptr);
 COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, ULONG, byteptr);
 WORD dskerr(COUNT);
-COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder, BYTE ptSector, LONG ptAccuOff);
+COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder, BYTE ptSector, LONG ptAccuOff, UWORD PartitionDone);
 #else
 WORD _dsk_init(),
   mediachk(),
@@ -312,6 +315,7 @@ static WORD(*dispatch[NENTRY]) () =
 #define SIZEOF_PARTENT  16
 
 #define PRIMARY         0x01
+#define PRIMARY2        0x02
 
 #define FAT12           0x01
 #define FAT16SMALL      0x04
@@ -333,6 +337,7 @@ ULONG StartSector(WORD ptDrive,     unsigned  BeginCylinder,
         
         unsigned cylinders,heads,sectors;
         ULONG startPos;
+        ULONG oldStartPos;
         
         regs.a.x = 0x0800;    /* get drive parameters */
         regs.d.x = ptDrive;
@@ -354,15 +359,113 @@ ULONG StartSector(WORD ptDrive,     unsigned  BeginCylinder,
                              BeginCylinder, BeginHead, BeginSector,
                              BeginCylinder, BeginHead, BeginSector,
                              startPos, startPos));
+
+                             
+        oldStartPos = peStartSector + ptAccuOff;
+          
+        PartCodePrintf(("oldStartPos = %lx - ", oldStartPos));
+    
+                                        
+        if (startPos != oldStartPos)
+          {
+          printf("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
+                        ptDrive, BeginCylinder, BeginHead,BeginSector,   
+                        peStartSector, ptAccuOff);
+                        
+          printf(" old startpos = %ld, new startpos = %ld, using new\n", 
+                oldStartPos, startPos);
+          }                                      
         
         return startPos;
 }                                    
-      
+
+/* 
+    thats what MSDN says:
+
+    How Windows 2000 Assigns, Reserves, and Stores Drive Letters
+    ID: q234048 
+ 
+  BASIC Disk - Drive Letter Assignment Rules
+The following are the basic disk drive letter assignment rules for Windows 2000: 
+Scan all fixed hard disks as they are enumerated, assign drive letters 
+starting with any active primary partitions (if there is one), otherwise,
+scan the first primary partition on each drive. Assign next available 
+letter starting with C:
 
 
+Repeat scan for all fixed hard disks and removable (JAZ, MO) disks 
+and assign drive letters to all logical drives in an extended partition, 
+or the removable disk(s) as enumerated. Assign next available letter 
+starting with C: 
 
+
+Finally, repeat scan for all fixed hard disk drives, and assign drive 
+letters to all remaining primary partitions. Assign next available letter 
+starting with C:
+
+Floppy drives. Assign letter starting with A:
+
+CD-ROM drives. Assign next available letter starting with D:
+
+*************************************************************************
+Order in Which MS-DOS and Windows Assign Drive Letters
+ID: q51978 
+ 
+MORE INFORMATION
+The following occurs at startup: 
+
+MS-DOS checks all installed disk devices, assigning the drive letter A 
+to the first physical floppy disk drive that is found.
+
+If a second physical floppy disk drive is present, it is assigned drive letter B. If it is not present, a logical drive B is created that uses the first physical floppy disk drive.
+
+
+Regardless of whether a second floppy disk drive is present, 
+MS-DOS then assigns the drive letter C to the primary MS-DOS 
+partition on the first physical hard disk, and then goes on 
+to check for a second hard disk. 
+
+
+If a second physical hard disk is found, and a primary partition exists 
+on the second physical drive, the primary MS-DOS partition on the second
+physical hard drive is assigned the letter D. MS-DOS version 5.0, which 
+supports up to eight physical drives, will continue to search for more 
+physical hard disk drives at this point. For example, if a third physical 
+hard disk is found, and a primary partition exists on the third physical 
+drive, the primary MS-DOS partition on the third physical hard drive is 
+assigned the letter E.
+
+
+MS-DOS returns to the first physical hard disk drive and assigns drive 
+letters to any additional logical drives (in extended MS-DOS partitions) 
+on that drive in sequence.
+
+
+MS-DOS repeats this process for the second physical hard disk drive, 
+if present. MS-DOS 5.0 will repeat this process for up to eight physical 
+hard drives, if present. After all logical drives (in extended MS-DOS 
+partitions) have been assigned drive letters, MS-DOS 5.0 returns to 
+the first physical drive and assigns drive letters to any other primary 
+MS-DOS partitions that exist, then searches other physical drives for 
+additional primary MS-DOS partitions. This support for multiple primary 
+MS-DOS partitions was added to version 5.0 for backward compatibility 
+with the previous OEM MS-DOS versions that support multiple primary partitions.
+
+
+After all logical drives on the hard disk(s) have been assigned drive 
+letters, drive letters are assigned to drives installed using DRIVER.SYS 
+or created using RAMDRIVE.SYS in the order in which the drivers are loaded 
+in the CONFIG.SYS file. Which drive letters are assigned to which devices 
+can be influenced by changing the order of the device drivers or, if necessary, 
+by creating "dummy" drive letters with DRIVER.SYS.
+
+********************************************************
+
+I don't know, if I did it right, but I tried to do it that way. TE
+
+*/
 COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
-                   BYTE ptSector, LONG ptAccuOff)
+                   BYTE ptSector, LONG ptAccuOff, UWORD PartitionDone )
 {
   struct                        /* Temporary partition table    */
   {
@@ -383,162 +486,177 @@ COUNT processtable(int table_type,COUNT ptDrive, BYTE ptHead, UWORD ptCylinder,
   int retry;
   UBYTE packed_byte,
     pb1;
-/*  COUNT Part; */
   BYTE *p;
   int partition_chain = 0;
   int ret;
   ULONG newStartPos;
+  UWORD partMask;
+  int loop;
   
 restart:                    /* yes, it's a GOTO >:-) */
 
                             /* if someone has a circular linked 
                                 extended partition list, stop it sooner or later */
     if (partition_chain > 64)
-        return TRUE;
+        return PartitionDone;
 
   
     PartCodePrintf(("searching partition table at %x %x %x %x %lx\n", 
          ptDrive,  ptCylinder, ptHead, ptSector, ptAccuOff));
 
-  /* Read partition table                         */
-  for ( retry = N_RETRY; --retry >= 0; )
-  {
+    /* Read partition table                         */
+    for ( retry = N_RETRY; --retry >= 0; )
+    {
     ret = fl_read((WORD) ptDrive, (WORD) ptHead, (WORD) ptCylinder,
                   (WORD) ptSector, (WORD) 1, (byteptr) & buffer);
     if (ret == 0)
         break;                  
-  }
-  if (ret != 0)
-    return FALSE;
+    }
+    if (ret != 0)
+        return PartitionDone;
 
   /* Read each partition into temporary array     */
   
-  p = (BYTE *) & buffer.bytes[PARTOFF];
+    p = (BYTE *) & buffer.bytes[PARTOFF];
   
-  for (ptemp_part = &temp_part[0];
+    for (ptemp_part = &temp_part[0];
        ptemp_part < &temp_part[N_PART]; ptemp_part++)
-  {
+    {
 
-    getbyte((VOID *) (p+0), &ptemp_part->peBootable);
-    getbyte((VOID *) (p+1), &ptemp_part->peBeginHead);
-    getbyte((VOID *) (p+2), &packed_byte);
-    ptemp_part->peBeginSector = packed_byte & 0x3f;
-    getbyte((VOID *) (p+3), &pb1);
-    ptemp_part->peBeginCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
-    getbyte((VOID *) (p+4), &ptemp_part->peFileSystem);
-    getbyte((VOID *) (p+5), &ptemp_part->peEndHead);
-    getbyte((VOID *) (p+6), &packed_byte);
-    ptemp_part->peEndSector = packed_byte & 0x3f;
-    getbyte((VOID *) (p+7), &pb1);
-    ptemp_part->peEndCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
-    getlong((VOID *) (p+8), &ptemp_part->peStartSector);
-    getlong((VOID *) (p+12), &ptemp_part->peSectors);
-    
-    p += SIZEOF_PARTENT; /* == 16 */
-  }
+        getbyte((VOID *) (p+0), &ptemp_part->peBootable);
+        getbyte((VOID *) (p+1), &ptemp_part->peBeginHead);
+        getbyte((VOID *) (p+2), &packed_byte);
+        ptemp_part->peBeginSector = packed_byte & 0x3f;
+        getbyte((VOID *) (p+3), &pb1);
+        ptemp_part->peBeginCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
+        getbyte((VOID *) (p+4), &ptemp_part->peFileSystem);
+        getbyte((VOID *) (p+5), &ptemp_part->peEndHead);
+        getbyte((VOID *) (p+6), &packed_byte);
+        ptemp_part->peEndSector = packed_byte & 0x3f;
+        getbyte((VOID *) (p+7), &pb1);
+        ptemp_part->peEndCylinder = pb1 + ((UWORD) (0xc0 & packed_byte) << 2);
+        getlong((VOID *) (p+8), &ptemp_part->peStartSector);
+        getlong((VOID *) (p+12), &ptemp_part->peSectors);
+        
+        p += SIZEOF_PARTENT; /* == 16 */
+    }
 
   /* Walk through the table, add DOS partitions to global
      array and process extended partitions         */
      
                                     /* when searching the EXT chain, 
                                        must skip primary partitions */  	
-  if (   (table_type==PRIMARY)  ||
-       ( (table_type==EXTENDED) && (partition_chain!=0) ) ) 
-  {
-     
-      for (ptemp_part = &temp_part[0];
-           ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
-      {
-    
-        if  ( ptemp_part->peFileSystem == FAT12      ||
-        	  ptemp_part->peFileSystem == FAT16SMALL ||
-    	      ptemp_part->peFileSystem == FAT16LARGE  )
-        {
-          struct dos_partitionS *pdos_partition; 
-          
-          struct media_info *pmiarray = getPMiarray(nUnits);
-          	
-          pmiarray->mi_offset  = ptemp_part->peStartSector + ptAccuOff;
-          
-          PartCodePrintf(("mioffset1 = %lx - ", pmiarray->mi_offset));
-          pmiarray->mi_drive   = ptDrive;
-          pmiarray->mi_partidx = nPartitions;
-    
-          newStartPos = StartSector(ptDrive, 
-                                        ptemp_part->peBeginCylinder, 
-                                        ptemp_part->peBeginHead,
-                                        ptemp_part->peBeginSector,   
-                                        ptemp_part->peStartSector,
-                                        ptAccuOff);
-                                        
-          if (newStartPos != pmiarray->mi_offset)
-          {
-            printf("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
-                        ptDrive, 
-                        ptemp_part->peBeginCylinder, ptemp_part->peBeginHead,ptemp_part->peBeginSector,   
-                        ptemp_part->peStartSector, ptAccuOff);
-                        
-            printf(" old startpos = %ld, new startpos = %ld, using new\n", 
-                pmiarray->mi_offset, newStartPos);
-                                        
-            pmiarray->mi_offset = newStartPos;
-          }                                      
-          
-          nUnits++;
-    
-    	  pdos_partition = &dos_partition[nPartitions];
-    
-          pdos_partition->peDrive = ptDrive;
-          pdos_partition->peBootable    = ptemp_part->peBootable;
-          pdos_partition->peBeginHead   = ptemp_part->peBeginHead;
-          pdos_partition->peBeginSector = ptemp_part->peBeginSector;
-          pdos_partition->peBeginCylinder=ptemp_part->peBeginCylinder;
-          pdos_partition->peFileSystem   =ptemp_part->peFileSystem;
-          pdos_partition->peEndHead      =ptemp_part->peEndHead;
-          pdos_partition->peEndSector    =ptemp_part->peEndSector;
-          pdos_partition->peEndCylinder  =ptemp_part->peEndCylinder;
-          pdos_partition->peStartSector  =ptemp_part->peStartSector;
-          pdos_partition->peSectors      =ptemp_part->peSectors;
-          pdos_partition->peAbsStart     =ptemp_part->peStartSector + ptAccuOff;
-    
-          PartCodePrintf(("DOS PARTITION drive %x CHS %x-%x-%x  %x-%x-%x  %lx %lx %lx FS %x\n",
-              pdos_partition->peDrive,
-              pdos_partition->peBeginCylinder,pdos_partition->peBeginHead   ,pdos_partition->peBeginSector  ,
-              pdos_partition->peEndCylinder  ,pdos_partition->peEndHead      ,pdos_partition->peEndSector   , 
-              pdos_partition->peStartSector , 
-              pdos_partition->peSectors     , 
-              pdos_partition->peAbsStart    ,
-               pdos_partition->peFileSystem
-              )); 
-          
-          nPartitions++;
-        }
-      }
-  }    
-  
-                    /* search for EXT partitions only on 2. run */
-  if (table_type==EXTENDED)
-  {
-      for (ptemp_part = &temp_part[0];
-           ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
-      {
-        if ( (ptemp_part->peFileSystem == EXTENDED ||
-              ptemp_part->peFileSystem == EXTENDED_INT32 ) )
-        {
-          /* restart with new extended part table, don't recurs */
-            partition_chain++;
-          
-            ptHead = ptemp_part->peBeginHead;
-            ptCylinder = ptemp_part->peBeginCylinder;
-            ptSector = ptemp_part->peBeginSector;
-            ptAccuOff = ptemp_part->peStartSector + ptAccuOff;
+    if (   table_type==PRIMARY  ||
+         table_type==PRIMARY2 ||
+         partition_chain!=0   ) 
+    {
+                                    /* do this for 
+                                        0) all active partitions
+                                        1) the first primary partition
+                                    */
+        for (loop = 0; loop < 2; loop++)
+        {     
+            for (ptemp_part = &temp_part[0], partMask = 1;
+                ptemp_part < &temp_part[N_PART] && nUnits < NDEV; 
+                partMask <<= 1,ptemp_part++)
+            {
+        
+        
+            if (loop == 0 &&           /* scan for only for active */
+                !ptemp_part->peBootable) 
+                {
+                continue;
+                }
             
-            goto restart;
-        }
-      }          
-  }
+            if (PartitionDone & partMask)    /* don't reassign partitions */
+                {
+                continue;    
+                }
+    
+            if  ( ptemp_part->peFileSystem == FAT12      ||
+            	  ptemp_part->peFileSystem == FAT16SMALL ||
+        	      ptemp_part->peFileSystem == FAT16LARGE  )
+            {
+                  struct dos_partitionS *pdos_partition; 
+                  
+                  struct media_info *pmiarray = getPMiarray(nUnits);
+        
+                  pmiarray->mi_drive   = ptDrive;
+                  pmiarray->mi_partidx = nPartitions;
+                  	
+                  pmiarray->mi_offset  = StartSector(ptDrive, 
+                                                ptemp_part->peBeginCylinder, 
+                                                ptemp_part->peBeginHead,
+                                                ptemp_part->peBeginSector,   
+                                                ptemp_part->peStartSector,
+                                                ptAccuOff);
+                  
+                  nUnits++;
+            
+            	  pdos_partition = &dos_partition[nPartitions];
+            
+                  pdos_partition->peDrive = ptDrive;
+                  pdos_partition->peBootable    = ptemp_part->peBootable;
+                  pdos_partition->peBeginHead   = ptemp_part->peBeginHead;
+                  pdos_partition->peBeginSector = ptemp_part->peBeginSector;
+                  pdos_partition->peBeginCylinder=ptemp_part->peBeginCylinder;
+                  pdos_partition->peFileSystem   =ptemp_part->peFileSystem;
+                  pdos_partition->peEndHead      =ptemp_part->peEndHead;
+                  pdos_partition->peEndSector    =ptemp_part->peEndSector;
+                  pdos_partition->peEndCylinder  =ptemp_part->peEndCylinder;
+                  pdos_partition->peStartSector  =ptemp_part->peStartSector;
+                  pdos_partition->peSectors      =ptemp_part->peSectors;
+                  pdos_partition->peAbsStart     =ptemp_part->peStartSector + ptAccuOff;
+            
+                  PartCodePrintf(("DOS PARTITION drive %x CHS %x-%x-%x  %x-%x-%x  %lx %lx %lx FS %x\n",
+                      pdos_partition->peDrive,
+                      pdos_partition->peBeginCylinder,pdos_partition->peBeginHead   ,pdos_partition->peBeginSector  ,
+                      pdos_partition->peEndCylinder  ,pdos_partition->peEndHead      ,pdos_partition->peEndSector   , 
+                      pdos_partition->peStartSector , 
+                      pdos_partition->peSectors     , 
+                      pdos_partition->peAbsStart    ,
+                       pdos_partition->peFileSystem
+                      )); 
+                  
+                  nPartitions++;
+                  
+                  PartitionDone |= partMask;
+                  
+                  if (   table_type==PRIMARY  )
+                  {
+                        return PartitionDone;        /* we are done */
+                  }
+        
+                } /* end FAT16 detected */
+            } /* end PArtitionentry 0..3 */
+        }  /* end of loop 0..1 for active, nonactive */  
+    } /* if (   table_type==PRIMARY ) */
   
-  return TRUE;
+                                /* search for EXT partitions only on 2. run */
+    if (table_type==EXTENDED)
+    {
+        for (ptemp_part = &temp_part[0];
+           ptemp_part < &temp_part[N_PART] && nUnits < NDEV; ptemp_part++)
+        {
+            if ( (ptemp_part->peFileSystem == EXTENDED ||
+                  ptemp_part->peFileSystem == EXTENDED_INT32 ) )
+            {
+              /* restart with new extended part table, don't recurs */
+                partition_chain++;
+              
+                ptHead = ptemp_part->peBeginHead;
+                ptCylinder = ptemp_part->peBeginCylinder;
+                ptSector = ptemp_part->peBeginSector;
+                ptAccuOff = ptemp_part->peStartSector + ptAccuOff;
+                
+                PartitionDone = 0; /* not important for EXTENDED */
+                
+                goto restart;
+            }
+        }          
+    }
+  
+  return PartitionDone;
 }
 
 COUNT FAR init_call_blk_driver(rqptr rp)
@@ -561,6 +679,7 @@ WORD _dsk_init(rqptr rp)
     Unit;
   struct media_info *pmiarray;
   bpb *pbpbarray;
+  UBYTE foundPartitions[16];
     
 
   /* Reset the drives                                             */
@@ -600,31 +719,37 @@ WORD _dsk_init(rqptr rp)
   }
 
   nHardDisk = fl_nrdrives();
+
+  nHardDisk = min(nHardDisk,sizeof(foundPartitions));
   
-  /* as rather well documented, DOS searches 1st) all primary patitions on 
+  /* as rather well documented, DOS searches 1st) 1 primary patitions on 
      all drives, 2nd) all extended partitions. that  
      makes many people (including me) unhappy, as all DRIVES D:,E:... 
      on 1st disk will move up/down, if other disk with 
      primary partitions are added/removed, but
      thats the way it is (hope I got it right) 
-     TE (with a little help from my friends) */
+     TE (with a little help from my friends) 
+     see also above for WIN2000,DOS,MSDN */
      
   PartCodePrintf(("DSK init: found %d disk drives\n",nHardDisk)); 
      
   
+    /* Process primary partition table   1 partition only      */
   for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
   {
-    /* Process primary partition table                      */
-    if (!processtable(PRIMARY, (HardDrive | 0x80), 0, 0l, 1, 0l))
-      /* Exit if no hard drive                             */
-      break;
+    foundPartitions[HardDrive] = 
+            processtable(PRIMARY, (HardDrive | 0x80), 0, 0l, 1, 0l,0);
   }
+    /* Process extended partition table                      */
   for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
   {
-    /* Process extended partition table                      */
-    if (!processtable(EXTENDED, (HardDrive | 0x80), 0, 0l, 1, 0l))
-      /* Exit if no hard drive                             */
-      break;
+    processtable(EXTENDED, (HardDrive | 0x80), 0, 0l, 1, 0l,0);
+  }
+
+    /* Process primary a 2nd time */
+  for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+  {
+    processtable(PRIMARY, (HardDrive | 0x80), 0, 0l, 1, 0l,foundPartitions[HardDrive]);
   }
 
   rp->r_nunits = nUnits;
