@@ -123,6 +123,7 @@ typedef struct sfttbl {
 
 /* the following bits are device (char) unique                          */
 #define SFT_FIOCTL      0x4000  /* IOCTL support - device       */
+#define SFT_FOCRM       0x0800  /* Open/Close/RM bit in device attribute*/
 #define SFT_FEOF        0x0040  /* device eof                   */
 #define SFT_FBINARY     0x0020  /* device binary mode           */
 #define SFT_FSPECIAL    0x0010  /* int 29 support               */

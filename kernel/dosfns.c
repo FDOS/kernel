@@ -466,7 +466,7 @@ const char FAR *get_root(const char FAR * fname)
 }
 
 /* initialize SFT fields (for open/creat) for character devices */
-STATIC void DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
+STATIC int DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
 {
   int i;
 
@@ -487,6 +487,17 @@ STATIC void DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
   sftp->sft_date = dos_getdate();
   sftp->sft_time = dos_gettime();
   sftp->sft_attrib = D_DEVICE;
+
+  if (sftp->sft_dev->dh_attr & SFT_FOCRM)
+  {
+    /* if Open/Close/RM bit in driver's attribute is set
+     * then issue an Open request to the driver
+     */
+    struct dhdr FAR *dev = sftp->sft_dev;
+    if (BinaryCharIO(&dev, 0, MK_FP(0x0000, 0x0000), C_OPEN) != SUCCESS)
+      return DE_ACCESS;
+  }
+  return SUCCESS;
 }
 
 /*
@@ -575,7 +586,12 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   /* check for a device   */
   if ((result & IS_DEVICE) && (dhp = IsDevice(fname)) != NULL)
   {
-    DeviceOpenSft(dhp, sftp);
+    int rc = DeviceOpenSft(dhp, sftp);
+    /* check the status code returned by the
+     * driver when we tried to open it
+     */
+    if (rc < SUCCESS)
+      return rc;
     return sft_idx;
   }
 
@@ -738,8 +754,18 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
     sftp->sft_count -= 1;
 
   if (sftp->sft_flags & SFT_FDEVICE)
+  {
+    if (sftp->sft_dev->dh_attr & SFT_FOCRM)
+    {
+      /* if Open/Close/RM bit in driver's attribute is set
+       * then issue a Close request to the driver
+       */
+      struct dhdr FAR *dev = sftp->sft_dev;
+      if (BinaryCharIO(&dev, 0, MK_FP(0x0000, 0x0000), C_CLOSE) != SUCCESS)
+        return DE_ACCESS;
+    }
     return SUCCESS;
-
+  }
   if (commitonly)
     return dos_commit(sftp->sft_status);
   
