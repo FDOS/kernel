@@ -226,18 +226,6 @@ _dup2:
         int 21h
         jmp short common_exit
         
-;; VOID init_PSPInit(seg psp_seg)
-    global _init_PSPInit
-_init_PSPInit:        
-        push si
-        mov ah, 55h
-        mov bx, sp
-        mov dx, [bx+4]
-        xor si, si
-        int 21h
-        pop si
-        ret
-
 ;; VOID init_PSPSet(seg psp_seg)
     global _init_PSPSet
 _init_PSPSet:

@@ -649,11 +649,7 @@ dispatch:
 
       /* Dos Create New Psp                                           */
     case 0x26:
-      {
-        psp FAR *p = MK_FP(cu_psp, 0);
-
-        new_psp(lr.DX, p->ps_size);
-      }
+      new_psp(lr.DX, r->CS);
       break;
 
       /* Read random record(s) using FCB */
@@ -1175,7 +1171,7 @@ dispatch:
       /* ************UNDOCUMENTED************************************* */
       /* Dos Create New Psp & set p_size                              */
     case 0x55:
-      new_psp(lr.DX, lr.SI);
+      child_psp(lr.DX, cu_psp, lr.SI);
       cu_psp = lr.DX;
       break;
 

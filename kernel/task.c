@@ -165,26 +165,29 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
 }
 
 /* The following code is 8086 dependant                         */
-void new_psp(seg para, int psize)
+void new_psp(seg para, seg cur_psp)
 {
   psp FAR *p = MK_FP(para, 0);
-  psp FAR *q = MK_FP(cu_psp, 0);
+
+  fmemcpy(p, MK_FP(cur_psp, 0), sizeof(psp));
+
+  /* terminate address                                    */
+  p->ps_isv22 = getvec(0x22);
+  /* break address                                        */
+  p->ps_isv23 = getvec(0x23);
+  /* critical error address                               */
+  p->ps_isv24 = getvec(0x24);
+  /* parent psp segment set to 0 (see RBIL int21/ah=26)   */
+  p->ps_parent = 0;
+}
+
+void child_psp(seg para, seg cur_psp, int psize)
+{
+  psp FAR *p = MK_FP(para, 0);
+  psp FAR *q = MK_FP(cur_psp, 0);
   int i;
-        
-  /* Clear out new psp first                              */
-  fmemset(p, 0, sizeof(psp));
 
-  /* initialize all entries and exits                     */
-  /* CP/M-like exit point                                 */
-  p->ps_exit = 0x20cd;
-
-  /* CP/M-like entry point - call far to special entry    */
-  p->ps_farcall = 0x9a;
-  p->ps_reentry = MK_FP(0, 0x30 * 4);
-  /* unix style call - 0xcd 0x21 0xcb (int 21, retf)      */
-  p->ps_unix[0] = 0xcd;
-  p->ps_unix[1] = 0x21;
-  p->ps_unix[2] = 0xcb;
+  new_psp(para, cur_psp);
 
   /* Now for parent-child relationships                   */
   /* parent psp segment                                   */
@@ -195,17 +198,6 @@ void new_psp(seg para, int psize)
   /* Environment and memory useage parameters             */
   /* memory size in paragraphs                            */
   p->ps_size = psize;
-  /* environment paragraph                                */
-  /* p->ps_environ = 0; cleared above */
-  /* terminate address                                    */
-  p->ps_isv22 = getvec(0x22);
-  /* break address                                        */
-  p->ps_isv23 = getvec(0x23);
-  /* critical error address                               */
-  p->ps_isv24 = getvec(0x24);
-
-  /* user stack pointer - int 21                          */
-  p->ps_stack = q->ps_stack;
 
   /* File System parameters                               */
   /* maximum open files                                   */
@@ -221,14 +213,14 @@ void new_psp(seg para, int psize)
       p->ps_files[i] = q->ps_filetab[i];
 
   /* first command line argument                          */
-  /* p->ps_fcb1.fcb_drive = 0; already set                */
+  p->ps_fcb1.fcb_drive = 0;
   fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
   /* second command line argument                         */
-  /* p->ps_fcb2.fcb_drive = 0; already set                */
+  p->ps_fcb2.fcb_drive = 0;
   fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
 
   /* local command line                                   */
-  /* p->ps_cmd.ctCount = 0;     command tail, already set */
+  p->ps_cmd.ctCount = 0;
   p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
 }
 
@@ -490,7 +482,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
     /* point to the PSP so we can build it                  */
     setvec(0x22, MK_FP(user_r->CS, user_r->IP));
-    new_psp(mem, mem + asize);
+    child_psp(mem, cu_psp, mem + asize);
 
     fcbcode = patchPSP(mem - 1, env, exp, namep);
     /* set asize to end of segment */
@@ -742,7 +734,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
     /* point to the PSP so we can build it                  */
     setvec(0x22, MK_FP(user_r->CS, user_r->IP));
-    new_psp(mem, mem + asize);
+    child_psp(mem, cu_psp, mem + asize);
 
     fcbcode = patchPSP(mem - 1, env, exp, namep);
     exp->exec.stack =

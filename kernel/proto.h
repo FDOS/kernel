@@ -339,7 +339,8 @@ const UWORD *is_leap_year_monthdays(UWORD year);
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
 
 /* task.c */
-VOID new_psp(seg para, int psize);
+VOID new_psp(seg para, seg cur_psp);
+VOID child_psp(seg para, seg cur_psp, int psize);
 VOID return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
 ULONG SftGetFsize(int sft_idx);

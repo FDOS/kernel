@@ -153,6 +153,67 @@ void InitializeAllBPBs(VOID)
   }
 }
 
+STATIC void PSPInit(void)
+{
+  psp far *p = MK_FP(DOS_PSP, 0);
+
+  /* Clear out new psp first                              */
+  fmemset(p, 0, sizeof(psp));
+
+  /* initialize all entries and exits                     */
+  /* CP/M-like exit point                                 */
+  p->ps_exit = 0x20cd;
+
+  /* CP/M-like entry point - call far to special entry    */
+  p->ps_farcall = 0x9a;
+  p->ps_reentry = MK_FP(0, 0x30 * 4);
+  /* unix style call - 0xcd 0x21 0xcb (int 21, retf)      */
+  p->ps_unix[0] = 0xcd;
+  p->ps_unix[1] = 0x21;
+  p->ps_unix[2] = 0xcb;
+
+  /* Now for parent-child relationships                   */
+  /* parent psp segment                                   */
+  p->ps_parent = FP_SEG(p);
+  /* previous psp pointer                                 */
+  p->ps_prevpsp = MK_FP(0xffff,0xffff);
+
+  /* Environment and memory useage parameters             */
+  /* memory size in paragraphs                            */
+  /*  p->ps_size = 0; clear from above                    */
+  /* environment paragraph                                */
+  p->ps_environ = DOS_PSP + 8;
+  /* terminate address                                    */
+  p->ps_isv22 = getvec(0x22);
+  /* break address                                        */
+  p->ps_isv23 = getvec(0x23);
+  /* critical error address                               */
+  p->ps_isv24 = getvec(0x24);
+
+  /* user stack pointer - int 21                          */
+  /* p->ps_stack = NULL; clear from above                 */
+
+  /* File System parameters                               */
+  /* maximum open files                                   */
+  p->ps_maxfiles = 20;
+  fmemset(p->ps_files, 0xff, 20);
+
+  /* open file table pointer                              */
+  p->ps_filetab = p->ps_files;
+
+  /* first command line argument                          */
+  /* p->ps_fcb1.fcb_drive = 0; already set                */
+  fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
+  /* second command line argument                         */
+  /* p->ps_fcb2.fcb_drive = 0; already set                */
+  fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
+
+  /* local command line                                   */
+  /* p->ps_cmd.ctCount = 0;     command tail, already set */
+  p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
+}
+
+
 STATIC void init_kernel(void)
 {
   COUNT i;
@@ -196,8 +257,7 @@ STATIC void init_kernel(void)
 
   init_PSPSet(DOS_PSP);
   set_DTA(MK_FP(DOS_PSP, 0x80));
-  init_PSPInit(DOS_PSP);
-  ((psp far *)MK_FP(DOS_PSP, 0))->ps_environ = DOS_PSP + 8;
+  PSPInit();
 
   Init_clk_driver();
 

@@ -67,6 +67,7 @@ extern BYTE DosLoadedInHMA;
 void MoveKernel(unsigned NewKernelSegment);
 
 #define setvec(n, isr) (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
+#define getvec(n) (*(intvec FAR *)MK_FP(0,4 * (n)))
 
 #define GLOBAL extern
 #define NAMEMAX         MAX_CDSPATH     /* Maximum path for CDS         */
@@ -120,7 +121,6 @@ int ASMCFUNC open(const char *pathname, int flags);
 int ASMCFUNC close(int fd);
 int ASMCFUNC dup2(int oldfd, int newfd);
 int ASMCFUNC allocmem(UWORD size, seg * segp);
-VOID ASMCFUNC init_PSPInit(seg psp_seg);
 VOID ASMCFUNC init_PSPSet(seg psp_seg);
 COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
 int ASMCFUNC init_setdrive(int drive);
