@@ -150,7 +150,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
 
   /* First test the flags to see if the user has passed a valid   */
   /* file mode...                                                 */
-  if ((flags & 3) > 2)
+  if ((flags & O_ACCMODE) > 2)
     return DE_INVLDACC;
 
   /* first split the passed dir into comopnents (i.e. - path to   */
@@ -187,7 +187,8 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
         flags = (flags & ~3) | O_RDONLY;
 
       /* Check permissions. -- JPP */
-      if ((fnp->f_dir.dir_attrib & D_RDONLY) && ((flags & 3) != O_RDONLY))
+      if ((fnp->f_dir.dir_attrib & D_RDONLY) &&
+          ((flags & O_ACCMODE) != O_RDONLY))
       {
         dir_close(fnp);
         return DE_ACCESS;
@@ -219,8 +220,8 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   
   /* Set the fnode to the desired mode                    */
   /* Updating the directory entry first.                  */
-  fnp->f_mode = flags & 3;
-    
+  fnp->f_mode = flags & O_ACCMODE;
+
   if (status != S_OPENED)
   {
     init_direntry(&fnp->f_dir, attrib, FREE);

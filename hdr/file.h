@@ -50,6 +50,7 @@ static BYTE *file_hRcsId =
 #define O_RDONLY        SFT_MREAD
 #define O_WRONLY        SFT_MWRITE
 #define O_RDWR          SFT_MRDWR
+#define O_ACCMODE       3
 
 /* bits 2, 3 reserved */
 /* bits 4, 5, 6 sharing modes */
