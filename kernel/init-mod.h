@@ -270,10 +270,10 @@ struct RelocatedEntry {
 };
 
 extern struct RelocationTable
-   DOSTEXTFAR ASM _HMARelocationTableStart[],
-   DOSTEXTFAR ASM _HMARelocationTableEnd[];
+   DOSFAR ASM _HMARelocationTableStart[],
+   DOSFAR ASM _HMARelocationTableEnd[];
 
-extern void FAR *DOSTEXTFAR ASM XMSDriverAddress;
+extern void FAR *DOSFAR ASM XMSDriverAddress;
 extern VOID ASMPASCAL FAR _EnableA20(VOID);
 extern VOID ASMPASCAL FAR _DisableA20(VOID);
 
