@@ -303,6 +303,14 @@ typedef signed long LONG;
 
 typedef VOID (FAR ASMCFUNC * intvec) (void);
 
+#define MK_PTR(type,seg,ofs) ((type FAR*) MK_FP (seg, ofs))
+#if __TURBOC__ > 0x202
+# define MK_SEG_PTR(type,seg) ((type _seg*) (seg))
+#else
+# define _seg FAR
+# define MK_SEG_PTR(type,seg) MK_PTR (type, seg, 0)
+#endif
+
 /*
 	this suppresses the warning
 	unreferenced parameter 'x'
