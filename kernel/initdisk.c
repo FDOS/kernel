@@ -43,7 +43,7 @@ extern COUNT DOSFAR nUnits;
 extern UWORD DOSFAR LBA_WRITE_VERIFY;
 
 /* floppy parameter table, at 70:xxxx */
-extern unsigned char DOSTEXTFAR int1e_table[0xe];
+extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
 
 /*
  *    Rev 1.0   13 May 2001  tom ehlert

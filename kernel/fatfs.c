@@ -322,8 +322,8 @@ f_node_ptr split_path(char * path, char * fcbname)
 #ifdef DEBUG
   if (CDSp[path[0]-'A'].cdsFlags & CDSNETWDRV)
   {
-    printf("split path called for redirected file: `%s.%s'\n",
-           fname, fext);
+    printf("split path called for redirected file: `%s'\n",
+           fcbname);
     return (f_node_ptr) 0;
   }
 #endif

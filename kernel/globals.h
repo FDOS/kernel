@@ -287,7 +287,9 @@ extern BYTE ASM ErrorMode,          /* Critical error flag                  */
   ASM InDOS,                        /* In DOS critical section              */
   ASM OpenMode,                     /* File Open Attributes                 */
   ASM SAttr,                        /* Attrib Mask for Dir Search           */
-  ASM dosidle_flag, ASM Server_Call, ASM CritErrLocus, ASM CritErrAction, ASM CritErrClass, VgaSet, njoined;        /* number of joined devices             */
+  ASM dosidle_flag, ASM Server_Call, ASM CritErrLocus, ASM CritErrAction, 
+  ASM CritErrClass, ASM VgaSet, 
+  ASM njoined;                      /* number of joined devices             */
 
 extern UWORD ASM Int21AX;
 extern COUNT ASM CritErrCode;

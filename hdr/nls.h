@@ -453,7 +453,7 @@ extern struct nlsInfoBlock nlsInfo;
 extern struct nlsPackage ASM nlsPackageHardcoded;
         /* These are the "must have" tables within the hard coded NLS pkg */
 extern struct nlsFnamTerm nlsFnameTermHardcoded;
-extern struct nlsDBCS nlsDBCSHardcoded;
+extern struct nlsDBCS ASM nlsDBCSHardcoded;
 extern struct nlsCharTbl nlsUpcaseHardcoded;
 extern struct nlsCharTbl nlsFUpcaseHardcoded;
 extern struct nlsCharTbl nlsCollHardcoded;
