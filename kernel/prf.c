@@ -30,6 +30,13 @@
 
 #ifdef FORSYS
 #include <io.h>
+#include <stdarg.h>
+#else
+/* copied from bcc (Bruce's C compiler) stdarg.h */
+typedef char *va_list;
+#define va_start(arg, last) ((arg) = (char *) (&(last)+1))
+#define va_arg(arg, type) (((type *)(arg+=sizeof(type)))[-1])
+#define va_end(arg)
 #endif
 
 /*#define DOSEMU */
@@ -49,7 +56,6 @@ static char buff[MAX_BUFSIZE];
 #define printf init_printf
 #define sprintf init_sprintf
 #define charp init_charp
-#define hexd init_hexd
 #define hexDigits init_hexDigits
 #endif
 
@@ -63,8 +69,8 @@ static BYTE *charp = 0;
 STATIC VOID handle_char(COUNT);
 STATIC VOID put_console(COUNT);
 STATIC BYTE * ltob(LONG, BYTE *, COUNT);
-STATIC COUNT do_printf(CONST BYTE *, REG BYTE **);
-WORD CDECL printf(CONST BYTE * fmt, ...);
+STATIC COUNT do_printf(CONST BYTE *, REG va_list);
+int CDECL printf(CONST BYTE * fmt, ...);
 
 /* The following is user supplied and must match the following prototype */
 VOID cso(COUNT);
@@ -96,10 +102,21 @@ VOID put_console(COUNT c)
   {
     buff[buff_offset] = 0;
     buff_offset = 0;
+#ifdef __TURBOC__
     _ES = FP_SEG(buff);
     _DX = FP_OFF(buff);
     _AX = 0x13;
     __int__(0xe6);
+#elif defined(I86)
+    asm
+      {
+        push ds;
+        pop es;
+        mov dx, offset buff;
+        mov ax, 0x13;
+        int 0xe6;
+      }
+#endif
   }
   else
   {
@@ -120,7 +137,7 @@ VOID put_console(COUNT c)
   _AX = 0x0e00 | c;
   _BX = 0x0070;
   __int__(0x10);
-#else
+#elif defined(I86)
   __asm
   {
     mov al, byte ptr c;
@@ -182,18 +199,22 @@ BYTE *ltob(LONG n, BYTE * s, COUNT base)
 #define RIGHT   1
 
 /* printf -- short version of printf to conserve space */
-WORD CDECL printf(CONST BYTE * fmt, ...)
+int CDECL printf(CONST BYTE * fmt, ...)
 {
+  va_list arg;
+  va_start(arg, fmt);
   charp = 0;
-  return do_printf(fmt, (BYTE **) & fmt + 1);
+  return do_printf(fmt, arg);
 }
 
-WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...)
+int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...)
 {
   WORD ret;
+  va_list arg;
 
+  va_start(arg, fmt);
   charp = buff;
-  ret = do_printf(fmt, (BYTE **) & fmt + 1);
+  ret = do_printf(fmt, arg);
   handle_char(NULL);
   return ret;
 }
@@ -207,7 +228,7 @@ ULONG FAR retcs(int i)
     return *(ULONG *)p;
 }
 */
-COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
+COUNT do_printf(CONST BYTE * fmt, va_list arg)
 {
   int base;
   BYTE s[11], FAR * p;
@@ -269,31 +290,29 @@ COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
       case '\0':
         return 0;
 
-      case 'c':
-        handle_char(*(COUNT *) arg++);
+      case 'c':  
+        handle_char(va_arg(arg, int));
         continue;
 
       case 'p':
         {
-          UWORD w[2];
-          w[1] = *((UWORD *) arg);
-          arg += sizeof(UWORD) / sizeof(BYTE *);
-          w[0] = *((UWORD *) arg);
-          arg += sizeof(UWORD) / sizeof(BYTE *);
-          do_printf("%04x:%04x", (BYTE **) & w);
-          continue;
+          UWORD w0 = va_arg(arg, UWORD);
+          char *tmp = charp;
+          sprintf(s, "%04x:%04x", va_arg(arg, UWORD), w0);
+          p = s;
+          charp = tmp;
+          goto do_outputstring;
         }
 
       case 's':
-        p = *arg++;
+        p = va_arg(arg, char *);
         goto do_outputstring;
 
       case 'F':
         fmt++;
         /* we assume %Fs here */
       case 'S':
-        p = *((BYTE FAR **) arg);
-        arg += sizeof(BYTE FAR *) / sizeof(BYTE *);
+        p = va_arg(arg, char FAR *);
         goto do_outputstring;
 
       case 'i':
@@ -315,24 +334,10 @@ COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
 
       lprt:
         if (longarg)
-        {
-          currentArg = *((LONG *) arg);
-          arg += sizeof(LONG) / sizeof(BYTE *);
-        }
+          currentArg = va_arg(arg, long);
         else
-        {
-          if (base < 0)
-          {
-            currentArg = *((int *)arg);
-            arg += sizeof(int) / sizeof(BYTE *);
-          }
-          else
-          {
-            currentArg = *((unsigned int *)arg);
-            arg += sizeof(unsigned int) / sizeof(BYTE *);
-          }
-        }
-
+          currentArg = base < 0 ? (long)va_arg(arg, int) :
+              (long)va_arg(arg, unsigned int);
         ltob(currentArg, s, base);
 
         p = s;
@@ -361,9 +366,11 @@ COUNT do_printf(CONST BYTE * fmt, BYTE ** arg)
 
     }
   }
+  va_end(arg);
   return 0;
 }
 
+#ifndef _INIT
 void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
 {
   int loop, start = 0;
@@ -381,6 +388,7 @@ void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
     printf("\n");
   }
 }
+#endif
 
 #ifdef TEST
 /*
@@ -394,7 +402,7 @@ void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
 	and run. if strings are wrong, the program will wait for the ANYKEY
 
 */
-#include <c:\tc\include\conio.h>
+#include <conio.h>
 void cso(char c)
 {
   putch(c);
