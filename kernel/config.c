@@ -129,6 +129,10 @@ struct config Config = {
   /* unsigned ebda2move;     */ 0, /* value for SWITCHES=/E:nnnn */
 };
 
+/* master_env copied over command line area in
+   DOS_PSP, thus its size limited to 128 bytes */
+static char master_env[128] = "PATH=.";
+
 STATIC seg_t base_seg BSS_INIT(0);
 STATIC seg_t umb_base_seg BSS_INIT(0);
 VFP lpTop BSS_INIT(0);
@@ -293,6 +297,9 @@ void PreConfig(void)
 #ifdef DEBUG
   printf("Preliminary allocation completed: top at %p\n", lpTop);
 #endif
+
+  /* initialize environment */
+  fmemcpy(MK_PTR(char, DOS_PSP + 8, 0), master_env, sizeof(master_env));
 }
 
 static void KernelAllocSFT(sfttbl FAR *p, unsigned files, int high)
@@ -2066,8 +2073,8 @@ STATIC void _CmdInstall(PCStr p, int mode)
   if (len > sizeof args.ctBuffer - 2)
       len = sizeof args.ctBuffer - 2; /* trim too long line */
   args.ctCount = (UBYTE)len;
-  args.ctBuffer[len] = '\r';
-  args.ctBuffer[len+1] = 0;
+  args.ctBuffer[len-2] = '\r';
+  args.ctBuffer[len-1] = '\0';
   memcpy(args.ctBuffer, p, len);
 
   set_strategy(mode);
@@ -2109,7 +2116,7 @@ VOID DoInstall(void)
 
 /* master_env copied over command line area in
    DOS_PSP, thus its size limited to 128 bytes */
-static char master_env[128] = "PATH=.";
+/* static char master_env[128] = "PATH=."; */
 
   /* !!! dirty hack: because bug in old FreeCOM, which wrongly
      process empty environment in MS-DOS style, garbage empty

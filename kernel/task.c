@@ -136,7 +136,7 @@ STATIC int ChildEnv(seg_t env_seg, seg_t *penv_seg, const char far *path)
   {
     seg_t dst_seg = *penv_seg + 1;
 
-    /* enviornment contains:
+    /* environment contains:
        - 0 or more ASCIIZ strings (with variable definitions);
        - empty ASCIIZ string (one null character);
        - 16-bit counter (usually 1);
@@ -151,6 +151,45 @@ STATIC int ChildEnv(seg_t env_seg, seg_t *penv_seg, const char far *path)
     *MK_PTR(UWORD, dst_seg, env_sz + 2) = 1;
     fstrcpy(MK_PTR(char, dst_seg, env_sz + 4), PriPathName);
   }
+
+#if DEBUG
+  {
+    seg_t dst_seg = *penv_seg + 1;
+    int i;
+
+    printf("ChildEnv. env seg=0x%02x\n", dst_seg);
+    if (dst_seg)
+    {
+      const char FAR*p = MK_PTR(const char, dst_seg, 0);
+      /* loop through ASCIIZ env variables */
+      if (*p)
+        while (*p)
+        {
+          printf("[");
+          for (; *p; p++)
+            if (*p == ' ') printf("<space>");
+            else printf("%c", *p);
+          printf("]\n");
+          p++;
+        }
+      else
+        p++; /* even empty env must have 1 ("") ASCIIZ string */
+      /* may be followed by empty string (just \0), 16bit count, ASCIIZ argv[0] */
+      printf("End of Env marker = 0x%02x (should be 0)\n", *p);
+      printf("argv[0] present = %u\n", *MK_PTR(UWORD, dst_seg, env_sz + 2));
+      p+=3;  /* skip 16bit count and point to argv[0] */
+      if (*p)
+      {
+        for (i = 0; p[i] && (i < 127); i++)
+          printf("%c", p[i]);
+        printf("\n");
+      }
+      else
+        printf("No program name (argv[0]) supplied\n");
+    }
+  }
+#endif
+  
   return SUCCESS;
 }
 
@@ -291,6 +330,32 @@ static void load_transfer(seg_t ds, exec_blk *ep, int mode)
   /* AX value to be passed based on FCB values */
   fcbcode = (get_cds1(p->ps_fcb1.fcb_drive) ? 0 : 0xff) |
 	    (get_cds1(p->ps_fcb2.fcb_drive) ? 0 : 0xff00);
+
+#ifdef DEBUG
+  {
+    int i, ctCount=ep->exec.cmd_line->ctCount;
+    /* display full command line */
+    if (ctCount > 127)
+    {
+      printf("load_transfer. CommantTail=%d count exceeds 127\n", ctCount);
+      ctCount = 127;
+    }
+    printf("load_transfer. CommandTail is:\n");
+    /* use loop in case tail not '\0' terminated */
+    if (ctCount)
+    {
+      for (i=0; i < ctCount; i++)
+        if (ep->exec.cmd_line->ctBuffer[i] == ' ')
+          printf("<space>");
+        else
+          printf("%c", ep->exec.cmd_line->ctBuffer[i]);
+      printf("\n");
+    }
+    else
+      printf("<empty>\n");
+  }
+#endif
+
 
   /* Transfer control to the executable                   */
   if (mode == LOADNGO)

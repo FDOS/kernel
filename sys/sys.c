@@ -660,7 +660,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
       char *comspec = getenv("COMSPEC");
       if (opts->fnCmd || (comspec == NULL) || stat(comspec, &fstatbuf))
       {
-        printf("%s: failed to find command interpreter (shell) file %s\n", pgm, (opts->fnCmd)?opts->fnCmd:"COMMAND.COM");
+        printf("%s: failed to find command interpreter (shell) file %s\n", pgm, srcFile);
         exit(1);
       }
     }
@@ -711,7 +711,7 @@ int main(int argc, char **argv)
     {
       char *comspec = getenv("COMSPEC");
       if (!opts.fnCmd && (comspec != NULL))
-        printf("%s: Trying shell from %COMSPEC%=\"%s\"\n", pgm, comspec);
+        printf("%s: Trying shell from %%COMSPEC%%=\"%s\"\n", pgm, comspec);
       if (opts.fnCmd || (comspec == NULL) || !copy(comspec, opts.dstDrive, "COMMAND.COM"))
       {
         printf("\n%s: failed to find command interpreter (shell) file %s\n", pgm, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
@@ -1443,7 +1443,7 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
        open(dest, O_RDWR | O_TRUNC | O_CREAT | O_BINARY,
             S_IREAD | S_IWRITE)) < 0)
   {
-    printf(" %s: can't create\"%s\"\nDOS errnum %d", pgm, dest, errno);
+    printf(" %s: can't create\"%s\"\nDOS errnum %d\n", pgm, dest, errno);
     close(fdin);
     return FALSE;
   }
@@ -1486,7 +1486,7 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
   };
 #endif
 
-  printf("%lu Bytes transferred", copied);
+  printf("%lu Bytes transferred\n", copied);
 
   return TRUE;
 } /* copy */
