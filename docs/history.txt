@@ -7,6 +7,7 @@
       a slightly less complicated memory model from the C compiler's
       point of view.
     * add support for int2f/4a01,4a02: query/allocate HMA space.
+    * updated config.txt
 + Changes Arkady V. Belousov
     * slightly improved asm for print_hex and int2f clear_ax stuff
     * use #error for unknown compilers
