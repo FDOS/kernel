@@ -108,18 +108,14 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
 
   if (nFileCnt == 0)
   {
-/* Lixing Yuan Patch */
-    if (bAllowWildcards)        /* for find first */
-    {
-      if (*filename != '\0')
-        return DE_FILENOTFND;
-      memset(fcbname, '?', FNAME_SIZE + FEXT_SIZE);
-      return nDirCnt;
-    }
-    else
-      return DE_FILENOTFND;
+    int err = DE_PATHNOTFND;
+    if (bAllowWildcards && *filename == '\0' &&
+        (nDirCnt == 3 || filename[-1] != '\\'))
+        /* D:\ or D:\DOS but not D:\DOS\ */
+      err = DE_NFILES;
+    return err;
   }
-  
+
   /* Now we have pointers set to the directory portion and the    */
   /* file portion.  Now determine the existance of an extension.  */
   lpszLclExt = filename;
