@@ -284,17 +284,17 @@ void write_char(int c, int sft_idx)
 void write_char_stdout(int c)
 {
   unsigned char count = 1;
-  unsigned flags = get_sft(STDOUT)->sft_flags & (SFT_FDEVICE | SFT_FBINARY);
+  unsigned flags = get_sft(STDOUT)->sft_flags;
 
   /* ah=2, ah=9 should expand tabs even for raw devices and disk files */
-  if (flags != SFT_FDEVICE)
+  if ((flags & (SFT_FDEVICE|SFT_FBINARY)) != SFT_FDEVICE)
   {
     if (c == HT) {
       count = 8 - (scr_pos & 7);
       c = ' ';
     }
-    /* for raw devices already updated in dosfns.c */
-    if (!(flags & SFT_FDEVICE))
+    /* for raw CONOUT devices already updated in dosfns.c */
+    if ((flags & (SFT_FDEVICE|SFT_FCONOUT)) != (SFT_FDEVICE|SFT_FCONOUT))
       update_scr_pos(c, count);
   }
 
