@@ -35,23 +35,35 @@ extern struct _KernelConfig InitKernelConfig;
 #define printf      init_printf
 #define sprintf     init_sprintf
 #define execrh      init_execrh
+#define  memcpy     init_memcpy
 #define fmemcpy     init_fmemcpy
 #define fmemset     init_fmemset
 #define fmemcmp     init_fmemcmp
-#define memset      init_memset
-#define strcpy      init_strcpy
-WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
-void fmemcpy(void far *d, const void far *s, unsigned n);
-void fmemset(void far *s, int ch, unsigned n);
-void memset(void *s, int ch, unsigned n);
-void strcpy(char *dest, const char *src);
+#define  memcmp     init_memcmp
+#define  memset     init_memset
+#define  strcpy     init_strcpy
+#define  strlen     init_strlen
+#define fstrlen     init_fstrlen
 
+/* execrh.asm */
+WORD   ASMCFUNC  execrh(request FAR *, struct dhdr FAR *);
+
+/* asmsupt.asm */
+VOID   ASMPASCAL  memset(      void     *s,  int ch,             size_t n);
+VOID   ASMPASCAL fmemset(      void FAR *s,  int ch,             size_t n);
+int    ASMPASCAL  memcmp(const void     *m1, const void     *m2, size_t n);
+int    ASMPASCAL fmemcmp(const void FAR *m1, const void FAR *m2, size_t n);
+VOID   ASMPASCAL  memcpy(      void     *d,  const void     *s,  size_t n);
+VOID   ASMPASCAL fmemcpy(      void FAR *d,  const void FAR *s,  size_t n);
+VOID   ASMPASCAL  strcpy(char           *d,  const char     *s);
+size_t ASMPASCAL  strlen(const char     *s);
+size_t ASMPASCAL fstrlen(const char FAR *s);
+ 
 #undef LINESIZE
 #define LINESIZE KBD_MAXLENGTH
 
 /*inithma.c*/
 extern BYTE DosLoadedInHMA;
-int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
 void MoveKernel(unsigned NewKernelSegment);
 
 #define setvec(n, isr) (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))

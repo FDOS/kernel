@@ -36,7 +36,33 @@
 
 		%include "segs.inc"
 
-segment HMA_TEXT
+%ifdef _INIT
+
+  segment INIT_TEXT
+  %define  FMEMCPYBACK INIT_FMEMCPYBACK
+  %define   MEMCPY   INIT_MEMCPY
+  %define  FMEMCPY  INIT_FMEMCPY
+  %define   MEMSET   INIT_MEMSET
+  %define  FMEMSET  INIT_FMEMSET
+  %define   STRCPY   INIT_STRCPY
+  %define  FSTRCPY  INIT_FSTRCPY
+  %define   STRLEN   INIT_STRLEN
+  %define  FSTRLEN  INIT_FSTRLEN
+  %define  FMEMCHR  INIT_FMEMCHR
+  %define  FSTRCHR  INIT_FSTRCHR
+  %define   STRCHR   INIT_STRCHR
+  %define  FSTRCMP  INIT_FSTRCMP
+  %define   STRCMP   INIT_STRCMP
+  %define FSTRNCMP INIT_FSTRNCMP
+  %define  STRNCMP  INIT_STRNCMP
+  %define  FMEMCMP  INIT_FMEMCMP
+  %define   MEMCMP   INIT_MEMCMP
+
+%else
+  
+  segment HMA_TEXT
+
+%endif
 
 ;*********************************************************************
 ; this implements some of the common string handling functions
@@ -225,7 +251,7 @@ pascal_return:
                 
 ; fstrcpy (void FAR*dest, void FAR *src);
 
-
+%ifndef _INIT
                 global  FSTRCPY
 FSTRCPY:
                 call pascal_setup
@@ -239,6 +265,7 @@ FSTRCPY:
 		mov   bl,8
                 
                 jmp short dostrcpy
+%endif
 
 ;******
                 global  STRCPY
@@ -293,6 +320,8 @@ dostrlen:
                 dec ax
 
                 jmp short pascal_return
+
+%ifndef _INIT
 
 ;************************************************************
 ; strchr (BYTE *src , int ch);
@@ -365,6 +394,8 @@ FMEMCHR:
                 mov dx, es
                 mov ax, di
                 jmp short strchr_found1
+
+%endif
 
 ;**********************************************************************
 %if 0

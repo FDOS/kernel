@@ -136,7 +136,7 @@ int CDECL printf(CONST BYTE * fmt, ...);
 /* The following is user supplied and must match the following prototype */
 VOID cso(COUNT);
 
-#if defined(FORSYS) || defined(_INIT)
+#if defined(FORSYS)
 COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
 {
   int i = 0;

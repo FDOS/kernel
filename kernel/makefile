@@ -40,7 +40,7 @@ error.obj
 OBJS4=break.obj dosfns.obj fatdir.obj fatfs.obj fattab.obj fcbfns.obj \
 inthndlr.obj
 OBJS5=ioctl.obj dosnames.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
-OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj
+OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj
 OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
 initdisk.obj initclk.obj
 OBJS = $(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
@@ -219,6 +219,10 @@ initdisk.obj: initdisk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)
 initclk.obj: initclk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
+
+#the string functions for INIT_TEXT
+iasmsupt.obj: asmsupt.asm $(CONFIGURATION)
+	$(NASM) -D$(COMPILER) -D_INIT $(NASMFLAGS) -f obj -o iasmsupt.obj asmsupt.asm
 
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
 iprf.obj: iprf.c prf.c $(HDR)portab.h $(CONFIGURATION)

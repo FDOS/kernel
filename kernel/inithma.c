@@ -113,17 +113,6 @@ VOID hdump(BYTE FAR * p)
 
 #define KeyboardShiftState() (*(BYTE FAR *)(MK_FP(0x40,0x17)))
 
-/* of course, this should go to ASMSUPT */
-int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len)
-{
-  for (; len; s1++, s2++, --len)
-  {
-    if (*s1 - *s2)
-      return *s1 - *s2;
-  }
-  return 0;
-}
-
 /*
     this tests, if the HMA area can be enabled.
     if so, it simply leaves it on

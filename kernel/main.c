@@ -70,33 +70,6 @@ struct lol FAR *LoL;
 struct lol FAR *LoL = &DATASTART;
 #endif
 
-/* little functions - could be ASM but does not really matter in this context */
-void memset(void *s, int c, unsigned n)
-{
-  char *t = s;	
-  while(n--) *t++ = c;
-}
-
-void fmemset(void far *s, int c, unsigned n)
-{
-  char far *t = s;
-  while(n--) *t++ = c;
-}
-
-void strcpy(char *dest, const char *src)
-{
-  while(*src)
-    *dest++ = *src++;
-  *dest = '\0';
-}
-
-void fmemcpy(void far *dest, const void far *src, unsigned n)
-{
-  char far *d = dest;
-  const char far *s = src;
-  while(n--) *d++ = *s++;
-}
-
 VOID ASMCFUNC FreeDOSmain(void)
 {
   unsigned char drv;
@@ -375,7 +348,7 @@ STATIC void kernel()
   /* process 0       */
   /* Execute command.com /P from the drive we just booted from    */
   memset(Cmd.ctBuffer, 0, sizeof(Cmd.ctBuffer));
-  fmemcpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail));
+  memcpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail));
 
   for (Cmd.ctCount = 0; Cmd.ctCount < sizeof(Cmd.ctBuffer); Cmd.ctCount++)
     if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
@@ -406,7 +379,7 @@ STATIC void kernel()
           for (q = &Cmd.ctBuffer[Cmd.ctCount - 1]; q >= p; q--)
             q[3] = q[0];
 
-          fmemcpy(p, insertString, 3);
+          memcpy(p, insertString, 3);
 
           Cmd.ctCount += 3;
           break;

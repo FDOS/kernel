@@ -1047,17 +1047,17 @@ STATIC VOID Dosmem(BYTE * pLine)
 
   for (pTmp = szBuf;;)
   {
-    if (fmemcmp(pTmp, "UMB", 3) == 0)
+    if (memcmp(pTmp, "UMB", 3) == 0)
     {
       UMBwanted = TRUE;
       pTmp += 3;
     }
-    if (fmemcmp(pTmp, "HIGH", 4) == 0)
+    if (memcmp(pTmp, "HIGH", 4) == 0)
     {
       HMAState = HMA_REQ;
       pTmp += 4;
     }
-/*        if (fmemcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }*/
+/*        if (memcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }*/
     pTmp = skipwh(pTmp);
 
     if (*pTmp != ',')
@@ -1083,7 +1083,7 @@ STATIC VOID DosData(BYTE * pLine)
   pLine = GetStringArg(pLine, szBuf);
   strupr(szBuf);
 
-  if (fmemcmp(szBuf, "UMB", 3) == 0)
+  if (memcmp(szBuf, "UMB", 3) == 0)
     Config.cfgDosDataUmb = TRUE;
 }
 
@@ -1705,14 +1705,6 @@ STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 }
 #endif
 
-static size_t strlen(const char *s)
-{
-  size_t n = 0;
-  while (*s++)
-    n++;
-  return n;
-}
-
 char *strcat(register char * d, register const char * s)
 {
   strcpy(d + strlen(d), s);
@@ -1894,7 +1886,7 @@ STATIC VOID CfgMenu(BYTE * pLine)
        (change struct at top of file if you want more...) */
     if (nLen > MENULINEMAX-1)
       nLen = MENULINEMAX-1;
-    fmemcpy(MenuStruct[nIndex].Text, pLine, nLen);
+    memcpy(MenuStruct[nIndex].Text, pLine, nLen);
     MenuStruct[nIndex].Text[nLen] = 0;  /* nullTerminate */
   }
   nMenuLine++;
@@ -2576,7 +2568,7 @@ STATIC VOID _CmdInstall(BYTE * pLine,int mode)
     CfgFailure(pLine);
     return;
   }
-  fmemcpy(InstallCommands[numInstallCmds].buffer,pLine,127);
+  memcpy(InstallCommands[numInstallCmds].buffer,pLine,127);
   InstallCommands[numInstallCmds].buffer[127] = 0;
   InstallCommands[numInstallCmds].mode        = mode;
   numInstallCmds++;
