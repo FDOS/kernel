@@ -229,7 +229,7 @@ STATIC void init_kernel(void)
                 (FP_OFF(_HMATextEnd) + 15) / 16, 0);
 
   MoveKernel(FP_SEG(lpTop));
-  lpOldTop = lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
+  lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
 
   for (i = 0x20; i <= 0x3f; i++)
     setvec(i, empty_handler);

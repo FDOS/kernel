@@ -175,7 +175,6 @@ extern UWORD HMAFree;            /* first byte in HMA not yet used      */
 extern unsigned CurrentKernelSegment;
 extern struct _KernelConfig FAR ASM LowKernelConfig;
 extern WORD days[2][13];
-extern BYTE FAR *lpOldTop;
 extern BYTE FAR *lpTop;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
 extern UWORD ram_top;               /* How much ram in Kbytes               */

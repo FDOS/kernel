@@ -172,7 +172,6 @@ struct config Config = {
 STATIC seg base_seg = 0;
 STATIC seg umb_base_seg = 0;
 BYTE FAR *lpTop = 0;
-BYTE FAR *lpOldTop = 0;
 STATIC unsigned nCfgLine = 0;
 STATIC COUNT nPass = 0;
 COUNT UmbState = 0;
@@ -1729,8 +1728,6 @@ VOID config_init_buffers(COUNT anzBuffers)
     anzBuffers = 99;
   }
   LoL->nbuffers = anzBuffers;
-  
-  lpTop = lpOldTop;
 
   LoL->inforecptr = &LoL->firstbuf;
   
