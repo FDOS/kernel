@@ -100,7 +100,8 @@ void put_console(int c)
   write(1, &c, 1);              /* write character to stdout */
 #else
 #if defined(__TURBOC__)
-  _AX = 0x0e00 | c;
+  _AL = c;
+  _AH = 0x0e;
   _BX = 0x0070;
   __int__(0x10);
 #elif defined(I86)
