@@ -65,33 +65,8 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
   switch (rp->r_command)
   {
     case C_INIT:
-    
-#if 0    
-      /* If AT clock exists, copy AT clock time to system clock */
-      if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
-      {
-        ticks_t seconds;
-        
-        DaysSinceEpoch =
-            DaysFromYearMonthDay(100 * BcdToByte(bcd_days[3]) +
-                                 BcdToByte(bcd_days[2]),
-                                 BcdToByte(bcd_days[1]),
-                                 BcdToByte(bcd_days[0]));
 
-        /*
-         * This is a rather tricky calculation. The number of timer ticks per
-         * second is not exactly 18.2, but rather 1193180 / 65536
-         * where 1193180 = 0x1234dc
-         * The timer interrupt updates the midnight flag when the tick count
-         * reaches 0x1800b0 -- ror4.
-         */
-
-        seconds =
-          60 * (ticks_t)(60 * BcdToByte(bcd_hours) + BcdToByte(bcd_minutes)) +
-          BcdToByte(bcd_seconds);
-        WritePCClock(seconds * 0x12 + ((seconds * 0x34dc) >> 16));
-      }
-#endif      
+      /* done in initclk.c */
       /* rp->r_endaddr = device_end(); not needed - bart */
       rp->r_nunits = 0;
       return S_DONE;
@@ -101,26 +76,28 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
         struct ClockRecord clk;
         int tmp;
         ticks_t ticks;
-        
-        clk.clkDays = DaysSinceEpoch;
-        
+
+        if (sizeof(struct ClockRecord) != rp->r_count)
+          return failure(E_LENGTH);
+
         /* The scaling factor is now
            6553600/1193180 = 327680/59659 = 65536*5/59659 */
-        
-        ticks = 5 * ReadPCClock();     
+
+        ticks = 5 * ReadPCClock();
         ticks = ((ticks / 59659u) << 16) + ((ticks % 59659u) << 16) / 59659u;
-        
+
         tmp = (int)(ticks / 6000);
         clk.clkHours = tmp / 60;
         clk.clkMinutes = tmp % 60;
 
         tmp = (int)(ticks % 6000);
         clk.clkSeconds = tmp / 100;
-        clk.clkHundredths = tmp % 100;        
-                
-        fmemcpy(rp->r_trans, &clk,
-                min(sizeof(struct ClockRecord), rp->r_count));
-      }        
+        clk.clkHundredths = tmp % 100;
+
+        clk.clkDays = DaysSinceEpoch;
+
+        fmemcpy(rp->r_trans, &clk, sizeof(struct ClockRecord));
+      }
       return S_DONE;
 
     case C_OUTPUT:
@@ -129,9 +106,11 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
         unsigned Day, Month, Year;
         struct ClockRecord clk;
         ticks_t hs, Ticks;
-        
-        rp->r_count = min(rp->r_count, sizeof(struct ClockRecord));
-        fmemcpy(&clk, rp->r_trans, rp->r_count);
+
+        if (sizeof(struct ClockRecord) != rp->r_count)
+          return failure(E_LENGTH);
+
+        fmemcpy(&clk, rp->r_trans, sizeof(struct ClockRecord));
 
         /* Set PC Clock first                                   */
         DaysSinceEpoch = clk.clkDays;
@@ -140,7 +119,7 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
 
         /* The scaling factor is now
            1193180/6553600 = 59659/327680 = 59659/65536/5 */
-        
+
         Ticks = ((hs >> 16) * 59659u + (((hs & 0xffff) * 59659u) >> 16)) / 5;
 
         WritePCClock(Ticks);
@@ -159,7 +138,7 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
           else
             break;
         }
-            
+
         /* Day contains the days left and count the number of   */
         /* days for that year.  Use this to index the table.    */
         for (Month = 1; Month < 13; ++Month)
