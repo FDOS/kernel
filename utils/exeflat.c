@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 
   /* first read file into memory chunks */
   fseek(src, header.exHeaderSize * 16UL, SEEK_SET);
-  buffers = malloc((size + BUFSIZE - 1) / BUFSIZE * sizeof(char *));
+  buffers = malloc((size_t)((size + BUFSIZE - 1) / BUFSIZE) * sizeof(char *));
   if (buffers == NULL)
   {
     printf("Allocation error\n");
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
        to_xfer -= bufsize, curbuf++)
   {
     if (to_xfer < BUFSIZE)
-      bufsize = to_xfer;
+      bufsize = (size_t)to_xfer;
     *curbuf = malloc(bufsize);
     if (*curbuf == NULL)
     {
@@ -208,10 +208,10 @@ int main(int argc, char **argv)
   for (i = 0; i < header.exRelocItems; i++)
   {
     ULONG spot = ((ULONG) reloc[i].seg << 4) + reloc[i].off;
-    UBYTE *spot0 = &buffers[spot / BUFSIZE][spot % BUFSIZE];
-    UBYTE *spot1 = &buffers[(spot + 1) / BUFSIZE][(spot + 1) % BUFSIZE];
+    UBYTE *spot0 = &buffers[(size_t)(spot / BUFSIZE)][(size_t)(spot % BUFSIZE)];
+    UBYTE *spot1 = &buffers[(size_t)((spot + 1) / BUFSIZE)][(size_t)((spot + 1) % BUFSIZE)];
     UWORD segment = ((UWORD) * spot1 << 8) + *spot0;
-    
+
     for (j = 0; j < silentcount; j++)
       if (segment == silentSegments[j])
       {
@@ -270,7 +270,7 @@ int main(int argc, char **argv)
        to_xfer -= bufsize, curbuf++)
   {
     if (to_xfer < BUFSIZE)
-      bufsize = to_xfer;
+      bufsize = (size_t)to_xfer;
     if (fwrite(*curbuf, sizeof(char), bufsize, dest) != bufsize)
 
     {

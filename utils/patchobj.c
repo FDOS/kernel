@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
 struct record {
   unsigned char rectyp;
   unsigned short datalen;
-  unsigned char buffer[0x2000];
+  char buffer[0x2000];
 } Record, Outrecord;
 #include "algndflt.h"
 
@@ -132,7 +132,7 @@ struct verify_pack1 { char x[ sizeof(struct record) == 0x2003 ? 1 : -1];};
 void go_records(FILE * fdin, FILE * fdo)
 {
   unsigned char stringlen;
-  unsigned char *string, *s;
+  char *string, *s;
   int i, j;
   unsigned char chksum;
 
@@ -165,7 +165,7 @@ void go_records(FILE * fdin, FILE * fdo)
 
     for (i = 0; i < Record.datalen - 1;)
     {
-      stringlen = Record.buffer[i];
+      stringlen = (unsigned char)Record.buffer[i];
       i++;
 
       string = &Record.buffer[i];
@@ -188,9 +188,9 @@ void go_records(FILE * fdin, FILE * fdo)
     }
 
     chksum = 0;
-    for (s = (unsigned char *)&Outrecord;
+    for (s = (char *)&Outrecord;
          s < &Outrecord.buffer[Outrecord.datalen]; s++)
-      chksum += *s;
+      chksum += (unsigned char)*s;
 
     Outrecord.buffer[Outrecord.datalen] = ~chksum;
     Outrecord.datalen++;
