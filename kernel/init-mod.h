@@ -269,12 +269,17 @@ extern struct RelocationTable
    DOSTEXTFAR ASM _HMARelocationTableEnd[];
 
 extern void FAR *DOSTEXTFAR ASM XMSDriverAddress;
-extern VOID ASMCFUNC FAR _EnableA20(VOID);
-extern VOID ASMCFUNC FAR _DisableA20(VOID);
+extern VOID ASMPASCAL FAR _EnableA20(VOID);
+extern VOID ASMPASCAL FAR _DisableA20(VOID);
 
-extern void FAR * ASMCFUNC DetectXMSDriver(VOID);
-extern int ASMCFUNC init_call_XMScall(void FAR * driverAddress, UWORD ax,
+extern void FAR * ASMPASCAL DetectXMSDriver(VOID);
+extern int ASMPASCAL init_call_XMScall(void FAR * driverAddress, UWORD ax,
                                       UWORD dx);
+#ifdef __WATCOMC__
+#pragma aux (pascal) DetectXMSDriver modify exact [ax dx]
+#pragma aux (pascal) _EnableA20 modify exact [ax]
+#pragma aux (pascal) _DisableA20 modify exact [ax]
+#endif
 
 #if defined(WATCOM) && 0
 ULONG ASMCFUNC FAR MULULUS(ULONG mul1, UWORD mul2);     /* MULtiply ULong by UShort */

@@ -141,21 +141,23 @@ INIT_CALL_INTR:
 ;
 ; this calls HIMEM.SYS 
 ;
-                global _init_call_XMScall
-_init_call_XMScall:
-            push bp
-            mov  bp,sp
-            
-            mov  ax,[bp+8]
-            mov  dx,[bp+10]
-            call far [bp+4]
+                global INIT_CALL_XMSCALL
+INIT_CALL_XMSCALL:
+            pop  bx         ; ret address
+            pop  dx
+            pop  ax
+            pop  cx         ; driver address
+            pop  es
 
-            pop  bp
-            ret
+            push cs         ; ret address
+            push bx
+            push es         ; driver address ("jmp es:cx")
+            push cx
+            retf
             
 ; void FAR *DetectXMSDriver(VOID)
-global _DetectXMSDriver
-_DetectXMSDriver:
+global DETECTXMSDRIVER
+DETECTXMSDRIVER:
         mov ax, 4300h
         int 2fh                 ; XMS installation check
 

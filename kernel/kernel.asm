@@ -858,8 +858,8 @@ _XMSDriverAddress:
                     dw 0            ; XMS driver, if detected
                     dw 0
 
-    global __EnableA20
-__EnableA20:
+    global _ENABLEA20
+_ENABLEA20:
     mov ah,5
 UsingXMSdriver:    
     push bx
@@ -867,8 +867,8 @@ UsingXMSdriver:
     pop  bx
     retf
 
-    global __DisableA20
-__DisableA20:
+    global _DISABLEA20
+_DISABLEA20:
     mov ah,6
     jmp short UsingXMSdriver
 
@@ -906,7 +906,7 @@ forceEnableA20retry:
 ;   ok, we have to enable A20 )at least seems so
 ;
 
-    call far __EnableA20
+    call far _ENABLEA20
     
     jmp short forceEnableA20retry
     
@@ -935,7 +935,7 @@ _ExecUserDisableA20:
     je noNeedToDisable
 NeedToDisable:        
     push ax 
-    call far __DisableA20
+    call far _DISABLEA20
     pop ax
 noNeedToDisable:
     iret        
