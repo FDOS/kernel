@@ -21,7 +21,7 @@
 #include "buffer.h"
 #include "dcb.h"
 
-#include "KConfig.h"
+#include "kconfig.h"
 extern struct _KernelConfig InitKernelConfig;
 
 /*
@@ -34,6 +34,7 @@ extern struct _KernelConfig InitKernelConfig;
 #define execrh      init_execrh
 #define fmemcpy     init_fmemcpy
 #define fmemset     init_fmemset
+#define fmemcmp     init_fmemcmp
 #define memset      init_memset
 #define strcpy      init_strcpy
 WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
@@ -89,7 +90,7 @@ struct config {
      -- 2000/06/11 ska */
   WORD cfgCSYS_cntry;
   /* country ID to be loaded */
-  WORD cfgCSYS_cp;
+  UWORD cfgCSYS_cp;
   /* requested codepage; NLS_DEFAULT if default */
   BYTE cfgCSYS_fnam[NAMEMAX];
   /* filename of COUNTRY= */
@@ -108,7 +109,7 @@ extern struct config Config;
 VOID PreConfig(VOID);
 VOID DoConfig(int pass);
 VOID PostConfig(VOID);
-BYTE FAR * KernelAlloc(WORD nBytes);
+VOID FAR * KernelAlloc(size_t nBytes);
 BYTE * skipwh(BYTE * s);
 BYTE * scan(BYTE * s, BYTE * d);
 BOOL isnum(BYTE * pszString);
@@ -116,8 +117,7 @@ BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
 COUNT tolower(COUNT c);
 COUNT toupper(COUNT c);
 VOID mcb_init(UCOUNT seg, UWORD size);
-VOID strcat(REG BYTE * d, REG BYTE * s);
-BYTE FAR * KernelAlloc(WORD nBytes);
+char *strcat(char * d, const char * s);
 COUNT ASMCFUNC Umb_Test(void);
 COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
 BYTE * GetStringArg(BYTE * pLine, BYTE * pszString);
@@ -159,8 +159,8 @@ VOID ASMCFUNC FAR int0_handler(void);
 VOID ASMCFUNC FAR int6_handler(void);
 VOID ASMCFUNC FAR empty_handler(void);
 VOID ASMCFUNC FAR got_cbreak(void);     /* procsupt.asm */
-VOID ASMCFUNC FAR int20_handler(iregs UserRegs);
-VOID ASMCFUNC FAR int21_handler(iregs UserRegs);
+VOID ASMCFUNC FAR int20_handler(void);
+VOID ASMCFUNC FAR int21_handler(void);
 VOID ASMCFUNC FAR int22_handler(void);
 VOID ASMCFUNC FAR int24_handler(void);
 VOID ASMCFUNC FAR low_int25_handler(void);
