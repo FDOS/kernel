@@ -45,6 +45,8 @@ static BYTE *mcb_hRcsId =
 #define FIRST_FIT_U     0x80
 #define BEST_FIT_U      0x81
 #define LAST_FIT_U      0x82
+#define FIT_U_MASK      0xc0
+#define FIT_MASK        0x3f
 
 #define MCB_NORMAL      0x4d
 #define MCB_LAST        0x5a

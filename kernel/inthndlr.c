@@ -1210,25 +1210,10 @@ dispatch:
           break;
 
         case 0x01:
-          {
-            switch (lr.BL)
-            {
-              case LAST_FIT:
-              case LAST_FIT_U:
-              case LAST_FIT_UO:
-              case BEST_FIT:
-              case BEST_FIT_U:
-              case BEST_FIT_UO:
-              case FIRST_FIT:
-              case FIRST_FIT_U:
-              case FIRST_FIT_UO:
-                mem_access_mode = lr.BL;
-                break;
-
-              default:
-                goto error_invalid;
-            }
-          }
+          if ((lr.BL & FIT_U_MASK) > FIRST_FIT_U || /* 0xc0, 0x80 */
+              (lr.BL & FIT_MASK) > LAST_FIT)        /* 0x3f, 0x02 */
+            goto error_invalid;
+          mem_access_mode = lr.BL;
           break;
 
         case 0x02:
