@@ -2306,7 +2306,7 @@ STATIC VOID CmdInstallHigh(BYTE * pLine)
 
 STATIC VOID InstallExec(struct instCmds *icmd)
 {                            
-  BYTE filename[128], *args, *d, cmd = icmd->buffer;
+  BYTE filename[128], *args, *d, *cmd = icmd->buffer;
   exec_blk exb;
 
   InstallPrintf(("installing %s\n",cmd));
