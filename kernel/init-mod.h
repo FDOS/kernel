@@ -74,6 +74,7 @@ void MoveKernel(unsigned NewKernelSegment);
 #define NFILES          16      /* number of files in table     */
 #define NFCBS           16      /* number of fcbs               */
 #define NSTACKS         8       /* number of stacks             */
+#define STACKSIZE       256     /* default stacksize            */
 #define NLAST           5       /* last drive                   */
 #define NUMBUFF         20      /* Number of track buffers at INIT time     */
                                         /* -- must be at least 3        */

@@ -154,7 +154,7 @@ struct config Config = {
   0,
   NSTACKS,
   0,
-  128
+  STACKSIZE
       /* COUNTRY= is initialized within DoConfig() */
       , 0                       /* country ID */
       , 0                       /* codepage */
