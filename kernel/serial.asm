@@ -61,6 +61,8 @@ ComRead:
                 jnz     ComRd2
 ComRd1:
                 call    BiosRdCom
+                or      ah,ah   ; timeout?
+                js      ComRd1  ; yes, try again
 ComRd2:
                 stosb
                 loop    ComRd1

@@ -53,6 +53,7 @@ STATIC VOID signon(VOID);
 STATIC VOID kernel(VOID);
 STATIC VOID FsConfig(VOID);
 STATIC VOID InitPrinters(VOID);
+STATIC VOID InitSerialPorts(VOID);
 STATIC void CheckContinueBootFromHarddisk(void);
 
 #ifdef _MSC_VER
@@ -202,6 +203,7 @@ STATIC void init_kernel(void)
   /* Initialize IO subsystem                                      */
   InitIO();
   InitPrinters();
+  InitSerialPorts();
 
   /* set interrupt vectors                                        */
   setvec(0x1b, got_cbreak);
@@ -613,6 +615,23 @@ STATIC VOID InitPrinters(VOID)
     r.a.x = 0x0100;             /* initialize printer */
     r.d.x = i;
     init_call_intr(0x17, &r);
+  }
+}
+
+STATIC VOID InitSerialPorts(VOID)
+{
+  iregs r;
+  int serial_ports, i;
+
+  init_call_intr(0x11, &r);     /* get equipment list */
+
+  serial_ports = (r.a.x >> 9) & 7;      /* bits 11-9 */
+
+  for (i = 0; i < serial_ports; i++)
+  {
+    r.a.x = 0xA3;               /* initialize serial port to 2400,n,8,1 */
+    r.d.x = i;
+    init_call_intr(0x14, &r);
   }
 }
 
