@@ -70,7 +70,7 @@ extern struct buffer FAR *DOSFAR ASM firstbuf;      /* head of buffers linked li
 
 extern struct dpb FAR *DOSFAR ASM DPBp;
 /* First drive Parameter Block          */
-extern cdstbl FAR *DOSFAR ASM CDSp;
+extern struct cds FAR *DOSFAR ASM CDSp;
 /* Current Directory Structure          */
 extern sfttbl FAR *DOSFAR ASM sfthead;
 /* System File Table head               */
@@ -116,7 +116,7 @@ BYTE FAR *lpBase = 0;
 BYTE FAR *upBase = 0;
 BYTE FAR *lpTop = 0;
 BYTE FAR *lpOldTop = 0;
-STATIC COUNT nCfgLine = 0;
+STATIC unsigned nCfgLine = 0;
 STATIC COUNT nPass = 0;
 COUNT UmbState = 0;
 STATIC BYTE szLine[256] = { 0 };
@@ -172,7 +172,7 @@ VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
 
 STATIC VOID FAR * AlignParagraph(VOID FAR * lpPtr);
 #ifndef I86
-#define AlignParagraph(x) (x)
+#define AlignParagraph(x) ((VOID *)x)
 #endif
 
 #define EOF 0x1a
@@ -220,10 +220,6 @@ STATIC struct table commands[] = {
   /* default action                                               */
   {"", -1, CfgFailure}
 };
-
-#ifndef KDB
-BYTE FAR * KernelAlloc(WORD nBytes);
-#endif
 
 BYTE *pLineStart = 0;
 
@@ -297,10 +293,9 @@ void PreConfig(void)
   sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
   sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
-  CDSp = (cdstbl FAR *) KernelAlloc(0x58 * lastdrive);
+  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive);
 
-  DPBp = (struct dpb FAR *)
-      KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb));
+  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb));
 
 #ifdef DEBUG
   printf("Preliminary:\n f_node 0x%x", f_nodes);
@@ -369,18 +364,16 @@ void PostConfig(void)
 
 /* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
-  /* FCBp = (sfttbl FAR *)
-     KernelAlloc(sizeof(sftheader)
+  /* FCBp = KernelAlloc(sizeof(sftheader)
      + Config.cfgFiles * sizeof(sft)); */
-  sfthead->sftt_next = (sfttbl FAR *)
+  sfthead->sftt_next =
       KernelAlloc(sizeof(sftheader) + (Config.cfgFiles - 5) * sizeof(sft));
   sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
   sfthead->sftt_next->sftt_count = Config.cfgFiles - 5;
 
-  CDSp = (cdstbl FAR *) KernelAlloc(0x58 * lastdrive);
+  CDSp = KernelAlloc(sizeof(struct cds) * lastdrive);
 
-  DPBp = (struct dpb FAR *)
-      KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb));
+  DPBp = KernelAlloc(blk_dev.dh_name[0] * sizeof(struct dpb));
 
 #ifdef DEBUG
   printf("Final: \n f_node 0x%x\n", f_nodes);
@@ -428,7 +421,7 @@ VOID configDone(VOID)
                  lastdrive + 'A', nblkdev + 'A' - 1));
 
     lastdrive = nblkdev;
-    CDSp = (cdstbl FAR *) KernelAlloc(0x58 * lastdrive);
+    CDSp = KernelAlloc(sizeof(struct cds) * lastdrive);
   }
   first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
 
@@ -693,7 +686,7 @@ UWORD GetBiosKey(int timeout)
     if (timeout < 0)
       continue;
 
-    if (GetBiosTime() - startTime >= timeout * 18)
+    if (GetBiosTime() - startTime >= (unsigned)timeout * 18)
       break;
   }
   return 0xffff;
@@ -836,7 +829,7 @@ STATIC VOID sysScreenMode(BYTE * pLine)
   _AX = (0x11 << 8) + nMode;
   _BL = 0;
   __int__(0x10);
-#else
+#elif defined(I86)
   asm
   {
     mov al, byte ptr nMode;
@@ -1097,7 +1090,7 @@ STATIC VOID CfgBreak(BYTE * pLine)
 
 STATIC VOID Numlock(BYTE * pLine)
 {
-  extern VOID ASMCFUNC keycheck();
+  extern VOID ASMCFUNC keycheck(void);
 
   /* Format:      NUMLOCK = (ON | OFF)      */
   BYTE FAR *keyflags = (BYTE FAR *) MK_FP(0x40, 0x17);
@@ -1220,7 +1213,7 @@ STATIC VOID CfgFailure(BYTE * pLine)
 }
 
 #ifndef KDB
-BYTE FAR * KernelAlloc(WORD nBytes)
+void FAR * KernelAlloc(size_t nBytes)
 {
   BYTE FAR *lpAllocated;
 
@@ -1447,11 +1440,13 @@ STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 }
 #endif
 
-VOID strcat(REG BYTE * d, REG BYTE * s)
+char *strcat(register char * d, register const char * s)
 {
+  char *tmp = d;
   while (*d != 0)
     ++d;
   strcpy(d, s);
+  return tmp;
 }
 
 #if 0
@@ -1528,7 +1523,7 @@ VOID config_init_buffers(COUNT anzBuffers)
 
   pbuffer = firstbuf;
 
-  DebugPrintf(("init_buffers at"));
+  DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
 
   for (i = 0;; ++i)
   {
@@ -1539,8 +1534,6 @@ VOID config_init_buffers(COUNT anzBuffers)
     pbuffer->b_unit = 0;
     pbuffer->b_flag = 0;
     pbuffer->b_blkno = 0;
-    pbuffer->b_copies = 0;
-    pbuffer->b_offset = 0;
     pbuffer->b_next = NULL;
 
     DebugPrintf((" (%d,%p)", i, pbuffer));

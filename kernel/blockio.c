@@ -201,6 +201,7 @@ BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk)
   return FALSE;
 }
 
+#if TOM
 void dumpBufferCache(void)
 {
   struct buffer FAR *bp;
@@ -217,7 +218,7 @@ void dumpBufferCache(void)
   }
   printf("\n");
 }
-
+#endif
 /*                                                                      */
 /*      Return the address of a buffer structure containing the         */
 /*      requested block.                                                */
@@ -347,13 +348,22 @@ BOOL flush1(struct buffer FAR * bp)
     result = dskxfer(bp->b_unit, getblkno(bp), (VOID FAR *) bp->b_buffer, 1, DSKWRITE); /* BER 9/4/00  */
     if (bp->b_flag & BFR_FAT)
     {
-      int i = bp->b_copies;
+      struct dpb FAR *dpbp = bp->b_dpbp;
+      UWORD b_copies = dpbp->dpb_fats;
+      ULONG b_offset = dpbp->dpb_fatsize;
       ULONG blkno = getblkno(bp);
-
-      while (--i > 0)
+#ifdef WITHFAT32
+      if (ISFAT32(dpbp))
       {
-        blkno += bp->b_offset;
-        result = dskxfer(bp->b_unit, blkno, (VOID FAR *) bp->b_buffer, 1, DSKWRITE);    /* BER 9/4/00 */
+        if (dpbp->dpb_xflags & FAT_NO_MIRRORING)
+          b_copies = 1;
+        b_offset = dpbp->dpb_xfatsize;
+      }
+#endif
+      while (--b_copies > 0)
+      {
+        blkno += b_offset;
+        result = dskxfer(bp->b_unit, blkno, bp->b_buffer, 1, DSKWRITE);    /* BER 9/4/00 */
       }
     }
   }
@@ -412,7 +422,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
   {
     return 0x0201;              /* illegal command */
   }
-  if (!(CDSp->cds_table[dsk].cdsFlags & CDSPHYSDRV))
+  if ((CDSp->cds_table[dsk].cdsFlags & (CDSPHYSDRV | CDSNETWDRV)) != CDSPHYSDRV)
   {
     return 0x0201;              /* illegal command */
   }
@@ -480,13 +490,6 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
     if (mode >= DSKWRITEINT26)
       return (IoReqHdr.r_status);
 
-/* Changed 9/4/00   BER
-    return (IoReqHdr.r_status);  
-*/
-
-    /* Skip the abort, retry, fail code...it needs fixed...BER */
-/* End of change */
-
   loop:
     switch (block_error(&IoReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
     {
@@ -503,7 +506,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
       default:
         goto loop;
     }
-
+    break;
   }                             /* retry loop */
 /* *** Changed 9/4/00  BER */
   return 0;                     /* Success!  Return 0 for a successful operation. */

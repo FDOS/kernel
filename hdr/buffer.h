@@ -45,24 +45,9 @@ struct buffer {
   BYTE b_unit;                  /* disk for this buffer         */
   BYTE b_flag;                  /* buffer flags                 */
   ULONG b_blkno;                /* block for this buffer        */
-  /* DOS-C: 0xffff for huge block numbers */
-  BYTE b_copies;                /* number of copies to write    */
-#ifdef WITHFAT32
-  ULONG b_offset;               /* span between copies          */
-#else
-  UWORD b_offset;               /* span between copies          */
-#endif
-#if 0  /*TE*/
-      union {
-    struct dpb FAR *_b_dpbp;    /* pointer to DPB               */
-    LONG _b_huge_blkno;         /* DOS-C: actual block number if >= 0xffff */
-  } _b;
-#endif
+  struct dpb FAR *b_dpbp;       /* pointer to DPB               */
   UBYTE b_buffer[BUFFERSIZE];   /* 512 byte sectors for now     */
 };
-
-#define b_dpbp          _b._b_dpbp
-#define b_huge_blkno    _b._b_huge_blkno
 
 #define BFR_UNCACHE     0x80    /* indication, not really used  */
 #define BFR_DIRTY       0x40    /* buffer modified              */
