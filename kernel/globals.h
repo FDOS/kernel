@@ -321,7 +321,7 @@ extern iregs FAR * ASM user_r;      /* User registers for int 21h call      */
 extern struct dirent            /* Temporary directory entry            */
   ASM DirEntBuffer;
 
-extern fcb FAR * ASM lpFcb;         /* Pointer to users fcb                 */
+extern fcb FAR * ASM sda_lpFcb;     /* Pointer to users fcb                 */
 
 extern sft FAR * ASM lpCurSft;
 

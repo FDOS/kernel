@@ -235,7 +235,7 @@ STATIC VOID FcbNextRecord(fcb FAR * lpFcb)
   }
 }
 
-STATIC ULONG FcbRec(VOID)
+STATIC ULONG FcbRec(fcb FAR *lpFcb)
 {
   return ((ULONG) lpFcb->fcb_cublock * 128) + lpFcb->fcb_curec;
 }
@@ -245,6 +245,7 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
   ULONG lPosit;
   long nTransfer;
   BYTE FAR * FcbIoPtr = dta;
+  fcb FAR *lpFcb;
 
   FcbIoPtr += recno * lpFcb->fcb_recsiz;
 
@@ -257,7 +258,7 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
     
   /* Now update the fcb and compute where we need to position     */
   /* to.                                                          */
-  lPosit = FcbRec() * lpFcb->fcb_recsiz;
+  lPosit = FcbRec(lpFcb) * lpFcb->fcb_recsiz;
   if ((CritErrCode = -SftSeek(lpFcb->fcb_sftno, lPosit, 0)) != SUCCESS)
     return FCB_ERR_NODATA;
 
@@ -287,7 +288,7 @@ UBYTE FcbGetFileSize(xfcb FAR * lpXfcb)
   int FcbDrive, sft_idx;
 
   /* Build a traditional DOS file name                            */
-  lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
+  fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
 
   /* check for a device                                           */
   if (!lpFcb || IsDevice(SecPathName) || (lpFcb->fcb_recsiz == 0))
@@ -318,18 +319,18 @@ UBYTE FcbGetFileSize(xfcb FAR * lpXfcb)
 void FcbSetRandom(xfcb FAR * lpXfcb)
 {
   /* Convert to fcb if necessary                                  */
-  lpFcb = ExtFcbToFcb(lpXfcb);
+  fcb FAR *lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* Now update the fcb and compute where we need to position     */
   /* to. */
-  lpFcb->fcb_rndm = FcbRec();
+  lpFcb->fcb_rndm = FcbRec(lpFcb);
 }
 
 void FcbCalcRec(xfcb FAR * lpXfcb)
 {
 
   /* Convert to fcb if necessary                                  */
-  lpFcb = ExtFcbToFcb(lpXfcb);
+  fcb FAR *lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* Now update the fcb and compute where we need to position     */
   /* to.                                                          */
@@ -341,6 +342,7 @@ UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode)
 {
   unsigned recno;
   UBYTE nErrorCode = FCB_SUCCESS;
+  fcb FAR *lpFcb;
 
   FcbCalcRec(lpXfcb);
 
@@ -359,7 +361,7 @@ UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode)
   *nRecords = recno;
 
   /* Now update the fcb                                           */
-  lpFcb->fcb_rndm = FcbRec();
+  lpFcb->fcb_rndm = FcbRec(lpFcb);
 
   return nErrorCode;
 }
@@ -369,6 +371,7 @@ UBYTE FcbRandomIO(xfcb FAR * lpXfcb, int mode)
   UWORD uwCurrentBlock;
   UBYTE ucCurrentRecord;
   UBYTE nErrorCode;
+  fcb FAR *lpFcb;
 
   FcbCalcRec(lpXfcb);
 
@@ -393,7 +396,7 @@ UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
   unsigned attr = 0;
 
   /* Build a traditional DOS file name                            */
-  lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
+  fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
   if (lpFcb == NULL)
     return FCB_ERROR;
 
@@ -431,9 +434,10 @@ UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
 STATIC fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb)
 {
   if (*((UBYTE FAR *) lpExtFcb) == 0xff)
-    return &lpExtFcb->xfcb_fcb;
+    sda_lpFcb = &lpExtFcb->xfcb_fcb;
   else
-    return (fcb FAR *) lpExtFcb;
+    sda_lpFcb = (fcb FAR *) lpExtFcb;
+  return sda_lpFcb;
 }
 
 STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
@@ -442,7 +446,7 @@ STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
   fcb FAR *lpFcb;
 
   /* convert to fcb if needed first                               */
-  lpFcb = ExtFcbToFcb(lpExtFcb);
+  sda_lpFcb = lpFcb = ExtFcbToFcb(lpExtFcb);
 
   /* Build a traditional DOS file name                            */
   if (FcbNameInit(lpFcb, pszBuffer, pCurDrive) < SUCCESS)
@@ -477,7 +481,7 @@ UBYTE FcbDelete(xfcb FAR * lpXfcb)
   void FAR *lpOldDta = dta;
 
   /* Build a traditional DOS file name                            */
-  CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
+  fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
   /* check for a device                                           */
   if (lpFcb == NULL || IsDevice(SecPathName))
   {
@@ -598,7 +602,7 @@ UBYTE FcbClose(xfcb FAR * lpXfcb)
   sft FAR *s;
 
   /* Convert to fcb if necessary                                  */
-  lpFcb = ExtFcbToFcb(lpXfcb);
+  fcb FAR *lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* An already closed FCB can be closed again without error */
   if (lpFcb->fcb_sftno == (BYTE) 0xff)
@@ -637,6 +641,7 @@ UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
   void FAR *orig_dta = dta;
   BYTE FAR *lpDir;
   COUNT FcbDrive;
+  fcb FAR *lpFcb;
 
   /* First, move the dta to a local and change it around to match */
   /* our functions.                                               */

@@ -553,8 +553,8 @@ current_device  times 2 dw 0       ;27A - 0??
 _lpCurSft       times 2 dw 0       ;27e - Current SFT
                 global  _current_ldt
 _current_ldt     times 2 dw 0       ;282 - Current CDS
-                global  _lpFcb
-_lpFcb          times 2 dw 0       ;286 - pointer to callers FCB
+                global  _sda_lpFcb
+_sda_lpFcb      times 2 dw 0       ;286 - pointer to callers FCB
                 global  _current_sft_idx
 _current_sft_idx    dw      0               ;28A - SFT index for next open
                                         ; used by MS NET
