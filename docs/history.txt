@@ -5,6 +5,8 @@
         - bugfix: call_nls: DI register was not preserved
       * exeflat.c
         - new version exploiting better UPX compression for SYS files; calls UPX itself
+      * inthndlr.c
+        - int21/ah=6/dl=ff now calls int28
 + Changes Tom
 	* inthndlr.c
 	  - improve handling of case where eg. FindFirst(I:\*.*) fails, causes Int24,
@@ -309,6 +311,7 @@
         - set AX = ES after Int 21h/4Ah (undocumented but expected by BRUN45)
           (the last 2 changes needed to fix bugs discovered by Michael Devore)
         - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
+        - set FAT32 fields of FAT12/16 DPBs on Int21h/7302h. Fixes bug 1819
         * autoexec.bat now single-line for FreeCOM compatibility when EOL=LF
         * break.c: check_handle_break() return was undefined if no Ctrl-break
         * config.sys: all commands removed as they were close to defaults

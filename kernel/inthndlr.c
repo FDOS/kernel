@@ -196,6 +196,18 @@ int int21_fat32(lregs *r)
       xddp = MK_FP(r->ES, r->DI);
       
       fmemcpy(&xddp->xdd_dpb, dpb, sizeof(struct dpb));
+      if (!ISFAT32(dpb))
+      { /* FAT12/16 - set FAT32 fields. This helps DOSLFN 0.33+ */
+        xddp->xdd_dpb.dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_hi = 0;
+        xddp->xdd_dpb.dpb_xflags = 0;
+        xddp->xdd_dpb.dpb_xfsinfosec = 0xFFFF; /* unknown */
+        xddp->xdd_dpb.dpb_xbackupsec = 0xFFFF;
+        xddp->xdd_dpb.dpb_xdata = dpb->dpb_data;
+        xddp->xdd_dpb.dpb_xsize = dpb->dpb_size;
+        xddp->xdd_dpb.dpb_xfatsize = dpb->dpb_fatsize;
+        xddp->xdd_dpb.dpb_xrootclst = 0; /* impossible cluster number */
+        xddp->xdd_dpb.dpb_xcluster = dpb->dpb_cluster;
+      }
       xddp->xdd_dpbsize = sizeof(struct dpb);
       break;
     }
