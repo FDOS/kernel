@@ -242,8 +242,6 @@ typedef struct ddtstruct {
   ULONG ddt_serialno;           /* serial number */
   UBYTE ddt_fstype[9];          /* ASCIIZ filesystem type ("FAT12   " or "FAT16   ") */
   ULONG ddt_offset;             /* relative partition offset */
-  BITS ddt_LBASupported:1;      /* set, if INT13 extensions enabled */
-  BITS ddt_WriteVerifySupported:1;
 } ddt;
 
 /* description flag bits */
@@ -257,6 +255,9 @@ typedef struct ddtstruct {
 #define DF_DPCHANGED  0x080
 #define DF_REFORMAT   0x100
 #define DF_NOACCESS   0x200
+/* freedos specific flag bits */
+#define DF_LBA        0x400
+#define DF_WRTVERIFY  0x800
 
 /* typedef struct ddtstruct ddt;*/
 

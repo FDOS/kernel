@@ -317,25 +317,13 @@ STATIC WORD Getlogdev(rqptr rp, ddt * pddt)
 
 STATIC WORD Setlogdev(rqptr rp, ddt * pddt)
 {
-  int i;
-  ddt *pddt2 = getddt(0);
-
-  if (!(pddt->ddt_descflags & DF_MULTLOG)) {
-    rp->r_unit = 0;
+  unsigned char unit = rp->r_unit;
+  Getlogdev(rp, pddt);
+  if (rp->r_unit == 0)
     return S_DONE;
-  }
-
-  for (i = 0; i < blk_dev.dh_name[0]; i++, pddt2++)
-  {
-    if (pddt->ddt_driveno == pddt2->ddt_driveno &&
-        (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) ==
-        (DF_MULTLOG | DF_CURLOG))
-        break;
-  }
-
-  pddt2->ddt_descflags &= ~DF_CURLOG;
+  (&(getddt(0))[rp->r_unit - 1])->ddt_descflags &= ~DF_CURLOG;
   pddt->ddt_descflags |= DF_CURLOG;
-  rp->r_unit++;
+  rp->r_unit = unit + 1;
   return S_DONE;
 }
 
@@ -995,7 +983,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
     for (num_retries = 0; num_retries < N_RETRY; num_retries++)
     {
-      if (pddt->ddt_LBASupported && mode != LBA_FORMAT)
+      if ((pddt->ddt_descflags & DF_LBA) && mode != LBA_FORMAT)
       {
         dap.number_of_blocks = count;
 
@@ -1006,7 +994,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
         /* Load the registers and call the interrupt. */
 
-        if (pddt->ddt_WriteVerifySupported || mode != LBA_WRITE_VERIFY)
+        if ((pddt->ddt_descflags & DF_WRTVERIFY) || mode != LBA_WRITE_VERIFY)
         {
           error_code = fl_lba_ReadWrite(pddt->ddt_driveno, mode, &dap);
         }

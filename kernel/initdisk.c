@@ -243,8 +243,7 @@ struct _bios_LBA_disk_parameterS {
 
 struct DriveParamS {
   UBYTE driveno;                /* = 0x8x                           */
-  BITS LBA_supported:1;         /* set, if INT13 extensions enabled */
-  BITS WriteVerifySupported:1;  /* */
+  UWORD descflags;
   ULONG total_sectors;
 
   struct CHS chs;               /* for normal   INT 13 */
@@ -584,17 +583,16 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_next = MK_FP(0, 0xffff);
   pddt->ddt_driveno = driveParam->driveno;
   pddt->ddt_logdriveno = nUnits;
-  pddt->ddt_LBASupported = driveParam->LBA_supported;
+  pddt->ddt_descflags |= driveParam->descflags;
   /* Turn of LBA if not forced and the partition is within 1023 cyls and of the right type */
   /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
      above cylinder 1023 was found */
   if (!InitKernelConfig.ForceLBA && !ExtLBAForce && !IsLBAPartition(pEntry->FileSystem))
-    pddt->ddt_LBASupported = FALSE;
-  pddt->ddt_WriteVerifySupported = driveParam->WriteVerifySupported;
+    pddt->ddt_descflags &= ~DF_LBA;
   pddt->ddt_ncyl = driveParam->chs.Cylinder;
 
 #ifdef DEBUG
-  if (pddt->ddt_LBASupported)
+  if (pddt->ddt_descflags & DF_LBA)
     DebugPrintf(("LBA enabled for drive %c:\n", 'A' + nUnits));
 #endif
 
@@ -658,7 +656,7 @@ int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
   if (driveParam->driveno)
     return driveParam->driveno;
 
-  driveParam->LBA_supported = FALSE;
+  driveParam->descflags = 0;
 
   drive |= 0x80;
 
@@ -727,18 +725,13 @@ int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
     goto StandardBios;
   }
 
-  if (lba_bios_parameters.information & 8)
-  {
-    driveParam->WriteVerifySupported = 1;
-  }
-  else
-    driveParam->WriteVerifySupported = 0;
-
   driveParam->total_sectors = lba_bios_parameters.totalSect;
 
   /* if we arrive here, success */
-  driveParam->LBA_supported = TRUE;
-
+  driveParam->descflags = DF_LBA;
+  if (lba_bios_parameters.information & 8)
+    driveParam->descflags |= DF_WRTVERIFY;
+  
 StandardBios:                  /* old way to get parameters */
 
   regs.a.b.h = 0x08;
@@ -759,7 +752,7 @@ StandardBios:                  /* old way to get parameters */
     printf("BIOS reported 0 sectors/track, assuming 63!\n");
   }
 
-  if (!driveParam->LBA_supported)
+  if (!(driveParam->descflags & DF_LBA))
   {
     driveParam->total_sectors =
         min(driveParam->chs.Cylinder, 1023)
@@ -904,7 +897,7 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
     if (chs.Cylinder > 1023 || end.Cylinder > 1023)
     {
 
-      if (!driveParam->LBA_supported)
+      if (!(driveParam->descflags & DF_LBA))
       {
         printf
             ("can't use LBA partition without LBA support - part %s FS %02x",
@@ -990,7 +983,7 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
   for (num_retries = 0; num_retries < N_RETRY; num_retries++)
   {
     regs.d.b.l = drive | 0x80;
-    if (driveParam->LBA_supported)
+    if (driveParam->descflags & DF_LBA)
     {
       dap.number_of_blocks = 1;
       dap.buffer_address = buffer;
@@ -1281,7 +1274,6 @@ void ReadAllPartitionTables(void)
     pddt->ddt_logdriveno = Unit;
     pddt->ddt_type = init_getdriveparm(0, &pddt->ddt_defbpb);
     pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
-    pddt->ddt_LBASupported = FALSE;
     pddt->ddt_descflags = init_readdasd(0);
 
     pddt->ddt_offset = 0l;
