@@ -543,9 +543,10 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       fcb LocalFcb;
       BYTE *pToName;
       const BYTE FAR *pFromPattern = Dmatch.dm_name;
-      int i = 0;
+      int i;
+      UBYTE mode = 0;
 
-      FcbParseFname(&i, pFromPattern, &LocalFcb);
+      FcbParseFname(&mode, pFromPattern, &LocalFcb);
       /* Overlay the pattern, skipping '?'            */
       /* I'm cheating because this assumes that the   */
       /* struct alignments are on byte boundaries     */
