@@ -116,7 +116,7 @@ cpm_error:      mov     al,0
 
 ;
 ; interrupt zero divide handler:
-; print a message 'Interrupt divide error'
+; print a message 'Divide error'
 ; Terminate the current process
 ;
 ;       VOID INRPT far
@@ -138,7 +138,7 @@ hex_loop:
 		jae 	hex_loop
 		ret
 
-divide_error_message db 0dh,0ah,'Interrupt divide error, stack:',0dh,0ah,0
+divide_error_message db 0dh,0ah,'Divide error, stack:',0dh,0ah,0
 
                 global reloc_call_int0_handler
 reloc_call_int0_handler:
