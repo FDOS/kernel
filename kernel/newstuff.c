@@ -527,8 +527,9 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
             PATH_ERROR;
           if (i & PNE_WILDCARD)
             gotAnyWildcards = TRUE;
-        }        
-        --src;			/* terminator or separator was skipped */
+        }
+        if (*src != '\0')
+          --src;			/* terminator or separator was skipped */
         break;
     }
   }
