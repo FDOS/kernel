@@ -133,6 +133,7 @@ STATIC void SelectLine(int MenuSelected)
 
 UWORD umb_start = 0, UMB_top = 0;
 UWORD ram_top = 0; /* How much ram in Kbytes               */
+size_t ebda_size = 0;
 
 static UBYTE ErrorAlreadyPrinted[128];
 
@@ -401,7 +402,6 @@ void PreConfig(void)
 void PreConfig2(void)
 {
   struct sfttbl FAR *sp;
-  unsigned ebda_size;
 
   /* initialize NEAR allocated things */
 
@@ -422,7 +422,6 @@ void PreConfig2(void)
 
   base_seg = LoL->first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
 
-  ebda_size = 0;
   if (Config.ebda2move)
   {
     ebda_size = ebdasize();
@@ -2659,7 +2658,7 @@ VOID DoInstall(void)
   r.b.b.l = 0x02;			    /*low memory, last fit			*/
   init_call_intr(0x21, &r);
 
-  allocmem(((unsigned)_init_end+15)/16, &installMemory);
+  allocmem(((unsigned)_init_end + ebda_size + 15) / 16, &installMemory);
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
 
