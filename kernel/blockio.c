@@ -474,5 +474,5 @@ void AllocateHMASpace (size_t lowbuffer, size_t highbuffer)
     }
     bp = b_next(bp);
   }
-  while (n--);
+  while (--n);
 }
