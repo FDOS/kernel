@@ -36,6 +36,9 @@ static BYTE *error_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/11/02 06:56:53  jimtabor
+ * Fix Share Patch
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -109,7 +112,10 @@ static BYTE *error_hRcsId = "$Id$";
 #define DE_WRTPRTCT     -19     /* No more files                */
 #define DE_BLKINVLD     -20     /* invalid block                */
 #define DE_SEEK         -25     /* error on file seek           */
-#define DE_HNDLDSKFULL  -39     /* handle disk full (?)         */
+#define DE_HNDLDSKFULL  -28     /* handle disk full (?)         */
+
+#define DE_DEADLOCK	-36
+#define DE_LOCK		-39
 
 /* Critical error flags                                                 */
 #define EFLG_READ       0x00    /* Read error                   */
