@@ -61,7 +61,7 @@ set TC2_BASE=c:\tc201
 :-**********************************************************************
 :- where is UPX and which options to use?
 :-**********************************************************************
-set XUPX=upx --8086
+set XUPX=upx --8086 --best
 :- or use set XUPX=
 :- if you don't want to use it
 

@@ -1,7 +1,7 @@
-2002 Oct xx - Build 2027rc
+2002 Oct 27 - Build 2027rc
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Bart
-    * reorganized chario.c, got F1-F6, Ins, Del, etc working
+    * reorganized chario.c, got F1-F6, Ins, Del, etc. working
     * fixed bug in extended open
     * fixed bug in memory manager (realloc should try to defragment; 
       UMB fixes)
@@ -17,7 +17,7 @@
     * task.c uses mid-level system file handles instead of PSP handles.
     * SFT sequence is MS/DR DOS like: 0=AUX 1=CON 2=PRN
     * int21/ah=4d needs to clear the return code after returning it.
-    * Removed need for unusedretval because some functions return a long int
+    * Removed need for "unusedretval" because some functions return a long int
       now.
     * Do not warn for some additional LBA partition layouts (begin/end
       cylinder=1023) in initdisk.c.
@@ -28,12 +28,13 @@
       put_string instead
     * better MK_FP for Turbo C++ 1.01 and later
     * PSP related task.c cleanups
+    * use --best and new upx (1.23) for binary build
     Changes Tom and Bart:
     * Use Pascal calling convention for memcpy and friends in asmsupt.asm
     * Fixed make temp file
     * fix bug in DosFindNext
     * misc makefile fixes
-2002 Aug xx - Build 2027test
+2002 Aug 3 - Build 2027test
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
     * enable LBA FAT16 booting
