@@ -284,8 +284,12 @@
 /*
  *	How the kernel and NLSFUNC communicate with each other
  */
-        /* Must be returned by NLSFUNC upon MUX-14-00 */
+        /* Must be pased to and returned by NLSFUNC upon MUX-14-00 */
 #define NLS_FREEDOS_NLSFUNC_ID	0x534b
+		/* What version of nlsInfo and accompanying associations
+		   Must be passed to NLSFUNC upon MUX-14-00 to identify the
+		   correct kernel to the tools. */
+#define NLS_FREEDOS_NLSFUNC_VERSION 0xFD01
         /* Represents a call to DOS-38 within DOS-65 handlers.
            Current implementation relys on 0x101! */
 #define NLS_DOS_38 0x101
@@ -324,10 +328,10 @@
 #define NLS_FLAG_DIRECT_YESNO		0x0004  /* DOS-65-23 */
 #define	NLS_FLAG_DIRECT_GETDATA		0x0008  /* DOS-65-XX, DOS-38 */
 
-#define NLS_FLAG_HARDCODED NLS_FLAG_DIRECT_UPCASE		\
+#define NLS_FLAG_HARDCODED (NLS_FLAG_DIRECT_UPCASE		\
 							| NLS_FLAG_DIRECT_FUPCASE	\
 							| NLS_FLAG_DIRECT_YESNO		\
-							| NLS_FLAG_DIRECT_GETDATA
+							| NLS_FLAG_DIRECT_GETDATA)
 
         /* No codepage / country code given */
 #define NLS_DEFAULT ((UWORD)-1)
@@ -535,8 +539,9 @@ extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 	COUNTRY.SYS into other files.
 */
 
-#define CSYS_FD_IDSTRING "FreeDOS COUNTRY.SYS v1.0\r\n"
+#define CSYS_FD_IDSTRING "FreeDOS COUNTRY.SYS v1.0\r\n\x1a"
 
+#if 0
 struct csys_function {       /* S3: function definition */
   UDWORD csys_rpos;             /* relative position to actual data */
   UWORD csys_length;
@@ -550,20 +555,62 @@ struct csys_ccDefinition {   /* S1: country/codepage reference */
   UWORD csys_cp;
   UWORD csys_cntry;
 };
+#endif
+
+struct csys_ccDefinition {   /* country/codepage reference */
+  UDWORD csys_pos; /* moving the 4byte value to the front
+                                   can increase performance */
+  UWORD csys_cntry;
+  UWORD csys_cp;
+  UWORD csys_size1;			/* size of nlsPackage struct rpos is pointing to */
+
+/* initially the object rpos is pointing to conforms to a
+	struct nlsPackage, where:
+	  struct nlsPackage FAR *nxt;   is missing
+	  UWORD cntry, cp;              is missing
+	  int flags;                    is NLS_FLAG_HARDCODED, if the
+	  									kernel is to handle the data of its own
+	  UBYTE yeschar;                is filled
+	  UBYTE nochar;					is filled
+	  unsigned numSubfct;           is filled
+	  struct nlsPointer nlsPointers[1];   is filled
+	  									the pointer member is the absolute
+	  									position of the data within the file
+	  									of this structure:
+	  										UWORD count
+	  										count bytes
+	  										The "count" value is not a part
+	  										of the data itself.
+			Also: The data must be ordered corresponding to
+			NLS_CODE_REORDER_POINTERS.
+			Also: The last nlsPointer is subfct #1 _incl_ all its
+			data [is the extended country information: struct nlsExtCntryInfo]
+*/
+};
 
 struct csys_numEntries {     /* helper structure for "number of entries" */
   UWORD csys_entries;
 };
 
-/* Actually, this structure is never really used */
-struct nlsCSys_fileHeader {     /* S0: primary structure */
-  unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
-  /* decrement by 1 to cut off \0 from IDString -- ska */
+/* Header of the COUNTRY.SYS file */
+struct nlsCSys_fileHeader {     /* COUNTRY.SYS header */
+  unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING)];
+  UWORD csys_maxTotalSize;	/* maximal size of the total amount of
+  								any individual definition, that includes
+  								the nlsPackage skeleton and the sum of
+  								all bytes required to load all the
+  								subfunctions individually.
+  								--> The code is to allocate maxTotalSize
+  								and load any country definition of this
+  								file into this buffer without any
+  								overflow. */
+	DWORD csys_posIndex;	/* absolute position of index table */
 };
 
-struct csys_completeFileHeader {     /* as S0, but full 128 bytes */
-  unsigned char csys_idstring[sizeof(CSYS_FD_IDSTRING) - 1];
-  unsigned char csys_padbytes[128 - (sizeof(CSYS_FD_IDSTRING) - 1)];
+/* Structure created by CountryInfoLoad() */
+struct nlsCSys_loadPackage {
+	UWORD csys_size;
+	struct nlsPackage csys_pkg;
 };
 
 /* standard alignment */

@@ -130,7 +130,11 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /*          0x1401 == not installed, not ok to install          */
   /*          0x14FF == installed                                 */
 
-  r.BX = 0;                     /* make sure the NLSFUNC ID is updated */
+  r.BX = NLS_FREEDOS_NLSFUNC_VERSION;		/* What version of nlsInfo */
+#if NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID
+  /* make sure the NLSFUNC ID is updated */
+#error "NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID"
+#endif
   r.CX = NLS_FREEDOS_NLSFUNC_ID;
   if (muxGo(0, &r) != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
