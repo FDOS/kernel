@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.9  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -147,6 +150,10 @@ VOID FcbNextRecord();
 BOOL FcbCalcRec();
 VOID MoveDirInfo();
 #endif
+
+#define TestCmnSeps(lpFileName) (strchr(":<|>+=,", *lpFileName) != NULL) 
+#define TestFieldSeps(lpFileName) (*(lpFileName) <= ' ' || strchr("/\"[]<>|.", *lpFileName) != NULL) 
+
 
 static dmatch Dmatch;
 
@@ -265,6 +272,7 @@ BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName)
   return lpFileName;
 }
 
+#if 0 /* defined above */
 BOOL TestCmnSeps(BYTE FAR * lpFileName)
 {
   BYTE *pszTest,
@@ -275,7 +283,9 @@ BOOL TestCmnSeps(BYTE FAR * lpFileName)
       return TRUE;
   return FALSE;
 }
+#endif    
 
+#if 0
 BOOL TestFieldSeps(BYTE FAR * lpFileName)
 {
   BYTE *pszTest,
@@ -290,6 +300,8 @@ BOOL TestFieldSeps(BYTE FAR * lpFileName)
       return TRUE;
   return FALSE;
 }
+#endif
+
 
 BYTE FAR *GetNameField(BYTE FAR * lpFileName, BYTE FAR * lpDestField,
                        COUNT nFieldSize, BOOL * pbWildCard)

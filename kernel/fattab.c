@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.4  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -280,7 +283,7 @@ UCOUNT link_fat12(struct dpb FAR *dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
 
 /* Given the disk parameters, and a cluster number, this function
    looks at the FAT, and returns the next cluster in the clain. */
-UWORD next_cluster(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
+UWORD next_cluster(struct dpb FAR *dpbp, UCOUNT ClusterNum)
 {
   if (ISFAT12(dpbp))
     return next_cl12(dpbp, ClusterNum);
@@ -290,11 +293,9 @@ UWORD next_cluster(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
     return LONG_LAST_CLUSTER;
 }
 
-UWORD next_cl16(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
+UWORD next_cl16(struct dpb FAR *dpbp, UCOUNT ClusterNum)
 {
-  UCOUNT idx;
   struct buffer FAR *bp;
-  UWORD RetCluster;
 
   /* Get the block that this cluster is in                */
   bp = getblock((ULONG) (((ULONG) ClusterNum) * SIZEOF_CLST16) / dpbp->dpb_secsize + dpbp->dpb_fatstrt,
@@ -310,15 +311,29 @@ UWORD next_cl16(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
   bp->b_offset_lo = dpbp->dpb_fatsize;
   bp->b_offset_hi = dpbp->dpb_fatsize >> 8;
 
+
+
+#ifndef I86
+  UCOUNT idx;
+  UWORD RetCluster;
+
   /* form an index so that we can read the block as a     */
   /* byte array                                           */
   idx = (ClusterNum * SIZEOF_CLST16) % dpbp->dpb_secsize;
 
   /* Get the cluster number,                              */
+  
   fgetword((VOID FAR *) & (bp->b_buffer[idx]), (WORD FAR *) & RetCluster);
 
   /* and return successful.                               */
   return RetCluster;
+#else
+    /* this saves 2 WORDS of stack :-) */
+    
+    return *(WORD FAR *)&(bp->b_buffer[(ClusterNum * SIZEOF_CLST16) % dpbp->dpb_secsize]);
+    
+#endif    
+  
 }
 
 UWORD next_cl12(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)

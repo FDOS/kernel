@@ -27,10 +27,48 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
+#include "portab.h"
 #include "init-mod.h"
 
-#include "portab.h"
-#include "globals.h"
+/*
+  These are the far variables from the DOS data segment that we need here. The
+  init procedure uses a different default DS data segment, which is discarded
+  after use. I hope to clean this up to use the DOS List of List and Swappable
+  Data Area obtained via INT21.
+
+  -- Bart
+ */
+extern UBYTE FAR nblkdev,
+    FAR lastdrive;                    /* value of last drive                  */
+
+GLOBAL struct f_node FAR
+    * FAR f_nodes;                /* pointer to the array                 */
+
+GLOBAL BYTE
+    FAR os_major,                     /* major version number                 */
+    FAR os_minor,                     /* minor version number                 */
+    FAR dosidle_flag,
+    FAR BootDrive,                    /* Drive we came up from                */
+    FAR default_drive;                /* default drive for dos                */
+
+GLOBAL BYTE FAR os_release[];
+GLOBAL BYTE FAR copyright[];
+GLOBAL seg FAR RootPsp;               /* Root process -- do not abort         */
+
+GLOBAL struct f_node * FAR pDirFileNode;
+extern struct dpb FAR * FAR DPBp; /* First drive Parameter Block          */
+extern cdstbl FAR * FAR CDSp; /* Current Directory Structure          */
+extern sfttbl FAR * FAR sfthead;  /* System File Table head               */
+
+extern struct dhdr FAR * FAR clock,           /* CLOCK$ device                        */
+                   FAR * FAR syscon;          /* console device                       */
+extern struct dhdr FAR con_dev,               /* console device drive                 */
+                   FAR clk_dev,               /* Clock device driver                  */
+                   FAR blk_dev;               /* Block device (Disk) driver           */
+extern UWORD
+    FAR ram_top;                      /* How much ram in Kbytes               */
+
+extern iregs FAR * FAR user_r;        /* User registers for int 21h call      */
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId = "$Id$";
@@ -38,6 +76,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.14  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -168,18 +209,13 @@ static BYTE *mainRcsId = "$Id$";
  * Initial revision.
  */
 
-extern UWORD DaysSinceEpoch;
 extern WORD days[2][13];
 extern BYTE FAR * lpBase;
 extern BYTE FAR * upBase;
-
-INIT BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
-VOID WritePCClock(ULONG);
+extern BYTE _ib_start[], _ib_end[]; 
 
 INIT VOID configDone(VOID);
 INIT static void InitIO(void);
-INIT static COUNT BcdToByte(COUNT);
-/** INIT static COUNT BcdToDay(BYTE *);*/
 
 INIT static VOID update_dcb(struct dhdr FAR *);
 INIT static VOID init_kernel(VOID);
@@ -187,30 +223,16 @@ INIT static VOID signon(VOID);
 INIT VOID kernel(VOID);
 INIT VOID FsConfig(VOID);
 
-#ifdef __TURBOC__
-void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-#endif
-
-
-
 INIT VOID main(void)
 {
     setvec(0, int0_handler);        /* zero divide */
     setvec(1, empty_handler);       /* single step */
     setvec(3, empty_handler);       /* debug breakpoint */
+    setvec(6, empty_handler);       /* invalid opcode */
     
-
+    /* clear the Init BSS area (what normally the RTL does */
+    memset(_ib_start, 0, _ib_end - _ib_start);
     
-#ifdef KDB
-  BootDrive = 1;
-#endif
-
-    {                  /* clear the BSS area (what normally the RTL does */
-    extern BYTE _bssstart[],_bssend[]; 
-    fmemset(_bssstart,0,_bssend-_bssstart);
-    }
-
-
   init_kernel();
 
 #ifdef DEBUG
@@ -231,20 +253,17 @@ INIT VOID main(void)
     at least one known utility (norton DE) seems to access them directly.
     ok, so we access for all drives, that the stuff gets build
 */
-/*
-  should not be necessary anymore (see DosSelectDrv in dosfns.c)
 void InitializeAllBPBs(VOID)
 {
   static char filename[] = "A:-@JUNK@-.TMP";
   int drive,fileno;
-  for (drive = 'Z'; drive >= 'C'; drive--)
+  for (drive = 'C'; drive < 'A'+nblkdev; drive++)
     {
       filename[0] = drive;
-      if ((fileno = init_DosOpen(filename, O_RDONLY)) >= 0)
-        init_DosClose(fileno);
+      if ((fileno = open(filename, O_RDONLY)) >= 0)
+        close(fileno);
     }
 }    
-*/
 
 INIT void init_kernel(void)
 {
@@ -253,23 +272,11 @@ INIT void init_kernel(void)
   os_major = MAJOR_RELEASE;
   os_minor = MINOR_RELEASE;
 
-  nblkdev = 0;
-  maxbksize = 0x200;
-  switchar = '/';
-  dosidle_flag = 1;
-  
-  
-
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();
-  UMB_top = 0;
-  umb_start = 0;
 
 /* Fake int 21h stack frame */
   user_r = (iregs FAR *) DOS_PSP + 0xD0;
-
-/* Set Init DTA to Tempbuffer */
-    dta = (BYTE FAR *) &TempBuffer;
 
 #ifndef KDB
   for (i = 0x20; i <= 0x3f; i++)
@@ -278,8 +285,6 @@ INIT void init_kernel(void)
 
   /* Initialize IO subsystem                                      */
   InitIO();
-  syscon = (struct dhdr FAR *)&con_dev;
-  clock = (struct dhdr FAR *)&clk_dev;
 
 #ifndef KDB
   /* set interrupt vectors                                        */
@@ -296,10 +301,6 @@ INIT void init_kernel(void)
   setvec(0x2a, int2a_handler);
   setvec(0x2f, int2f_handler);
 #endif
-
-  /* Initialize the screen handler for backspaces                 */
-  scr_pos = 0;
-  break_ena = TRUE;
 
   init_PSPInit(DOS_PSP);
 
@@ -318,7 +319,7 @@ INIT void init_kernel(void)
 
   /* Close all (device) files */
   for (i = 0; i < lastdrive; i++)
-    init_DosClose(i);
+    close(i);
   
   /* and do final buffer allocation. */
   PostConfig();
@@ -334,18 +335,13 @@ INIT void init_kernel(void)
 
   /* Close all (device) files */
   for (i = 0; i < lastdrive; i++)
-    init_DosClose(i);
+    close(i);
   
   /* Now config the final file system     */
   FsConfig();
 
 #endif
-  /* Now to initialize all special flags, etc. */
-  mem_access_mode = FIRST_FIT;
-  verify_ena = FALSE;
-  InDOS = 0;
-  pDirFileNode = 0;
-  dosidle_flag = 0;
+  InitializeAllBPBs();
 }
 
 INIT VOID FsConfig(VOID)
@@ -353,38 +349,31 @@ INIT VOID FsConfig(VOID)
   REG COUNT i;
   struct dpb FAR *dpb;
 
-  /* Initialize the file tables */
-  for (i = 0; i < Config.cfgFiles; i++)
-    f_nodes[i].f_count = 0;
-
   /* The system file tables need special handling and are "hand   */
-  /* built. Included is the stdin, stdout, stdaux and atdprn. */
+  /* built. Included is the stdin, stdout, stdaux and stdprn. */
   sfthead->sftt_next = (sfttbl FAR *) - 1;
   sfthead->sftt_count = Config.cfgFiles;
-  for (i = 0; i < sfthead->sftt_count; i++)
+  for (i = 0; i < Config.cfgFiles; i++)
   {
+  /* Initialize the file tables */
+    f_nodes[i].f_count = 0;
     sfthead->sftt_table[i].sft_count = 0;
     sfthead->sftt_table[i].sft_status = -1;
   }
   /* 0 is /dev/con (stdin) */
-  init_DosOpen("CON", SFT_MREAD);
-  sfthead->sftt_table[0].sft_flags |= SFT_FCONIN | SFT_FCONOUT;
+  open("CON", O_RDWR);
 
   /* 1 is /dev/con (stdout)     */
-  init_DosOpen("CON", SFT_MWRITE);
-  sfthead->sftt_table[1].sft_flags |= SFT_FCONIN | SFT_FCONOUT;
+  dup2(STDIN, STDOUT);
 
   /* 2 is /dev/con (stderr)     */
-  init_DosOpen("CON", SFT_MWRITE);
-  sfthead->sftt_table[2].sft_flags |= SFT_FCONIN | SFT_FCONOUT;
+  dup2(STDIN, STDERR);
 
   /* 3 is /dev/aux                                                */
-  init_DosOpen("AUX", SFT_MRDWR);
-  sfthead->sftt_table[3].sft_flags &= ~SFT_FEOF;
+  open("AUX", O_RDWR);
 
   /* 4 is /dev/prn                                                */
-  init_DosOpen("PRN", SFT_MWRITE);
-  sfthead->sftt_table[4].sft_flags &= ~SFT_FEOF;
+  open("PRN", O_WRONLY);
 
   /* Log-in the default drive.  */
   /* Get the boot drive from the ipl and use it for default.  */
@@ -423,32 +412,43 @@ INIT VOID FsConfig(VOID)
 
 INIT VOID signon()
 {
-  printf("\nFreeDOS Kernel compatibility %d.%d\n%s\n",
+  BYTE tmp_or[81]; /* ugly constant, but this string should fit on one line */
+
+  printf("\nFreeDOS Kernel compatibility %d.%d\n%S\n",
          os_major, os_minor, copyright);
-  printf(os_release,
+  fmemcpy(tmp_or, os_release, 81);
+  printf(tmp_or,
          REVISION_MAJOR, REVISION_MINOR, REVISION_SEQ,
          BUILD);
 }
 
 INIT void kernel()
 {
-  seg asize;
+#if 0    
   BYTE FAR *ep,
    *sp;
+#endif  
+  exec_blk exb;
+  CommandTail Cmd;
+  int rc;
+
 #ifndef KDB
-  static BYTE *path = "PATH=.";
+  static BYTE master_env[] = "PATH=.\0\0\0\0\0";
+/*  static BYTE *path = "PATH=.";*/
 #endif
 
 #ifdef KDB
   kdb();
 #else
+#if 0
   /* create the master environment area   */
-  if (DosMemAlloc(0x20, FIRST_FIT, (seg FAR *) & master_env, (seg FAR *) & asize) < 0)
-    fatal("cannot allocate master environment space");
+  
+  if (allocmem(0x2, &exb.exec.env_seg))
+    init_fatal("cannot allocate master environment space");
 
   /* populate it with the minimum environment */
-  ++master_env;
-  ep = MK_FP(master_env, 0);
+  ++exb.exec.env_seg;
+  ep = MK_FP(exb.exec.env_seg, 0);
 
   for (sp = path; *sp != 0;)
     *ep++ = *sp++;
@@ -457,9 +457,55 @@ INIT void kernel()
   *ep++ = '\0';
   *((int FAR *)ep) = 0;
   ep += sizeof(int);
-#endif
+#else
+  exb.exec.env_seg = DOS_PSP+8;
+  fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
+#endif  
+#endif  
+  
   RootPsp = ~0;
-  p_0();
+
+  /* process 0       */
+  /* Execute command.com /P from the drive we just booted from    */
+  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail)-1);
+
+  for (Cmd.ctCount = 0; Cmd.ctCount < 127; Cmd.ctCount++)
+    if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
+      break;
+
+  exb.exec.cmd_line = (CommandTail FAR *) & Cmd;
+  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0;
+
+#ifdef DEBUG
+  printf("Process 0 starting: %s\n\n", Config.cfgInit);
+#endif
+
+  while ((rc = init_DosExec(Config.cfgP_0_startmode, &exb, Config.cfgInit)) != SUCCESS)
+  {
+    BYTE *pLine;
+    printf("\nBad or missing Command Interpreter: %d\n", rc);
+    printf("\nPlease enter the correct location (for example C:\\COMMAND.COM):\n");
+    rc = read(STDIN, Cmd.ctBuffer, sizeof(Cmd.ctBuffer)-1);
+    Cmd.ctBuffer[rc]='\0';
+
+    /* Get the string argument that represents the new init pgm     */
+    pLine = GetStringArg(Cmd.ctBuffer, Config.cfgInit);
+
+    /* Now take whatever tail is left and add it on as a single     */
+    /* string.                                                      */
+    strcpy(Cmd.ctBuffer, pLine);
+
+    /* and add a DOS new line just to be safe                       */
+    strcat(Cmd.ctBuffer, "\r\n");
+    
+    Cmd.ctCount =  rc-(pLine-Cmd.ctBuffer);
+
+#ifdef DEBUG
+    printf("Process 0 starting: %s\n\n", Config.cfgInit);
+#endif
+  }
+  printf("\nSystem shutdown complete\nReboot now.\n");
+  for (;;) ;
 }
 
 /* check for a block device and update  device control block    */
@@ -518,7 +564,7 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
   rq.r_firstunit = nblkdev;
 
   execrh((request FAR *) & rq, dhp);
-  
+
 /*
  *  Added needed Error handle
  */
@@ -548,49 +594,27 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
     update_dcb(dhp);
   }
 
+  if (dhp->dh_attr & ATTR_CONIN)
+    syscon = dhp;
+  else if (dhp->dh_attr & ATTR_CLOCK)
+    clock = dhp;
+
   return FALSE;
 }
 
 
 INIT static void InitIO(void)
 {
-  BYTE bcd_days[4],
-    bcd_minutes,
-    bcd_hours,
-    bcd_seconds;
-  ULONG ticks;
-
   /* Initialize driver chain                                      */
 
-  nul_dev.dh_next = (struct dhdr FAR *)&con_dev;
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
-  init_device((struct dhdr FAR *)&con_dev, NULL, NULL, ram_top);
-  init_device((struct dhdr FAR *)&clk_dev, NULL, NULL, ram_top);
-  /* If AT clock exists, copy AT clock time to system clock */
-  if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
-  {
-    DaysSinceEpoch = DaysFromYearMonthDay(
-                        100 * BcdToByte(bcd_days[3]) + BcdToByte(bcd_days[2]),
-                        BcdToByte(bcd_days[1]),
-                        BcdToByte(bcd_days[0]) );
-
-    /*
-     * This is a rather tricky calculation. The number of timer ticks per
-     * second is not exactly 18.2, but rather 0x1800b0 / 86400 = 19663 / 1080
-     * (the timer interrupt updates the midnight flag when the tick count
-     * reaches 0x1800b0). Fortunately, 86400 * 19663 = 1698883200 < ULONG_MAX,
-     * so we can simply multiply the number of seconds by 19663 without
-     * worrying about overflow. :) -- ror4
-     */
-    ticks = (3600ul * BcdToByte(bcd_hours) +
-             60ul * BcdToByte(bcd_minutes) +
-             BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
-    WritePCClock(ticks);
-  }
+  init_device(&con_dev, NULL, NULL, ram_top);
+  init_device(&clk_dev, NULL, NULL, ram_top);
 }
 
-INIT static COUNT BcdToByte(COUNT x)
+/* issue an internal error message                              */
+VOID init_fatal(BYTE * err_msg)
 {
-  return ((((x) >> 4) & 0xf) * 10 + ((x) & 0xf));
+  printf("\nInternal kernel error - %s\nSystem halted\n", err_msg);
+  for (;;) ;
 }
-

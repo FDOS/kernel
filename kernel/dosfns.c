@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.16  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.15  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -354,10 +357,12 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
     {
       kb_buf.kb_size = LINESIZE - 1;
       kb_buf.kb_count = 0;
-      sti((keyboard FAR *) & kb_buf);
+      ReadCount = sti((keyboard FAR *) & kb_buf);
+      if (ReadCount < kb_buf.kb_count)
+        s->sft_flags &= ~SFT_FEOF;
       fbcopy((BYTE FAR *) kb_buf.kb_buf, bp, kb_buf.kb_count);
       *err = SUCCESS;
-      return kb_buf.kb_count;
+      return ReadCount;
     }
     else
     {
@@ -404,10 +409,12 @@ UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
   return 0;
 }
 
+#if 0
 UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
 {
   return GenericRead(hndl, n, bp, err, FALSE);
 }
+#endif
 
 UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
 {
@@ -451,7 +458,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     request rq;
 
     /* set to no EOF                        */
-    s->sft_flags &= ~SFT_FEOF;
+    s->sft_flags |= SFT_FEOF;
 
     /* if null just report full transfer    */
     if (s->sft_flags & SFT_FNUL)
@@ -1361,11 +1368,8 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
        or cleanup, such as converting "c:\a\b\.\c\.." to "C:\A\B".
        - Ron Cemer
 */
-        BYTE tmp_name[128];
-        int i;
-        for (i = 0; PriPathName[i] != '\0'; i++) tmp_name[i] = PriPathName[i];
-        tmp_name[i] = '\0';
-        return dos_getfattr(tmp_name, attrp);
+          memcpy(SecPathName,PriPathName,sizeof(SecPathName));
+          return dos_getfattr(SecPathName, attrp);
 	}
 }
 
@@ -1402,21 +1406,21 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
        to get trashed somewhere in transit.
        - Ron Cemer
 */
-        BYTE tmp_name[128];
-        int i;
-        for (i = 0; PriPathName[i] != '\0'; i++) tmp_name[i] = PriPathName[i];
-        tmp_name[i] = '\0';
-        return dos_setfattr(name, attrp);
-	}
+          memcpy(SecPathName,PriPathName,sizeof(SecPathName));
+          return dos_setfattr(SecPathName, attrp);
+        }
 }
 
 UBYTE DosSelectDrv(UBYTE drv)
 {
   struct cds FAR *cdsp = &CDSp->cds_table[drv];
     
-  if ((drv < lastdrive) && (cdsp->cdsFlags & CDSVALID) &&
+  if ((drv < lastdrive) && (cdsp->cdsFlags & CDSVALID))
+/*
+      &&
       ((cdsp->cdsFlags & CDSNETWDRV) ||
        (cdsp->cdsDpb!=NULL && media_check(cdsp->cdsDpb)==SUCCESS)))
+*/       
   {
     current_ldt = cdsp;
     default_drive = drv;

@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.10  2001/04/21 22:32:53  bartoldeman
+# Init DS=Init CS, fixed stack overflow problems and misc bugs.
+#
 # Revision 1.9  2001/04/16 14:28:32  bartoldeman
 # Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
 #
@@ -134,7 +137,8 @@ INCLUDEPATH = ..\HDR
 #AFLAGS      = /Mx /DSTANDALONE=1 /I..\HDR
 NASMFLAGS   = -i../hdr/
 LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
-INITCFLAGS =$(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP -zDIB -zRID -zTID
+INITCFLAGS =$(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zDIB -zRID -zTID -zPIGROUP -zBIB \
+-zGIGROUP -zSIGROUP
 CFLAGS     =$(ALLCFLAGS) -zAHMA -zCHMA_TEXT
 HDR=../hdr/
 
@@ -190,6 +194,7 @@ EXE_dependencies =  \
  nls_hc.obj   \
  nlssupt.obj  \
  prf.obj      \
+ initprf.obj  \
  printer.obj  \
  procsupt.obj \
  serial.obj   \
@@ -224,7 +229,7 @@ kernel.exe: $(EXE_dependencies) $(LIBS)
     $(LIBUTIL) kernel +printer +serial +dsk +error +fatdir +fatfs
     $(LIBUTIL) kernel +fattab +fcbfns +initoem +initHMA+inthndlr +ioctl +nls_hc
     $(LIBUTIL) kernel +main +config +memmgr +misc +newstuff +nls +intr
-    $(LIBUTIL) kernel +dosnames +prf +strings +network +sysclk +syspack
+    $(LIBUTIL) kernel +dosnames +prf +initprf +strings +network +sysclk +syspack
     $(LIBUTIL) kernel +systime +task +int2f +irqstack +apisupt
     $(LIBUTIL) kernel +asmsupt +execrh +nlssupt +procsupt +break
     $(LIBUTIL) kernel +dosidle
@@ -298,6 +303,10 @@ initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
  $(HDR)version.h proto.h turboc.cfg
 	$(CC) $(INITCFLAGS) -c initHMA.c
+
+#the printf for INIT_TEXT:
+initprf.obj: prf.c $(HDR)portab.h turboc.cfg
+	$(CC) -DFORINIT $(INITCFLAGS) -oinitprf.obj -c prf.c 
 
 # XXX: I generated these using `gcc -MM' and `sed', so they may not be
 # completely correct... -- ror4

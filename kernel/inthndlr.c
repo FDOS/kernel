@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.22  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.21  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -486,9 +489,9 @@ dispatch:
       /* Check Stdin Status                                           */
     case 0x0b:
       if (StdinBusy())
-        r->AL = 0xFF;
-      else
         r->AL = 0x00;
+      else
+        r->AL = 0xFF;
       break;
 
       /* Flush Buffer, Read Keayboard                                 */

@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.10  2001/04/21 22:32:53  bartoldeman
+; Init DS=Init CS, fixed stack overflow problems and misc bugs.
+;
 ; Revision 1.9  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -126,7 +129,7 @@
                 %include "segs.inc"
 
 
-segment	_TEXT
+segment	PSP
 
                 extern  _ReqPktPtr:wrt TGROUP
 
@@ -145,7 +148,7 @@ segment	INIT_TEXT
                 ; kernel start-up
                 ;
 kernel_start:
-		mov	ax,DGROUP
+		mov	ax,IGROUP
 		cli
 		mov	ss,ax
 		mov	sp,init_tos
@@ -170,6 +173,8 @@ kernel_start:
 		push	ax
 		retf
 cont:		; inititalize api stacks for high water tests
+                mov     ax,cs
+                mov     ss,ax
                 mov     di,seg apistk_bottom
                 mov     es,di
                 mov     di,apistk_bottom
@@ -181,7 +186,7 @@ cont:		; inititalize api stacks for high water tests
                 cld
                 rep     stosw
                 ; Now set up call frame
-                mov     ax,ss
+                mov     ax,DGROUP
                 mov     ds,ax
                 mov     es,ax
                 mov     bp,sp           ; and set up stack frame for c
@@ -196,12 +201,12 @@ floppy:		mov	byte [_BootDrive],bl ; tell where we came from
 		inc	al
                 mov     byte [_NumFloppies],al ; and how many
                 
-                mov     ax,ds
+                mov     ax,cs
+                mov     ds,ax
                 mov     es,ax
         jmp _main
 
 segment	INIT_TEXT_END
-init_end:
 
 segment	_TEXT
 
@@ -271,7 +276,7 @@ _clock          dd      0               ; 0008 CLOCK$ device
                 global  _syscon
 _syscon         dd      0               ; 000c console device
                 global  _maxbksize
-_maxbksize      dw      0               ; 0010 Number of Drives in system
+_maxbksize      dw      512             ; 0010 maximum bytes/sector of any block device
                 global  _firstbuf;
 _firstbuf       dd      0               ; 0012 head of buffers linked list
                 global  _CDSp
@@ -286,7 +291,9 @@ _nblkdev        db      0               ; 0020 number of block devices
 _lastdrive      db      0               ; 0021 value of last drive
                 global  _nul_dev
 _nul_dev:           ; 0022 device chain root
-                dd      -1
+                extern  _con_dev:wrt TGROUP
+                dw      _con_dev, seg _con_dev
+                                        ; next is con_dev at init time.  
                 dw      8004h           ; attributes = char device, NUL bit set
                 dw      _nul_strtgy
                 dw      _nul_intr
@@ -300,7 +307,7 @@ setverPtr       dw      0,0             ; 0037 setver list
                 dw      1               ; 003F number of buffers
                 dw      1               ; 0041 size of pre-read buffer
                 global  _BootDrive
-_BootDrive      db      0               ; 0043 drive we booted from
+_BootDrive      db      1               ; 0043 drive we booted from
                 db      0               ; 0044 cpu type (1 if >=386)
                 dw      0               ; 0045 Extended memory in KBytes
 buf_info        dd      0               ; 0047 disk buffer chain
@@ -327,8 +334,6 @@ _umb_start      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
 ; We've got (01fb-006a) some room here: don't use all zeros!
-         
-
         
 ; Some references seem to indicate that this data should start at 01fbh in
 ; order to maintain 100% MS-DOS compatibility.
@@ -409,13 +414,14 @@ _CritErrCode    dw      0               ; 04 - DOS format error Code
 _CritErrAction  db      0               ; 06 - Error Action Code
 _CritErrClass   db      0               ; 07 - Error Class
 _CritErrDev     dd      0               ; 08 - Failing Device Address
-_dta            dd      0               ; 0C - current DTA
+_dta            dw      _TempBuffer, seg _TempBuffer
+                                        ; 0C - current DTA, initialize to TempBuffer.
 _cu_psp         dw      0               ; 10 - Current PSP
 break_sp        dw      0               ; 12 - used in int 23
 _return_code    db      0               ; 14 - return code from process
 _return_mode    db      0               ; 15 - reason for process terminate
 _default_drive  db      0               ; 16 - Current Drive
-_break_ena      db      0               ; 17 - Break Flag
+_break_ena      db      1               ; 17 - Break Flag (default TRUE)
                 db      0               ; 18 - flag, code page switching
                 db      0               ; 19 - flag, copy of 18 on int 24h abort
 
@@ -598,12 +604,23 @@ _ram_top        dw      0
 
 ;
 ; mark front and end of bss area to clear
-segment _BSSSTART
-    global __bssstart
-__bssstart:
-segment _BSSEND
-    global __bssend
-__bssend:
+segment IB_B
+    global __ib_start
+__ib_start:
+segment IB_E
+    global __ib_end
+__ib_end:
+        ;; do not clear the other init BSS variables + STACK: too late.
+
+                retoff    resw 1  ; return offset to jump to from HMA_TEXT
+        
+; kernel startup stack
+                global  init_tos
+                resw 256
+init_tos:
+; the last paragraph of conventional memory might become an MCB
+                resb 16
+init_end:        
 
 segment	_BSSEND
 ; blockdev private stack
@@ -615,20 +632,16 @@ blk_stk_top:
                 global  clk_stk_top
                 times 64 dw 0
 clk_stk_top:
-
+            
 ; this is nowhere needed
 ; interrupt stack
 ;                global  intr_stk_top
 ;                times 256 dw 0
 ;intr_stk_top:
 
-segment ID                  ; init data
-                retaddr dd 0    ; return address to jump to from HMA_TEXT
-; kernel startup stack
-                global  init_tos
-                times 256 dw 0
-init_tos:
-
+global        __bssend
+__bssend:
+        
 segment ID_B
     global __INIT_DATA_START
 __INIT_DATA_START:
@@ -659,7 +672,9 @@ segment	HMA_TEXT
                 times 16 db 0   ; filler [ffff:0..ffff:10]
                 times 22 db 0   ; filler [sizeof VDISK info]
 
-init_ret:       jmp far [retaddr] ; return from init_calls.
+init_ret_np:    push ds
+                push word [retoff]
+                retf            ; return from init_calls.
                 
 ;End of HMA segment                
 segment	HMA_TEXT_END
@@ -698,60 +713,27 @@ _DGROUP_:
 segment INIT_TEXT
 
                 call far initforceEnableA20  ; first enable A20 or not
-manip_stack_A20:       
-                pop word [retaddr+2]   ; get last ret address
-                pop word [retaddr]     ; get near ret address of init caller
-                mov ax, init_ret       ; new init caller ret address 
+manip_stack_A20:
+                pop dx                 ; get last ret address
+                pop word [retoff]      ; get near ret address of init caller
+                mov ax, init_ret_np    ; new init caller ret address 
                 push ax
-                push word [retaddr+2]  ; and back to the relocation entry 
-                mov [retaddr+2], cs    ; retaddr is now a far pointer to where we came from 
-                ret
-
+                jmp dx                 ; and back to the relocation entry 
+        
     global __HMAinitRelocationTableStart
 __HMAinitRelocationTableStart:    
 
-
-    extern _DosExec
-    global _reloc_call_DosExec
-_reloc_call_DosExec:
-                call manip_stack_A20
-                jmp far _DosExec
-    
-    extern _DosMemAlloc
-    global _reloc_call_DosMemAlloc
-_reloc_call_DosMemAlloc: 
-                call manip_stack_A20
-                jmp far _DosMemAlloc
-    
     extern _execrh
     global _reloc_call_execrh
 _reloc_call_execrh: 
                 call manip_stack_A20
                 jmp far _execrh
     
-    extern _fatal
-    global _reloc_call_fatal
-_reloc_call_fatal:
-                call manip_stack_A20
-                jmp far _fatal
-
     extern _fmemcpy
     global _reloc_call_fmemcpy
 _reloc_call_fmemcpy:
                 call manip_stack_A20
                 jmp far _fmemcpy    
-    
-    extern _memcpy
-    global _reloc_call_memcpy
-_reloc_call_memcpy:
-                call manip_stack_A20
-                jmp far _memcpy
-    
-    extern _printf
-    global _reloc_call_printf
-_reloc_call_printf: 
-                call manip_stack_A20
-                jmp far _printf
     
     extern _strcpy
     global _reloc_call_strcpy
@@ -759,17 +741,11 @@ _reloc_call_strcpy:
                 call manip_stack_A20
                 jmp far _strcpy
     
-    extern _sti
-    global _reloc_call_sti
-_reloc_call_sti:
+    extern _fstrncpy
+    global _reloc_call_fstrncpy
+_reloc_call_fstrncpy:
                 call manip_stack_A20
-                jmp far _sti
-    
-    extern _strcmp
-    global _reloc_call_strcmp
-_reloc_call_strcmp:
-                call manip_stack_A20
-                jmp far _strcmp
+                jmp far _fstrncpy
     
     extern _strlen
     global _reloc_call_strlen
@@ -777,17 +753,11 @@ _reloc_call_strlen:
                 call manip_stack_A20
                 jmp far _strlen
 
-    extern _WritePCClock
-    global _reloc_call_WritePCClock
-_reloc_call_WritePCClock: 
+    extern _fstrlen
+    global _reloc_call_fstrlen
+_reloc_call_fstrlen:
                 call manip_stack_A20
-                jmp far _WritePCClock
-
-    extern _DaysFromYearMonthDay
-    global _reloc_call_DaysFromYearMonthDay
-_reloc_call_DaysFromYearMonthDay:
-                call manip_stack_A20
-                jmp far _DaysFromYearMonthDay
+                jmp far _fstrlen
 
     extern  _fmemset
     global  _reloc_call_fmemset
@@ -795,12 +765,12 @@ _reloc_call_fmemset:
                 call manip_stack_A20
                 jmp far _fmemset
 
-    extern  _p_0
-    global  _reloc_call_p_0
-_reloc_call_p_0: 
+    extern  _memset
+    global  _reloc_call_memset
+_reloc_call_memset:
                 call manip_stack_A20
-                jmp far _p_0
-
+                jmp far _memset
+        
     global __HMAinitRelocationTableEnd
 __HMAinitRelocationTableEnd:
 
@@ -848,6 +818,11 @@ _int27_handler: jmp far reloc_call_int27_handler
                 global  _int0_handler
                 extern  reloc_call_int0_handler
 _int0_handler:  jmp far reloc_call_int0_handler
+                call near forceEnableA20
+
+                global  _int6_handler
+                extern  reloc_call_int6_handler
+_int6_handler:  jmp far reloc_call_int6_handler
                 call near forceEnableA20
 
                 global  _cpm_entry

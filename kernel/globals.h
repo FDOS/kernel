@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.11  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -199,6 +202,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #include "version.h"
 #include "network.h"
 #include "config.h"
+#include "buffer.h"
 
 /* JPP: for testing/debuging disk IO */
 /*#define DISPLAY_GETBLOCK */
@@ -226,26 +230,8 @@ static BYTE *Globals_hRcsId = "$Id$";
 /* Constants and macros                                                 */
 /*                                                                      */
 /* Defaults and limits - System wide                                    */
-#define PARSE_MAX       67      /* maximum # of bytes in path   */
-#define NFILES          16      /* number of files in table     */
-#define NFCBS           16      /* number of fcbs               */
-#define NSTACKS         8       /* number of stacks             */
-#define NLAST           6       /* last drive                   */
+#define PARSE_MAX       MAX_CDSPATH     /* maximum # of bytes in path   */
 #define NAMEMAX         PARSE_MAX	/* Maximum path for CDS         */
-#define NUMBUFF         6       /* Number of track buffers      */
-                                        /* -- must be at least 3        */
-
-/* 0 = CON, standard input, can be redirected                           */
-/* 1 = CON, standard output, can be redirected                          */
-/* 2 = CON, standard error                                              */
-/* 3 = AUX, auxiliary                                                   */
-/* 4 = PRN, list device                                                 */
-/* 5 = 1st user file ...                                                */
-#define STDIN           0
-#define STDOUT          1
-#define STDERR          2
-#define STDAUX          3
-#define STDPRN          4
 
 /* internal error from failure or aborted operation                     */
 #define ERROR           -1
@@ -296,45 +282,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #ifdef LINESIZE
 #undef LINESIZE
 #endif
-#define LINESIZE 256
-
-/*                                                                      */
-/* Data structures and unions                                           */
-/*                                                                      */
-/* Sector buffer structure                                              */
-#define BUFFERSIZE 512
-struct buffer
-{
-  struct buffer
-  FAR *b_next;                  /* form linked list for LRU     */
-  BYTE b_unit;                  /* disk for this buffer         */
-  BYTE b_flag;                  /* buffer flags                 */
-  ULONG b_blkno;                /* block for this buffer        */
-  /* DOS-C: 0xffff for huge block numbers */
-  BYTE b_copies;                /* number of copies to write    */
-  UBYTE b_offset_lo;            /* span between copies (low)                                                    */
-#if 0 /*TE*/
- union
-  {
-    struct dpb FAR *_b_dpbp;    /* pointer to DPB                                                                                                                                               */
-    LONG _b_huge_blkno;         /* DOS-C: actual block number if >= 0xffff */
-  }
-  _b;
-#endif  
-  UBYTE b_offset_hi;            /* DOS-C: span between copies (high) */
-  UBYTE b_unused;
-  BYTE b_buffer[BUFFERSIZE];    /* 512 byte sectors for now     */
-};
-
-#define b_dpbp          _b._b_dpbp
-#define b_huge_blkno    _b._b_huge_blkno
-
-#define BFR_DIRTY       0x40    /* buffer modified              */
-#define BFR_VALID       0x20    /* buffer contains valid data   */
-#define BFR_DATA        0x08    /* buffer is from data area     */
-#define BFR_DIR         0x04    /* buffer is from dir area      */
-#define BFR_FAT         0x02    /* buffer is from fat area      */
-#define BFR_BOOT        0x01    /* buffer is boot disk          */
+#define LINESIZE KBD_MAXLENGTH
 
 /* NLS character table type                                             */
 typedef BYTE *UPMAP;
@@ -381,9 +329,6 @@ extern struct ClockRecord
 /*                                                                      */
 /* Global variables                                                     */
 /*                                                                      */
-GLOBAL
-seg master_env;                 /* Master environment segment           */
-
 GLOBAL BYTE
   os_major,                     /* major version number                 */
   os_minor,                     /* minor version number                 */
@@ -417,14 +362,17 @@ GLOBAL WORD bDumpRdWrParms
 #endif
 #endif
 
-GLOBAL BYTE *copyright
+GLOBAL BYTE copyright[]
+#ifdef MAIN
 #if 0
-= "(C) Copyright 1995, 1996, 1997, 1998\nPasquale J. Villani\nAll Rights Reserved\n";
+= "(C) Copyright 1995, 1996, 1997, 1998\nPasquale J. Villani\nAll Rights Reserved\n"
 #else
- ;
+= ""
 #endif
+#endif
+;
 
-GLOBAL BYTE *os_release
+GLOBAL BYTE os_release[]
 #ifdef MAIN
 #if 0
 = "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n\
@@ -435,13 +383,13 @@ Foundation; either version 2, or (at your option) any later version.\n\n\
 For technical information and description of the DOS-C operating system\n\
 consult \"FreeDOS Kernel\" by Pat Villani, published by Miller\n\
 Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
-\n";
+\n"
 #else
-= "FreeDOS kernel version %d.%d.%d (Build %d) [" __DATE__ " " __TIME__ "]\n\n";
+= "FreeDOS kernel version %d.%d.%d"SUB_BUILD
+  " (Build %d"SUB_BUILD") [" __DATE__ " " __TIME__ "]\n\n"
 #endif
-#else
- ;
 #endif
+;
 
 /* Globally referenced variables - WARNING: ORDER IS DEFINED IN         */
 /* KERNAL.ASM AND MUST NOT BE CHANGED. DO NOT CHANGE ORDER BECAUSE THEY */
@@ -633,54 +581,6 @@ GLOBAL iregs
   FAR * ustackp,                /* user stack                           */
   FAR * kstackp;                /* kernel stack                         */
 
-/* Start of configuration variables                                     */
-extern struct config
-{
-  UBYTE cfgBuffers;             /* number of buffers in the system      */
-  UBYTE cfgFiles;               /* number of available files            */
-  UBYTE cfgFcbs;                /* number of available FCBs             */
-  UBYTE cfgProtFcbs;            /* number of protected FCBs             */
-  BYTE cfgInit[NAMEMAX];        /* init of command.com          */
-  BYTE cfgInitTail[NAMEMAX];    /* command.com's tail           */
-  UBYTE cfgLastdrive;           /* last drive                           */
-  BYTE cfgStacks;               /* number of stacks                     */
-  UWORD cfgStackSize;           /* stacks size for each stack           */
-   /* COUNTRY=
-       In Pass #1 these information is collected and in PostConfig()
-       the NLS package is loaded into memory.
-           -- 2000/06/11 ska*/
-  WORD cfgCSYS_cntry;          /* country ID to be loaded */
-  WORD cfgCSYS_cp;             /* requested codepage; NLS_DEFAULT if default */
-  BYTE cfgCSYS_fnam[NAMEMAX];  /* filename of COUNTRY= */
-  WORD cfgCSYS_memory;         /* number of bytes required for the NLS pkg;
-                                   0 if none */
-  VOID FAR *cfgCSYS_data;      /* where the loaded data is for PostConfig() */
-  UBYTE cfgP_0_startmode;      /* load command.com high or not */
-} Config
-#ifdef CONFIG
-=
-{
-  NUMBUFF,
-  NFILES,
-  NFCBS,
-  0,
-  "command.com",
-  " /P\r\n",
-  NLAST,
-  NSTACKS,
-  128
-       /* COUNTRY= is initialized within DoConfig() */
-     ,0                        /* country ID */
-     ,0                        /* codepage */
-     ,""                   /* filename */
-     ,0                        /* amount required memory */
-     ,0                        /* pointer to loaded data */
-     ,0                        /* strategy for command.com is low by default */
-};
-#else
-;
-#endif
-
 /*                                                                      */
 /* Function prototypes - automatically generated                        */
 /*                                                                      */
@@ -784,3 +684,5 @@ void handle_break(void);        /* break.c */
 
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
+
+GLOBAL COUNT UnusedRetVal;        /* put unused errors here (to save stack space) */

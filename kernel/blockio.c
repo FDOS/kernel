@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.8  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -232,14 +235,17 @@ VOID setblkno(struct buffer FAR * bp, ULONG blkno)
 /*
     this searches the buffer list for the given disk/block.
     
-    if found, the buffer is returned.
+    returns:
+    TRUE:
+        the buffer is found
+    FALSE:
+        the buffer is not found
+        *Buffp contains a block to flush and reuse later        
     
-    if not found, NULL is returned, and *pReplacebp
-    contains a buffer to throw out.
 */    
 
-struct buffer FAR *searchblock(ULONG blkno, COUNT dsk, 
-                            struct buffer FAR ** pReplacebp)
+BOOL searchblock(ULONG blkno, COUNT dsk, 
+                            struct buffer FAR ** pBuffp)
 {
     int    fat_count = 0;
     struct buffer FAR *bp;
@@ -271,8 +277,8 @@ struct buffer FAR *searchblock(ULONG blkno, COUNT dsk,
 #ifdef DISPLAY_GETBLOCK
       printf("HIT %04x:%04x]\n", FP_SEG(bp), FP_OFF(bp));
 #endif
-      
-      return (bp);
+      *pBuffp = bp;
+      return TRUE;
     }
 
     if (bp->b_flag & BFR_FAT)
@@ -290,7 +296,8 @@ struct buffer FAR *searchblock(ULONG blkno, COUNT dsk,
   {
     lbp = lastNonFat;  
   }
-  *pReplacebp = lbp;
+  
+  *pBuffp = lbp;
   
 #ifdef DISPLAY_GETBLOCK
   printf("MISS, replace %04x:%04x]\n", FP_SEG(lbp), FP_OFF(lbp));
@@ -306,7 +313,7 @@ struct buffer FAR *searchblock(ULONG blkno, COUNT dsk,
     firstbuf = lbp;
     }
   
-  return NULL;
+  return FALSE;
 }                                
 
 
@@ -322,16 +329,13 @@ struct buffer FAR *searchblock(ULONG blkno, COUNT dsk,
 struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
 {
     struct buffer FAR *bp;
-    struct buffer FAR *Replacebp;
 
 
 
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-    bp = searchblock(blkno, dsk, &Replacebp);
-    
-    if (bp)
+    if (searchblock(blkno, dsk, &bp))
     {
       return (bp);
     }
@@ -341,14 +345,22 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
 
 
   /* take the buffer that lbp points to and flush it, then read new block. */
-  if (flush1(Replacebp) && fill(Replacebp, blkno, dsk))     /* success             */
-  {
-    return Replacebp;
-  }
-  else
-  {
-    return NULL;
-  }
+  if (!flush1(bp))
+        return NULL;
+  
+            /* Fill the indicated disk buffer with the current track and sector */
+
+  if (dskxfer(dsk, blkno, (VOID FAR *) bp->b_buffer, 1, DSKREAD))
+    {
+        return NULL;
+    }
+
+  bp->b_flag = BFR_VALID | BFR_DATA;
+  bp->b_unit = dsk;
+  setblkno(bp, blkno);
+  
+  return bp;
+
 }
 
 /*
@@ -365,14 +377,11 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
 BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
 {
     struct buffer FAR *bp;
-    struct buffer FAR *Replacebp;
 
   /* Search through buffers to see if the required block  */
   /* is already in a buffer                               */
 
-    bp = searchblock(blkno, dsk, &Replacebp);
-    
-    if (bp)
+    if (searchblock(blkno, dsk, &bp))
     {
       *pbp = bp;
       return TRUE;
@@ -382,12 +391,12 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
   /* available. */
 
   /* take the buffer than lbp points to and flush it, then make it available. */
-  if (flush1(Replacebp))              /* success              */
+  if (flush1(bp))              /* success              */
   {
-    Replacebp->b_flag = 0;
-    Replacebp->b_unit = dsk;
-    setblkno(Replacebp, blkno);
-    *pbp = Replacebp;
+    bp->b_flag = 0;
+    bp->b_unit = dsk;
+    setblkno(bp, blkno);
+    *pbp = bp;
     return TRUE;
   }
   else
@@ -494,29 +503,6 @@ BOOL flush(void)
   return (ok);
 }
 
-/*                                                                      */
-/*      Fill the indicated disk buffer with the current track and sector */
-/*                                                                      */
-/* This function assumes that the buffer is ready for use and that the
-   sector is not already in the buffer ring  */
-BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk)
-{
-/* Changed 9/4/00 BER */  
-  UWORD result;
-
-  result = dskxfer(dsk, blkno, (VOID FAR *) bp->b_buffer, 1, DSKREAD);
-/* End of change */  
-  bp->b_flag = BFR_VALID | BFR_DATA;
-  bp->b_unit = dsk;
-  setblkno(bp, blkno);
-  
-/* Changed 9/4/00 BER */
-  if(result==0) return(TRUE);  /* Temporary code to convert the result to */
-  else return(FALSE);          /* the old BOOL result...BER               */
-
-  /* return (result);         This is what should eventually be returned */
-/* End of change */
-}
 
 /************************************************************************/
 /*                                                                      */

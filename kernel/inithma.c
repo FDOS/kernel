@@ -64,10 +64,15 @@
 */
 
 
+#include "portab.h"
 #include "init-mod.h"
 
-#include "portab.h"
-#include "globals.h"
+extern BYTE FAR   version_flags;              /* minor version number                 */
+
+extern BYTE
+    FAR _HMATextAvailable,        /* first byte of available CODE area    */
+    FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
+    FAR _HMATextEnd[]; /* and the last byte of it              */
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -75,6 +80,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.4  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -92,8 +100,8 @@ static BYTE *RcsId = "$Id$";
  */
  
  
-BYTE DosLoadedInHMA;          /* set to TRUE if loaded HIGH          */
-BYTE HMAclaimed;              /* set to TRUE if claimed from HIMEM   */
+BYTE DosLoadedInHMA=FALSE;    /* set to TRUE if loaded HIGH          */
+BYTE HMAclaimed=FALSE;        /* set to TRUE if claimed from HIMEM   */
 WORD HMAFree;                 /* first byte in HMA not yet used      */
  
 
@@ -387,16 +395,15 @@ int MoveKernelToHMA()
             UWORD jmpSegment;
         };
         extern struct initRelocationTable
-                    FAR _HMAinitRelocationTableStart[], 
-                    FAR _HMAinitRelocationTableEnd[];
-        struct initRelocationTable FAR *rp, FAR *endrp;
+                    _HMAinitRelocationTableStart[], 
+                    _HMAinitRelocationTableEnd[];
+        struct initRelocationTable *rp;
         
         /* verify, that all entries are valid */  
         
         UWORD HMATextSegment = FP_SEG( _HMATextStart );
-        endrp = MK_FP(_CS, FP_OFF(_HMAinitRelocationTableEnd));
 
-        for (rp = MK_FP(_CS, FP_OFF(_HMAinitRelocationTableStart)); rp < endrp; rp++)
+        for (rp = _HMAinitRelocationTableStart; rp < _HMAinitRelocationTableEnd; rp++)
         {
             if (
                 rp->callNear   != 0xe8              || /* call NEAR */
@@ -405,14 +412,14 @@ int MoveKernelToHMA()
                 0)
             {
                 printf("illegal init relocation entry # %d\n",
-                       FP_OFF(rp) - FP_OFF(_HMAinitRelocationTableStart));
+                       rp - _HMAinitRelocationTableStart);
                 goto errorReturn;
             }            
         }
           
         /* OK, all valid, go to relocate*/  
         
-        for (rp = MK_FP(_CS, FP_OFF(_HMAinitRelocationTableStart)); rp < endrp; rp++)
+        for (rp = _HMAinitRelocationTableStart; rp < _HMAinitRelocationTableEnd; rp++)
         {
             rp->jmpSegment = HMASEGMENT;
             rp->callOffset = rp->callOffset-5; /* near calls are relative */

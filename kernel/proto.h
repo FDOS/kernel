@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.14  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -166,8 +169,6 @@ static BYTE *Proto_hRcsId = "$Id$";
  *Initial revision.
  */
 
-#define INIT
-
 /* blockio.c */
 ULONG getblkno(struct buffer FAR *);
 VOID setblkno(struct buffer FAR *, ULONG);
@@ -193,23 +194,9 @@ BOOL con_break(void);
 BOOL StdinBusy(void);
 VOID KbdFlush(void);
 VOID Do_DosIdle_loop(void);
-VOID sti(keyboard FAR * kp);
+UCOUNT sti(keyboard FAR * kp);
 
 sft FAR *get_sft(COUNT);
-
-/* config.c */
-INIT VOID PreConfig(VOID);
-INIT VOID DoConfig(VOID);
-INIT VOID PostConfig(VOID);
-INIT BYTE *skipwh(BYTE * s);
-INIT BYTE *scan(BYTE * s, BYTE * d);
-INIT BOOL isnum(BYTE * pszString);
-INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
-INIT COUNT tolower(COUNT c);
-INIT COUNT toupper(COUNT c);
-INIT VOID mcb_init(mcb FAR * mcbp, UWORD size);
-INIT VOID strcat(REG BYTE * d, REG BYTE * s);
-INIT BYTE FAR *KernelAlloc(WORD nBytes);
 
 /* dosfns.c */
 BYTE FAR *get_root(BYTE FAR *);
@@ -218,7 +205,8 @@ BOOL check_break(void);
 UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
 		   BOOL force_binary);
 COUNT SftSeek(sft FAR *sftp, LONG new_pos, COUNT mode);
-UCOUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
+/* COUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err); */
+#define DosRead(hndl,n,bp,err) GenericRead(hndl, n, bp, err,FALSE)
 UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
 COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos);
 COUNT DosCreat(BYTE FAR * fname, COUNT attrib);
@@ -355,48 +343,8 @@ BOOL FcbClose(xfcb FAR * lpXfcb);
 BOOL FcbFindFirst(xfcb FAR * lpXfcb);
 BOOL FcbFindNext(xfcb FAR * lpXfcb);
 
-/* inithma.c */
-int MoveKernelToHMA(void);
-VOID FAR *HMAalloc(COUNT bytesToAllocate);
-
-/* initoem.c */
-UWORD init_oem(void);
-
-/* inthndlr.c */
-VOID INRPT far got_cbreak(void);        /* procsupt.asm */
-VOID INRPT far int20_handler(iregs UserRegs);
-VOID INRPT far int21_handler(iregs UserRegs);
-VOID far int21_entry(iregs UserRegs);
-VOID int21_service(iregs far * r);
-VOID INRPT FAR int22_handler(void);
-VOID INRPT FAR int23_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs, int flags);
-VOID INRPT FAR int24_handler(void);
-VOID INRPT FAR low_int25_handler(void);
-VOID INRPT FAR low_int26_handler(void);
-/* VOID int25_handler();
-VOID int26_handler();*/
-VOID INRPT FAR int27_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs, int flags);
-VOID INRPT FAR int28_handler(void);
-VOID INRPT FAR int2a_handler(void);
-VOID INRPT FAR int2f_handler(void);
-VOID INRPT FAR empty_handler(void);
-VOID INRPT FAR int0_handler(void);
-
-/* intr.asm */
-/* void init_call_intr(int nr, iregs *rp); */
-INIT COUNT init_DosRead(COUNT hndl, BYTE *bp, UCOUNT n);
-INIT COUNT init_DosOpen(BYTE *fname, COUNT mode);
-INIT COUNT init_DosClose(COUNT hndl);
-INIT VOID init_PSPInit(seg psp_seg);
-INIT VOID keycheck(VOID);
-
 /* ioctl.c */
 COUNT DosDevIOctl(iregs FAR * r);
-
-
-/* main.c */
-INIT VOID main(void);
-INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT top);
 
 /* memmgr.c */
 seg far2para(VOID FAR * p);
@@ -497,7 +445,6 @@ LONG WordToBcd(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr);
 /* syscon.c */
 WORD con_driver(rqptr rp);
 VOID break_handler(void);
-VOID INRPT FAR int29_handler(int es, int ds, int di, int si, int bp, int sp, int bx, int dx, int cx, int ax, int ip, int cs, int flags);
 
 /* syspack.c */
 VOID getdirent(BYTE FAR * vp, struct dirent FAR * dp);
@@ -520,10 +467,6 @@ VOID new_psp(psp FAR * p, int psize);
 VOID return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
 VOID InitPSP(VOID);
-VOID p_0(VOID);
-
-/* irqstack.asm */
-VOID init_stacks(VOID FAR * stack_base, COUNT nStacks, WORD stackSize);
 
 /* newstuff.c */
 int SetJFTSize(UWORD nHandles);
@@ -534,8 +477,6 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t);
 /* network.c */
 COUNT int2f_Remote_call(UWORD func, UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
 COUNT QRemote_Fn(char FAR * s, char FAR * d);
-
-COUNT Umb_Test(void);
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);

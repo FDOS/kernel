@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.12  2001/04/16 14:28:32  bartoldeman
  * Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
  *
@@ -157,9 +160,9 @@ static BYTE *RcsId = "$Id$";
  *    Rev 1.0   02 Jul 1995  8:34:06   patv
  * Initial revision.
  */
-
+#if 0
 extern VOID ClaimINITDataSegment(VOID);
-
+#endif
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))
 
 #define LOADNGO 0
@@ -451,8 +454,8 @@ set_name:
 
 COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
-  COUNT rc,
-    err
+  COUNT rc
+    /* err     */
     /*,env_size*/;
   COUNT nread;
   UWORD mem;
@@ -553,7 +556,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     }
     do
     {
-      nread = DosRead(rc, CHUNK, sp, &err);
+      nread = DosRead(rc, CHUNK, sp, &UnusedRetVal);
       sp = add_far((VOID FAR *) sp, (ULONG) nread);
     }
     while ((com_size -= nread) > 0 && nread == CHUNK);
@@ -604,8 +607,8 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
            now we 1 microsecond from COMMAND.COM
            now we claim the ID = INIT_DATA segment,
            which should no longer be used
-        */
         ClaimINITDataSegment();
+        */
 
         if (InDOS)
           --InDOS;
@@ -668,7 +671,7 @@ VOID return_user(void)
 COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
   COUNT rc,
-    err,
+    /*err,     */
     /*env_size,*/
     i;
   COUNT nBytesRead;
@@ -883,7 +886,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
     do
     {
-      nBytesRead = DosRead((COUNT) rc, (COUNT) (exe_size < CHUNK ? exe_size : CHUNK), (VOID FAR *) sp, &err);
+      nBytesRead = DosRead((COUNT) rc, (COUNT) (exe_size < CHUNK ? exe_size : CHUNK), (VOID FAR *) sp, &UnusedRetVal);
       sp = add_far((VOID FAR *) sp, (ULONG) nBytesRead);
       exe_size -= nBytesRead;
     }
@@ -894,7 +897,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   doslseek(rc, (LONG) header.exRelocTable, 0);
   for (i = 0; i < header.exRelocItems; i++)
   {
-    if (DosRead(rc, sizeof(reloc), (VOID FAR *) & reloc[0], &err) != sizeof(reloc))
+    if (DosRead(rc, sizeof(reloc), (VOID FAR *) & reloc[0], &UnusedRetVal) != sizeof(reloc))
     {
       return DE_INVLDDATA;
     }
@@ -960,8 +963,8 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
          now we 1 microsecond from COMMAND.COM
          now we claim the ID = INIT_DATA segment,
          which should no longer be used
-      */
       ClaimINITDataSegment();
+      */
 
       if (InDOS)
         --InDOS;
@@ -987,8 +990,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
  */
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
 {
-  COUNT rc,
-    err;
+  COUNT rc;
   exec_blk leb;
 
 /*  BYTE FAR *cp;*/
@@ -1003,7 +1005,7 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   }
 
 
-  if (DosRead(rc, sizeof(exe_header), (VOID FAR *) & header, &err)
+  if (DosRead(rc, sizeof(exe_header), (VOID FAR *) & header, &UnusedRetVal)
       != sizeof(exe_header))
   {
     bIsCom = TRUE;
@@ -1024,32 +1026,4 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   return rc;
 }
 
-/* process 0       */
-VOID p_0(VOID)
-{
-  exec_blk exb;
-  CommandTail Cmd;
-  BYTE FAR *szfInitialPrgm = (BYTE FAR *) Config.cfgInit;
-  int rc;
-
-  /* Execute command.com /P from the drive we just booted from    */
-  exb.exec.env_seg = master_env;
-  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail)-1);
-
-  for (Cmd.ctCount = 0; Cmd.ctCount < 127; Cmd.ctCount++)
-    if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
-      break;
-
-  exb.exec.cmd_line = (CommandTail FAR *) & Cmd;
-  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0;
-#ifdef DEBUG
-  printf("Process 0 starting: %s\n\n", (BYTE *) szfInitialPrgm);
-#endif
-  if ((rc = DosExec(Config.cfgP_0_startmode,
-                    (exec_blk FAR *) & exb, szfInitialPrgm)) != SUCCESS)
-    printf("\nBad or missing Command Interpreter: %d\n", rc);
-  else
-    printf("\nSystem shutdown complete\nReboot now.\n");
-  for (;;) ;
-}
 

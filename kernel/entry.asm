@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.13  2001/04/21 22:32:53  bartoldeman
+; Init DS=Init CS, fixed stack overflow problems and misc bugs.
+;
 ; Revision 1.12  2001/04/16 14:28:32  bartoldeman
 ; Kernel build 2024. Fixed critical error handler/config.sys/makefiles/UMBs
 ;
@@ -191,6 +194,7 @@ cpm_error:      mov     al,0
 ; NOTE: On exit, DS must point to kernel stack, SS:SP user stack after
 ; PUSH$ALL and BP == SP.
 ;
+%if 0 ; this is dead code now
 _RestartSysCall:
                 cli                     ; no interrupts
                 mov     bp,word [_lpUserStack+2] ;Get frame
@@ -200,6 +204,7 @@ _RestartSysCall:
                 sti
                 POP$ALL                 ; get the original regs
                 jmp     short int21_reentry     ; restart the system call
+%endif
 
 
 ;
@@ -234,6 +239,14 @@ zero_message_loop:
 zero_done:
                 mov ax,04c7fh       ; terminate with errorlevel 127                                                
                 int 21h
+
+invalid_opcode_message db 0dh,0ah,'Invalid Opcode',0dh,0ah,0
+
+                global reloc_call_int6_handler
+reloc_call_int6_handler:
+
+                mov si,invalid_opcode_message
+                jmp short zero_message_loop        
 
 ;
 ; Terminate the current process
@@ -273,11 +286,10 @@ reloc_call_int21_handler:
                 ; NB: At this point, SS != DS and won't be set that way
                 ; until later when which stack to run on is determined.
                 ;
-int21_reentry_crit:        
+int21_reentry:
                 mov     dx,DGROUP
                 mov     ds,dx
 
-int21_reentry:
                 cmp     ah,33h
                 je      int21_user
                 cmp     ah,50h
@@ -691,4 +703,4 @@ CritErrAbort:
                 mov     ax,4C00h
                 mov     [bp+reg_ax],ax
                 sti
-                jmp     int21_reentry_crit         ; restart the system call
+                jmp     int21_reentry              ; restart the system call

@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.15  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -823,7 +826,10 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
     COUNT ret;
 
     if ((ret = extend_dir(fnp2)) != SUCCESS)
+    {
+      dir_close(fnp1);
       return ret;
+    }
   }
 
   if (!find_fname(fnp1, szPriFileName, szPriFileExt))
@@ -1411,7 +1417,6 @@ COUNT map_cluster(REG struct f_node FAR * fnp, COUNT mode)
 {
   ULONG idx;
   UWORD clssize;
-  UWORD secsize;
 
 #ifdef DISPLAY_GETBLOCK
   printf("map_cluster: current %lu, offset %lu, diff=%lu ",
@@ -1419,8 +1424,7 @@ COUNT map_cluster(REG struct f_node FAR * fnp, COUNT mode)
          fnp->f_offset - fnp->f_cluster_offset);
 #endif
   /* The variable clssize will be used later.             */
-  secsize = fnp->f_dpb->dpb_secsize;
-  clssize = secsize * (fnp->f_dpb->dpb_clsmask + 1);
+  clssize = fnp->f_dpb->dpb_secsize * (fnp->f_dpb->dpb_clsmask + 1);
 
   /* If someone did a seek, but no writes have occured, we will   */
   /* need to initialize the fnode.                                */

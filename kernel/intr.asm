@@ -51,9 +51,9 @@ intr?2			mov bx, [bp+6]			; regpack structure
 				mov ax, [bx]
 				mov cx, [bx+4]
 				mov dx, [bx+6]
-				mov bp, [bx+8]
+				mov si, [bx+8]
 				mov di, [bx+10]
-				mov si, [bx+12]
+				mov bp, [bx+12]
 				push Word [bx+14]			; ds
 				mov es, [bx+16]
 				mov bx, [bx+2]
@@ -73,14 +73,14 @@ intr?1:
 				mov [bx+2], ax
 				mov [bx+4], cx
 				mov [bx+6], dx
-				mov [bx+8], bp
+				mov [bx+8], si
 				mov [bx+10], di
-				mov [bx+12], si
+				mov [bx+12], bp
 				pop ax
 				mov [bx+14], ax
 				mov [bx+16], es
 				pop ax
-				mov [bx+18], ax
+				mov [bx+22], ax
 
 			    pop     es
 				pop		ds
@@ -120,9 +120,9 @@ init_intr?2 	mov bx, [bp+6]			; regpack structure
 				mov ax, [bx]
 				mov cx, [bx+4]
 				mov dx, [bx+6]
-				mov bp, [bx+8]
+				mov si, [bx+8]
 				mov di, [bx+10]
-				mov si, [bx+12]
+				mov bp, [bx+12]
 				push Word [bx+14]			; ds
 				mov es, [bx+16]
 				mov bx, [bx+2]
@@ -142,14 +142,14 @@ init_intr?1:
 				mov [bx+2], ax
 				mov [bx+4], cx
 				mov [bx+6], dx
-				mov [bx+8], bp
+				mov [bx+8], si
 				mov [bx+10], di
-				mov [bx+12], si
+				mov [bx+12], bp
 				pop ax
 				mov [bx+14], ax
 				mov [bx+16], es
 				pop ax
-				mov [bx+18], ax
+				mov [bx+22], ax
 
 			    pop     es
 				pop		ds
@@ -207,9 +207,9 @@ _keycheck:
         int 16h
         ret                
 
-;; COUNT init_DosOpen(BYTE *fname, COUNT mode)
-    global _init_DosOpen
-_init_DosOpen: 
+;; int open(const char *pathname, int flags); 
+    global _open
+_open: 
         ;; first implementation of init calling DOS through ints:
         mov bx, sp
         mov ah, 3dh
@@ -217,34 +217,45 @@ _init_DosOpen:
         mov al, [bx+4]
         mov dx, [bx+2]
         int 21h
-common_exit:        
-        jnc open_no_error
         ;; AX has file handle
-        neg ax
-        ;; negative value for error code
-open_no_error:
+
+common_exit:        
+        jnc common_no_error
+common_error:
+        mov ax, -1
+common_no_error:
         ret
 
-;; COUNT init_DosClose(COUNT hndl)
-    global _init_DosClose
-_init_DosClose:
+;; int close(int fd);
+    global _close
+_close:         
         mov bx, sp
         mov bx, [bx+2]
         mov ah, 3eh
         int 21h
-        jmp common_exit
+        jmp short common_exit
 
-;; COUNT init_DosRead(COUNT hndl, BYTE *bp, UCOUNT n)
-    global _init_DosRead
-_init_DosRead:
+;; UCOUNT read(int fd, void *buf, UCOUNT count); 
+    global _read
+_read: 
         mov bx, sp
         mov cx, [bx+6]
         mov dx, [bx+4]
         mov bx, [bx+2]
         mov ah, 3fh
         int 21h
-        jmp common_exit
+        jmp short common_exit
 
+;; int dup2(int oldfd, int newfd); 
+    global _dup2
+_dup2:
+        mov bx, sp
+        mov cx, [bx+4]
+        mov bx, [bx+2]
+        mov ah, 46h
+        int 21h
+        jmp short common_exit
+        
 ;; VOID init_PSPInit(seg psp_seg)
     global _init_PSPInit
 _init_PSPInit:        
@@ -255,5 +266,35 @@ _init_PSPInit:
         xor si, si
         int 21h
         pop si
+        ret
+
+;; COUNT init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
+    global _init_DosExec
+_init_DosExec:        
+        mov ah, 4bh
+        mov bx, sp
+        mov al, [bx+2]
+        push ds
+        pop es
+        mov dx, [bx+6]          ; filename
+        mov bx, [bx+4]          ; exec block
+        int 21h
+        jc short exec_no_error
+        xor ax, ax
+exec_no_error        
+        ret
+
+;; int allocmem(UWORD size, seg *segp)
+    global _allocmem
+_allocmem:        
+        mov ah, 48h
+        mov bx, sp
+        mov bx, [bx+2]
+        int 21h
+        jc short common_error
+        mov bx, sp
+        mov bx, [bx+4]
+        mov [bx], ax
+        xor ax, ax
         ret
                         

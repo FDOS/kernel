@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.13  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -698,7 +701,7 @@ DUL_exit:
     it will be useful (maybe for storing environments)
 
 */
-
+#if 0
 BYTE INITDataSegmentClaimed = 1; /* must be enabled by CONFIG.SYS */
 extern BYTE _INIT_DATA_START[], _INIT_DATA_END[];
 
@@ -739,5 +742,5 @@ VOID ClaimINITDataSegment()
     first_mcb = FP_SEG(p) + (FP_OFF(p) >> 4);
 
 }
-
+#endif
 #endif

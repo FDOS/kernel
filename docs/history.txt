@@ -1,3 +1,28 @@
+2001 Apr 21 - Build 2024
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Tom:
+         * fixed a missing close_dir in fatfs.c.
+         * many reductions of stack space requirements.
+         we hope this fixes some FAT corruption problems.
+         Bart:
+         * fixed "copy con" and INT21/AH=0B. The SFT_FEOF flag,
+           strangely enough, if true indicates NOT end-of-file.
+         Alan Kamrowski
+         * fixed intr: it wasn't putting the flags back correctly
+           and swapped si and bp.
++ Update Bart:
+         * Changed initialization data segment to its code segment.
+           This frees up a few more kb.
+         * This required some header reorganisation:
+           init-mod.h is for the init modules, globals.h for all the
+           others.  
+         * Eliminated the master environment, as it is normally
+           managed by command.com, not by the kernel. This saves 512 
+           bytes and command.com now copies a default environment from
+           0068:0000; this is in the DOS_PSP at 60:0.
+         * Moved low memory code segment to 70:0.  
++ Add    Tom:
+         * Default interrupt 6 handler (invalid opcode).
 2001 Apr 16 - Build 2024
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  * Use turboc.cfg to avoid long command lines; edit ALLCFLAGS

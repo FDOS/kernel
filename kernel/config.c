@@ -27,12 +27,52 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
-#define CONFIG
+#include "portab.h"
 #include "init-mod.h"
 
-#include "portab.h"
-#include "globals.h"
-#include "nls.h"
+/*
+  These are the far variables from the DOS data segment that we need here. The
+  init procedure uses a different default DS data segment, which is discarded
+  after use. I hope to clean this up to use the DOS List of List and Swappable
+  Data Area obtained via INT21.
+
+  -- Bart
+ */
+extern struct buffer FAR * FAR lastbuf;/* tail of ditto                        */
+extern struct f_node FAR * FAR f_nodes; /* pointer to the array                 */
+extern UWORD FAR f_nodes_cnt,           /* number of allocated f_nodes          */
+             FAR first_mcb;             /* Start of user memory                 */
+
+extern UBYTE FAR lastdrive, FAR nblkdev, FAR mem_access_mode,
+             FAR uppermem_link;
+extern struct dhdr 
+    FAR blk_dev,               /* Block device (Disk) driver           */
+    FAR nul_dev;
+extern struct buffer FAR * FAR firstbuf;          /* head of buffers linked list          */
+
+extern struct dpb FAR * FAR DPBp;
+/* First drive Parameter Block          */
+extern cdstbl FAR * FAR CDSp;
+/* Current Directory Structure          */
+extern sfttbl FAR * FAR sfthead;
+/* System File Table head               */
+extern sfttbl FAR * FAR FCBp;
+
+extern BYTE FAR VgaSet,
+            FAR _HMATextAvailable,        /* first byte of available CODE area    */
+            FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
+            FAR _HMATextEnd[],
+            FAR break_ena,                    /* break enabled flag                   */
+            FAR os_major,                     /* major version number                 */
+            FAR os_minor,                     /* minor version number                 */
+            FAR switchar,
+            FAR _InitTextStart,          /* first available byte of ram          */
+            FAR ReturnAnyDosVersionExpected;
+
+extern UWORD FAR ram_top,                /* How much ram in Kbytes               */
+    FAR UMB_top,
+    FAR umb_start,
+    FAR uppermem_root;
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -40,6 +80,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.21  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.20  2001/04/16 14:44:29  bartoldeman
  * Removed debug printf.
  *
@@ -178,28 +221,44 @@ static BYTE *RcsId = "$Id$";
  * Added NLS, int2f and config.sys processing
  */
 
-#ifdef __TURBOC__
-    void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
-    #define int3() __int__(3);
-#endif
-
-
 #ifdef KDB
 #include <alloc.h>
 
 #define KernelAlloc(x) adjust_far((void far *)malloc((unsigned long)(x)))
 #endif
 
-BYTE FAR *lpBase = 0;
-BYTE FAR *upBase = 0;
-static BYTE FAR *lpOldLast = 0;
-static COUNT nCfgLine = 0;
-static COUNT nPass = 0;
-       COUNT UmbState = 0;
-static BYTE szLine[256]={0};
-static BYTE szBuf[256]={0};
+struct config Config
+ =
+ {
+     NUMBUFF,
+     NFILES,
+     NFCBS,
+     0,
+     "command.com",
+     " /P\r\n",
+     NLAST,
+     NSTACKS,
+       128
+     /* COUNTRY= is initialized within DoConfig() */
+     ,0                        /* country ID */
+     ,0                        /* codepage */
+     ,""                   /* filename */
+     ,0                        /* amount required memory */
+     ,0                        /* pointer to loaded data */
+     ,0                        /* strategy for command.com is low by default */
+ }
+;
 
-int singleStep = 0;
+BYTE FAR *lpBase;
+BYTE FAR *upBase;
+static BYTE FAR *lpOldLast;
+static COUNT nCfgLine;
+static COUNT nPass;
+       COUNT UmbState;
+static BYTE szLine[256];
+static BYTE szBuf[256];
+
+int singleStep;
 
 INIT VOID  zumcb_init(mcb FAR * mcbp, UWORD size);
 INIT VOID  mumcb_init(mcb FAR * mcbp, UWORD size);
@@ -233,10 +292,6 @@ INIT COUNT strcasecmp(REG BYTE *d, REG BYTE *s);
 
 extern void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers); /* from BLOCKIO.C */
-
-extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
-
-
 
 INIT static VOID FAR *AlignParagraph(VOID FAR * lpPtr);
 #ifndef I86
@@ -287,7 +342,7 @@ INIT BYTE FAR *KernelAllocDma(WORD);
 
 BYTE *pLineStart;
 
-BYTE HMATextIsAvailable = 0;
+BYTE HMATextIsAvailable;
 
 void FAR * ConfigAlloc(COUNT bytes)
 {
@@ -320,7 +375,10 @@ INIT void PreConfig(void)
       lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _InitTextStart);
 
 #ifdef DEBUG
+ {
+  extern BYTE FAR internal_data[];
   printf("SDA located at 0x%p\n", internal_data);
+ }
 #endif
   /* Begin by initializing our system buffers                     */
   /* the dms_scratch buffer is statically allocated
@@ -447,7 +505,6 @@ INIT void PostConfig(void)
 
 
 #ifdef DEBUG
-
   printf("f_node    allocated at 0x%p\n",f_nodes);
   printf("FCB table allocated at 0x%p\n",FCBp);
   printf("sft table allocated at 0x%p\n",sfthead);
@@ -532,12 +589,12 @@ INIT VOID DoConfig(VOID)
 
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
-  if ((nFileDesc = init_DosOpen("fdconfig.sys", 0)) < 0)
+  if ((nFileDesc = open("fdconfig.sys", 0)) < 0)
   {
 #ifdef DEBUG
     printf("FDCONFIG.SYS not found\n");
 #endif
-    if ((nFileDesc = init_DosOpen("config.sys", 0)) < 0)
+    if ((nFileDesc = open("config.sys", 0)) < 0)
     {
 #ifdef DEBUG
       printf("CONFIG.SYS not found\n");
@@ -578,7 +635,7 @@ INIT VOID DoConfig(VOID)
 
     /* Read a line from config                              */
     /* Interrupt processing if read error or no bytes read  */
-    if ((nRetCode = init_DosRead(nFileDesc, pLine, LINESIZE - bytesLeft)) <= 0)
+    if ((nRetCode = read(nFileDesc, pLine, LINESIZE - bytesLeft)) <= 0)
       break;
 
     /* If the buffer was not filled completely, append a
@@ -653,7 +710,7 @@ INIT VOID DoConfig(VOID)
       pLine += strlen(pLine) + 1;
     }
   }
-  init_DosClose(nFileDesc);
+  close(nFileDesc);
 }
 
 INIT struct table *LookUp(struct table *p, BYTE * token)
@@ -671,14 +728,10 @@ INIT struct table *LookUp(struct table *p, BYTE * token)
 INIT BOOL SkipLine(char *pLine)
 {
   char kbdbuf[16];
-  keyboard *kp = (keyboard *) kbdbuf;
-  char *pKbd = &kp->kb_buf[0];
-
-  kp->kb_size = 12;
-  kp->kb_count = 0;
+  char *pKbd = kbdbuf;
 
   printf("%s [Y,N]?", pLine);
-  sti(kp);
+  read(STDIN, kbdbuf, 12);
 
   pKbd = skipwh(pKbd);
 
@@ -809,7 +862,7 @@ INIT static VOID Dosmem(BYTE * pLine)
     BYTE *pTmp;
     BYTE  UMBwanted = FALSE, HMAwanted = FALSE;
 
-    extern BYTE INITDataSegmentClaimed;
+/*    extern BYTE FAR INITDataSegmentClaimed; */
 
     pLine = GetStringArg(pLine, szBuf);
 
@@ -822,7 +875,7 @@ INIT static VOID Dosmem(BYTE * pLine)
     {
         if (fmemcmp(pTmp, "UMB" ,3) == 0) { UMBwanted = TRUE; pTmp += 3; }
         if (fmemcmp(pTmp, "HIGH",4) == 0) { HMAwanted = TRUE; pTmp += 4; }
-        if (fmemcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }
+/*        if (fmemcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }*/
         pTmp = skipwh(pTmp);
 
         if (*pTmp != ',')
@@ -1046,40 +1099,18 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 #endif
 
 
-  if (DosExec(3, &eb, szBuf) == SUCCESS)
+  if (init_DosExec(3, &eb, szBuf) == SUCCESS)
   {
-        /*  that's a nice hack >:-)   
-        
-            although we don't want HIMEM.SYS,(it's not free), other people
-            might load HIMEM.SYS to see if they are compatible to it.
+        strcpy(szBuf, pLine);
     
-            if it's HIMEM.SYS, we won't survive TESTMEM:ON
-            
-            so simply add TESTMEM:OFF to the commandline
-        */
-    
-        if (DosLoadedInHMA)
-            if (stristr(szBuf, "HIMEM.SYS") != NULL)
-            {
-                if (stristr(pLine, "/TESTMEM:OFF") == NULL)
-                    {
-                    strcpy(szBuf+2, pLine);
-		    pLine=szBuf+2;
-                    strcat(pLine, " /TESTMEM:OFF");
-                    }
-            }
-        /* end of HIMEM.SYS HACK */ 
-
         /* add \r\n to the command line */
-        pLine-=2;
-        strcpy(pLine, pLine+2);
-        strcat(pLine, "\r\n");
+        strcat(szBuf, "\r\n");
 
     /* TE this fixes the loading of devices drivers with
        multiple devices in it. NUMEGA's SoftIce is such a beast
     */   
     for (next_dhp=NULL; FP_OFF(next_dhp) != 0xffff &&
-             (result=init_device(dhp, pLine, mode, top))==SUCCESS
+             (result=init_device(dhp, szBuf, mode, top))==SUCCESS
             ; dhp = next_dhp)
     { 
       next_dhp = dhp->dh_next;

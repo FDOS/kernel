@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.6  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -295,19 +298,21 @@ static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
   }
 }
 
-VOID sti(keyboard FAR * kp)
+/* return number of characters before EOF if there is one, else just the total */
+UCOUNT sti(keyboard FAR * kp)
 {
   REG UWORD c,
     cu_pos = scr_pos;
   UWORD
       virt_pos = scr_pos;
   WORD init_count = kp->kb_count;
+  BOOL eof = FALSE;
 #ifndef NOSPCL
   static BYTE local_buffer[LINESIZE];
 #endif
 
   if (kp->kb_size == 0)
-    return;
+    return eof;
   if (kp->kb_size <= kp->kb_count || kp->kb_buf[kp->kb_count] != CR)
     kp->kb_count = 0;
   FOREVER
@@ -391,7 +396,10 @@ VOID sti(keyboard FAR * kp)
                (BYTE FAR *) local_buffer, (COUNT) kp->kb_count);
         local_buffer[kp->kb_count] = '\0';
 #endif
-        return;
+        if (eof)
+          return eof;
+        else
+          return kp->kb_count;
 
       case LF:
         sto(CR);
@@ -405,8 +413,12 @@ VOID sti(keyboard FAR * kp)
         for (c = 0; c < cu_pos; c++)
           sto(' ');
         kp->kb_count = init_count;
+        eof = FALSE;
         break;
 
+      case CTL_Z:
+        eof = kp->kb_count;
+        /* fall through */
       default:
         kbfill(kp, c, FALSE, &virt_pos);
         break;

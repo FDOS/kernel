@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.7  2001/04/21 22:32:53  bartoldeman
+; Init DS=Init CS, fixed stack overflow problems and misc bugs.
+;
 ; Revision 1.6  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -102,7 +105,7 @@ segment	HMA_TEXT
 _execrh:
                 push    bp              ; perform c entry
                 mov     bp,sp
-                push    bx              ; random char on display
+;                push    bx              ; random char on display
                 push    si
                 push    es              ; sometimes it get lost
                 push    ds              ; sp=bp-8
@@ -129,6 +132,6 @@ _execrh:
                 pop     ds
                 pop     es
                 pop     si
-                pop     bx
+;                pop     bx
                 pop     bp
                 ret

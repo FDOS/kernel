@@ -28,6 +28,17 @@
 
 #include "portab.h"
 
+#ifdef FORINIT
+#define fstrlen reloc_call_fstrlen
+#define put_console init_put_console
+#define ltob init_ltob
+#define do_printf init_do_printf
+#define printf init_printf
+#define sprintf init_sprintf
+#define charp init_charp
+#define hexd init_hexd
+#endif
+
 COUNT fstrlen (BYTE FAR * s);        /* don't want globals.h, sorry */
 
 
@@ -37,6 +48,9 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.8  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -53,6 +67,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.9  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.8  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -377,7 +394,7 @@ do_outputstring:
 void hexd(char *title,UBYTE FAR *p,COUNT numBytes)
 {
     int loop;
-    printf("%s%04x|",title,p);
+    printf("%s%04x|", title, FP_SEG(p));
     for (loop = 0; loop < numBytes; loop++)
         printf("%02x ", p[loop]);
     printf("|");

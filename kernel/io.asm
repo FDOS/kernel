@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.8  2001/04/21 22:32:53  bartoldeman
+; Init DS=Init CS, fixed stack overflow problems and misc bugs.
+;
 ; Revision 1.7  2001/03/21 02:56:26  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -191,7 +194,7 @@ _Com4Dev        dw      _clk_dev,TGROUP
                 global  _clk_dev
 _clk_dev        equ     $
                 dw      _blk_dev,TGROUP
-                dw      8004h           ; clock device
+                dw      8008h           ; clock device
                 dw      GenStrategy
                 dw      clk_entry
                 db      'CLOCK$  '
@@ -540,13 +543,8 @@ blk_entry:
                 pushf
                 push    ax
                 push    bx
-                push    cx
-                push    dx
-                push    bp
-                push    si
-                push    di
                 push    ds
-                push    es
+
                 
                 ; small model
                 mov     ax,DGROUP                   ; correct for segments
@@ -560,24 +558,39 @@ blk_entry:
                 mov     sp,blk_stk_top
                 push    bx
                 popf                                    ; restore interrupt flag
-                mov     bp,sp                           ; make a c frame
+
+
+                push    cx                          ; push these registers on
+                push    dx                          ; BLK_STACK
+                push    bp                          ; to save stack space
+                push    si
+                push    di
+                push    es
+                
+                
                 push    word [cs:_ReqPktPtr+2]
                 push    word [cs:_ReqPktPtr]
                 call    far _reloc_call_blk_driver
                 pop     cx
                 pop     cx
+                
                 les     bx,[cs:_ReqPktPtr]		; now return completion code
                 mov     word [es:bx+status],ax  ; mark operation complete
-                cli                             ; no interrupts
-                mov     sp,[blk_dos_stk]		; use dos stack
-                mov     ss,[blk_dos_seg]
+                
+                
                 pop     es
-                pop     ds
                 pop     di
                 pop     si
                 pop     bp
                 pop     dx
                 pop     cx
+                
+                cli                             ; no interrupts
+                mov     sp,[blk_dos_stk]		; use dos stack
+                mov     ss,[blk_dos_seg]
+
+
+                pop     ds
                 pop     bx
                 pop     ax
                 popf

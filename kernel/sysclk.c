@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.5  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -130,15 +133,48 @@ static BYTE bcdSeconds;
 static ULONG Ticks;
 UWORD DaysSinceEpoch = 0;
 
+BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
+
+static COUNT BcdToByte(COUNT x)
+{
+  return ((((x) >> 4) & 0xf) * 10 + ((x) & 0xf));
+}
+
 WORD FAR clk_driver(rqptr rp)
 {
   COUNT 
     c;
   WORD *pdays;
-
+  BYTE bcd_days[4],
+    bcd_minutes,
+    bcd_hours,
+    bcd_seconds;
+  ULONG ticks;
+  
   switch (rp->r_command)
   {
     case C_INIT:
+      /* If AT clock exists, copy AT clock time to system clock */
+      if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
+      {
+        DaysSinceEpoch = DaysFromYearMonthDay(
+                        100 * BcdToByte(bcd_days[3]) + BcdToByte(bcd_days[2]),
+                        BcdToByte(bcd_days[1]),
+                        BcdToByte(bcd_days[0]) );
+
+      /*
+       * This is a rather tricky calculation. The number of timer ticks per
+       * second is not exactly 18.2, but rather 0x1800b0 / 86400 = 19663 / 1080
+       * (the timer interrupt updates the midnight flag when the tick count
+       * reaches 0x1800b0). Fortunately, 86400 * 19663 = 1698883200 < ULONG_MAX,
+       * so we can simply multiply the number of seconds by 19663 without
+       * worrying about overflow. :) -- ror4
+       */
+        ticks = (3600ul * BcdToByte(bcd_hours) +
+               60ul * BcdToByte(bcd_minutes) +
+               BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
+        WritePCClock(ticks);
+      }
       rp->r_endaddr = device_end();
       rp->r_nunits = 0;
       return S_DONE;

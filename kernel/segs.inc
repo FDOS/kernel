@@ -29,6 +29,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.6  2001/04/21 22:32:53  bartoldeman
+; Init DS=Init CS, fixed stack overflow problems and misc bugs.
+;
 ; Revision 1.5  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -60,11 +63,13 @@
 ; $EndLog
 ;
 
+group   PGROUP          PSP
 group	TGROUP		_TEXT _IO_TEXT _IO_FIXED_DATA 
-group	DGROUP		_FIXED_DATA _DATA _BSS _BSSEND ID_B ID ID_E
+group	DGROUP		_FIXED_DATA _DATA _BSSSTART _BSS _BSSEND 
 group	HGROUP		HMA_TEXT_START HMA_TEXT HMA_TEXT_END
-group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END
+group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IB_B IB IB_E
 
+segment PSP             class=PSP
 segment	_TEXT		class=CODE
 segment	_IO_TEXT	class=CODE
 segment	_IO_FIXED_DATA	class=CODE align=2
@@ -73,13 +78,16 @@ segment	_DATA		class=DATA align=2
 segment	_BSSSTART       class=BSS align=2
 segment	_BSS		class=BSS align=2
 segment	_BSSEND		class=BSS
-segment ID_B            class=ID   align=2
-segment ID              class=ID   align=2
-segment ID_E            class=ID   align=2
 segment	HMA_TEXT_START	class=HMA
 segment	HMA_TEXT	class=HMA
 segment	HMA_TEXT_END	class=HMA
 segment	INIT_TEXT_START	class=INIT align=16
 segment	INIT_TEXT	class=INIT
 segment	INIT_TEXT_END	class=INIT
+segment ID_B            class=ID   align=2
+segment ID              class=ID   align=2
+segment ID_E            class=ID   align=2
+segment	IB_B      	class=IB   align=2
+segment	IB      	class=IB   align=2     
+segment	IB_E      	class=IB   align=2
 

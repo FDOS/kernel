@@ -27,10 +27,8 @@
 /*                                                              */
 /****************************************************************/
 
-#include "init-mod.h"
-
 #include "portab.h"
-#include "globals.h"
+#include "init-mod.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -38,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/21 22:32:53  bartoldeman
+ * Init DS=Init CS, fixed stack overflow problems and misc bugs.
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
