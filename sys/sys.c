@@ -26,16 +26,26 @@
 
 ***************************************************************/
 /* $Log$
- * Revision 1.8  2001/09/23 20:39:44  bartoldeman
- *    version 2.1a jeremyd 2001/8/19
- *    modified so takes optional 2nd parameter (similar to PC DOS)
- *    where if only 1 argument is given, assume to be destination drive,
- *    but if two arguments given, 1st is source (drive and/or path)
- *    and second is destination drive
+ * Revision 1.9  2001/09/24 02:21:14  bartoldeman
+ * /* version 2.2 jeremyd 2001/9/20
+ *    Changed so if no source given or only source drive (no path)
+ *    given, then checks for kernel.sys & command.com in current
+ *    path (of current drive or given drive) and if not there
+ *    uses root (but only if source & destination drive are different).
+ *    Fix printf to include count(ret) if copy can't write all requested bytes
+ * */
  *
- *    FAT32 support.
- *
+/* Revision 1.8  2001/09/23 20:39:44  bartoldeman
+/* FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
+/*
 
+/* version 2.2 jeremyd 2001/9/20
+   Changed so if no source given or only source drive (no path)
+   given, then checks for kernel.sys & command.com in current
+   path (of current drive or given drive) and if not there
+   uses root (but only if source & destination drive are different).
+   Fix printf to include count(ret) if copy can't write all requested bytes
+*/
 /* version 2.1a jeremyd 2001/8/19
    modified so takes optional 2nd parameter (similar to PC DOS)
    where if only 1 argument is given, assume to be destination drive,
@@ -138,7 +148,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.1a"
+#define SYS_VERSION "v2.2"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -166,7 +176,7 @@ BYTE pgm[] = "sys";
 
 void put_boot(COUNT);
 BOOL check_space(COUNT, BYTE *);
-BOOL copy(COUNT, BYTE *);
+BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
 COUNT DiskRead(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 COUNT DiskWrite(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 
@@ -242,9 +252,6 @@ struct bootsectortype32
   UWORD sysFatSecShift;
 };
 
-COUNT drive;                    /* destination drive */
-BYTE srcPath[MAXPATH];          /* source drive and/or path */
-BYTE *endOfSrcPath;             /* marks start of filename */
 UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
 
 
@@ -254,8 +261,12 @@ UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
 
 
 
-VOID main(COUNT argc, char **argv)
+int main(int argc, char **argv)
 {
+  COUNT drive;                  /* destination drive */
+  COUNT srcDrive;               /* source drive */
+  BYTE srcPath[MAXPATH];        /* user specified source drive and/or path */
+  BYTE rootPath[4];             /* alternate source path to try if not '\0' */
   WORD slen;
 
   printf("FreeDOS System Installer " SYS_VERSION "\n\n");
@@ -264,12 +275,13 @@ VOID main(COUNT argc, char **argv)
   {
     drive = toupper(*argv[1]) - 'A';
     srcPath[0] = '\0';
-    endOfSrcPath = srcPath;
   }
   else if (argc == 3)
   {
     drive = toupper(*argv[2]) - 'A';
-    strncpy(srcPath, argv[1], MAXDIR);
+    strncpy(srcPath, argv[1], MAXPATH-12);
+    /* leave room for COMMAND.COM\0 */
+    srcPath[MAXPATH-13] = '\0';
     /* make sure srcPath + "file" is a valid path */
     slen = strlen(srcPath);
     if ( (srcPath[slen-1] != ':') && 
@@ -279,7 +291,6 @@ VOID main(COUNT argc, char **argv)
       slen++;
       srcPath[slen] = '\0';
     }
-    endOfSrcPath = srcPath + slen;
   }
   else
   {
@@ -291,11 +302,23 @@ VOID main(COUNT argc, char **argv)
 
   if (drive < 0 || drive >= 26)
   {
-    printf( "%s: drive %c must be A:..Z:\n", pgm,*argv[1]);
+    printf( "%s: drive %c must be A:..Z:\n", pgm,*argv[(argc == 3 ? 2 : 1)]);
     exit(1);
   }
 
+ /* Get source drive */
+  if ((strlen(srcPath) > 1) && (srcPath[1] == ':'))  /* src specifies drive */
+    srcDrive = toupper(*srcPath) - 'A';
+  else /* src doesn't specify drive, so assume current drive */
+    srcDrive = getdisk();
 
+  /* Don't try root if src==dst drive or source path given */
+  if ( (drive == srcDrive) || (*srcPath && ((srcPath[1] != ':') || ((srcPath[1] == ':') && srcPath[2]))) )
+    *rootPath = '\0';
+  else
+    sprintf(rootPath, "%c:\\", 'A' + srcDrive);
+
+  
   if (!check_space(drive, oldboot))
   {
     printf("%s: Not enough space to transfer system files\n", pgm);
@@ -304,14 +327,14 @@ VOID main(COUNT argc, char **argv)
 
 
   printf("\nCopying KERNEL.SYS...\n");
-  if (!copy(drive, "kernel.sys"))
+  if (!copy(drive, srcPath, rootPath, "kernel.sys"))
   {
     printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
     exit(1);
   }
 
   printf("\nCopying COMMAND.COM...\n");
-  if (!copy(drive, "command.com"))
+  if (!copy(drive, srcPath, rootPath, "command.com"))
   {
     printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);
     exit(1);
@@ -321,10 +344,10 @@ VOID main(COUNT argc, char **argv)
   put_boot(drive);
   
   printf("\nSystem transferred.\n");
-  exit(0);
+  return 0;
 }
 
-#ifdef DEBUG
+#ifdef DDEBUG
 VOID dump_sector(unsigned char far * sec)
 {
     COUNT x, y;
@@ -553,28 +576,31 @@ VOID put_boot(COUNT drive)
       printf("DATA starts at sector %lx\n", bs32->sysDataStart);
     }
 #endif
-#else
+  else
+#endif
+  {
 #ifdef STORE_BOOT_INFO
     /* TE thinks : never, see above */
-  /* temporary HACK for the load segment (0x0060): it is in unused */
-  /* only needed for older kernels */
-  *((UWORD *)(bs->unused)) = *((UWORD *)(((struct bootsectortype *)&b_fat16)->unused));
-  /* end of HACK */
+    /* temporary HACK for the load segment (0x0060): it is in unused */
+    /* only needed for older kernels */
+    *((UWORD *)(bs->unused)) = *((UWORD *)(((struct bootsectortype *)&b_fat16)->unused));
+    /* end of HACK */
                                   /* root directory sectors */
 
-  bs->sysRootDirSecs = bs->bsRootDirEnts / 16;
+    bs->sysRootDirSecs = bs->bsRootDirEnts / 16;
 
                                   /* sector FAT starts on */
-  temp = bs->bsHiddenSecs + bs->bsResSectors;
-  bs->sysFatStart = temp;
+    temp = bs->bsHiddenSecs + bs->bsResSectors;
+    bs->sysFatStart = temp;
   
                                   /* sector root directory starts on */
-  temp = temp + bs->bsFATsecs * bs->bsFATs;
-  bs->sysRootDirStart = temp;
+    temp = temp + bs->bsFATsecs * bs->bsFATs;
+    bs->sysRootDirStart = temp;
   
                                   /* sector data starts on */
-  temp = temp + bs->sysRootDirSecs;
-  bs->sysDataStart = temp;
+    temp = temp + bs->sysRootDirSecs;
+    bs->sysDataStart = temp;
+  }
   
 #ifdef DEBUG
   printf("Root dir entries = %u\n", bs->bsRootDirEnts);
@@ -586,7 +612,6 @@ VOID put_boot(COUNT drive)
           bs->sysRootDirStart, bs->bsFATsecs, bs->bsFATs);
   printf("DATA starts at sector %lu = (PREVIOUS + %u)\n", bs->sysDataStart,
           bs->sysRootDirSecs);
-#endif
 #endif
 #endif
 
@@ -618,35 +643,47 @@ BOOL check_space(COUNT drive, BYTE * BlkBuffer)
     UNREFERENCED_PARAMETER(BlkBuffer);
        
 
-  return 1;
+  return TRUE;
 }
 
 BYTE copybuffer[COPY_SIZE];
 
-BOOL copy(COUNT drive, BYTE * file)
+BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 {
-  BYTE dest[64];
+  BYTE dest[MAXPATH], source[MAXPATH];
   COUNT ifd, ofd;
   unsigned ret;
   int fdin, fdout;
   ULONG copied = 0;
   struct stat fstatbuf;
  
-  if (stat(file,&fstatbuf))
-    {
-    printf( "%s: \"%s\" not found\n", pgm, file);
-    return FALSE;
-    }
-
-
   sprintf(dest, "%c:\\%s", 'A' + drive, file);
-  strcpy(endOfSrcPath, file);
-  if ((fdin = open(srcPath, O_RDONLY|O_BINARY)) < 0)
+  sprintf(source, "%s%s", srcPath, file);
+
+  if (stat(source, &fstatbuf))
+  {
+    printf( "%s: \"%s\" not found\n", pgm, srcPath);
+    printf( "%s: \"%s\" not found\n", pgm, source);
+
+    if ((rootPath != NULL) && (*rootPath) /* && (errno == ENOENT) */ )
+    {
+      sprintf(source, "%s%s", rootPath, file);
+      printf("%s: Trying \"%s\"\n", pgm, source);
+      if (stat(source, &fstatbuf))
+      {
+        printf( "%s: \"%s\" not found\n", pgm, source);
+        return FALSE;
+      }
+    }
+    else
+      return FALSE;
+  }
+  
+  if ((fdin = open(source, O_RDONLY|O_BINARY)) < 0)
   {
     printf( "%s: \"%s\" not found\n", pgm, srcPath);
     return FALSE;
   }
-
 
   if ((fdout = open(dest, O_RDWR | O_TRUNC | O_CREAT | O_BINARY,S_IREAD|S_IWRITE)) < 0)
   {
@@ -659,7 +696,7 @@ BOOL copy(COUNT drive, BYTE * file)
     {
         if (write(fdout, copybuffer, ret) != ret)
         {
-            printf("Can't write %u bytes to %s\n",dest);
+            printf("Can't write %u bytes to %s\n", ret, dest);
             close(fdout);
             unlink(dest);
             break;
