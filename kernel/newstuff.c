@@ -42,7 +42,6 @@ int SetJFTSize(UWORD nHandles)
   UWORD block, maxBlock;
   psp FAR *ppsp = MK_FP(cu_psp, 0);
   UBYTE FAR *newtab;
-  COUNT i;
 
   if (nHandles <= ppsp->ps_maxfiles)
   {
@@ -57,11 +56,8 @@ int SetJFTSize(UWORD nHandles)
   ++block;
   newtab = MK_FP(block, 0);
 
-  for (i = 0; i < ppsp->ps_maxfiles; i++)
-    newtab[i] = ppsp->ps_filetab[i];
-
-  for (; i < nHandles; i++)
-    newtab[i] = 0xff;
+  fmemset(newtab, 0xff, nHandles);
+  fmemcpy(newtab, ppsp->ps_filetab, ppsp->ps_maxfiles);
 
   ppsp->ps_maxfiles = nHandles;
   ppsp->ps_filetab = newtab;
