@@ -2601,7 +2601,7 @@ VOID DoInstall(void)
   for (i = 0; i < numInstallCmds; i++)
   {
     InstallPrintf(("%d:%s\n",i,InstallCommands[i].buffer));
-    set_stragegy(InstallCommands[i].mode);
+    set_strategy(InstallCommands[i].mode);
     InstallExec(&InstallCommands[i]);
   }
   set_strategy(FIRST_FIT);
