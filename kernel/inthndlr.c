@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.34  2001/11/14 00:15:05  bartoldeman
+ * Fixed typo in dpbp
+ *
  * Revision 1.33  2001/11/13 23:36:45  bartoldeman
  * Kernel 2025a final changes.
  *
@@ -1762,7 +1765,7 @@ break_out:
               dpb = GetDriveDPB(r->DL, &rc);
               if (rc != SUCCESS) goto error_exit;
 
-              flush_buffers(dpbp->dpb_unit); 
+              flush_buffers(dpb->dpb_unit); 
 							dpb->dpb_flags = M_CHANGED;  /* force reread of drive BPB/DPB */
           
 							if (media_check(dpb) < 0)
@@ -1855,7 +1858,7 @@ break_out:
                 case 0x02:
                   {
 rebuild_dpb:
-                    flush_buffers(dpbp->dpb_unit); 
+                    flush_buffers(dpb->dpb_unit); 
                     dpb->dpb_flags = M_CHANGED;
           
                     if (media_check(dpb) < 0)
