@@ -65,12 +65,12 @@ int SetJFTSize(UWORD nHandles)
   return SUCCESS;
 }
 
-int DosMkTmp(BYTE FAR * pathname, UWORD attr)
+long DosMkTmp(BYTE FAR * pathname, UWORD attr)
 {
   /* create filename from current date and time */
   char FAR *ptmp;
   unsigned long randvar;
-  int rc;
+  long rc;
   int loop;
 
   ptmp = pathname + fstrlen(pathname);
@@ -94,7 +94,7 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
         ptmp[i] -= (ptmp[i] < 'A' + 10) ? '0' - 'A' : 10;
 
     /* only create new file -- 2001/09/22 ska*/
-    rc = (short)DosOpen(pathname, O_LEGACY | O_CREAT | O_RDWR, attr);
+    rc = DosOpen(pathname, O_LEGACY | O_CREAT | O_RDWR, attr);
   } while (rc == DE_FILEEXISTS && loop++ < 0xfff);
 
   return rc;

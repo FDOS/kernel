@@ -382,7 +382,7 @@ int int21_fat32(lregs *r)
 
 VOID ASMCFUNC int21_service(iregs FAR * r)
 {
-  COUNT rc = 0;
+  COUNT rc;
   long lrc;
   lregs lr; /* 8 local registers (ax, bx, cx, dx, si, di, ds, es) */
 
@@ -671,10 +671,9 @@ dispatch:
 
       /* Parse File Name                                              */
     case 0x29:
-      {
-        lr.SI = FcbParseFname(&rc, MK_FP(lr.DS, lr.SI), FP_ES_DI);
-        lr.AL = rc;
-      }
+      rc = 0;
+      lr.SI = FcbParseFname(&rc, MK_FP(lr.DS, lr.SI), FP_ES_DI);
+      lr.AL = rc;
       break;
 
       /* Get Date                                                     */
@@ -765,8 +764,8 @@ dispatch:
         
         if (dpb == NULL)
         {
+          CritErrCode = -DE_INVLDDRV;
           lr.AL = 0xFF;
-          CritErrCode = 0x0f;
           break;
         }
         /* hazard: no error checking! */        
@@ -780,7 +779,7 @@ dispatch:
 #endif
         {
           lr.AL = 0xff;
-          CritErrCode = 0x0f;
+          CritErrCode = -DE_INVLDDRV;
           break;
         }
         lr.DS = FP_SEG(dpb);
@@ -839,21 +838,24 @@ dispatch:
         if (0xffff == lr.DX)
         {
           /* Set Country Code */
-          if ((rc = DosSetCountry(cntry)) < 0)
-            goto error_invalid;
+          rc = DosSetCountry(cntry);
+          goto short_check;
         }
         else
         {
           if (cntry == 0)
             cntry--;
           /* Get Country Information */
-          if ((rc = DosGetCountryInformation(cntry, FP_DS_DX)) < 0)
-            goto error_invalid;
-          /* HACK FIXME */
-          if (cntry == (UWORD) - 1)
-            cntry = 1;
-          /* END OF HACK */
-          lr.AX = lr.BX = cntry;
+          rc = DosGetCountryInformation(cntry, FP_DS_DX);
+          if (rc >= SUCCESS)
+          {
+            /* HACK FIXME */
+            if (cntry == (UWORD) - 1)
+              cntry = 1;
+            /* END OF HACK */
+            lr.AX = lr.BX = cntry;
+          }
+          goto short_check;
         }
       }
       break;
@@ -928,8 +930,7 @@ dispatch:
 
         case 0x01:
           rc = DosSetFattr((BYTE FAR *) FP_DS_DX, lr.CX);
-          if (rc >= SUCCESS)
-            lr.AX = lr.CX;
+          lr.AX = lr.CX;
           break;
 
         default:
@@ -941,11 +942,11 @@ dispatch:
     case 0x44:
       rc = DosDevIOctl(&lr);      /* can set critical error code! */
 
-      if (rc != SUCCESS)
+      if (rc < SUCCESS)
       {
         lr.AX = -rc;
         if (rc != DE_DEVICE && rc != DE_ACCESS)
-          CritErrCode = -rc;
+          CritErrCode = lr.AX;
         goto error_carry;
       }
       break;
@@ -963,34 +964,29 @@ dispatch:
       /* Get Current Directory                                        */
     case 0x47:
       rc = DosGetCuDir(lr.DL, MK_FP(lr.DS, lr.SI));
-      if (rc >= SUCCESS)
-        lr.AX = 0x0100;         /*jpp: from interrupt list */
+      lr.AX = 0x0100;         /*jpp: from interrupt list */
       goto short_check;
 
       /* Allocate memory */
     case 0x48:
-      if ((rc =
-           DosMemAlloc(lr.BX, mem_access_mode, &(lr.AX), &(lr.BX))) < 0)
+      if ((rc = DosMemAlloc(lr.BX, mem_access_mode, &lr.AX, &lr.BX)) < 0)
       {
-        DosMemLargest(&(lr.BX));
-        {
-                        if (DosMemCheck() != SUCCESS)
-                                panic("MCB chain corrupted");
-        }
+        DosMemLargest(&lr.BX);
+        if (DosMemCheck() != SUCCESS)
+          panic("MCB chain corrupted");
         goto error_exit;
       }
-      else
-        ++(lr.AX);              /* DosMemAlloc() returns seg of MCB rather than data */
+      lr.AX++;   /* DosMemAlloc() returns seg of MCB rather than data */
       break;
 
       /* Free memory */
     case 0x49:
-      if ((rc = DosMemFree((lr.ES) - 1)) < 0)
-        {
-                        if (DosMemCheck() != SUCCESS)
-                                panic("MCB chain corrupted");
-                        goto error_exit;
-        }
+      if ((rc = DosMemFree(lr.ES - 1)) < SUCCESS)
+      {
+        if (DosMemCheck() != SUCCESS)
+          panic("MCB chain corrupted");
+        goto error_exit;
+      }
       break;
 
       /* Set memory block size */
@@ -1003,10 +999,7 @@ dispatch:
 #if 0
         if (cu_psp == lr.ES)
         {
-
-          psp FAR *p;
-          
-          p = MK_FP(cu_psp, 0);
+          psp FAR *p = MK_FP(cu_psp, 0);
           p->ps_size = lr.BX + cu_psp;
         }
 #endif
@@ -1032,21 +1025,18 @@ dispatch:
       if (((psp FAR *)MK_FP(cu_psp, 0))->ps_parent == cu_psp)
         break;
       tsr = FALSE;
+      rc = 0;
       if (ErrorMode)
       {
         ErrorMode = FALSE;
-        rc = 2;
+        rc = 0x200;
       }
       else if (break_flg)
       {
         break_flg = FALSE;
-        rc = 1;
+        rc = 0x100;
       }
-      else
-      {
-        rc = 0;
-      }
-      return_code = lr.AL | (rc << 8);
+      return_code = lr.AL | rc;
       if (DosMemCheck() != SUCCESS)
         panic("MCB chain corrupted");
 #ifdef TSC
@@ -1067,8 +1057,7 @@ dispatch:
       /* dta for this call is set on entry.  This     */
       /* needs to be changed for new versions.        */
       rc = DosFindFirst(lr.CX, FP_DS_DX);
-      if (rc >= SUCCESS)
-        lr.AX = 0;
+      lr.AX = 0;
       goto short_check;
 
       /* Dos Find Next                                                */
@@ -1076,8 +1065,7 @@ dispatch:
       /* dta for this call is set on entry.  This     */
       /* needs to be changed for new versions.        */
       rc = DosFindNext();
-      if (rc >= SUCCESS)
-        lr.AX = 0;
+      lr.AX = 0;
       goto short_check;
 /*
     case 0x50:  
@@ -1189,10 +1177,8 @@ dispatch:
 
       /* Create Temporary File */
     case 0x5a:
-      if ((rc = DosMkTmp(FP_DS_DX, lr.CX)) < 0)
-        goto error_exit;
-      lr.AX = rc;
-      break;
+      lrc = DosMkTmp(FP_DS_DX, lr.CX);
+      goto long_check;
 
       /* Create New File */
     case 0x5b:
@@ -1202,11 +1188,10 @@ dispatch:
 /* /// Added for SHARE.  - Ron Cemer */
       /* Lock/unlock file access */
     case 0x5c:
-      if ((rc = DosLockUnlock
-           (lr.BX,
-            (((unsigned long)lr.CX) << 16) | (((unsigned long)lr.DX) ),
-            (((unsigned long)lr.SI) << 16) | (((unsigned long)lr.DI) ),
-            ((lr.AX & 0xff) != 0))) != 0)
+      rc = DosLockUnlock
+           (lr.BX, ((unsigned long)lr.CX << 16) | lr.DX,
+                   ((unsigned long)lr.SI << 16) | lr.DI, lr.AL != 0);
+      if (rc != SUCCESS)
         goto error_exit;
       break;
 /* /// End of additions for SHARE.  - Ron Cemer */
@@ -1232,10 +1217,11 @@ dispatch:
         case 0x08:
         case 0x09:
           rc = remote_printredir(lr.DX, Int21AX);
+          CLEAR_CARRY_FLAG();
           if (rc != SUCCESS)
             goto error_exit;
-          CLEAR_CARRY_FLAG();
           break;
+
         default:
           CritErrCode = SUCCESS;
           goto error_invalid;
@@ -1499,21 +1485,19 @@ dispatch:
             goto error_invalid;
         }
         lr.AX = rc;
-        if (rc < 0) goto error_exit;
-        else CLEAR_CARRY_FLAG();
-        break;
+        CLEAR_CARRY_FLAG();
+        goto short_check;
       }
 #endif
   }
   goto exit_dispatch;
 long_check:
-  if (lrc < SUCCESS)
+  if (lrc >= SUCCESS)
   {
-    rc = (int)lrc;
-    goto error_exit;
+    lr.AX = (UWORD)lrc;
+    goto exit_dispatch;
   }
-  lr.AX = (UWORD)lrc;
-  goto exit_dispatch;
+  rc = (int)lrc;
 short_check:
   if (rc < SUCCESS)
     goto error_exit;

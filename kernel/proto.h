@@ -373,7 +373,7 @@ VOID InitPSP(VOID);
 
 /* newstuff.c */
 int SetJFTSize(UWORD nHandles);
-int DosMkTmp(BYTE FAR * pathname, UWORD attr);
+long DosMkTmp(BYTE FAR * pathname, UWORD attr);
 COUNT truename(const char FAR * src, char * dest, COUNT t);
 
 /* network.c */
