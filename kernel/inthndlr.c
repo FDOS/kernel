@@ -1210,7 +1210,7 @@ dispatch:
           break;
 
         case 0x01:
-          if ((lr.BL & FIT_U_MASK) > FIRST_FIT_U || /* 0xc0, 0x80 */
+          if (lr.BL > LAST_FIT_U ||                 /* 0x82       */
               (lr.BL & FIT_MASK) > LAST_FIT)        /* 0x3f, 0x02 */
             goto error_invalid;
           mem_access_mode = lr.BL;
