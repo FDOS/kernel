@@ -291,7 +291,7 @@ call_int2f:
 int2f_call_push:                
                 push    word [bp+8]    ; very fakey, HaHa ;)
 int2f_call:
-                stc                     ; set to fail
+		clc		       ; set to succeed
                 int     2fh
                 pop     bx
                 jc      no_clear_ax
@@ -315,7 +315,7 @@ lseekeof:
                 jmp     int2f_call_push
         
 remote_getfattr:        
-                stc                     ; set to fail
+                clc                     ; set to succeed
                 int     2fh
                 jc      no_clear_ax
                 jmp     short no_neg_ax
@@ -334,7 +334,7 @@ print_doredir:
 
                 mov     ds, [bp+18]
                 push    word [bp+16]    ; very fakey, HaHa ;)
-                stc                     ; set to fail
+                clc                     ; set to succeed
                 int     2fh
                 pop     bx
                 pop     ds
@@ -342,7 +342,7 @@ print_doredir:
                 jmp     short clear_ax
 
 remote_getfree:
-                stc                     ; set to fail
+                clc                     ; set to succeed
                 int     2fh
                 jc      no_clear_ax
                 mov     di,[bp+8]
@@ -360,14 +360,14 @@ remote_printredir:
 qremote_fn:     
                 lds     si,[bp+4]
                 les     di,[bp+8]
-                stc
+                clc
                 int     2fh
                 mov     ax,0xffff
                 jc      no_neg_ax
                 jmp     short clear_ax
 
 remote_rw:      mov     cx, [bp+8]
-                stc                     ; set to fail
+                clc                     ; set to succeed
                 int     2fh
                 jc      int2f_carry
                 xor     ax, ax

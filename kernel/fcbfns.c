@@ -488,7 +488,7 @@ BOOL FcbOpenCreate(xfcb FAR * lpXfcb, BOOL Create)
   lpFcb->fcb_rndm = 0;
   
   lpFcb->fcb_recsiz = 0;      /* true for devices   */
-  if (sftp->sft_flags & SFT_FDEVICE) /* check for a device */
+  if (!(sftp->sft_flags & SFT_FDEVICE)) /* check for a device */
   {
     lpFcb->fcb_drive = FcbDrive;
     lpFcb->fcb_recsiz = 128;

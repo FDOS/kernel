@@ -861,7 +861,7 @@ COUNT DosOpenSft(BYTE * fname, COUNT mode)
   fmemset(sftp, 0, sizeof(sft));
   sftp->sft_psp = cu_psp;
   sftp->sft_mode = mode;
-  OpenMode = (BYTE) mode;
+  mode = OpenMode = (BYTE) mode;
   
   /* check for a device                           */
   dhp = IsDevice(fname);

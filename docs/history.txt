@@ -1,3 +1,9 @@
++ Changes Martin
+    * fixed SYS for non-Watcom compilers
++ Changes Bart
+    * FCB and network redirector fixes
+      (FCBOpen was broken; it appears that clearing CF before calling
+       the redirector is safer then setting CF)
 2002 Feb 9 - Build 2026
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

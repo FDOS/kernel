@@ -380,7 +380,7 @@ int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
   union REGS regs;
 
   regs.h.al = (BYTE) DosDrive;
-  regs.x.bx = (short)&diskReadPacket;
+  regs.x.bx = (short)diskReadPacket;
   regs.x.cx = 0xffff;
 
   int86(intno, &regs, &regs);
@@ -395,7 +395,7 @@ fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 
   regs.x.ax = 0x7305;
   regs.h.dl = DosDrive + 1;
-  regs.x.bx = (short)&diskReadPacket;
+  regs.x.bx = (short)diskReadPacket;
   regs.x.cx = 0xffff;
   regs.x.si = intno - 0x25;
   int86(0x21, &regs, &regs);
