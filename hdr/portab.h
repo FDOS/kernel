@@ -91,15 +91,15 @@ void __int__(int);
 
 #define MC68K
 
+#elif defined(__GNUC__)
+/* for warnings only ! */
+#define MC68K
+
 #else
 anyone knows a _portable_ way to create nice errors ? ?
     at least this causes the compiler not to compile : -)
 #endif
-                         /* functions, that are shared between C and ASM _must_ 
-                            have a certain calling standard. These are declared
-                            as 'ASMCFUNC', and is (and will be ?-) cdecl */
-#define ASMCFUNC cdecl
-#define ASM ASMCFUNC
+
 #ifdef MC68K
 #define far                     /* No far type          */
 #define interrupt               /* No interrupt type    */
@@ -107,11 +107,19 @@ anyone knows a _portable_ way to create nice errors ? ?
 #define FAR                     /* linear architecture  */
 #define NEAR                    /*    "        "        */
 #define INRPT          interrupt
-#define CONST
 #define REG            register
 #define API            int      /* linear architecture  */
 #define NONNATIVE
 #define PARASIZE       4096     /* "paragraph" size     */
+#define CDECL
+#ifdef __GNUC__
+#define CONST          const
+#define PROTO
+typedef __SIZE_TYPE__  size_t;
+#else
+#define CONST
+typedef unsigned       size_t;
+#endif
 #endif
 #ifdef I86
 #define VOID           void
@@ -123,7 +131,13 @@ anyone knows a _portable_ way to create nice errors ? ?
 #define API            int far pascal   /* segment architecture */
 #define NATIVE
 #define PARASIZE       16       /* "paragraph" size     */
+typedef unsigned       size_t;
 #endif
+           /* functions, that are shared between C and ASM _must_ 
+              have a certain calling standard. These are declared
+              as 'ASMCFUNC', and is (and will be ?-) cdecl */
+#define ASMCFUNC CDECL
+#define ASM ASMCFUNC
 /*                                                              */
 /* Boolean type & definitions of TRUE and FALSE boolean values  */
 /*                                                              */
@@ -199,7 +213,7 @@ typedef signed long LONG;
 #ifdef __WATCOMC__
 #define MK_FP(seg,ofs) 	      (((UWORD)(seg)):>((VOID *)(ofs)))
 #else
-#define MK_FP(seg,ofs)        ((VOID far *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
+#define MK_FP(seg,ofs)        ((void FAR *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
 #endif
 #define FP_SEG(fp)            ((unsigned)(UWORD)((ULONG)(VOID FAR *)(fp)>>16))
 #define FP_OFF(fp)            ((unsigned)(UWORD)(fp))
@@ -207,12 +221,12 @@ typedef signed long LONG;
 #endif
 
 #ifdef MC68K
-#define MK_FP(seg,ofs)         ((VOID *)(&(((BYTE *)(seg))[(ofs)])))
+#define MK_FP(seg,ofs)         ((VOID *)(&(((BYTE *)(size_t)(seg))[(ofs)])))
 #define FP_SEG(fp)             (0)
-#define FP_OFF(fp)             (fp)
+#define FP_OFF(fp)             ((size_t)(fp))
 #endif
 
-typedef VOID (FAR ASMCFUNC * intvec) ();
+typedef VOID (FAR ASMCFUNC * intvec) (void);
 
 /*
 	this suppresses the warning 
@@ -222,6 +236,8 @@ typedef VOID (FAR ASMCFUNC * intvec) ();
 
 #if defined(__TURBOC__)
 #define UNREFERENCED_PARAMETER(x) if (x);
+#elif defined(__GNUC__)
+#define UNREFERENCED_PARAMETER(x) x = 0;
 #else
 #define UNREFERENCED_PARAMETER(x) x;
 #endif
