@@ -112,9 +112,6 @@ static BYTE *device_hRcsId =
 #ifndef FALSE
 #define FALSE           0
 #endif
-#define mk_offset(far_ptr)      ((UWORD)(far_ptr))
-#define mk_segment(far_ptr) ((UWORD)((ULONG)(far_ptr) >> 16))
-#define far_ptr(seg, off) ((VOID FAR *)(((ULONG)(off))+((ULONG)(seg) << 16)))
 
 /*
  *      structures

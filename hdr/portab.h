@@ -194,7 +194,7 @@ typedef unsigned short CLUSTER;
 #endif
 typedef unsigned short UNICODE;
 
-#ifdef STATICS
+#if defined(STATICS) || defined(__WATCOMC__)
 #define STATIC static		 /* local calls inside module */
 #else
 #define STATIC
