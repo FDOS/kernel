@@ -61,30 +61,3 @@ _WriteATClock:
                 pop     bp
                 ret
 
-; Log: wratclk.asm,v 
-;
-; Revision 1.3  1999/08/10 17:21:08  jprice
-; ror4 2011-01 patch
-;
-; Revision 1.2  1999/03/29 17:08:31  jprice
-; ror4 changes
-;
-; Revision 1.1.1.1  1999/03/29 15:40:34  jprice
-; New version without IPL.SYS
-;
-; Revision 1.2  1999/01/22 04:16:40  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:00  jprice
-; Imported sources
-;
-;
-;   Rev 1.2   29 Aug 1996 13:07:12   patv
-;Bug fixes for v0.91b
-;
-;   Rev 1.1   01 Sep 1995 18:50:42   patv
-;Initial GPL release.
-;
-;   Rev 1.0   02 Jul 1995  8:01:18   patv
-;Initial revision.
-;

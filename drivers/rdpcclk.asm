@@ -52,32 +52,3 @@ _ReadPCClock:
 
                 ret
 
-; Log: rdpcclk.asm,v 
-; Revision 1.4  1999/08/10 17:21:08  jprice
-; ror4 2011-01 patch
-;
-; Revision 1.3  1999/04/12 03:19:44  jprice
-; more ror4 patches
-;
-; Revision 1.2  1999/03/29 17:08:31  jprice
-; ror4 changes
-;
-; Revision 1.1.1.1  1999/03/29 15:40:32  jprice
-; New version without IPL.SYS
-;
-; Revision 1.2  1999/01/22 04:16:39  jprice
-; Formating
-;
-; Revision 1.1.1.1  1999/01/20 05:51:00  jprice
-; Imported sources
-;
-;
-;   Rev 1.2   29 Aug 1996 13:07:10   patv
-;Bug fixes for v0.91b
-;
-;   Rev 1.1   01 Sep 1995 18:50:40   patv
-;Initial GPL release.
-;
-;   Rev 1.0   02 Jul 1995  8:00:26   patv
-;Initial revision.
-;
