@@ -37,6 +37,12 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.10  2001/03/19 04:34:18  bartoldeman
+ * Update the redirector and Martin Stromberg changes to CVS.
+ *
+ * Revision 1.10  2001/03/08 21:15:00  bartoldeman
+ * Redirector and DosSelectDrv() (Martin Stromberg) fixes
+ *
  * Revision 1.9  2000/10/29 23:51:56  jimtabor
  * Adding Share Support by Ron Cemer
  *
@@ -625,7 +631,7 @@ COUNT SftSeek(sft FAR *s, LONG new_pos, COUNT mode)
         }
         else
         {
-            s->sft_posit = s->sft_size - new_pos;
+            s->sft_posit = s->sft_size + new_pos;
             return SUCCESS;
         }
     }
@@ -1067,7 +1073,6 @@ COUNT DosClose(COUNT hndl)
   {
     int2f_Remote_call(REM_CLOSE, 0, 0, 0, (VOID FAR *) s, 0, 0);
     p->ps_filetab[hndl] = 0xff;
-    s->sft_flags = 0;
     return SUCCESS;
   }
 
@@ -1406,7 +1411,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 
 BYTE DosSelectDrv(BYTE drv)
 {
-  if ((drv <= (lastdrive -1 )) && (CDSp->cds_table[drv].cdsFlags & 0xf000))
+  if ((0 <= drv) && (drv <= (lastdrive -1 )) &&(CDSp->cds_table[drv].cdsFlags & 0xf000))
   {
     current_ldt = &CDSp->cds_table[drv];
     default_drive = drv;
