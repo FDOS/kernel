@@ -1584,6 +1584,11 @@ dispatch:
       /* case 0x6d and above not implemented : see default; return AL=0 */
 
 #ifdef WITHFAT32
+      /* LFN functions - fail with "function not supported" error code */
+    case 0x71:
+      lr.AL = 00;
+      goto error_carry;
+
       /* DOS 7.0+ FAT32 extended functions */
     case 0x73:
       CLEAR_CARRY_FLAG();
