@@ -41,39 +41,29 @@ static BYTE *dskRcsId =
 
 /* #define STATIC  */
 
-#ifdef PROTO
-BOOL ASMCFUNC fl_reset(WORD);
-COUNT ASMCFUNC fl_readdasd(WORD);
-COUNT ASMCFUNC fl_diskchanged(WORD);
-COUNT ASMCFUNC fl_rd_status(WORD);
+BOOL ASMPASCAL fl_reset(WORD);
+COUNT ASMPASCAL fl_diskchanged(WORD);
 
-COUNT ASMCFUNC fl_format(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
-COUNT ASMCFUNC fl_read(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
-COUNT ASMCFUNC fl_write(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
-COUNT ASMCFUNC fl_verify(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
-COUNT ASMCFUNC fl_setdisktype(WORD, WORD);
-COUNT ASMCFUNC fl_setmediatype(WORD, WORD, WORD);
-VOID ASMCFUNC fl_readkey(VOID);
-
-extern COUNT ASMCFUNC fl_lba_ReadWrite(BYTE drive, WORD mode,
+COUNT ASMPASCAL fl_format(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
+COUNT ASMPASCAL fl_read(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
+COUNT ASMPASCAL fl_write(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
+COUNT ASMPASCAL fl_verify(WORD, WORD, WORD, WORD, WORD, UBYTE FAR *);
+COUNT ASMPASCAL fl_setdisktype(WORD, WORD);
+COUNT ASMPASCAL fl_setmediatype(WORD, WORD, WORD);
+VOID ASMPASCAL fl_readkey(VOID);
+extern COUNT ASMPASCAL fl_lba_ReadWrite(BYTE drive, WORD mode,
                                        struct _bios_LBA_address_packet FAR
                                        * dap_p);
+#ifdef __WATCOMC__
+#pragma aux (pascal) fl_reset modify exact [ax dx]
+#pragma aux (pascal) fl_diskchanged modify exact [ax dx]
+#pragma aux (pascal) fl_setdisktype modify exact [ax bx dx]
+#pragma aux (pascal) fl_readkey modify exact [ax]
+#pragma aux (pascal) fl_lba_ReadWrite modify exact [ax dx]
+#endif
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
                  ULONG LBA_address, unsigned total, UWORD * transferred);
-#else
-BOOL ASMCFUNC fl_reset();
-COUNT ASMCFUNC fl_readdasd();
-COUNT ASMCFUNC fl_diskchanged();
-COUNT ASMCFUNC fl_rd_status();
-COUNT ASMCFUNC fl_format();
-COUNT ASMCFUNC fl_read();
-COUNT ASMCFUNC fl_write();
-COUNT ASMCFUNC fl_verify();
-VOID ASMCFUNC fl_readkey();
-COUNT ASMCFUNC fl_setmediatype();
-COUNT ASMCFUNC fl_setdisktype();
-#endif
 
 #define NENTRY		26      /* total size of dispatch table */
 
