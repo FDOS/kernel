@@ -324,7 +324,7 @@ _LoL_nbuffers   dw      1               ; 003F number of buffers
                 global  _BootDrive
 _BootDrive      db      1               ; 0043 drive we booted from   
 
-%IFNDEF I386
+%IF XCPU < 386
                 db      0               ; 0044 cpu type (1 if >=386)
 %ELSE                
                 db      1               ; 0044 cpu type (1 if >=386)

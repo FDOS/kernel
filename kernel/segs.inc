@@ -27,6 +27,17 @@
 ; $Header$
 ;
 
+; CPU specification -- putting it here because all .asm files include this
+; file __NASM_VER__ was introduced in NASM after CPU -- ver 0.98 doesn't
+; understand it
+%ifdef __NASM_VER__
+%if XCPU == 86
+CPU 8086
+%else
+CPU XCPU
+%endif
+%endif
+
 group   PGROUP          PSP
 group   LGROUP          _LOWTEXT _IO_TEXT _IO_FIXED_DATA _TEXT
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA

@@ -344,7 +344,7 @@ int21_exit_nodec:
                 pop bp      ; get back user stack
                 pop si
 
-%IFDEF I386
+%if XCPU >= 386
 %ifdef WATCOM
                 sub bp, 4   ; for fs and gs only
 %else        

@@ -128,7 +128,7 @@ irp_hi    equ 26
 ;
 
 
-%IFNDEF I386
+%IF XCPU < 386
 	; no need to save/restore  anything
 
 ;	error 1 2 3

@@ -20,11 +20,7 @@ NASMFLAGS=$(NASMFLAGS) -DWITHFAT32
 !endif
 
 NASM=$(XNASM)
-!if $(XCPU) == 386
-NASMFLAGS   = $(NASMFLAGS) -i../hdr/ -DI386
-!else
-NASMFLAGS   = $(NASMFLAGS) -i../hdr/
-!endif
+NASMFLAGS   = $(NASMFLAGS) -i../hdr/ -DXCPU=$(XCPU)
 
 LINK=$(XLINK)
 

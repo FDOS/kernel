@@ -132,7 +132,7 @@ IntDosCal:
 
     cld
 
-%IFDEF I386
+%if XCPU >= 386
   %ifdef WATCOM
     mov si,fs
     mov di,gs 
@@ -145,7 +145,7 @@ IntDosCal:
     extern   _int2F_12_handler
     call _int2F_12_handler
 
-%IFDEF I386
+%if XCPU >= 386
   %ifdef WATCOM
     mov fs,si
     mov gs,di
