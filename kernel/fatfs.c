@@ -36,6 +36,17 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/09/05 00:56:50  jimtabor
+ * *** empty log message ***
+ *
+ *
+ * ///  2000/08/12 22:49:00  Ron Cemer
+ * Fixed writeblock() to only use getbuf() if writing a
+ * complete sector; otherwise use getbloc() and do a
+ * read-modify-write to prevent writing garbage back
+ * over pre-existing data in the file.
+ * This was a major BUG.
+ *
  * Revision 1.6  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -1602,6 +1613,15 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     return 0;
   }
 
+/* /// BUG!!! Moved from below next block because we should NOT be able
+       to truncate the file if we can't write to it.  - Ron Cemer */
+  /* test that we have a valid mode for this fnode                */
+  if (fnp->f_mode != WRONLY && fnp->f_mode != RDWR)
+  {
+    *err = DE_INVLDACC;
+    return 0;
+  }
+
   /* Test that we are really about to do a data transfer. If the  */
   /* count is zero and the mode is XFR_READ, just exit. (Any      */
   /* read with a count of zero is a nop).                         */
@@ -1618,12 +1638,16 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     return 0;
   }
 
+/* /// BUG!!! Moved to above previous block because we should NOT be able
+       to truncate the file if we can't write to it.  - Ron Cemer
   /* test that we have a valid mode for this fnode                */
+/*
   if (fnp->f_mode != WRONLY && fnp->f_mode != RDWR)
   {
     *err = DE_INVLDACC;
     return 0;
   }
+*/
 
   /* The variable secsize will be used later.                     */
   secsize = fnp->f_dpb->dpb_secsize;
@@ -1726,14 +1750,40 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
            fnp->f_cluster);
 #endif
 
+/* /// Moved xfr_cnt calculation from below so we can
+       use it to help decide how to get the block:
+           read-modify-write using getblock() if we are only
+               going to write part of the block, or
+           write using getbuf() if we are going to write
+               the entire block.
+       - Ron Cemer */
+    xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
+
     /* get a buffer to store the block in */
-    if (!getbuf(&bp, (ULONG) clus2phys(fnp->f_cluster,
-                                       (fnp->f_dpb->dpb_clsmask + 1),
-                                   fnp->f_dpb->dpb_data) + fnp->f_sector,
-                fnp->f_dpb->dpb_unit))
-    {
-      *err = DE_BLKINVLD;
-      return ret_cnt;
+    /* /// BUG!!! Added conditional to only use getbuf() if we're going
+           to write the entire block, which is faster because it does
+           not first read the block from disk.  However, if we are
+           going to only write part of the block, we MUST use the
+           getblock() call, which first reads the block from disk.
+           Without this modification, the kernel was writing garbage
+           to the file when sequential writes were attempted at less
+           than the block size.  This was causing problems with
+           piping and redirection in FreeCOM, as well as many other
+           potential problems.
+           - Ron Cemer */
+    if ( (fnp->f_boff == 0) && (xfr_cnt == secsize) ) {
+        if (!getbuf(&bp, (ULONG) clus2phys(fnp->f_cluster,
+                                           (fnp->f_dpb->dpb_clsmask + 1),
+                                       fnp->f_dpb->dpb_data) + fnp->f_sector,
+                    fnp->f_dpb->dpb_unit)) {
+          *err = DE_BLKINVLD;
+          return ret_cnt;
+        }
+    } else {
+        bp = getblock((ULONG) clus2phys(fnp->f_cluster,
+                                  (fnp->f_dpb->dpb_clsmask + 1),
+                                  fnp->f_dpb->dpb_data) + fnp->f_sector,
+                fnp->f_dpb->dpb_unit);
     }
 
     /* transfer a block                                     */
@@ -1741,7 +1791,11 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     /* requested transfer size, whichever is smaller.       */
     /* Then compare to what is left, since we can transfer  */
     /* a maximum of what is left.                           */
+/* /// Moved xfr_cnt calculation to above getbuf/getblock calls so we can
+       use it to help decide which one to call.
+       - Ron Cemer
     xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
+*/
     fbcopy(buffer, (BYTE FAR *) & bp->b_buffer[fnp->f_boff], xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 

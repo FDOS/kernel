@@ -1,3 +1,12 @@
+2000 Aug 15 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
+         2000/08/12 22:49:00  Ron Cemer (roncemer@gte.net)
+         Fixed writeblock() to only use getbuf() if writing a
+         complete sector; otherwise use getbloc() and do a
+         read-modify-write to prevent writing garbage back
+         over pre-existing data in the file.
+         This was a major BUG.
+
 2000 Aug 05 - Build 2021
 -------- James Tabor (jimtabor@infohwy.com)
          Clean up and finish umb code to get 2021 out.
