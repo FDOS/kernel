@@ -79,16 +79,18 @@ COUNT DosDevIOctl(lregs * r)
     case 0x0a:
     case 0x0c:
     case 0x10:
+    {
+      unsigned attr, flags;
 
       /* Get the SFT block that contains the SFT              */
       if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
         return DE_INVLDHNDL;
-      
+
+      attr = s->sft_dev->dh_attr;
+      flags = s->sft_flags;
+
       switch (r->AL)
       {
-        unsigned attr = s->sft_dev->dh_attr;
-        unsigned flags = s->sft_flags;
-
         case 0x00:
           /* Get the flags from the SFT                           */
           if (flags & SFT_FDEVICE)
@@ -183,6 +185,7 @@ COUNT DosDevIOctl(lregs * r)
           return DE_INVLDFUNC;
       }
       break;
+    }
 
     case 0x04:
     case 0x05:
