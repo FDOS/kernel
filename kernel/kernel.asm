@@ -206,7 +206,7 @@ segment	INIT_TEXT_END
 ; the NUL device
 ;************************************************************	    
 
-segment	_TEXT
+segment	CONST
 
                 ;
                 ; NUL device strategy
