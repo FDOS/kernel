@@ -728,8 +728,7 @@ dispatch:
          */
         UBYTE FAR *retp = MK_FP(r->cs, r->ip);
 
-        if (retp[0] == 0x3d &&  /* cmp ax, xxyy */
-            retp[3] == 0x74)    /* jne error    */
+        if (retp[0] == 0x3d)    /* cmp ax, xxyy */
         {
           lr.AX = *(UWORD FAR *)&retp[1];
         }
@@ -833,18 +832,18 @@ dispatch:
       /* Get/Set Country Info                                         */
     case 0x38:
       {
-        if (lr.AL != 0xff)
-          lr.BX = lr.AL;
-
+        UWORD ccode = lr.AL != 0xFF ? lr.AL : lr.BX;
         if (0xffff == lr.DX)
         {
           /* Set Country Code */
-          rc = DosSetCountry(lr.BX);
+          rc = DosSetCountry(ccode);
         }
         else
         {
           /* Get Country Information */
-          rc = DosGetCountryInformation(lr.BX ? lr.BX : NLS_DEFAULT, FP_DS_DX);
+          rc = DosGetCountryInformation(ccode ? ccode : NLS_DEFAULT, FP_DS_DX);
+          if (rc >= SUCCESS)
+            lr.BX = ccode ? ccode : nlsPackageHardcoded.cntry;
         }
         goto short_check;
       }
@@ -959,7 +958,6 @@ dispatch:
         DosMemLargest(&lr.BX);
         if (DosMemCheck() != SUCCESS)
           panic("MCB chain corrupted");
-        goto error_exit;
       }
       lr.AX++;   /* DosMemAlloc() returns seg of MCB rather than data */
       break;
@@ -970,7 +968,6 @@ dispatch:
       {
         if (DosMemCheck() != SUCCESS)
           panic("MCB chain corrupted");
-        goto error_exit;
       }
       break;
 
@@ -990,7 +987,6 @@ dispatch:
 #endif
         if (DosMemCheck() != SUCCESS)
           panic("after 4a: MCB chain corrupted");
-        goto error_exit;
       }
       lr.AX = lr.ES; /* Undocumented MS-DOS behaviour expected by BRUN45! */
       break;
@@ -1118,8 +1114,7 @@ dispatch:
       switch (lr.AL)
       {
         case 0x00:
-          lr.AL = mem_access_mode;
-          lr.AH = 0;
+          lr.AX = mem_access_mode;
           break;
 
         case 0x01:
@@ -1204,9 +1199,7 @@ dispatch:
         case 0x09:
           rc = remote_printredir(lr.DX, Int21AX);
           CLEAR_CARRY_FLAG();
-          if (rc != SUCCESS)
-            goto error_exit;
-          break;
+          goto short_check;
 
           /* Set Extended Error */
         case 0x0a:
@@ -1315,7 +1308,8 @@ dispatch:
           lr.DS = FP_SEG(p);
           lr.SI = FP_OFF(p);
         }
-        lr.AL = 0x00;
+        else
+          lr.AL = 0;
     
 #if 0
         /* not really supported, but will pass.                 */
