@@ -229,7 +229,10 @@ COUNT DosDevIOctl(lregs * r)
 
       dpbp = get_dpb(CharReqHdr.r_unit);
       if (dpbp)
+      {
         attr = dpbp->dpb_device->dh_attr;
+        CharReqHdr.r_unit = dpbp->dpb_subunit;
+      }
       else if (r->AL != 9)
         return DE_INVLDDRV;
 
