@@ -122,9 +122,8 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
 
     case C_OUTPUT:
       {
-        int c;
         const unsigned short *pdays;
-        unsigned Month, Day, Year;
+        unsigned Day, Month, Year;
         struct ClockRecord clk;
         ticks_t hs, Ticks;
         
@@ -146,25 +145,25 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp)
         /* Now set AT clock                                     */
         /* Fix year by looping through each year, subtracting   */
         /* the appropriate number of days for that year.        */
-        for (Year = 1980, c = clk.clkDays;;)
+        for (Year = 1980, Day = clk.clkDays;;)
         {
           pdays = is_leap_year_monthdays(Year);
-          if (c >= pdays[12])
+          if (Day >= pdays[12])
           {
             ++Year;
-            c -= pdays[12];
+            Day -= pdays[12];
           }
           else
             break;
         }
         
-        /* c contains the days left and count the number of     */
+        /* Day contains the days left and count the number of   */
         /* days for that year.  Use this to index the table.    */
         for (Month = 1; Month < 13; ++Month)
         {
-          if (pdays[Month] > c)
+          if (pdays[Month] > Day)
           {
-            Day = c - pdays[Month - 1] + 1;
+            Day -= pdays[Month - 1] + 1;
             break;
           }
         }
