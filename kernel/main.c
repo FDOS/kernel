@@ -618,7 +618,7 @@ STATIC VOID InitPrinters(VOID)
 EmulatedDriveStatus(int drive,char statusOnly)
 {
   iregs r;
-  char buffer[13];
+  char buffer[0x13];
   buffer[0] = 0x13;
 
   r.a.b.h = 0x4b;               /* bootable CDROM - get status */
@@ -639,21 +639,23 @@ STATIC void CheckContinueBootFromHarddisk(void)
   iregs r;
   int key;
 
-  __int__(3); /* necessary for some strange reasons ?? (TE) */
-
   if (InitKernelConfig.BootHarddiskSeconds == 0)
     return;
 
   if (LoL->BootDrive >= 3)
   {
+#if 0
     if (!EmulatedDriveStatus(0x80,1))
+#endif
     {
       /* already booted from HD */
       return;
     }
   }
   else {
+#if 0
     if (!EmulatedDriveStatus(0x00,1))
+#endif
       bootedFrom = "Floppy";
   }
 
