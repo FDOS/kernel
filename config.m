@@ -12,6 +12,9 @@ RM=..\utils\rm -f
 # Give path to nasm here (or if it's in your path just uncomment the line).
 #NASM=nasm
 
+# Give extra Turbo C compiler flags here
+#ALLCFLAGS=-DDEBUG
+
 
 # Use these for Turbo C 2.01
 #COMPILER=TC2
@@ -56,6 +59,9 @@ RM=..\utils\rm -f
 # $Id$
 #
 # $Log$
+# Revision 1.7  2001/04/16 14:36:56  bartoldeman
+# Added ALLCFLAGS for compiler option configuration.
+#
 # Revision 1.6  2001/04/15 03:21:49  bartoldeman
 # See history.txt for the list of fixes.
 #
