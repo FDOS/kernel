@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -117,8 +120,6 @@ static BYTE *charioRcsId = "$Id$";
 
 #include "globals.h"
 
-static BYTE *con_name = "CON";
-
 #ifdef PROTO
 VOID kbfill(keyboard FAR *, UCOUNT, BOOL, UWORD *);
 struct dhdr FAR *finddev(UWORD attr_mask);
@@ -192,7 +193,7 @@ VOID Do_DosIdle_loop(void)
 {
   FOREVER
   {
-    if (StdinBusy())
+    if (!StdinBusy())
       return;
     else
     {
@@ -406,9 +407,4 @@ VOID sti(keyboard FAR * kp)
         break;
     }
   }
-}
-
-VOID FAR init_call_sti(keyboard FAR * kp)
-{
-  sti(kp);
 }

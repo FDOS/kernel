@@ -57,6 +57,9 @@ static BYTE *pcb_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2000/08/06 04:18:21  jimtabor
  * See history.txt
  *
@@ -128,7 +131,7 @@ xreg;
    Furthermore, the PUSH$ALL macro must push ES first and AX last.
        -- 2000/03/22 ska*/
 /* maps MS-DOS unique stacking order                                    */
-typedef struct
+typedef struct _iregss
 {
   xreg a,
     b,

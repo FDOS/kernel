@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.7  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -117,7 +120,7 @@ sft FAR *get_sft();
  * WARNING:  this code is non-portable (8086 specific).
  */
 
-COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
+COUNT DosDevIOctl(iregs FAR * r)
 {
   sft FAR *s;
   struct dpb FAR *dpbp;
@@ -139,10 +142,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 
       /* Get the SFT block that contains the SFT              */
       if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
-      {
-        *err = DE_INVLDHNDL;
-        return 0;
-      }
+        return DE_INVLDHNDL;
       break;
 
     case 0x04:
@@ -168,10 +168,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       dev = ( r->BL == 0 ? default_drive : r->BL - 1);
 
       if (dev >= lastdrive)
-      {
-        *err = DE_INVLDDRV;
-        return 0;
-      }
+        return DE_INVLDDRV;
       else
       {
         cdsp = &CDSp->cds_table[dev];
@@ -188,8 +185,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       break;
 
     default:
-      *err = DE_INVLDFUNC;
-      return 0;
+      return DE_INVLDFUNC;
   }
 
   switch (r->AL)
@@ -206,10 +202,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
       /* sft_flags is a file, return an error because you     */
       /* can't set the status of a file.                      */
       if (!(s->sft_flags & SFT_FDEVICE))
-      {
-        *err = DE_INVLDFUNC;
-        return 0;
-      }
+        return DE_INVLDFUNC;
 
       /* Set it to what we got in the DL register from the    */
       /* user.                                                */
@@ -243,10 +236,8 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
           execrh((request FAR *) & CharReqHdr, s->sft_dev);
 
           if (CharReqHdr.r_status & S_ERROR)
-          {
-            *err = DE_DEVICE;
-            return 0;
-          }
+            return DE_DEVICE;
+
           if (r->AL == 0x07)
           {
             r->AL = CharReqHdr.r_status & S_BUSY ? 00 : 0xff;
@@ -263,8 +254,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
           }
           break;
       }
-      *err = DE_INVLDFUNC;
-      return 0;
+      return DE_INVLDFUNC;
 
     case 0x0d:
       nMode = C_GENIOCTL;
@@ -280,16 +270,14 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     IoBlockCommon:
       if(!dpbp)
       {
-        *err = DE_INVLDDRV;
-        return 0;
+        return DE_INVLDDRV;
       }
       if ( ((r->AL == 0x04 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x05 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x11) && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
             || ((r->AL == 0x0d) && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
       {
-        *err = DE_INVLDFUNC;
-        return 0;
+        return DE_INVLDFUNC;
       }
 
 
@@ -304,8 +292,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 
         if (CharReqHdr.r_status & S_ERROR)
         {
-            *err = DE_DEVICE;
-            return 0;
+            return DE_DEVICE;
         }
         if (r->AL == 0x08)
         {
@@ -345,16 +332,14 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     case 0x08:
       if(!dpbp)
       {
-        *err = DE_INVLDDRV;
-        return 0;
+        return DE_INVLDDRV;
       }
       if (dpbp->dpb_device->dh_attr & ATTR_EXCALLS)
       {
         nMode = C_REMMEDIA;
         goto IoBlockCommon;
       }
-      *err = DE_INVLDFUNC;
-      return 0;
+      return DE_INVLDFUNC;
 
     case 0x09:
       if(cdsp->cdsFlags & CDSNETWDRV)
@@ -366,8 +351,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
         {
             if(!dpbp)
             {
-                *err = DE_INVLDDRV;
-                return 0;
+                return DE_INVLDDRV;
             }
 /* Need to add subst bit 15  */
             r->DX = dpbp->dpb_device->dh_attr;
@@ -388,8 +372,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
     IoLogCommon:
       if(!dpbp)
       {
-        *err = DE_INVLDDRV;
-        return 0;
+        return DE_INVLDDRV;
       }
       if ((dpbp->dpb_device->dh_attr & ATTR_GENIOCTL))
       {
@@ -405,22 +388,18 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
                dpbp->dpb_device);
 
         if (CharReqHdr.r_status & S_ERROR)
-          *err = DE_ACCESS;
+          return DE_ACCESS;
         else
         {
             r->AL = CharReqHdr.r_unit;
-            *err = SUCCESS;
+            return SUCCESS;
         }
-        return 0;
       }
-      *err = DE_INVLDFUNC;
-      return 0;
+      return DE_INVLDFUNC;
 
     default:
-      *err = DE_INVLDFUNC;
-      return 0;
+      return DE_INVLDFUNC;
   }
-  *err = SUCCESS;
-  return 0;
+  return SUCCESS;
 }
 

@@ -96,8 +96,8 @@ _int3:
                 retf
 
 
-
 segment	INIT_TEXT
+%if 0
 ;
 ;       void init_call_intr(nr, rp)
 ;       REG int nr
@@ -159,7 +159,7 @@ init_intr?1:
                 ret
 
 
-
+%endif
 ;
 ; int init_call_XMScall( (WORD FAR * driverAddress)(), WORD AX, WORD DX)
 ;
@@ -177,4 +177,83 @@ _init_call_XMScall:
             pop  bp
             ret
             
+; void FAR *DetectXMSDriver(VOID)
+global _DetectXMSDriver
+_DetectXMSDriver:
+        mov ax, 4300h
+        int 2fh                 ; XMS installation check
+
+        cmp al, 80h
+        je detected
+        xor ax, ax
+        xor dx, dx
+        ret
+
+detected:
+        push es
+        push bx
+        mov ax, 4310h           ; XMS get driver address
+        int 2fh
+        
+        mov ax, bx
+        mov dx, es
+        pop bx
+        pop es
+        ret        
+
+global _keycheck        
+_keycheck:      
+        mov ah, 1
+        int 16h
+        ret                
+
+;; COUNT init_DosOpen(BYTE *fname, COUNT mode)
+    global _init_DosOpen
+_init_DosOpen: 
+        ;; first implementation of init calling DOS through ints:
+        mov bx, sp
+        mov ah, 3dh
+        ;; we know that SS=DS during init stage.
+        mov al, [bx+4]
+        mov dx, [bx+2]
+        int 21h
+common_exit:        
+        jnc open_no_error
+        ;; AX has file handle
+        neg ax
+        ;; negative value for error code
+open_no_error:
+        ret
+
+;; COUNT init_DosClose(COUNT hndl)
+    global _init_DosClose
+_init_DosClose:
+        mov bx, sp
+        mov bx, [bx+2]
+        mov ah, 3eh
+        int 21h
+        jmp common_exit
+
+;; COUNT init_DosRead(COUNT hndl, BYTE *bp, UCOUNT n)
+    global _init_DosRead
+_init_DosRead:
+        mov bx, sp
+        mov cx, [bx+6]
+        mov dx, [bx+4]
+        mov bx, [bx+2]
+        mov ah, 3fh
+        int 21h
+        jmp common_exit
+
+;; VOID init_PSPInit(seg psp_seg)
+    global _init_PSPInit
+_init_PSPInit:        
+        push si
+        mov ah, 55h
+        mov bx, sp
+        mov dx, [bx+4]
+        xor si, si
+        int 21h
+        pop si
+        ret
                         

@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -79,14 +82,10 @@ segment HMA_TEXT
 ;
                 global  _WritePCClock
 _WritePCClock:
-                push    bp
-                mov     bp,sp
+                mov     bx,sp
 ;               Ticks = 4
-                mov     cx,word [bp+6]
-                mov     dx,word [bp+4]      ;Ticks
+                mov     cx,word [ss:bx+4]
+                mov     dx,word [ss:bx+2]      ;Ticks
                 mov     ah,1
-                int     26
-                mov     sp,bp
-                pop     bp
+                int     1ah
                 ret
-                nop

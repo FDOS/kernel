@@ -36,6 +36,9 @@ static BYTE *mcb_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.6  2000/08/06 04:27:07  jimtabor
  * See history.txt
  *
@@ -104,7 +107,7 @@ static BYTE *mcb_hRcsId = "$Id$";
 #define MCB_NORMAL      0x4d
 #define MCB_LAST        0x5a
 
-#define DOS_PSP         0x0050  /* 0x0008 What? seg 8 =0:0080 */
+#define DOS_PSP         0x0060  /* 0x0008 What? seg 8 =0:0080 */
 #define FREE_PSP        0
 
 #define MCB_SIZE(x)     ((((LONG)(x))<<4)+sizeof(mcb))

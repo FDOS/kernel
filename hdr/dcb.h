@@ -36,6 +36,9 @@ static BYTE *clock_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -112,5 +115,6 @@ struct dpb
 
 };
 
-#define UNKNCLUSTER     0xffff  /* 0xffff = unknown for DOS     */
+#define UNKNCLUSTER      0x0000  /* see RBIL INT 21/AH=52 entry  */
+#define UNKNCLSTFREE     0xffff  /* 0xffff = unknown for DOS     */
 

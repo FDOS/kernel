@@ -34,6 +34,9 @@ static BYTE *Cds_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -116,4 +119,5 @@ cdstbl;
 #define CDSPHYSDRV      0x4000
 #define CDSJOINED       0x2000
 #define CDSSUBST        0x1000
+#define CDSVALID        (CDSNETWDRV | CDSPHYSDRV)
 

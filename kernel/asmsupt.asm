@@ -34,6 +34,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -92,10 +95,9 @@ segment HMA_TEXT
 ;*********************************************************************
 ; this implements some of the common string handling functions
 ;
-; every function has 2 entries
+; every function has 1 entry
 ;
 ;   NEAR FUNC()
-;   FAR  init_call_FUNC()
 ;
 ; currently done:
 ;
@@ -143,28 +145,23 @@ common_setup:
                                 ; are preloaded here
                 
                 ; the destination pointer, d = arg1
-                mov             di,[bp+6]
+                mov             di,[bp+4]
 
                 ; Get the source pointer,  s = arg2
-                mov             si,[bp+8]
+                mov             si,[bp+6]
 
                 ; Get the repitition count, n = arg3
-                mov             cx,[bp+10]
+                mov             cx,[bp+8]
 
                 jmp bx
-                
+
 
 ;***********************************************
 ;
 ;       VOID memcpy(REG BYTE *s, REG BYTE *d, REG COUNT n);
 ;
                 global  _memcpy
-                global  _init_call_memcpy
 _memcpy:
-                pop ax
-                push cs
-                push ax
-_init_call_memcpy:
                 call common_setup
 
 
@@ -186,7 +183,7 @@ common_return:
                 pop     di
                 pop     si
                 pop     bp
-                retf
+                ret
 
 
 
@@ -196,23 +193,18 @@ common_return:
 ;
                 global  __fmemcpy
                 global  _fmemcpy
-                global  _init_call_fmemcpy
 _fmemcpy:
 __fmemcpy:
-                pop ax
-                push cs
-                push ax
-_init_call_fmemcpy:
                 call common_setup
 
                 ; Get the far source pointer, s
-                lds     si,[bp+10]
+                lds     si,[bp+8]
 
                 ; Get the far destination pointer d
-                les     di,[bp+6]
+                les     di,[bp+4]
 
                 ; Get the repetition count, n
-                mov     cx,[bp+14]
+                mov     cx,[bp+12]
 
 
                 jmp short domemcpy
@@ -222,23 +214,17 @@ _init_call_fmemcpy:
 ;       VOID fmemset(REG VOID FAR *d, REG BYTE ch, REG COUNT n);
 ;
                 global  _fmemset
-                global  _init_call_fmemset
 _fmemset:
-                pop ax
-                push cs
-                push ax
-_init_call_fmemset:
-
                 call common_setup
 
                 ; Get the repetition count, n
-                mov     cx,[bp+12]
+                mov     cx,[bp+10]
 
                 ; Get the far source pointer, s
-                les     di,[bp+6]
+                les     di,[bp+4]
 
                 ; Get the far destination pointer ch
-                mov     al,[bp+10]
+                mov     al,[bp+8]
                 
 domemset:                
                 mov		ah, al
@@ -255,23 +241,17 @@ domemset:
 ;       VOID memset(REG VOID *d, REG BYTE ch, REG COUNT n);
 ;
                 global  _memset
-                global  _init_call_memset
 _memset:
-                pop ax
-                push cs
-                push ax
-_init_call_memset:
-
                 call common_setup
                 
                                 ; Get the far source pointer, s
-                ; mov      di,[bp+6]
+                ; mov      di,[bp+4]
 
                 ; Get the char ch
-                mov     ax,si   ; mov al, [bp+8]
+                mov     ax,si   ; mov al, [bp+6]
 
                 ; Get the repititon count, n
-                ; mov     cx,[bp+10]
+                ; mov     cx,[bp+8]
 
                 jmp short domemset
 
@@ -281,21 +261,16 @@ _init_call_memset:
 ;***************************************************************
                 
                 global  _fstrncpy
-                global  _init_call_fstrncpy
 _fstrncpy:
-                pop ax
-                push cs
-                push ax
-_init_call_fstrncpy:
                 call common_setup
 
                 ; Get the source pointer, ss
-                lds             si,[bp+10]
+                lds             si,[bp+8]
 
                 ; and the destination pointer, d
-                les             di,[bp+6]
+                les             di,[bp+4]
 
-                mov             cx,[bp+14]
+                mov             cx,[bp+12]
                 
                 jcxz    common_return
                 ;;                 dec     cx
@@ -318,38 +293,28 @@ store_one_byte: xor al,al
 
 
                 global  _fstrcpy
-                global  _init_call_fstrcpy
 _fstrcpy:
-                pop ax
-                push cs
-                push ax
-_init_call_fstrcpy:
                 call common_setup
 
                 ; Get the source pointer, ss
-                lds             si,[bp+10]
+                lds             si,[bp+8]
 
                 ; and the destination pointer, d
-                les             di,[bp+6]
+                les             di,[bp+4]
                 
                 jmp short dostrcpy
 
 ;******
                 global  _strcpy
-                global  _init_call_strcpy
 _strcpy:
-                pop ax
-                push cs
-                push ax
-_init_call_strcpy:
                 call common_setup
 
 
                 ; Get the source pointer, ss
-                ;mov             si,[bp+8]
+                ;mov             si,[bp+6]
 
                 ; and the destination pointer, d
-                ;mov             di,[bp+6]
+                ;mov             di,[bp+4]
 
 dostrcpy:
 
@@ -364,27 +329,17 @@ strcpy_loop:
 ;******************************************************************                
                 
                 global  _fstrlen
-                global  _init_call_fstrlen
 _fstrlen:
-                pop ax
-                push cs
-                push ax
-_init_call_fstrlen:
                 call common_setup
 
                 ; Get the source pointer, ss
-                les             di,[bp+6]
+                les             di,[bp+4]
 
                 jmp short dostrlen
 
 ;**********************************************
                 global  _strlen
-                global  _init_call_strlen
 _strlen:
-                pop ax
-                push cs
-                push ax
-_init_call_strlen:
                 call common_setup
 
                 ; The source pointer, ss, arg1 was loaded as di
@@ -398,21 +353,16 @@ dostrlen:
                 not ax                
                 dec ax
 
-                jmp common_return
+                jmp short common_return
 
 ;************************************************************
                 global  _strchr
-                global  _init_call_strchr
 _strchr:
-                pop ax
-                push cs
-                push ax
-_init_call_strchr:
                 call common_setup
 
                 ; Get the source pointer, ss
-                ; mov             si,[bp+6]
-                ; mov             bx,[bp+8]
+                ; mov             si,[bp+4]
+                ; mov             bx,[bp+6]
                 mov bx,si
                 mov si,di
 
@@ -432,38 +382,28 @@ strchr_found:
 
 ;**********************************************************************
                 global  _fstrcmp
-                global  _init_call_fstrcmp
 _fstrcmp:
-                pop ax
-                push cs
-                push ax
-_init_call_fstrcmp:
                 call common_setup
 
                 ; Get the source pointer, ss
-                lds             si,[bp+6]
+                lds             si,[bp+4]
 
                 ; and the destination pointer, d
-                les             di,[bp+10]
+                les             di,[bp+8]
                 
                 jmp dostrcmp
 
 ;******
                 global  _strcmp
-                global  _init_call_strcmp
 _strcmp:
-                pop ax
-                push cs
-                push ax
-_init_call_strcmp:
                 call common_setup
 
 
                 ; Get the source pointer, ss
-                ; mov             si,[bp+6]
+                ; mov             si,[bp+4]
 
                 ; and the destination pointer, d
-                ; mov             di,[bp+8]
+                ; mov             di,[bp+6]
                 xchg si,di
 
 dostrcmp:                       
@@ -475,39 +415,29 @@ dostrcmp:
                 
 ;**********************************************************************
                 global  _fstrncmp
-                global  _init_call_fstrncmp
 _fstrncmp:
-                pop ax
-                push cs
-                push ax
-_init_call_fstrncmp:
                 call common_setup
 
                 ; Get the source pointer, ss
-                lds             si,[bp+6]
+                lds             si,[bp+4]
 
                 ; and the destination pointer, d
-                les             di,[bp+10]
-                mov             cx,[bp+12]
+                les             di,[bp+8]
+                mov             cx,[bp+10]
                 
                 jmp short dostrncmp
 
 ;******
                 global  _strncmp
-                global  _init_call_strncmp
 _strncmp:
-                pop ax
-                push cs
-                push ax
-_init_call_strncmp:
                 call common_setup
 
                 ; Get the source pointer, ss
-                ;mov             si,[bp+6]
+                ;mov             si,[bp+4]
 
                 ; and the destination pointer, d
-                ;mov             di,[bp+8]
-                ;mov             cx,[bp+10]
+                ;mov             di,[bp+6]
+                ;mov             cx,[bp+8]
                 xchg si,di
 
 dostrncmp:

@@ -27,7 +27,7 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
-
+#define CONFIG
 #include "init-mod.h"
 
 #include "portab.h"
@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.16  2001/04/02 23:18:30  bartoldeman
  * Misc, zero terminated device names and redirector bugs fixed.
  *
@@ -178,15 +181,14 @@ static BYTE *RcsId = "$Id$";
 #define KernelAlloc(x) adjust_far((void far *)malloc((unsigned long)(x)))
 #endif
 
-BYTE FAR *lpBase;
-BYTE FAR *upBase;
-static BYTE FAR *lpOldLast;
-static BYTE FAR *upOldLast;
-static COUNT nCfgLine;
-static COUNT nPass;
-       COUNT UmbState;
-static BYTE szLine[256];
-static BYTE szBuf[256];
+BYTE FAR *lpBase = 0;
+BYTE FAR *upBase = 0;
+static BYTE FAR *lpOldLast = 0;
+static COUNT nCfgLine = 0;
+static COUNT nPass = 0;
+       COUNT UmbState = 0;
+static BYTE szLine[256]={0};
+static BYTE szBuf[256]={0};
 
 int singleStep = 0;
 
@@ -219,8 +221,6 @@ INIT UWORD initdev(struct dhdr FAR * dhp, BYTE FAR * cmdTail);
 INIT int SkipLine(char *pLine);
 INIT char *stristr(char *s1, char *s2);
 INIT COUNT strcasecmp(REG BYTE *d, REG BYTE *s);
-
-INIT BYTE FAR *KernelAlloc(WORD nBytes);
 
 extern void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers); /* from BLOCKIO.C */
@@ -337,9 +337,9 @@ INIT void PreConfig(void)
   f_nodes_cnt = Config.cfgFiles;
   /* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
-  FCBp = (sfttbl FAR *)
+  /* FCBp = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
-                  + Config.cfgFiles * sizeof(sft));
+                  + Config.cfgFiles * sizeof(sft));*/
   sfthead = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
                   + Config.cfgFiles * sizeof(sft));
@@ -347,11 +347,15 @@ INIT void PreConfig(void)
   CDSp = (cdstbl FAR *)
       KernelAlloc(0x58 * lastdrive);
 
+  DPBp = (struct dpb FAR *)
+      KernelAlloc(blk_dev.dh_name[0]*sizeof(struct dpb));
+
 #ifdef DEBUG
   printf("Preliminary f_node allocated at at 0x%p\n",f_nodes);
   printf("Preliminary FCB table allocated at 0x%p\n",FCBp);
   printf("Preliminary sft table allocated at 0x%p\n",sfthead);
   printf("Preliminary CDS table allocated at 0x%p\n",CDSp);
+  printf("Preliminary DPB table allocated at 0x%p\n",DPBp);
 #endif
 
   /* Done.  Now initialize the MCB structure                      */
@@ -369,7 +373,7 @@ INIT void PreConfig(void)
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
   mcb_init((mcb FAR *) (MK_FP(first_mcb, 0)),
-           (ram_top << 6) - first_mcb - 1);
+           ((UCOUNT)ram_top << 6) - first_mcb - 1);
   nPass = 1;
 }
 
@@ -416,9 +420,9 @@ INIT void PostConfig(void)
   f_nodes_cnt = Config.cfgFiles;   /* and the number of allocated files */
 /* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
-  FCBp = (sfttbl FAR *)
+  /* FCBp = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
-                  + Config.cfgFiles * sizeof(sft));
+                  + Config.cfgFiles * sizeof(sft));*/
   sfthead = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
                   + Config.cfgFiles * sizeof(sft));
@@ -426,12 +430,17 @@ INIT void PostConfig(void)
   CDSp = (cdstbl FAR *)
       KernelAlloc(0x58 * lastdrive);
 
+  DPBp = (struct dpb FAR *)
+      KernelAlloc(blk_dev.dh_name[0]*sizeof(struct dpb));
+
+
 #ifdef DEBUG
 
   printf("f_node    allocated at 0x%p\n",f_nodes);
   printf("FCB table allocated at 0x%p\n",FCBp);
   printf("sft table allocated at 0x%p\n",sfthead);
   printf("CDS table allocated at 0x%p\n",CDSp);
+  printf("DPB table allocated at 0x%p\n",DPBp);
 #endif
   if (Config.cfgStacks)
   {
@@ -452,8 +461,6 @@ INIT void PostConfig(void)
 /* This code must be executed after device drivers has been loaded */
 INIT VOID configDone(VOID)
 {
-  COUNT i;
-  
     HMAconfig(TRUE);        /* final HMA processing */
   
   
@@ -470,7 +477,7 @@ INIT VOID configDone(VOID)
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
   mcb_init((mcb FAR *) (MK_FP(first_mcb, 0)),
-           (ram_top << 6) - first_mcb - 1);
+           ((UCOUNT)ram_top << 6) - first_mcb - 1);
 
     if(UmbState == 1)
     {
@@ -480,10 +487,12 @@ INIT VOID configDone(VOID)
 /* Check if any devices were loaded in umb */
     if(umb_start != FP_SEG(upBase) ){
 /* make last block normal with SC for the devices */
-    mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
-    (FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4)) - uppermem_root - 1);
+        
+    UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+        
+    mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)), umr_new - uppermem_root - 1);
 
-    uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+    uppermem_root = umr_new;
     zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
                                (umb_start + UMB_top ) - uppermem_root - 1);
     upBase += 16;
@@ -511,12 +520,12 @@ INIT VOID DoConfig(VOID)
 
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
-  if ((nFileDesc = dos_open((BYTE FAR *) "fdconfig.sys", 0)) < 0)
+  if ((nFileDesc = init_DosOpen("fdconfig.sys", 0)) < 0)
   {
 #ifdef DEBUG
     printf("FDCONFIG.SYS not found\n");
 #endif
-    if ((nFileDesc = dos_open((BYTE FAR *) "config.sys", 0)) < 0)
+    if ((nFileDesc = init_DosOpen("config.sys", 0)) < 0)
     {
 #ifdef DEBUG
       printf("CONFIG.SYS not found\n");
@@ -557,7 +566,7 @@ INIT VOID DoConfig(VOID)
 
     /* Read a line from config                              */
     /* Interrupt processing if read error or no bytes read  */
-    if ((nRetCode = dos_read(nFileDesc, pLine, LINESIZE - bytesLeft)) <= 0)
+    if ((nRetCode = init_DosRead(nFileDesc, pLine, LINESIZE - bytesLeft)) <= 0)
       break;
 
     /* If the buffer was not filled completely, append a
@@ -571,6 +580,7 @@ INIT VOID DoConfig(VOID)
 
     while (!bEof && *pLine != EOF)
     {
+
 /*
     Do it here in the loop.
 */
@@ -581,11 +591,10 @@ INIT VOID DoConfig(VOID)
         if(!Umb_Test()){
             UmbState = 1;
             upBase = MK_FP(umb_start , 0);
-            uppermem_root = umb_start;
 /* reset root */
-            uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+            uppermem_root = umb_start;
 /* setup the real mcb for the devicehigh block */
-            zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),  UMB_top - 1);
+            zumcb_init((mcb FAR *) upBase,  UMB_top - 1);
             upBase += 16;
         }
     }
@@ -632,7 +641,7 @@ INIT VOID DoConfig(VOID)
       pLine += strlen(pLine) + 1;
     }
   }
-  dos_close(nFileDesc);
+  init_DosClose(nFileDesc);
 }
 
 INIT struct table *LookUp(struct table *p, BYTE * token)
@@ -763,7 +772,6 @@ INIT static VOID Files(BYTE * pLine)
 INIT static VOID Lastdrive(BYTE * pLine)
 {
   /* Format:   LASTDRIVE = letter         */
-  COUNT nFiles;
   BYTE drv;
 
   pLine = skipwh(pLine);
@@ -789,6 +797,7 @@ INIT static VOID Dosmem(BYTE * pLine)
     BYTE *pTmp;
     BYTE  UMBwanted = FALSE, HMAwanted = FALSE;
 
+    extern BYTE INITDataSegmentClaimed;
 
     pLine = GetStringArg(pLine, szBuf);
 
@@ -801,7 +810,7 @@ INIT static VOID Dosmem(BYTE * pLine)
     {
         if (fmemcmp(pTmp, "UMB" ,3) == 0) { UMBwanted = TRUE; pTmp += 3; }
         if (fmemcmp(pTmp, "HIGH",4) == 0) { HMAwanted = TRUE; pTmp += 4; }
-
+        if (fmemcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }
         pTmp = skipwh(pTmp);
 
         if (*pTmp != ',')
@@ -966,16 +975,16 @@ INIT static VOID Break(BYTE * pLine)
 
 INIT static VOID Numlock(BYTE * pLine)
 {
+  extern VOID keycheck();
+    
   /* Format:      NUMLOCK = (ON | OFF)      */
-  iregs regs;
   BYTE FAR *keyflags = (BYTE FAR *)MK_FP(0x40,0x17);
 
   GetStringArg(pLine, szBuf);
 
   *keyflags &= ~32;
   *keyflags |= strcasecmp(szBuf, "OFF") ? 32 : 0;
-  regs.a.b.h = 1;
-  init_call_intr(0x16, &regs);
+  keycheck();
 }
 
 INIT static VOID DeviceHigh(BYTE * pLine)
@@ -1002,41 +1011,32 @@ INIT void Device(BYTE * pLine)
 
 INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 {
-  VOID FAR *driver_ptr;
   BYTE *pTmp;
   exec_blk eb;
   struct dhdr FAR *dhp;
   struct dhdr FAR *next_dhp;
-  UWORD dev_seg;
   BOOL result;
 
   if(mode)
-    dev_seg = (((ULONG) FP_SEG(upBase) << 4) + FP_OFF(upBase) + 0xf) >> 4;
+    dhp = AlignParagraph(upBase);
   else
-    dev_seg = (((ULONG) FP_SEG(lpBase) << 4) + FP_OFF(lpBase) + 0xf) >> 4;
+    dhp = AlignParagraph(lpBase);
 
   /* Get the device driver name                                   */
   GetStringArg(pLine, szBuf);
 
   /* The driver is loaded at the top of allocated memory.         */
   /* The device driver is paragraph aligned.                      */
-  eb.load.reloc = eb.load.load_seg = dev_seg;
-  dhp = MK_FP(dev_seg, 0);
+  eb.load.reloc = eb.load.load_seg = FP_SEG(dhp);
 
 #ifdef DEBUG
   printf("Loading device driver %s at segment %04x\n",
-         szBuf, dev_seg);
+         szBuf, FP_SEG(dhp));
 #endif
 
 
   if (DosExec(3, &eb, szBuf) == SUCCESS)
   {
-    /* TE this fixes the loading of devices drivers with 
-       multiple devices in it. NUMEGA's SoftIce is such a beast
-   */   
-   
-   for ( ; ; )
-   { 
         /*  that's a nice hack >:-)   
         
             although we don't want HIMEM.SYS,(it's not free), other people
@@ -1058,28 +1058,27 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
                     strcat(pTmp, " /TESTMEM:OFF\r\n");
                     }
             }
-        /* end of HIMEM.SYS HACK */    
+        /* end of HIMEM.SYS HACK */ 
 
-        result=init_device(dhp, pTmp, mode, top);
-
-        if(!result){
-            next_dhp = dhp->dh_next;
-            /* Link in device driver and save nul_dev pointer to next */
-            dhp->dh_next = nul_dev.dh_next;
-            nul_dev.dh_next = dhp;
-        }
-      
-                                                    /* multiple devices end */
-      if (FP_OFF(next_dhp) == 0xffff)               /* end of internal chain */
-        break;
-      
-      FP_OFF(dhp) = FP_OFF(next_dhp);
-      
-      if (FP_SEG(next_dhp) != 0xffff)
-        {
-        printf("multisegmented device driver found, next %p\n",next_dhp); /* give warning message */
-        dhp = next_dhp;  
-        }
+    /* TE this fixes the loading of devices drivers with
+       multiple devices in it. NUMEGA's SoftIce is such a beast
+    */   
+    for (next_dhp=NULL; FP_OFF(next_dhp) != 0xffff &&
+             (result=init_device(dhp, pTmp, mode, top))==SUCCESS
+            ; dhp = next_dhp)
+    { 
+      next_dhp = dhp->dh_next;
+      if (FP_SEG(next_dhp) == 0xffff)
+        /*  Does this ever occur with FP_OFF(next_dhp) != 0xffff ??? */
+      next_dhp = MK_FP(FP_SEG(dhp), FP_OFF(next_dhp));
+#ifdef DEBUG      
+      else if (FP_OFF(next_dhp) != 0xffff)  /* end of internal chain */
+        printf("multisegmented device driver found, next %p\n",next_dhp);
+        /* give warning message */
+#endif          
+      /* Link in device driver and save nul_dev pointer to next */
+      dhp->dh_next = nul_dev.dh_next;
+      nul_dev.dh_next = dhp;
     } 
 
     HMAconfig(FALSE);   /* let the HMA claim HMA usage */
@@ -1109,7 +1108,7 @@ INIT BYTE FAR *KernelAlloc(WORD nBytes)
   lpBase = AlignParagraph(lpBase);
   lpAllocated = lpBase;
 
-  if (0x10000 - FP_OFF(lpBase) <= nBytes)
+  if (0xffff - FP_OFF(lpBase) <= nBytes)
   {
     UWORD newOffs = (FP_OFF(lpBase) + nBytes) & 0xFFFF;
     UWORD newSeg = FP_SEG(lpBase) + 0x1000;
@@ -1140,19 +1139,13 @@ INIT BYTE FAR *KernelAllocDma(WORD bytes)
 
 INIT void FAR *AlignParagraph(VOID FAR * lpPtr)
 {
-  ULONG lTemp;
   UWORD uSegVal;
 
   /* First, convert the segmented pointer to linear address       */
-  lTemp = FP_SEG(lpPtr);
-  lTemp = (lTemp << 4) + FP_OFF(lpPtr);
-
-  /* Next, round up the linear address to a paragraph boundary.   */
-  lTemp += 0x0f;
-  lTemp &= 0xfffffff0l;
-
-  /* Break it into segments.                                      */
-  uSegVal = (UWORD) (lTemp >> 4);
+  uSegVal = FP_SEG(lpPtr);
+  uSegVal += (FP_OFF(lpPtr)+0xf) >> 4;
+  if (FP_OFF(lpPtr) > 0xfff0)
+      uSegVal += 0x1000; /* handle overflow */
 
   /* and return an adddress adjusted to the nearest paragraph     */
   /* boundary.                                                    */
@@ -1238,7 +1231,7 @@ INIT COUNT toupper(COUNT c)
 
 /* The following code is 8086 dependant                         */
 
-#ifdef KERNEL
+#if 1           /* ifdef KERNEL */
 INIT VOID
   mcb_init(mcb FAR * mcbp, UWORD size)
 {
@@ -1314,8 +1307,6 @@ char *stristr(char *s1, char *s2)
 /* compare two ASCII strings ignoring case */
 INIT COUNT strcasecmp(REG BYTE *d, REG BYTE *s)
 {
-    int loop;
-
     while (*s != '\0' && *d != '\0')
     {
         

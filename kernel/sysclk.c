@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -121,17 +124,16 @@ static UWORD Month,
   Year;
 static BYTE bcdMinutes;
 static BYTE bcdHours;
-static BYTE bcdHundredths;
+/** static BYTE bcdHundredths;*/
 static BYTE bcdSeconds;
 
 static ULONG Ticks;
 UWORD DaysSinceEpoch = 0;
 
-WORD FAR init_call_clk_driver(rqptr rp)
+WORD FAR clk_driver(rqptr rp)
 {
   COUNT 
     c;
-  int FAR *cp;
   WORD *pdays;
 
   switch (rp->r_command)
@@ -336,10 +338,4 @@ VOID DayToBcd(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr)
   x[0] = ByteToBcd(*day);
   x[3] = ByteToBcd(*yr / 100);
   x[2] = ByteToBcd(*yr % 100);
-}
-
-/* Used by `main.c'. */
-VOID FAR init_call_WritePCClock(ULONG ticks)
-{
-  WritePCClock(ticks);
 }

@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.8  2001/04/15 03:21:50  bartoldeman
+# See history.txt for the list of fixes.
+#
 # Revision 1.7  2001/03/25 17:11:54  bartoldeman
 # Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
 #
@@ -131,10 +134,9 @@ LIBS        =..\LIB\DEVICE.LIB ..\LIB\LIBM.LIB
 #ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
 #    -D__STDC__=0;DEBUG;KERNEL;I86;PROTO;ASMSUPT
 ALLCFLAGS = -1- -O -Z -d -I..\hdr -I. \
-     -D__STDC__=0;KERNEL;I86;PROTO;ASMSUPT \
-     -g1 
-INITCFLAGS = $(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP
-CFLAGS     = $(ALLCFLAGS) -zAHMA  -zCHMA_TEXT  
+     -D__STDC__=0;I86;ASMSUPT -w -g1
+INITCFLAGS =$(ALLCFLAGS) -zAINIT -zCINIT_TEXT -zPIGROUP -zDIB -zRID -zTID
+CFLAGS     =$(ALLCFLAGS) -zAHMA  -zCHMA_TEXT  
 HDR=../hdr/
 
 #               *Implicit Rules*
@@ -272,7 +274,7 @@ config.obj: config.c init-mod.h $(HDR)portab.h globals.h \
  $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h \
  $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h \
  $(HDR)error.h $(HDR)version.h proto.h
-        $(CC) $(INITCFLAGS) -c config.c
+	$(CC) $(INITCFLAGS) -c config.c
 
 initoem.obj: initoem.c init-mod.h $(HDR)portab.h globals.h \
  $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h \
@@ -288,7 +290,7 @@ main.obj: main.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
  $(HDR)version.h proto.h
-        $(CC) $(INITCFLAGS) -c main.c
+	$(CC) $(INITCFLAGS) -c main.c
 
 initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
@@ -296,7 +298,7 @@ initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
  $(HDR)version.h proto.h
-        $(CC) $(INITCFLAGS) -c initHMA.c
+	$(CC) $(INITCFLAGS) -c initHMA.c
 
 # XXX: I generated these using `gcc -MM' and `sed', so they may not be
 # completely correct... -- ror4

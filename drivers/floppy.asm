@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -80,8 +83,13 @@
 ;Initial revision.
 ;
 
-                %include "..\kernel\segs.inc"
-
+%ifndef SYS
+     %include "..\kernel\segs.inc"
+%else
+group   TGROUP  HMA_TEXT _TEXT 
+segment _TEXT      class=CODE
+segment HMA_TEXT   class=CODE
+%endif                               
 segment	HMA_TEXT
 
 ;

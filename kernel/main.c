@@ -29,7 +29,6 @@
 
 #include "init-mod.h"
 
-#define MAIN
 #include "portab.h"
 #include "globals.h"
 
@@ -39,6 +38,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.12  2001/03/30 22:27:42  bartoldeman
  * Saner lastdrive handling.
  *
@@ -169,14 +171,14 @@ extern BYTE FAR * lpBase;
 extern BYTE FAR * upBase;
 
 INIT BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
-VOID FAR init_call_WritePCClock(ULONG);
-VOID FAR reloc_call_WritePCClock(ULONG);
+VOID WritePCClock(ULONG);
 
 INIT VOID configDone(VOID);
 INIT static void InitIO(void);
 INIT static COUNT BcdToByte(COUNT);
-INIT static COUNT BcdToDay(BYTE *);
+/** INIT static COUNT BcdToDay(BYTE *);*/
 
+INIT static VOID update_dcb(struct dhdr FAR *);
 INIT static VOID init_kernel(VOID);
 INIT static VOID signon(VOID);
 INIT VOID kernel(VOID);
@@ -226,26 +228,28 @@ INIT VOID main(void)
     at least one known utility (norton DE) seems to access them directly.
     ok, so we access for all drives, that the stuff gets build
 */
-
-void InitializeAllBPBs()
+/*
+  should not be necessary anymore (see DosSelectDrv in dosfns.c)
+void InitializeAllBPBs(VOID)
 {
   static char filename[] = "A:-@JUNK@-.TMP";
   int drive,fileno;
   for (drive = 'Z'; drive >= 'C'; drive--)
     {
       filename[0] = drive;
-      if ((fileno = dos_open((BYTE FAR *) filename, O_RDONLY)) >= 0)
-        dos_close(fileno);
+      if ((fileno = init_DosOpen(filename, O_RDONLY)) >= 0)
+        init_DosClose(fileno);
     }
 }    
-
+*/
 
 INIT void init_kernel(void)
 {
   COUNT i;
+  
   os_major = MAJOR_RELEASE;
   os_minor = MINOR_RELEASE;
-  cu_psp = DOS_PSP;
+
   nblkdev = 0;
   maxbksize = 0x200;
   switchar = '/';
@@ -294,10 +298,13 @@ INIT void init_kernel(void)
   scr_pos = 0;
   break_ena = TRUE;
 
+  init_PSPInit(DOS_PSP);
+
   /* Do first initialization of system variable buffers so that   */
   /* we can read config.sys later.  */
   lastdrive = Config.cfgLastdrive;
   PreConfig();
+  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top);
 
   /* Now config the temporary file system */
   FsConfig();
@@ -305,11 +312,12 @@ INIT void init_kernel(void)
 #ifndef KDB
   /* Now process CONFIG.SYS     */
   DoConfig();
-
   /* and do final buffer allocation. */
   PostConfig();
+  nblkdev = 0;
+  update_dcb(&blk_dev);
 
-  /* Init the file system on emore time     */
+  /* Init the file system one more time     */
   FsConfig();
 
   /* and process CONFIG.SYS one last time to load device drivers. */
@@ -326,20 +334,12 @@ INIT void init_kernel(void)
   InDOS = 0;
   pDirFileNode = 0;
   dosidle_flag = 0;
-  
-  InitializeAllBPBs();
-  
 }
 
 INIT VOID FsConfig(VOID)
 {
   REG COUNT i;
-  date Date;
-  time Time;
-
-  /* Get the start-up date and time                               */
-  Date = dos_getdate();
-  Time = dos_gettime();
+  struct dpb FAR *dpb;
 
   /* Initialize the file tables */
   for (i = 0; i < Config.cfgFiles; i++)
@@ -351,84 +351,36 @@ INIT VOID FsConfig(VOID)
   sfthead->sftt_count = Config.cfgFiles;
   for (i = 0; i < sfthead->sftt_count; i++)
   {
+    init_DosClose(i);
     sfthead->sftt_table[i].sft_count = 0;
     sfthead->sftt_table[i].sft_status = -1;
   }
   /* 0 is /dev/con (stdin) */
-  sfthead->sftt_table[0].sft_count = 1;
-  sfthead->sftt_table[0].sft_mode = SFT_MREAD;
-  sfthead->sftt_table[0].sft_attrib = 0;
-  sfthead->sftt_table[0].sft_flags =
-      ((con_dev.dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF | SFT_FCONIN | SFT_FCONOUT;
-  sfthead->sftt_table[0].sft_psp = DOS_PSP;
-  sfthead->sftt_table[0].sft_date = Date;
-  sfthead->sftt_table[0].sft_time = Time;
-  fbcopy(
-          (VOID FAR *) "CON        ",
-          (VOID FAR *) sfthead->sftt_table[0].sft_name, 11);
-  sfthead->sftt_table[0].sft_dev = (struct dhdr FAR *)&con_dev;
+  init_DosOpen("CON", SFT_MREAD);
+  sfthead->sftt_table[0].sft_flags |= SFT_FCONIN | SFT_FCONOUT;
 
   /* 1 is /dev/con (stdout)     */
-  sfthead->sftt_table[1].sft_count = 1;
-  sfthead->sftt_table[1].sft_mode = SFT_MWRITE;
-  sfthead->sftt_table[1].sft_attrib = 0;
-  sfthead->sftt_table[1].sft_flags =
-      ((con_dev.dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF | SFT_FCONIN | SFT_FCONOUT;
-  sfthead->sftt_table[1].sft_psp = DOS_PSP;
-  sfthead->sftt_table[1].sft_date = Date;
-  sfthead->sftt_table[1].sft_time = Time;
-  fbcopy(
-          (VOID FAR *) "CON        ",
-          (VOID FAR *) sfthead->sftt_table[1].sft_name, 11);
-  sfthead->sftt_table[1].sft_dev = (struct dhdr FAR *)&con_dev;
+  init_DosOpen("CON", SFT_MWRITE);
+  sfthead->sftt_table[1].sft_flags |= SFT_FCONIN | SFT_FCONOUT;
 
   /* 2 is /dev/con (stderr)     */
-  sfthead->sftt_table[2].sft_count = 1;
-  sfthead->sftt_table[2].sft_mode = SFT_MWRITE;
-  sfthead->sftt_table[2].sft_attrib = 0;
-  sfthead->sftt_table[2].sft_flags =
-      ((con_dev.dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF | SFT_FCONIN | SFT_FCONOUT;
-  sfthead->sftt_table[2].sft_psp = DOS_PSP;
-  sfthead->sftt_table[2].sft_date = Date;
-  sfthead->sftt_table[2].sft_time = Time;
-  fbcopy(
-          (VOID FAR *) "CON        ",
-          (VOID FAR *) sfthead->sftt_table[2].sft_name, 11);
-  sfthead->sftt_table[2].sft_dev = (struct dhdr FAR *)&con_dev;
+  init_DosOpen("CON", SFT_MWRITE);
+  sfthead->sftt_table[2].sft_flags |= SFT_FCONIN | SFT_FCONOUT;
 
   /* 3 is /dev/aux                                                */
-  sfthead->sftt_table[3].sft_count = 1;
-  sfthead->sftt_table[3].sft_mode = SFT_MRDWR;
-  sfthead->sftt_table[3].sft_attrib = 0;
-  sfthead->sftt_table[3].sft_flags =
-      ((aux_dev.dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE;
-  sfthead->sftt_table[3].sft_psp = DOS_PSP;
-  sfthead->sftt_table[3].sft_date = Date;
-  sfthead->sftt_table[3].sft_time = Time;
-  fbcopy(
-          (VOID FAR *) "AUX        ",
-          (VOID FAR *) sfthead->sftt_table[3].sft_name, 11);
-  sfthead->sftt_table[3].sft_dev = (struct dhdr FAR *)&aux_dev;
+  init_DosOpen("AUX", SFT_MRDWR);
+  sfthead->sftt_table[3].sft_flags &= ~SFT_FEOF;
 
   /* 4 is /dev/prn                                                */
-  sfthead->sftt_table[4].sft_count = 1;
-  sfthead->sftt_table[4].sft_mode = SFT_MWRITE;
-  sfthead->sftt_table[4].sft_attrib = 0;
-  sfthead->sftt_table[4].sft_flags =
-      ((prn_dev.dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE;
-  sfthead->sftt_table[4].sft_psp = DOS_PSP;
-  sfthead->sftt_table[4].sft_date = Date;
-  sfthead->sftt_table[4].sft_time = Time;
-  fbcopy(
-          (VOID FAR *) "PRN        ",
-          (VOID FAR *) sfthead->sftt_table[4].sft_name, 11);
-  sfthead->sftt_table[4].sft_dev = (struct dhdr FAR *)&prn_dev;
+  init_DosOpen("PRN", SFT_MWRITE);
+  sfthead->sftt_table[4].sft_flags &= ~SFT_FEOF;
 
   /* Log-in the default drive.  */
   /* Get the boot drive from the ipl and use it for default.  */
   default_drive = BootDrive - 1;
+  dpb = DPBp;
 
-  /* Initialzie the current directory structures    */
+  /* Initialize the current directory structures    */
   for (i = 0; i < lastdrive  ; i++)
   {
   	struct cds FAR *pcds_table = &CDSp->cds_table[i];
@@ -438,10 +390,11 @@ INIT VOID FsConfig(VOID)
 
     pcds_table->cdsCurrentPath[0] += i;
 
-    if (i < nblkdev)
+    if (i < nblkdev && (ULONG)dpb != 0xffffffffl)
     {
-      pcds_table->cdsDpb = &blk_devices[i];
+      pcds_table->cdsDpb = dpb;
       pcds_table->cdsFlags = CDSPHYSDRV;
+      dpb = dpb->dpb_next;
     }
     else
     {
@@ -453,7 +406,7 @@ INIT VOID FsConfig(VOID)
     pcds_table->cdsJoinOffset = 2;
   }
 
-  /* Initialze the disk buffer management functions */
+  /* Initialize the disk buffer management functions */
   /* init_call_init_buffers(); done from CONFIG.C   */
 }
 
@@ -495,9 +448,42 @@ INIT void kernel()
   ep += sizeof(int);
 #endif
   RootPsp = ~0;
-  
-  init_call_p_0();
+  p_0();
 }
+
+/* check for a block device and update  device control block    */
+static VOID update_dcb(struct dhdr FAR * dhp)
+{
+  REG COUNT Index;
+  COUNT nunits = dhp->dh_name[0];
+  struct dpb FAR *dpb;
+
+  if (nblkdev==0)
+    dpb = DPBp;
+  else {
+    for (dpb = DPBp; (ULONG)dpb->dpb_next != 0xffffffffl; dpb = dpb->dpb_next)
+      ;
+    dpb = dpb->dpb_next = (struct dpb FAR *)KernelAlloc(nunits*sizeof(struct dpb));
+  }
+
+  for(Index = 0; Index < nunits; Index++)
+  {      
+    dpb->dpb_next = dpb+1;
+    dpb->dpb_unit = nblkdev;
+    dpb->dpb_subunit = Index;
+    dpb->dpb_device = dhp;
+    dpb->dpb_flags = M_CHANGED;
+    if ((CDSp != 0) && (nblkdev < lastdrive))
+    {
+      CDSp->cds_table[nblkdev].cdsDpb = dpb;
+      CDSp->cds_table[nblkdev].cdsFlags = CDSPHYSDRV;
+    }
+    ++dpb;
+    ++nblkdev;
+  }
+  (dpb-1)->dpb_next = (void FAR *)0xFFFFFFFFl;
+}
+
 
 /* If cmdLine is NULL, this is an internal driver */
 
@@ -505,11 +491,12 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
 {
   request rq;
 
-  ULONG memtop = ((ULONG) r_top) << 10;
-  ULONG maxmem = memtop - ((ULONG) FP_SEG(dhp) << 4);
+  UCOUNT maxmem = ((UCOUNT)r_top << 6) - FP_SEG(dhp);
 
-  if (maxmem >= 0x10000)
+  if (maxmem >= 0x1000)
     maxmem = 0xFFFF;
+  else
+    maxmem <<= 4;
 
   rq.r_unit = 0;
   rq.r_status = 0;
@@ -518,7 +505,6 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
   rq.r_endaddr = MK_FP(FP_SEG(dhp), maxmem);
   rq.r_bpbptr = (void FAR *)(cmdLine ? cmdLine : "\n");
   rq.r_firstunit = nblkdev;
-
 
   execrh((request FAR *) & rq, dhp);
   
@@ -535,32 +521,11 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
         lpBase = rq.r_endaddr;
     }
 
-/* check for a block device and update  device control block    */
-  if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
-  {
-    REG COUNT Index;
-
-    for (Index = 0; Index < rq.r_nunits; Index++)
-    {
-	  struct dpb *pblk_devices = &blk_devices[nblkdev];
-    	
-      if (nblkdev)
-        (pblk_devices-1)->dpb_next = pblk_devices;
-
-      pblk_devices->dpb_next = (void FAR *)0xFFFFFFFF;
-      pblk_devices->dpb_unit = nblkdev;
-      pblk_devices->dpb_subunit = Index;
-      pblk_devices->dpb_device = dhp;
-      pblk_devices->dpb_flags = M_CHANGED;
-      if ((CDSp != 0) && (nblkdev < lastdrive))
-      {
-        CDSp->cds_table[nblkdev].cdsDpb = pblk_devices;
-        CDSp->cds_table[nblkdev].cdsFlags = CDSPHYSDRV;
-      }
-      ++nblkdev;
-    }
+  if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0)) {
+    dhp->dh_name[0] = rq.r_nunits;
+    update_dcb(dhp);
   }
-  DPBp = &blk_devices[0];
+
   return FALSE;
 }
 
@@ -579,7 +544,6 @@ INIT static void InitIO(void)
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
   init_device((struct dhdr FAR *)&con_dev, NULL, NULL, ram_top);
   init_device((struct dhdr FAR *)&clk_dev, NULL, NULL, ram_top);
-  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top);
   /* If AT clock exists, copy AT clock time to system clock */
   if (!ReadATClock(bcd_days, &bcd_hours, &bcd_minutes, &bcd_seconds))
   {

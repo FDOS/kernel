@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.5  2001/04/02 23:18:30  bartoldeman
 ; Misc, zero terminated device names and redirector bugs fixed.
 ;
@@ -99,62 +102,33 @@ segment	HMA_TEXT
 _execrh:
                 push    bp              ; perform c entry
                 mov     bp,sp
-                push    bp              ; it will get destroyed
                 push    bx              ; random char on display
                 push    si
                 push    es              ; sometimes it get lost
-                push    ds
+                push    ds              ; sp=bp-8
 
                 lds     si,[bp+8]       ; ds:si = device header
                 les     bx,[bp+4]       ; es:bx = request header
 
-                push ds                 ; needed later
-                push si
-                
-                mov bp, execrh_ret1     ; construct return frame
-                push cs
-                push bp
-                
-                push ds                 ; call far the strategy
-                push word [si+6]
+                push    bp
+                push    ds              
+                push    si              ; needed later
+                mov     ax, [si+6]
+                mov     [bp+8], ax    
+                call    far[bp+8]       ; call far the strategy
+                pop     si              ; these were saved
+                pop     ds
+                pop     bp
+        
+                mov     ax, [si+8]                         
+                mov     [bp+8], ax
+                call    far[bp+8]       ; call far the interrupt
 
-                retf
-execrh_ret1:                
-                pop si                  ; these were saved
-                pop ds 
-                
-                mov bp, execrh_ret2     ; construct return frame
-                push cs
-                push bp
-                
-                push ds                 ; call far the interrupt
-                push word [si+8]
-                
-                retf
-execrh_ret2:                
-
-exit_execrh:    sti                         ; damm driver turn off ints
-                cld                         ; has gone backwards
+                sti                     ; damm driver turn off ints
+                cld                     ; has gone backwards
                 pop     ds
                 pop     es
                 pop     si
                 pop     bx
                 pop     bp
-                mov     sp,bp
-                pop     bp
                 ret
-
-		global	_init_call_execrh
-
-_init_call_execrh:
-		push	bp
-		mov	bp,sp
-		push	word [bp+12]
-		push	word [bp+10]
-		push	word [bp+8]
-		push	word [bp+6]
-		call	_execrh
-		mov	sp,bp
-		pop	bp
-		retf
-

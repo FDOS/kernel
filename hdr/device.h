@@ -35,6 +35,9 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -447,12 +450,6 @@ typedef request FAR *rqptr;
 typedef bpb FAR *bpbptr;
 typedef BYTE FAR *byteptr;
 typedef struct dhdr FAR *dhdrptr;
-
-/*
- *      externals
- */
-
-extern BYTE FAR *device_end();
 
 /*
  *      end of device.h

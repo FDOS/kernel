@@ -26,13 +26,15 @@
 
 #include "portab.h"
 #include "globals.h"
-
 #ifdef VERSION_STRINGS
 static BYTE *dskRcsId = "$Id$";
 #endif
 
 /*
  * $Log$
+ * Revision 1.14  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.13  2001/03/27 20:27:43  bartoldeman
  * dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
  *
@@ -662,7 +664,7 @@ restart:                    /* yes, it's a GOTO >:-) */
   return PartitionDone;
 }
 
-COUNT FAR init_call_blk_driver(rqptr rp)
+COUNT FAR blk_driver(rqptr rp)
 {
   if (rp->r_unit >= nUnits && rp->r_command != C_INIT)
     return failure(E_UNIT);
@@ -705,7 +707,7 @@ WORD _dsk_init(rqptr rp)
     pmiarray->mi_offset = 0l;
     pmiarray->mi_drive = Unit;
 
-    fsarray[Unit].fs_serialno = 0x12345678;
+    fsarray[Unit].fs_serialno = 0x12345678l;
 
 	pbpbarray = getPBpbarray(Unit);    
 
@@ -1004,8 +1006,10 @@ static WORD Genblkdev(rqptr rp)
 
         if (!hd(miarray[rp->r_unit].mi_drive)){
             y = 2;
-            switch(miarray[rp->r_unit].mi_size)
-            {
+	    x = 8;      /* any odd ball drives return this */
+            if (miarray[rp->r_unit].mi_size <= 0xffff)
+              switch(miarray[rp->r_unit].mi_size)
+              {
                 case 640l:
                 case 720l:      /* 320-360 */
                     x = 0;
@@ -1023,15 +1027,13 @@ static WORD Genblkdev(rqptr rp)
                 case 5760l:     /* 2.88 almost forgot this one*/
                     x = 9;
                 break;
-                default:
-                    x = 8;      /* any odd ball drives return this */
-            }
+              }
         }
         gblp->gbio_devtype = (UBYTE) x;
         gblp->gbio_devattrib = (UWORD) y;
         gblp->gbio_media = (UBYTE) z;
         gblp->gbio_ncyl = miarray[rp->r_unit].mi_cyls;
-        gblp->gbio_bpb = bpbarray[rp->r_unit];
+        fmemcpy(&gblp->gbio_bpb, &bpbarray[rp->r_unit], sizeof(gblp->gbio_bpb));
         gblp->gbio_nsecs = bpbarray[rp->r_unit].bpb_nsector;
         break;
         }
@@ -1092,13 +1094,10 @@ WORD blockio(rqptr rp)
   total = 0;
   trans = rp->r_trans;
   tmark();
-  for (
-        remaining = rp->r_count,
-        start = (rp->r_start != HUGECOUNT ? rp->r_start : rp->r_huge)
+  remaining = rp->r_count;
+  start = (rp->r_start != HUGECOUNT ? rp->r_start : rp->r_huge)
         + miarray[rp->r_unit].mi_offset;
-        remaining > 0;
-        remaining -= count, trans += count * SEC_SIZE, start += count
-      )
+  while(remaining > 0)
   {
     count = ltop(&track, &sector, &head, rp->r_unit, remaining, start, trans);
     
@@ -1151,6 +1150,9 @@ WORD blockio(rqptr rp)
       return dskerr(ret);
     }
     total += count;
+    remaining -= count;
+    trans += count * SEC_SIZE;
+    start += count;
   }
   rp->r_count = total;
   return S_DONE;

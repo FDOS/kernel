@@ -1,3 +1,46 @@
+2001 Apr 15 - Build 2023
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Fixes  Tom: 
+         * apisupt.asm not necessary anymore.
+         * fix warnings.
+         * Don't allow directories to be created in DOS_CREAT.
+         * LoadDevice: drivers should not hang the computer if they fail.
+         Bart: 
+         * fixed SYS.
+         * made most calls near again, with a jump/stack trick to 
+           switch between INIT_TEXT and HMA_TEXT.
+         * INIT_TEXT now calls INT21 itself for some things (setting
+           PSP, opening/reading/closing devices and (fd)config.sys).
+         * fixed some carry handling in inthndlr.c and 
+         * drives are checked before trying to access them.
+         * fixed console driver "busy state" confusion: the built-in
+           driver had it wrong, nansi.sys had it right:
+           "If no characters in buffer, return BUSY".
+         * space savings (RTL related and various other places)
+         * redirector fixes for find_next. 
+         * CREAT on a device file failed (FD said it already existed).
+           But for some reason it should not fail in DOS.
+         * get ATTRIB/other things on a device file should return 
+           FILENOTFOUND, not PATHNOTFOUND.
+           The sft_status field is not used for redirected drives.
+         * DosSelectDrv checks the media before setting the default
+           drive.
+         * Fixed INT21/AH=3,4,5 (character R/W AUX/PRN).
+         Hans Lermen: 
+         * critical error handler destroyed AH (entry.asm).
+         Martin Stromberg
+         * find_first for volume labels fix.
+         * check drive at more places and avoid drive "@:" for drive "':".
+         * config.m: comment out NASM= by default.
+         * printf fix with DEBUG on.
++ Add    Tom: Introduce init_data segment.
+              New temp file creation implementation.
+         Bart: added INT21/AH=53. XMSDSK works fine now.
+               dynamic allocation of Drive Parameter Blocks (they are
+               all FAR now).
++ Update Bart: moved DOS_PSP to segment 0x60 as segment 0x50 is already used by
+	       GWBASIC/BASICA
+
 2001 Apr  2 - Build 2023
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes  Bart: Volkov Commander revealed a few bugs:

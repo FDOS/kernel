@@ -12,11 +12,6 @@
  */
 #define DosExec     reloc_call_DosExec
 #define DosMemAlloc	reloc_call_DosMemAlloc
-#define dos_close   reloc_call_dos_close
-#define dos_getdate	reloc_call_dos_getdate
-#define dos_gettime	reloc_call_dos_gettime
-#define dos_open    reloc_call_dos_open
-#define dos_read    reloc_call_dos_read
 #define execrh      reloc_call_execrh
 #define fatal       reloc_call_fatal
 #define fmemcpy     reloc_call_fmemcpy
@@ -29,3 +24,5 @@
 #define strlen      reloc_call_strlen
 #define WritePCClock	reloc_call_WritePCClock
 #define DaysFromYearMonthDay reloc_call_DaysFromYearMonthDay
+#define p_0         reloc_call_p_0
+

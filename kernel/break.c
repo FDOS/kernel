@@ -30,7 +30,7 @@
 #include "portab.h"
 #include "globals.h"
 
-extern void FAR init_call_spawn_int23(void);
+extern void spawn_int23(void);
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId = "$Id$";
@@ -38,6 +38,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -90,25 +93,5 @@ void handle_break(void)
     if (InDOS)
       --InDOS;                  /* fail-safe */
  
-  {
-    /*TE PATCH
-      CtrlC at DosInput (like C:>DATE does) 
-      Nukes the Kernel.
-      
-      it looks like ENTRY.ASM+PROCSUPT.ASM
-      got out of sync.
-      
-      spawn_int() assumes a stack layout at
-      usr_ss:usr:sp. but usr:ss currently contains 0
-      
-      this patch helps FreeDos to survive CtrlC,
-      but should clearly be done somehow else.
-    */
-  extern ULONG lpUserStack;
-  
-  usr_ss = FP_SEG(lpUserStack);
-  usr_sp = FP_OFF(lpUserStack);
-  }     
-
-  init_call_spawn_int23();                /* invoke user INT-23 and never come back */
+  spawn_int23();                /* invoke user INT-23 and never come back */
 }

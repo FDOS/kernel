@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.11  2001/04/02 23:18:30  bartoldeman
  * Misc, zero terminated device names and redirector bugs fixed.
  *
@@ -166,9 +169,12 @@ seg far2para(VOID FAR * p)
   return FP_SEG(p) + (FP_OFF(p) >> 4);
 }
 
-seg long2para(LONG size)
+seg long2para(ULONG size)
 {
-  return ((size + 0x0f) >> 4);
+  UWORD high = size>>16;
+  if ((UWORD)size > 0xfff0)
+      high++;
+  return (((UWORD)size + 0x0f) >> 4) + (high << 12);
 }
 
 /*
@@ -176,11 +182,14 @@ seg long2para(LONG size)
  */
 VOID FAR *add_far(VOID FAR * fp, ULONG off)
 {
-  if (FP_SEG(fp) == 0xffff) return ((BYTE FAR *)fp) + off;
+  UWORD off2;
+    
+  if (FP_SEG(fp) == 0xffff) return ((BYTE FAR *)fp) + FP_OFF(off);
     
   off += FP_OFF(fp);
+  off2 = ((off >> 16) << 12) + ((UWORD)off >> 4);
 
-  return MK_FP(FP_SEG(fp) + (UWORD) (off >> 4), (UWORD) off & 0xf);
+  return MK_FP(FP_SEG(fp) + off2, (UWORD) off & 0xf);
 }
 
 /*
@@ -199,7 +208,7 @@ VOID FAR *adjust_far(VOID FAR * fp)
 #undef REG
 #define REG
 
-#ifdef KERNEL
+#if 1    /* #ifdef KERNEL  KERNEL */
 /* Allocate a new memory area. *para is assigned to the segment of the
    MCB rather then the segment of the data portion */
 /* If mode == LARGEST, asize MUST be != NULL and will always recieve the
@@ -234,7 +243,7 @@ searchAgain:
     /* check for corruption                         */
     if (!mcbValid(p))
       return DE_MCBDESTRY;
-
+    
     if (mcbFree(p))
     {                           /* unused block, check if it applies to the rule */
       if (joinMCBs(p) != SUCCESS)   /* join following unused blocks */
@@ -347,11 +356,6 @@ stopIt:                        /* reached from FIRST_FIT on match */
   return SUCCESS;
 }
 
-COUNT FAR init_call_DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FAR * asize)
-{
-  return DosMemAlloc(size, mode, para, asize);
-}
-
 /*
  * Unlike the name and the original prototype could suggest, this function
  * is used to return the _size_ of the largest available block rather than
@@ -363,7 +367,6 @@ COUNT FAR init_call_DosMemAlloc(UWORD size, COUNT mode, seg FAR * para, UWORD FA
 COUNT DosMemLargest(UWORD FAR * size)
 {
   REG mcb FAR *p;
-  COUNT found;
 
   /* Initialize                                           */
   p = ((mem_access_mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link && uppermem_root)
@@ -550,7 +553,7 @@ COUNT DosMemCheck(void)
 
 COUNT FreeProcessMem(UWORD ps)
 {
-  mcb FAR *p, FAR *u;
+  mcb FAR *p;
   COUNT x = 0;
 
   /* Initialize                                           */
@@ -574,7 +577,7 @@ COUNT FreeProcessMem(UWORD ps)
   return DE_MCBDESTRY;
 }
 
-#if 0
+#if 0 
 	/* seems to be superceeded by DosMemLargest
 	   -- 1999/04/21 ska */
 COUNT DosGetLargestBlock(UWORD FAR * block)
@@ -621,14 +624,12 @@ VOID show_chain(void)
       p = nxtMCB(p);
   }
 }
-#endif
 
 VOID mcb_print(mcb FAR * mcbp)
 {
   static BYTE buff[9];
-  VOID _fmemcpy();
 
-  _fmemcpy((BYTE FAR *) buff, (BYTE FAR *) (mcbp->m_name), 8);
+  fmemcpy((BYTE FAR *) buff, (BYTE FAR *) (mcbp->m_name), 8);
   buff[8] = '\0';
   printf("%04x:%04x -> |%s| m_type = 0x%02x '%c'; m_psp = 0x%04x; m_size = 0x%04x\n",
          FP_SEG(mcbp),
@@ -638,14 +639,8 @@ VOID mcb_print(mcb FAR * mcbp)
          mcbp->m_psp,
          mcbp->m_size);
 }
-/*
-VOID _fmemcpy(BYTE FAR * d, BYTE FAR * s, REG COUNT n)
-{
-  while (n--)
-    *d++ = *s++;
+#endif
 
-}
-*/
 VOID DosUmbLink(BYTE n)
 {
     REG mcb FAR *p;
@@ -688,4 +683,58 @@ VOID DosUmbLink(BYTE n)
 DUL_exit:
     return;
 }
+
+/*
+    if we arrive here the first time, it's just
+    before jumping to COMMAND.COM
+
+    so we are done initializing, and can claim the IMIT_DATA segment,
+    as these data/strings/buffers are no longer in use.
+
+    we carve a free memory block out of it and hope that
+    it will be useful (maybe for storing environments)
+
+*/
+
+BYTE INITDataSegmentClaimed = 1; /* must be enabled by CONFIG.SYS */
+extern BYTE _INIT_DATA_START[], _INIT_DATA_END[];
+
+VOID ClaimINITDataSegment()
+{
+    unsigned ilow,ihigh;
+    VOID FAR * p;
+
+    if (INITDataSegmentClaimed)
+        return;
+    INITDataSegmentClaimed = 1;
+
+
+    ilow  = (unsigned)_INIT_DATA_START;
+    ilow  = (ilow+0x0f) & ~0x000f;
+    ihigh = (unsigned)_INIT_DATA_END;
+    ihigh = ((ihigh  + 0x0f) & ~0x000f) - 0x20;
+
+    if (ilow +0x10 < ihigh)
+        {
+        printf("CLAIMING INIT_DATA memory - %u bytes\n",ihigh - ilow);
+        }
+
+
+    ((mcb*)ilow)->m_type = MCB_NORMAL;      /* 'M' */
+    ((mcb*)ilow)->m_psp  = FREE_PSP;        /* '0' */
+    ((mcb*)ilow)->m_size = (ihigh-ilow-0x10)>>4;  /* '0' */
+
+    ((mcb*)ihigh)->m_type = MCB_NORMAL;      /* 'M' */
+    ((mcb*)ihigh)->m_psp  = 0x0008;          /* system */
+
+    p = (void FAR*)(void*)ihigh;
+
+    ((mcb*)ihigh)->m_size = first_mcb -1 - FP_SEG(p) - (FP_OFF(p) >> 4);
+
+    p = (void FAR*)(void*)ilow;
+
+    first_mcb = FP_SEG(p) + (FP_OFF(p) >> 4);
+
+}
+
 #endif

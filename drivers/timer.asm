@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -78,14 +81,11 @@ segment	HMA_TEXT
 ;
 	global	_tmark
 _tmark:
-        push    bp
-        mov     bp,sp
         xor     ah,ah
         int     01aH                    ; get current time in ticks
         xor     ah,ah
         mov     word [LastTime],dx    ; and store it
         mov     word [LastTime+2],cx
-        pop     bp
         ret
 
 
@@ -96,12 +96,11 @@ _tmark:
 _tdelay:
         push    bp
         mov     bp,sp
-        sub     sp,byte 4
         xor     ah,ah
         int     01aH                    ; get current time in ticks
         xor     ah,ah
-        mov     word [bp-4],dx      ; and save it to a local variable
-        mov     word [bp-2],cx      ; "Ticks"
+        mov     word bx,dx          ; and save it to a local variable
+                                    ; "Ticks" (cx:bx)
 ;
 ; Do a c equivalent of:
 ;
@@ -111,19 +110,16 @@ _tdelay:
         mov     dx,word [LastTime]
         add     dx,word [bp+4]
         adc     ax,word [bp+6]
-        cmp     ax,word [bp-2]
+        cmp     ax,cx            
+        mov     ax,0                    ; mov does not affect flags
         ja      short tdel_1
         jne     short tdel_2
-        cmp     dx,word [bp-4]
+        cmp     dx,bx
         ja      short tdel_1
 tdel_2:
-        mov     ax,1                    ; True return
-        jmp     short tdel_3
+        inc     ax                      ; True return
 tdel_1:
-        xor     ax,ax                   ; False return
-tdel_3:
-        mov     sp,bp
-        pop     bp
+        pop     bp                      ; False return
         ret
 
 
@@ -134,7 +130,6 @@ tdel_3:
 _twait:
         push    bp
         mov     bp,sp
-        sub     sp,byte 4
         call    _tmark                 ; mark a start
 ;
 ;       c equivalent
@@ -145,8 +140,7 @@ twait_1:
         xor     ah,ah
         int     01aH
         xor     ah,ah                           ; do GetNowTime
-        mov     word [bp-4],dx                  ; and save it to "Now"
-        mov     word [bp-2],cx
+        mov     bx,dx                           ; and save it to "Now" (cx:bx)
 ;
 ;       do comparison
 ;
@@ -154,15 +148,14 @@ twait_1:
         mov     dx,word [LastTime]
         add     dx,word [bp+4]
         adc     ax,word [bp+6]
-        cmp     ax,word [bp-2]
+        cmp     ax,cx
         jb      short twait_1
         jne     short twait_2
-        cmp     dx,word [bp-4]
+        cmp     dx,bx
         jb      short twait_1
 twait_2:
-        mov     sp,bp
         pop     bp
         ret
 
-segment	_BSS	align=2 class=BSS
+segment	_BSS
 LastTime:	resd	1

@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -84,28 +87,20 @@ segment	HMA_TEXT
 _WriteATClock:
                 push    bp
                 mov     bp,sp
-                sub     sp,byte 4
-;               LocalCopy = -4
 ;               bcdSeconds = 10
 ;               bcdMinutes = 8
 ;               bcdHours = 6
 ;               bcdDays = 4
-                mov     bx,word [bp+4]      ;bcdDays
-                mov     ax,word [bx]
-                mov     dx,word [bx+2]
-                mov     word [bp-4],ax      ;LocalCopy
-                mov     word [bp-2],dx
                 mov     ch,byte [bp+6]      ;bcdHours
                 mov     cl,byte [bp+8]      ;bcdMinutes
                 mov     dh,byte [bp+10]     ;bcdSeconds
                 mov     dl,0
                 mov     ah,3
-                int     26
-                mov     cx,word [bp-2]
-                mov     dx,word [bp-4]      ;LocalCopy
+                int     1ah
+                mov     bx,word [bp+4]      ;bcdDays
+                mov     dx,word [bx]
+                mov     cx,word [bx+2]
                 mov     ah,5
-                int     26
-                mov     sp,bp
+                int     1ah
                 pop     bp
                 ret
-                nop

@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -75,12 +78,8 @@ segment	HMA_TEXT
 
 		global	_getvec
 _getvec:
-                push    bp
-                mov     bp,sp
-                mov     ax,[bp+4]
-                call    getvec
-                pop     bp
-                ret
+                mov     bx,sp
+                mov     ax,[ss:bx+2]
   
 ;
 ; assembler version - ax = vector number

@@ -8,7 +8,9 @@
 
 # These are generic definitions
 RM=..\utils\rm -f
-NASM=nasm
+
+# Give path to nasm here (or if it's in your path just uncomment the line).
+#NASM=nasm
 
 
 # Use these for Turbo C 2.01
@@ -54,6 +56,9 @@ NASM=nasm
 # $Id$
 #
 # $Log$
+# Revision 1.6  2001/04/15 03:21:49  bartoldeman
+# See history.txt for the list of fixes.
+#
 # Revision 1.5  2001/03/22 10:51:04  bartoldeman
 # Suggest to extract F_SCOPY into libm.lib for Borland C++.
 #

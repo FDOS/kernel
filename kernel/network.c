@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.10  2001/04/02 23:18:30  bartoldeman
  * Misc, zero terminated device names and redirector bugs fixed.
  *
@@ -86,7 +89,7 @@ static BYTE *RcsId = "$Id$";
  */
 UWORD get_machine_name(BYTE FAR * netname)
 {
-  fmemcpy(netname, &net_name, 15);
+  fmemcpy(netname, &net_name, 16);
   return (NetBios);
 }
 
@@ -124,8 +127,8 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
  */
 COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
 {
-  COUNT i, x;
-  char FAR *p, FAR *q;
+  COUNT i;
+  char FAR *p;
   VOID FAR * test;
   struct dirent FAR *SDp = (struct dirent FAR *) &SearchDir;
 

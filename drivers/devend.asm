@@ -30,6 +30,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.4  2001/03/21 02:56:25  bartoldeman
 ; See history.txt for changes. Bug fixes and HMA support are the main ones.
 ;
@@ -72,7 +75,6 @@
                 %include "..\kernel\segs.inc"
 
 
-segment	_DATA	align=2 class=DATA
 	extern	__bssend:wrt DGROUP
 
 segment	HMA_TEXT
@@ -80,9 +82,6 @@ segment	HMA_TEXT
                 global  _device_end
 
 _device_end:
-                push    bp
-                mov     bp,sp
                 mov     ax,__bssend
                 mov     dx,DGROUP
-                pop     bp
                 ret

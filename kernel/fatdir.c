@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.13  2001/04/02 23:18:30  bartoldeman
  * Misc, zero terminated device names and redirector bugs fixed.
  *
@@ -241,12 +244,12 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
     return NULL;
   }
 
-  fnp->f_dpb = (struct dpb *)TempCDS.cdsDpb;
+  fnp->f_dpb = TempCDS.cdsDpb;
 
   /* Perform all directory common handling after all special      */
   /* handling has been performed.                                 */
 
-  if (media_check((struct dpb *)TempCDS.cdsDpb) < 0)
+  if (media_check(TempCDS.cdsDpb) < 0)
   {
     release_f_node(fnp);
     return (struct f_node FAR *)0;
@@ -450,7 +453,7 @@ COUNT dir_read(REG struct f_node FAR * fnp)
     /* Now that we have the block for our entry, get the    */
     /* directory entry.                                     */
     if (bp != NULL)
-      getdirent((BYTE FAR *) & bp->b_buffer[fnp->f_diroff % fnp->f_dpb->dpb_secsize],
+      getdirent((BYTE FAR *) & bp->b_buffer[((UWORD)fnp->f_diroff) % fnp->f_dpb->dpb_secsize],
                 (struct dirent FAR *)&fnp->f_dir);
     else
     {
@@ -484,7 +487,7 @@ COUNT dir_write(REG struct f_node FAR * fnp)
     if (fnp->f_flags.f_droot)
     {
       bp = getblock(
-                     (ULONG) (fnp->f_diroff / fnp->f_dpb->dpb_secsize
+                     (ULONG) ((UWORD)fnp->f_diroff / fnp->f_dpb->dpb_secsize
                               + fnp->f_dpb->dpb_dirstrt),
                      fnp->f_dpb->dpb_unit);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
@@ -554,7 +557,7 @@ COUNT dir_write(REG struct f_node FAR * fnp)
       return 0;
     }
     putdirent((struct dirent FAR *)&fnp->f_dir,
-    (VOID FAR *) & bp->b_buffer[fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
+    (VOID FAR *) & bp->b_buffer[(UWORD)fnp->f_diroff % fnp->f_dpb->dpb_secsize]);
     bp->b_flag |= BFR_DIRTY;
   }
   return DIRENT_SIZE;
@@ -589,7 +592,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   REG COUNT i;
   COUNT nDrive;
   BYTE *p;
-/*  BYTE FAR *ptr;*/
 
   static BYTE local_name[FNAME_SIZE + 1],
     local_ext[FEXT_SIZE + 1];
@@ -604,7 +606,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   /* current directory, do a seek and read, then close the fnode. */
 
   /* Start out by initializing the dirmatch structure.            */
-  dmp->dm_drive = default_drive ;
+  dmp->dm_drive = default_drive;
   dmp->dm_entry = 0;
   dmp->dm_cluster = 0;
 
@@ -621,7 +623,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 */
   if (nDrive >= 0)
   {
-    dmp->dm_drive = nDrive ;
+    dmp->dm_drive = nDrive;
   }
   else
     nDrive = default_drive;
@@ -661,9 +663,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
   if (current_ldt->cdsFlags & CDSNETWDRV)
   {
-    if (Remote_find(REM_FINDFIRST, name, dmp) != 0)
-      return DE_FILENOTFND;
-    return SUCCESS;
+    dmp->dm_drive |= 0x80;
+    return -Remote_find(REM_FINDFIRST, name, dmp);
   }
 
     /* /// Added code here to do matching against device names.
@@ -708,17 +709,31 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
 
   /* Now search through the directory to find the entry...        */
+
+  /* Complete building the directory from the passed in   */
+  /* name                                                 */
+  if (nDrive >= 0)
+    LocalPath[0] = 'A' + nDrive;
+  else
+    LocalPath[0] = 'A' + default_drive;
+  LocalPath[1] = ':';
+    
   /* Special handling - the volume id is only in the root         */
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
   /* volume id bit set.                                           */
   if ((attr & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
   {
-    /* Now open this directory so that we can read the      */
-    /* fnode entry and do a match on it.                    */
-    if ((fnp = dir_open((BYTE FAR *) "\\")) == NULL)
-      return DE_PATHNOTFND;
+    LocalPath[2] = '\\';
+    LocalPath[3] = '\0';
+  }
+  /* Now open this directory so that we can read the      */
+  /* fnode entry and do a match on it.                    */
+  if ((fnp = dir_open((BYTE FAR *) LocalPath)) == NULL)
+    return DE_PATHNOTFND;
 
+  if ((attr & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
+  {
     /* Now do the search                                    */
     while (dir_read(fnp) == DIRENT_SIZE)
     {
@@ -736,23 +751,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
     dir_close(fnp);
     return DE_FILENOTFND;
   }
-
   /* Otherwise just do a normal find next                         */
   else
   {
-    /* Complete building the directory from the passed in   */
-    /* name                                                 */
-    if (nDrive >= 0)
-      LocalPath[0] = 'A' + nDrive;
-    else
-      LocalPath[0] = 'A' + default_drive;
-    LocalPath[1] = ':';
-
-    /* Now open this directory so that we can read the      */
-    /* fnode entry and do a match on it.                    */
-    if ((fnp = dir_open((BYTE FAR *) LocalPath)) == NULL)
-      return DE_PATHNOTFND;
-
     pop_dmp(dmp, fnp);
     dmp->dm_entry = 0;
     if (!fnp->f_flags.f_droot)
@@ -775,9 +776,6 @@ COUNT dos_findnext(void)
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
   REG struct f_node FAR *fnp;
   BOOL found = FALSE;
-/*  BYTE FAR *p;*/
-/*  BYTE FAR *q;*/
-  COUNT nDrive;
 
   /* assign our match parameters pointer.                         */
   dmp = (dmatch FAR *) dta;
@@ -790,50 +788,43 @@ COUNT dos_findnext(void)
  *  test 40h. I used RamView to see location MSD 116:04be and
  *  FD f??:04be, the byte set with 0xc4 = Remote/Network drive 4.
  *  Ralf Brown docs for dos 4eh say bit 7 set == remote so what is
- *  bit 6 for? SHSUCDX Mod info say "test redir not network bit".
+ *  bit 6 for? 
+ *  SHSUCDX Mod info say "test redir not network bit".
  *  Just to confuse the rest, MSCDEX sets bit 5 too.
  *
  *  So, assume bit 6 is redirector and bit 7 is network.
  *  jt
+ *  Bart: dm_drive can be the drive _letter_.
+ *  but better just stay independent of it: we only use
+ *  bit 7 to detect a network drive; the rest untouched.
+ *  RBIL says that findnext can only return one error type anyway
+ *  (12h, DE_NFILES)
  */
-  nDrive = dmp->dm_drive  & 0x1f;
-
-  if (nDrive >= lastdrive) {
-    return DE_INVLDDRV;
-  }
-  current_ldt = &CDSp->cds_table[nDrive];
 
 #if 0
-  printf("findnext: %c %s\n", 
-	  nDrive + 'A', (current_ldt->cdsFlags & CDSNETWDRV)?"remote":"local");
+  printf("findnext: %d\n", 
+	  dmp->dm_drive);
 #endif
 
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    if (Remote_find(REM_FINDNEXT, 0, dmp) != 0)
-      return DE_FILENOTFND;
-    return SUCCESS;
-  }
+  if (dmp->dm_drive & 0x80)
+    return -Remote_find(REM_FINDNEXT, 0, dmp);
 
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (struct f_node FAR *)0)
   {
-    return DE_FILENOTFND;
+    return DE_NFILES;
   }
 
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
-  if (dmp->dm_drive >= lastdrive) {
-    return DE_INVLDDRV;
-  }
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
-  fnp->f_dpb = (struct dpb *)CDSp->cds_table[dmp->dm_drive].cdsDpb;
+  fnp->f_dpb = CDSp->cds_table[dmp->dm_drive].cdsDpb;
   if (media_check(fnp->f_dpb) < 0)
   {
     release_f_node(fnp);
-    return DE_FILENOTFND;
+    return DE_NFILES;
   }
 
   fnp->f_dsize = DIRENT_SIZE * (fnp->f_dpb)->dpb_dirents;

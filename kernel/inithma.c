@@ -75,6 +75,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.2  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -92,11 +95,11 @@ WORD HMAFree;                 /* first byte in HMA not yet used      */
  
 
 extern BYTE FAR * FAR XMSDriverAddress;
-extern FAR _EnableA20();
-extern FAR _DisableA20();
+extern FAR _EnableA20(VOID);
+extern FAR _DisableA20(VOID);
 
 
-void FAR *DetectXMSDriver();
+extern void FAR *DetectXMSDriver(VOID);
  
 #ifdef DEBUG  
     #define int3() __int__(3);
@@ -105,7 +108,7 @@ void FAR *DetectXMSDriver();
 #endif        
 
 
-#if defined( DEBUG ) || 1               /* experimental kernel !! */
+#ifdef DEBUG
     #define HMAInitPrintf(x) printf x
 #else
     #define HMAInitPrintf(x)
@@ -184,7 +187,7 @@ void _DisableHMA()
     if so, it simply leaves it on
 */
 
-int EnableHMA()
+int EnableHMA(VOID)
 {
     
     _EnableA20();
@@ -263,12 +266,13 @@ int MoveKernelToHMA()
     /* A) for debugging purpose, suppress this, 
           if any shift key is pressed 
     */
-
+#ifdef DEBUG
     if (KeyboardShiftState() & 0x0f)
     {
         printf("Keyboard state is %0x, NOT moving to HMA\n",KeyboardShiftState()); 
         return FALSE;
     }
+#endif
     
     /* B) check out, if we can have HMA */        
 
@@ -288,7 +292,7 @@ int MoveKernelToHMA()
         
                  len = FP_OFF(_HMATextEnd) - FP_OFF(_HMATextStart);
     
-                  HMASource = _HMATextStart;
+                  HMASource = (UBYTE FAR *)_HMATextStart;
     
     
         len += FP_OFF(HMASource) & 0x000f;
@@ -340,7 +344,6 @@ int MoveKernelToHMA()
 
         struct RelocationTable FAR *rp, rtemp ;
         
-        
         UWORD HMATextSegment = FP_SEG( _HMATextStart );
           
         /* verify, that all entries are valid */  
@@ -371,8 +374,46 @@ int MoveKernelToHMA()
             rel->callNear   = rtemp.callNear;
             rel->callOffset = rtemp.callOffset+5; /* near calls are relative */
         }
+    }
+    {
+        struct initRelocationTable {
+            UBYTE callNear;
+            UWORD callOffset;
+            UBYTE jmpFar;
+            UWORD jmpOffset;
+            UWORD jmpSegment;
+        };
+        extern struct initRelocationTable
+                    FAR _HMAinitRelocationTableStart[], 
+                    FAR _HMAinitRelocationTableEnd[];
+        struct initRelocationTable FAR *rp, FAR *endrp;
+        
+        /* verify, that all entries are valid */  
+        
+        UWORD HMATextSegment = FP_SEG( _HMATextStart );
+        endrp = MK_FP(_CS, FP_OFF(_HMAinitRelocationTableEnd));
 
-
+        for (rp = MK_FP(_CS, FP_OFF(_HMAinitRelocationTableStart)); rp < endrp; rp++)
+        {
+            if (
+                rp->callNear   != 0xe8              || /* call NEAR */
+                rp->jmpFar     != 0xea              || /* jmp FAR */
+                rp->jmpSegment != HMATextSegment    || /* will only relocate HMA_TEXT */
+                0)
+            {
+                printf("illegal init relocation entry # %d\n",
+                       FP_OFF(rp) - FP_OFF(_HMAinitRelocationTableStart));
+                goto errorReturn;
+            }            
+        }
+          
+        /* OK, all valid, go to relocate*/  
+        
+        for (rp = MK_FP(_CS, FP_OFF(_HMAinitRelocationTableStart)); rp < endrp; rp++)
+        {
+            rp->jmpSegment = HMASEGMENT;
+            rp->callOffset = rp->callOffset-5; /* near calls are relative */
+        }
     }    
 
     {
@@ -414,7 +455,7 @@ errorReturn:
 
     so: we install this after all drivers have been loaded
 */
-void InstallVDISK()
+void InstallVDISK(VOID)
     {
         static struct {                /* Boot-Sektor of a RAM-Disk */
  	                 UBYTE dummy1[3];   /* HIMEM.SYS uses 3, but FDXMS uses 2 */
@@ -447,7 +488,6 @@ void InstallVDISK()
 
 
 int  init_call_XMScall( void FAR * driverAddress, UWORD ax, UWORD dx);
-void init_call_intr(int intrnr, iregs *rp);
 
 
 /*
@@ -455,7 +495,7 @@ void init_call_intr(int intrnr, iregs *rp);
     it might be HIMEM.SYS we just loaded.
 */
 
-void ClaimHMA()
+void ClaimHMA(VOID)
 {
     void FAR *pXMS;
 
@@ -476,21 +516,6 @@ void ClaimHMA()
         }
     }        
 }
-void FAR *DetectXMSDriver()
-{
-    iregs regs;
-
-    regs.a.x = 0x4300;    /* XMS installation check */
-    init_call_intr(0x2f, &regs);
-    
-    if ((regs.a.x & 0xff) != 0x80) return NULL;
-    
-    regs.a.x = 0x4310;    /* XMS get driver address */
-    init_call_intr(0x2f, &regs);
-    
-    return MK_FP(regs.es, regs.b.x);
-}
-
 
 /*
     this should be called, after each device driver 

@@ -34,6 +34,9 @@ static BYTE *errorRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -125,10 +128,6 @@ VOID fatal(BYTE * err_msg)
   for (;;) ;
 }
 
-VOID FAR init_call_fatal(BYTE * err_msg)
-{
-  fatal(err_msg);
-}
 #endif
 
 /* Abort, retry or fail for character devices                   */

@@ -36,6 +36,9 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.5  2000/08/06 04:18:21  jimtabor
  * See history.txt
  *
@@ -117,8 +120,8 @@ static BYTE *fat_hRcsId = "$Id$";
 /* Test for 16 bit or 12 bit FAT                                        */
 #define SIZEOF_CLST16   2
 #define FAT_MAGIC       4086
-#define FAT_MAGIC16     65526
-#define FAT_MAGIC32     268435456
+#define FAT_MAGIC16     ((unsigned)65526l)
+#define FAT_MAGIC32     268435456l
 
 #define ISFAT32(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC16 || ((dpbp)->dpb_size)<=FAT_MAGIC32 )
 #define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC || ((dpbp)->dpb_size)<=FAT_MAGIC16 )

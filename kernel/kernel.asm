@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.9  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.8  2001/03/30 19:30:06  bartoldeman
 ; Misc fixes and implementation of SHELLHIGH. See history.txt for details.
 ;
@@ -131,6 +134,8 @@ STACK_SIZE      equ     384/2           ; stack allocated in words
 
 ..start:
 entry:		jmp	far kernel_start
+beyond_entry:   resb    256-(beyond_entry-entry)
+                                        ; scratch area for data (DOS_PSP)
 
 segment	INIT_TEXT
 
@@ -143,7 +148,7 @@ kernel_start:
 		mov	ax,DGROUP
 		cli
 		mov	ss,ax
-		mov	sp,tos
+		mov	sp,init_tos
 		int	12h		; move the init code to higher memory
 		mov	cl,6
 		shl	ax,cl
@@ -321,10 +326,13 @@ _uppermem_root  dw      0	        ; 0066 dmd_upper_root
 _umb_start      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
+; We've got (01fb-006a) some room here: don't use all zeros!
+         
 
+        
 ; Some references seem to indicate that this data should start at 01fbh in
 ; order to maintain 100% MS-DOS compatibility.
-                times (01fbh - (SysVarEnd - DATASTART)) db 0
+                times (01fbh - ($ - DATASTART)) db 0
 
                 global  MARK01FBH
 MARK01FBH       equ     $
@@ -600,23 +608,34 @@ __bssend:
 segment	_BSSEND
 ; blockdev private stack
                 global  blk_stk_top
-                times 256 dw 0
+                times 192 dw 0
 blk_stk_top:
 
 ; clockdev private stack
                 global  clk_stk_top
-                times 256 dw 0
+                times 64 dw 0
 clk_stk_top:
 
+; this is nowhere needed
 ; interrupt stack
-                global  intr_stk_top
-                times 256 dw 0
-intr_stk_top:
+;                global  intr_stk_top
+;                times 256 dw 0
+;intr_stk_top:
 
+segment ID                  ; init data
+                retaddr dd 0    ; return address to jump to from HMA_TEXT
 ; kernel startup stack
-                global  tos
-                times 128 dw 0
-tos:
+                global  init_tos
+                times 256 dw 0
+init_tos:
+
+segment ID_B
+    global __INIT_DATA_START
+__INIT_DATA_START:
+segment ID_E
+    global __INIT_DATA_END
+__INIT_DATA_END:
+
 
 segment	INIT_TEXT_START
                 global  __InitTextStart
@@ -639,6 +658,8 @@ __HMATextStart:
 segment	HMA_TEXT
                 times 16 db 0   ; filler [ffff:0..ffff:10]
                 times 22 db 0   ; filler [sizeof VDISK info]
+
+init_ret:       jmp far [retaddr] ; return from init_calls.
                 
 ;End of HMA segment                
 segment	HMA_TEXT_END
@@ -674,127 +695,124 @@ _DGROUP_:
          dw DGROUP    
 
 
+segment INIT_TEXT
+
+                call far initforceEnableA20  ; first enable A20 or not
+manip_stack_A20:       
+                pop word [retaddr+2]   ; get last ret address
+                pop word [retaddr]     ; get near ret address of init caller
+                mov ax, init_ret       ; new init caller ret address 
+                push ax
+                push word [retaddr+2]  ; and back to the relocation entry 
+                mov [retaddr+2], cs    ; retaddr is now a far pointer to where we came from 
+                ret
+
+    global __HMAinitRelocationTableStart
+__HMAinitRelocationTableStart:    
+
+
+    extern _DosExec
+    global _reloc_call_DosExec
+_reloc_call_DosExec:
+                call manip_stack_A20
+                jmp far _DosExec
+    
+    extern _DosMemAlloc
+    global _reloc_call_DosMemAlloc
+_reloc_call_DosMemAlloc: 
+                call manip_stack_A20
+                jmp far _DosMemAlloc
+    
+    extern _execrh
+    global _reloc_call_execrh
+_reloc_call_execrh: 
+                call manip_stack_A20
+                jmp far _execrh
+    
+    extern _fatal
+    global _reloc_call_fatal
+_reloc_call_fatal:
+                call manip_stack_A20
+                jmp far _fatal
+
+    extern _fmemcpy
+    global _reloc_call_fmemcpy
+_reloc_call_fmemcpy:
+                call manip_stack_A20
+                jmp far _fmemcpy    
+    
+    extern _memcpy
+    global _reloc_call_memcpy
+_reloc_call_memcpy:
+                call manip_stack_A20
+                jmp far _memcpy
+    
+    extern _printf
+    global _reloc_call_printf
+_reloc_call_printf: 
+                call manip_stack_A20
+                jmp far _printf
+    
+    extern _strcpy
+    global _reloc_call_strcpy
+_reloc_call_strcpy:
+                call manip_stack_A20
+                jmp far _strcpy
+    
+    extern _sti
+    global _reloc_call_sti
+_reloc_call_sti:
+                call manip_stack_A20
+                jmp far _sti
+    
+    extern _strcmp
+    global _reloc_call_strcmp
+_reloc_call_strcmp:
+                call manip_stack_A20
+                jmp far _strcmp
+    
+    extern _strlen
+    global _reloc_call_strlen
+_reloc_call_strlen:
+                call manip_stack_A20
+                jmp far _strlen
+
+    extern _WritePCClock
+    global _reloc_call_WritePCClock
+_reloc_call_WritePCClock: 
+                call manip_stack_A20
+                jmp far _WritePCClock
+
+    extern _DaysFromYearMonthDay
+    global _reloc_call_DaysFromYearMonthDay
+_reloc_call_DaysFromYearMonthDay:
+                call manip_stack_A20
+                jmp far _DaysFromYearMonthDay
+
+    extern  _fmemset
+    global  _reloc_call_fmemset
+_reloc_call_fmemset:
+                call manip_stack_A20
+                jmp far _fmemset
+
+    extern  _p_0
+    global  _reloc_call_p_0
+_reloc_call_p_0: 
+                call manip_stack_A20
+                jmp far _p_0
+
+    global __HMAinitRelocationTableEnd
+__HMAinitRelocationTableEnd:
+
 segment _TEXT
 
+global _initforceEnableA20
+initforceEnableA20:
+		call near forceEnableA20
+		retf   
+
     global __HMARelocationTableStart
-__HMARelocationTableStart:    
-
-
-    extern _init_call_DosExec
-    global _reloc_call_DosExec
-_reloc_call_DosExec: jmp far _init_call_DosExec
-                call near forceEnableA20
-    
-    extern _init_call_DosMemAlloc
-    global _reloc_call_DosMemAlloc
-_reloc_call_DosMemAlloc: jmp far _init_call_DosMemAlloc
-                call near forceEnableA20
-    
-    extern _init_call_dos_close
-    global _reloc_call_dos_close
-_reloc_call_dos_close: jmp far _init_call_dos_close
-                call near forceEnableA20
-    
-    extern _init_call_dos_getdate
-    global _reloc_call_dos_getdate
-_reloc_call_dos_getdate: jmp far _init_call_dos_getdate
-                call near forceEnableA20
-    
-    extern _init_call_dos_gettime
-    global _reloc_call_dos_gettime
-_reloc_call_dos_gettime: jmp far _init_call_dos_gettime
-                call near forceEnableA20
-    
-    extern _init_call_dos_open
-    global _reloc_call_dos_open
-_reloc_call_dos_open: jmp far _init_call_dos_open
-                call near forceEnableA20
-    
-    extern _init_call_dos_read
-    global _reloc_call_dos_read
-_reloc_call_dos_read: jmp far _init_call_dos_read
-                call near forceEnableA20
-    
-    extern _init_call_execrh
-    global _reloc_call_execrh
-_reloc_call_execrh: jmp far _init_call_execrh
-                call near forceEnableA20
-    
-    extern _init_call_fatal
-    global _reloc_call_fatal
-_reloc_call_fatal: jmp far _init_call_fatal
-                call near forceEnableA20
-
-    extern _init_call_fmemcpy
-    global _reloc_call_fmemcpy
-_reloc_call_fmemcpy: jmp far _init_call_fmemcpy    
-                call near forceEnableA20
-
-    
-    extern _init_call_memcpy
-    global _reloc_call_memcpy
-_reloc_call_memcpy: jmp far _init_call_memcpy
-                call near forceEnableA20
-    
-    extern _init_call_printf
-    global _reloc_call_printf
-_reloc_call_printf: jmp far _init_call_printf
-                call near forceEnableA20
-    
-    extern _init_call_strcpy
-    global _reloc_call_strcpy
-_reloc_call_strcpy: jmp far _init_call_strcpy
-                call near forceEnableA20
-    
-    extern _init_call_sti
-    global _reloc_call_sti
-_reloc_call_sti: jmp far _init_call_sti
-                call near forceEnableA20
-    
-    extern _init_call_strcmp
-    global _reloc_call_strcmp
-_reloc_call_strcmp: jmp far _init_call_strcmp
-                call near forceEnableA20
-    
-    extern _init_call_strlen
-    global _reloc_call_strlen
-_reloc_call_strlen: jmp far _init_call_strlen
-                call near forceEnableA20
-    
-
-    extern _init_call_WritePCClock
-    global _reloc_call_WritePCClock
-_reloc_call_WritePCClock: jmp far _init_call_WritePCClock
-                call near forceEnableA20
-
-    extern _init_call_DaysFromYearMonthDay
-    global _reloc_call_DaysFromYearMonthDay
-_reloc_call_DaysFromYearMonthDay: jmp far _init_call_DaysFromYearMonthDay
-                call near forceEnableA20
-
-                global  _CharMapSrvc
-                extern  _reloc_call_CharMapSrvc
-_CharMapSrvc: jmp far _reloc_call_CharMapSrvc
-                call near forceEnableA20
-
-                global  _reloc_call_clk_driver
-                extern  _init_call_clk_driver
-_reloc_call_clk_driver: jmp far _init_call_clk_driver
-                call near forceEnableA20
-
-
-
-                global  _reloc_call_fmemset
-                extern  _init_call_fmemset
-_reloc_call_fmemset: jmp far _init_call_fmemset
-                call near forceEnableA20
-
-
-                global  _reloc_call_blk_driver
-                extern  _init_call_blk_driver
-_reloc_call_blk_driver: jmp far _init_call_blk_driver
-                call near forceEnableA20
-
+__HMARelocationTableStart:   
 
                 global  _int2f_handler
                 extern  reloc_call_int2f_handler
@@ -805,9 +823,6 @@ _int2f_handler: jmp far reloc_call_int2f_handler
                 extern  reloc_call_int20_handler
 _int20_handler: jmp far reloc_call_int20_handler
                 call near forceEnableA20
-
-
-
 
                 global  _int21_handler
                 extern  reloc_call_int21_handler
@@ -837,17 +852,24 @@ _int0_handler:  jmp far reloc_call_int0_handler
 
                 global  _cpm_entry
                 extern  reloc_call_cpm_entry
-_cpm_entry: jmp far reloc_call_cpm_entry
+_cpm_entry:     jmp far reloc_call_cpm_entry
                 call near forceEnableA20
 
-;                global  _init_call_init_buffers
-;                extern  _reloc_call_init_buffers
-;_init_call_init_buffers: jmp far _reloc_call_init_buffers
-;                call near forceEnableA20
+                global  _reloc_call_blk_driver
+                extern  _blk_driver
+_reloc_call_blk_driver:
+                jmp far _blk_driver
+                call near forceEnableA20
 
-                global  _init_call_p_0
-                extern  _reloc_call_p_0
-_init_call_p_0: jmp far _reloc_call_p_0
+                global  _reloc_call_clk_driver
+                extern  _clk_driver
+_reloc_call_clk_driver:
+                jmp far _clk_driver
+                call near forceEnableA20
+
+                global  _CharMapSrvc
+                extern  _reloc_call_CharMapSrvc
+_CharMapSrvc: jmp far _reloc_call_CharMapSrvc
                 call near forceEnableA20
 
 		
@@ -1005,16 +1027,6 @@ FAIL            equ     03h
 _int24_handler: mov     al,FAIL
                 iret
 
-
-segment HMA_TEXT    
-		extern	_init_call_printf:wrt TGROUP
-		global	_printf
-
-_printf:
-		pop	ax
-		push	cs
-		push	ax
-		jmp	_init_call_printf
 
 
 

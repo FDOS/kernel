@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.7  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -206,7 +209,7 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
       lpszLclFile = lpszFileName + 1;
     ++lpszFileName;
   }
-  nDirCnt = lpszLclFile - lpszLclDir;
+  nDirCnt = FP_OFF(lpszLclFile) - FP_OFF(lpszLclDir);
   /* Parse out the file name portion.                             */
   lpszFileName = lpszLclFile;
   while (bAllowWildcards ? WildChar(*lpszFileName) : NameChar(*lpszFileName))

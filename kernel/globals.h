@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.10  2001/04/02 23:18:30  bartoldeman
  * Misc, zero terminated device names and redirector bugs fixed.
  *
@@ -226,7 +229,6 @@ static BYTE *Globals_hRcsId = "$Id$";
 #define PARSE_MAX       67      /* maximum # of bytes in path   */
 #define NFILES          16      /* number of files in table     */
 #define NFCBS           16      /* number of fcbs               */
-#define NDEVS           26      /* number of supported devices  */
 #define NSTACKS         8       /* number of stacks             */
 #define NLAST           6       /* last drive                   */
 #define NAMEMAX         PARSE_MAX	/* Maximum path for CDS         */
@@ -476,7 +478,7 @@ extern sfttbl
   FAR * FCBp;                   /* FCB table pointer                    */
 extern WORD
   nprotfcb;                     /* number of protected fcbs             */
-extern BYTE
+extern UBYTE
   nblkdev,                      /* number of block devices              */
   lastdrive,                    /* value of last drive                  */
   uppermem_link;                /* UMB Link flag */
@@ -615,9 +617,6 @@ GLOBAL iregs error_regs;        /* registers for dump                   */
 GLOBAL WORD
   dump_regs;                    /* dump registers of bad call           */
 
-GLOBAL struct dpb
-  blk_devices[NDEVS];
-
 GLOBAL struct f_node FAR
 * f_nodes;                      /* pointer to the array                 */
 
@@ -635,7 +634,7 @@ GLOBAL iregs
   FAR * kstackp;                /* kernel stack                         */
 
 /* Start of configuration variables                                     */
-GLOBAL struct config
+extern struct config
 {
   UBYTE cfgBuffers;             /* number of buffers in the system      */
   UBYTE cfgFiles;               /* number of available files            */
@@ -643,7 +642,7 @@ GLOBAL struct config
   UBYTE cfgProtFcbs;            /* number of protected FCBs             */
   BYTE cfgInit[NAMEMAX];        /* init of command.com          */
   BYTE cfgInitTail[NAMEMAX];    /* command.com's tail           */
-  BYTE cfgLastdrive;            /* last drive                           */
+  UBYTE cfgLastdrive;           /* last drive                           */
   BYTE cfgStacks;               /* number of stacks                     */
   UWORD cfgStackSize;           /* stacks size for each stack           */
    /* COUNTRY=
@@ -658,7 +657,7 @@ GLOBAL struct config
   VOID FAR *cfgCSYS_data;      /* where the loaded data is for PostConfig() */
   UBYTE cfgP_0_startmode;      /* load command.com high or not */
 } Config
-#ifdef MAIN
+#ifdef CONFIG
 =
 {
   NUMBUFF,
@@ -704,11 +703,7 @@ CriticalError(
 VOID FAR CharMapSrvc(VOID);
 VOID FAR set_stack(VOID);
 VOID FAR restore_stack(VOID);
-#ifndef IN_INIT_MOD
 WORD execrh(request FAR *, struct dhdr FAR *);
-#endif
-VOID FAR init_call_execrh(request FAR *, struct dhdr FAR *);
-VOID FAR reloc_call_execrh(request FAR *, struct dhdr FAR *);
 VOID exit(COUNT);
 /*VOID INRPT FAR handle_break(VOID); */
 VOID tmark(VOID);
@@ -783,7 +778,7 @@ VOID fputbyte();
 /*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 
 /* ^Break handling */
-void FAR _init_call_spawn_int23(void);         /* procsupt.asm */
+void spawn_int23(void);         /* procsupt.asm */
 int control_break(void);        /* break.c */
 void handle_break(void);        /* break.c */
 

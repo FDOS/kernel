@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.9  2001/03/31 20:54:52  bartoldeman
  * Made SHELLHIGH behave more like LOADHIGH.
  *
@@ -149,6 +152,8 @@ static BYTE *RcsId = "$Id$";
  * Initial revision.
  */
 
+extern VOID ClaimINITDataSegment(VOID);
+
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))
 
 #define LOADNGO 0
@@ -160,7 +165,7 @@ static BYTE *RcsId = "$Id$";
 static exe_header header;
 
 #define CHUNK 32256
-#define MAXENV 32768
+#define MAXENV 32768u
 #define ENV_KEEPFREE 83         /* keep unallocated by environment variables */
 	/* The '65' added to nEnvSize does not cover the additional stuff:
 	   + 2 bytes: number of strings
@@ -311,12 +316,10 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
 VOID new_psp(psp FAR * p, int psize)
 {
   REG COUNT i;
-  BYTE FAR *lpPspBuffer;
   psp FAR *q = MK_FP(cu_psp, 0);
 
   /* Clear out new psp first                              */
-  for (lpPspBuffer = (BYTE FAR *) p, i = 0; i < sizeof(psp); ++i)
-    *lpPspBuffer = 0;
+  fmemset(p, 0, sizeof(psp));
 
   /* initialize all entries and exits                     */
   /* CP/M-like exit point                                 */
@@ -364,7 +367,7 @@ VOID new_psp(psp FAR * p, int psize)
   p->ps_filetab = p->ps_files;
 
   /* clone the file table                                 */
-  if (InDOS > 0)
+  if (p!=q)
   {
     REG COUNT i;
 
@@ -375,15 +378,6 @@ VOID new_psp(psp FAR * p, int psize)
       else
         p->ps_filetab[i] = 0xff;
     }
-  }
-  else
-  {
-    /* initialize stdin, stdout, etc                        */
-    p->ps_files[STDIN] = 0;     /* stdin                */
-    p->ps_files[STDOUT] = 1;    /* stdout               */
-    p->ps_files[STDERR] = 2;    /* stderr               */
-    p->ps_files[STDAUX] = 3;    /* stdaux               */
-    p->ps_files[STDPRN] = 4;    /* stdprn               */
   }
 
   /* first command line argument                          */
@@ -540,14 +534,16 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       sp = MK_FP(mem, 0);
     else
     {                 /* test the filesize against the allocated memory */
+      UWORD tmp = 16;
+        
       sp = MK_FP(mem, sizeof(psp));
 
       /* This is a potential problem, what to do with .COM files larger than
          the allocated memory?
          MS DOS always only loads the very first 64KB - sizeof(psp) bytes.
          -- 1999/04/21 ska */
-      if (com_size > (LONG) asize << 4)	/* less memory than the .COM file has */
-        com_size = (LONG) asize << 4;
+      if ((ULONG)com_size > (ULONG)asize * tmp)  /* less memory than the .COM file has */
+        (ULONG)com_size = (ULONG)asize * tmp; /* << 4 */
     }
     do
     {
@@ -597,6 +593,14 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       {
         cu_psp = mem;
         dta = p->ps_dta;
+
+        /* if that's the first time, we arrive here
+           now we 1 microsecond from COMMAND.COM
+           now we claim the ID = INIT_DATA segment,
+           which should no longer be used
+        */
+        ClaimINITDataSegment();
+
         if (InDOS)
           --InDOS;
         exec_user(irp);
@@ -693,13 +697,15 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     mem = exp->load.load_seg;
 
   /* compute image offset from the header                 */
-  image_offset = (ULONG) header.exHeaderSize * 16l;
+  asize = 16;
+  image_offset = (ULONG)header.exHeaderSize * asize;
 
   /* compute image size by removing the offset from the   */
   /* number pages scaled to bytes plus the remainder and  */
   /* the psp                                              */
   /*  First scale the size                                */
-  image_size = (ULONG) (header.exPages) * 512l;
+  asize = 512;
+  image_size = (ULONG)header.exPages * asize;
   /* remove the offset                                    */
   image_size -= image_offset;
 
@@ -777,7 +783,15 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     asize = exe_size;
 
 #ifdef DEBUG  
-    printf("loading %s at %04x\n", (char*)namep,mem);
+{ COUNT i = 0;
+  printf("loading '");
+  while (namep[i]!=0)
+  {
+    cso(namep[i]);
+    i++;
+  }
+  printf("' at %04x\n", mem);
+}
 #endif    
 
 /* /// Added open curly brace and "else" clause.  We should not attempt
@@ -844,6 +858,8 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
   if (exe_size > 0)
   {
+    UCOUNT tmp = 16;
+      
     sp = MK_FP(start_seg, 0x0);
 
     if (mode != OVERLAY)
@@ -851,7 +867,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       if ((header.exMinAlloc == 0) && (header.exMaxAlloc == 0))
       {
         sp = MK_FP(start_seg + mp->m_size
-                   - (image_size + 15) / 16, 0);
+                   - (image_size + 15) / tmp, 0);
       }
     }
 
@@ -928,6 +944,15 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     case LOADNGO:
       cu_psp = mem;
       dta = p->ps_dta;
+
+
+      /* if that's the first time, we arrive here
+         now we 1 microsecond from COMMAND.COM
+         now we claim the ID = INIT_DATA segment,
+         which should no longer be used
+      */
+      ClaimINITDataSegment();
+
       if (InDOS)
         --InDOS;
       exec_user(irp);
@@ -954,14 +979,13 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
 {
   COUNT rc,
     err;
-  exec_blk leb = *ep;
+  exec_blk leb;
+
 /*  BYTE FAR *cp;*/
   BOOL bIsCom = FALSE;
 
+  fmemcpy(&leb, ep, sizeof(exec_blk));
   /* If file not found - free ram and return error        */
-
-  if (cu_psp == DOS_PSP)
-    InitPSP();
 
   if ((rc = DosOpen(lp, 0)) < 0)
   {
@@ -985,43 +1009,22 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
     rc = DosExeLoader(lp, &leb, mode);
   }
   if (mode == LOAD && rc == SUCCESS)
-    *ep = leb;
+    fmemcpy(ep, &leb, sizeof(exec_blk));
 
   return rc;
 }
 
-COUNT FAR init_call_DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
-{
-  return DosExec(mode, ep, lp);
-}
-
-VOID InitPSP(VOID)
-{
-  psp FAR *p = MK_FP(DOS_PSP, 0);
-/*
-    Fixed Device Driver Print output.
- */
-  if(p->ps_exit == 0x000020cd)
-    return;
-  new_psp(p, 0);
-}
-
-UBYTE P_0_startmode = 0;
-
 /* process 0       */
-VOID FAR reloc_call_p_0(VOID)
+VOID p_0(VOID)
 {
   exec_blk exb;
   CommandTail Cmd;
   BYTE FAR *szfInitialPrgm = (BYTE FAR *) Config.cfgInit;
   int rc;
-/* init a fake psp file at seg 50:0000 */
-  psp FAR *p = MK_FP(cu_psp, 0);
-  new_psp(p, 0);
 
   /* Execute command.com /P from the drive we just booted from    */
   exb.exec.env_seg = master_env;
-  strcpy(Cmd.ctBuffer, Config.cfgInitTail);
+  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail)-1);
 
   for (Cmd.ctCount = 0; Cmd.ctCount < 127; Cmd.ctCount++)
     if (Cmd.ctBuffer[Cmd.ctCount] == '\r')

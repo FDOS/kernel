@@ -34,6 +34,9 @@ static BYTE *stringsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -104,11 +107,6 @@ COUNT strlen(REG BYTE * s)
   return cnt;
 }
 
-COUNT FAR init_call_strlen(REG BYTE * s)
-{
-  return strlen(s);
-}
-
 COUNT fstrlen(REG BYTE FAR * s)
 {
   REG WORD cnt = 0;
@@ -143,11 +141,6 @@ COUNT strcmp(REG BYTE * d, REG BYTE * s)
       return *d - *s;
   }
   return *d - *s;
-}
-
-COUNT FAR init_call_strcmp(REG BYTE * d, REG BYTE * s)
-{
-  return strcmp(d, s);
 }
 
 COUNT fstrcmp(REG BYTE FAR * d, REG BYTE FAR * s)

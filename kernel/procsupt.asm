@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/04/15 03:21:50  bartoldeman
+; See history.txt for the list of fixes.
+;
 ; Revision 1.5  2001/03/24 22:13:05  bartoldeman
 ; See history.txt: dsk.c changes, warning removal and int21 entry handling.
 ;
@@ -94,16 +97,14 @@
                 extern  _api_ss:wrt DGROUP      ; switching
                 extern  _usr_sp:wrt DGROUP      ; user stacks
                 extern  _usr_ss:wrt DGROUP
-
-                extern  _kstackp:wrt TGROUP     ; kernel stack
-                extern  _ustackp:wrt TGROUP     ; new task stack
+                extern  _lpUserStack:wrt DGROUP
 
                 extern  _break_flg:wrt DGROUP   ; break detected flag
                 extern  _int21_handler:wrt TGROUP ; far call system services
 
                 %include "stacks.inc"
 
-segment	_TEXT
+segment _TEXT
 
                 extern   _DGROUP_:wrt TGROUP
 
@@ -149,6 +150,7 @@ _got_cbreak:
 	pop ds
 	iret
 
+segment	HMA_TEXT
 
 ;
 ;       Special call for switching processes during break handling
@@ -191,8 +193,23 @@ _spawn_int23:
 
                 ; restore to user stack
                 cli					;; Pre-8086 don't disable INT autom.
-                mov     ss,[_usr_ss]
-                mov     sp,[_usr_sp]
+;*TE PATCH                       
+;      CtrlC at DosInput (like C:>DATE does) 
+;      Nukes the Kernel.
+;      
+;      it looks like ENTRY.ASM+PROCSUPT.ASM
+;      got out of sync.
+;      
+;      spawn_int() assumes a stack layout at
+;      usr_ss:usr:sp. but usr:ss currently contains 0
+;      
+;      this patch helps FreeDos to survive CtrlC,
+;      but should clearly be done somehow else.
+                mov     ss, [_lpUserStack+2]
+                mov     sp, [_lpUserStack]
+
+;                mov     ss,[_usr_ss]
+;                mov     sp,[_usr_sp]
                 sti
 
                 ; get all the user registers back
@@ -307,13 +324,8 @@ _spawn_int23:
 
 ??int23_respawn:
 				pop bp					;; Restore the original register
-                jmp 	_int21_handler
+                jmp 	far _int21_handler
 
-
-                global _init_call_spawn_int23
-_init_call_spawn_int23:
-                call _spawn_int23
-                retf
 ;
 ; interrupt enable and disable routines
 ;

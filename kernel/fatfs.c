@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.13  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -247,8 +250,6 @@ COUNT map_cluster(struct f_node FAR *, COUNT);
 COUNT dos_open(BYTE FAR * path, COUNT flag)
 {
   REG struct f_node FAR *fnp;
-  COUNT i;
-  BYTE FAR *fnamep;
 
   /* First test the flag to see if the user has passed a valid    */
   /* file mode...                                                 */
@@ -294,11 +295,6 @@ COUNT dos_open(BYTE FAR * path, COUNT flag)
   fnp->f_cluster_offset = 0l;   /*JPP */
 
   return xlt_fnp(fnp);
-}
-
-COUNT FAR init_call_dos_open(BYTE FAR * path, COUNT flag)
-{
-  return dos_open(path, flag);
 }
 
 BOOL fcmp(BYTE FAR * s1, BYTE FAR * s2, COUNT n)
@@ -349,11 +345,6 @@ COUNT dos_close(COUNT fd)
   return SUCCESS;
 }
 
-COUNT FAR init_call_dos_close(COUNT fd)
-{
-  return dos_close(fd);
-}
-
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
@@ -378,7 +369,7 @@ struct f_node FAR *
   SpacePad(fname, FNAME_SIZE);
   SpacePad(fext, FEXT_SIZE);
 
-  if (nDrive > (lastdrive -1)) {
+  if (nDrive >= lastdrive) {
     return (struct f_node FAR *)0;
   }
   cdsp = &CDSp->cds_table[nDrive];
@@ -525,6 +516,12 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
 {
   REG struct f_node FAR *fnp;
 
+                                   /* NEVER EVER allow directories to be created */
+  if (attrib & ~(D_RDONLY|D_HIDDEN|D_SYSTEM|D_ARCHIVE))
+    {
+        return DE_ACCESS;
+    }
+
   /* first split the passed dir into comopnents (i.e. -   */
   /* path to new directory and name of new directory      */
   if ((fnp = split_path(path, szDirName, szFileName, szFileExt)) == NULL)
@@ -555,9 +552,6 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
   else
   {
     BOOL is_free;
-    REG COUNT idx;
-    struct buffer FAR *bp;
-    BYTE FAR *p;
 
     /* Reset the directory by a close followed by   */
     /* an open                                      */
@@ -877,7 +871,7 @@ static VOID wipe_out(struct f_node FAR * fnp)
 {
   REG UWORD st,
     next;
-  struct dpb *dpbp = fnp->f_dpb;
+  struct dpb FAR *dpbp = fnp->f_dpb;
 
   /* if already free or not valid file, just exit         */
   if ((fnp == NULL) || (fnp->f_dir.dir_start == FREE))
@@ -954,11 +948,6 @@ date dos_getdate()
 #endif
 }
 
-date FAR init_call_dos_getdate()
-{
-  return dos_getdate();
-}
-
 /*                                                              */
 /* dos_gettime for the file time                                */
 /*                                                              */
@@ -969,8 +958,6 @@ time dos_gettime()
     Minute,
     Second,
     Hundredth;
-  time Time;
-  BYTE h;
 
   /* First - get the system time set by either the user   */
   /* on start-up or the CMOS clock                        */
@@ -982,11 +969,6 @@ time dos_gettime()
 #else
   return 0;
 #endif
-}
-
-time FAR init_call_dos_gettime()
-{
-  return dos_gettime();
 }
 
 /*                                                              */
@@ -1509,7 +1491,6 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   REG struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   UCOUNT ret_cnt = 0;
-  ULONG idx;
   UWORD secsize;
   UCOUNT to_xfer = count;
 
@@ -1666,7 +1647,7 @@ UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
     if (fnp->f_flags.f_ddir)
       xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
     else
-      xfr_cnt = min(min(to_xfer, secsize - fnp->f_boff),
+      xfr_cnt = (UWORD)min(min(to_xfer, secsize - fnp->f_boff),
                     fnp->f_dir.dir_size - fnp->f_offset);
 
     fbcopy((BYTE FAR *) & bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
@@ -1688,7 +1669,6 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
   struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   UCOUNT ret_cnt = 0;
-  ULONG idx;
   UWORD secsize;
   UCOUNT to_xfer = count;
 
@@ -1927,11 +1907,6 @@ COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count)
   return err != SUCCESS ? err : xfr;
 }
 
-COUNT FAR init_call_dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count)
-{
-  return dos_read(fd, buffer, count);
-}
-
 #ifndef IPL
 COUNT dos_write(COUNT fd, VOID FAR * buffer, UCOUNT count)
 {
@@ -2016,7 +1991,7 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 }
 
 /* returns the number of unused clusters */
-UWORD dos_free(struct dpb * dpbp)
+UWORD dos_free(struct dpb FAR *dpbp)
 {
   /* There's an unwritten rule here. All fs       */
   /* cluster start at 2 and run to max_cluster+2  */
@@ -2029,7 +2004,7 @@ UWORD dos_free(struct dpb * dpbp)
   UWORD max_cluster = ( ((ULONG) dpbp->dpb_size * (ULONG) (dpbp->dpb_clsmask + 1))
                         / (dpbp->dpb_clsmask + 1) ) + 1;
 
-  if (dpbp->dpb_nfreeclst != UNKNCLUSTER)
+  if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
     return dpbp->dpb_nfreeclst;
   else
   {
@@ -2048,18 +2023,13 @@ UWORD dos_free(struct dpb * dpbp)
 #ifndef IPL
 COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR *PathName)
 {
-  BYTE FAR *p;
   struct f_node FAR *fnp;
-	REG struct dpb *dpbp;
-  COUNT x;
 
 	/* first check for valid drive          */
 	if (cdsp->cdsDpb == 0)
 		return DE_INVLDDRV;
 
-
-	dpbp = (struct dpb *)cdsp->cdsDpb;
-	if ((media_check(dpbp) < 0))
+	if ((media_check(cdsp->cdsDpb) < 0))
 		return DE_INVLDDRV;
 
   /* now test for its existance. If it doesn't, return an error.  */
@@ -2174,11 +2144,50 @@ COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp)
 }
 #endif
 
-COUNT media_check(REG struct dpb * dpbp)
+VOID bpb_to_dpb(bpb FAR *bpbp, REG struct dpb FAR * dpbp)
 {
-  bpb FAR *bpbp;
   ULONG size;
   REG COUNT i;
+
+      dpbp->dpb_mdb = bpbp->bpb_mdesc;
+      dpbp->dpb_secsize = bpbp->bpb_nbyte;
+      dpbp->dpb_clsmask = bpbp->bpb_nsector - 1;
+      dpbp->dpb_fatstrt = bpbp->bpb_nreserved;
+      dpbp->dpb_fats = bpbp->bpb_nfat;
+      dpbp->dpb_dirents = bpbp->bpb_ndirent;
+      size = bpbp->bpb_nsize == 0 ?
+          bpbp->bpb_huge :
+          (ULONG) bpbp->bpb_nsize;
+/* patch point
+      dpbp->dpb_size = size / ((ULONG) bpbp->bpb_nsector);
+*/
+      dpbp->dpb_fatsize = bpbp->bpb_nfsect;
+      dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
+          + dpbp->dpb_fats * dpbp->dpb_fatsize;
+      dpbp->dpb_data = dpbp->dpb_dirstrt
+          + ((DIRENT_SIZE * dpbp->dpb_dirents
+              + (dpbp->dpb_secsize - 1))
+             / dpbp->dpb_secsize);
+/*
+	Michal Meller <maceman@priv4,onet.pl> patch to jimtabor
+*/
+      dpbp->dpb_size = ((size - dpbp->dpb_data) / ((ULONG) bpbp->bpb_nsector) + 1);
+
+      dpbp->dpb_flags = 0;
+/*      dpbp->dpb_next = (struct dpb FAR *)-1;*/
+      dpbp->dpb_cluster = UNKNCLUSTER;
+      dpbp->dpb_nfreeclst = UNKNCLSTFREE;	/* number of free clusters */
+      for (i = 1, dpbp->dpb_shftcnt = 0;
+           i < (sizeof(dpbp->dpb_shftcnt) * 8);	/* 8 bit bytes in C */
+           dpbp->dpb_shftcnt++, i <<= 1)
+      {
+        if (i >= bpbp->bpb_nsector)
+          break;
+      }
+}
+
+COUNT media_check(REG struct dpb FAR * dpbp)
+{
   /* First test if anyone has changed the removable media         */
   FOREVER
   {
@@ -2257,42 +2266,7 @@ COUNT media_check(REG struct dpb * dpbp)
           }
         }
       }
-      bpbp = MediaReqHdr.r_bpptr;
-      dpbp->dpb_mdb = bpbp->bpb_mdesc;
-      dpbp->dpb_secsize = bpbp->bpb_nbyte;
-      dpbp->dpb_clsmask = bpbp->bpb_nsector - 1;
-      dpbp->dpb_fatstrt = bpbp->bpb_nreserved;
-      dpbp->dpb_fats = bpbp->bpb_nfat;
-      dpbp->dpb_dirents = bpbp->bpb_ndirent;
-      size = bpbp->bpb_nsize == 0 ?
-          bpbp->bpb_huge :
-          (ULONG) bpbp->bpb_nsize;
-/* patch point
-      dpbp->dpb_size = size / ((ULONG) bpbp->bpb_nsector);
-*/
-      dpbp->dpb_fatsize = bpbp->bpb_nfsect;
-      dpbp->dpb_dirstrt = dpbp->dpb_fatstrt
-          + dpbp->dpb_fats * dpbp->dpb_fatsize;
-      dpbp->dpb_data = dpbp->dpb_dirstrt
-          + ((DIRENT_SIZE * dpbp->dpb_dirents
-              + (dpbp->dpb_secsize - 1))
-             / dpbp->dpb_secsize);
-/*
-	Michal Meller <maceman@priv4,onet.pl> patch to jimtabor
-*/
-      dpbp->dpb_size = ((size - dpbp->dpb_data) / ((ULONG) bpbp->bpb_nsector) + 1);
-
-      dpbp->dpb_flags = 0;
-/*      dpbp->dpb_next = (struct dpb FAR *)-1;*/
-      dpbp->dpb_cluster = UNKNCLUSTER;
-      dpbp->dpb_nfreeclst = UNKNCLUSTER;	/* number of free clusters */
-      for (i = 1, dpbp->dpb_shftcnt = 0;
-           i < (sizeof(dpbp->dpb_shftcnt) * 8);	/* 8 bit bytes in C */
-           dpbp->dpb_shftcnt++, i <<= 1)
-      {
-        if (i >= bpbp->bpb_nsector)
-          break;
-      }
+      bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp);
       return SUCCESS;
   }
 }
@@ -2306,7 +2280,7 @@ struct f_node FAR *xlt_fd(COUNT fd)
 /* translate the f_node pointer into an fd */
 COUNT xlt_fnp(struct f_node FAR * fnp)
 {
-  return fnp - f_nodes;
+  return (COUNT)(fnp - f_nodes);
 }
 
 #if 0

@@ -34,6 +34,9 @@ static BYTE *miscRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.4  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -98,11 +101,6 @@ VOID scopy(REG BYTE * s, REG BYTE * d)
   *d = '\0';
 }
 
-VOID FAR init_call_scopy(REG BYTE * s, REG BYTE * d)
-{
-  scopy(s, d);
-}
-
 VOID fscopy(REG BYTE FAR * s, REG BYTE FAR * d)
 {
   while (*s)
@@ -117,7 +115,6 @@ VOID fsncopy(BYTE FAR * s, BYTE FAR * d, REG COUNT n)
   *d = '\0';
 }
 
-#ifndef ASMSUPT
 VOID bcopy(REG BYTE * s, REG BYTE * d, REG COUNT n)
 {
   while (n--)
@@ -136,17 +133,4 @@ VOID fmemset(REG VOID FAR * s, REG int ch, REG COUNT n)
     *((BYTE FAR *) s)++ = ch;
 }
 
-#endif
-
-VOID FAR init_call_fbcopy(REG VOID FAR * s, REG VOID FAR * d, REG COUNT n)
-{
-  fbcopy(s, d, n);
-}
-
-VOID fmemset(VOID FAR *, int, COUNT);
-
-VOID FAR init_call_fmemset(REG VOID FAR * s, REG int ch, REG COUNT n)
-{
-  fmemset(s, ch, n);
-}
 #endif

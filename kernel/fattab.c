@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.3  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -99,10 +102,10 @@ static BYTE *RcsId = "$Id$";
  */
 
 #ifdef PROTO
-UCOUNT link_fat12(struct dpb *, UCOUNT, UCOUNT);
-UCOUNT link_fat16(struct dpb *, UCOUNT, UCOUNT);
-UWORD next_cl12(struct dpb *, UCOUNT);
-UWORD next_cl16(struct dpb *, UCOUNT);
+UCOUNT link_fat12(struct dpb FAR *, UCOUNT, UCOUNT);
+UCOUNT link_fat16(struct dpb FAR *, UCOUNT, UCOUNT);
+UWORD next_cl12(struct dpb FAR *, UCOUNT);
+UWORD next_cl16(struct dpb FAR *, UCOUNT);
 #else
 UCOUNT link_fat12();
 UCOUNT link_fat16();
@@ -132,7 +135,7 @@ UWORD next_cl16();
 /*      12 bytes are compressed to 9 bytes                      */
 /*                                                              */
 
-UCOUNT link_fat(struct dpb *dpbp, UCOUNT Cluster1, REG UCOUNT Cluster2)
+UCOUNT link_fat(struct dpb FAR *dpbp, UCOUNT Cluster1, REG UCOUNT Cluster2)
 {
   if (ISFAT12(dpbp))
     return link_fat12(dpbp, Cluster1, Cluster2);
@@ -142,7 +145,7 @@ UCOUNT link_fat(struct dpb *dpbp, UCOUNT Cluster1, REG UCOUNT Cluster2)
     return DE_BLKINVLD;
 }
 
-UCOUNT link_fat16(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
+UCOUNT link_fat16(struct dpb FAR *dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
 {
   UCOUNT idx;
   struct buffer FAR *bp;
@@ -164,7 +167,7 @@ UCOUNT link_fat16(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
 
   /* form an index so that we can read the block as a     */
   /* byte array                                           */
-  idx = (((LONG) Cluster1) * SIZEOF_CLST16) % dpbp->dpb_secsize;
+  idx = (UWORD)((((LONG) Cluster1) * SIZEOF_CLST16) % dpbp->dpb_secsize);
 
   /* Finally, put the word into the buffer and mark the   */
   /* buffer as dirty.                                     */
@@ -177,21 +180,21 @@ UCOUNT link_fat16(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
   {
     /* update the free space count for returned     */
     /* cluster                                      */
-    if (dpbp->dpb_nfreeclst != UNKNCLUSTER)
+    if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
       ++dpbp->dpb_nfreeclst;
   }
   else
   {
     /* update the free space count for removed      */
     /* cluster                                      */
-    if (dpbp->dpb_nfreeclst != UNKNCLUSTER)
+    if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
       --dpbp->dpb_nfreeclst;
   }
 
   return SUCCESS;
 }
 
-UCOUNT link_fat12(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
+UCOUNT link_fat12(struct dpb FAR *dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
 {
   REG UBYTE FAR *fbp0,
     FAR * fbp1;
@@ -253,7 +256,7 @@ UCOUNT link_fat12(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
   else
   {
     *fbp0 = Cluster2 & 0xff;
-    *fbp1 = (*fbp1 & 0xf0) | (Cluster2 >> 8) & 0x0f;
+    *fbp1 = (*fbp1 & 0xf0) | ((Cluster2 >> 8) & 0x0f);
   }
 
   /* update the free space count                          */
@@ -261,14 +264,14 @@ UCOUNT link_fat12(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
   {
     /* update the free space count for returned     */
     /* cluster                                      */
-    if (dpbp->dpb_nfreeclst != UNKNCLUSTER)
+    if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
       ++dpbp->dpb_nfreeclst;
   }
   else
   {
     /* update the free space count for removed      */
     /* cluster                                      */
-    if (dpbp->dpb_nfreeclst != UNKNCLUSTER)
+    if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
       --dpbp->dpb_nfreeclst;
   }
 
@@ -277,7 +280,7 @@ UCOUNT link_fat12(struct dpb * dpbp, UCOUNT Cluster1, UCOUNT Cluster2)
 
 /* Given the disk parameters, and a cluster number, this function
    looks at the FAT, and returns the next cluster in the clain. */
-UWORD next_cluster(struct dpb * dpbp, REG UCOUNT ClusterNum)
+UWORD next_cluster(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
 {
   if (ISFAT12(dpbp))
     return next_cl12(dpbp, ClusterNum);
@@ -287,7 +290,7 @@ UWORD next_cluster(struct dpb * dpbp, REG UCOUNT ClusterNum)
     return LONG_LAST_CLUSTER;
 }
 
-UWORD next_cl16(struct dpb * dpbp, REG UCOUNT ClusterNum)
+UWORD next_cl16(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
 {
   UCOUNT idx;
   struct buffer FAR *bp;
@@ -309,7 +312,7 @@ UWORD next_cl16(struct dpb * dpbp, REG UCOUNT ClusterNum)
 
   /* form an index so that we can read the block as a     */
   /* byte array                                           */
-  idx = (((LONG) ClusterNum) * SIZEOF_CLST16) % dpbp->dpb_secsize;
+  idx = (ClusterNum * SIZEOF_CLST16) % dpbp->dpb_secsize;
 
   /* Get the cluster number,                              */
   fgetword((VOID FAR *) & (bp->b_buffer[idx]), (WORD FAR *) & RetCluster);
@@ -318,7 +321,7 @@ UWORD next_cl16(struct dpb * dpbp, REG UCOUNT ClusterNum)
   return RetCluster;
 }
 
-UWORD next_cl12(struct dpb * dpbp, REG UCOUNT ClusterNum)
+UWORD next_cl12(struct dpb FAR *dpbp, REG UCOUNT ClusterNum)
 {
   REG UBYTE FAR *fbp0,
     FAR * fbp1;
@@ -373,7 +376,7 @@ UWORD next_cl12(struct dpb * dpbp, REG UCOUNT ClusterNum)
   /* Now to unpack the contents of the FAT entry. Odd and */
   /* even bytes are packed differently.                   */
   if (ClusterNum & 0x01)
-    ClusterNum = ((*fbp0 & 0xf0) >> 4) | *fbp1 << 4;
+    ClusterNum = ((*fbp0 & 0xf0) >> 4) | (*fbp1 << 4);
   else
     ClusterNum = *fbp0 | ((*fbp1 & 0x0f) << 8);
 

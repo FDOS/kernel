@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.7  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -530,7 +533,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
 {
 /*  REG struct dpb *dpbp = &blk_devices[dsk]; */
 
-  REG struct dpb *dpbp = (struct dpb *)CDSp->cds_table[dsk].cdsDpb;
+  REG struct dpb FAR *dpbp = CDSp->cds_table[dsk].cdsDpb;
 
   for (;;)
   {

@@ -44,6 +44,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.5  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -256,7 +259,7 @@ static COUNT cpyBuf(VOID FAR *dst, UWORD dstlen
 	, VOID FAR *src, UWORD srclen)
 {
 	if(srclen <= dstlen) {
-		_fmemcpy(dst, src, srclen);
+		fmemcpy(dst, src, srclen);
 		return SUCCESS;
 	}
 	return DE_INVLDFUNC;		/* buffer too small */

@@ -36,6 +36,9 @@ static BYTE *fnode_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -108,7 +111,7 @@ struct f_node
   ULONG f_diroff;               /* offset of the dir entry      */
   UWORD f_dirstart;             /* the starting cluster of dir  */
   /* when dir is not root         */
-  struct dpb *f_dpb;            /* the block device for file    */
+  struct dpb FAR *f_dpb;        /* the block device for file    */
 
   ULONG f_dsize;                /* file size (for directories)  */
   ULONG f_offset;               /* byte offset for next op      */

@@ -28,12 +28,18 @@
 
 #include "portab.h"
 
+COUNT strlen (BYTE * s);        /* don't want globals.h, sorry */
+
+
 #ifdef VERSION_STRINGS
 static BYTE *prfRcsId = "$Id$";
 #endif
 
 /*
  * $Log$
+ * Revision 1.7  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.6  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -44,6 +50,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.7  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.6  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -166,7 +175,7 @@ BYTE *
   p = q = s;
   do
   {                             /* generate digits in reverse order */
-    *p++ = "0123456789abcdef"[u % base];
+    *p++ = "0123456789abcdef"[(UWORD)(u % base)];
   }
   while ((u /= base) > 0);
   
@@ -185,11 +194,10 @@ BYTE *
 #define RIGHT   1
 
 /* printf -- short version of printf to conserve space */
-WORD FAR
-  init_call_printf(CONST BYTE * fmt, BYTE * args)
+WORD printf(CONST BYTE * fmt, ...)
 {
   charp = 0;
-  return do_printf(fmt, &args);
+  return do_printf(fmt, (BYTE **)&fmt + 1);
 }
 
 WORD
@@ -216,8 +224,7 @@ COUNT
 {
   int base;
   BYTE s[11],
-   *p,
-   *ltob();
+      *p;
   int c,
     flag,
     size,

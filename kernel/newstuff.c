@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/04/15 03:21:50  bartoldeman
+ * See history.txt for the list of fixes.
+ *
  * Revision 1.10  2001/04/02 23:18:30  bartoldeman
  * Misc, zero terminated device names and redirector bugs fixed.
  *
@@ -152,10 +155,10 @@ int SetJFTSize(UWORD nHandles)
   return SUCCESS;
 }
 
+/* this is the same, is shorter (~170)and slightly easier to understand TE*/
 int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 {
   /* create filename from current date and time */
-  static const char tokens[] = "0123456789ABCDEF";
   char FAR *ptmp = pathname;
   BYTE wd,
     month,
@@ -167,6 +170,8 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
   WORD sh;
   WORD year;
   int rc;
+  char name83[13];
+  int loop;
 
   while (*ptmp)
     ptmp++;
@@ -179,61 +184,46 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 
   sh = s * 100 + hund;
 
-  ptmp[0] = tokens[year & 0xf];
-  ptmp[1] = tokens[month];
-  ptmp[2] = tokens[day & 0xf];
-  ptmp[3] = tokens[h & 0xf];
-  ptmp[4] = tokens[m & 0xf];
-  ptmp[5] = tokens[(sh >> 8) & 0xf];
-  ptmp[6] = tokens[(sh >> 4) & 0xf];
-  ptmp[7] = tokens[sh & 0xf];
-  ptmp[8] = '.';
-  ptmp[9] = 'A';
-  ptmp[10] = 'A';
-  ptmp[11] = 'A';
-  ptmp[12] = 0;
+    for ( loop = 0; loop < 0xfff; loop++)
+        {
+        sprintf(name83,"%x%x%x%x%x%03x.%03x",
 
-  while ((rc = DosOpen(pathname, 0)) >= 0)
-  {
-    DosClose(rc);
+             year & 0xf,month & 0xf, day & 0xf,h & 0xf,m & 0xf, sh&0xfff,
+             loop & 0xfff);
 
-    if (++ptmp[11] > 'Z')
+        fmemcpy(ptmp, name83, 13);
+
+        if ((rc = DosOpen(pathname, 0)) < 0 &&
+             rc != DE_ACCESS                /* subdirectory ?? */
+                                            /* todo: sharing collision on
+                                               network drive
+                                            */
+            )
+            break;
+
+        if (rc >= 0) DosClose(rc);
+        }
+
+    if (rc == DE_FILENOTFND)
     {
-      if (++ptmp[10] > 'Z')
-      {
-        if (++ptmp[9] > 'Z')
-          return DE_TOOMANY;
-
-        ptmp[10] = 'A';
-      }
-      ptmp[11] = 'A';
+        rc = DosCreat(pathname, attr);
     }
-  }
-
-  if (rc == DE_FILENOTFND)
-  {
-    rc = DosCreat(pathname, attr);
-  }
-  return rc;
+    return rc;
 }
 
 COUNT get_verify_drive(char FAR *src)
 {
-  COUNT drive;
-  /* First, adjust the source pointer                             */
-  src = adjust_far(src);
+  UBYTE drive;
 
   /* Do we have a drive?                                          */
   if (src[1] == ':')
-  {
-    drive = (src[0] | 0x20) - 'a';
-  }
+    drive = ((src[0]-1) | 0x20) - ('a'-1);
   else
-    drive = default_drive;
-  if ((drive < 0) || (drive >= lastdrive)) {
-    drive = DE_INVLDDRV;
-  }
-  return drive;
+    return default_drive;
+  if (drive < lastdrive && CDSp->cds_table[drive].cdsFlags & CDSVALID)
+    return drive;
+  else
+    return DE_INVLDDRV;
 }
 
 /*
@@ -271,21 +261,19 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 
   dest[0] = '\0';
 
+  i = get_verify_drive(src);
+  if (i < 0)
+      return DE_INVLDDRV;
+  
+  buf[0] = i + 'A';
+  buf[1] = ':'; /* Just to be sure */
+
   /* First, adjust the source pointer */
   src = adjust_far(src);
 
   /* Do we have a drive? */
   if (src[1] == ':')
-  {
-    buf[0] = (src[0] | 0x20) + 'A' - 'a';
-
-    if (buf[0] >= lastdrive + 'A')       /* BUG:should be: drive exists */
-      return DE_INVLDDRV;
-
     src += 2;
-  }
-  else
-    buf[0] = default_drive + 'A';
 
 /* /// Added to adjust for filenames which begin with ".\"
        The problem was manifesting itself in the inability
@@ -297,7 +285,6 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 /* /// Changed to "while" from "if".  - Ron Cemer */
   while ( (src[0] == '.') && (src[1] == '\\') ) src += 2;
 
-  i = buf[0] - 'A';
 /*
     Code repoff from dosfns.c
     MSD returns X:/CON for truename con. Not X:\CON

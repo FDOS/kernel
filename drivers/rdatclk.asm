@@ -60,9 +60,9 @@
 ;Initial revision.
 ;
 
-group	IGROUP	INIT_TEXT
+        %include "..\kernel\segs.inc"
 
-segment	INIT_TEXT	class=INIT
+segment	INIT_TEXT
 
 ;
 ;COUNT ReadATClock(bcdDays, bcdHours, bcdMinutes, bcdSeconds)
@@ -73,49 +73,29 @@ segment	INIT_TEXT	class=INIT
 ;
                 global  _ReadATClock
 _ReadATClock:
+                mov     ah,2
+                int     1ah
+		jnc	@RdAT1140
+		sbb	ax,ax
+                ret
+@RdAT1140:
                 push    bp
                 mov     bp,sp
-                sub     sp,byte 10
-;               Days = -6
-;               Hours = -2
-;               Minutes = -8
-;               Seconds = -10
 ;               bcdSeconds = 10
 ;               bcdMinutes = 8
 ;               bcdHours = 6
 ;               bcdDays = 4
-                mov     ah,2
-                int     26
-		jnc	@RdAT1140
-		sbb	ax,ax
-                mov     sp,bp
-                pop     bp
-                ret
-                nop
-@RdAT1140:
-                mov     byte [bp-2],ch      ;Hours
-                mov     byte [bp-8],cl      ;Minutes
-                mov     byte [bp-10],dh     ;Seconds
-                mov     ah,4
-                int     26
-                mov     word [bp-6],dx      ;Days
-                mov     word [bp-4],cx
-                mov     ax,word [bp-6]      ;Days
-                mov     dx,word [bp-4]
-                mov     bx,word [bp+4]      ;bcdDays
-                mov     word [bx],ax
-                mov     word [bx+2],dx
-                mov     al,byte [bp-2]      ;Hours
                 mov     bx,word [bp+6]      ;bcdHours
-                mov     byte [bx],al
-                mov     al,byte [bp-8]      ;Minutes
+                mov     byte [bx],ch        ;Hours
                 mov     bx,word [bp+8]      ;bcdMinutes
-                mov     byte [bx],al
-                mov     al,byte [bp-10]     ;Seconds
+                mov     byte [bx],cl        ;Minutes
                 mov     bx,word [bp+10]     ;bcdSeconds
-                mov     byte [bx],al
+                mov     byte [bx],dh        ;Seconds
+                mov     ah,4
+                int     1ah
+                mov     bx,word [bp+4]      ;bcdDays
+                mov     word [bx],dx        ;Days    
+                mov     word [bx+2],cx
                 sub     ax,ax
-                mov     sp,bp
                 pop     bp
                 ret
-                nop
