@@ -284,27 +284,10 @@ _remote_printredir:
                 push    word [bp+6]
                 jmp     short int2f_call
 
-                global  _remote_setfattr
-_remote_setfattr: 
-                push    bp
-                mov     bp,sp
-                push    si
-                push    di
-                mov     ax, 110eh
-                push    word [bp+4]        
-                jmp     short int2f_call
-
-                global  _remote_lseek
-_remote_lseek: 
-                push    bp
-                mov     bp,sp
-                push    si
-                push    di
-
-                mov     ax, 1121h      ; 21h, Lseek from eof
-                les     di, [bp+4]
-                mov     dx, [bp+8]
-                mov     cx, [bp+10]
+remote_lseek:   ; arg is a pointer to the long seek value
+                mov     bx, cx
+                mov     dx, [bx]
+                mov     cx, [bx+2]
                 ; "fall through"
 
 remote_getfattr:        
@@ -313,11 +296,11 @@ remote_getfattr:
                 jc      no_clear_ax
                 jmp     short no_neg_ax
 
-;long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, unsigned arg)
+;long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg)
                 global NETWORK_REDIRECTOR_MX
 NETWORK_REDIRECTOR_MX:
                 pop     bx             ; ret address
-                pop     cx             ; stack value (arg)
+                pop     cx             ; stack value (arg); cx in remote_rw
                 pop     dx             ; off s
                 pop     es             ; seg s
                 pop     ax             ; cmd (ax)
@@ -334,6 +317,12 @@ call_int2f:
                 je      remote_rw
                 cmp     al, 09h
                 je      remote_rw
+                cmp     al, 0ch
+                je      remote_getfree
+                cmp     al, 23h
+                je      qremote_fn
+                cmp     al, 25h
+                je      remote_lseek
                 push    cx             ; arg
 
 int2f_call:
@@ -384,18 +373,12 @@ print_doredir:
                 xor     cx, cx
                 jmp     short clear_ax
 
-                global  _remote_getfree
-_remote_getfree:
-                push    bp
-                mov     bp,sp
-                push    si
-                push    di
-                mov     ax, 110ch
-                les     di, [bp+4]
+remote_getfree:
                 clc                     ; set to succeed
+                push    cx              ; pointer arg
                 int     2fh
+                pop     di
                 jc      no_clear_ax
-                mov     di,[bp+8]
                 mov     [di],ax
                 mov     [di+2],bx
                 mov     [di+4],cx
@@ -414,23 +397,17 @@ int2f_carry:    neg     ax
                 cwd
                 jmp     short no_neg_ax
                 
-                global  _QRemote_Fn
-_QRemote_Fn:
-                push    bp
-                mov     bp,sp
-                push    si
-                push    di
+qremote_fn:
                 push    ds
-                mov     ax, 1123h
-                les     di, [bp+4]
-                lds     si,[bp+8]
+                mov     bx, cx
+                lds     si, [bx]
                 clc
                 int     2fh
                 pop     ds
                 mov     ax,0xffff
                 jc      no_neg_ax
                 xor     cx, cx
-                jmp     clear_ax
+                jmp     short clear_ax
 
                 global  _remote_process_end
 _remote_process_end:                     ; Terminate process
@@ -494,77 +471,6 @@ nostore:
 		pop	bp
 		ret
 
-%if 0
-; int_2f_111e_call(iregs FAR *iregs)
-; 
-; set up all registers to the int21 entry registers
-; call int2f/111e
-; copy returned registers into int21 entry registers back
-;
-;  disabled: does not work better than previous implementation
-                global  _int_2f_111e_call
-_int_2f_111e_call:
-
-    push bp
-    mov  bp,sp
-    push si
-    push di
-    push ds
-
-    lds  si, [bp+4]     ; ds:si -> iregs
-    
-    mov  ax, [si  ]
-    mov  bx, [si+2]
-    mov  cx, [si+4]
-    mov  dx, [si+6]
-    push word [si+8]            ; si
-    mov  di, [si+10]
-    mov  bp, [si+12]
-    mov  es, [si+16]
-    mov  ds, [si+14]
-    pop  si
-
-    push ax
-    mov  ax, 111eh
-    int  2fh
-    jc   fault
-    pop  ax                     ; restore orig value of ax if no errors
-    push ax    
-fault:        
-
-    pushf
-    push ds
-    push si
-    push bp
-    
-    mov bp,sp
-    lds si,[bp+4+6+10]        ; 4=fun, 6=si,di,ds, 10 additional bytes on stack
-    
-    pop word [si+12]          ; bp
-    pop word [si+ 8]          ; si
-    pop word [si+14]          ; ds
-    pop word [si+22]          ; flags
-    add sp,2                ; pushed function value
-
-    mov [si  ],ax
-
-    cmp ax, 5f02h             ; 5f02 is special: it manipulates the user stack directly
-    je  skip5f02    
-    mov [si+2],bx
-    mov [si+4],cx
-skip5f02:
-        
-    mov [si+6],dx
-    mov [si+10],di
-    mov [si+16],es
-    
-    pop ds
-    pop di
-    pop si
-    pop bp
-    ret        
-%endif
-          
 ;
 ; Test to see if a umb driver has been loaded.
 ; if so, retrieve largest available block+size

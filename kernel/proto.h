@@ -381,17 +381,17 @@ COUNT truename(const char FAR * src, char * dest, COUNT t);
 /* network.c */
 int network_redirector(unsigned cmd);
 int network_redirector_fp(unsigned cmd, void far *s);
-long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, unsigned arg);
+long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg);
 COUNT ASMCFUNC remote_doredirect(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                  UWORD i, VOID FAR * data);
 COUNT ASMCFUNC remote_printset(UWORD b, UCOUNT n, UWORD d, VOID FAR * s,
                                UWORD i, VOID FAR * data);
 COUNT ASMCFUNC remote_process_end(VOID);
-COUNT ASMCFUNC remote_getfree(VOID FAR * s, VOID * d);
-LONG ASMCFUNC remote_lseek(sft FAR * s, LONG new_pos);
-COUNT ASMCFUNC remote_setfattr(COUNT attr);
+#define remote_getfree(s,d) (int)network_redirector_mx(REM_GETSPACE, s, d)
+#define remote_lseek(s,new_pos) network_redirector_mx(REM_LSEEK, s, &new_pos)
+#define remote_setfattr(attr) (int)network_redirector_mx(REM_SETATTR, NULL, (void *)attr)
 COUNT ASMCFUNC remote_printredir(UCOUNT dx, UCOUNT ax);
-COUNT ASMCFUNC QRemote_Fn(char FAR * d, const char FAR * s);
+#define QRemote_Fn(d,s) (int)network_redirector_mx(REM_FILENAME, d, &s)
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);

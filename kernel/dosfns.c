@@ -233,7 +233,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     current_filepos = s->sft_posit;     /* needed for MSCDEX */
     dta = bp;
     XferCount = network_redirector_mx(mode == XFR_READ ? REM_READ : REM_WRITE,
-                                      s, n);
+                                      s, (void *)n);
     dta = save_dta;
     return XferCount;
   }
@@ -565,7 +565,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
       cmd = REM_OPEN;
       attrib = (BYTE)flags;
     }
-    status = (int)network_redirector_mx(cmd, sftp, attrib);
+    status = (int)network_redirector_mx(cmd, sftp, (void *)attrib);
     if (status >= SUCCESS)
     {
       if (sftp->sft_count == 0)
