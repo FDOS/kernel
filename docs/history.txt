@@ -1,3 +1,20 @@
+2000 Aug 05 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
+         Clean up and finish umb code to get 2021 out.
+
+2000 Jul 26 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix    New patch from Ron IsDevice and truename fix.
+
+2000 Jul 14 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Added NLS patches from Steffen Kaiser and patch from Ron
+         (roncemer@gte.net).
+
+2000 Jun 25 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Add and Fix support for UMB's.
+
 2000 Jun 20 - Build 2021
 -------- James Tabor (jimtabor@infohwy.com)
 + Fix	 Bart Oldeman (Bart.Oldeman@bristol.ac.uk) found bugs with copy
