@@ -251,11 +251,11 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
 
   if ((ULONG)recno * lpFcb->fcb_recsiz >= 0x10000ul ||
       FP_OFF(FcbIoPtr) < FP_OFF(dta))
-    return FCB_ERR_SEGMENT_WRAP;                         
+    return FCB_ERR_SEGMENT_WRAP;
 
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
-    
+
   /* Now update the fcb and compute where we need to position     */
   /* to.                                                          */
   lPosit = FcbRec(lpFcb) * lpFcb->fcb_recsiz;
@@ -266,7 +266,7 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
   nTransfer = DosRWSft(lpFcb->fcb_sftno, lpFcb->fcb_recsiz, FcbIoPtr, mode);
   if (nTransfer < 0)
     CritErrCode = -(int)nTransfer;
-  
+
   /* Now find out how we will return and do it.                   */
   if (nTransfer == lpFcb->fcb_recsiz)
   {
@@ -286,12 +286,14 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
 UBYTE FcbGetFileSize(xfcb FAR * lpXfcb)
 {
   int FcbDrive, sft_idx;
+  unsigned recsiz;
 
   /* Build a traditional DOS file name                            */
   fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
+  recsiz = lpFcb->fcb_recsiz;
 
   /* check for a device                                           */
-  if (!lpFcb || IsDevice(SecPathName) || (lpFcb->fcb_recsiz == 0))
+  if (!lpFcb || IsDevice(SecPathName) || (recsiz == 0))
     return FCB_ERROR;
 
   sft_idx = (short)DosOpenSft(SecPathName, O_LEGACY | O_RDONLY | O_OPEN, 0);
@@ -303,9 +305,7 @@ UBYTE FcbGetFileSize(xfcb FAR * lpXfcb)
     fsize = SftGetFsize(sft_idx);
 
     /* compute the size and update the fcb                  */
-    lpFcb->fcb_rndm = fsize / lpFcb->fcb_recsiz;
-    if ((fsize % lpFcb->fcb_recsiz) != 0)
-      ++lpFcb->fcb_rndm;
+    lpFcb->fcb_rndm = (fsize + (recsiz - 1)) / recsiz;
 
     /* close the file and leave                             */
     if ((CritErrCode = -DosCloseSft(sft_idx, FALSE)) == SUCCESS)
