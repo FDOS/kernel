@@ -66,6 +66,14 @@ static char *portab_hRcsId =
 #define I86
 #define CDECL   cdecl
 #if __TURBOC__ > 0x202
+#if __TURBOC__ < 0x400 /* targeted to TC++ 1.0 which is 0x297 (3.1 is 0x410) */
+#pragma warn -pia /* possibly incorrect assignment */
+#pragma warn -sus /* suspicious pointer conversion */
+/*
+ * NOTE: The above enable TC++ to build the kernel, but it's not recommended
+ * for development. Use [Open]Watcom (the best!) or newer Borland compilers!
+ */
+#endif
 /* printf callers do the right thing for tc++ 1.01 but not tc 2.01 */
 #define VA_CDECL
 #else

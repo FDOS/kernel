@@ -32,19 +32,6 @@ INITPATCH=@rem
 LOADSEG=0x60
 !endif
 
-UPXOPT=-U
-!if $(__MAKE__)0 == 0	# NMAKE/WMAKE
-!if "$(XUPX)" == ""	# TC doesn't supports this
-XUPX=rem		# NMAKE doesn't supports @ in macro
-UPXOPT=
-!endif
-!else			# TC/BC MAKE
-!if !$d(XUPX)		# NMAKE/WMAKE doesn't supports $d()
-XUPX=@rem
-UPXOPT=
-!endif
-!endif
-
 !include "..\mkfiles\$(COMPILER).mak"
 
 TARGET=$(TARGET)$(XCPU)$(XFAT)

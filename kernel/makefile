@@ -31,7 +31,7 @@ all:		..\bin\$(TARGET).sys ..\bin\country.sys
 
 ..\bin\$(TARGET).sys: $(TARGET).lnk $(OBJS) $(LIBS) ..\utils\exeflat.exe
 		$(LINK) @$(TARGET).lnk;
-		..\utils\exeflat kernel.exe $*.sys $(LOADSEG) -S0x10 -S0x8B $(UPXOPT)
+		..\utils\exeflat kernel.exe $*.sys $(LOADSEG) -S0x10 -S0x8B
 		copy $*.sys ..\bin\kernel.sys
 
 ..\bin\country.sys: country.asm

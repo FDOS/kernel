@@ -331,7 +331,6 @@ int main(int argc, char **argv)
   int compress_sys_file;
   char *upx, *tmpexe, *buffer;
   char cmdbuf[128];
-  int UPX = FALSE;
   int i;
   FILE *dest;
   long size;
@@ -351,9 +350,6 @@ int main(int argc, char **argv)
 
     switch (toupper(argptr[0]))
     {
-      case 'U':
-        UPX = TRUE;
-        break;
       case 'S':
         if (silentcount >= LENGTH(silentSegments))
         {
@@ -373,9 +369,10 @@ int main(int argc, char **argv)
   /* arguments left :
      infile outfile relocation offset */
 
-  compress_sys_file = exeflat(UPX, argv[1], argv[2], argv[3],
+  upx = getenv("XUPX");
+  compress_sys_file = exeflat((int)upx, argv[1], argv[2], argv[3],
                               silentSegments, silentcount);
-  if (!UPX)
+  if (upx == NULL)
     exit(0);
 
   /* move kernel.sys tmp$$$$$.exe */
@@ -385,10 +382,6 @@ int main(int argc, char **argv)
     tmpexe = "tmp$$$$$.exe";
     rename(argv[2], tmpexe);
   }
-
-  upx = getenv("XUPX");
-  if (upx == NULL)
-    upx = "UPX";
 
 #if !defined(__TURBOC__)
   /* upx kernel.exe -o kernel.sys */

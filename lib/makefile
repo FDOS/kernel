@@ -12,9 +12,9 @@ all:		libm.lib
 
 libm.lib:	$(CLIB) $(DEPENDS)
 		-$(RM) $*.lib
-		$(LIBUTIL) $(CLIB) $(MATH_EXTRACT) $(LIBTERM)
+		$(LIBUTIL) $(CLIB) $(MATH_EXTRACT)$(LIBTERM)
 		$(COMSPEC) /c for %i in (*.obj) do ..\utils\patchobj CODE=LCODE %i
-		$(LIBUTIL) $* $(MATH_INSERT) $(LIBTERM)
+		$(LIBUTIL) $* $(MATH_INSERT)$(LIBTERM)
 		-$(RM) *.obj
 
 ########################################################################
