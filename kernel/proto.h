@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2000/10/30 00:21:15  jimtabor
+ * Adding Brian Reifsnyder Fix for Int 25/26
+ *
  * Revision 1.7  2000/08/07 22:51:34  jimtabor
  * Remove unused code
  *
@@ -167,7 +170,9 @@ BOOL flush_buffers(REG COUNT dsk);
 BOOL flush1(struct buffer FAR * bp);
 BOOL flush(void);
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk);
-BOOL dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode);
+/* *** Changed on 9/4/00  BER */
+UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode);
+/* *** End of change
 
 /* chario.c */
 VOID cso(COUNT c);

@@ -36,7 +36,14 @@ static BYTE *blockioRcsId = "$Id$";
 #endif
 
 /*
+ * 2000/9/04   Brian Reifsnyder
+ * Modified dskxfer() such that error codes are now returned.
+ * Functions that rely on dskxfer() have also been modified accordingly.
+ *
  * $Log$
+ * Revision 1.5  2000/10/30 00:21:15  jimtabor
+ * Adding Brian Reifsnyder Fix for Int 25/26
+ *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
  *
@@ -226,14 +233,14 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
   while (bp != NULL)
   {
     if ((bp->b_flag & BFR_VALID) && (bp->b_unit == dsk)
-        && (getblkno(bp) == blkno))
+	&& (getblkno(bp) == blkno))
     {
       /* found it -- rearrange LRU links      */
       if (lbp != NULL)
       {
-        lbp->b_next = bp->b_next;
-        bp->b_next = firstbuf;
-        firstbuf = bp;
+	lbp->b_next = bp->b_next;
+	bp->b_next = firstbuf;
+	firstbuf = bp;
       }
 #ifdef DISPLAY_GETBLOCK
       printf("HIT]\n");
@@ -243,7 +250,7 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
     else
     {
       if (bp->b_flag & BFR_FAT)
-        fat_count++;
+	fat_count++;
       mbp = lbp;                /* move along to next buffer */
       lbp = bp;
       bp = bp->b_next;
@@ -282,7 +289,7 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
     {
       /* put lbp at the top of the chain. */
       if (mbp != NULL)
-        mbp->b_next = NULL;
+	mbp->b_next = NULL;
       lbp->b_next = firstbuf;
       firstbuf = bp = lbp;
     }
@@ -304,7 +311,7 @@ struct buffer FAR *getblock(ULONG blkno, COUNT dsk)
   }
 
   /* take the buffer than lbp points to and flush it, then read new block. */
-  if (flush1(lbp) && fill(lbp, blkno, dsk))	/* success             */
+  if (flush1(lbp) && fill(lbp, blkno, dsk))     /* success             */
     mbp = lbp;
   else
     mbp = NULL;                 /* failure */
@@ -341,14 +348,14 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
   while (bp != NULL)
   {
     if ((bp->b_flag & BFR_VALID) && (bp->b_unit == dsk)
-        && (getblkno(bp) == blkno))
+	&& (getblkno(bp) == blkno))
     {
       /* found it -- rearrange LRU links      */
       if (lbp != NULL)
       {
-        lbp->b_next = bp->b_next;
-        bp->b_next = firstbuf;
-        firstbuf = bp;
+	lbp->b_next = bp->b_next;
+	bp->b_next = firstbuf;
+	firstbuf = bp;
       }
       *pbp = bp;
 #ifdef DISPLAY_GETBLOCK
@@ -359,7 +366,7 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
     else
     {
       if (bp->b_flag & BFR_FAT)
-        fat_count++;
+	fat_count++;
       mbp = lbp;                /* move along to next buffer */
       lbp = bp;
       bp = bp->b_next;
@@ -397,7 +404,7 @@ BOOL getbuf(struct buffer FAR ** pbp, ULONG blkno, COUNT dsk)
     {
       /* put lbp at the top of the chain. */
       if (mbp != NULL)
-        mbp->b_next = NULL;
+	mbp->b_next = NULL;
       lbp->b_next = firstbuf;
       firstbuf = bp = lbp;
     }
@@ -467,7 +474,7 @@ BOOL flush_buffers(REG COUNT dsk)
   {
     if (bp->b_unit == dsk)
       if (!flush1(bp))
-        ok = FALSE;
+	ok = FALSE;
     bp = bp->b_next;
   }
   return ok;
@@ -478,12 +485,14 @@ BOOL flush_buffers(REG COUNT dsk)
 /*                                                                      */
 BOOL flush1(struct buffer FAR * bp)
 {
-  REG WORD ok;
+/* All lines with changes on 9/4/00 by BER marked below */  
+  
+  UWORD result;              /* BER 9/4/00 */
 
   if ((bp->b_flag & BFR_VALID) && (bp->b_flag & BFR_DIRTY))
   {
-    ok = dskxfer(bp->b_unit, getblkno(bp),
-                 (VOID FAR *) bp->b_buffer, 1, DSKWRITE);
+    result = dskxfer(bp->b_unit, getblkno(bp),
+		 (VOID FAR *) bp->b_buffer, 1, DSKWRITE); /* BER 9/4/00  */
     if (bp->b_flag & BFR_FAT)
     {
       int i = bp->b_copies;
@@ -492,18 +501,19 @@ BOOL flush1(struct buffer FAR * bp)
 
       while (--i > 0)
       {
-        blkno += offset;
-        ok &= dskxfer(bp->b_unit, blkno,
-                      (VOID FAR *) bp->b_buffer, 1, DSKWRITE);
+	blkno += offset;
+	result = dskxfer(bp->b_unit, blkno, 
+		     (VOID FAR *) bp->b_buffer, 1, DSKWRITE);  /* BER 9/4/00 */
       }
     }
   }
   else
-    ok = TRUE;
+    result = TRUE; /* This negates any error code returned in result...BER */
   bp->b_flag &= ~BFR_DIRTY;     /* even if error, mark not dirty */
-  if (!ok)                      /* otherwise system has trouble  */
+  if (!result)                      /* otherwise system has trouble  */
     bp->b_flag &= ~BFR_VALID;   /* continuing.           */
-  return (ok);
+  return (TRUE);   /* Forced to TRUE...was like this before dskxfer()  */
+		   /* returned error codes...BER */
 }
 
 /*                                                                      */
@@ -536,13 +546,21 @@ BOOL flush(void)
    sector is not already in the buffer ring  */
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk)
 {
-  REG WORD ok;
+/* Changed 9/4/00 BER */  
+  UWORD result;
 
-  ok = dskxfer(dsk, blkno, (VOID FAR *) bp->b_buffer, 1, DSKREAD);
+  result = dskxfer(dsk, blkno, (VOID FAR *) bp->b_buffer, 1, DSKREAD);
+/* End of change */  
   bp->b_flag = BFR_VALID | BFR_DATA;
   bp->b_unit = dsk;
   setblkno(bp, blkno);
-  return (ok);
+  
+/* Changed 9/4/00 BER */
+  if(result==0) return(TRUE);  /* Temporary code to convert the result to */
+  else return(FALSE);          /* the old BOOL result...BER               */
+
+  /* return (result);         This is what should eventually be returned */
+/* End of change */
 }
 
 /************************************************************************/
@@ -553,20 +571,23 @@ BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk)
 /*                                                                      */
 /* Transfer one or more blocks to/from disk                             */
 /*                                                                      */
-BOOL dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode)
+
+/* Changed to UWORD  9/4/00  BER */
+UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode)
+/* End of change */
 {
 /*  REG struct dpb *dpbp = &blk_devices[dsk]; */
 
-    REG struct dpb *dpbp = (struct dpb *)CDSp->cds_table[dsk].cdsDpb;
+  REG struct dpb *dpbp = (struct dpb *)CDSp->cds_table[dsk].cdsDpb;
 
   for (;;)
   {
     IoReqHdr.r_length = sizeof(request);
     IoReqHdr.r_unit = dpbp->dpb_subunit;
     IoReqHdr.r_command =
-        mode == DSKWRITE ?
-        (verify_ena ? C_OUTVFY : C_OUTPUT)
-        : C_INPUT;
+	mode == DSKWRITE ?
+	(verify_ena ? C_OUTVFY : C_OUTPUT)
+	: C_INPUT;
     IoReqHdr.r_status = 0;
     IoReqHdr.r_meddesc = dpbp->dpb_mdb;
     IoReqHdr.r_trans = (BYTE FAR *) buf;
@@ -583,23 +604,32 @@ BOOL dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode
       break;
     else
     {
+/* Changed 9/4/00   BER */    
+    return (IoReqHdr.r_status);
+    
+    /* Skip the abort, retry, fail code...it needs fixed...BER */
+/* End of change */
+
     loop:
       switch (block_error(&IoReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
       {
-        case ABORT:
-        case FAIL:
-          return FALSE;
+	case ABORT:
+	case FAIL:
+	  return (IoReqHdr.r_status);
 
-        case RETRY:
-          continue;
+	case RETRY:
+	  continue;
 
-        case CONTINUE:
-          break;
+	case CONTINUE:
+	  break;
 
-        default:
-          goto loop;
+	default:
+	  goto loop;
       }
     }
   }
-  return TRUE;
+/* *** Changed 9/4/00  BER */
+  return 0;   /* Success!  Return 0 for a successful operation. */
+/* End of change */
+
 }

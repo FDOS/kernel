@@ -36,6 +36,12 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2000/10/30 00:21:15  jimtabor
+ * Adding Brian Reifsnyder Fix for Int 25/26
+ *
+ * 2000/09/04  Brian Reifsnyder
+ * Modified interrupts 0x25 & 0x26 to return more accurate error codes.
+ *
  * Revision 1.10  2000/10/29 23:51:56  jimtabor
  * Adding Share Support by Ron Cemer
  *
@@ -1820,13 +1826,15 @@ VOID int25_handler(struct int25regs FAR * r)
     return;
   }
 
-  if (!dskxfer(drv, blkno, buf, nblks, DSKREAD))
+/* *** Changed 9/4/00  BER */  
+  r->ax=dskxfer(drv, blkno, buf, nblks, DSKREAD);
+  if (r->ax > 0)
   {
-    /* XXX: should tell the user exactly what the error was */
-    r->ax = 0x202;
     r->flags |= FLG_CARRY;
+    --InDOS;
     return;
   }
+/* End of change */  
 
   r->ax = 0;
   r->flags &= ~FLG_CARRY;
@@ -1863,13 +1871,15 @@ VOID int26_handler(struct int25regs FAR * r)
     return;
   }
 
-  if (!dskxfer(drv, blkno, buf, nblks, DSKWRITE))
+/* *** Changed 9/4/00  BER */  
+  r->ax=dskxfer(drv, blkno, buf, nblks, DSKWRITE);
+  if (r->ax > 0)
   {
-    /* XXX: should tell the user exactly what the error was */
-    r->ax = 0x202;
     r->flags |= FLG_CARRY;
+    --InDOS;
     return;
   }
+/* End of change */  
 
   setinvld(drv);
 
