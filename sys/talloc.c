@@ -83,11 +83,11 @@ void *malloc(size_t length)
     }
     dbprintf(("follow [%x] = %x\n",akt, akt->length));
     next = (block *)(&akt->data[akt->length & ~BUSY]);
-    if (next == ltop || isbusy(akt))
+    if (isbusy(akt))
     {
       akt = next; /* next block	 */
     }
-    else if (isbusy(next))
+    else if (next == ltop || isbusy(next))
     {
       size_t size = akt->length;
       if (size >= length) /* try to split */
