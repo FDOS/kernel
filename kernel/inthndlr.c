@@ -106,8 +106,8 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
           irp->DH = version_flags;      /* bit3:runs in ROM,bit 4: runs in HMA */
           break;
 
-        case 0x03:             /* DOS 7 does not set AL */
-        case 0x07:             /* neither here */
+     /* case 0x03: */          /* DOS 7 does not set AL */
+     /* case 0x07: */          /* neither here */
 
         default:               /* set AL=0xFF as error, NOT carry */
           irp->AL = 0xff;
@@ -124,10 +124,8 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
         case 0xfd:
           bDumpRdWrParms = !bDumpRdWrParms;
           break;
-#endif
 
           /* Toggle DOS-C syscall trace dump                      */
-#ifdef DEBUG
         case 0xfe:
           bDumpRegs = !bDumpRegs;
           break;
@@ -596,7 +594,6 @@ dispatch:
     default:
 #ifdef DEBUG
       printf("Unsupported INT21 AH = 0x%x, AL = 0x%x.\n", lr.AH, lr.AL);
-#endif
       /* Fall through. */
 
       /* CP/M compatibility functions                                 */
@@ -608,6 +605,7 @@ dispatch:
     case 0x61:
 #endif
     case 0x6b:
+#endif
       lr.AL = 0;
       break;
 
@@ -731,10 +729,9 @@ dispatch:
         UBYTE FAR *retp = MK_FP(r->cs, r->ip);
 
         if (retp[0] == 0x3d &&  /* cmp ax, xxyy */
-            (retp[3] == 0x75 || retp[3] == 0x74))       /* je/jne error    */
+            retp[3] == 0x74)    /* jne error    */
         {
-          lr.AL = retp[1];
-          lr.AH = retp[2];
+          lr.AX = *(UWORD FAR *)&retp[1];
         }
 #if TOM /* Disable the much rarer case to save code size. The only MS-DOS
          * utility featuring it is DOSKEY, and FreeCom almost replaces it
@@ -836,30 +833,18 @@ dispatch:
       /* Get/Set Country Info                                         */
     case 0x38:
       {
-        UWORD cntry = lr.AL;
-
-        if (cntry == 0xff)
-          cntry = lr.BX;
+        if (lr.AL != 0xff)
+          lr.BX = lr.AL;
 
         if (0xffff == lr.DX)
         {
           /* Set Country Code */
-          rc = DosSetCountry(cntry);
+          rc = DosSetCountry(lr.BX);
         }
         else
         {
-          if (cntry == 0)
-            cntry--;
           /* Get Country Information */
-          rc = DosGetCountryInformation(cntry, FP_DS_DX);
-          if (rc >= SUCCESS)
-          {
-            /* HACK FIXME */
-            if (cntry == (UWORD) - 1)
-              cntry = 1;
-            /* END OF HACK */
-            lr.AX = lr.BX = cntry;
-          }
+          rc = DosGetCountryInformation(lr.BX ? lr.BX : NLS_DEFAULT, FP_DS_DX);
         }
         goto short_check;
       }

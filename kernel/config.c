@@ -2073,8 +2073,8 @@ STATIC void _CmdInstall(PCStr p, int mode)
   if (len > sizeof args.ctBuffer - 2)
       len = sizeof args.ctBuffer - 2; /* trim too long line */
   args.ctCount = (UBYTE)len;
-  args.ctBuffer[len-2] = '\r';
-  args.ctBuffer[len-1] = '\0';
+  args.ctBuffer[len] = '\r';
+  args.ctBuffer[len+1] = '\0';
   memcpy(args.ctBuffer, p, len);
 
   set_strategy(mode);
