@@ -538,8 +538,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
           if (i & PNE_WILDCARD)
             gotAnyWildcards = TRUE;
         }
-        if (*src != '\0')
-          --src;			/* terminator or separator was skipped */
+        --src;			/* terminator or separator was skipped */
         break;
     }
   }
