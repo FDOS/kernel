@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/31 20:54:52  bartoldeman
+ * Made SHELLHIGH behave more like LOADHIGH.
+ *
  * Revision 1.8  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -706,6 +709,12 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     
   if (mode != OVERLAY)
   {
+    if (  ModeLoadHigh && uppermem_root)
+    {
+      DosUmbLink(1);                          /* link in UMB's */
+      mem_access_mode |= ModeLoadHigh;
+    }
+  
     /* Now find out how many paragraphs are available       */
     if ((rc = DosMemLargest((seg FAR *) & asize)) != SUCCESS)
     {
@@ -734,11 +743,6 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   } */
 
 
-  if (  ModeLoadHigh && uppermem_root)
-    {
-    DosUmbLink(1);                          /* link in UMB's */
-    }
-  
   /* Allocate our memory and pass back any errors         */
   /* We can still get an error on first fit if the above  */
   /* returned size was a bet fit case                     */
@@ -789,6 +793,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
   if (  ModeLoadHigh && uppermem_root)
     {
+    mem_access_mode &= ~ModeLoadHigh;              /* restore old situation */
     DosUmbLink(UMBstate);                          /* restore link state */
     }
 
