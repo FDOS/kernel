@@ -188,7 +188,7 @@ VOID ASMCFUNC FAR cpm_entry(void);
 /* main.c */
 VOID ASMCFUNC FreeDOSmain(void);
 BOOL init_device(struct dhdr FAR * dhp, char * cmdLine,
-                      COUNT mode, char FAR *top);
+                      COUNT mode, char FAR **top);
 VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */

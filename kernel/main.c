@@ -230,7 +230,7 @@ STATIC void init_kernel(void)
   /* we can read config.sys later.  */
   LoL->lastdrive = Config.cfgLastdrive;
 
-  /*  init_device((struct dhdr FAR *)&blk_dev, NULL, 0, ram_top); */
+  /*  init_device((struct dhdr FAR *)&blk_dev, NULL, 0, &ram_top); */
   blk_dev.dh_name[0] = dsk_init();
 
   PreConfig();
@@ -485,7 +485,7 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
 /* If cmdLine is NULL, this is an internal driver */
 
 BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
-                 char FAR *r_top)
+                 char FAR **r_top)
 {
   request rq;
   char name[8];
@@ -517,7 +517,7 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
   rq.r_status = 0;
   rq.r_command = C_INIT;
   rq.r_length = sizeof(request);
-  rq.r_endaddr = r_top;
+  rq.r_endaddr = *r_top;
   rq.r_bpbptr = (void FAR *)(cmdLine ? cmdLine : "\n");
   rq.r_firstunit = LoL->nblkdev;
 
@@ -546,6 +546,15 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
       KernelAllocPara(FP_SEG(rq.r_endaddr) + (FP_OFF(rq.r_endaddr) + 15)/16
                       - FP_SEG(dhp), 'D', name, mode);
     }
+
+    /* Another fix for multisegmented device drivers:                  */
+    /*   To help emulate the functionallity experienced with other DOS */
+    /*   operating systems when calling multiple device drivers in a   */
+    /*   single driver file, save the end address returned from the    */
+    /*   last INIT call which will then be passed as the end address   */
+    /*   for the next INIT call.                                       */
+
+    *r_top = (char FAR *)rq.r_endaddr;
   }
 
   if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
@@ -569,7 +578,7 @@ STATIC void InitIO(void)
   /* Initialize driver chain                                      */
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
   do {
-    init_device(device, NULL, 0, lpTop);
+    init_device(device, NULL, 0, &lpTop);
     device = device->dh_next;
   }
   while (FP_OFF(device) != 0xffff);

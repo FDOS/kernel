@@ -1384,8 +1384,15 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
 
   dhp = MK_FP(base, 0);
 
+  /* NOTE - Modification for multisegmented device drivers:          */
+  /*   In order to emulate the functionallity experienced with other */
+  /*   DOS operating systems, the original 'top' end address is      */
+  /*   updated with the end address returned from the INIT request.  */
+  /*   The updated end address is then used when issuing the next    */
+  /*   INIT request for the following device driver within the file  */
+
   for (next_dhp = NULL; FP_OFF(next_dhp) != 0xffff &&
-       (result = init_device(dhp, szBuf, mode, top)) == SUCCESS;
+       (result = init_device(dhp, szBuf, mode, &top)) == SUCCESS;
        dhp = next_dhp)
   {
     next_dhp = MK_FP(FP_SEG(dhp), FP_OFF(dhp->dh_next));
