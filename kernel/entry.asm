@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.11  2001/04/15 02:26:23  bartoldeman
+; Hans Lermen: critical error handler destroyed AH (entry.asm).
+;
 ; Revision 1.10  2001/04/02 23:18:30  bartoldeman
 ; Misc, zero terminated device names and redirector bugs fixed.
 ;
@@ -91,8 +94,6 @@ segment	HMA_TEXT
                 extern   _int21_syscall:wrt HGROUP
                 extern   _int21_service:wrt HGROUP
                 extern   _int2526_handler:wrt HGROUP
-                extern   _set_stack:wrt HGROUP
-                extern   _restore_stack:wrt HGROUP
                 extern   _error_tos:wrt DGROUP
                 extern   _char_api_tos:wrt DGROUP
                 extern   _disk_api_tos:wrt DGROUP
@@ -619,6 +620,8 @@ CritErr05:
                 mov     es,[_cu_psp]
                 pop     word [es:PSP_USERSP]
                 pop     word [es:PSP_USERSS]
+                mov     bp, sp
+                mov     ah, byte [bp+4+4]       ; restore old AH from nFlags
                 sti                             ; Enable interrupts
                 ;
                 ; clear flags
@@ -629,7 +632,7 @@ CritErr05:
                 ; Check for ignore and force fail if not ok
                 cmp     al,CONTINUE
                 jne     CritErr10               ; not ignore, keep testing
-                test    bh,OK_IGNORE
+                test    ah,OK_IGNORE
                 jnz     CritErr10
                 mov     al,FAIL
                 ;
@@ -638,7 +641,7 @@ CritErr05:
 CritErr10:
                 cmp     al,RETRY
                 jne     CritErr20               ; not retry, keep testing
-                test    bh,OK_RETRY
+                test    ah,OK_RETRY
                 jnz     CritErr20
                 mov     al,FAIL
                 ;
@@ -648,7 +651,7 @@ CritErr10:
 CritErr20:
                 cmp     al,FAIL
                 jne     CritErr30               ; not fail, do exit processing
-                test    bh,OK_FAIL
+                test    ah,OK_FAIL
                 jnz     CritErr30
                 mov     al,ABORT
                 ;
