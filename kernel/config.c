@@ -1924,7 +1924,7 @@ STATIC VOID DoMenu(void)
     if (MenuTimeout >= 0)
     {
       show_choices(choicey);
-      printf("  Time remainig: %d ", MenuTimeout);
+      printf("  Time remaining: %d ", MenuTimeout);
 
       gotoxy(show_choices(choicey), choicey);
       key = GetBiosKey(1);	/* poll keyboard 1 second	*/
