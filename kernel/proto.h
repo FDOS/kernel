@@ -373,7 +373,7 @@ UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 
 /* procsupt.asm */
-VOID ASMCFUNC exec_user(iregs FAR * irp);
+VOID ASMCFUNC exec_user(iregs FAR * irp, int disable_a20);
 
 /* new by TE */
 

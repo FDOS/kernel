@@ -314,7 +314,7 @@ int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
     
     if (InDOS)
       --InDOS;
-    exec_user(irp);
+    exec_user(irp, 1);
     
     /* We should never be here          
        fatal("KERNEL RETURNED!!!");                    */
@@ -528,7 +528,7 @@ VOID return_user(void)
 
   if (InDOS)
     --InDOS;
-  exec_user((iregs FAR *) q->ps_stack);
+  exec_user((iregs FAR *) q->ps_stack, 0);
 }
 
 COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
