@@ -61,7 +61,7 @@ MATH_INSERT=+i4m
 # -3		optimization for 386 - given in CONFIG.MAK, not here
 #
 
-ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS)-zq-os-s-e5-j-zl-zp1-wx-we-zgf-zff
+ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS)-zq-os-s-e5-j-zl-zp1-wx-we-zgf-zff-r
 INITCFLAGS=$(ALLCFLAGS)-ntINIT_TEXT-ndI
 CFLAGS=$(ALLCFLAGS)-ntHMA_TEXT
 INITPATCH=..\utils\patchobj __U4D=_IU4D __U4M=_IU4M
