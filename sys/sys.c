@@ -57,6 +57,7 @@
 
 /* These definitions deliberately put here instead of
  * #including <stdio.h> to make executable MUCH smaller
+ * using [s]printf from prf.c!
  */
 extern WORD CDECL printf(CONST BYTE * fmt, ...);
 extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
@@ -306,7 +307,7 @@ int main(int argc, char **argv)
   if (argc > drivearg + 1 && memicmp(argv[drivearg + 1], "BOOTONLY", 8) != 0)
     bsFile = argv[drivearg + 1]; /* don't write to file "BOOTONLY" */
     
-  printf("\nWriting boot sector...\n");
+  printf("Processing boot sector...\n");
   put_boot(drive, bsFile,
            (argc > drivearg + 2)
            && memicmp(argv[drivearg + 2], "BOTH", 4) == 0);
@@ -413,6 +414,23 @@ void reset_drive(int DosDrive);
       parm [dx] \
       modify [ax bx];
 
+void lock_drive(int DosDrive);
+#pragma aux lock_drive = \
+      "mov ax,0x440d" \
+      "mov cx,0x84a" \
+      "xor dx,dx" \
+      "inc bx" \
+      "int 0x21" \
+      parm [bx];
+
+void unlock_drive(int DosDrive);
+#pragma aux unlock_drive = \
+      "mov ax,0x440d" \
+      "mov cx,0x86a" \
+      "inc bx" \
+      "int 0x21" \
+      parm [bx];
+
 void truename(char far *dest, const char *src);
 #pragma aux truename = \
       "mov ah,0x60"	  \
@@ -435,10 +453,10 @@ int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
   return regs.x.cflag;
 }
 
-#define absread(int DosDrive, int foo, int cx, void *diskReadPacket) \
+#define absread(DosDrive, foo, cx, diskReadPacket) \
 int2526readwrite(DosDrive, diskReadPacket, 0x25)
 
-#define abswrite(int DosDrive, int foo, int cx, void *diskReadPacket) \
+#define abswrite(DosDrive, foo, cx, diskReadPacket) \
 int2526readwrite(DosDrive, diskReadPacket, 0x26)
 
 #endif
@@ -468,6 +486,27 @@ void reset_drive(int DosDrive)
   intdos(&regs, &regs);
 } /* reset_drive */
 
+void lock_drive(int DosDrive)
+{
+  union REGS regs;
+
+  regs.x.ax = 0x440d;
+  regs.x.cx = 0x84a;
+  regs.x.dx = 0;
+  regs.h.bl = DosDrive + 1;
+  intdos(&regs, &regs);
+} /* lock_drive */
+
+void unlock_drive(int DosDrive)
+{
+  union REGS regs;
+
+  regs.x.ax = 0x440d;
+  regs.x.cx = 0x86a;
+  regs.h.bl = DosDrive + 1;
+  intdos(&regs, &regs);
+} /* unlock_drive */
+
 void truename(char *dest, const char *src)
 {
   union REGS regs;
@@ -479,7 +518,7 @@ void truename(char *dest, const char *src)
   sregs.ds = FP_SEG(src);
   regs.x.si = FP_OFF(src);
   intdosx(&regs, &regs, &sregs);
-} /* reset_drive */
+} /* truename */
 
 #endif
 
@@ -585,6 +624,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
   printf("Reading old bootsector from drive %c:\n", drive + 'A');
 #endif
 
+  lock_drive(drive);
   reset_drive(drive);
   /* suggestion: allow reading from a boot sector or image file here */
   if (MyAbsReadWrite(drive, 1, 0, oldboot, 0) != 0)
@@ -733,6 +773,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     close(fd);
   } /* if write boot sector file */
   reset_drive(drive);
+  unlock_drive(drive);
 } /* put_boot */
 
 
