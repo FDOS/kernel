@@ -77,8 +77,8 @@ __kr dw 12, 82,934,0,0
      dd _kr
 __cn dw 12, 86,936,0,0
      dd _cn
-__tk dw 12, 90,850,0,0
-     dd _tk
+__tr dw 12, 90,850,0,0
+     dd _tr
 __in dw 12, 91,437,0,0
      dd _in
 __pt dw 12,351,860,0,0
@@ -158,8 +158,8 @@ _kr dw 1,6,1
  dd kr
 _cn dw 1,6,1
  dd cn
-_tk dw 1,6,1
- dd tk
+_tr dw 1,6,1
+ dd tr
 _in dw 1,6,1
  dd ia
 _pt dw 1,6,1
@@ -197,236 +197,54 @@ _il dw 1,6,1
 ;                       1 if currency symbol follows value
 ; Currencyp   : Currency precision
 ; Time format : 0=12 hour format (AM/PM), 1=24 hour format (4:12 PM is 16:12)
-;
-;    ID CP DF   currency 1000 0.1   DS TS CF Pr TF  Country/Locale  Contributor
-;------------------------------------------------------------------------------
-us db 0FFh,"CTYINFO"
-   dw 22; length
-dw   1,437,MDY
-             db "$",0,0,0,0
-                       dw ",",".", "-",":"
-                                        db 0,2,_12; United States
-ca db 0FFh,"CTYINFO"
-   dw 22
-dw   2,863,YMD
-             db "$",0,0,0,0
-                       dw " ",",", "-",":"
-                                        db 3,2,_24; Canadian French
-la db 0FFh,"CTYINFO"
-   dw 22
-dw   3,850,DMY
-             db "$",0,0,0,0
-                       dw ",",".", "/",":"
-                                        db 0,2,_12; Latin America
-ru db 0FFh,"CTYINFO"
-   dw 22
-dw   7,866,DMY
-             db "RUB",0,0
-                       dw " ",",", ".",":"
-                                        db 3,2,_24; Russia   Arkady V. Belousov
-gr db 0FFh,"CTYINFO"
-   dw 22
-dw  30,869,DMY
-             db "EYP",0,0
-                       dw ".",",", "/",":"
-                                        db 1,2,_12; Greece
-nl db 0FFh,"CTYINFO"
-   dw 22
-dw  31,850,DMY
-             db "EUR",0,0
-                       dw ".",",", "-",":"
-                                        db 0,2,_24; Netherlands Bart E. Oldeman
-be db 0FFh,"CTYINFO"
-   dw 22
-dw  32,850,DMY
-             db "EUR",0,0
-                       dw ".",",", "/",":"
-                                        db 0,2,_24; Belgium
-fr db 0FFh,"CTYINFO"
-   dw 22
-dw  33,850,DMY
-             db "EUR",0,0
-                       dw " ",",", ".",":"
-                                        db 0,2,_24; France
-sn db 0FFh,"CTYINFO"
-   dw 22
-dw  34,850,DMY
-             db "EUR",0,0
-                       dw ".",",", "/",":"
-                                        db 0,2,_24; Spain       Aitor S. Merino
-hu db 0FFh,"CTYINFO"
-   dw 22
-dw  36,852,YMD
-             db "Ft",0,0,0
-                       dw " ",",", ".",":"
-                                        db 3,2,_24; Hungary
-yu db 0FFh,"CTYINFO"
-   dw 22
-dw  38,852,YMD
-             db "Din",0,0
-                       dw ".",",", "-",":"
-                                        db 2,2,_24; Yugoslavia
-it db 0FFh,"CTYINFO"
-   dw 22
-dw  39,850,DMY
-             db "EUR",0,0
-                       dw ".",",", "/","."
-                                        db 0,2,_24; Italy
-ro db 0FFh,"CTYINFO"
-   dw 22
-dw  40,852,YMD
-             db "Lei",0,0
-                       dw ".",",", "-",":"
-                                        db 0,2,_24; Romania
-sw db 0FFh,"CTYINFO"
-   dw 22
-dw  41,850,DMY
-             db "Fr.",0,0
-                       dw "'",".", ".",","
-                                        db 2,2,_24; Switzerland
-cz db 0FFh,"CTYINFO"
-   dw 22
-dw  42,852,YMD
-             db "KCs",0,0
-                       dw ".",",", "-",":"
-                                        db 2,2,_24; Czechoslovakia
-as db 0FFh,"CTYINFO"
-   dw 22
-dw  43,850,DMY
-             db "EUR",0,0
-                       dw ".",",", ".","."
-                                        db 0,2,_24; Austria
-uk db 0FFh,"CTYINFO"
-   dw 22
-dw  44,850,DMY
-             db 9ch,0,0,0,0
-                       dw ",",".", "/",":"
-                                        db 0,2,_24; United Kingdom
-dk db 0FFh,"CTYINFO"
-   dw 22
-dw  45,865,DMY
-             db "kr",0,0,0
-                       dw ".",",", "-","."
-                                        db 2,2,_24; Denmark
-se db 0FFh,"CTYINFO"
-   dw 22
-dw  46,850,YMD
-             db "Kr",0,0,0
-                       dw " ",",", "-","."
-                                        db 3,2,_24; Sweden
-no db 0FFh,"CTYINFO"
-   dw 22
-dw  47,865,DMY
-             db "Kr",0,0,0
-                       dw ".",",", ".",":"
-                                        db 2,2,_24; Norway
-pl db 0FFh,"CTYINFO"
-   dw 22
-dw  48,852,YMD
-             db "Z",88h,0,0,0
-                       dw ".",",", "-",":"
-                                        db 0,2,_24; Poland        Michal H. Tyc
-de db 0FFh,"CTYINFO"
-   dw 22
-dw  49,850,DMY
-             db "EUR",0,0
-                       dw ".",",", ".","."
-                                        db 1,2,_24; Germany          Tom Ehlert
-ar db 0FFh,"CTYINFO"
-   dw 22
-dw  54,850,DMY
-             db "$",0,0,0,0
-                       dw ".",",", "/","."
-                                        db 0,2,_24; Argentina
-br db 0FFh,"CTYINFO"
-   dw 22
-dw  55,850,DMY
-             db "Cr$",0,0
-                       dw ".",",", "/",":"
-                                        db 2,2,_24; Brazil
-my db 0FFh,"CTYINFO"
-   dw 22
-dw  60,437,DMY
-             db "$",0,0,0,0
-                       dw ",",".", "/",":"
-                                        db 0,2,_12; Malaysia
-au db 0FFh,"CTYINFO"
-   dw 22
-dw  61,437,DMY
-             db "$",0,0,0,0
-                       dw ",",".", "-",":"
-                                        db 0,2,_12; Australia
-sg db 0FFh,"CTYINFO"
-   dw 22
-dw  65,437,DMY
-             db "$",0,0,0,0
-                       dw ",",".", "/",":"
-                                        db 0,2,_12; Singapore
-np db 0FFh,"CTYINFO"
-   dw 22
-dw  81,932,YMD
-             db 81h,8fh,0,0,0
-                       dw ",",".", "-",":"
-                                        db 0,0,_24; Japan           Yuki Mitsui
-kr db 0FFh,"CTYINFO"
-   dw 22
-dw  82,934,YMD
-             db 5Ch,0,0,0,0
-                       dw ",",".", ".",":"
-                                        db 0,0,_24; Korea
-cn db 0FFh,"CTYINFO"
-   dw 22
-dw  86,936,YMD
-             db 0A3h,0A4h,0,0,0
-                       dw ",",".", ".",":"
-                                        db 0,2,_12; China
-tk db 0FFh,"CTYINFO"
-   dw 22
-dw  90,850,DMY
-             db "TL",0,0,0
-                       dw ".",",", "/",":"
-                                        db 4,2,_24; Turkey
-ia db 0FFh,"CTYINFO"
-   dw 22
-dw  91,437,DMY
-             db "Rs",0,0,0
-                       dw ".",",", "/",":"
-                                        db 0,2,_24; India
-pt db 0FFh,"CTYINFO"
-   dw 22
-dw 351,860,DMY
-             db "EUR",0,0
-                       dw ".",",", "-",":"
-                                        db 0,2,_24; Portugal
-fi db 0FFh,"CTYINFO"
-   dw 22
-dw 358,850,DMY
-             db "EUR",0,0
-                       dw " ",",", ".","."
-                                        db 3,2,_24; Finland                Wolf
-bg db 0FFh,"CTYINFO"
-   dw 22
-dw 359,855,DMY
-             db "BGL",0,0
-                       dw " ",",", ".",","
-                                        db 3,2,_24; Bulgaria  Luchezar Georgiev
-ua db 0FFh,"CTYINFO"
-   dw 22
-dw 380,848,DMY
-             db "UAH",0,0
-                       dw " ",",", ".",":"
-                                        db 3,2,_24; Ukraine        Oleg Deribas
-me db 0FFh,"CTYINFO"
-   dw 22
-dw 785,864,DMY
-             db 0A4h,0,0,0,0
-                       dw ".",",", "/",":"
-                                        db 3,3,_12; Middle East
-il db 0FFh,"CTYINFO"
-   dw 22
-dw 972,862,DMY
-             db 99h,0,0,0,0
-                       dw ",",".", " ",":"
-                                        db 2,2,_24; Israel
 
-db "FreeDOS" ; trailing, as recommended by RBIL
+%macro cnf 15
+   db 0FFh,"CTYINFO"
+   dw 22; length
+dw       %1,%2,%3                                            ; ID,CP,DF
+                 db %4,%5,%6,%7,%8                           ; currency
+                                dw %9,%10, %11,%12           ; 1000, 0.1, DS,TS
+                                              db %13,%14,%15 ; CF,Pr,TF
+%endmacro;|  |  |     |             |   |    |  |  |  |   |
+;        ID CP DF  currency       1000 0.1   DS TS CF Pr TF Country Contributor
+;------------------------------------------------------------------------------
+us cnf   1,437,MDY,"$",    0,0,0,0,",",".", "-",":",0,2,_12; United States
+ca cnf   2,863,YMD,"$",    0,0,0,0," ",",", "-",":",3,2,_24; French Canada
+la cnf   3,850,DMY,"$",    0,0,0,0,",",".", "/",":",0,2,_12; Latin America
+ru cnf   7,866,DMY,"R","U","B",0,0," ",",", ".",":",3,2,_24; Russia      Arkady
+gr cnf  30,869,DMY,"E","Y","P",0,0,".",",", "/",":",1,2,_12; Greece
+nl cnf  31,850,DMY,"E","U","R",0,0,".",",", "-",":",0,2,_24; Netherlands   Bart
+be cnf  32,850,DMY,"E","U","R",0,0,".",",", "/",":",0,2,_24; Belgium
+fr cnf  33,850,DMY,"E","U","R",0,0," ",",", ".",":",0,2,_24; France
+sn cnf  34,850,DMY,"E","U","R",0,0,".",",", "/",":",0,2,_24; Spain        Aitor
+hu cnf  36,852,YMD,"F","t",  0,0,0," ",",", ".",":",3,2,_24; Hungary
+yu cnf  38,852,YMD,"D","i","n",0,0,".",",", "-",":",2,2,_24; Yugoslavia
+it cnf  39,850,DMY,"E","U","R",0,0,".",",", "/",".",0,2,_24; Italy
+ro cnf  40,852,YMD,"L","e","i",0,0,".",",", "-",":",0,2,_24; Romania
+sw cnf  41,850,DMY,"F","r",".",0,0,"'",".", ".",",",2,2,_24; Switzerland
+cz cnf  42,852,YMD,"K","C","s",0,0,".",",", "-",":",2,2,_24; Czechoslovakia
+as cnf  43,850,DMY,"E","U","R",0,0,".",",", ".",".",0,2,_24; Austria
+uk cnf  44,850,DMY,9Ch,    0,0,0,0,",",".", "/",":",0,2,_24; United Kingdom
+dk cnf  45,865,DMY,"k","r",  0,0,0,".",",", "-",".",2,2,_24; Denmark
+se cnf  46,850,YMD,"K","r",  0,0,0," ",",", "-",".",3,2,_24; Sweden
+no cnf  47,865,DMY,"K","r",  0,0,0,".",",", ".",":",2,2,_24; Norway
+pl cnf  48,852,YMD,"Z",88h,  0,0,0,".",",", "-",":",0,2,_24; Poland      Michal
+de cnf  49,850,DMY,"E","U","R",0,0,".",",", ".",".",1,2,_24; Germany        Tom
+ar cnf  54,850,DMY,"$",    0,0,0,0,".",",", "/",".",0,2,_24; Argentina
+br cnf  55,850,DMY,"C","r","$",0,0,".",",", "/",":",2,2,_24; Brazil
+my cnf  60,437,DMY,"$",    0,0,0,0,",",".", "/",":",0,2,_12; Malaysia
+au cnf  61,437,DMY,"$",    0,0,0,0,",",".", "-",":",0,2,_12; Australia
+sg cnf  65,437,DMY,"$",    0,0,0,0,",",".", "/",":",0,2,_12; Singapore
+np cnf  81,932,YMD,81h,8fh,  0,0,0,",",".", "-",":",0,0,_24; Japan         Yuki
+kr cnf  82,934,YMD,5Ch,    0,0,0,0,",",".", ".",":",0,0,_24; Korea
+cn cnf  86,936,YMD,0A3h,0A4h,0,0,0,",",".", ".",":",0,2,_12; China
+tr cnf  90,850,DMY,"T","L",  0,0,0,".",",", "/",":",4,2,_24; Turkey
+ia cnf  91,437,DMY,"R","s",  0,0,0,".",",", "/",":",0,2,_24; India
+pt cnf 351,860,DMY,"E","U","R",0,0,".",",", "-",":",0,2,_24; Portugal
+fi cnf 358,850,DMY,"E","U","R",0,0," ",",", ".",".",3,2,_24; Finland       Wolf
+bg cnf 359,855,DMY,"B","G","L",0,0," ",",", ".",",",3,2,_24; Bulgaria  Luchezar
+ua cnf 380,848,DMY,"U","A","H",0,0," ",",", ".",":",3,2,_24; Ukraine       Oleg
+me cnf 785,864,DMY,0A4h,   0,0,0,0,".",",", "/",":",3,3,_12; Middle East
+il cnf 972,862,DMY,99h,    0,0,0,0,",",".", " ",":",2,2,_24; Israel
+
+db "FreeDOS" ; Trailing - as recommended by the Ralf Brown Interrupt List
