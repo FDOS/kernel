@@ -26,11 +26,26 @@
 
 ***************************************************************/
 
-#define DEBUG
-/* #define DDEBUG */
+#define DEBUG           /* to display extra information */
+/* #define DDEBUG */    /* to enable display of sector dumps */
 #define WITHOEMCOMPATBS /* include support for OEM MS/PC DOS 3.??-6.x */
+#define FDCONFIG        /* include support to configure FD kernel */
+/* #define DRSYS */     /* SYS for Enhanced DR-DOS (OpenDOS enhancement Project) */
 
-#define SYS_VERSION "v3.5a"
+#define SYS_VERSION "v3.5b"
+#define SYS_NAME "FreeDOS System Installer "
+
+
+#ifdef DRSYS            /* set displayed name & drop FD kernel config */
+#undef SYS_NAME
+#define SYS_NAME "Enhanced DR-DOS System Installer "
+#ifdef FDCONFIG
+#undef FDCONFIG
+#endif
+#ifdef WITHOEMCOMPATBS
+#undef WITHOEMCOMPATBS
+#endif
+#endif
 
 #include <stdlib.h>
 #include <dos.h>
@@ -263,7 +278,9 @@ struct VerifyBootSectorSize {
 /* (Watcom has a nice warning for this, by the way) */
 };
 
+#ifdef FDCONFIG
 int FDKrnConfigMain(int argc, char **argv);
+#endif
 
 /* FreeDOS sys, we default to our kernel and load segment, but
    if not found (or explicitly given) support OEM DOS variants
@@ -280,33 +297,56 @@ typedef struct DOSBootFiles {
   BOOL         stdbs;    /* use FD boot sector (T) or oem compat one (F) */
   LONG         minsize;  /* smallest dos file can be and be valid, 0=existance optional */
 } DOSBootFiles;
+#define FREEDOS_FILES      { "KERNEL.SYS", NULL, 0x60, 1, 0 },
 DOSBootFiles bootFiles[] = {
   /* Note: This order is the order OEM:AUTO uses to determine DOS flavor. */
-  /* FreeDOS */ { "KERNEL.SYS", NULL, 0x60, 1, 0 },
+#ifndef DRSYS
+  /* FreeDOS */   FREEDOS_FILES
+#endif
+  /* DR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70, 1, 1 },
   /* DR-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70, 1, 1 },
+#ifdef DRSYS
+  /* FreeDOS */   FREEDOS_FILES
+#endif
 #ifdef WITHOEMCOMPATBS
   /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70, 0, 6138 },  /* pre v7 DR ??? */
   /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", 0x70, 0, 10240 },
+  /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", 0x70, 0, 0},
 #endif
-  /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", 0x70, 1, 0},
 };
 #define DOSFLAVORS (sizeof(bootFiles) / sizeof(*bootFiles))
 
+/* associate friendly name with index into bootFiles array */
 #define OEM_AUTO (-1) /* attempt to guess DOS on source drive */
+#ifndef DRSYS
 #define OEM_FD     0  /* standard FreeDOS mode */
-#define OEM_DR     1  /* use FreeDOS boot sector, but OEM names */
-#define OEM_PC     2  /* use PC-DOS compatible boot sector and names */ 
-#define OEM_MS     3  /* use PC-DOS compatible BS with MS names */
-#define OEM_W9x    4  /* use FreeDOS boot sector but with MS names */
+#define OEM_EDR    1  /* use FreeDOS boot sector, but OEM names */
+#define OEM_DR     2  /* FD boot sector,(Enhanced) DR-DOS names */
+#else
+#define OEM_FD     2  /* standard FreeDOS mode */
+#define OEM_EDR    0  /* use FreeDOS boot sector, but OEM names */
+#define OEM_DR     1  /* FD boot sector,(Enhanced) DR-DOS names */
+#endif
+#ifdef WITHOEMCOMPATBS
+#define OEM_PC     3  /* use PC-DOS compatible boot sector and names */ 
+#define OEM_MS     4  /* use PC-DOS compatible BS with MS names */
+#define OEM_W9x    5  /* use PC-DOS compatible BS with MS names */
+#endif
 
-CONST char * msgDOS[DOSFLAVORS] = {
-  "\n",  /* In standard FreeDOS mode, don't print anything special */
+CONST char * msgDOS[DOSFLAVORS] = {  /* order should match above items */
+  "\n",  /* In standard FreeDOS/EnhancedDR mode, don't print anything special */
+#ifndef DRSYS
+  "Enhanced DR DOS (OpenDOS Enhancement Project) mode\n",
+#endif
   "DR DOS (OpenDOS Enhancement Project) mode\n",
+#ifdef DRSYS
+  "\n",  /* FreeDOS mode so don't print anything special */
+#endif
 #ifdef WITHOEMCOMPATBS
   "PC-DOS compatibility mode\n",
   "MS-DOS compatibility mode\n",
-#endif
   "Win9x DOS compatibility mode\n",
+#endif
 };
 
 typedef struct SYSOptions {
@@ -324,7 +364,6 @@ typedef struct SYSOptions {
   BYTE *fnCmd;                  /* optional override to cmd interpreter filename (src & dest) */
 } SYSOptions;
 
-
 void dumpBS(const char *, int);
 void restoreBS(const char *, int);
 void put_boot(SYSOptions *opts);
@@ -336,7 +375,7 @@ void showHelpAndExit(void)
   printf(
       "Usage: \n"
       "%s [source] drive: [bootsect] [{option}]\n"
-      "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
+      "  source   = A:,B:,C:\\DOS\\,etc., or current directory if not given\n"
       "  drive    = A,B,etc.\n"
       "  bootsect = name of 512-byte boot sector file image for drive:\n"
       "             to write to *instead* of real boot sector\n"
@@ -345,18 +384,26 @@ void showHelpAndExit(void)
       "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
       "  /OEM     : indicates boot sector, filenames, and load segment to use\n"
       "             /OEM:FD use FreeDOS compatible settings\n"
-      "             /OEM:DR use DR DOS 7+ compatible settings (same as /OEM)\n"
+      "             /OEM:EDR use Enhanced DR DOS 7+ compatible settings\n"
+      "             /OEM:DR use DR DOS 7+ compatible settings\n"
 #ifdef WITHOEMCOMPATBS
       "             /OEM:PC use PC-DOS compatible settings\n"
       "             /OEM:MS use MS-DOS compatible settings\n"
-#endif
       "             /OEM:W9x use MS Win9x DOS compatible settings\n"
-      "             default is /OEM:AUTO, select DOS based on existing files\n"
-      "  /K name  : name of kernel to use in boot sector instead of KERNEL.SYS\n"
-      "  /L segm  : hex load segment to use in boot sector instead of 60\n"
+#endif
+      "             default is /OEM[:AUTO], select DOS based on existing files\n"
+      "  /K name  : name of kernel to use in boot sector instead of %s\n"
+      "  /L segm  : hex load segment to use in boot sector instead of %02x\n"
       "  /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...\n"
       "  /FORCEDRV: force use of drive # set in bs instead of BIOS boot value\n"
-      "%s CONFIG /help\n", pgm, pgm
+#ifdef FDCONFIG
+      "%s CONFIG /help\n"
+#endif
+      /*SYS, KERNEL.SYS/DRBIO.SYS 0x60/0x70*/
+      , pgm, bootFiles[0].kernel, bootFiles[0].loadseg
+#ifdef FDCONFIG
+      , pgm
+#endif
   );
   exit(1);
 }
@@ -406,12 +453,14 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
       {
         argp += 3;
         if (!*argp)
-            opts->flavor = OEM_DR;
+            opts->flavor = OEM_AUTO;
         else if (*argp == ':')
         {
           argp++;  /* point to DR/PC/MS that follows */
           if (memicmp(argp, "AUTO", 4) == 0)
             opts->flavor = OEM_AUTO;
+          else if (memicmp(argp, "EDR", 3) == 0)
+            opts->flavor = OEM_EDR;
           else if (memicmp(argp, "DR", 2) == 0)
             opts->flavor = OEM_DR;
 #ifdef WITHOEMCOMPATBS
@@ -419,11 +468,16 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
             opts->flavor = OEM_PC;
           else if (memicmp(argp, "MS", 2) == 0)
             opts->flavor = OEM_MS;
-#endif
           else if (memicmp(argp, "W9", 2) == 0)
             opts->flavor = OEM_W9x;
-          else /* if (memicmp(argp, "FD", 2) == 0) */
+#endif
+          else if (memicmp(argp, "FD", 2) == 0)
             opts->flavor = OEM_FD;
+          else
+          {
+            printf("%s: unknown OEM qualifier %s\n", pgm, argp);
+            showHelpAndExit();
+          }
         }
         else
         {
@@ -607,7 +661,12 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   }
 
   /* if unable to determine DOS, assume FreeDOS */
-  if (opts->flavor == OEM_AUTO) opts->flavor = OEM_FD;
+  if (opts->flavor == OEM_AUTO) opts->flavor = 
+#ifdef DRSYS
+  OEM_EDR;
+#else
+  OEM_FD;
+#endif
 
   printf(msgDOS[opts->flavor]);
 
@@ -681,12 +740,14 @@ int main(int argc, char **argv)
   SYSOptions opts;            /* boot options and other flags */
   BYTE srcFile[SYS_MAXPATH];  /* full path+name of [kernel] file [to copy] */
 
-  printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n");
+  printf(SYS_NAME SYS_VERSION ", " __DATE__ "\n");
 
+#ifdef FDCONFIG
   if (argc > 1 && memicmp(argv[1], "CONFIG", 6) == 0)
   {
     exit(FDKrnConfigMain(argc, argv));
   }
+#endif
 
   initOptions(argc, argv, &opts);
 
@@ -1245,13 +1306,17 @@ void put_boot(SYSOptions *opts)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
 
     if (opts->kernel.stdbs)
-	{
+    {
       memcpy(newboot, (fs == FAT16) ? fat16com : fat12com, SEC_SIZE);
-	}
+    }
     else
     {
+#ifdef WITHOEMCOMPATBS
       printf("Using OEM (PC/MS-DOS) compatible boot sector.\n");
       memcpy(newboot, (fs == FAT16) ? oemfat16 : oemfat12, SEC_SIZE);
+#else
+      printf("Internal Error: no OEM compatible boot sector!\n");
+#endif
     }
   }
 
