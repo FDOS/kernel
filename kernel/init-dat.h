@@ -27,6 +27,7 @@ extern __segment DosTextSeg;
 
 #else
 
-#error("unknown compiler - please adjust")
+#error unknown compiler - please adjust
+We might even deal with a pre-ANSI compiler. This will certainly not compile.
 #endif
 extern BYTE DOSFAR version_flags;       /* minor version number                 */

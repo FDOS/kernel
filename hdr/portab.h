@@ -100,6 +100,7 @@ void __int__(int);
 
 #else
 #error Unknown compiler
+We might even deal with a pre-ANSI compiler. This will certainly not compile.
 #endif
 
 #ifdef MC68K
