@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/06/01 06:46:57  jimtabor
+ * Removed Debug printf
+ *
  * Revision 1.6  2000/06/01 06:37:38  jimtabor
  * Read History for Changes
  *
@@ -575,8 +578,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
     Tname[65];
 
   fscopy(name, (BYTE FAR *)&Tname);
+/*
   printf("ff %s", Tname);
-
+*/
   /* The findfirst/findnext calls are probably the worst of the   */
   /* DOS calls. They must work somewhat on the fly (i.e. - open   */
   /* but never close). Since we don't want to lose fnodes every   */
@@ -595,10 +599,11 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   i = ParseDosName((BYTE FAR *)&Tname, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
   if (i != SUCCESS)
     return i;
-
+/*
   printf("\nff %s", Tname);
   printf("ff %s", local_name);
   printf("ff %s\n", local_ext);
+*/
   if (nDrive >= 0)
   {
     dmp->dm_drive = nDrive;
