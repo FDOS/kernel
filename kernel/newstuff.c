@@ -32,7 +32,6 @@ static BYTE *mainRcsId =
 
 #include        "portab.h"
 #include        "globals.h"
-#include        "proto.h"
 
 /*
     TE-TODO: if called repeatedly by same process, 
@@ -158,7 +157,7 @@ COUNT get_verify_drive(char FAR * src)
 
 */
 
-COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t)
+COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 {
   static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
   char *bufp = buf + 3;

@@ -43,7 +43,6 @@ static BYTE *Globals_hRcsId =
 #include "fcb.h"
 #include "tail.h"
 #include "process.h"
-#include "dcb.h"
 #include "sft.h"
 #include "cds.h"
 #include "exe.h"
@@ -57,7 +56,23 @@ static BYTE *Globals_hRcsId =
 #include "network.h"
 #include "config.h"
 #include "buffer.h"
+#include "dcb.h"
 #include "xstructs.h"
+
+/* fatfs.c */
+#ifdef WITHFAT32
+VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp, BOOL extended);
+#else
+VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp);
+#endif
+
+#ifdef WITHFAT32
+struct dpb FAR *GetDriveDPB(UBYTE drive, COUNT * rc);
+#endif
+
+extern struct dpb
+FAR * ASM DPBp;                      /* First drive Parameter Block          */
+
 
 /* JPP: for testing/debuging disk IO */
 /*#define DISPLAY_GETBLOCK */
@@ -155,12 +170,12 @@ typedef BYTE *UPMAP;
 /* External Assembly variables                                          */
 /*                                                                      */
 extern struct dhdr
-FAR clk_dev,                    /* Clock device driver                  */
-  FAR con_dev,                  /* Console device driver                */
-  FAR prn_dev,                  /* Generic printer device driver        */
-  FAR aux_dev,                  /* Generic aux device driver            */
-  FAR blk_dev;                  /* Block device (Disk) driver           */
-extern UWORD ram_top;           /* How much ram in Kbytes               */
+FAR ASM clk_dev,                    /* Clock device driver                  */
+  FAR ASM con_dev,                  /* Console device driver                */
+  FAR ASM prn_dev,                  /* Generic printer device driver        */
+  FAR ASM aux_dev,                  /* Generic aux device driver            */
+  FAR ASM blk_dev;                  /* Block device (Disk) driver           */
+extern UWORD ASM ram_top;           /* How much ram in Kbytes               */
 extern COUNT *error_tos,        /* error stack                          */
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */
@@ -172,7 +187,7 @@ extern
 BYTE DosLoadedInHMA;            /* if InitHMA has moved DOS up          */
 
 extern struct ClockRecord
-  ClkRecord;
+  ASM ClkRecord;
 
 /*                                                                      */
 /* Global variables                                                     */
@@ -239,66 +254,64 @@ Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
 /* ARE DOCUMENTED AS UNDOCUMENTED (?) AND HAVE MANY  PROGRAMS AND TSR'S */
 /* ACCESSING THEM                                                       */
 
-extern UWORD NetBios;
-extern BYTE *net_name;
-extern BYTE net_set_count;
-extern BYTE NetDelay, NetRetry;
+extern UWORD ASM NetBios;
+extern BYTE * ASM net_name;
+extern BYTE ASM net_set_count;
+extern BYTE ASM NetDelay, ASM NetRetry;
 
-extern UWORD first_mcb,         /* Start of user memory                 */
-  UMB_top, umb_start, uppermem_root;    /* Start of umb chain ? */
-extern struct dpb
-FAR *DPBp;                      /* First drive Parameter Block          */
-extern sfttbl FAR * sfthead;    /* System File Table head               */
+extern UWORD ASM first_mcb,         /* Start of user memory                 */
+  ASM UMB_top, ASM umb_start, ASM uppermem_root;    /* Start of umb chain ? */
+extern sfttbl FAR * ASM sfthead;    /* System File Table head               */
 extern struct dhdr
-FAR *clock,                     /* CLOCK$ device                        */
-  FAR * syscon;                 /* console device                       */
-extern WORD maxbksize;          /* Number of Drives in system           */
+FAR * ASM clock,                    /* CLOCK$ device                        */
+  FAR * ASM syscon;                 /* console device                       */
+extern WORD ASM maxbksize;          /* Number of Drives in system           */
 extern struct buffer
-FAR *firstbuf;                  /* head of buffers linked list          */
-extern cdstbl FAR * CDSp;       /* Current Directory Structure          */
+FAR *ASM firstbuf;                  /* head of buffers linked list          */
+extern cdstbl FAR * ASM CDSp;       /* Current Directory Structure          */
 extern
-struct cds FAR *current_ldt;
-extern LONG current_filepos;    /* current file position                */
-extern sfttbl FAR * FCBp;       /* FCB table pointer                    */
-extern WORD nprotfcb;           /* number of protected fcbs             */
-extern UBYTE nblkdev,           /* number of block devices              */
-  lastdrive,                    /* value of last drive                  */
-  uppermem_link,                /* UMB Link flag */
-  PrinterEcho;                  /* Printer Echo Flag                    */
+struct cds FAR * ASM current_ldt;
+extern LONG ASM current_filepos;    /* current file position                */
+extern sfttbl FAR * ASM FCBp;       /* FCB table pointer                    */
+extern WORD ASM nprotfcb;           /* number of protected fcbs             */
+extern UBYTE ASM nblkdev,           /* number of block devices              */
+  ASM lastdrive,                    /* value of last drive                  */
+  ASM uppermem_link,                /* UMB Link flag */
+  ASM PrinterEcho;                  /* Printer Echo Flag                    */
 
-extern UWORD LoL_nbuffers;      /* Number of buffers                    */
+extern UWORD ASM LoL_nbuffers;      /* Number of buffers                    */
 
 extern struct dhdr
-  nul_dev;
-extern UBYTE mem_access_mode;   /* memory allocation scheme             */
-extern BYTE ErrorMode,          /* Critical error flag                  */
-  InDOS,                        /* In DOS critical section              */
-  OpenMode,                     /* File Open Attributes                 */
-  SAttr,                        /* Attrib Mask for Dir Search           */
-  dosidle_flag, Server_Call, CritErrLocus, CritErrAction, CritErrClass, VgaSet, njoined;        /* number of joined devices             */
+  ASM nul_dev;
+extern UBYTE ASM mem_access_mode;   /* memory allocation scheme             */
+extern BYTE ASM ErrorMode,          /* Critical error flag                  */
+  ASM InDOS,                        /* In DOS critical section              */
+  ASM OpenMode,                     /* File Open Attributes                 */
+  ASM SAttr,                        /* Attrib Mask for Dir Search           */
+  ASM dosidle_flag, ASM Server_Call, ASM CritErrLocus, ASM CritErrAction, ASM CritErrClass, VgaSet, njoined;        /* number of joined devices             */
 
-extern UWORD Int21AX;
-extern COUNT CritErrCode;
-extern BYTE FAR *CritErrDev;
+extern UWORD ASM Int21AX;
+extern COUNT ASM CritErrCode;
+extern BYTE FAR * ASM CritErrDev;
 
 extern struct dirent
-  SearchDir;
+  ASM SearchDir;
 
 extern struct {
   COUNT nDrive;
   BYTE szName[FNAME_SIZE + 1];
   BYTE szExt[FEXT_SIZE + 1];
-} FcbSearchBuffer;
+} ASM FcbSearchBuffer;
 
 extern struct                   /* Path name parsing buffer             */
 {
   BYTE _PriPathName[128];
-} _PriPathBuffer;
+} ASM _PriPathBuffer;
 
 extern struct {
   BYTE _fname[FNAME_SIZE];
   BYTE _fext[FEXT_SIZE + 1];    /* space for 0 */
-} szNames;
+} ASM szNames;
 
 #define PriPathName _PriPathBuffer._PriPathName
 #define szDirName TempCDS.cdsCurrentPath
@@ -308,49 +321,46 @@ extern struct {
 extern struct                   /* Alternate path name parsing buffer   */
 {
   BYTE _SecPathName[128];
-} _SecPathBuffer;
+} ASM _SecPathBuffer;
 
 #define SecPathName _SecPathBuffer._SecPathName
 
-extern UWORD wAttr;
+extern UWORD ASM wAttr;
 
-extern BYTE default_drive;      /* default drive for dos                */
+extern BYTE ASM default_drive;      /* default drive for dos                */
 
-extern BYTE TempBuffer[],       /* Temporary general purpose buffer     */
-  FAR internal_data[],          /* sda areas                            */
-  FAR swap_always[],            /*  "    "                              */
-  FAR swap_indos[],             /*  "    "                              */
-  tsr,                          /* true if program is TSR               */
-  break_flg,                    /* true if break was detected           */
-  break_ena,                    /* break enabled flag                   */
-  FAR * dta;                    /* Disk transfer area (kludge)          */
-extern seg cu_psp;              /* current psp segment                  */
-extern iregs FAR * user_r;      /* User registers for int 21h call      */
+extern BYTE ASM TempBuffer[],       /* Temporary general purpose buffer     */
+  FAR ASM internal_data[],          /* sda areas                            */
+  FAR ASM swap_always[],            /*  "    "                              */
+  FAR ASM swap_indos[],             /*  "    "                              */
+  ASM tsr,                          /* true if program is TSR               */
+  ASM break_flg,                    /* true if break was detected           */
+  ASM break_ena,                    /* break enabled flag                   */
+  FAR * ASM dta;                    /* Disk transfer area (kludge)          */
+extern seg ASM cu_psp;              /* current psp segment                  */
+extern iregs FAR * ASM user_r;      /* User registers for int 21h call      */
 
 extern struct dirent            /* Temporary directory entry            */
-  DirEntBuffer;
+  ASM DirEntBuffer;
 
-extern request                  /* I/O Request packets                  */
-  CharReqHdr, IoReqHdr, MediaReqHdr;
+extern fcb FAR * ASM lpFcb;         /* Pointer to users fcb                 */
 
-extern fcb FAR * lpFcb;         /* Pointer to users fcb                 */
+extern sft FAR * ASM lpCurSft;
 
-extern sft FAR * lpCurSft;
+extern BYTE ASM verify_ena,         /* verify enabled flag                  */
+  ASM switchar,                     /* switch char                          */
+  ASM return_mode,                  /* Process termination rets             */
+  ASM return_code;                  /*     "        "       "               */
 
-extern BYTE verify_ena,         /* verify enabled flag                  */
-  switchar,                     /* switch char                          */
-  return_mode,                  /* Process termination rets             */
-  return_code;                  /*     "        "       "               */
-
-extern BYTE BootDrive,          /* Drive we came up from                */
-  scr_pos;                      /* screen position for bs, ht, etc      */
+extern BYTE ASM BootDrive,          /* Drive we came up from                */
+  ASM scr_pos;                      /* screen position for bs, ht, etc      */
 /*extern WORD
   NumFloppies; !!*//* How many floppies we have            */
 
-extern keyboard kb_buf;
+extern keyboard ASM kb_buf;
 
 extern struct cds
-  TempCDS;
+  ASM TempCDS;
 
 /* start of uncontrolled variables                                      */
 GLOBAL seg RootPsp;             /* Root process -- do not abort         */
@@ -382,28 +392,25 @@ GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
 /* Process related functions - not under automatic generation.  */
 /* Typically, these are in ".asm" files.                        */
-VOID FAR ASMCFUNC cpm_entry(VOID)
+VOID ASMCFUNC FAR cpm_entry(VOID)
 /*INRPT FAR handle_break(VOID) */ ;
 VOID enable(VOID), disable(VOID);
-COUNT
-    ASMCFUNC CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
+COUNT ASMCFUNC
+    CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
                            struct dhdr FAR * lpDevice);
 
 #ifdef PROTO
-VOID FAR ASMCFUNC CharMapSrvc(VOID);
-VOID FAR ASMCFUNC set_stack(VOID);
-VOID FAR ASMCFUNC restore_stack(VOID);
-WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
-VOID exit(COUNT);
+VOID ASMCFUNC FAR CharMapSrvc(VOID);
+VOID ASMCFUNC FAR set_stack(VOID);
+VOID ASMCFUNC FAR restore_stack(VOID);
 /*VOID INRPT FAR handle_break(VOID); */
-VOID ASMCFUNC tmark(VOID);
-BOOL ASMCFUNC tdelay(LONG);
-BYTE FAR *ASMCFUNC device_end(VOID);
+VOID ASMCFUNC ReadPCClock(ULONG *);
+BYTE FAR * ASMCFUNC device_end(VOID);
 COUNT ASMCFUNC kb_data(VOID);
 COUNT ASMCFUNC kb_input(VOID);
 COUNT ASMCFUNC kb_init(VOID);
-VOID ASMCFUNC setvec(UWORD, VOID(INRPT FAR *) ());
-BYTE FAR *ASMCFUNC getvec(UWORD);
+VOID ASMCFUNC setvec(UWORD, intvec);
+intvec ASMCFUNC getvec(UWORD);
 COUNT con(COUNT);
 #else
 VOID FAR CharMapSrvc();
@@ -412,14 +419,12 @@ VOID FAR restore_stack();
 WORD execrh();
 VOID exit();
 /*VOID INRPT FAR handle_break(); */
-VOID tmark();
-BOOL tdelay();
 BYTE FAR *device_end();
 COUNT kb_data();
 COUNT kb_input();
 COUNT kb_init();
 VOID setvec();
-BYTE FAR *getvec();
+intvec getvec();
 COUNT con();
 #endif
 
@@ -459,7 +464,7 @@ VOID fputbyte();
 #endif
 
 #ifdef I86
-#define setvec(n, isr)  (void)(*(VOID (INRPT FAR * FAR *)())(MK_FP(0,4 * (n))) = (isr))
+#define setvec(n, isr)  (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
 #endif
 /*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 

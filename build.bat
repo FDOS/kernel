@@ -18,21 +18,6 @@ set XERROR=
 call config.bat
 call getmake.bat
 
-@if not "%XLINK%" == "" goto link_set
-
-@if \%COMPILER% == \TC2 set XLINK=%TC2_BASE%\tlink /m/c
-@if \%COMPILER% == \TURBOCPP set XLINK=%TP1_BASE%\bin\tlink /m/c
-@if \%COMPILER% == \TC3 set XLINK=%TC3_BASE%\bin\tlink /m/c
-@if \%COMPILER% == \BC5 set XLINK=%BC5_BASE%\bin\tlink /m/c
-@if \%COMPILER% == \WATCOM goto watcom_problem
-@if \%COMPILER% == \MSCL8 set XLINK=%MS_BASE%\link /ONERROR:NOEXE /ma /nologo
-goto link_set
-
-:watcom_problem
-@echo you MUST set XLINK for Watcom in config.bat as WLINK is not suitable
-goto end
-
-:link_set
 
 @set XERROR=
 
@@ -71,6 +56,35 @@ goto loop_commandline
 
 if \%COMPILER%      == \ echo you MUST define a COMPILER     variable in CONFIG.BAT
 if \%COMPILER%      == \ goto end
+
+
+@if not "%XLINK%" == "" goto link_set
+
+@if \%COMPILER% == \TC2 set XLINK=%TC2_BASE%\tlink /m/c
+@if \%COMPILER% == \TURBOCPP set XLINK=%TP1_BASE%\bin\tlink /m/c
+@if \%COMPILER% == \TC3 set XLINK=%TC3_BASE%\bin\tlink /m/c
+@if \%COMPILER% == \BC5 set XLINK=%BC5_BASE%\bin\tlink /m/c
+@if \%COMPILER% == \WATCOM goto watcom_problem
+@if \%COMPILER% == \MSCL8 set XLINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
+goto link_set
+
+:watcom_problem
+@echo you MUST set XLINK for Watcom in config.bat as WLINK is not suitable
+goto end
+
+:link_set   
+
+echo linker ist %XLINK%
+
+@if not "%XUPX%" == "" goto upx_set
+@set XUPX=@rem
+@set UPXOPT=
+goto compile
+
+:upx_set
+@set UPXOPT=-U
+
+:compile
 
 :************************************************************************
 :* finally - we are going to compile

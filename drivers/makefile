@@ -22,10 +22,10 @@
 #AFLAGS = /Mx /Dmem$(MODEL)=1
 #LIBFLAGS = /c
 
-OBJS   = devend.obj floppy.obj getvec.obj timer.obj rdpcclk.obj rdatclk.obj \
+OBJS   = devend.obj floppy.obj getvec.obj rdpcclk.obj rdatclk.obj \
 wrpcclk.obj wratclk.obj
 
-LIBOBJS= +devend +floppy +getvec +timer +rdpcclk +rdatclk +wrpcclk +wratclk
+LIBOBJS= +devend +floppy +getvec +rdpcclk +rdatclk +wrpcclk +wratclk
 
 
 

@@ -59,35 +59,35 @@ static BYTE *RcsId =
  */
 extern f_node_ptr DOSFAR f_nodes;       /* pointer to the array                 */
 extern UWORD DOSFAR f_nodes_cnt,        /* number of allocated f_nodes          */
-  DOSFAR first_mcb;             /* Start of user memory                 */
+  DOSFAR ASM first_mcb;             /* Start of user memory                 */
 
-extern UBYTE DOSFAR lastdrive, DOSFAR nblkdev, DOSFAR mem_access_mode,
-    DOSFAR uppermem_link;
+extern UBYTE DOSFAR ASM lastdrive, DOSFAR ASM nblkdev, DOSFAR ASM mem_access_mode,
+    DOSFAR ASM uppermem_link;
 extern struct dhdr
-DOSTEXTFAR blk_dev,             /* Block device (Disk) driver           */
-  DOSFAR nul_dev;
-extern struct buffer FAR *DOSFAR firstbuf;      /* head of buffers linked list          */
+DOSTEXTFAR ASM blk_dev,             /* Block device (Disk) driver           */
+  DOSFAR ASM nul_dev;
+extern struct buffer FAR *DOSFAR ASM firstbuf;      /* head of buffers linked list          */
 
-extern struct dpb FAR *DOSFAR DPBp;
+extern struct dpb FAR *DOSFAR ASM DPBp;
 /* First drive Parameter Block          */
-extern cdstbl FAR *DOSFAR CDSp;
+extern cdstbl FAR *DOSFAR ASM CDSp;
 /* Current Directory Structure          */
-extern sfttbl FAR *DOSFAR sfthead;
+extern sfttbl FAR *DOSFAR ASM sfthead;
 /* System File Table head               */
-extern sfttbl FAR *DOSFAR FCBp;
+extern sfttbl FAR *DOSFAR ASM FCBp;
 
-extern BYTE DOSFAR VgaSet, DOSFAR _HMATextAvailable,    /* first byte of available CODE area    */
+extern BYTE DOSFAR ASM VgaSet, DOSFAR _HMATextAvailable,    /* first byte of available CODE area    */
   FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
-  FAR _HMATextEnd[], DOSFAR break_ena,  /* break enabled flag                   */
+  FAR _HMATextEnd[], DOSFAR ASM break_ena,  /* break enabled flag                   */
   DOSFAR os_major,              /* major version number                 */
   DOSFAR os_minor,              /* minor version number                 */
-  DOSFAR switchar, DOSFAR _InitTextStart,       /* first available byte of ram          */
+  DOSFAR ASM switchar, DOSFAR _InitTextStart,       /* first available byte of ram          */
   DOSFAR ReturnAnyDosVersionExpected;
 
-extern UWORD DOSFAR ram_top,    /* How much ram in Kbytes               */
+extern UWORD DOSFAR ASM ram_top,    /* How much ram in Kbytes               */
  
-    DOSFAR UMB_top,
-    DOSFAR umb_start, DOSFAR uppermem_root, DOSFAR LoL_nbuffers;
+    DOSFAR ASM UMB_top,
+    DOSFAR ASM umb_start, DOSFAR ASM uppermem_root, DOSFAR ASM LoL_nbuffers;
 
 struct config Config = {
   NUMBUFF,
@@ -124,71 +124,87 @@ STATIC BYTE szBuf[256] = { 0 };
 
 BYTE singleStep = FALSE;        /* F8 processing */
 BYTE SkipAllConfig = FALSE;     /* F5 processing */
-BYTE askThisSingleCommand = FALSE;      /* ?device=  device?= */
+BYTE askThisSingleCommand = FALSE;      	/* ?device=  device?= */
+BYTE DontAskThisSingleCommand = FALSE;      /* !files=	          */
 
-INIT VOID zumcb_init(UCOUNT seg, UWORD size);
-INIT VOID mumcb_init(UCOUNT seg, UWORD size);
+COUNT MenuTimeout = -1;
+BYTE MenuSelected = '2';
+BYTE MenuLine     = 0;
+UCOUNT Menus      = 0;
 
-INIT VOID Config_Buffers(BYTE * pLine);
-INIT VOID sysScreenMode(BYTE * pLine);
-INIT VOID sysVersion(BYTE * pLine);
-INIT VOID CfgBreak(BYTE * pLine);
-INIT VOID Device(BYTE * pLine);
-INIT VOID DeviceHigh(BYTE * pLine);
-INIT VOID Files(BYTE * pLine);
-INIT VOID Fcbs(BYTE * pLine);
-INIT VOID CfgLastdrive(BYTE * pLine);
-INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
-INIT VOID Dosmem(BYTE * pLine);
-INIT VOID Country(BYTE * pLine);
-INIT VOID InitPgm(BYTE * pLine);
-INIT VOID InitPgmHigh(BYTE * pLine);
-INIT VOID CfgSwitchar(BYTE * pLine);
-INIT VOID CfgFailure(BYTE * pLine);
-INIT VOID Stacks(BYTE * pLine);
-INIT VOID SetAnyDos(BYTE * pLine);
-INIT VOID Numlock(BYTE * pLine);
-INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg);
-INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
-INIT struct dhdr FAR *linkdev(struct dhdr FAR * dhp);
-INIT UWORD initdev(struct dhdr FAR * dhp, BYTE FAR * cmdTail);
-INIT int SkipLine(char *pLine);
-INIT char *stristr(char *s1, char *s2);
-INIT COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
+STATIC VOID zumcb_init(UCOUNT seg, UWORD size);
+STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
 
-extern void HMAconfig(int finalize);
+STATIC VOID Config_Buffers(BYTE * pLine);
+STATIC VOID sysScreenMode(BYTE * pLine);
+STATIC VOID sysVersion(BYTE * pLine);
+STATIC VOID CfgBreak(BYTE * pLine);
+STATIC VOID Device(BYTE * pLine);
+STATIC VOID DeviceHigh(BYTE * pLine);
+STATIC VOID Files(BYTE * pLine);
+STATIC VOID Fcbs(BYTE * pLine);
+STATIC VOID CfgLastdrive(BYTE * pLine);
+STATIC BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode);
+STATIC VOID Dosmem(BYTE * pLine);
+STATIC VOID Country(BYTE * pLine);
+STATIC VOID InitPgm(BYTE * pLine);
+STATIC VOID InitPgmHigh(BYTE * pLine);
+STATIC VOID CfgSwitchar(BYTE * pLine);
+STATIC VOID CfgFailure(BYTE * pLine);
+STATIC VOID CfgIgnore(BYTE * pLine);
+STATIC VOID CfgMenu(BYTE * pLine);
+STATIC VOID DoMenu(void);
+STATIC VOID CfgMenuDefault(BYTE * pLine);
+
+STATIC VOID Stacks(BYTE * pLine);
+STATIC VOID SetAnyDos(BYTE * pLine);
+STATIC VOID Numlock(BYTE * pLine);
+STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg);
+BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
+STATIC int SkipLine(char *pLine);
+#if 0
+STATIC char * stristr(char *s1, char *s2);
+#endif
+STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
+
+void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
 
-INIT STATIC VOID FAR *AlignParagraph(VOID FAR * lpPtr);
+STATIC VOID FAR * AlignParagraph(VOID FAR * lpPtr);
 #ifndef I86
 #define AlignParagraph(x) (x)
 #endif
 
 #define EOF 0x1a
 
-INIT struct table *LookUp(struct table *p, BYTE * token);
+STATIC struct table * LookUp(struct table *p, BYTE * token);
+
+typedef void config_sys_func_t(BYTE * pLine);
 
 struct table {
   BYTE *entry;
   BYTE pass;
-    VOID(*func) (BYTE * pLine);
+  config_sys_func_t *func;
 };
 
 STATIC struct table commands[] = {
+  /* rem is never executed by locking out pass                    */
+  {"REM", 0, CfgIgnore},
+  {";", 0,   CfgIgnore},
+
+  {"MENUDEFAULT", 0, CfgMenuDefault},	
+  {"MENU", 0, CfgMenu},			/* lines to print in pass 0 */
+  {"ECHO", 2, CfgMenu},			/* lines to print in pass 2 - when devices are loaded */
+
   {"BREAK", 1, CfgBreak},
   {"BUFFERS", 1, Config_Buffers},
   {"COMMAND", 1, InitPgm},
   {"COUNTRY", 1, Country},
-  {"DEVICE", 2, Device},
-  {"DEVICEHIGH", 2, DeviceHigh},
   {"DOS", 1, Dosmem},
   {"FCBS", 1, Fcbs},
   {"FILES", 1, Files},
   {"LASTDRIVE", 1, CfgLastdrive},
   {"NUMLOCK", 1, Numlock},
-  /* rem is never executed by locking out pass                    */
-  {"REM", 0, CfgFailure},
-  {";", 0, CfgFailure},
   {"SHELL", 1, InitPgm},
   {"SHELLHIGH", 1, InitPgmHigh},
   {"STACKS", 1, Stacks},
@@ -196,13 +212,17 @@ STATIC struct table commands[] = {
   {"SCREEN", 1, sysScreenMode}, /* JPP */
   {"VERSION", 1, sysVersion},   /* JPP */
   {"ANYDOS", 1, SetAnyDos},     /* JPP */
+
+  {"DEVICE", 2, Device},
+  {"DEVICEHIGH", 2, DeviceHigh},
+  /*   {"INSTALL", 3, install}, would go here */
+  
   /* default action                                               */
   {"", -1, CfgFailure}
 };
 
 #ifndef KDB
-INIT BYTE FAR *KernelAlloc(WORD nBytes);
-INIT BYTE FAR *KernelAllocDma(WORD);
+BYTE FAR * KernelAlloc(WORD nBytes);
 #endif
 
 BYTE *pLineStart = 0;
@@ -213,7 +233,7 @@ BYTE HMAState = 0;
 #define HMA_DONE 2              /* Moved kernel to HMA */
 #define HMA_LOW 3               /* Definitely LOW */
 
-void FAR *ConfigAlloc(COUNT bytes)
+STATIC void FAR* ConfigAlloc(COUNT bytes)
 {
   VOID FAR *p;
 
@@ -229,10 +249,8 @@ void FAR *ConfigAlloc(COUNT bytes)
 
 /* Do first time initialization.  Store last so that we can reset it    */
 /* later.                                                               */
-INIT void PreConfig(void)
+void PreConfig(void)
 {
-  /* Set pass number                                              */
-  nPass = 0;
   VgaSet = 0;
   UmbState = 0;
 
@@ -240,7 +258,7 @@ INIT void PreConfig(void)
 
 #ifdef DEBUG
   {
-    extern BYTE FAR internal_data[];
+    extern BYTE FAR ASM internal_data[];
     printf("SDA located at 0x%p\n", internal_data);
   }
 #endif
@@ -307,17 +325,14 @@ INIT void PreConfig(void)
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
   mcb_init(first_mcb, ram_top * 64 - first_mcb - 1);
-  nPass = 1;
 }
 
 /* Do second pass initialization.                                       */
 /* Also, run config.sys to load drivers.                                */
-INIT void PostConfig(void)
+void PostConfig(void)
 {
   /* close all (device) files */
 
-  /* Set pass number                                              */
-  nPass = 2;
   /* compute lastdrive ... */
   lastdrive = Config.cfgLastdrive;
   if (lastdrive < nblkdev)
@@ -387,7 +402,7 @@ INIT void PostConfig(void)
 }
 
 /* This code must be executed after device drivers has been loaded */
-INIT VOID configDone(VOID)
+VOID configDone(VOID)
 {
   if (HMAState != HMA_DONE)
   {
@@ -423,20 +438,21 @@ INIT VOID configDone(VOID)
   if (UmbState == 1)
   {
 
+    UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+      
     mumcb_init(ram_top * 64 - 1, umb_start - 64 * ram_top);
 /* Check if any devices were loaded in umb */
     if (umb_start != FP_SEG(upBase))
     {
 /* make last block normal with SC for the devices */
 
-      UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
-
       mumcb_init(uppermem_root, umr_new - uppermem_root - 1);
 
-      uppermem_root = umr_new;
-      zumcb_init(uppermem_root, (umb_start + UMB_top) - uppermem_root - 1);
+      zumcb_init(umr_new, (umb_start + UMB_top) - umr_new - 1);
       upBase += 16;
     }
+    else
+      umr_new = FP_SEG(upBase);
 
     {
       /* are there any more UMB's ?? 
@@ -454,12 +470,12 @@ INIT VOID configDone(VOID)
 
       UCOUNT umb_seg, umb_size, umbz_root;
 
-      umbz_root = uppermem_root;
+      umbz_root = umr_new;
 
       if (UMB_get_largest(&umb_seg, &umb_size))
       {
 
-        mcb_init(umbz_root, (umb_start + UMB_top) - uppermem_root - 1);
+        mcb_init(umbz_root, (umb_start + UMB_top) - umr_new - 1);
 
         /* change UMB 'Z' to 'M' */
         ((mcb FAR *) MK_FP(umbz_root, 0))->m_type = 'M';
@@ -488,12 +504,16 @@ INIT VOID configDone(VOID)
 
 }
 
-INIT VOID DoConfig(VOID)
+VOID DoConfig(int pass)
 {
   COUNT nFileDesc;
   BYTE *pLine;
   BOOL bEof;
 
+
+  /* Set pass number                                              */
+  nPass = pass;
+	
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
   if ((nFileDesc = open("fdconfig.sys", 0)) >= 0)
@@ -570,9 +590,17 @@ INIT VOID DoConfig(VOID)
 
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
-
-    if (SkipLine(pLineStart))   /* F5/F8 processing */
+    
+    if (nPass == 0)					/* pass 0 always executed (rem Menu prompt) */
+    {
+      (*(pEntry->func)) (pLine);
       continue;
+    }
+    else
+    {        
+      if (SkipLine(pLineStart))   /* F5/F8 processing */
+        continue;
+    }      		
 
     pLine = skipwh(pLine);
 
@@ -603,10 +631,15 @@ INIT VOID DoConfig(VOID)
     }
 
   }
-  close(nFileDesc);
+  close(nFileDesc); 
+  
+  if (nPass == 0)
+  {
+    DoMenu();
+  }
 }
 
-INIT struct table *LookUp(struct table *p, BYTE * token)
+STATIC struct table * LookUp(struct table *p, BYTE * token)
 {
   while (*(p->entry) != '\0')
   {
@@ -665,7 +698,7 @@ UWORD GetBiosKey(int timeout)
   return 0xffff;
 }
 
-INIT BOOL SkipLine(char *pLine)
+STATIC BOOL SkipLine(char *pLine)
 {
   short key;
 
@@ -701,6 +734,16 @@ INIT BOOL SkipLine(char *pLine)
 
   if (SkipAllConfig)
     return TRUE;
+
+  /* 1?device=CDROM.SYS */
+  /* 2?device=OAKROM.SYS */
+  /* 3?device=EMM386.EXE NOEMS */
+  if (MenuLine != 0 && 
+      MenuSelected != MenuLine)
+    return TRUE;
+
+  if (DontAskThisSingleCommand)		/* !files=30 */
+    return FALSE;
 
   if (!askThisSingleCommand && !singleStep)
     return FALSE;
@@ -743,7 +786,7 @@ INIT BOOL SkipLine(char *pLine)
 
 }
 
-INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg)
+STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg)
 {
   /* look for NUMBER                               */
   pLine = skipwh(pLine);
@@ -755,7 +798,7 @@ INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg)
   return GetNumber(pLine, pnArg);
 }
 
-INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
+BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
 {
   /* look for STRING                               */
   pLine = skipwh(pLine);
@@ -764,7 +807,7 @@ INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
   return scan(pLine, pszString);
 }
 
-INIT void Config_Buffers(BYTE * pLine)
+STATIC void Config_Buffers(BYTE * pLine)
 {
   COUNT nBuffers;
 
@@ -777,7 +820,7 @@ INIT void Config_Buffers(BYTE * pLine)
       (nBuffers < 0 ? nBuffers : max(Config.cfgBuffers, nBuffers));
 }
 
-INIT STATIC VOID sysScreenMode(BYTE * pLine)
+STATIC VOID sysScreenMode(BYTE * pLine)
 {
   COUNT nMode;
 
@@ -808,7 +851,7 @@ INIT STATIC VOID sysScreenMode(BYTE * pLine)
 #endif
 }
 
-INIT STATIC VOID sysVersion(BYTE * pLine)
+STATIC VOID sysVersion(BYTE * pLine)
 {
   COUNT major, minor;
   char *p;
@@ -834,7 +877,7 @@ INIT STATIC VOID sysVersion(BYTE * pLine)
   os_minor = minor;
 }
 
-INIT STATIC VOID Files(BYTE * pLine)
+STATIC VOID Files(BYTE * pLine)
 {
   COUNT nFiles;
 
@@ -846,7 +889,7 @@ INIT STATIC VOID Files(BYTE * pLine)
   Config.cfgFiles = max(Config.cfgFiles, nFiles);
 }
 
-INIT STATIC VOID CfgLastdrive(BYTE * pLine)
+STATIC VOID CfgLastdrive(BYTE * pLine)
 {
   /* Format:   LASTDRIVE = letter         */
   BYTE drv;
@@ -868,7 +911,7 @@ INIT STATIC VOID CfgLastdrive(BYTE * pLine)
     UmbState of confidence, 1 is sure, 2 maybe, 4 unknown and 0 no way.
 */
 
-INIT STATIC VOID Dosmem(BYTE * pLine)
+STATIC VOID Dosmem(BYTE * pLine)
 {
   BYTE *pTmp;
   BYTE UMBwanted = FALSE;
@@ -915,7 +958,7 @@ INIT STATIC VOID Dosmem(BYTE * pLine)
   }
 }
 
-INIT STATIC VOID CfgSwitchar(BYTE * pLine)
+STATIC VOID CfgSwitchar(BYTE * pLine)
 {
   /* Format: SWITCHAR = character         */
 
@@ -923,7 +966,7 @@ INIT STATIC VOID CfgSwitchar(BYTE * pLine)
   switchar = *szBuf;
 }
 
-INIT STATIC VOID Fcbs(BYTE * pLine)
+STATIC VOID Fcbs(BYTE * pLine)
 {
   /*  Format:     FCBS = totalFcbs [,protectedFcbs]    */
   COUNT fcbs;
@@ -953,7 +996,7 @@ INIT STATIC VOID Fcbs(BYTE * pLine)
  *      Returns TRUE if successful, FALSE if not.
  */
 
-INIT BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
+STATIC BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
 {
 /* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename); */
   printf("Sorry, the COUNTRY= statement has been temporarily disabled\n");
@@ -965,7 +1008,7 @@ INIT BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
   return FALSE;
 }
 
-INIT STATIC VOID Country(BYTE * pLine)
+STATIC VOID Country(BYTE * pLine)
 {
   /* Format: COUNTRY = countryCode, [codePage], filename  */
   COUNT ctryCode;
@@ -1001,7 +1044,7 @@ INIT STATIC VOID Country(BYTE * pLine)
   CfgFailure(pLine);
 }
 
-INIT STATIC VOID Stacks(BYTE * pLine)
+STATIC VOID Stacks(BYTE * pLine)
 {
   COUNT stacks;
 
@@ -1028,13 +1071,13 @@ INIT STATIC VOID Stacks(BYTE * pLine)
   }
 }
 
-INIT STATIC VOID InitPgmHigh(BYTE * pLine)
+STATIC VOID InitPgmHigh(BYTE * pLine)
 {
   InitPgm(pLine);
   Config.cfgP_0_startmode = 0x80;
 }
 
-INIT STATIC VOID InitPgm(BYTE * pLine)
+STATIC VOID InitPgm(BYTE * pLine)
 {
   /* Get the string argument that represents the new init pgm     */
   pLine = GetStringArg(pLine, Config.cfgInit);
@@ -1049,14 +1092,14 @@ INIT STATIC VOID InitPgm(BYTE * pLine)
   Config.cfgP_0_startmode = 0;
 }
 
-INIT STATIC VOID CfgBreak(BYTE * pLine)
+STATIC VOID CfgBreak(BYTE * pLine)
 {
   /* Format:      BREAK = (ON | OFF)      */
   GetStringArg(pLine, szBuf);
   break_ena = strcasecmp(szBuf, "OFF") ? 1 : 0;
 }
 
-INIT STATIC VOID Numlock(BYTE * pLine)
+STATIC VOID Numlock(BYTE * pLine)
 {
   extern VOID ASMCFUNC keycheck();
 
@@ -1070,7 +1113,7 @@ INIT STATIC VOID Numlock(BYTE * pLine)
   keycheck();
 }
 
-INIT STATIC VOID DeviceHigh(BYTE * pLine)
+STATIC VOID DeviceHigh(BYTE * pLine)
 {
   if (UmbState == 1)
   {
@@ -1087,12 +1130,12 @@ INIT STATIC VOID DeviceHigh(BYTE * pLine)
   }
 }
 
-INIT void Device(BYTE * pLine)
+STATIC void Device(BYTE * pLine)
 {
   LoadDevice(pLine, ram_top, FALSE);
 }
 
-INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
+STATIC BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 {
   exec_blk eb;
   struct dhdr FAR *dhp;
@@ -1159,10 +1202,20 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
   return result;
 }
 
-INIT STATIC VOID CfgFailure(BYTE * pLine)
+STATIC VOID CfgFailure(BYTE * pLine)
 {
   BYTE *pTmp = pLineStart;
+  static UBYTE ErrorAlreadyPrinted[128];
 
+  /* suppress multiple printing of same unrecognized lines */
+
+  if (nCfgLine < sizeof(ErrorAlreadyPrinted)*8)
+  {
+    if (ErrorAlreadyPrinted[nCfgLine/8] & (1 << (nCfgLine%8)))
+      return;
+        
+    ErrorAlreadyPrinted[nCfgLine/8] |= (1 << (nCfgLine%8));
+  }
   printf("CONFIG.SYS error in line %d\n", nCfgLine);
   printf(">>>%s\n   ", pTmp);
   while (++pTmp != pLine)
@@ -1171,7 +1224,7 @@ INIT STATIC VOID CfgFailure(BYTE * pLine)
 }
 
 #ifndef KDB
-INIT BYTE FAR *KernelAlloc(WORD nBytes)
+BYTE FAR * KernelAlloc(WORD nBytes)
 {
   BYTE FAR *lpAllocated;
 
@@ -1195,7 +1248,8 @@ INIT BYTE FAR *KernelAlloc(WORD nBytes)
 #endif
 
 #ifdef I86
-INIT BYTE FAR *KernelAllocDma(WORD bytes)
+/*
+STATIC BYTE FAR * KernelAllocDma(WORD bytes)
 {
   BYTE FAR *allocated;
 
@@ -1206,8 +1260,9 @@ INIT BYTE FAR *KernelAllocDma(WORD bytes)
   lpBase += bytes;
   return allocated;
 }
+*/
 
-INIT void FAR *AlignParagraph(VOID FAR * lpPtr)
+STATIC void FAR * AlignParagraph(VOID FAR * lpPtr)
 {
   UWORD uSegVal;
 
@@ -1223,18 +1278,38 @@ INIT void FAR *AlignParagraph(VOID FAR * lpPtr)
 }
 #endif
 
-INIT BYTE *skipwh(BYTE * s)
+STATIC BYTE * skipwh(BYTE * s)
 {
   while (*s && (*s == 0x0d || *s == 0x0a || *s == ' ' || *s == '\t'))
     ++s;
   return s;
 }
 
-INIT BYTE *scan(BYTE * s, BYTE * d)
+STATIC BYTE * scan(BYTE * s, BYTE * d)
 {
   askThisSingleCommand = FALSE;
+  DontAskThisSingleCommand = FALSE;
 
   s = skipwh(s);
+
+  MenuLine = 0;
+
+  /* does the line start with "1?" */
+
+  if (s[1] == '?' && s[0] >= '0' && s[0] <= '9')
+  {
+    MenuLine = s[0];  
+    Menus |= 1 << (MenuLine - '0');
+    s = skipwh(s+2);
+  }
+  
+  /* !dos=high,umb    ?? */
+  if (*s == '!')
+  {
+    DontAskThisSingleCommand = TRUE;
+    s = skipwh(s+1);
+  }
+
   if (*s == ';')
   {
     /* semicolon is a synonym for rem */
@@ -1258,7 +1333,7 @@ INIT BYTE *scan(BYTE * s, BYTE * d)
 }
 
 /*
-INIT BYTE *scan_seperator(BYTE * s, BYTE * d)
+BYTE *scan_seperator(BYTE * s, BYTE * d)
 {
   s = skipwh(s);
   if (*s)
@@ -1268,13 +1343,13 @@ INIT BYTE *scan_seperator(BYTE * s, BYTE * d)
 }
 */
 
-INIT BOOL isnum(BYTE * pLine)
+STATIC BOOL isnum(BYTE * pLine)
 {
   return (*pLine >= '0' && *pLine <= '9');
 }
 
 /* JPP - changed so will accept hex number. */
-INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
+STATIC BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
 {
   BYTE Base = 10;
   BOOL Sign = FALSE;
@@ -1303,7 +1378,7 @@ INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
 
 /* Yet another change for true portability (WDL)                        */
 #if 0
-INIT COUNT tolower(COUNT c)
+STATIC COUNT tolower(COUNT c)
 {
   if (c >= 'A' && c <= 'Z')
     return (c + ('a' - 'A'));
@@ -1313,7 +1388,7 @@ INIT COUNT tolower(COUNT c)
 #endif
 
 /* Yet another change for true portability (PJV) */
-INIT COUNT toupper(COUNT c)
+STATIC COUNT toupper(COUNT c)
 {
   if (c >= 'a' && c <= 'z')
     return (c - ('a' - 'A'));
@@ -1324,7 +1399,7 @@ INIT COUNT toupper(COUNT c)
 /* The following code is 8086 dependant                         */
 
 #if 1                           /* ifdef KERNEL */
-INIT VOID mcb_init(UCOUNT seg, UWORD size)
+STATIC VOID mcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
 
@@ -1344,7 +1419,7 @@ INIT VOID mcb_init(UCOUNT seg, UWORD size)
   mem_access_mode = FIRST_FIT;
 }
 
-INIT VOID zumcb_init(UCOUNT seg, UWORD size)
+STATIC VOID zumcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
   mcb FAR *mcbp = MK_FP(seg, 0);
@@ -1357,7 +1432,7 @@ INIT VOID zumcb_init(UCOUNT seg, UWORD size)
 
 }
 
-INIT VOID mumcb_init(UCOUNT seg, UWORD size)
+STATIC VOID mumcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
   mcb FAR *mcbp = MK_FP(seg, 0);
@@ -1372,15 +1447,16 @@ INIT VOID mumcb_init(UCOUNT seg, UWORD size)
 }
 #endif
 
-INIT VOID strcat(REG BYTE * d, REG BYTE * s)
+VOID strcat(REG BYTE * d, REG BYTE * s)
 {
   while (*d != 0)
     ++d;
   strcpy(d, s);
 }
 
+#if 0
 /* see if the second string is contained in the first one, ignoring case */
-char *stristr(char *s1, char *s2)
+STATIC char * stristr(char *s1, char *s2)
 {
   int loop;
 
@@ -1397,9 +1473,10 @@ char *stristr(char *s1, char *s2)
 
   return NULL;
 }
+#endif
 
 /* compare two ASCII strings ignoring case */
-INIT COUNT strcasecmp(REG BYTE * d, REG BYTE * s)
+STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s)
 {
   while (*s != '\0' && *d != '\0')
   {
@@ -1513,11 +1590,116 @@ VOID config_init_buffers(COUNT anzBuffers)
         they expect. be careful with it!
 */
 
-INIT VOID SetAnyDos(BYTE * pLine)
+STATIC VOID SetAnyDos(BYTE * pLine)
 {
   UNREFERENCED_PARAMETER(pLine);
   ReturnAnyDosVersionExpected = TRUE;
 }
+
+STATIC VOID CfgIgnore(BYTE * pLine)
+{
+  UNREFERENCED_PARAMETER(pLine);
+}
+
+/*
+   'MENU'ing stuff
+   
+   although it's worse then MSDOS's , its better then nothing 
+   
+*/
+
+STATIC VOID CfgMenu(BYTE * pLine)
+{
+  printf("%s\n",pLine);
+}               
+
+STATIC VOID DoMenu(void)
+{   
+  if (Menus == 0)
+    return;
+
+  Menus |= 1 << 0;			/* '0' Menu always allowed */
+
+  printf("\n\n");
+  
+  for (;;)
+  {
+    int key,i;
+    
+    printf("\rSinglestepping (F8) is :%s - ", singleStep ? "ON " : "OFF");
+    
+    printf("please select a Menu[");
+    
+    for (i = 0; i <= 9; i++)
+      if (Menus & (1 << i))
+        printf("%c", '0' + i);
+    printf("]");			
+    
+    key = GetBiosKey(MenuTimeout);
+
+    MenuTimeout = -1;
+    
+    if (key == -1)				/* timeout, take default */
+	{
+	  break;			
+	}
+    
+    if (key == 0x3f00)          /* F5 */
+    {
+      SkipAllConfig = TRUE;
+      break;
+    }
+    if (key == 0x4200)          /* F8 */
+    {
+      singleStep = !singleStep;
+    }
+    
+    key &= 0xff;
+    
+    if (key == '\r') 			/* CR - use default */
+    { 
+      break; 
+    }
+    if (key == 0x1b) 			/* ESC - use default */
+    { 
+      break; 
+    }
+    
+    printf("%c", key);
+    
+    if (key >= '0' && key <= '9')
+      if (Menus & (1 << (key - '0')))
+      { 
+        MenuSelected = key; break; 
+      }
+  }  
+  printf("\n");
+}
+
+STATIC VOID CfgMenuDefault(BYTE * pLine)
+{
+  COUNT num = 0;
+
+  pLine = skipwh(pLine);
+  
+  if ('=' != *pLine)
+  {
+    CfgFailure(pLine);
+    return;
+  }
+  pLine = skipwh(pLine + 1);
+  
+  /* Format:  STACKS = stacks [, stackSize]       */
+  pLine = GetNumArg(pLine, &num);
+  MenuSelected = '0' + num;
+  pLine = skipwh(pLine);
+
+  if (*pLine == ',')
+  {
+    GetNumArg(++pLine, &MenuTimeout);
+  }
+}
+
 
 /*
  * Log: config.c,v - for newer log entries see "cvs log config.c"

@@ -2,7 +2,7 @@
 
 struct lfn_inode
 {
-  UNICODE name[256];
+  UNICODE name[261];
 
   struct dirent l_dir;          /* this file's dir entry image  */
 
@@ -13,10 +13,9 @@ typedef struct lfn_inode FAR * lfn_inode_ptr;
 COUNT lfn_allocate_inode(VOID);
 COUNT lfn_free_inode(COUNT handle);
 
-COUNT lfn_setup_inode(COUNT handle, CLUSTER dirstart, ULONG diroff);
+COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, ULONG diroff);
 
 COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip);
-COUNT lfn_remove_entries(COUNT handle);
 
 COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip);
 COUNT lfn_dir_write(COUNT handle);

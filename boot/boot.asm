@@ -307,7 +307,7 @@ fat_12:         add     si, si          ; multiply cluster number by 3...
                 shr     ax, cl          ; shift the cluster number
 
 fat_even:       and     ah, 0x0f        ; mask off the highest 4 bits
-                cmp     ax, 0x0fff      ; check for EOF
+                cmp     ax, 0x0ff8      ; check for EOF
                 jb      next_clust      ; continue if not EOF
 
 %endif
@@ -412,35 +412,34 @@ read_next:      push    dx
                 ;     + head * sectPerTrack             offset in cylinder
                 ;     + track * sectPerTrack * nHeads   offset in platter
                 ;
-                ; t1     = abs  /  sectPerTrack         (ax has t1)
-                ; sector = abs mod sectPerTrack         (cx has sector)
-                ;
-                div     word [sectPerTrack]
+                xchg    ax, cx
+                mov     al, [sectPerTrack]
+                mul     byte [nHeads]
+                xchg    ax, cx
+                ; cx = nHeads * sectPerTrack <= 255*63
+                ; dx:ax = abs
+                div     cx
+                ; ax = track, dx = sector + head * sectPertrack
+                xchg    ax, dx
+                ; dx = track, ax = sector + head * sectPertrack
+                div     byte [sectPerTrack]
+                ; dx =  track, al = head, ah = sector
                 mov     cx, dx
-
-                ;
-                ; t1   = head + track * nHeads
-                ;
-                ; track = t1  /  nHeads                 (ax has track)
-                ; head  = t1 mod nHeads                 (dl has head)
-                ;
-                xor     dx, dx
-                div     word [nHeads]
+                ; cx =  track, al = head, ah = sector
 
                 ; the following manipulations are necessary in order to
                 ; properly place parameters into registers.
                 ; ch = cylinder number low 8 bits
                 ; cl = 7-6: cylinder high two bits
                 ;      5-0: sector
-                mov     dh, dl                  ; save head into dh for bios
-                ror     ah, 1                   ; move track high bits into
-                ror     ah, 1                   ; bits 7-6 (assumes top = 0)
-                xchg    al, ah                  ; swap for later
-                mov     dl, byte [sectPerTrack]
-                sub     dl, cl
-                inc     cl                      ; sector offset from 1
-                or      cx, ax                  ; merge cylinder into sector
-                mov     al, dl                  ; al has # of sectors left
+                mov     dh, al                  ; save head into dh for bios
+                xchg    ch, cl                  ; set cyl no low 8 bits
+                ror     cl, 1                   ; move track high bits into
+                ror     cl, 1                   ; bits 7-6 (assumes top = 0)
+                mov     al, byte [sectPerTrack]
+                sub     al, ah                  ; al has # of sectors left
+                inc     ah                      ; sector offset from 1
+                or      cl, ah                  ; merge sector into cylinder
 
 %ifdef MULTI_SEC_READ
                 ; Calculate how many sectors can be transfered in this read

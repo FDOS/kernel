@@ -29,6 +29,7 @@
 ;
 
                 %include "segs.inc"
+                %include "ludivmul.inc"
 
 
 segment	PSP
@@ -98,9 +99,9 @@ realentry:                              ; execution continues here
 beyond_entry:   resb    256-(beyond_entry-entry)
                                         ; scratch area for data (DOS_PSP)
 
-segment	INIT_TEXT
+segment INIT_TEXT
 
-		extern	_FreeDOSmain:wrt IGROUP
+		extern	_FreeDOSmain:wrt I_GROUP
 
                 ;
                 ; kernel start-up
@@ -117,7 +118,7 @@ kernel_start:
                 pop bx
                 pop ax
 
-		mov	ax,IGROUP
+		mov	ax,I_GROUP
 		cli
 		mov	ss,ax
 		mov	sp,init_tos
@@ -170,7 +171,7 @@ cont:		; inititalize api stacks for high water tests
                 popf
                 pop bx
                 pop ax
-                
+
 		inc	bl
 		jns	floppy
 		add	bl,3-1-128
@@ -182,10 +183,20 @@ floppy:		mov	byte [_BootDrive],bl ; tell where we came from
 ;!!		inc	al
 ;!!                mov     byte [_NumFloppies],al ; and how many
                 
-                mov     ax,cs
+                mov     ax,ss
                 mov     ds,ax
                 mov     es,ax
         jmp _FreeDOSmain
+
+%ifdef WATCOM
+global _IU4M
+_IU4M:
+                LMULU
+global _IU4D
+_IU4D:
+		LDIVMODU
+%endif
+
 
 segment	INIT_TEXT_END
 
@@ -621,7 +632,7 @@ __ib_end:
         ;; do not clear the other init BSS variables + STACK: too late.
 
                 retoff    resw 1  ; return offset to jump to from HMA_TEXT
-        
+
 ; kernel startup stack
                 global  init_tos
                 resw 512
@@ -651,6 +662,16 @@ clk_stk_top:
 
 global        __bssend
 __bssend:
+
+; Dynamic data:
+; member of the DOS DATA GROUP
+; and marks definitive end of all used data in kernel data segment
+;
+
+segment DYN_DATA
+        global _Dyn
+_Dyn:
+        DynAllocated dw 0
         
 segment ID_B
     global __INIT_DATA_START
@@ -683,6 +704,16 @@ begin_hma:
                 times 10h db 0   ; filler [ffff:0..ffff:10]
                 times 20h db 0
                 db 0
+
+%ifdef WATCOM
+;               32 bit multiplication + division
+global __U4M
+__U4M:
+		LMULU
+global __U4D
+__U4D:
+                LDIVMODU
+%endif
 
 init_ret_np:    push ds
                 push word [retoff]

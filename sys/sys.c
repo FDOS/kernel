@@ -38,7 +38,7 @@
 
 #define SYS_VERSION "v2.3"
 
-#include <stdio.h>
+/* #include <stdio.h> */
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -51,9 +51,10 @@
 #include <memory.h>
 #endif
 #include <string.h>
-/*#include <dir.h> */
-#define MAXPATH   260
+#include <dir.h>
+#define SYS_MAXPATH   260
 #include "portab.h"
+extern WORD CDECL printf(CONST BYTE * fmt, ...);
 
 #include "b_fat12.h"
 #include "b_fat16.h"
@@ -70,7 +71,7 @@ COUNT DiskRead(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 COUNT DiskWrite(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 
 #define SEC_SIZE        512
-#define COPY_SIZE       32768u
+#define COPY_SIZE       24576u
 
 #ifdef _MSC_VER
 #pragma pack(1)
@@ -159,7 +160,7 @@ int main(int argc, char **argv)
   COUNT drivearg = 0;           /* drive argument position */
   BYTE *bsFile = NULL;          /* user specified destination boot sector */
   COUNT srcDrive;               /* source drive */
-  BYTE srcPath[MAXPATH];        /* user specified source drive and/or path */
+  BYTE srcPath[SYS_MAXPATH];    /* user specified source drive and/or path */
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
   WORD slen;
 
@@ -177,9 +178,9 @@ int main(int argc, char **argv)
   if (argc > 2 && argv[2][1] == ':' && argv[2][2] == '\0')
   {
     drivearg = 2;
-    strncpy(srcPath, argv[1], MAXPATH - 12);
+    strncpy(srcPath, argv[1], SYS_MAXPATH - 12);
     /* leave room for COMMAND.COM\0 */
-    srcPath[MAXPATH - 13] = '\0';
+    srcPath[SYS_MAXPATH - 13] = '\0';
     /* make sure srcPath + "file" is a valid path */
     slen = strlen(srcPath);
     if ((srcPath[slen - 1] != ':') &&
@@ -597,7 +598,7 @@ BYTE copybuffer[COPY_SIZE];
 
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 {
-  BYTE dest[MAXPATH], source[MAXPATH];
+  BYTE dest[SYS_MAXPATH], source[SYS_MAXPATH];
   COUNT ifd, ofd;
   unsigned ret;
   int fdin, fdout;

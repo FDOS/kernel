@@ -47,28 +47,30 @@ GLOBAL BYTE copyright[] =
 
   -- Bart
  */
-extern UBYTE DOSFAR nblkdev, DOSFAR lastdrive;  /* value of last drive                  */
+extern UBYTE DOSFAR ASM nblkdev, DOSFAR ASM lastdrive;  /* value of last drive                  */
 
 GLOBAL BYTE DOSFAR os_major,    /* major version number                 */
   DOSFAR os_minor,              /* minor version number                 */
-  DOSFAR dosidle_flag, DOSFAR BootDrive,        /* Drive we came up from                */
-  DOSFAR default_drive;         /* default drive for dos                */
+  DOSFAR dosidle_flag, DOSFAR ASM BootDrive,        /* Drive we came up from                */
+  DOSFAR ASM default_drive;         /* default drive for dos                */
 
 GLOBAL BYTE DOSFAR os_release[];
 /* GLOBAL BYTE DOSFAR copyright[]; */
 GLOBAL seg DOSFAR RootPsp;      /* Root process -- do not abort         */
 
-extern struct dpb FAR *DOSFAR DPBp;     /* First drive Parameter Block          */
-extern cdstbl FAR *DOSFAR CDSp; /* Current Directory Structure          */
+extern struct dpb FAR *DOSFAR ASM DPBp;     /* First drive Parameter Block          */
+extern cdstbl FAR *DOSFAR ASM CDSp; /* Current Directory Structure          */
 
-extern struct dhdr FAR *DOSFAR clock,   /* CLOCK$ device                        */
-  FAR * DOSFAR syscon;          /* console device                       */
-extern struct dhdr DOSTEXTFAR con_dev,  /* console device drive                 */
-  DOSTEXTFAR clk_dev,           /* Clock device driver                  */
-  DOSTEXTFAR blk_dev;           /* Block device (Disk) driver           */
-extern UWORD DOSFAR ram_top;    /* How much ram in Kbytes               */
-extern iregs FAR *DOSFAR user_r;        /* User registers for int 21h call      */
-extern BYTE FAR _HMATextEnd[];
+extern struct dhdr FAR *DOSFAR ASM clock,   /* CLOCK$ device                        */
+  FAR * DOSFAR ASM syscon;          /* console device                       */
+extern struct dhdr ASM DOSTEXTFAR con_dev,  /* console device drive                 */
+  DOSTEXTFAR ASM clk_dev,           /* Clock device driver                  */
+  DOSTEXTFAR ASM blk_dev;           /* Block device (Disk) driver           */
+extern UWORD DOSFAR ASM ram_top;    /* How much ram in Kbytes               */
+extern iregs FAR *DOSFAR ASM user_r;        /* User registers for int 21h call      */
+extern BYTE FAR ASM _HMATextEnd[];
+
+extern struct _KernelConfig FAR ASM LowKernelConfig;
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId =
@@ -82,17 +84,17 @@ extern BYTE FAR *lpBase;
 extern BYTE FAR *lpOldTop;
 extern BYTE FAR *lpTop;
 extern BYTE FAR *upBase;
-extern BYTE _ib_start[], _ib_end[], _init_end[];
+extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
 
-INIT VOID configDone(VOID);
-INIT static void InitIO(void);
+VOID configDone(VOID);
+STATIC VOID InitIO(void);
 
-INIT static VOID update_dcb(struct dhdr FAR *);
-INIT static VOID init_kernel(VOID);
-INIT static VOID signon(VOID);
-INIT VOID kernel(VOID);
-INIT VOID FsConfig(VOID);
-INIT VOID InitPrinters(VOID);
+STATIC VOID update_dcb(struct dhdr FAR *);
+STATIC VOID init_kernel(VOID);
+STATIC VOID signon(VOID);
+STATIC VOID kernel(VOID);
+STATIC VOID FsConfig(VOID);
+STATIC VOID InitPrinters(VOID);
 
 #ifdef _MSC_VER
 BYTE _acrtused = 0;
@@ -106,7 +108,7 @@ __segment DosTextSeg = 0;
 
 #endif
 
-INIT VOID ASMCFUNC FreeDOSmain(void)
+VOID ASMCFUNC FreeDOSmain(void)
 {
 #ifdef _MSC_VER
   extern FAR DATASTART;
@@ -115,7 +117,33 @@ INIT VOID ASMCFUNC FreeDOSmain(void)
   DosTextSeg = (__segment) & prn_dev;
 #endif
 
-  fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
+                        
+                        /*  if the kernel has been UPX'ed,
+                                CONFIG info is stored at 50:e2 ..fc
+                            and the bootdrive (passed from BIOS)
+                            at 50:e0
+                        */    
+                        
+  if (fmemcmp(MK_FP(0x50,0xe0+2),"CONFIG",6) == 0)      /* UPX */
+        {
+        fmemcpy(&InitKernelConfig, MK_FP(0x50,0xe0+2), sizeof(InitKernelConfig));
+    
+    BootDrive = *(BYTE FAR *)MK_FP(0x50,0xe0);
+
+        BootDrive ++;
+        
+    if ((unsigned)BootDrive >= 0x80)
+        BootDrive += 3-1-128;
+    
+    
+    *(DWORD FAR *)MK_FP(0x50,0xe0+2) = 0;
+     
+    } 
+  else
+    {       
+
+        fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
+    }
 
   setvec(0, int0_handler);      /* zero divide */
   setvec(1, empty_handler);     /* single step */
@@ -157,7 +185,7 @@ void InitializeAllBPBs(VOID)
   }
 }
 
-INIT void init_kernel(void)
+STATIC void init_kernel(void)
 {
   COUNT i;
 
@@ -223,7 +251,8 @@ INIT void init_kernel(void)
 
 #ifndef KDB
   /* Now process CONFIG.SYS     */
-  DoConfig();
+  DoConfig(0);
+  DoConfig(1);
 
   /* Close all (device) files */
   for (i = 0; i < lastdrive; i++)
@@ -238,7 +267,7 @@ INIT void init_kernel(void)
   FsConfig();
 
   /* and process CONFIG.SYS one last time to load device drivers. */
-  DoConfig();
+  DoConfig(2);
   configDone();
 
   /* Close all (device) files */
@@ -252,28 +281,10 @@ INIT void init_kernel(void)
   InitializeAllBPBs();
 }
 
-INIT VOID FsConfig(VOID)
+STATIC VOID FsConfig(VOID)
 {
   REG COUNT i;
   struct dpb FAR *dpb;
-
-  /* The system file tables need special handling and are "hand   */
-  /* built. Included is the stdin, stdout, stdaux and stdprn. */
-
-  /* 0 is /dev/con (stdin) */
-  open("CON", O_RDWR);
-
-  /* 1 is /dev/con (stdout)     */
-  dup2(STDIN, STDOUT);
-
-  /* 2 is /dev/con (stderr)     */
-  dup2(STDIN, STDERR);
-
-  /* 3 is /dev/aux                                                */
-  open("AUX", O_RDWR);
-
-  /* 4 is /dev/prn                                                */
-  open("PRN", O_WRONLY);
 
   /* Log-in the default drive.  */
   /* Get the boot drive from the ipl and use it for default.  */
@@ -305,11 +316,29 @@ INIT VOID FsConfig(VOID)
     pcds_table->cdsJoinOffset = 2;
   }
 
+  /* The system file tables need special handling and are "hand   */
+  /* built. Included is the stdin, stdout, stdaux and stdprn. */
+
+  /* 0 is /dev/con (stdin) */
+  open("CON", O_RDWR);
+
+  /* 1 is /dev/con (stdout)     */
+  dup2(STDIN, STDOUT);
+
+  /* 2 is /dev/con (stderr)     */
+  dup2(STDIN, STDERR);
+
+  /* 3 is /dev/aux                                                */
+  open("AUX", O_RDWR);
+
+  /* 4 is /dev/prn                                                */
+  open("PRN", O_WRONLY);
+
   /* Initialize the disk buffer management functions */
   /* init_call_init_buffers(); done from CONFIG.C   */
 }
 
-INIT VOID signon()
+STATIC VOID signon()
 {
   printf("\n%S", (void FAR *)os_release);
 
@@ -336,7 +365,7 @@ INIT VOID signon()
   printf("\n\n%S", (void FAR *)copyright);
 }
 
-INIT void kernel()
+STATIC void kernel()
 {
 #if 0
   BYTE FAR *ep, *sp;
@@ -465,7 +494,7 @@ INIT void kernel()
 }
 
 /* check for a block device and update  device control block    */
-static VOID update_dcb(struct dhdr FAR * dhp)
+STATIC VOID update_dcb(struct dhdr FAR * dhp)
 {
   REG COUNT Index;
   COUNT nunits = dhp->dh_name[0];
@@ -563,10 +592,9 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode,
   return FALSE;
 }
 
-INIT static void InitIO(void)
+STATIC void InitIO(void)
 {
   /* Initialize driver chain                                      */
-
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
   init_device(&con_dev, NULL, NULL, ram_top);
   init_device(&clk_dev, NULL, NULL, ram_top);
@@ -587,7 +615,7 @@ VOID init_fatal(BYTE * err_msg)
        I usually much more often reset my system, then I print :-)
  */
 
-INIT VOID InitPrinters(VOID)
+STATIC VOID InitPrinters(VOID)
 {
   iregs r;
   int num_printers, i;

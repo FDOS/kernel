@@ -34,6 +34,16 @@ large portions copied from task.c
 
 */
 
+/* history
+
+	10/??/01 - Bart Oldeman 
+		primary release
+
+	11/28/01 - tom ehlert 	
+		added -UPX option to make the kernel compressable with UPX
+
+*/
+
 #include "portab.h"
 #include "exe.h"
 #include <stdio.h>
@@ -68,7 +78,7 @@ void usage()
   printf("usage: exeflat (src.exe) (dest.sys) (relocation-factor)\n");
   printf
       ("               -S10   - Silent relocate segment 10 (down list)\n");
-
+  
   exit(1);
 }
 
@@ -84,19 +94,23 @@ int main(int argc, char **argv)
   UBYTE **curbuf;
   FILE *src, *dest;
   short silentSegments[20], silentcount = 0, silentdone = 0;
+  int UPX = FALSE;
 
   /* do optional argument processing here */
   for (i = 4; i < argc; i++)
   {
     char *argptr = argv[i];
-
+    
     if (argptr[0] != '-' && argptr[0] != '/')
       usage();
-
+    
     argptr++;
 
     switch (toupper(argptr[0]))
     {
+      case 'U':
+        UPX = TRUE;
+        break;
       case 'S':
         if (silentcount >= LENGTH(silentSegments))
         {
@@ -104,10 +118,10 @@ int main(int argc, char **argv)
                  LENGTH(silentSegments));
           exit(1);
         }
-
+	
         silentSegments[silentcount++] = strtol(argptr + 1, NULL, 0);
         break;
-
+	
       default:
         usage();
     }
@@ -115,7 +129,7 @@ int main(int argc, char **argv)
 
   /* arguments left :
      infile outfile relocation offset */
-
+  
   if ((src = fopen(argv[1], "rb")) == NULL)
   {
     printf("Source file %s could not be opened\n", argv[1]);
@@ -195,22 +209,55 @@ int main(int argc, char **argv)
     UBYTE *spot0 = &buffers[spot / BUFSIZE][spot % BUFSIZE];
     UBYTE *spot1 = &buffers[(spot + 1) / BUFSIZE][(spot + 1) % BUFSIZE];
     UWORD segment = ((UWORD) * spot1 << 8) + *spot0;
-
+    
     for (j = 0; j < silentcount; j++)
       if (segment == silentSegments[j])
       {
         silentdone++;
         goto dontPrint;
       }
-
+    
     printf("relocation at 0x%04x:0x%04x ->%04x\n", reloc[i].seg,
            reloc[i].off, segment);
-
+    
   dontPrint:
-
+    
     segment += start_seg;
     *spot0 = segment & 0xff;
     *spot1 = segment >> 8;
+  }
+  
+  if (UPX)
+  {
+    /* UPX HEADER jump $+2+size */
+    static char JumpBehindCode[] = {
+      /* kernel config header - 32 bytes */
+      0xeb, 0x1b,               /*     jmp short realentry */
+      'C', 'O', 'N', 'F', 'I', 'G', 32 - 2 - 6 - 2 - 3, 0,      /* WORD */
+      0,                        /* DLASortByDriveNo            db 0  */
+      1,                        /* InitDiskShowDriveAssignment db 1  */
+      2,                        /* SkipConfigSeconds           db 2  */
+      0,                        /* ForceLBA                    db 0  */
+      1,                        /* GlobalEnableLBAsupport      db 1  */
+      'u', 'n', 'u', 's', 'e', 'd',     /* unused filler bytes                              */
+      8, 7, 6, 5, 4, 3, 2, 1,
+      /* real-entry: jump over the 'real' image do the trailer */
+      0xe9, 0, 0                /* 100: jmp 103 */
+    };
+    
+    struct x {
+      char y[sizeof(JumpBehindCode) == 0x20 ? 1 : -1];
+    };
+    
+    if (size >= 0xfe00u)
+    {
+      printf("kernel; size too large - must be <= 0xfe00\n");
+      exit(1);
+    }
+
+    /* this assumes <= 0xfe00 code in kernel */
+    *(short *)&JumpBehindCode[0x1e] += size;
+    fwrite(JumpBehindCode, 1, 0x20, dest);
   }
 
   /* write dest file from memory chunks */
@@ -227,9 +274,38 @@ int main(int argc, char **argv)
       return 1;
     }
   }
-
+ 
+  if (UPX)
+  {
+    /* UPX trailer */
+    /* hand assembled - so this reamins ANSI C ;-)  */
+    static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
+      0xE8, 0x00, 0x00,         /* call 103                     */
+      0x59,                     /* pop cx                       */
+      0x0E,                     /* push cs                      */
+      0x1F,                     /* pop ds                       */
+      0x8c, 0xc8,               /* mov ax,cs            */
+      0x48,                     /* dec ax                       */
+      0x48,                     /* dec ax                       */
+      0x8e, 0xc0,               /* mov es,ax            */
+      0x31, 0xFF,               /* xor di,di            */
+      0xBE, 0x00, 0x00,         /* mov si,0x00              */
+      0xFC,                     /* cld                          */
+      0xF3, 0xA4,               /* rep movsb                */
+      0x26, 0x88, 0x1e, 0x00, 0x00,     /* mov es:[0],bl    */
+      0xB8, 0x00, 0x00,         /* mov ax,0000h             */
+      0x8E, 0xD0,               /* mov ss,ax                */
+      0xBC, 0x00, 0x00,         /* mov sp,0000h             */
+      0x31, 0xC0,               /* xor ax,ax                */
+      0x50,                     /* push ax                      */
+      0xC3                      /* ret                          */
+    };
+    *(short *)&trailer[26] = start_seg + header.exInitSS;
+    *(short *)&trailer[31] = header.exInitSP;
+    fwrite(trailer, 1, sizeof(trailer), dest);
+  }
   fclose(dest);
-  printf("\nProcessed %d relocations, %d not shown\n", header.exRelocItems,
-         silentdone);
+  printf("\nProcessed %d relocations, %d not shown\n",
+         header.exRelocItems, silentdone);
   return 0;
 }

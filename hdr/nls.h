@@ -450,7 +450,7 @@ struct nlsInfoBlock {           /* This block contains all information
 };
 
 extern struct nlsInfoBlock nlsInfo;
-extern struct nlsPackage nlsPackageHardcoded;
+extern struct nlsPackage ASM nlsPackageHardcoded;
         /* These are the "must have" tables within the hard coded NLS pkg */
 extern struct nlsFnamTerm nlsFnameTermHardcoded;
 extern struct nlsDBCS nlsDBCSHardcoded;

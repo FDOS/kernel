@@ -99,6 +99,7 @@ anyone knows a _portable_ way to create nice errors ? ?
                             have a certain calling standard. These are declared
                             as 'ASMCFUNC', and is (and will be ?-) cdecl */
 #define ASMCFUNC cdecl
+#define ASM ASMCFUNC
 #ifdef MC68K
 #define far                     /* No far type          */
 #define interrupt               /* No interrupt type    */
@@ -174,7 +175,11 @@ typedef unsigned short CLUSTER;
 #endif
 typedef unsigned short UNICODE;
 
-#define STATIC                  /* local calls inside module */
+#ifdef STATICS
+#define STATIC static		 /* local calls inside module */
+#else
+#define STATIC
+#endif
 
 #ifdef UNIX
 typedef char FAR *ADDRESS;
@@ -191,7 +196,11 @@ typedef signed long LONG;
 /* General far pointer macros                                           */
 #ifdef I86
 #ifndef MK_FP
+#ifdef __WATCOMC__
+#define MK_FP(__s,__o) (((unsigned short)(__s)):>((void __near *)(__o)))
+#else
 #define MK_FP(seg,ofs)        ((VOID far *)(((ULONG)(seg)<<16)|(UWORD)(ofs)))
+#endif
 #define FP_SEG(fp)            ((UWORD)((ULONG)(VOID FAR *)(fp)>>16))
 #define FP_OFF(fp)            ((UWORD)(fp))
 #endif
@@ -202,6 +211,8 @@ typedef signed long LONG;
 #define FP_SEG(fp)             (0)
 #define FP_OFF(fp)             (fp)
 #endif
+
+typedef VOID (FAR ASMCFUNC * intvec) ();
 
 /*
 	this suppresses the warning 

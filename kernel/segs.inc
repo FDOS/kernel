@@ -28,10 +28,10 @@
 ;
 
 group   PGROUP          PSP
-group	TGROUP		_TEXT _IO_TEXT _IO_FIXED_DATA 
-group	DGROUP		_FIXED_DATA _DATA _BSSSTART _BSS _BSSEND DYN_DATA DCONST
-group	HGROUP		HMA_TEXT_START HMA_TEXT HMA_TEXT_END
-group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IB_B IB IB_E IC IDATA
+group   TGROUP          _TEXT _IO_TEXT _IO_FIXED_DATA
+group   DGROUP          _FIXED_DATA _DATA _BSSSTART _BSS _BSSEND DYN_DATA DCONST
+group   I_GROUP         INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA I_BSS IB_B IB IB_E
+group   HGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 
 segment PSP             class=PSP
 segment	_TEXT		class=CODE
@@ -44,21 +44,28 @@ segment	_BSS		class=BSS align=2
 segment	_BSSEND		class=BSS
 ;for MSC
 segment	DCONST      	class=DCONST   align=2     
-segment	DYN_DATA    class=DYN_DATA
+segment	DYN_DATA        class=DYN_DATA
 segment	HMA_TEXT_START	class=HMA align=16
 segment	HMA_TEXT	class=HMA
-segment	HMA_TEXT_END	class=HMA
-segment	INIT_TEXT_START	class=INIT align=16
+segment HMA_TEXT_END	class=HMA
+segment INIT_TEXT_START class=INIT align=16
 segment	INIT_TEXT	class=INIT
-segment	INIT_TEXT_END	class=INIT
+segment	INIT_TEXT_END   class=INIT	
 segment ID_B            class=ID   align=2
 segment ID              class=ID   align=2
 segment ID_E            class=ID   align=2
 segment IDATA           class=ID   align=2
+segment	IC      	class=IC   align=2
+
+;for Watcom
+segment ICONST          class=FAR_DATA align=2
+segment ICONST2         class=FAR_DATA align=2
+segment I_DATA          class=FAR_DATA align=2
+segment I_BSS           class=FAR_DATA align=2
+
 segment	IB_B      	class=IB   align=2
 segment	IB      	class=IB   align=2     
 segment	IB_E      	class=IB   align=2
-segment	IC      	class=IC   align=2     
 
 ; Log: segs.inc,v 
 ;

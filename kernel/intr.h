@@ -6,4 +6,4 @@ struct REGPACK {
   unsigned r_bp, r_di, r_si, r_ds, r_es, r_flags;
 };
 
-extern void ASMCFUNC intr(int intrnr, struct REGPACK *rp);
+void ASMCFUNC intr(int intrnr, struct REGPACK *rp);

@@ -42,14 +42,14 @@ static BYTE *RcsId =
 #define cntry Config.cfgCSYS_cntry
 #define cp Config.cfgCSYS_cp
 
-static int err(void)
+STATIC int err(void)
 {
   printf("Syntax error in or invalid COUNTRY.SYS: \"%s\"\n", filename);
   return 0;
 }
 
 #define readStruct(s)	readStructure(&(s), sizeof(s), fd)
-static int readStructure(void *buf, int size, COUNT fd)
+STATIC int readStructure(void *buf, int size, COUNT fd)
 {
   if (DosRead(fd, buf, size) == size)
     return 1;
@@ -102,7 +102,7 @@ COUNT csysOpen(void)
 
 /* Searches for function definition of table #fctID and
 	moves it at index idx */
-static int chkTable(int idx, int fctID, struct csys_function *fcts,
+STATIC int chkTable(int idx, int fctID, struct csys_function *fcts,
                     int numFct)
 {
   struct csys_function *fct, hfct;

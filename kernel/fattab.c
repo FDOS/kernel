@@ -240,7 +240,7 @@ UCOUNT link_fat32(struct dpb FAR * dpbp, CLUSTER Cluster1,
 
 #endif
 
-UCOUNT link_fat16(struct dpb FAR * dpbp, CLUSTER Cluster1,
+STATIC UCOUNT link_fat16(struct dpb FAR * dpbp, CLUSTER Cluster1,
                   CLUSTER Cluster2)
 {
   UCOUNT idx;
@@ -266,7 +266,7 @@ UCOUNT link_fat16(struct dpb FAR * dpbp, CLUSTER Cluster1,
   return SUCCESS;
 }
 
-UCOUNT link_fat12(struct dpb FAR * dpbp, CLUSTER Cluster1,
+STATIC UCOUNT link_fat12(struct dpb FAR * dpbp, CLUSTER Cluster1,
                   CLUSTER Cluster2)
 {
   REG UBYTE FAR *fbp0, FAR * fbp1;

@@ -1,0 +1,119 @@
+advanced CONFIG.SYS processing
+
+a new command ECHO
+ECHO does ECHO it's argument (surprised ?-) and is executed at 
+the time the DEVICE= lines are executed. 
+use it similar to
+
+	ECHO loading driver 1
+	device=Driver1.sys
+	ECHO driver1 successfully loaded
+
+
+
+
+
+the following advanced config.sys processing options are available:
+
+normal
+	FILES=20
+	DEVICE=MyNetWorkDriver.sys
+
+'?' - ALWAYS ask if a single line shall be executed
+
+	FILES=20
+	?DEVICE=MyNetWorkDriver.sys
+
+
+'!' - NEVER ask if a single line shall be executed, even if single stepping
+
+	!FILES=20
+	!DOS=HIGH,UMB
+	!BUFFERS=30
+	DEVICE=MyNetWorkDriver.sys
+
+
+
+configuration management - you may compose several configurations,
+using following special commands:
+
+MENU  
+MENU  select your configuration
+MENU  
+MENU  use (0) for basic configuration
+MENU  use (1) for CDROM operation
+MENU  use (2) for NETWORK configuration
+MENU  
+MENUDEFAULT=0,1				( configuration 0, wait 1 second)
+
+
+1?  rem CDROM
+1?  device=CDROM.SYS
+
+2?  rem NETWORK
+2?  device=MyNetworkDriver.SYS
+
+
+Although this is definitively worse then MSDOS menuing possibilities,
+IMHO it's better then nothing
+
+
+
+thus my config.sys now looks like
+
+
+!files=20
+!dos=high,umb
+!break=off
+!buffers=30
+!screen=0x12
+!lastdrive=z
+
+MENU
+MENU
+MENU 0 - SoftIce+HIMEM+Network (default)
+MENU 1 - SoftIce+HIMEM
+MENU 2 - HIMEM+EMM386
+MENU
+MENUDEFAULT=0,0
+
+
+0? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
+0? DEVICE=himem.exe
+0? DEVICE=UMBPCI.SYS
+
+0?device=c:\ntclient\ifshlp.sys
+0?device=c:\ntclient\protman.dos /i:c:\ntclient
+0?device=c:\ntclient\dm9pci.dos
+0?device=c:\ntclient\ndishlp.sys
+0?device=c:\ntclient\nemm.dos
+0?device=c:\ntclient\tcpdrv.dos
+
+
+
+1? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
+1? DEVICE=himem.exe
+1? DEVICE=UMBPCI.SYS
+
+
+
+2? DEVICE=himem.exe
+2? DEVICE=emm386.exe NOEMS
+
+
+rem DEVICE=CDROM.SYS /D:MSCD000
+
+shellhigh=a:\command.com /p /e:512 /MSG
+
+
+
+
+
+12/14/01 - tom ehlert
+
+
+
+
+
+
+

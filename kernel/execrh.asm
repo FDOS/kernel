@@ -55,11 +55,10 @@ _execrh:
                 mov     ax, [si+6]      ; construct strategy address
                 mov     [bp+8], ax    
 
-                mov     si, [si+8]      ; save 'interrupt' address
-        
                 call    far[bp+8]       ; call far the strategy
 
-                mov     [bp+8],si       ; construct interrupt address 
+		mov     ax,[si+8]       ; construct 'interrupt' address
+                mov     [bp+8],ax       ; construct interrupt address 
                 call    far[bp+8]       ; call far the interrupt
 
                 sti                     ; damm driver turn off ints

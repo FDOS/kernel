@@ -38,11 +38,10 @@ static BYTE *charioRcsId =
 #include "globals.h"
 
 #ifdef PROTO
-static VOID kbfill(keyboard FAR *, UCOUNT, BOOL, UWORD *);
+STATIC VOID kbfill(keyboard FAR *, UCOUNT, BOOL, UWORD *);
 struct dhdr FAR *finddev(UWORD attr_mask);
-
 #else
-static VOID kbfill();
+STATIC VOID kbfill();
 struct dhdr FAR *finddev();
 #endif
 
@@ -267,7 +266,7 @@ VOID KbdFlush(void)
   execrh((request FAR *) & CharReqHdr, syscon);
 }
 
-static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
+STATIC VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
 {
   if (kp->kb_count >= kp->kb_size)
   {

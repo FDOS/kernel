@@ -185,7 +185,7 @@ VOID new_psp(psp FAR * p, int psize)
 
   /* CP/M-like entry point - jump to special entry        */
   p->ps_farcall = 0xea;
-  p->ps_reentry = (VOID(FAR *) ())cpm_entry;
+  p->ps_reentry = cpm_entry;
   /* unix style call - 0xcd 0x21 0xcb (int 21, retf)      */
   p->ps_unix[0] = 0xcd;
   p->ps_unix[1] = 0x21;
@@ -206,11 +206,11 @@ VOID new_psp(psp FAR * p, int psize)
   p->ps_dta = (BYTE FAR *) (&p->ps_cmd_count);
 
   /* terminate address                                    */
-  p->ps_isv22 = (VOID(INRPT FAR *) (void))getvec(0x22);
+  p->ps_isv22 = getvec(0x22);
   /* break address                                        */
-  p->ps_isv23 = (VOID(INRPT FAR *) (void))getvec(0x23);
+  p->ps_isv23 = getvec(0x23);
   /* critical error address                               */
-  p->ps_isv24 = (VOID(INRPT FAR *) (void))getvec(0x24);
+  p->ps_isv24 = getvec(0x24);
 
   /* File System parameters                               */
   /* user stack pointer - int 21                          */
@@ -394,6 +394,9 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     DosUmbLink(UMBstate);       /* restore link state */
   }
 
+#ifdef DEBUG
+  printf("DosComLoader. Loading '%S' at %04x\n", namep, mem);
+#endif
   /* Now load the executable                              */
   /* If file not found - error                            */
   /* NOTE - this is fatal because we lost it in transit   */
@@ -435,7 +438,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
   /* point to the PSP so we can build it                  */
   p = MK_FP(mem, 0);
-  setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
+  setvec(0x22, MK_FP(user_r->CS, user_r->IP));
   new_psp(p, mem + asize);
 
   asize = patchPSP(mem - 1, env, exp, namep);   /* asize=fcbcode for ax */
@@ -667,7 +670,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
         asize = exe_size;
 
 #ifdef DEBUG
-      printf("loading '%S' at %04x\n", namep, mem);
+      printf("DosExeLoader. Loading '%S' at %04x\n", namep, mem);
 #endif
 
 /* /// Added open curly brace and "else" clause.  We should not attempt
@@ -801,7 +804,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
     /* point to the PSP so we can build it                  */
     p = MK_FP(mem, 0);
-    setvec(0x22, (VOID(INRPT FAR *) (VOID)) MK_FP(user_r->CS, user_r->IP));
+    setvec(0x22, MK_FP(user_r->CS, user_r->IP));
     new_psp(p, mem + asize);
 
     asize = patchPSP(mem - 1, env, exp, namep); /* asize = fcbcode */

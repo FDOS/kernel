@@ -27,10 +27,8 @@ NASMFLAGS   = $(NASMFLAGS) -i../hdr/
 
 LINK=$(XLINK)
 
-PATCHOBJ=@rem
-INITPATCH  = CODE=INIT _DATA=IDATA DATA=ID BSS=ID DGROUP=IGROUP CONST=IC
-STDPATCH = CODE=HMA CONST=DCONST
-DYNPATCH = _DATA=DYN_DATA DATA=DYN_DATA CODE=HMA CONST=DCONST
+STDPATCH=@rem
+INITPATCH=@rem
 
 !include "..\mkfiles\$(COMPILER).mak"
 
@@ -38,7 +36,7 @@ THETARGET=$(TARGET)$(XCPU)$(XFAT)
 RM=..\utils\rmfiles
 
 .asm.obj :
-	$(NASM) $(NASMFLAGS) -f obj $*.asm
+	$(NASM) -D$(COMPILER) $(NASMFLAGS) -f obj $*.asm
 
 #               *Implicit Rules*
 .c.obj :

@@ -26,15 +26,14 @@ HDR=../hdr/
 #     'standard' compiles
 
 .c.obj :
-	$(CC) $(CFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(STDPATCH)
+	$(CC) $(CFLAGS) -c $<
+	$(STDPATCH) $*.obj
 
 #               *List Macros*
 
 
 EXE_dependencies =  \
  apisupt.obj  \
- rtlsupt.obj  \
  asmsupt.obj  \
  blockio.obj  \
  break.obj    \
@@ -81,7 +80,6 @@ EXE_dependencies =  \
  systime.obj  \
  task.obj     \
  inithma.obj  \
- dyndata.obj  \
  dyninit.obj
 
 #               *Explicit Rules*
@@ -94,7 +92,8 @@ production:     ..\bin\kernel.sys
 		copy kernel.map ..\bin\$(THETARGET).map
 
 kernel.sys:	kernel.exe ..\utils\exeflat.exe
-		..\utils\exeflat kernel.exe kernel.sys 0x60 -S0x10 -S0x8B
+		$(XUPX) kernel.exe
+		..\utils\exeflat kernel.exe kernel.sys 0x60 -S0x10 -S0x8B $(UPXOPT)
 
 clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
@@ -113,9 +112,9 @@ kernel.exe: $(EXE_dependencies) $(LIBS)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)dosnames.obj $(LIBPLUS)prf.obj $(LIBPLUS)strings.obj $(LIBPLUS)network.obj $(LIBPLUS)sysclk.obj $(LIBPLUS)syspack.obj$(LIBTERM)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)systime.obj $(LIBPLUS)task.obj $(LIBPLUS)int2f.obj $(LIBPLUS)irqstack.obj $(LIBPLUS)apisupt.obj$(LIBTERM)
 	$(LIBUTIL) kernel.lib $(LIBPLUS)asmsupt.obj $(LIBPLUS)execrh.obj $(LIBPLUS)nlssupt.obj $(LIBPLUS)procsupt.obj  $(LIBPLUS)break.obj$(LIBTERM)
-	$(LIBUTIL) kernel.lib $(LIBPLUS)dosidle.obj $(LIBPLUS)dyndata.obj $(LIBPLUS)dyninit.obj $(LIBPLUS)rtlsupt.obj $(LIBTERM)
+	$(LIBUTIL) kernel.lib $(LIBPLUS)dosidle.obj $(LIBPLUS)dyninit.obj $(LIBPLUS)lfnapi.obj $(LIBTERM)
 	-$(RM) kernel.bak
-	$(LINK) kernel iprf,kernel,kernel,kernel+$(LIBS);
+	$(LINK) kernel iprf,kernel,kernel,kernel+$(LIBS)+..\lib\libm.lib;
 	-$(RM) kernel.lib
 
 #               *Individual File Dependencies*
@@ -130,8 +129,6 @@ serial.obj: serial.asm io.inc
 entry.obj: entry.asm segs.inc $(HDR)stacks.inc
 
 apisupt.obj: apisupt.asm segs.inc
-
-rtlsupt.obj: rtlsupt.asm segs.inc
 
 execrh.obj: execrh.asm segs.inc
 
@@ -168,43 +165,43 @@ HEADERS=\
 # XXX: I generated these using `gcc -MM' and `sed', so they may not be
 # completely correct... -- ror4
 
-blockio.obj: blockio.c    $(HEADERS) $(CONFIGURATION)  
+#blockio.obj: blockio.c    $(HEADERS) $(CONFIGURATION)  
 
-break.obj: break.c        $(HEADERS) $(CONFIGURATION)  
+#break.obj: break.c        $(HEADERS) $(CONFIGURATION)  
 
-chario.obj: chario.c      $(HEADERS) $(CONFIGURATION)  
+#chario.obj: chario.c      $(HEADERS) $(CONFIGURATION)  
 
-dosfns.obj: dosfns.c      $(HEADERS) $(CONFIGURATION)  
+#dosfns.obj: dosfns.c      $(HEADERS) $(CONFIGURATION)  
 
-dosnames.obj: dosnames.c  $(HEADERS) $(CONFIGURATION)  
+#dosnames.obj: dosnames.c  $(HEADERS) $(CONFIGURATION)  
 
-dsk.obj: dsk.c            $(HEADERS) $(CONFIGURATION)  
+#dsk.obj: dsk.c            $(HEADERS) $(CONFIGURATION)  
 
-error.obj: error.c        $(HEADERS) $(CONFIGURATION)  
+#error.obj: error.c        $(HEADERS) $(CONFIGURATION)  
 
-fatdir.obj: fatdir.c      $(HEADERS) $(CONFIGURATION)  
+#fatdir.obj: fatdir.c      $(HEADERS) $(CONFIGURATION)  
 
-fatfs.obj: fatfs.c        $(HEADERS) $(CONFIGURATION)  
+#fatfs.obj: fatfs.c        $(HEADERS) $(CONFIGURATION)  
 
-fattab.obj: fattab.c      $(HEADERS) $(CONFIGURATION)  
+#fattab.obj: fattab.c      $(HEADERS) $(CONFIGURATION)  
 
-fcbfns.obj: fcbfns.c      $(HEADERS) $(CONFIGURATION)  
+#fcbfns.obj: fcbfns.c      $(HEADERS) $(CONFIGURATION)  
 
-inthndlr.obj: inthndlr.c  $(HEADERS) $(CONFIGURATION)  
+#inthndlr.obj: inthndlr.c  $(HEADERS) $(CONFIGURATION)  
 
-ioctl.obj: ioctl.c        $(HEADERS) $(CONFIGURATION)  
+#ioctl.obj: ioctl.c        $(HEADERS) $(CONFIGURATION)  
 
-memmgr.obj: memmgr.c      $(HEADERS) $(CONFIGURATION)  
+#memmgr.obj: memmgr.c      $(HEADERS) $(CONFIGURATION)  
 
-misc.obj: misc.c          $(HEADERS) $(CONFIGURATION)  
+#misc.obj: misc.c          $(HEADERS) $(CONFIGURATION)  
 
-lfnapi.obj: lfnapi.c      $(HEADERS) $(CONFIGURATION)
+#lfnapi.obj: lfnapi.c      $(HEADERS) $(CONFIGURATION)
 
-newstuff.obj: newstuff.c  $(HEADERS) $(CONFIGURATION)  
+#newstuff.obj: newstuff.c  $(HEADERS) $(CONFIGURATION)  
 
-network.obj: network.c    $(HEADERS) $(CONFIGURATION)  
+#network.obj: network.c    $(HEADERS) $(CONFIGURATION)  
 
-nls.obj: nls.c            $(HEADERS) $(CONFIGURATION)  
+#nls.obj: nls.c            $(HEADERS) $(CONFIGURATION)  
 
 # \
 # 001-437.nls
@@ -229,37 +226,32 @@ task.obj: task.c        $(HEADERS) $(CONFIGURATION)
 
 config.obj:   config.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
+	$(INITPATCH) $*.obj
 
 initoem.obj:  initoem.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
+	$(INITPATCH) $*.obj
 
 main.obj:     main.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION) 
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
+	$(INITPATCH) $*.obj
 
 inithma.obj:  inithma.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
+	$(INITPATCH) $*.obj
 
 dyninit.obj:  dyninit.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
+	$(INITPATCH) $*.obj
 
 initdisk.obj: initdisk.c  $(INITHEADERS) $(HEADERS) $(CONFIGURATION)  
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
+	$(INITPATCH) $*.obj
 
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
 iprf.obj: iprf.c prf.c $(HDR)\portab.h $(CONFIGURATION)
 	$(CC) $(INITCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(INITPATCH)
-
-#dynamic NEAR data
-dyndata.obj: dyndata.c   dyndata.h
-	$(CC) $(DYNCFLAGS) -c $*.c
-	$(PATCHOBJ) $*.obj $(DYNPATCH)
+	$(INITPATCH) $*.obj
 
 # Log: makefile,v 
 #

@@ -28,7 +28,7 @@ TARGET=KWC
 
 # used for building the library
 
-CLIB=$(COMPILERPATH)\lib286\dos\clibs.lib
+CLIB=$(COMPILERPATH)\lib286\dos\clibm.lib
 
 #
 #MATH_EXTRACT=*i4d *i4m
@@ -37,11 +37,9 @@ CLIB=$(COMPILERPATH)\lib286\dos\clibs.lib
 # these are NOT usable, as they are called NEAR, and are in TEXT segment.
 # so we can't use them, when moving the kernel. called ~15 times
 # 
-#  so I include 1 dummy library routine (stridup()), to make lib happy
+# we use our own ones, which override these ones when linking.
 #  
 
-MATH_EXTRACT=*_icstrdu
-MATH_INSERT= +_icstrdu
 MATH_EXTRACT=*i4d *i4m
 MATH_INSERT= +i4d +i4m
 
@@ -69,8 +67,8 @@ MATH_INSERT= +i4d +i4m
 # -3		optimization for 386 - given in CONFIG.MAK, not here
 #
 
-ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -zq -os -ms -s -e=5 -j -zl -zp=1 -we
-INITCFLAGS=$(ALLCFLAGS) -nt=INIT_TEXT -nc=INIT -g=IGROUP
+ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS) -zq -os -s -e=5 -j -zl -zp=1 -we
+INITCFLAGS=$(ALLCFLAGS) -nt=INIT_TEXT -nc=INIT -nd=I -g=I_GROUP
 CFLAGS=$(ALLCFLAGS) -nt=HMA_TEXT -nc=HMA -g=HGROUP
-DYNCFLAGS=$(ALLCFLAGS)
+INITPATCH=..\utils\patchobj __U4D=_IU4D __U4M=_IU4M
 

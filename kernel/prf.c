@@ -28,10 +28,21 @@
 
 #include "portab.h"
 
-/*#define DOSEMU*/
+#ifdef FORSYS
+#include <io.h>
+#endif
+
+/*#define DOSEMU */
+
+#ifdef DOSEMU
+#define MAX_BUFSIZE 80                       /* adjust if necessary */
+static int buff_offset = 0;
+static char buff[MAX_BUFSIZE];
+#endif
 
 #ifdef _INIT
 #define fstrlen reloc_call_fstrlen
+#define handle_char init_handle_char
 #define put_console init_put_console
 #define ltob init_ltob
 #define do_printf init_do_printf
@@ -50,24 +61,14 @@ static BYTE *prfRcsId =
 
 static BYTE *charp = 0;
 
-#ifdef PROTO
-VOID handle_char(COUNT);
-VOID put_console(COUNT);
-BYTE *ltob(LONG, BYTE *, COUNT);
-COUNT do_printf(CONST BYTE *, REG BYTE **);
-#else
-VOID handle_char();
-VOID put_console();
-BYTE *ltob();
-COUNT do_printf();
-#endif
+STATIC VOID handle_char(COUNT);
+STATIC VOID put_console(COUNT);
+STATIC BYTE * ltob(LONG, BYTE *, COUNT);
+STATIC COUNT do_printf(CONST BYTE *, REG BYTE **);
+WORD CDECL printf(CONST BYTE * fmt, ...);
 
 /* The following is user supplied and must match the following prototype */
-#ifdef PROTO
 VOID cso(COUNT);
-#else
-VOID cso();
-#endif
 
 #ifdef FORSYS
 COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
@@ -82,6 +83,30 @@ COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
 #endif
 
 /* special console output routine */
+#ifdef DOSEMU
+VOID put_console(COUNT c)
+{
+  if (buff_offset >= MAX_BUFSIZE)
+  {
+    buff_offset = 0;
+    printf("Printf buffer overflow!\n");
+  }
+  if (c == '\n')
+  {
+    buff[buff_offset] = 0;
+    buff_offset = 0;
+    _ES = FP_SEG(buff);
+    _DX = FP_OFF(buff);
+    _AX = 0x13;
+    __int__(0xe6);
+  }
+  else
+  {
+    buff[buff_offset] = c;
+    buff_offset++;
+  }
+}
+#else
 VOID put_console(COUNT c)
 {
   if (c == '\n')
@@ -103,11 +128,12 @@ VOID put_console(COUNT c)
     int 0x10;
   }
 #endif                          /* __TURBO__ */
-#endif
+#endif                          /*  FORSYS   */
 }
+#endif                          /*  DOSEMU   */
 
 /* special handler to switch between sprintf and printf */
-static VOID handle_char(COUNT c)
+STATIC VOID handle_char(COUNT c)
 {
   if (charp == 0)
     put_console(c);
@@ -157,30 +183,13 @@ BYTE *ltob(LONG n, BYTE * s, COUNT base)
 #define RIGHT   1
 
 /* printf -- short version of printf to conserve space */
-#ifdef DOSEMU
-WORD printf(CONST BYTE * fmt, ...)
-{
-  WORD ret;
-
-  static char buff[80];         /* adjust if necessary */
-  charp = buff;
-  ret = do_printf(fmt, (BYTE **) & fmt + 1);
-  handle_char(NULL);
-  _ES = FP_SEG(buff);
-  _DX = FP_OFF(buff);
-  _AX = 0x13;
-  __int__(0xe6);
-  return ret;
-}
-#else
-WORD printf(CONST BYTE * fmt, ...)
+WORD CDECL printf(CONST BYTE * fmt, ...)
 {
   charp = 0;
   return do_printf(fmt, (BYTE **) & fmt + 1);
 }
-#endif
 
-WORD sprintf(BYTE * buff, CONST BYTE * fmt, ...)
+WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...)
 {
   WORD ret;
 

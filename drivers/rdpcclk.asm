@@ -44,7 +44,13 @@ _ReadPCClock:
 		mov	bx,[bx+2]
                 mov     [bx],dx
                 mov     [bx+2],cx
-		cbw
+		extern  _DaysSinceEpoch   ;            ; update days if necessary
+
+                mov     ah,0
+
+                add     word [_DaysSinceEpoch  ],ax    ;   *some* BIOS's accumulate several days
+                adc     word [_DaysSinceEpoch+2],0     ;
+
                 ret
 
 ; Log: rdpcclk.asm,v 

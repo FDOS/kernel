@@ -271,6 +271,8 @@ struct PartTableEntry           /* INTERNAL representation of partition table en
     internal global data
 */
 
+BOOL ExtLBAForce = FALSE;
+
 COUNT init_readdasd(UBYTE drive)
 {
   static iregs regs;
@@ -435,7 +437,7 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
       if (maxclust > FAT12MAX)
         maxclust = FAT12MAX;
       DebugPrintf(("FAT12: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%u\n",
-                   clust, fatlength, maxclust, FATMAX12));
+                   clust, fatlength, maxclust, FAT12MAX));
       if (clust > maxclust - 2)
       {
         clust = maxclust - 2;
@@ -524,7 +526,7 @@ VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
         if (maxclust > FAT32MAX)
           maxclust = FAT32MAX;
         DebugPrintf(("FAT32: #clu=%u, fatlen=%u, maxclu=%u, limit=%u\n",
-                     clust, fatlength, maxclust, FATMAX32));
+                     clust, fatlength, maxclust, FAT32MAX));
         if (clust > maxclust - 2)
         {
           clust = 0;
@@ -563,13 +565,15 @@ void DosDefinePartition(struct DriveParamS *driveParam,
     return;                     /* we are done */
   }
 
+  (pddt-1)->ddt_next = pddt; 
+  pddt->ddt_next = MK_FP(0, 0xffff);
   pddt->ddt_driveno = driveParam->driveno;
   pddt->ddt_logdriveno = nUnits;
   pddt->ddt_LBASupported = driveParam->LBA_supported;
   /* Turn of LBA if not forced and the partition is within 1023 cyls and of the right type */
   /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
      above cylinder 1023 was found */
-  if (!InitKernelConfig.ForceLBA && !IsLBAPartition(pEntry->FileSystem))
+  if (!InitKernelConfig.ForceLBA && !ExtLBAForce && !IsLBAPartition(pEntry->FileSystem))
     pddt->ddt_LBASupported = FALSE;
   pddt->ddt_WriteVerifySupported = driveParam->WriteVerifySupported;
   pddt->ddt_ncyl = driveParam->chs.Cylinder;
@@ -681,6 +685,7 @@ int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
   regs.d.b.l = drive;
   init_call_intr(0x13, &regs);
 
+  /* error or DMA boundary errors not handled transparently */
   if (regs.flags & 0x01)
   {
     goto StandardBios;
@@ -885,7 +890,7 @@ ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
         continue;
       }
 
-      if (!InitKernelConfig.ForceLBA
+      if (!InitKernelConfig.ForceLBA && !ExtLBAForce 
           && !IsLBAPartition(pEntry->FileSystem))
       {
         printf
@@ -1012,6 +1017,8 @@ int ProcessDisk(int scanType, unsigned drive, int PartitionsToIgnore)
 
   struct DriveParamS driveParam;
 
+  ExtLBAForce = FALSE;
+
   /* Get the hard drive parameters and ensure that the drive exists. */
   /* If there was an error accessing the drive, skip that drive. */
 
@@ -1084,6 +1091,8 @@ strange_restart:
       if (ExtendedPartitionOffset == 0)
       {
         ExtendedPartitionOffset = PTable[iPart].RelSect;
+	/* grand parent LBA -> all children and grandchildren LBA */
+        ExtLBAForce = (PTable[iPart].FileSystem == EXTENDED_LBA);
       }
 
       num_extended_found++;
@@ -1233,6 +1242,8 @@ void ReadAllPartitionTables(void)
   {
     pddt = DynAlloc("ddt", 1, sizeof(ddt));
 
+    if (Unit > 0) (pddt-1)->ddt_next = pddt;
+    pddt->ddt_next = MK_FP(0, 0xffff);
     pddt->ddt_driveno = 0;
     pddt->ddt_logdriveno = Unit;
     pddt->ddt_type = init_getdriveparm(0, &pddt->ddt_defbpb);

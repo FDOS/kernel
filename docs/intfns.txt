@@ -104,7 +104,7 @@ int 21	Description			State		Ver	Status
 50h	Set PSP Address			active		2.00	supported
 51h	Get PSP Address			active		2.00	supported
 52h	Get List of Lists		undocumented	2.00	supported
-53h                                     undocumented            not supported
+53h     Translate BPB to DPB            undocumented            supported
 54h	Get Verify State		active		2.00	supported
 55h	Create New Psp			undocumented	2.00	supported
 56h	Rename File			active		2.00	supported
@@ -139,11 +139,11 @@ int 21	Description			State		Ver	Status
 65h	NLS Functions			active		3.30	supported
 66h	Code Page Functions		active		3.30	supported
 67h     Set Maximum Handle Count        active          3.30    supported
-68h     Commit File                     active          3.30    dummy func
+68h     Commit File                     active          3.30    supported
 69h     GET/SET DISK SERIAL NUMBER      active          4.00    supported
-6ah     COMMIT FILE (same as 68h)       active          4.00    not supported
+6ah     COMMIT FILE (same as 68h)       active          4.00    supported
 6bh     NULL FUNCTION                   active          5.00    supported
-6ch     Extended Open/Create            active          4.00    planned
+6ch     Extended Open/Create            active          4.00    supported
 71h     LONG FILENAME FUNCTIONS         active          7.00    not supported
 
 int 22: Program Termination Address.

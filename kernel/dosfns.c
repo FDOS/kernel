@@ -36,7 +36,7 @@ static BYTE *dosfnsRcsId =
 #include "globals.h"
 
 COUNT get_free_hndl(VOID);
-sft FAR *get_free_sft(COUNT *);
+sft FAR * get_free_sft(COUNT *);
 BOOL cmatch(COUNT, COUNT, COUNT);
 
 f_node_ptr xlt_fd(COUNT);
@@ -51,14 +51,14 @@ BYTE share_installed = 0;
            error.  If < 0 is returned, it is the negated error return
            code, so DOS simply negates this value and returns it in
            AX. */
-static int share_open_check(char far * filename,        /* far pointer to fully qualified filename */
+STATIC int share_open_check(char far * filename,        /* far pointer to fully qualified filename */
                             unsigned short pspseg,      /* psp segment address of owner process */
                             int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
                             int sharemode);     /* SHARE_COMPAT, etc... */
 
         /* DOS calls this to record the fact that it has successfully
            closed a file, or the fact that the open for this file failed. */
-static void share_close_file(int fileno);       /* file_table entry number */
+STATIC void share_close_file(int fileno);       /* file_table entry number */
 
         /* DOS calls this to determine whether it can access (read or
            write) a specific section of a file.  We call it internally
@@ -71,7 +71,7 @@ static void share_close_file(int fileno);       /* file_table entry number */
            generates a critical error (if allowcriter is non-zero).
            If non-zero is returned, it is the negated return value for
            the DOS call. */
-static int share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
+STATIC int share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
                               int fileno,       /* file_table entry number */
                               unsigned long ofs,        /* offset into file */
                               unsigned long len,        /* length (in bytes) of region to access */
@@ -82,7 +82,7 @@ static int share_access_check(unsigned short pspseg,    /* psp segment address o
            returns non-zero.
            If the return value is non-zero, it is the negated error
            return code for the DOS 0x5c call. */
-static int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
+STATIC int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
                              int fileno,        /* file_table entry number */
                              unsigned long ofs, /* offset into file */
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
@@ -90,8 +90,14 @@ static int share_lock_unlock(unsigned short pspseg,     /* psp segment address o
 
 /* /// End of additions for SHARE.  - Ron Cemer */
 
+STATIC int remote_lock_unlock(sft FAR *sftp,  /* SFT for file */
+                             unsigned long ofs, /* offset into file */
+                             unsigned long len, /* length (in bytes) of region to lock or unlock */
+                             int unlock);       /* non-zero to unlock; zero to lock */
+
+
 #ifdef WITHFAT32
-struct dpb FAR *GetDriveDPB(UBYTE drive, COUNT * rc)
+struct dpb FAR * GetDriveDPB(UBYTE drive, COUNT * rc)
 {
   struct dpb FAR *dpb;
   drive = drive == 0 ? default_drive : drive - 1;
@@ -114,7 +120,7 @@ struct dpb FAR *GetDriveDPB(UBYTE drive, COUNT * rc)
 }
 #endif
 
-static VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
+STATIC VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
 {
   BYTE szLclName[FNAME_SIZE + 1];
   BYTE szLclExt[FEXT_SIZE + 1];
@@ -127,7 +133,7 @@ static VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
   fmemcpy(&lpszDosFileName[FNAME_SIZE], (BYTE FAR *) szLclExt, FEXT_SIZE);
 }
 
-sft FAR *idx_to_sft(COUNT SftIndex)
+sft FAR * idx_to_sft(COUNT SftIndex)
 {
   sfttbl FAR *sp;
 
@@ -151,7 +157,7 @@ sft FAR *idx_to_sft(COUNT SftIndex)
   return (sft FAR *) - 1;
 }
 
-STATIC COUNT get_sft_idx(UCOUNT hndl)
+COUNT get_sft_idx(UCOUNT hndl)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
 
@@ -595,7 +601,7 @@ sft FAR *get_free_sft(COUNT * sft_idx)
 
         /* MS NET uses this on open/creat TE */
         {
-          extern WORD current_sft_idx;
+          extern WORD ASM current_sft_idx;
           current_sft_idx = sys_idx;
         }
 
@@ -622,7 +628,7 @@ BYTE FAR *get_root(BYTE FAR * fname)
 }
 
 /* Ascii only file name match routines                  */
-static BOOL cmatch(COUNT s, COUNT d, COUNT mode)
+STATIC BOOL cmatch(COUNT s, COUNT d, COUNT mode)
 {
   if (s >= 'a' && s <= 'z')
     s -= 'a' - 'A';
@@ -669,7 +675,7 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
   sftp->sft_mode = SFT_MRDWR;
   sftp->sft_attrib = attrib;
   sftp->sft_psp = cu_psp;
-
+  
   /* check for a device   */
   dhp = IsDevice(fname);
   if (dhp)
@@ -681,6 +687,8 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
     fmemcpy(sftp->sft_name, (BYTE FAR *) SecPathName,
             FNAME_SIZE + FEXT_SIZE);
     sftp->sft_dev = dhp;
+    sftp->sft_date = dos_getdate();
+    sftp->sft_time = dos_gettime();
     return sft_idx;
   }
 
@@ -717,6 +725,9 @@ COUNT DosCreatSft(BYTE * fname, COUNT attrib)
     sftp->sft_count += 1;
     sftp->sft_flags = drive;
     DosGetFile(fname, sftp->sft_name);
+    dos_getftime(sftp->sft_status,
+                 (date FAR *) & sftp->sft_date,
+                 (time FAR *) & sftp->sft_time);    
     return sft_idx;
   }
   else
@@ -843,16 +854,6 @@ COUNT DosOpenSft(BYTE * fname, COUNT mode)
   struct dhdr FAR *dhp;
   COUNT drive, result;
 
-  OpenMode = (BYTE) mode;
-
-  /* test if mode is in range                     */
-  if ((mode & ~SFT_OMASK) != 0)
-    return DE_INVLDACC;
-
-  mode &= 3;
-
-  OpenMode = (BYTE) mode;
-
   /* now get a free system file table entry       */
   if ((sftp = get_free_sft(&sft_idx)) == (sft FAR *) - 1)
     return DE_TOOMANY;
@@ -860,7 +861,8 @@ COUNT DosOpenSft(BYTE * fname, COUNT mode)
   fmemset(sftp, 0, sizeof(sft));
   sftp->sft_psp = cu_psp;
   sftp->sft_mode = mode;
-
+  OpenMode = (BYTE) mode;
+  
   /* check for a device                           */
   dhp = IsDevice(fname);
   if (dhp)
@@ -954,6 +956,10 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   psp FAR *p = MK_FP(cu_psp, 0);
   COUNT sft_idx, result, hndl;
 
+  /* test if mode is in range                     */
+  if ((mode & ~SFT_OMASK) != 0)
+    return DE_INVLDACC;
+
   /* get a free handle                            */
   if ((hndl = get_free_hndl()) < 0)
     return hndl;
@@ -964,7 +970,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
     return result;
   }
 
-  sft_idx = DosOpenSft(PriPathName, mode);
+  sft_idx = DosOpenSft(PriPathName, mode & 3);
 
   if (sft_idx < SUCCESS)
     return sft_idx;
@@ -973,7 +979,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   return hndl;
 }
 
-COUNT DosCloseSft(WORD sft_idx)
+COUNT DosCloseSft(WORD sft_idx, BOOL commitonly)
 {
   sft FAR *sftp = idx_to_sft(sft_idx);
 
@@ -991,31 +997,32 @@ COUNT DosCloseSft(WORD sft_idx)
   if (sftp->sft_flags & SFT_FSHARED)
   {
     /* printf("closing SFT %d = %p\n",sft_idx,sftp); */
-    return remote_close(sftp);
+    return (commitonly ? remote_commit(sftp) : remote_close(sftp));
   }
 
   /* now just drop the count if a device, else    */
   /* call file system handler                     */
-  sftp->sft_count -= 1;
+  if (!commitonly)
+    sftp->sft_count -= 1;
+
   if (sftp->sft_flags & SFT_FDEVICE)
     return SUCCESS;
-  else
-  {
-    if (sftp->sft_count > 0)
-      return SUCCESS;
-    else
-    {
+
+  if (commitonly)
+    return dos_commit(sftp->sft_status);
+  
+  if (sftp->sft_count > 0)
+    return SUCCESS;
+
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
-      if (IsShareInstalled())
-      {
-        if (sftp->sft_shroff >= 0)
-          share_close_file(sftp->sft_shroff);
-        sftp->sft_shroff = -1;
-      }
-/* /// End of additions for SHARE.  - Ron Cemer */
-      return dos_close(sftp->sft_status);
-    }
+  if (IsShareInstalled())
+  {
+    if (sftp->sft_shroff >= 0)
+      share_close_file(sftp->sft_shroff);
+    sftp->sft_shroff = -1;
   }
+/* /// End of additions for SHARE.  - Ron Cemer */
+  return dos_close(sftp->sft_status);
 }
 
 COUNT DosClose(COUNT hndl)
@@ -1024,7 +1031,7 @@ COUNT DosClose(COUNT hndl)
   COUNT ret;
 
   /* Get the SFT block that contains the SFT      */
-  ret = DosCloseSft(get_sft_idx(hndl));
+  ret = DosCloseSft(get_sft_idx(hndl), FALSE);
   if (ret != DE_INVLDHNDL && ret != DE_ACCESS)
     p->ps_filetab[hndl] = 0xff;
   return ret;
@@ -1705,13 +1712,16 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
 {
   sft FAR *s;
 
-  /* Invalid function unless SHARE is installed. */
-  if (!IsShareInstalled())
-    return DE_INVLDFUNC;
-
   /* Get the SFT block that contains the SFT      */
   if ((s = get_sft(hndl)) == (sft FAR *) - 1)
     return DE_INVLDHNDL;
+
+  if (s->sft_flags & SFT_FSHARED)
+    return remote_lock_unlock(s, pos, len, unlock);
+
+  /* Invalid function unless SHARE is installed or remote. */
+  if (!IsShareInstalled())
+    return DE_INVLDFUNC;
 
   /* Lock violation if this SFT entry does not support locking. */
   if (s->sft_shroff < 0)
@@ -1806,7 +1816,7 @@ BOOL IsShareInstalled(void)
            error.  If < 0 is returned, it is the negated error return
            code, so DOS simply negates this value and returns it in
            AX. */
-static int share_open_check(char far * filename,        /* far pointer to fully qualified filename */
+STATIC int share_open_check(char far * filename,        /* far pointer to fully qualified filename */
                             unsigned short pspseg,      /* psp segment address of owner process */
                             int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
                             int sharemode)
@@ -1825,7 +1835,7 @@ static int share_open_check(char far * filename,        /* far pointer to fully 
 
         /* DOS calls this to record the fact that it has successfully
            closed a file, or the fact that the open for this file failed. */
-static void share_close_file(int fileno)
+STATIC void share_close_file(int fileno)
 {                               /* file_table entry number */
   iregs regs;
 
@@ -1845,7 +1855,7 @@ static void share_close_file(int fileno)
            generates a critical error (if allowcriter is non-zero).
            If non-zero is returned, it is the negated return value for
            the DOS call. */
-static int share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
+STATIC int share_access_check(unsigned short pspseg,    /* psp segment address of owner process */
                               int fileno,       /* file_table entry number */
                               unsigned long ofs,        /* offset into file */
                               unsigned long len,        /* length (in bytes) of region to access */
@@ -1869,7 +1879,7 @@ static int share_access_check(unsigned short pspseg,    /* psp segment address o
            returns non-zero.
            If the return value is non-zero, it is the negated error
            return code for the DOS 0x5c call. */
-static int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
+STATIC int share_lock_unlock(unsigned short pspseg,     /* psp segment address of owner process */
                              int fileno,        /* file_table entry number */
                              unsigned long ofs, /* offset into file */
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
@@ -1889,6 +1899,27 @@ static int share_lock_unlock(unsigned short pspseg,     /* psp segment address o
 }
 
 /* /// End of additions for SHARE.  - Ron Cemer */
+STATIC int remote_lock_unlock(sft FAR *sftp,     /* SFT for file */
+                             unsigned long ofs, /* offset into file */
+                             unsigned long len, /* length (in bytes) of region to lock or unlock */
+                             int unlock)
+{                               /* non-zero to unlock; zero to lock */
+  iregs regs;
+  unsigned long param_block[2];
+  param_block[0] = ofs;
+  param_block[1] = len;
+
+  regs.a.x = 0x110a;
+  regs.b.b.l = (unlock ? 0x01 : 0x00);
+  regs.c.x = 1;
+  regs.ds = FP_SEG(param_block);
+  regs.d.x = FP_OFF(param_block);
+  regs.es = FP_SEG(sftp);
+  regs.di = FP_OFF(sftp);
+  intr(0x2f, &regs);
+  return ((regs.flags & 1) ? -(int)regs.a.b.l : 0);
+}
+
 
 /*
  *

@@ -12,7 +12,7 @@ exeflat.exe: exeflat.c ..\hdr\exe.h
 
 
 clobber: clean
-	$(RM) bin2c.com exeflat.exe patchobj.exe
+	$(RM) bin2c.com exeflat.exe patchobj.exe patchobj.com
 
 clean:
 	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me

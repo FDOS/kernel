@@ -35,7 +35,6 @@ static BYTE *RcsId =
 #endif
 
 #ifdef PROTO
-BOOL ASMCFUNC ReadPCClock(ULONG *);
 VOID ASMCFUNC WriteATClock(BYTE *, BYTE, BYTE, BYTE);
 VOID ASMCFUNC WritePCClock(ULONG);
 COUNT BcdToByte(COUNT);
@@ -43,7 +42,6 @@ COUNT BcdToWord(BYTE *, UWORD *, UWORD *, UWORD *);
 COUNT ByteToBcd(COUNT);
 VOID DayToBcd(BYTE *, UWORD *, UWORD *, UWORD *);
 #else
-BOOL ReadPCClock();
 VOID WriteATClock();
 VOID WritePCClock();
 COUNT BcdToByte();
@@ -71,16 +69,16 @@ static BYTE bcdSeconds;
 
 static ULONG Ticks;
 */
-UWORD DaysSinceEpoch = 0;
+UWORD ASM DaysSinceEpoch = 0;
 
 BOOL ASMCFUNC ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
 
-static COUNT BcdToByte(COUNT x)
+STATIC COUNT BcdToByte(COUNT x)
 {
   return ((((x) >> 4) & 0xf) * 10 + ((x) & 0xf));
 }
 
-WORD FAR ASMCFUNC clk_driver(rqptr rp)
+WORD ASMCFUNC FAR clk_driver(rqptr rp)
 {
   COUNT c;
   UWORD *pdays;
@@ -120,8 +118,7 @@ WORD FAR ASMCFUNC clk_driver(rqptr rp)
     case C_INPUT:
       {
         ULONG remainder, hs;
-        if (ReadPCClock(&Ticks))
-          ++DaysSinceEpoch;
+        ReadPCClock(&Ticks);
         clk.clkDays = DaysSinceEpoch;
         /*
          * Another tricky calculation (after the one in `main.c'). This time

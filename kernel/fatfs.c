@@ -179,6 +179,28 @@ COUNT dos_close(COUNT fd)
   return SUCCESS;
 }
 
+COUNT dos_commit(COUNT fd)
+{
+  f_node_ptr fnp, fnp2;
+
+  /* Translate the fd into a useful pointer                       */
+  fnp = xlt_fd(fd);
+
+  /* If the fd was invalid because it was out of range or the     */
+  /* requested file was not open, tell the caller and exit        */
+  /* note: an invalid fd is indicated by a 0 return               */
+  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+    return DE_INVLDHNDL;
+  fnp2 = get_f_node();
+  if (fnp2 == (f_node_ptr) 0)
+    return DE_INVLDHNDL;
+
+  /* a copy of the fnode is closed meaning that the directory info
+     is updated etc, but we keep our old info */
+  memcpy(fnp2, fnp, sizeof(*fnp));
+  return dos_close(xlt_fnp(fnp2));
+}
+
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
@@ -282,15 +304,14 @@ STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
  *  Remove entries with D_LFN attribute preceeding the directory entry
  *  pointed by fnp, fnode isn't modified (I hope).
  * Return value. 
- *  SUCCESS - completed successfully.
- *  ERROR   - error occured.
+ *  SUCCESS     - completed successfully.
+ *  DE_BLKINVLD - error occured, fnode is released.
  * input: fnp with valid non-LFN directory entry, not equal to '..' or
  *  '.'
  */
 COUNT remove_lfn_entries(f_node_ptr fnp)
 {
   ULONG original_diroff = fnp->f_diroff;
-  COUNT rc;
 
   while (TRUE)
   {
@@ -298,17 +319,22 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
       break;
     fnp->f_diroff -= 2 * DIRENT_SIZE;
     /* it cannot / should not get below 0 because of '.' and '..' */
-    if ((rc = dir_read(fnp)) < 0)
-      return rc;
+    if (dir_read(fnp) <= 0) {
+      dir_close(fnp);
+      return DE_BLKINVLD;
+    }
     if (fnp->f_dir.dir_attrib != D_LFN)
       break;
     fnp->f_dir.dir_name[0] = DELETED;
     fnp->f_flags.f_dmod = TRUE;
-    dir_write(fnp);
+    if (!dir_write(fnp)) return DE_BLKINVLD;
   }
   fnp->f_diroff = original_diroff - DIRENT_SIZE;
-  if ((rc = dir_read(fnp)) < 0)
-    return rc;
+  if (dir_read(fnp) <= 0) {
+    dir_close(fnp);
+    return DE_BLKINVLD;
+  }
+
   return SUCCESS;
 }
 

@@ -9,7 +9,6 @@
 #include "fat.h"
 #include "fnode.h"
 #include "file.h"
-#include "dcb.h"
 #include "cds.h"
 #include "device.h"
 #include "kbd.h"
@@ -20,15 +19,11 @@
 #include "pcb.h"
 #include "nls.h"
 #include "buffer.h"
+#include "dcb.h"
 
 #include "KConfig.h"
 extern struct _KernelConfig InitKernelConfig;
 
-/*
- * The null macro `INIT' can be used to allow the reader to differentiate
- * between functions defined in `INIT_TEXT' and those defined in `_TEXT'.
- */
-#define INIT
 /*
  * Functions in `INIT_TEXT' may need to call functions in `_TEXT'. The entry
  * calls for the latter functions therefore need to be wrapped up with far
@@ -57,9 +52,9 @@ COUNT ASMCFUNC strlen(REG BYTE * s);
 
 /*inithma.c*/
 extern BYTE DosLoadedInHMA;
-extern fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
+int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
 
-#define setvec(n, isr)  (void)(*(VOID (FAR * FAR *)())(MK_FP(0,4 * (n))) = (isr))
+#define setvec(n, isr) (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
 
 #define fbcopy(s, d, n)    fmemcpy(d,s,n)
 #define GLOBAL extern
@@ -69,7 +64,7 @@ extern fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
 #define NFCBS           16      /* number of fcbs               */
 #define NSTACKS         8       /* number of stacks             */
 #define NLAST           5       /* last drive                   */
-#define NUMBUFF         6       /* Number of track buffers      */
+#define NUMBUFF         20      /* Number of track buffers at INIT time     */
                                         /* -- must be at least 3        */
 #define MAX_HARD_DRIVE  8
 #define NDEV            26      /* up to Z:                     */
@@ -116,22 +111,22 @@ struct config {
 extern struct config Config;
 
 /* config.c */
-INIT VOID PreConfig(VOID);
-INIT VOID DoConfig(VOID);
-INIT VOID PostConfig(VOID);
-INIT BYTE FAR *KernelAlloc(WORD nBytes);
-INIT BYTE *skipwh(BYTE * s);
-INIT BYTE *scan(BYTE * s, BYTE * d);
-INIT BOOL isnum(BYTE * pszString);
-INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
-INIT COUNT tolower(COUNT c);
-INIT COUNT toupper(COUNT c);
-INIT VOID mcb_init(UCOUNT seg, UWORD size);
-INIT VOID strcat(REG BYTE * d, REG BYTE * s);
-INIT BYTE FAR *KernelAlloc(WORD nBytes);
-INIT COUNT ASMCFUNC Umb_Test(void);
-INIT COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
-INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
+VOID PreConfig(VOID);
+VOID DoConfig(int pass);
+VOID PostConfig(VOID);
+BYTE FAR * KernelAlloc(WORD nBytes);
+BYTE * skipwh(BYTE * s);
+BYTE * scan(BYTE * s, BYTE * d);
+BOOL isnum(BYTE * pszString);
+BYTE * GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
+COUNT tolower(COUNT c);
+COUNT toupper(COUNT c);
+VOID mcb_init(UCOUNT seg, UWORD size);
+VOID strcat(REG BYTE * d, REG BYTE * s);
+BYTE FAR * KernelAlloc(WORD nBytes);
+COUNT ASMCFUNC Umb_Test(void);
+COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
+BYTE * GetStringArg(BYTE * pLine, BYTE * pszString);
 
 /* diskinit.c */
 COUNT dsk_init(VOID);
@@ -141,7 +136,7 @@ COUNT ASMCFUNC Umb_Test(void);
 
 /* inithma.c */
 int MoveKernelToHMA(void);
-VOID FAR *HMAalloc(COUNT bytesToAllocate);
+VOID FAR * HMAalloc(COUNT bytesToAllocate);
 
 /* initoem.c */
 UWORD init_oem(void);
@@ -154,43 +149,43 @@ int ASMCFUNC open(const char *pathname, int flags);
 int ASMCFUNC close(int fd);
 int ASMCFUNC dup2(int oldfd, int newfd);
 int ASMCFUNC allocmem(UWORD size, seg * segp);
-INIT VOID ASMCFUNC init_PSPInit(seg psp_seg);
-INIT VOID ASMCFUNC init_PSPSet(seg psp_seg);
-INIT COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
-INIT VOID ASMCFUNC keycheck(VOID);
+VOID ASMCFUNC init_PSPInit(seg psp_seg);
+VOID ASMCFUNC init_PSPSet(seg psp_seg);
+COUNT ASMCFUNC init_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
+VOID ASMCFUNC keycheck(VOID);
 
 /* irqstack.asm */
 VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,
                           WORD stackSize);
 
 /* inthndlr.c */
-VOID far ASMCFUNC int21_entry(iregs UserRegs);
+VOID ASMCFUNC FAR int21_entry(iregs UserRegs);
 VOID ASMCFUNC int21_service(iregs far * r);
-VOID FAR ASMCFUNC int0_handler(void);
-VOID FAR ASMCFUNC int6_handler(void);
-VOID FAR ASMCFUNC empty_handler(void);
-VOID far ASMCFUNC got_cbreak(void);     /* procsupt.asm */
-VOID far ASMCFUNC int20_handler(iregs UserRegs);
-VOID far ASMCFUNC int21_handler(iregs UserRegs);
-VOID FAR ASMCFUNC int22_handler(void);
-VOID FAR ASMCFUNC int24_handler(void);
-VOID FAR ASMCFUNC low_int25_handler(void);
-VOID FAR ASMCFUNC low_int26_handler(void);
-VOID FAR ASMCFUNC int27_handler(void);
-VOID FAR ASMCFUNC int28_handler(void);
-VOID FAR ASMCFUNC int29_handler(void);
-VOID FAR ASMCFUNC int2a_handler(void);
-VOID FAR ASMCFUNC int2f_handler(void);
+VOID CDECL FAR int0_handler(void);
+VOID ASMCFUNC FAR int6_handler(void);
+VOID ASMCFUNC FAR empty_handler(void);
+VOID ASMCFUNC FAR got_cbreak(void);     /* procsupt.asm */
+VOID ASMCFUNC FAR int20_handler(iregs UserRegs);
+VOID ASMCFUNC FAR int21_handler(iregs UserRegs);
+VOID ASMCFUNC FAR int22_handler(void);
+VOID ASMCFUNC FAR int24_handler(void);
+VOID ASMCFUNC FAR low_int25_handler(void);
+VOID ASMCFUNC FAR low_int26_handler(void);
+VOID ASMCFUNC FAR int27_handler(void);
+VOID ASMCFUNC FAR int28_handler(void);
+VOID ASMCFUNC FAR int29_handler(void);
+VOID ASMCFUNC FAR int2a_handler(void);
+VOID ASMCFUNC FAR int2f_handler(void);
 
 /* main.c */
-INIT VOID ASMCFUNC FreeDOSmain(void);
-INIT BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine,
+VOID ASMCFUNC FreeDOSmain(void);
+BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine,
                       COUNT mode, COUNT top);
-INIT VOID init_fatal(BYTE * err_msg);
+VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */
-WORD init_printf(CONST BYTE * fmt, ...);
-WORD init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
+WORD ASMCFUNC init_printf(CONST BYTE * fmt, ...);
+WORD ASMCFUNC init_sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 
 void MoveKernel(unsigned NewKernelSegment);
 extern WORD HMAFree;            /* first byte in HMA not yet used      */
@@ -198,8 +193,8 @@ extern WORD HMAFree;            /* first byte in HMA not yet used      */
 extern unsigned CurrentKernelSegment;
 
 #if defined(WATCOM) && 0
-ULONG FAR ASMCFUNC MULULUS(ULONG mul1, UWORD mul2);     /* MULtiply ULong by UShort */
-ULONG FAR ASMCFUNC MULULUL(ULONG mul1, ULONG mul2);     /* MULtiply ULong by ULong */
-ULONG FAR ASMCFUNC DIVULUS(ULONG mul1, UWORD mul2);     /* DIVide ULong by UShort */
-ULONG FAR ASMCFUNC DIVMODULUS(ULONG mul1, UWORD mul2, UWORD * rem);     /* DIVide ULong by UShort */
+ULONG ASMCFUNC FAR MULULUS(ULONG mul1, UWORD mul2);     /* MULtiply ULong by UShort */
+ULONG ASMCFUNC FAR MULULUL(ULONG mul1, ULONG mul2);     /* MULtiply ULong by ULong */
+ULONG ASMCFUNC FAR DIVULUS(ULONG mul1, UWORD mul2);     /* DIVide ULong by UShort */
+ULONG ASMCFUNC FAR DIVMODULUS(ULONG mul1, UWORD mul2, UWORD * rem);     /* DIVide ULong by UShort */
 #endif

@@ -37,7 +37,7 @@ BYTE *RcsId =
 #endif
 
 #ifdef TSC
-static VOID StartTrace(VOID);
+STATIC VOID StartTrace(VOID);
 static bTraceNext = FALSE;
 #endif
 
@@ -368,7 +368,7 @@ dispatch:
 
     case 0x14:
       {
-        if (FcbRead(FP_DS_DX, &CritErrCode))
+        if (FcbRead(FP_DS_DX, &CritErrCode, 0))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -377,7 +377,7 @@ dispatch:
 
     case 0x15:
       {
-        if (FcbWrite(FP_DS_DX, &CritErrCode))
+        if (FcbWrite(FP_DS_DX, &CritErrCode, 0))
           r->AL = 0;
         else
           r->AL = CritErrCode;
@@ -497,11 +497,7 @@ dispatch:
 
       /* Set Interrupt Vector                                         */
     case 0x25:
-      {
-        VOID(INRPT FAR * p) () = FP_DS_DX;
-
-        setvec(r->AL, p);
-      }
+      setvec(r->AL, FP_DS_DX);
       break;
 
       /* Dos Create New Psp                                           */
@@ -701,9 +697,7 @@ dispatch:
       /* Get Interrupt Vector                                         */
     case 0x35:
       {
-        BYTE FAR *p;
-
-        p = getvec((COUNT) r->AL);
+        intvec p = getvec((COUNT) r->AL);
         r->ES = FP_SEG(p);
         r->BX = FP_OFF(p);
       }
@@ -1221,8 +1215,8 @@ dispatch:
         case 0x06:
           r->DS = FP_SEG(internal_data);
           r->SI = FP_OFF(internal_data);
-          r->CX = swap_always - internal_data;
-          r->DX = swap_indos - internal_data;
+          r->CX = swap_indos - internal_data;
+          r->DX = swap_always - internal_data;
           CLEAR_CARRY_FLAG();
           break;
 
@@ -1427,7 +1421,10 @@ dispatch:
       /* Flush file buffer -- COMMIT FILE -- dummy function right now.  */
     case 0x68:
     case 0x6a:
-      CLEAR_CARRY_FLAG();
+      if ((rc = DosCommit(r->BX)) < 0)
+        goto error_exit;
+      else
+        CLEAR_CARRY_FLAG();
       break;
 
       /* Get/Set Serial Number */
@@ -1718,16 +1715,15 @@ dispatch:
               CLEAR_CARRY_FLAG();
 
               if (r->SI == 0)
-                mode = DSKREAD;
+                mode = DSKREADINT25;
               else
-                mode = DSKWRITE;
-              InDOS++;
+                mode = DSKWRITEINT26;
 
               r->AX =
                   dskxfer(r->DL - 1, SectorBlock->blkno, SectorBlock->buf,
                           SectorBlock->nblks, mode);
 
-              if (mode == DSKWRITE)
+              if (mode == DSKWRITEINT26)
                 if (r->AX <= 0)
                   setinvld(r->DL - 1);
 
@@ -1735,15 +1731,12 @@ dispatch:
               {
                 r->AX = 0x20c;
                 r->flags |= FLG_CARRY;
-                --InDOS;
                 return;
               }
-
-              r->AX = 0;
-              r->flags &= ~FLG_CARRY;
-              --InDOS;
               break;
             }
+          default:
+            goto error_invalid;
         }
         break;
       }
@@ -1754,49 +1747,36 @@ dispatch:
       {
         switch (r->AL)
         {
-            /* Allocate LFN inode */
+          /* Allocate LFN inode */
           case 0x01:
-            {
-              r->AX = lfn_allocate_inode();
-              break;
-            }
-            /* Free LFN inode */
+            rc = lfn_allocate_inode();
+            break;
+          /* Free LFN inode */
           case 0x02:
-            {
-              r->AX = lfn_free_inode(r->BX);
-              break;
-            }
-            /* Setup LFN inode */
+            rc = lfn_free_inode(r->BX);
+            break;
+          /* Setup LFN inode */
           case 0x03:
-            {
-              r->AX = lfn_setup_inode(r->BX, r->CX, r->DX);
-              break;
-            }
-            /* Create LFN entries */
+            rc = lfn_setup_inode(r->BX, ((ULONG)r->CX << 16) | r->DX, ((ULONG)r->SI << 16) | r->DI);
+            break;
+          /* Create LFN entries */
           case 0x04:
-            {
-              r->AX = lfn_create_entries(r->BX, (lfn_inode_ptr) FP_DS_DX);
-              break;
-            }
-            /* Delete LFN entries */
+            rc = lfn_create_entries(r->BX, (lfn_inode_ptr)FP_DS_DX);
+            break;
+          /* Read next LFN */
           case 0x05:
-            {
-              r->AX = lfn_remove_entries(r->BX);
-              break;
-            }
-            /* Read next LFN */
+            rc = lfn_dir_read(r->BX, (lfn_inode_ptr)FP_DS_DX);
+            break;
+          /* Write SFN pointed by LFN inode */
           case 0x06:
-            {
-              r->AX = lfn_dir_read(r->BX, (lfn_inode_ptr) FP_DS_DX);
-              break;
-            }
-            /* Write SFN pointed by LFN inode */
-          case 0x07:
-            {
-              r->AX = lfn_dir_write(r->BX);
-              break;
-            }
+            rc = lfn_dir_write(r->BX);
+            break;
+          default:
+            goto error_invalid;
         }
+        r->AX = rc;
+        if (rc < 0) goto error_out;
+        else CLEAR_CARRY_FLAG();
         break;
       }
 #endif
@@ -1912,7 +1892,7 @@ VOID int26_handler(struct int25regs FAR * r) { int2526_handler(DSKWRITE,r); }
 */
 
 #ifdef TSC
-static VOID StartTrace(VOID)
+STATIC VOID StartTrace(VOID)
 {
   if (bTraceNext)
   {

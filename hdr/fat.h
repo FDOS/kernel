@@ -97,14 +97,14 @@ struct dirent {
 };
 
 struct lfn_entry {
-  UBYTE lfn_id;
-  UNICODE lfn_name0_4[5];
-  UBYTE lfn_attrib;
+  UBYTE lfn_id;                 /* Sequence number for this LFN entry      */
+  UNICODE lfn_name0_4[5];       /* First 5 characters of LFN               */
+  UBYTE lfn_attrib;             /* LFN attribute, should be D_LFN == 0x0f  */
   UBYTE lfn_reserved1;
-  UBYTE lfn_checksum;
-  UNICODE lfn_name5_10[6];
+  UBYTE lfn_checksum;           /* Checksum for the corresponding 8.3 name */
+  UNICODE lfn_name5_10[6];      /* Next 6 characters of LFN                */
   UWORD lfn_reserved2;
-  UNICODE lfn_name11_12[2];
+  UNICODE lfn_name11_12[2];     /* Last 2 characters of LFN                */
 };
 
 /*                                                                      */
@@ -139,16 +139,6 @@ struct lfn_entry {
 #define DIR_SIZE        FNAME_SIZE+FEXT_SIZE+17
 
 #define DIRENT_SIZE     32
-
-struct lfn_inode {
-  UNICODE name[256];
-
-  struct dirent l_dir;
-
-  ULONG l_diroff;               /* offset of the dir entry      */
-};
-
-typedef struct lfn_inode FAR *lfn_inode_ptr;
 
 /*
  * Log: fat.h,v 

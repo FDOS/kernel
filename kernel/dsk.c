@@ -59,27 +59,23 @@ extern COUNT ASMCFUNC fl_lba_ReadWrite(BYTE drive, WORD mode,
                                        struct _bios_LBA_address_packet FAR
                                        * dap_p);
 
-int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
+STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
                  ULONG LBA_address, unsigned total, UWORD * transferred);
 #else
-BOOL fl_reset();
-COUNT fl_readdasd();
-COUNT fl_diskchanged();
-COUNT fl_rd_status();
-COUNT fl_format();
-COUNT fl_read();
-COUNT fl_write();
-COUNT fl_verify();
-VOID fl_readkey();
-COUNT fl_setmediatype();
-COUNT fl_setdisktype();
+BOOL ASMCFUNC fl_reset();
+COUNT ASMCFUNC fl_readdasd();
+COUNT ASMCFUNC fl_diskchanged();
+COUNT ASMCFUNC fl_rd_status();
+COUNT ASMCFUNC fl_format();
+COUNT ASMCFUNC fl_read();
+COUNT ASMCFUNC fl_write();
+COUNT ASMCFUNC fl_verify();
+VOID ASMCFUNC fl_readkey();
+COUNT ASMCFUNC fl_setmediatype();
+COUNT ASMCFUNC fl_setdisktype();
 #endif
 
 #define NENTRY		26      /* total size of dispatch table */
-
-extern BYTE FAR nblk_rel;
-
-extern int FAR ASMCFUNC Get_nblk_rel(void);
 
 #define LBA_READ         0x4200
 #define LBA_WRITE        0x4300
@@ -106,12 +102,26 @@ struct FS_info {
   BYTE fstype[8];
 };
 
-extern struct DynS Dyn;
+extern struct DynS ASM Dyn;
 
 /*TE - array access functions */
 ddt *getddt(int dev)
 {
   return &(((ddt *) Dyn.Buffer)[dev]);
+}
+
+ULONG dsk_lasttime = 0;
+
+STATIC VOID tmark(ddt *pddt)
+{
+  ReadPCClock(&pddt->ddt_fh.ddt_lasttime);
+}
+
+STATIC BOOL tdelay(ddt *pddt, ULONG ticks)
+{
+  ULONG now;
+  ReadPCClock(&now);
+  return now - pddt->ddt_fh.ddt_lasttime >= ticks;
 }
 
 #define N_PART 4                /* number of partitions per
@@ -122,44 +132,26 @@ COUNT nUnits;                   /* number of returned units     */
 #define PARTOFF 0x1be
 
 #ifdef PROTO
-WORD
-_dsk_init(rqptr rq, ddt * pddt),
-mediachk(rqptr rq, ddt * pddt),
-bldbpb(rqptr rq, ddt * pddt),
-blockio(rqptr rq, ddt * pddt),
-IoctlQueblk(rqptr rq, ddt * pddt),
-Genblkdev(rqptr rq, ddt * pddt),
-Getlogdev(rqptr rq, ddt * pddt),
-Setlogdev(rqptr rq, ddt * pddt),
-blk_Open(rqptr rq, ddt * pddt),
-blk_Close(rqptr rq, ddt * pddt),
-blk_Media(rqptr rq, ddt * pddt),
-blk_noerr(rqptr rq, ddt * pddt),
-blk_nondr(rqptr rq, ddt * pddt), blk_error(rqptr rq, ddt * pddt);
-WORD dskerr(COUNT);
+typedef WORD dsk_proc(rqptr rq, ddt * pddt);
 #else
-WORD _dsk_init(),
-mediachk(),
-bldbpb(),
-blockio(),
-IoctlQueblk(),
-Genblkdev(),
-Getlogdev(),
-Setlogdev(),
-blk_Open(),
-blk_Close(), blk_Media(), blk_noerr(), blk_nondr(), blk_error();
-WORD dskerr();
+typedef WORD dsk_proc();
+#endif
+
+STATIC dsk_proc _dsk_init, mediachk, bldbpb, blockio, IoctlQueblk,
+    Genblkdev, Getlogdev, Setlogdev, blk_Open, blk_Close,
+    blk_Media, blk_noerr, blk_nondr, blk_error;
+
+#ifdef PROTO
+STATIC WORD dskerr(COUNT);
+#else
+STATIC WORD dskerr();
 #endif
 
 /*                                                                      */
 /* the function dispatch table                                          */
 /*                                                                      */
 
-#ifdef PROTO
-static WORD(*dispatch[NENTRY]) (rqptr rq, ddt * pddt) =
-#else
-static WORD(*dispatch[NENTRY]) () =
-#endif
+static dsk_proc (*dispatch[NENTRY]) =
 {
   _dsk_init,                    /* Initialize                   */
       mediachk,                 /* Media Check                  */
@@ -195,7 +187,7 @@ static WORD(*dispatch[NENTRY]) () =
 /*  F U N C T I O N S  --------------------------------------------------- */
 /* ----------------------------------------------------------------------- */
 
-COUNT FAR ASMCFUNC blk_driver(rqptr rp)
+COUNT ASMCFUNC FAR blk_driver(rqptr rp)
 {
   if (rp->r_unit >= nUnits && rp->r_command != C_INIT)
     return failure(E_UNIT);
@@ -208,7 +200,7 @@ COUNT FAR ASMCFUNC blk_driver(rqptr rp)
 }
 
 /* disk init is done in diskinit.c, so this should never be called */
-WORD _dsk_init(rqptr rp, ddt * pddt)
+STATIC WORD _dsk_init(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(rp);
   UNREFERENCED_PARAMETER(pddt);
@@ -267,10 +259,10 @@ STATIC WORD diskchange(ddt * pddt)
   }
 
   /* can not detect or error... */
-  return tdelay((LONG) 37) ? M_DONT_KNOW : M_NOT_CHANGED;
+  return tdelay(pddt, 37ul) ? M_DONT_KNOW : M_NOT_CHANGED;
 }
 
-WORD mediachk(rqptr rp, ddt * pddt)
+STATIC WORD mediachk(rqptr rp, ddt * pddt)
 {
   /* check floppy status */
   if (pddt->ddt_descflags & DF_REFORMAT)
@@ -306,29 +298,53 @@ STATIC WORD RWzero(ddt * pddt, UWORD mode)
    0 if not set, 1 = a, 2 = b, etc, assume set.
    page 424 MS Programmer's Ref.
  */
-static WORD Getlogdev(rqptr rp, ddt * pddt)
+STATIC WORD Getlogdev(rqptr rp, ddt * pddt)
 {
-  BYTE x = rp->r_unit;
+  int i;
+  ddt *pddt2 = getddt(0);
 
-  UNREFERENCED_PARAMETER(pddt);
+  if (!(pddt->ddt_descflags & DF_MULTLOG)) {
+    rp->r_unit = 0;
+    return S_DONE;
+  }
 
-  x++;
-  if (x > Get_nblk_rel())
-    return failure(E_UNIT);
+  for (i = 0; i < nUnits; i++, pddt2++)
+  {
+    if (pddt->ddt_driveno == pddt2->ddt_driveno &&
+        (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) ==
+        (DF_MULTLOG | DF_CURLOG))
+        break;
+  }
 
-  rp->r_unit = x;
+  rp->r_unit = i+1;
   return S_DONE;
 }
 
-static WORD Setlogdev(rqptr rp, ddt * pddt)
+STATIC WORD Setlogdev(rqptr rp, ddt * pddt)
 {
-  UNREFERENCED_PARAMETER(rp);
-  UNREFERENCED_PARAMETER(pddt);
+  int i;
+  ddt *pddt2 = getddt(0);
 
+  if (!(pddt->ddt_descflags & DF_MULTLOG)) {
+    rp->r_unit = 0;
+    return S_DONE;
+  }
+
+  for (i = 0; i < nUnits; i++, pddt2++)
+  {
+    if (pddt->ddt_driveno == pddt2->ddt_driveno &&
+        (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) ==
+        (DF_MULTLOG | DF_CURLOG))
+        break;
+  }
+
+  pddt2->ddt_descflags &= ~DF_CURLOG;
+  pddt->ddt_descflags |= DF_CURLOG;
+  rp->r_unit++;
   return S_DONE;
 }
 
-static WORD blk_Open(rqptr rp, ddt * pddt)
+STATIC WORD blk_Open(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(rp);
 
@@ -336,7 +352,7 @@ static WORD blk_Open(rqptr rp, ddt * pddt)
   return S_DONE;
 }
 
-static WORD blk_Close(rqptr rp, ddt * pddt)
+STATIC WORD blk_Close(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(rp);
 
@@ -344,7 +360,7 @@ static WORD blk_Close(rqptr rp, ddt * pddt)
   return S_DONE;
 }
 
-static WORD blk_nondr(rqptr rp, ddt * pddt)
+STATIC WORD blk_nondr(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(rp);
   UNREFERENCED_PARAMETER(pddt);
@@ -352,7 +368,7 @@ static WORD blk_nondr(rqptr rp, ddt * pddt)
   return S_BUSY | S_DONE;
 }
 
-static WORD blk_Media(rqptr rp, ddt * pddt)
+STATIC WORD blk_Media(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(rp);
 
@@ -362,13 +378,16 @@ static WORD blk_Media(rqptr rp, ddt * pddt)
     return S_DONE;              /* Floppy */
 }
 
-static WORD getbpb(ddt * pddt)
+STATIC WORD getbpb(ddt * pddt)
 {
   ULONG count;
   bpb *pbpbarray = &pddt->ddt_bpb;
   WORD head, /*track, */ sector, ret;
 
-  pddt->ddt_descflags |= DF_NOACCESS;   /* set drive to not accessible and changed */
+  /* pddt->ddt_descflags |= DF_NOACCESS; 
+   * disabled for now - problems with FORMAT ?? */
+
+  /* set drive to not accessible and changed */
   if (diskchange(pddt) != M_NOT_CHANGED)
     pddt->ddt_descflags |= DF_DISKCHANGE;
 
@@ -447,12 +466,12 @@ static WORD getbpb(ddt * pddt)
 
   if (head == 0 || sector == 0)
   {
-    tmark();
+    tmark(pddt);
     return failure(E_FAILURE);
   }
   pddt->ddt_ncyl = (count + head * sector - 1) / (head * sector);
 
-  tmark();
+  tmark(pddt);
 
 #ifdef DSK_DEBUG
   printf("BPB_NSECS     = %04x\n", sector);
@@ -475,7 +494,7 @@ STATIC WORD bldbpb(rqptr rp, ddt * pddt)
   return S_DONE;
 }
 
-static WORD IoctlQueblk(rqptr rp, ddt * pddt)
+STATIC WORD IoctlQueblk(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(pddt);
 
@@ -494,7 +513,7 @@ static WORD IoctlQueblk(rqptr rp, ddt * pddt)
 
 }
 
-COUNT Genblockio(ddt * pddt, UWORD mode, WORD head, WORD track,
+STATIC COUNT Genblockio(ddt * pddt, UWORD mode, WORD head, WORD track,
                  WORD sector, WORD count, VOID FAR * buffer)
 {
   UWORD transferred;
@@ -753,7 +772,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
   return S_DONE;
 }
 
-WORD blockio(rqptr rp, ddt * pddt)
+STATIC WORD blockio(rqptr rp, ddt * pddt)
 {
   ULONG start, size;
   WORD ret;
@@ -776,10 +795,10 @@ WORD blockio(rqptr rp, ddt * pddt)
       return failure(E_FAILURE);
   }
 
-  if (pddt->ddt_descflags & 0x200)      /* drive inaccessible */
+  if (pddt->ddt_descflags & DF_NOACCESS)      /* drive inaccessible */
     return failure(E_FAILURE);
 
-  tmark();
+  tmark(pddt);
   start = (rp->r_start != HUGECOUNT ? rp->r_start : rp->r_huge);
   pbpb = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
   size = (pbpb->bpb_nsize ? pbpb->bpb_nsize : pbpb->bpb_huge);
@@ -854,7 +873,7 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
+STATIC void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt * pddt)
 {
   /* we need the defbpb values since those are taken from the
      BIOS, not from some random boot sector, except when
@@ -916,7 +935,7 @@ STATIC unsigned DMA_max_transfer(void FAR * buffer, unsigned count)
     
 */
 
-int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
+STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
                  ULONG LBA_address, unsigned totaltodo,
                  UWORD * transferred)
 {

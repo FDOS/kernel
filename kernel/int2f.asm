@@ -58,6 +58,8 @@ Int2f3:
                 je      IntDosCal               ; Dos Internal calls
                 cmp     ah,10h                  ; SHARE.EXE interrupt?
                 je      Int2f1                  ; yes, do installation check
+                cmp     ah,08h
+                je      DriverSysCal            ; DRIVER.SYS calls
                 cmp     ah,14h                  ; NLSFUNC.EXE interrupt?
                 jne     Int2f?iret              ; yes, do installation check
 Int2f?14:      ;; MUX-14 -- NLSFUNC API
@@ -81,6 +83,15 @@ Int2f?14?1:        or BYTE [bp-6], 1
 Int2f?iret:
                iret
 
+; DRIVER.SYS calls - now only 0803.
+DriverSysCal:
+                extern  _Dyn:wrt DGROUP
+                cmp     al, 3
+                jne     Int2f?iret
+                mov     di, seg _Dyn
+                mov     ds, di
+                mov     di, _Dyn+2
+                jmp     short Int2f?iret
 
 
 ;***********************************************************
@@ -149,6 +160,11 @@ _remote_chdir:
                 global  _remote_close
 _remote_close: 
                 mov     al, 06h
+                jmp     short call_int2f
+
+                global  _remote_commit
+_remote_commit: 
+                mov     al, 07h
                 jmp     short call_int2f
 
                 global  _remote_read

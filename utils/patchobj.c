@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #ifndef TRUE
 #define TRUE (1==1)
@@ -25,6 +26,8 @@ struct {
   char *sin, *sout;
 } repl[100];
 int repl_count;
+
+void go_records(FILE * fdin, FILE * fdo);
 
 void quit(char *s, ...)
 {
@@ -54,7 +57,6 @@ int main(int argc, char *argv[])
   char *argptr;
   int argloop;
   int cont;
-  int file = 0;
   FILE *fd, *fdo;
   char *inname = 0, *outname = "~patchob.tmp";
 
@@ -66,9 +68,9 @@ int main(int argc, char *argv[])
   {
     argptr = *argv;
 
-    if (*argptr != '-' && *argptr != '-')
+    if (*argptr != '-' && *argptr != '/')
     {
-      if (inname == 0)
+      if (argc == 1)
       {
         inname = argptr;
         continue;
@@ -114,21 +116,15 @@ int main(int argc, char *argv[])
 
 }
 
-usage()
-{
-  fputs("DELSYM V1.0 5'95by tom ehlert, SIG Aachen\n"
-        "       delete symbolic info in object files\n"
-        "usage:\n" "     DELSYM infile [outfile]\n", stderr);
-  exit(1);
-}
-
 struct record {
   unsigned char rectyp;
   unsigned datalen;
   unsigned char buffer[0x2000];
 } Record, Outrecord;
 
-go_records(FILE * fdin, FILE * fdo)
+struct verify_pack1 { char x[ sizeof(struct record) == 0x2003 ? 1 : -1];};
+
+void go_records(FILE * fdin, FILE * fdo)
 {
   unsigned char stringlen;
   unsigned char *string, *s;
@@ -151,13 +147,15 @@ go_records(FILE * fdin, FILE * fdo)
       quit("can't continue\n");
     }
 
-    if (Record.rectyp != 0x96)  /* we are only interested in LNAMES */
+    if (Record.rectyp != 0x96 && Record.rectyp != 0x8c)  /* we are only interested in LNAMES */
     {
       fwrite(&Record, 1, 3 + Record.datalen, fdo);
       continue;
     }
 
-    Outrecord.rectyp = 0x96;
+    /* printf("at %lx - record type %x len %x\n",ftell(fdin)-3,Record.rectyp,
+       Record.datalen);*/
+    Outrecord.rectyp = Record.rectyp;
     Outrecord.datalen = 0;
 
     for (i = 0; i < Record.datalen - 1;)

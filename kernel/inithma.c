@@ -67,9 +67,9 @@
 #include "init-mod.h"
 #include "init-dat.h"
 
-extern BYTE FAR _HMATextAvailable,      /* first byte of available CODE area    */
-  FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
-  FAR _HMATextEnd[];            /* and the last byte of it              */
+extern BYTE FAR ASM _HMATextAvailable,      /* first byte of available CODE area    */
+  FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
+  FAR ASM _HMATextEnd[];            /* and the last byte of it              */
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -78,14 +78,14 @@ static BYTE *RcsId =
 
 BYTE DosLoadedInHMA = FALSE;    /* set to TRUE if loaded HIGH          */
 BYTE HMAclaimed = FALSE;        /* set to TRUE if claimed from HIMEM   */
-WORD HMAFree = 0;               /* first byte in HMA not yet used      */
+WORD HMAFree = 0;              	/* first byte in HMA not yet used      */
 
-extern BYTE FAR *DOSTEXTFAR ASMCFUNC XMSDriverAddress;
-extern FAR ASMCFUNC _EnableA20(VOID);
-extern FAR ASMCFUNC _DisableA20(VOID);
+extern void FAR *DOSTEXTFAR ASM XMSDriverAddress;
+VOID ASMCFUNC FAR _EnableA20(VOID);
+VOID ASMCFUNC FAR _DisableA20(VOID);
 
-extern void FAR *ASMCFUNC DetectXMSDriver(VOID);
-extern int ASMCFUNC init_call_XMScall(void FAR * driverAddress, UWORD ax,
+void FAR * ASMCFUNC DetectXMSDriver(VOID);
+int ASMCFUNC init_call_XMScall(void FAR * driverAddress, UWORD ax,
                                       UWORD dx);
 
 #ifdef DEBUG
@@ -127,7 +127,7 @@ VOID hdump(BYTE FAR * p)
 #define KeyboardShiftState() (*(BYTE FAR *)(MK_FP(0x40,0x17)))
 
 /* of course, this should go to ASMSUPT */
-fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len)
+int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len)
 {
   for (; len; s1++, s2++, --len)
   {
@@ -316,7 +316,7 @@ void HMAconfig(int finalize)
     only available if DOS=HIGH was successful
 */
 
-VOID FAR *HMAalloc(COUNT bytesToAllocate)
+VOID FAR * HMAalloc(COUNT bytesToAllocate)
 {
   VOID FAR *HMAptr;
 
@@ -416,8 +416,8 @@ void MoveKernel(unsigned NewKernelSegment)
       UWORD jmpSegment;
     };
     extern struct RelocationTable
-    DOSTEXTFAR _HMARelocationTableStart[],
-        DOSTEXTFAR _HMARelocationTableEnd[];
+    DOSTEXTFAR ASM _HMARelocationTableStart[],
+        DOSTEXTFAR ASM _HMARelocationTableEnd[];
 
     struct RelocationTable FAR *rp, rtemp;
 
@@ -469,7 +469,7 @@ void MoveKernel(unsigned NewKernelSegment)
       UWORD jmpSegment;
     };
     extern struct initRelocationTable
-        _HMAinitRelocationTableStart[], _HMAinitRelocationTableEnd[];
+        ASM _HMAinitRelocationTableStart[], ASM _HMAinitRelocationTableEnd[];
     struct initRelocationTable *rp;
 
     /* verify, that all entries are valid */

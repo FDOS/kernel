@@ -170,18 +170,8 @@ _blk_dev        equ     $
                 dw      08c2h           ; block device with ioctl
                 dw      GenStrategy
                 dw      blk_entry
-                global  _nblk_rel
-_nblk_rel       db      4
+		db      4
                 db      0,0,0,0,0,0,0
-
-; quick hack for MSC
-               global  _Get_nblk_rel
-_Get_nblk_rel:
-	mov ah,0
-	mov al,[cs:_nblk_rel]
-	retf
-;end of hack
-
 
 
 ;

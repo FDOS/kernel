@@ -49,9 +49,9 @@ additionally:
 
 #ifndef __TURBOC__
 #include "init-dat.h"
-extern struct DynS DOSFAR Dyn;
+extern struct DynS DOSFAR ASM Dyn;
 #else
-extern struct DynS FAR Dyn;
+extern struct DynS FAR ASM Dyn;
 #endif
 
 void far *DynAlloc(char *what, unsigned num, unsigned size)
@@ -85,7 +85,7 @@ void DynFree(void *ptr)
   Dyn.Allocated = (char *)ptr - (char *)Dyn.Buffer;
 }
 
-void FAR *DynLast()
+void FAR * DynLast()
 {
   DebugPrintf(("dynamic data end at %p\n",
                (void FAR *)(Dyn.Buffer + Dyn.Allocated)));

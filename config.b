@@ -54,10 +54,17 @@ set TC2_BASE=c:\tc201
 
 :- if WATCOM maybe you need to set your WATCOM environment variables 
 :- and path
-:- if not %WATCOM% == \ goto watcom_defined
+:- if not \%WATCOM% == \ goto watcom_defined
 :- set WATCOM=c:\watcom
 :- set PATH=%PATH%;%WATCOM%\binw
 :watcom_defined
+
+:-**********************************************************************
+:- where is UPX and which options to use?
+:-**********************************************************************
+set XUPX=upx --8086
+:- or use set XUPX= 
+:- if you don't want to use it
 
 :-**********************************************************************
 :- (optionally) which linker to use:
@@ -108,6 +115,7 @@ set XFAT=16
 :- Give extra compiler DEFINE flags here
 :- such as -DDEBUG : extra DEBUG output
 :-         -DDOSEMU : printf output goes to dosemu log
+:-	   -p : use PASCAL calling convention with Turbo C
 :- set ALLCFLAGS=-DDEBUG
 
 

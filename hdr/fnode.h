@@ -63,22 +63,17 @@ struct f_node {
   UWORD f_boff;                 /* the byte in the cluster      */
 };
 
-#if 0
-struct lfn_inode {
-  UNICODE name[255];
-
-  struct dirent l_dir;          /* this file's dir entry image  */
-
-  ULONG l_diroff;               /* offset of the dir entry      */
-  CLUSTER l_dirstart;           /* the starting cluster of dir  */
-  /* when dir is not root         */
-};
-
-typedef struct lfn_inode FAR *lfn_inode_ptr;
-#endif
-
 typedef struct f_node *f_node_ptr;
 
+struct lfn_inode {
+  UNICODE l_name[261];          /* Long file name string          */
+                                /* If the string is empty,        */
+                                /* then file has the 8.3 name     */
+  struct dirent l_dir;          /* Directory entry image          */
+  ULONG l_diroff;               /* Current directory entry offset */
+};
+  
+typedef struct lfn_inode FAR * lfn_inode_ptr;
 /*
  * Log: fnode.h,v 
  *

@@ -60,7 +60,7 @@ void FAR *nxtMCBsize(mcb FAR * Mcb, int size)
  *  SUCCESS: on success
  *  else: error number <<currently DE_MCBDESTRY only>>
  */
-static COUNT joinMCBs(mcb FAR * p)
+STATIC COUNT joinMCBs(mcb FAR * p)
 {
   mcb FAR *q;
 
@@ -95,7 +95,7 @@ seg long2para(ULONG size)
 /*
  * Add a displacement to a far pointer and return the result normalized.
  */
-VOID FAR *add_far(VOID FAR * fp, ULONG off)
+VOID FAR * add_far(VOID FAR * fp, ULONG off)
 {
   UWORD off2;
 
@@ -111,7 +111,7 @@ VOID FAR *add_far(VOID FAR * fp, ULONG off)
 /*
  * Return a normalized far pointer
  */
-VOID FAR *adjust_far(VOID FAR * fp)
+VOID FAR * adjust_far(VOID FAR * fp)
 {
   /* and return an adddress adjusted to the nearest paragraph     */
   /* boundary.                                                    */

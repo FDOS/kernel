@@ -46,36 +46,11 @@ static BYTE *blockioRcsId =
 /*                                                                      */
 /* Initialize the buffer structure                                      */
 /*                                                                      */
-/* XXX: This should go into `INIT_TEXT'. -- ror4 */
 
-/* this code moved to CONFIG.C 
-VOID FAR reloc_call_init_buffers(void)
-{
-  REG WORD i;
-  REG WORD count;
-
-  printf("init_buffers %d buffers at %p\n",Config.cfgBuffers, (void FAR*)&buffers[0]);
-
-  for (i = 0; i < Config.cfgBuffers; ++i)
-  {
-	struct buffer FAR *pbuffer = &buffers[i];
-  	
-    pbuffer->b_unit = 0;
-    pbuffer->b_flag = 0;
-    pbuffer->b_blkno = 0;
-    pbuffer->b_copies = 0;
-    pbuffer->b_offset = 0;
-    if (i < (Config.cfgBuffers - 1))
-      pbuffer->b_next = pbuffer + 1;
-    else
-      pbuffer->b_next = NULL;
-  }
-  firstbuf = &buffers[0];
-}
-*/
 /* Extract the block number from a buffer structure. */
+
 #if 0 /*TE*/
-    ULONG getblkno(struct buffer FAR * bp)
+STATIC ULONG getblkno(struct buffer FAR * bp)
 {
   if (bp->b_blkno == 0xffffu)
     return bp->b_huge_blkno;
@@ -89,7 +64,7 @@ VOID FAR reloc_call_init_buffers(void)
 /*  Set the block number of a buffer structure. (The caller should  */
 /*  set the unit number before calling this function.)     */
 #if 0 /*TE*/
-    VOID setblkno(struct buffer FAR * bp, ULONG blkno)
+STATIC VOID setblkno(struct buffer FAR * bp, ULONG blkno)
 {
   if (blkno >= 0xffffu)
   {

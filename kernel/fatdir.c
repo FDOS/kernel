@@ -196,7 +196,8 @@ f_node_ptr dir_open(BYTE * dirname)
     while (dir_read(fnp) == 1)
     {
       if (fnp->f_dir.dir_name[0] != '\0'
-          && fnp->f_dir.dir_name[0] != DELETED)
+          && fnp->f_dir.dir_name[0] != DELETED
+          && !(fnp->f_dir.dir_attrib & D_VOLID))
       {
         if (fcmp
             (TempBuffer, (BYTE *) fnp->f_dir.dir_name,
@@ -319,6 +320,11 @@ COUNT dir_read(REG f_node_ptr fnp)
 /* Description.
  *  Writes directory entry pointed by fnp to disk. In case of erroneous
  *  situation fnode is released.
+ *  The caller should set
+ *    1. f_dmod flag if original directory entry was modified.
+ *    2. f_dmod & f_dnew flags if new directory entry is created. In this
+ *       case the reserved fields is cleared, but only if new dentry isn't
+ *       a LFN entry (has D_LFN attribute). 
  * Return value.
  *  TRUE  - all OK.
  *  FALSE - error occured (fnode is released).
@@ -406,8 +412,6 @@ BOOL dir_write(REG f_node_ptr fnp)
 
 VOID dir_close(REG f_node_ptr fnp)
 {
-  REG COUNT disk = fnp->f_dpb->dpb_unit;
-
   /* Test for invalid f_nodes                                     */
   if (fnp == NULL)
     return;
@@ -418,7 +422,7 @@ VOID dir_close(REG f_node_ptr fnp)
 
 #endif
   /* Clear buffers after release                                  */
-  flush_buffers(disk);
+  flush_buffers(fnp->f_dpb->dpb_unit);
 
   /* and release this instance of the fnode                       */
   release_f_node(fnp);
@@ -517,6 +521,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
       {
         dmp->dm_dircluster = fnp->f_dirstart;   /* TE */
         memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
+#ifdef DEBUG
+        printf("dos_findfirst: %11s\n", fnp->f_dir.dir_name);
+#endif
         dir_close(fnp);
         return SUCCESS;
       }
@@ -629,6 +636,9 @@ COUNT dos_findnext(void)
     memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
   }
 
+#ifdef DEBUG
+  printf("dos_findnext: %11s\n", fnp->f_dir.dir_name);
+#endif
   /* return the result                                            */
   release_f_node(fnp);
 

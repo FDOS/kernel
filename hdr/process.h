@@ -68,10 +68,10 @@ typedef struct {
 
   /* CP/M-like entry point                                */
   UBYTE ps_farcall;             /* 05  far call opcode              */
-    VOID(FAR * ps_reentry) ();  /* 06  re-entry point          */
-    VOID(interrupt FAR * ps_isv22) (),  /* 0a  terminate address */
-    (interrupt FAR * ps_isv23) (),      /* 0e break address   */
-    (interrupt FAR * ps_isv24) ();      /* 12 critical error address */
+  VOID(FAR ASMCFUNC * ps_reentry) ();  /* 06  re-entry point          */
+  intvec ps_isv22,	        /* 0a  terminate address */
+         ps_isv23,        	/* 0e break address   */
+         ps_isv24;        	/* 12 critical error address */
   UWORD ps_parent;              /* 16 parent psp segment           */
   UBYTE ps_files[20];           /* 18 file table - 0xff is unused  */
   UWORD ps_environ;             /* 2c environment paragraph        */
