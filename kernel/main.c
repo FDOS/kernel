@@ -216,8 +216,8 @@ STATIC void init_kernel(void)
   setvec(0x2a, int2a_handler);
   setvec(0x2f, int2f_handler);
 
-  set_DTA(MK_FP(DOS_PSP, 0x80));
   init_PSPSet(DOS_PSP);
+  set_DTA(MK_FP(DOS_PSP, 0x80));
   init_PSPInit(DOS_PSP);
   ((psp far *)MK_FP(DOS_PSP, 0))->ps_environ = DOS_PSP + 8;
 
