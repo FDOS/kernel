@@ -32,7 +32,7 @@ INITPATCH=@rem
 
 !include "..\mkfiles\$(COMPILER).mak"
 
-THETARGET=$(TARGET)$(XCPU)$(XFAT)
+TARGET=$(TARGET)$(XCPU)$(XFAT)
 RM=..\utils\rmfiles
 
 .asm.obj :

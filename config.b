@@ -17,7 +17,7 @@
 :-*********************************************************************
 
 :-**********************************************************************
-:-- define where to find NASM - remember - it should not be protected
+:-- define NASM executable - remember - it should not be protected
 :-  mode DJGPP version if you're using Windows NT/2k/XP to compile
 :-  also: DJGPP-nasm crashes when using protected mode Borland's make
 :-**********************************************************************

@@ -3,7 +3,7 @@
 :- $Id$
 
 :----------------------------------------------------------
-:- batch file to build _many_ KERNELS, hope build works
+:- batch file to build _many_ KERNELS, hope build works.
 :- takes 3 minutes on my(TE) Win2K/P700. your milage may vary :-)
 :----------------------------------------------------------
 
