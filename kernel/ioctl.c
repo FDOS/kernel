@@ -106,10 +106,17 @@ COUNT DosDevIOctl(lregs * r)
           /* can't set the status of a file.                      */
           if (!(flags & SFT_FDEVICE))
             return DE_INVLDFUNC;
+          /* RBIL says this is only for DOS < 6, but MSDOS 7.10   */
+          /* returns this as well... and some buggy program relies*/
+          /* on it :(                                             */
+          if (r->DH != 0)
+            return DE_INVLDDATA;
 
+          /* Undocumented: AL should get the old value            */
+          r->AL = s->sft_flags_lo;
           /* Set it to what we got in the DL register from the    */
           /* user.                                                */
-          r->AL = s->sft_flags_lo = SFT_FDEVICE | r->DL;
+          s->sft_flags_lo = SFT_FDEVICE | r->DL;
           break;
 
         case 0x02:
