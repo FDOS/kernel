@@ -89,6 +89,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.25  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.24  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -279,8 +282,8 @@ static BYTE szBuf[256];
 int singleStep    = FALSE;
 int SkipAllConfig = FALSE;
 
-INIT VOID  zumcb_init(mcb FAR * mcbp, UWORD size);
-INIT VOID  mumcb_init(mcb FAR * mcbp, UWORD size);
+INIT VOID  zumcb_init(UCOUNT seg, UWORD size);
+INIT VOID  mumcb_init(UCOUNT seg, UWORD size);
 
 INIT VOID Config_Buffers(BYTE * pLine);
 INIT VOID sysScreenMode(BYTE * pLine);
@@ -464,8 +467,7 @@ INIT void PreConfig(void)
 #endif
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init((mcb FAR *) (MK_FP(first_mcb, 0)),
-           ((UCOUNT)ram_top << 6) - first_mcb - 1);
+  mcb_init(first_mcb, ram_top*64 - first_mcb - 1);
   nPass = 1;
 }
 
@@ -593,27 +595,65 @@ INIT VOID configDone(VOID)
   first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
-  mcb_init((mcb FAR *) (MK_FP(first_mcb, 0)),
-           ((UCOUNT)ram_top << 6) - first_mcb - 1);
+  mcb_init(first_mcb, ram_top*64 - first_mcb - 1);
 
     if(UmbState == 1)
     {
 
-    mumcb_init((mcb FAR *) (MK_FP(64*ram_top - 1, 0)),
-                               umb_start - 64*ram_top);
+    mumcb_init(ram_top*64 - 1, umb_start - 64*ram_top);
 /* Check if any devices were loaded in umb */
     if(umb_start != FP_SEG(upBase) ){
 /* make last block normal with SC for the devices */
         
         UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
         
-        mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)), umr_new - uppermem_root - 1);
+        mumcb_init(uppermem_root, umr_new - uppermem_root - 1);
 
         uppermem_root = umr_new;
-        zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
-                               (umb_start + UMB_top ) - uppermem_root - 1);
+        zumcb_init(uppermem_root, (umb_start + UMB_top ) - uppermem_root - 1);
         upBase += 16;
+     }
 
+        {
+            /* are there any more UMB's ?? 
+               this happens, if memory mapped devces are in between 
+               like UMB memory c800..c8ff, d8ff..efff with device at d000..d7ff
+            */
+
+            /*  TE - this code 
+                a) isn't the best I ever wrote :-(
+                b) works for 2 memory areas (no while(), use of UMB_top,...)
+                   and the first discovered is the larger one.
+                   no idea what happens, if the larger one is higher in memory.
+                   might work, though
+            */
+
+        UCOUNT umb_seg, umb_size, umbz_root;
+        
+        umbz_root = uppermem_root;
+            
+        if(UMB_get_largest(&umb_seg, &umb_size)){
+            
+            mcb_init(umbz_root, (umb_start + UMB_top ) - uppermem_root - 1);
+            
+                                            /* change UMB 'Z' to 'M' */
+            ((mcb FAR *)MK_FP(umbz_root,0))->m_type = 'M';
+
+                                            /* move to end */            
+            umbz_root += ((mcb FAR *)MK_FP(umbz_root,0))->m_size + 1;
+            
+                                            /* create link mcb       */
+            mumcb_init(umbz_root, umb_seg - umbz_root - 1);
+
+
+                                                /* should the UMB driver return
+                                                   adjacent memory in several pieces */
+            if (umb_seg - umbz_root - 1 == 0)
+                ((mcb FAR *)MK_FP(umbz_root,0))->m_psp = FREE_PSP;
+
+                                                /* create new 'Z' mcb */
+            zumcb_init(umb_seg, umb_size - 1);
+            }            
         }
     }
 
@@ -721,13 +761,19 @@ INIT VOID DoConfig(VOID)
 
                             /* might have been the UMB driver */
       if(UmbState == 2){
-            if(!Umb_Test()){
+
+            UCOUNT umb_seg, umb_size;
+            
+            if(UMB_get_largest(&umb_seg, &umb_size)){
                 UmbState = 1;
-                upBase = MK_FP(umb_start , 0);
+                upBase    = MK_FP(umb_seg , 0);
+                UMB_top   = umb_size;
+                umb_start = umb_seg;
+                
 /* reset root */
-            uppermem_root = umb_start;
+                uppermem_root = umb_seg;
 /* setup the real mcb for the devicehigh block */
-            zumcb_init((mcb FAR *) upBase,  UMB_top - 1);
+                zumcb_init(umb_seg, UMB_top - 1);
             upBase += 16;
             }
         }
@@ -1429,10 +1475,12 @@ INIT COUNT toupper(COUNT c)
 
 #if 1           /* ifdef KERNEL */
 INIT VOID
-  mcb_init(mcb FAR * mcbp, UWORD size)
+  mcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
 
+  mcb FAR * mcbp = MK_FP(seg,0);
+  
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
 
@@ -1448,9 +1496,11 @@ INIT VOID
 }
 
 INIT VOID
-  zumcb_init(mcb FAR * mcbp, UWORD size)
+  zumcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
+  mcb FAR * mcbp = MK_FP(seg,0);
+  
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
   mcbp->m_size = size;
@@ -1460,9 +1510,11 @@ INIT VOID
 }
 
 INIT VOID
-  mumcb_init(mcb FAR * mcbp, UWORD size)
+  mumcb_init(UCOUNT seg, UWORD size)
 {
   COUNT i;
+  mcb FAR * mcbp = MK_FP(seg,0);
+  
   static char name[8] = "SC\0\0\0\0\0\0";
 
   mcbp->m_type = MCB_NORMAL;

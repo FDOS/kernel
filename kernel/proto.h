@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.17  2001/06/03 14:16:18  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -228,8 +231,8 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name);
 COUNT DosFindNext(void);
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp);
 COUNT DosSetFtime(COUNT hndl, date FAR * dp, time FAR * tp);
-COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp);
-COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp);
+COUNT DosGetFattr(BYTE FAR * name);
+COUNT DosSetFattr(BYTE FAR * name, UWORD attrp);
 UBYTE DosSelectDrv(UBYTE drv);
 COUNT DosDelete(BYTE FAR *path);
 COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
@@ -245,8 +248,8 @@ VOID DosIdle_int(void);
 
 /* dosnames.c */
 VOID SpacePad(BYTE *, COUNT);
-COUNT ParseDosName(BYTE FAR *, COUNT *, BYTE *, BYTE *, BYTE *, BOOL);
-COUNT ParseDosPath(BYTE FAR *, COUNT *, BYTE *, BYTE FAR *);
+COUNT ParseDosName(BYTE *, COUNT *, BYTE *, BYTE *, BYTE *, BOOL);
+/* COUNT ParseDosPath(BYTE *, COUNT *, BYTE *, BYTE FAR *); */
 
 /* dsk.c */
 COUNT FAR blk_driver(rqptr rp);
@@ -259,25 +262,25 @@ COUNT char_error(request * rq, struct dhdr FAR * lpDevice);
 COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice);
 
 /* fatdir.c */
-f_node_ptr dir_open(BYTE FAR * dirname);
+f_node_ptr dir_open(BYTE * dirname);
 COUNT dir_read(REG f_node_ptr fnp);
 COUNT dir_write(REG f_node_ptr fnp);
 VOID dir_close(REG f_node_ptr fnp);
-COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name);
+COUNT dos_findfirst(UCOUNT attr, BYTE * name);
 COUNT dos_findnext(void);
 void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName);
 int FileName83Length(BYTE *filename83);
 
 /* fatfs.c */
-COUNT dos_open(BYTE FAR * path, COUNT flag);
-BOOL fcmp(BYTE FAR * s1, BYTE FAR * s2, COUNT n);
+COUNT dos_open(BYTE * path, COUNT flag);
+BOOL fcmp(BYTE * s1, BYTE * s2, COUNT n);
 BOOL fcmp_wild(BYTE FAR * s1, BYTE FAR * s2, COUNT n);
-VOID touc(BYTE FAR * s, COUNT n);
+VOID touc(BYTE * s, COUNT n);
 COUNT dos_close(COUNT fd);
-COUNT dos_creat(BYTE FAR * path, COUNT attrib);
-COUNT dos_delete(BYTE FAR * path);
-COUNT dos_rmdir(BYTE FAR * path);
-COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2);
+COUNT dos_creat(BYTE * path, COUNT attrib);
+COUNT dos_delete(BYTE * path);
+COUNT dos_rmdir(BYTE * path);
+COUNT dos_rename(BYTE * path1, BYTE * path2);
 date dos_getdate(void);
 time dos_gettime(void);
 COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp);
@@ -285,7 +288,7 @@ COUNT dos_setftime(COUNT fd, date FAR * dp, time FAR * tp);
 LONG dos_getcufsize(COUNT fd);
 LONG dos_getfsize(COUNT fd);
 BOOL dos_setfsize(COUNT fd, LONG size);
-COUNT dos_mkdir(BYTE FAR * dir);
+COUNT dos_mkdir(BYTE * dir);
 BOOL last_link(f_node_ptr fnp);
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode);
 UCOUNT readblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err);
@@ -297,13 +300,13 @@ UWORD dos_free(struct dpb FAR *dpbp);
 
 VOID trim_path(BYTE FAR * s);
 
-COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR * PathName);
+COUNT dos_cd(struct cds FAR * cdsp, BYTE * PathName);
 
 f_node_ptr get_f_node(void);
 VOID release_f_node(f_node_ptr fnp);
 VOID dos_setdta(BYTE FAR * newdta);
-COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp);
-COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp);
+COUNT dos_getfattr(BYTE * name);
+COUNT dos_setfattr(BYTE * name, UWORD attrp);
 COUNT media_check(REG struct dpb FAR *dpbp);
 f_node_ptr xlt_fd(COUNT fd);
 COUNT xlt_fnp(f_node_ptr fnp);
@@ -421,7 +424,7 @@ UWORD syscall_MUX14(DIRECT_IREGS);
 /* prf.c */
 VOID put_console(COUNT c);
 WORD printf(CONST BYTE * fmt,...);
-WORD sprintf(BYTE * buff, CONST BYTE * fmt,...);
+WORD sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 VOID hexd(char *title,VOID FAR *p,COUNT numBytes);
 
 /* strings.c */
@@ -488,7 +491,7 @@ COUNT QRemote_Fn(char FAR * s, char FAR * d);
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err);
-COUNT Remote_find(UWORD func, UCOUNT attr, BYTE FAR * name);
+COUNT Remote_find(UWORD func);
 
 /* procsupt.asm */
 VOID INRPT FAR exec_user(iregs FAR * irp);

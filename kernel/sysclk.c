@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.6  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -121,17 +124,19 @@ extern WORD days[2][13];    /* this is defined by SYSTIME.C */
 
 static struct ClockRecord clk;
 
+/*
 static BYTE bcdDays[4];
 static UWORD Month,
   Day,
   Year;
 static BYTE bcdMinutes;
 static BYTE bcdHours;
-/** static BYTE bcdHundredths;*/
+/ ** static BYTE bcdHundredths;* /
 static BYTE bcdSeconds;
 
 static ULONG Ticks;
 UWORD DaysSinceEpoch = 0;
+*/
 
 BOOL ReadATClock(BYTE *, BYTE *, BYTE *, BYTE *);
 
@@ -149,7 +154,13 @@ WORD FAR clk_driver(rqptr rp)
     bcd_minutes,
     bcd_hours,
     bcd_seconds;
-  ULONG ticks;
+  ULONG Ticks;
+  UWORD DaysSinceEpoch;
+  UWORD Month,
+    Day,
+    Year;
+  
+  
   
   switch (rp->r_command)
   {
@@ -170,10 +181,10 @@ WORD FAR clk_driver(rqptr rp)
        * so we can simply multiply the number of seconds by 19663 without
        * worrying about overflow. :) -- ror4
        */
-        ticks = (3600ul * BcdToByte(bcd_hours) +
+        Ticks = (3600ul * BcdToByte(bcd_hours) +
                60ul * BcdToByte(bcd_minutes) +
                BcdToByte(bcd_seconds)) * 19663ul / 1080ul;
-        WritePCClock(ticks);
+        WritePCClock(Ticks);
       }
       rp->r_endaddr = device_end();
       rp->r_nunits = 0;
@@ -343,11 +354,11 @@ WORD FAR clk_driver(rqptr rp)
       }
       
       
-      DayToBcd((BYTE *) bcdDays, &Month, &Day, &Year);
-      bcdMinutes = ByteToBcd(clk.clkMinutes);
-      bcdHours = ByteToBcd(clk.clkHours);
-      bcdSeconds = ByteToBcd(clk.clkSeconds);
-      WriteATClock(bcdDays, bcdHours, bcdMinutes, bcdSeconds);
+      DayToBcd((BYTE *) bcd_days, &Month, &Day, &Year);
+      bcd_minutes = ByteToBcd(clk.clkMinutes);
+      bcd_hours = ByteToBcd(clk.clkHours);
+      bcd_seconds = ByteToBcd(clk.clkSeconds);
+      WriteATClock(bcd_days, bcd_hours, bcd_minutes, bcd_seconds);
       return S_DONE;
 
     case C_OFLUSH:

@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.26  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.25  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -353,7 +356,6 @@ VOID int21_service(iregs FAR * r)
 {
   COUNT rc = 0,
 	  rc1;
-  ULONG lrc;
   psp FAR *p = MK_FP(cu_psp, 0);
   void FAR *FP_DS_DX = MK_FP(r->DS, r->DX); /* this is saved so often,
                                                that this saves ~100 bytes */
@@ -478,12 +480,11 @@ dispatch:
       /* Display String                                               */
     case 0x09:
       {
-        static COUNT scratch;
         BYTE FAR * q;
         q = FP_DS_DX;
         while (*q != '$')
           ++q;
-        DosWrite(STDOUT, FP_OFF(q) - FP_OFF(FP_DS_DX), FP_DS_DX, (COUNT FAR *) & scratch);
+        DosWrite(STDOUT, FP_OFF(q) - FP_OFF(FP_DS_DX), FP_DS_DX, (COUNT FAR *) & UnusedRetVal);
       }
       r->AL = '$';
       break;
@@ -663,26 +664,7 @@ dispatch:
       break;
 
       /* Get default DPB                                              */
-    case 0x1f:
-      if (default_drive < lastdrive)
-      {
-        struct dpb FAR *dpb = CDSp->cds_table[default_drive].cdsDpb;
-        if (dpb == 0)
-        {
-          r->AL = 0xff;
-          CritErrCode = 0x0f;
-          break;
-        }
-
-        r->DS = FP_SEG(dpb);
-        r->BX = FP_OFF(dpb);
-        r->AL = 0;
-      }
-      else{
-        r->AL = 0xff;
-        CritErrCode = 0x0f;
-        }
-      break;
+      /* case 0x1f: see case 0x32 */
 
       /* Random read using FCB */
     case 0x21:
@@ -870,6 +852,8 @@ dispatch:
       return_user();
       break;
 
+      /* Get default BPB */
+    case 0x1f:
       /* Get DPB                                                      */
     case 0x32:
       /* r->DL is NOT changed by MS 6.22 */
@@ -878,7 +862,7 @@ dispatch:
       struct dpb FAR *dpb;  
       UCOUNT drv = r->DL;
       
-      if (drv == 0) drv = default_drive;
+      if (drv == 0 || r->AH == 0x1f) drv = default_drive;
       else          drv--;
 
       if (drv >= lastdrive)
@@ -1063,12 +1047,15 @@ dispatch:
 
       /* Dos Seek                                                     */
     case 0x42:
+      {
+      ULONG lrc;
       if ((rc = DosSeek(r->BX, (LONG) ((((LONG) (r->CX)) << 16) + r->DX), r->AL, &lrc)) < 0)
         goto error_exit;
       else
       {
         r->DX = (lrc >> 16);
         r->AX = (UWORD)lrc;
+      }
       }
       break;
 
@@ -1077,17 +1064,19 @@ dispatch:
       switch (r->AL)
       {
         case 0x00:
-          rc = DosGetFattr((BYTE FAR *) FP_DS_DX, (UWORD FAR *) & r->CX);
+          rc = DosGetFattr((BYTE FAR *) FP_DS_DX);
+          if (rc >= SUCCESS)
+              r->CX = rc;
           break;
 
         case 0x01:
-          rc = DosSetFattr((BYTE FAR *) FP_DS_DX, (UWORD FAR *) & r->CX);
+          rc = DosSetFattr((BYTE FAR *) FP_DS_DX, r->CX);
           break;
 
         default:
           goto error_invalid;
       }
-      if (rc != SUCCESS)
+      if (rc < SUCCESS)
         goto error_exit;
       break;
 
@@ -1493,6 +1482,11 @@ dispatch:
           break;
 
         default:
+/*              
+            void int_2f_111e_call(iregs FAR *r);
+            int_2f_111e_call(r);          
+          break;*/
+
           rc = -int2f_Remote_call(REM_DOREDIRECT, r->BX, r->CX, r->DX,
                                  (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
 	  if (rc != SUCCESS)

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.12  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -779,8 +782,7 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
   if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
     COUNT result;
     lpCurSft = (sfttbl FAR *)sftp;
-    result = int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, O_RDWR));
-    result = -result;
+    result = -int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, O_RDWR));
     sftp->sft_status = result;
   }
   else {

@@ -47,6 +47,9 @@ BYTE *RcsId = "$Id$";
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
  *
  * $Log$
+ * Revision 1.20  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.19  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -244,7 +247,7 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
-f_node_ptr split_path(BYTE FAR *, BYTE *, BYTE *, BYTE *);
+f_node_ptr split_path(BYTE *, BYTE *, BYTE *);
 BOOL find_fname(f_node_ptr, BYTE *, BYTE *);
     /* /// Added - Ron Cemer */
 STATIC void merge_file_changes(f_node_ptr fnp, int collect);
@@ -274,7 +277,7 @@ STATIC VOID shrink_file(f_node_ptr fnp);
 /* for update.                                                          */
 /* Returns an integer file desriptor or a negative error code           */
 
-COUNT dos_open(BYTE FAR * path, COUNT flag)
+COUNT dos_open(BYTE * path, COUNT flag)
 {
   REG f_node_ptr fnp;
 
@@ -285,7 +288,7 @@ COUNT dos_open(BYTE FAR * path, COUNT flag)
 
   /* first split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(path, szDirName, szFileName, szFileExt)) == NULL)
+  if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -324,7 +327,7 @@ COUNT dos_open(BYTE FAR * path, COUNT flag)
   return xlt_fnp(fnp);
 }
 
-BOOL fcmp(BYTE FAR * s1, BYTE FAR * s2, COUNT n)
+BOOL fcmp(BYTE * s1, BYTE * s2, COUNT n)
 {
   while (n--)
     if (*s1++ != *s2++)
@@ -386,21 +389,21 @@ COUNT dos_close(COUNT fd)
 /* split a path into it's component directory and file name             */
 /*                                                                      */
 f_node_ptr
-  split_path(BYTE FAR * path, BYTE * dname, BYTE * fname, BYTE * fext)
+  split_path(BYTE * path, BYTE * fname, BYTE * fext)
 {
   REG f_node_ptr fnp;
   COUNT nDrive;
   struct cds FAR *cdsp;
 
   /* Start off by parsing out the components.                     */
-  if (ParseDosName(adjust_far(path), &nDrive, &dname[2], fname, fext, FALSE)
+  if (ParseDosName(path, &nDrive, &szDirName[2], fname, fext, FALSE)
       != SUCCESS)
     return (f_node_ptr)0;
   if (nDrive < 0)
     nDrive = default_drive;
 
-  dname[0] = 'A' + nDrive;
-  dname[1] = ':';
+  szDirName[0] = 'A' + nDrive;
+  szDirName[1] = ':';
 
   /* Add trailing spaces to the file name and extension           */
   SpacePad(fname, FNAME_SIZE);
@@ -413,9 +416,9 @@ f_node_ptr
 
   /* If the path is null, we to default to the current            */
   /* directory...                                                 */
-  if (!dname[2])
+  if (!szDirName[2])
   {
-    fsncopy(cdsp->cdsCurrentPath, (BYTE FAR *) dname, PARSE_MAX);
+    fsncopy(cdsp->cdsCurrentPath, (BYTE FAR *) szDirName, PARSE_MAX);
   }
 
 /*  11/29/99 jt
@@ -438,7 +441,7 @@ f_node_ptr
 #endif
 
   /* Translate the path into a useful pointer                     */
-  fnp = dir_open((BYTE FAR *) dname);
+  fnp = dir_open(szDirName);
 
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit...     */
@@ -450,7 +453,7 @@ f_node_ptr
   }
 
   /* Convert the name into an absolute name for comparison...     */
-  DosUpFString((BYTE FAR *) dname);
+  DosUpFString((BYTE FAR *) szDirName);
   DosUpFMem((BYTE FAR *) fname, FNAME_SIZE);
   DosUpFMem((BYTE FAR *) fext, FEXT_SIZE);
 
@@ -468,8 +471,8 @@ STATIC BOOL find_fname(f_node_ptr fnp, BYTE * fname, BYTE * fext)
       if (fnp->f_dir.dir_name[0] == DELETED)
         continue;
 
-      if (fcmp((BYTE FAR *) fname, (BYTE FAR *) fnp->f_dir.dir_name, FNAME_SIZE)
-          && fcmp((BYTE FAR *) fext, (BYTE FAR *) fnp->f_dir.dir_ext, FEXT_SIZE)
+      if (fcmp(fname, (BYTE *)fnp->f_dir.dir_name, FNAME_SIZE)
+          && fcmp(fext, (BYTE *)fnp->f_dir.dir_ext, FEXT_SIZE)
           && ((fnp->f_dir.dir_attrib & D_VOLID) == 0))
       {
         found = TRUE;
@@ -526,11 +529,11 @@ STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2) {
            (fnp1->f_dpb->dpb_unit == fnp2->f_dpb->dpb_unit)
         && (fnp1->f_dpb->dpb_subunit == fnp2->f_dpb->dpb_subunit)
         && (fcmp
-                ((BYTE FAR *)fnp1->f_dir.dir_name,
-                 (BYTE FAR *)fnp2->f_dir.dir_name, FNAME_SIZE))
+                ((BYTE *)fnp1->f_dir.dir_name,
+                 (BYTE *)fnp2->f_dir.dir_name, FNAME_SIZE))
         && (fcmp
-                ((BYTE FAR *)fnp1->f_dir.dir_ext,
-                (BYTE FAR *)fnp2->f_dir.dir_ext, FEXT_SIZE))
+                ((BYTE *)fnp1->f_dir.dir_ext,
+                 (BYTE *)fnp2->f_dir.dir_ext, FEXT_SIZE))
         && ((fnp1->f_dir.dir_attrib & D_VOLID) == 0)
         && ((fnp2->f_dir.dir_attrib & D_VOLID) == 0)
         && (fnp1->f_flags.f_dremote == fnp2->f_flags.f_dremote)
@@ -548,7 +551,7 @@ STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst) {
     dst->f_dir.dir_time = src->f_dir.dir_time;
 }
 
-COUNT dos_creat(BYTE FAR * path, COUNT attrib)
+COUNT dos_creat(BYTE * path, COUNT attrib)
 {
   REG f_node_ptr fnp;
 
@@ -560,7 +563,7 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
 
   /* first split the passed dir into comopnents (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, szDirName, szFileName, szFileExt)) == NULL)
+  if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -593,7 +596,7 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
     /* an open                                      */
     fnp->f_flags.f_dmod = FALSE;
     dir_close(fnp);
-    fnp = dir_open((BYTE FAR *) szDirName);
+    fnp = split_path(path, szFileName, szFileExt);
 
     /* Get a free f_node pointer so that we can use */
     /* it in building the new file.                 */
@@ -616,10 +619,8 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
     }
 
     /* put the fnode's name into the directory.             */
-    fbcopy((BYTE FAR *) szFileName,
-           (BYTE FAR *) fnp->f_dir.dir_name, FNAME_SIZE);
-    fbcopy((BYTE FAR *) szFileExt,
-           (BYTE FAR *) fnp->f_dir.dir_ext, FEXT_SIZE);
+    bcopy(szFileName, fnp->f_dir.dir_name, FNAME_SIZE);
+    bcopy(szFileExt, fnp->f_dir.dir_ext, FEXT_SIZE);
   }
   /* Set the fnode to the desired mode                    */
   /* Updating the directory entry first.                  */
@@ -656,13 +657,13 @@ COUNT dos_creat(BYTE FAR * path, COUNT attrib)
   return xlt_fnp(fnp);
 }
 
-COUNT dos_delete(BYTE FAR * path)
+COUNT dos_delete(BYTE * path)
 {
   REG f_node_ptr fnp;
 
   /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, szDirName, szFileName, szFileExt)) == NULL)
+  if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -706,7 +707,7 @@ COUNT dos_delete(BYTE FAR * path)
   }
 }
 
-COUNT dos_rmdir(BYTE FAR * path)
+COUNT dos_rmdir(BYTE * path)
 {
   REG f_node_ptr fnp;
   REG f_node_ptr fnp1;
@@ -714,7 +715,7 @@ COUNT dos_rmdir(BYTE FAR * path)
 
   /* first split the passed dir into comopnents (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, szDirName, szFileName, szFileExt)) == NULL)
+  if ((fnp = split_path(path, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -749,7 +750,7 @@ COUNT dos_rmdir(BYTE FAR * path)
     /* Check that the directory is empty. Only the  */
     /* "." and ".." are permissable.                */
     fnp->f_flags.f_dmod = FALSE;
-    fnp1 = dir_open((BYTE FAR *) path);
+    fnp1 = dir_open(path);
     dir_read(fnp1);
     if (fnp1->f_dir.dir_name[0] != '.')
     {
@@ -812,7 +813,7 @@ COUNT dos_rmdir(BYTE FAR * path)
   }
 }
 
-COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
+COUNT dos_rename(BYTE * path1, BYTE * path2)
 {
   REG f_node_ptr fnp1;
   REG f_node_ptr fnp2;
@@ -820,7 +821,7 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
 
   /* first split the passed target into compnents (i.e. - path to */
   /* new file name and name of new file name                      */
-  if ((fnp2 = split_path(path2, szSecDirName, szSecFileName, szSecFileExt)) == NULL)
+  if ((fnp2 = split_path(path2, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp2);
     return DE_PATHNOTFND;
@@ -828,7 +829,7 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
 
   /* Check that we don't have a duplicate name, so if we find     */
   /* one, it's an error.                                          */
-  if (find_fname(fnp2, szSecFileName, szSecFileExt))
+  if (find_fname(fnp2, szFileName, szFileExt))
   {
     dir_close(fnp2);
     return DE_ACCESS;
@@ -836,17 +837,25 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
 
   /* next split the passed source into compnents (i.e. - path to  */
   /* old file name and name of old file name                      */
-  if ((fnp1 = split_path(path1, szPriDirName, szPriFileName, szPriFileExt)) == NULL)
+  if ((fnp1 = split_path(path1, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp1);
     dir_close(fnp2);
     return DE_PATHNOTFND;
   }
 
+  if (!find_fname(fnp1, szFileName, szFileExt))
+  {
+    /* No such file, return the error                       */
+    dir_close(fnp1);
+    dir_close(fnp2);
+    return DE_FILENOTFND;
+  }
+
   /* Reset the directory by a close followed by an open           */
   fnp2->f_flags.f_dmod = FALSE;
   dir_close(fnp2);
-  fnp2 = dir_open((BYTE FAR *) szSecDirName);
+  fnp2 = split_path(path2, szFileName, szFileExt);
 
   /* Now find a free slot to put the file into.                   */
   /* If it's the root and we don't have room, return an error.    */
@@ -870,19 +879,9 @@ COUNT dos_rename(BYTE FAR * path1, BYTE FAR * path2)
     }
   }
 
-  if (!find_fname(fnp1, szPriFileName, szPriFileExt))
-  {
-    /* No such file, return the error                       */
-    dir_close(fnp1);
-    dir_close(fnp2);
-    return DE_FILENOTFND;
-  }
-
   /* put the fnode's name into the directory.                     */
-  fbcopy((BYTE FAR *) szSecFileName,
-         (BYTE FAR *) fnp2->f_dir.dir_name, FNAME_SIZE);
-  fbcopy((BYTE FAR *) szSecFileExt,
-         (BYTE FAR *) fnp2->f_dir.dir_ext, FEXT_SIZE);
+  bcopy(szFileName, (BYTE *)fnp2->f_dir.dir_name, FNAME_SIZE);
+  bcopy(szFileExt, (BYTE *)fnp2->f_dir.dir_ext, FEXT_SIZE);
 
   /* Set the fnode to the desired mode                            */
   fnp2->f_dir.dir_size = fnp1->f_dir.dir_size;
@@ -1177,7 +1176,7 @@ STATIC UWORD find_fat_free(f_node_ptr fnp)
 /* create a directory - returns success or a negative error     */
 /* number                                                       */
 /*                                                              */
-COUNT dos_mkdir(BYTE FAR * dir)
+COUNT dos_mkdir(BYTE * dir)
 {
   REG f_node_ptr fnp;
   REG COUNT idx;
@@ -1188,7 +1187,7 @@ COUNT dos_mkdir(BYTE FAR * dir)
 
   /* first split the passed dir into comopnents (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(dir, szDirName, szFileName, szFileExt)) == NULL)
+  if ((fnp = split_path(dir, szFileName, szFileExt)) == NULL)
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -1202,11 +1201,7 @@ COUNT dos_mkdir(BYTE FAR * dir)
         can create an unlimited amount of same dirs. this space
         is lost forever
   */
-  if (2     /* "C" */
-        + strlen(szDirName)
-        + 1    /* "\\" */
-        + FileName83Length(szFileName)      /* the SZ is not SZ, of course */
-     > PARSE_MAX+2)
+  if (strlen(dir) > PARSE_MAX+2) /* dir is already output of "truename" */
   {
     dir_close(fnp);
     return DE_PATHNOTFND;
@@ -1230,7 +1225,7 @@ COUNT dos_mkdir(BYTE FAR * dir)
     fnp->f_flags.f_dmod = FALSE;
     parent = fnp->f_dirstart;
     dir_close(fnp);
-    fnp = dir_open((BYTE FAR *) szDirName);
+    fnp = split_path(dir, szFileName, szFileExt);
 
     /* Get a free f_node pointer so that we can use */
     /* it in building the new file.                 */
@@ -1268,10 +1263,8 @@ COUNT dos_mkdir(BYTE FAR * dir)
     
 
     /* put the fnode's name into the directory.             */
-    fbcopy((BYTE FAR *) szFileName,
-           (BYTE FAR *) fnp->f_dir.dir_name, FNAME_SIZE);
-    fbcopy((BYTE FAR *) szFileExt,
-           (BYTE FAR *) fnp->f_dir.dir_ext, FEXT_SIZE);
+    bcopy(szFileName, (BYTE *) fnp->f_dir.dir_name, FNAME_SIZE);
+    bcopy(szFileExt, (BYTE *) fnp->f_dir.dir_ext, FEXT_SIZE);
 
     /* Set the fnode to the desired mode                            */
     fnp->f_mode = WRONLY;
@@ -2144,7 +2137,7 @@ UWORD dos_free(struct dpb FAR *dpbp)
 
 
 #ifndef IPL
-COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR *PathName)
+COUNT dos_cd(struct cds FAR * cdsp, BYTE *PathName)
 {
   f_node_ptr fnp;
 
@@ -2158,7 +2151,7 @@ COUNT dos_cd(struct cds FAR * cdsp, BYTE FAR *PathName)
   /* now test for its existance. If it doesn't, return an error.  */
   /* If it does, copy the path to the current directory           */
   /* structure.                                                   */
-	if ((fnp = dir_open(PathName)) == NULL)
+  if ((fnp = dir_open(PathName)) == NULL)
     return DE_PATHNOTFND;
 
   cdsp->cdsStrtClst = fnp->f_dirstart;
@@ -2199,10 +2192,10 @@ VOID dos_setdta(BYTE FAR * newdta)
   dta = newdta;
 }
 
-COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp)
+COUNT dos_getfattr(BYTE * name)
 {
   f_node_ptr fnp;
-  COUNT fd;
+  COUNT fd, result;
 
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
@@ -2222,12 +2215,12 @@ COUNT dos_getfattr(BYTE FAR * name, UWORD FAR * attrp)
   }
 
   /* Get the attribute from the fnode and return          */
-  *attrp = fnp->f_dir.dir_attrib;
+  result = fnp->f_dir.dir_attrib;
   dos_close(fd);
-  return SUCCESS;
+  return result;
 }
 
-COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp)
+COUNT dos_setfattr(BYTE * name, UWORD attrp)
 {
   f_node_ptr fnp;
   COUNT fd;
@@ -2249,7 +2242,7 @@ COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp)
     return DE_FILENOTFND;
   }
   /* JPP-If user tries to set VOLID or DIR bits, return error */
-  if ((*attrp & (D_VOLID | D_DIR | 0xC0)) != 0)
+  if ((attrp & (D_VOLID | D_DIR | 0xC0)) != 0)
   {
     dos_close(fd);
     return DE_ACCESS;
@@ -2260,7 +2253,7 @@ COUNT dos_setfattr(BYTE FAR * name, UWORD FAR * attrp)
   fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);	/* JPP */
 
   /* set attributes that user requested */
-  fnp->f_dir.dir_attrib |= *attrp;	/* JPP */
+  fnp->f_dir.dir_attrib |= attrp;	/* JPP */
   fnp->f_flags.f_dmod = TRUE;
   dos_close(fd);
   return SUCCESS;

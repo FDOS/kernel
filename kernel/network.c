@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.12  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -117,6 +120,7 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
 
   save_dta = dta;
   lpCurSft = (sfttbl FAR *) s;
+  current_filepos = s->sft_posit; /* needed for MSCDEX */
   dta = bp;
   rx = int2f_Remote_call(func, 0, n, 0, (VOID FAR *) s, 0, (VOID FAR *) & rc);
   dta = save_dta;
@@ -128,26 +132,17 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
 /*
 
  */
-COUNT Remote_find(UWORD func, UCOUNT attr, BYTE FAR * name)
+COUNT Remote_find(UWORD func)
 {
   COUNT i;
   char FAR *p;
 
+#if defined(FIND_DEBUG)
   if (func == REM_FINDFIRST)
   {
-    SAttr = attr;
-    i = truename(name, PriPathName, FALSE);
-    if (i != SUCCESS) {
-	    return i;
-    }
-#if defined(FIND_DEBUG)
-    printf("Remote Find: n='");
-    p = name;  while(*p)  printf("%c", *p++);
-    printf("' p='");
-    p = PriPathName;  while(*p)  printf("%c", *p++);
-    printf("'\n");
-#endif
+    printf("Remote Find: n='%Fs\n", PriPathName);
   }
+#endif
 
   fmemcpy(TempBuffer, dta, 21);
   p = dta;

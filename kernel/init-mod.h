@@ -72,6 +72,9 @@ extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
 #define NLAST           5       /* last drive                   */
 #define NUMBUFF         6       /* Number of track buffers      */
                                         /* -- must be at least 3        */
+#define MAX_HARD_DRIVE  8
+#define NDEV            20      /* only one for demo            */
+
 
 
 /* Start of configuration variables                                     */
@@ -127,10 +130,11 @@ INIT BOOL isnum(BYTE * pszString);
 INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum);
 INIT COUNT tolower(COUNT c);
 INIT COUNT toupper(COUNT c);
-INIT VOID mcb_init(mcb FAR * mcbp, UWORD size);
+INIT VOID mcb_init(UCOUNT seg, UWORD size);
 INIT VOID strcat(REG BYTE * d, REG BYTE * s);
 INIT BYTE FAR *KernelAlloc(WORD nBytes);
 INIT COUNT Umb_Test(void);
+INIT COUNT UMB_get_largest(UCOUNT *seg, UCOUNT *size);
 INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
 
 /* diskinit.c */

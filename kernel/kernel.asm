@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.15  2001/07/22 01:58:58  bartoldeman
+; Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+;
 ; Revision 1.14  2001/07/09 22:19:33  bartoldeman
 ; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
 ;
@@ -581,10 +584,15 @@ _lpFcb          times 2 dw 0       ;286 - pointer to callers FCB
                 global  current_ifn
 current_ifn     dw      0               ;28A - SFT index for next open
 
+		; Pad to 05b2h
+		times (292h - ($ - _internal_data)) db 0
+                dw      __PriPathBuffer  ; 292 - "sda_WFP_START" offset in DOS DS of first filename argument
+                dw      __SecPathBuffer  ; 294 - "sda_REN_WFP" offset in DOS DS of second filename argument
+
                 ; Pad to 05ceh
                 times (2aeh - ($ - _internal_data)) db 0
-                global  current_filepos
-current_filepos times 2 dw 0       ;2AE - current offset in file
+                global  _current_filepos
+_current_filepos times 2 dw 0       ;2AE - current offset in file
 
                 ; Pad to 05f0h
                 times (2d0h - ($ - _internal_data)) db 0
@@ -597,13 +605,13 @@ prev_int21regs_seg      dw      0
 
                 ; Pad to 0620h
                 times (300h - ($ - _internal_data)) db 0
+                global _szNames
+_szNames:               
+;;              times 11 db 0
 
                 global  _FcbSearchBuffer        ; during FCB search 1st/next use bottom
 _FcbSearchBuffer:              ;  of error stack as scratch buffer
 ;               times 43 db 0              ;  - only used during int 21 call
-                global  _LocalPath
-_LocalPath:
-;               times 67 db 0
                 ; stacks are made to initialize to no-ops so that high-water
                 ; testing can be performed
                 
@@ -664,7 +672,7 @@ __ib_end:
         
 ; kernel startup stack
                 global  init_tos
-                resw 384
+                resw 512
 init_tos:
 ; the last paragraph of conventional memory might become an MCB
                 resb 16

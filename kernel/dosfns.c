@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.20  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.19  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -241,7 +244,7 @@ static int share_lock_unlock
 /* /// End of additions for SHARE.  - Ron Cemer */
 
 
-static VOID DosGetFile(BYTE FAR * lpszPath, BYTE FAR * lpszDosFileName)
+static VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
 {
   BYTE szLclName[FNAME_SIZE + 1];
   BYTE szLclExt[FEXT_SIZE + 1];
@@ -543,6 +546,7 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
               break;
             case HT:
               do cso(' '); while ((++scr_pos) & 7);
+              break;
             default:
               scr_pos++;
           }
@@ -844,16 +848,16 @@ COUNT DosCreat(BYTE FAR * fname, COUNT attrib)
   }
 /* /// End of additions for SHARE.  - Ron Cemer */
 
-  sftp->sft_status = dos_creat(fname, attrib);
+  sftp->sft_status = dos_creat(PriPathName, attrib);
   if (sftp->sft_status >= 0)
   {
     p->ps_filetab[hndl] = sft_idx;
     sftp->sft_count += 1;
     sftp->sft_mode = SFT_MRDWR;
     sftp->sft_attrib = attrib;
-    sftp->sft_flags = 0;
+    sftp->sft_flags = drive;
     sftp->sft_psp = cu_psp;
-    DosGetFile(fname, sftp->sft_name);
+    DosGetFile(PriPathName, sftp->sft_name);
     return hndl;
   } else {
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
@@ -951,9 +955,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   WORD sft_idx;
   sft FAR *sftp;
   struct dhdr FAR *dhp;
-/*  BYTE FAR *froot;*/
-/*  WORD i;*/
-	COUNT drive, result;
+  COUNT drive, result;
 
 /* /// Added to adjust for filenames which begin with ".\"
        The problem was manifesting itself in the inability
@@ -962,7 +964,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
        contained ".", unless you explicitly specified the full
        path to the executable file.
        Jun 11, 2000 - rbc */
-  if ( (fname[0] == '.') && (fname[1] == '\\') ) fname += 2;
+  if ( (fname[0] == '.') && ((fname[1] == '\\') || (fname[1] == '/'))) fname += 2;
 
   /* test if mode is in range                     */
   if ((mode & ~SFT_OMASK) != 0)
@@ -979,47 +981,51 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   if ((sftp = get_free_sft((WORD FAR *) & sft_idx)) == (sft FAR *) - 1)
     return DE_TOOMANY;
 
+  fmemset(sftp, 0, sizeof(sft));
+
+  /* check for a device                           */
+  dhp = IsDevice(fname);
+  if ( dhp )
+  {
+    sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
+
+    sftp->sft_mode = mode;
+
+    sftp->sft_count += 1;
+    sftp->sft_flags =
+        ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
+    sftp->sft_psp = cu_psp;
+    fbcopy((BYTE FAR *) SecPathName, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
+    sftp->sft_dev = dhp;
+    sftp->sft_date = dos_getdate();
+    sftp->sft_time = dos_gettime();
+    p->ps_filetab[hndl] = sft_idx;
+    return hndl;
+  }
+
+  drive = get_verify_drive(fname);
+  if (drive < 0) {
+      return drive;
+  }
+
+  result = truename(fname, PriPathName, FALSE);
+  if (result != SUCCESS) {
+      return result;
+  }
+
+  if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
+      lpCurSft = (sfttbl FAR *)sftp;
+      result = -int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, mode));
+      if (result == SUCCESS) {
+          sftp->sft_count += 1;
+          p->ps_filetab[hndl] = sft_idx;
+          return hndl;
+      }
+      return result;
+  }
   sftp->sft_shroff = -1;  /* /// Added for SHARE - Ron Cemer */
 
   sftp->sft_mode = mode;
-
-  /* check for a device                           */
-    dhp = IsDevice(fname);
-    if ( dhp )
-      {
-        sftp->sft_count += 1;
-        sftp->sft_attrib = 0;
-        sftp->sft_flags =
-            ((dhp->dh_attr & ~SFT_MASK) & ~SFT_FSHARED) | SFT_FDEVICE | SFT_FEOF;
-        sftp->sft_psp = cu_psp;
-        fbcopy((BYTE FAR *) SecPathName, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
-        sftp->sft_dev = dhp;
-        sftp->sft_date = dos_getdate();
-        sftp->sft_time = dos_gettime();
-        p->ps_filetab[hndl] = sft_idx;
-        return hndl;
-      }
-
-    drive = get_verify_drive(fname);
-	if (drive < 0) {
-		return drive;
-	}
-
-	result = truename(fname, PriPathName, FALSE);
-	if (result != SUCCESS) {
-		return result;
-	}
-
-	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
-		lpCurSft = (sfttbl FAR *)sftp;
-		result = -int2f_Remote_call(REM_OPEN, 0, 0, 0, (VOID FAR *) sftp, 0, MK_FP(0, mode));
-		if (result == SUCCESS) {
-      sftp->sft_count += 1;
-      p->ps_filetab[hndl] = sft_idx;
-      return hndl;
-    }
-		return result;
-  }
 
 /* /// Added for SHARE.  - Ron Cemer */
   if (IsShareInstalled()) {
@@ -1032,7 +1038,7 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
   }
 /* /// End of additions for SHARE.  - Ron Cemer */
 
-  sftp->sft_status = dos_open(fname, mode);
+  sftp->sft_status = dos_open(PriPathName, mode);
 
   if (sftp->sft_status >= 0)
   {
@@ -1050,10 +1056,9 @@ COUNT DosOpen(BYTE FAR * fname, COUNT mode)
 
     sftp->sft_count += 1;
     sftp->sft_mode = mode;
-    sftp->sft_attrib = 0;
-    sftp->sft_flags = 0;
+    sftp->sft_flags = drive;
     sftp->sft_psp = cu_psp;
-    DosGetFile(fname, sftp->sft_name);
+    DosGetFile(PriPathName, sftp->sft_name);
     return hndl;
   } else {
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
@@ -1119,7 +1124,7 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
 {
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
-	static COUNT rg[4];
+	     COUNT rg[4];
 
   /* next - "log" in the drive            */
   drive = (drive == 0 ? default_drive : drive - 1);
@@ -1244,7 +1249,7 @@ COUNT DosChangeDir(BYTE FAR * s)
 
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 {
-  COUNT nDrive;
+  COUNT nDrive, rc;
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
 
       /* /// Added code here to do matching against device names.
@@ -1256,19 +1261,6 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
            - Ron Cemer */
   fmemset(dmp, 0, sizeof(dmatch));
 
-  nDrive=get_verify_drive(name);
-  if (nDrive < 0)
-      return nDrive;
-
-  current_ldt = &CDSp->cds_table[nDrive];
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    COUNT rc = -Remote_find(REM_FINDFIRST, attr, name);
-    if (dmp->dm_drive & 0x80)
-      return rc;
-    fmemset(dmp, 0, sizeof(dmatch));
-    /* still have to resolve locally if dm_drive not set to remote */
-  }
   if (IsDevice(name))
   {
     /* Found a matching device. Hence there cannot be wildcards. */
@@ -1279,7 +1271,27 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
     return SUCCESS;
   }
   /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
-  return dos_findfirst(attr, name);
+
+  nDrive=get_verify_drive(name);
+  if (nDrive < 0)
+      return nDrive;
+  SAttr = (BYTE) attr;
+
+  current_ldt = &CDSp->cds_table[nDrive];
+  
+  rc = truename(name, PriPathName, FALSE);
+  if (rc != SUCCESS)
+      return rc;
+  
+  if (current_ldt->cdsFlags & CDSNETWDRV)
+  {
+    return -Remote_find(REM_FINDFIRST);
+  }
+  else
+  {
+    dmp->dm_drive = nDrive;
+    return dos_findfirst(attr, PriPathName);
+  }
 }
 
 COUNT DosFindNext(void)
@@ -1311,7 +1323,7 @@ COUNT DosFindNext(void)
 	  ((dmatch FAR *)dta)->dm_drive);
 #endif
   return (((dmatch FAR *)dta)->dm_drive & 0x80) ?
-      -Remote_find(REM_FINDNEXT, 0, NULL) :
+      -Remote_find(REM_FINDNEXT) :
       dos_findnext();
 }
 
@@ -1376,9 +1388,9 @@ COUNT DosSetFtime(COUNT hndl, date FAR * dp, time FAR * tp)
   return dos_setftime(s->sft_status, dp, tp);
 }
 
-COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
+COUNT DosGetFattr(BYTE FAR * name)
 {
-	static UWORD srfa[5];
+	UWORD srfa[5];
 	COUNT result, drive;
 	struct cds FAR *last_cds;
 
@@ -1402,8 +1414,7 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
         && (PriPathName[1] == ':')
         && ( (PriPathName[2] == '/') || (PriPathName[2] == '\\') )
         && (PriPathName[3] == '\0')   ) {
-        *attrp = 0x10;
-        return SUCCESS;
+        return 0x10;
     }
 
     if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV)
@@ -1412,8 +1423,7 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
 		current_ldt = &CDSp->cds_table[drive];
 		result = -int2f_Remote_call(REM_GETATTRZ, 0, 0, 0, 0, 0, (VOID FAR *) srfa);
 		current_ldt = last_cds;
-		*attrp = srfa[0];
-		return result;
+		return (result < SUCCESS ? result : srfa[0]);
 	}
 	else {
 /* /// Use truename()'s result, which we already have in PriPathName.
@@ -1443,13 +1453,13 @@ COUNT DosGetFattr(BYTE FAR * name, UWORD FAR * attrp)
                                     and suddenly, the filehandle stays open
                                     shit.
           tom
-    */          
-          return dos_getfattr(name, attrp);
+    */ 
+          return dos_getfattr(PriPathName);
 
 	}
 }
 
-COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
+COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
 {
 	COUNT result, drive;
 	struct cds FAR *last_cds;
@@ -1488,7 +1498,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
           
           see DosGetAttr()
 */          
-          return dos_setfattr(name, attrp);
+          return dos_setfattr(PriPathName, attrp);
 
         }
 }
@@ -1530,7 +1540,7 @@ COUNT DosDelete(BYTE FAR *path)
 	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
 		return -int2f_Remote_call(REM_DELETE, 0, 0, 0, 0, 0, 0);
 	}  else {
-		return dos_delete(path);
+		return dos_delete(PriPathName);
 	}
 }
 
@@ -1559,7 +1569,7 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
 	if (CDSp->cds_table[drive1].cdsFlags & CDSNETWDRV) {
 		return -int2f_Remote_call(REM_RENAME, 0, 0, 0, 0, 0, 0);
 	} else {
-        	return dos_rename(path1, path2);
+        	return dos_rename(PriPathName, SecPathName);
 	}
 }
 
@@ -1583,7 +1593,7 @@ COUNT DosMkdir(BYTE FAR * dir)
 	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
 		return -int2f_Remote_call(REM_MKDIR, 0, 0, 0, 0, 0, 0);
 	}  else {
-		return dos_mkdir(dir);
+		return dos_mkdir(PriPathName);
 	}
 }
 
@@ -1607,7 +1617,7 @@ COUNT DosRmdir(BYTE FAR * dir)
 	if (CDSp->cds_table[drive].cdsFlags & CDSNETWDRV) {
 		return -int2f_Remote_call(REM_RMDIR, 0, 0, 0, 0, 0, 0);
 	}  else {
-		return dos_rmdir(dir);
+		return dos_rmdir(PriPathName);
 	}
 }
 

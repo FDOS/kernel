@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
                                                                                                                                                                    
 /*
  * $Log$
+ * Revision 1.12  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.11  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -618,9 +621,9 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
     if (mode >= DSKWRITEINT26)
         return (IoReqHdr.r_status);
 
-/* Changed 9/4/00   BER */    
-    return (IoReqHdr.r_status);
-    
+/* Changed 9/4/00   BER
+    return (IoReqHdr.r_status);  
+*/
 
 
     

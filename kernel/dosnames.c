@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.9  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -130,7 +133,7 @@ static BYTE *dosnamesRcsId = "$Id$";
 #define WildChar(c) (!strchr(".\"/\\[]:|<>+=;,", (c)))
 
 VOID XlateLcase(BYTE * szFname, COUNT nChars);
-VOID DosTrimPath(BYTE FAR * lpszPathNamep);
+VOID DosTrimPath(BYTE * lpszPathNamep);
 
 /* Should be converted to a portable version after v1.0 is released.    */
 VOID XlateLcase(BYTE * szFname, COUNT nChars)
@@ -157,7 +160,7 @@ VOID SpacePad(BYTE * szString, COUNT nChars)
     (..)        == Back one directory *.*
 
  */
-COUNT ParseDosName(BYTE FAR * lpszFileName,
+COUNT ParseDosName(BYTE * lpszFileName,
                    COUNT * pnDrive,
                    BYTE * pszDir,
                    BYTE * pszFile,
@@ -167,9 +170,9 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
   COUNT nDirCnt,
     nFileCnt,
     nExtCnt;
-  BYTE FAR *lpszLclDir,
-    FAR * lpszLclFile,
-    FAR * lpszLclExt;
+  BYTE *lpszLclDir,
+    *lpszLclFile,
+    *lpszLclExt;
 
   /* Initialize the users data fields                             */
   if (pszDir)
@@ -237,7 +240,7 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
            nDirCnt += 2;
          if (nDirCnt > PARSE_MAX-1)
            nDirCnt = PARSE_MAX-1;
-         fbcopy(lpszLclDir, (BYTE FAR *) pszDir, nDirCnt);
+         bcopy(lpszLclDir, pszDir, nDirCnt);
          if (((lpszFileName - lpszLclFile) == 2) && (nDirCnt < PARSE_MAX))
            pszDir[nDirCnt++] = '\\';  /* make DosTrimPath() enjoy, for tail DotDot */
          pszDir[nDirCnt] = '\0';
@@ -292,17 +295,17 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
   /* buffers.                                                     */
   if (pszDir)
   {
-    fbcopy(lpszLclDir, (BYTE FAR *) pszDir, nDirCnt);
+    bcopy(lpszLclDir, pszDir, nDirCnt);
     pszDir[nDirCnt] = '\0';
   }
   if (pszFile)
   {
-    fbcopy(lpszLclFile, (BYTE FAR *) pszFile, nFileCnt);
+    bcopy(lpszLclFile, pszFile, nFileCnt);
     pszFile[nFileCnt] = '\0';
   }
   if (pszExt)
   {
-    fbcopy(lpszLclExt, (BYTE FAR *) pszExt, nExtCnt);
+    bcopy(lpszLclExt, pszExt, nExtCnt);
     pszExt[nExtCnt] = '\0';
   }
 
@@ -314,14 +317,16 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
   return SUCCESS;
 }
 
-COUNT ParseDosPath(BYTE FAR * lpszFileName,
+#if 0
+/* not necessary anymore because of truename */
+COUNT ParseDosPath(BYTE * lpszFileName,
                    COUNT * pnDrive,
                    BYTE * pszDir,
-                   BYTE FAR * pszCurPath)
+                   BYTE * pszCurPath)
 {
   COUNT nDirCnt,
     nPathCnt;
-  BYTE FAR *lpszLclDir,
+  BYTE *lpszLclDir,
    *pszBase = pszDir;
 
   /* Initialize the users data fields                             */
@@ -379,12 +384,12 @@ COUNT ParseDosPath(BYTE FAR * lpszFileName,
   /* buffers.                                                     */
   if (pszDir)
   {
-    fbcopy(lpszLclDir, (BYTE FAR *) pszDir, nDirCnt);
+    bcopy(lpszLclDir, pszDir, nDirCnt);
     pszDir[nDirCnt] = '\0';
   }
 
   /* Clean up before leaving                              */
-  DosTrimPath((BYTE FAR *) pszBase);
+  DosTrimPath(pszBase);
 
   /* Before returning to the user, eliminate any useless          */
   /* trailing "\\." since the path prior to this is sufficient.   */
@@ -402,13 +407,13 @@ COUNT ParseDosPath(BYTE FAR * lpszFileName,
 
   return SUCCESS;
 }
+#endif
 
-
-VOID DosTrimPath(BYTE FAR * lpszPathNamep)
+VOID DosTrimPath(BYTE * lpszPathNamep)
 {
-  BYTE FAR *lpszLast,
-    FAR * lpszNext,
-    FAR * lpszRoot = (BYTE FAR *) 0;
+  BYTE *lpszLast,
+    *lpszNext,
+    *lpszRoot = NULL;
   COUNT nChars,
     flDotDot;
 
@@ -477,6 +482,7 @@ VOID DosTrimPath(BYTE FAR * lpszPathNamep)
         else if (*(lpszNext + 2) == '\\')
         {
           fstrncpy(lpszNext, lpszNext + 2, NAMEMAX);
+	  flDotDot = TRUE;
         }
         /* If we're at the end of a string,     */
         /* just exit.                           */

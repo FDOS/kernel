@@ -71,6 +71,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.18  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -409,20 +412,6 @@ INIT VOID FsConfig(VOID)
     pcds_table->cdsJoinOffset = 2;
   }
 
-  /*
-    this is a quick patch - see if B: exists
-    test for A: also, need not exist
-  */
-  {
-    iregs r;
-
-    init_call_intr(0x11,&r);              /* get equipment list */
-    if ((r.a.x & 1)==0 || ((r.a.x & 1) && (r.a.x & 0xc0)==0))
-      /* no floppy drives installed or no B: drive */
-      CDSp->cds_table[1].cdsFlags = 0;
-    if ((r.a.x & 1)==0) 		  /* no floppy drives installed  */
-      CDSp->cds_table[0].cdsFlags = 0;
-  }
   /* Initialize the disk buffer management functions */
   /* init_call_init_buffers(); done from CONFIG.C   */
 }

@@ -35,6 +35,9 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.6  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -263,6 +266,75 @@ typedef struct
   /* bpb_nsize== 0                                */
 }
 bpb;
+
+#define N_RETRY         5       /* number of retries permitted  */
+#define SEC_SIZE        512     /* size of sector in bytes      */
+
+#define LBA_READ         0x4200
+#define LBA_WRITE        0x4300
+
+
+struct _bios_LBA_address_packet        /* Used to access a hard disk via LBA */
+                                       /*       Added by Brian E. Reifsnyder */
+{
+  unsigned char    packet_size;        /* size of this packet...set to 16  */
+  unsigned char    reserved_1;         /* set to 0...unused                */
+  unsigned char    number_of_blocks;   /* 0 < number_of_blocks < 128       */
+  unsigned char    reserved_2;         /* set to 0...unused                */
+  UBYTE    far *   buffer_address;     /* addr of transfer buffer          */
+  unsigned long    block_address;      /* LBA address                      */
+  unsigned long    block_address_high; /* high bytes of LBA addr...unused  */
+};
+
+struct CHS {
+    ULONG Cylinder;
+    UWORD Head;
+    UWORD Sector;
+};
+
+/* DOS 4.0-7.0 drive data table (see RBIL at INT2F,AX=0803) */
+typedef struct ddtstruct
+{
+  struct ddtstruct FAR *ddt_next;
+                     /* pointer to next table (offset FFFFh if last table) */
+  UBYTE ddt_driveno; /* physical unit number (for INT 13)     */
+  UBYTE ddt_logdriveno; /* logical drive number (0=A:)        */
+  bpb ddt_bpb;       /* BIOS Parameter Block */
+  UBYTE ddt_flags;
+          /* bit 6: 16-bit FAT instead of 12-bit
+             bit 7: unsupportable disk (all accesses will return Not Ready) */
+  UWORD ddt_FileOC;   /* Count of Open files on Drv */
+  UBYTE ddt_type;     /* device type       */
+  UWORD ddt_descflags;/* bit flags describing drive */
+  UWORD ddt_ncyl;     /* number of cylinders
+                           (for partition only, if hard disk) */
+  bpb ddt_defbpb;     /* BPB for default (highest) capacity supported */
+  UBYTE ddt_reserved[6]; /* (part of BPB above) */
+  UBYTE ddt_ltrack;   /* last track accessed */
+  union 
+  {
+    ULONG ddt_lasttime; /* removable media: time of last access
+                           in clock ticks (FFFFFFFFh if never) */
+    struct 
+    {
+      UWORD ddt_part;   /* partition (FFFFh = primary, 0001h = extended)
+                           always 0001h for DOS 5+ */
+      UWORD ddt_absyl; /* absolute cylinder number of partition's
+                           start on physical drive
+                           (FFFFh if primary partition in DOS 4.x)*/
+    } ddt_hd;
+  } ddt_fh;
+  UBYTE ddt_volume[12];  /* ASCIIZ volume label or "NO NAME    " if none
+                            (apparently taken from extended boot record
+                             rather than root directory) */
+  ULONG ddt_serialno;    /* serial number */
+  UBYTE ddt_fstype[9];   /* ASCIIZ filesystem type ("FAT12   " or "FAT16   ")*/
+  ULONG ddt_offset;   /* relative partition offset */
+  BITS ddt_LBASupported:1; /* set, if INT13 extensions enabled */
+  BITS ddt_WriteVerifySupported:1;
+} ddt;
+
+/* typedef struct ddtstruct ddt;*/
 
 struct gblkio
 {

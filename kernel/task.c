@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.14  2001/06/03 14:16:18  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -163,9 +166,6 @@ static BYTE *RcsId = "$Id$";
  *    Rev 1.0   02 Jul 1995  8:34:06   patv
  * Initial revision.
  */
-#if 0
-extern VOID ClaimINITDataSegment(VOID);
-#endif
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))
 
 #define LOADNGO 0
@@ -184,6 +184,10 @@ static exe_header header;
 	   + 80 bytes: maximum absolute filename
 	   + 1 byte: '\0'
 	   -- 1999/04/21 ska */
+
+#ifdef __TURBOC__
+void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
+#endif
 
 #ifndef PROTO
 COUNT ChildEnv(exec_blk FAR *, UWORD *, char far *);
@@ -587,13 +591,6 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
         cu_psp = mem;
         dta = p->ps_dta;
 
-        /* if that's the first time, we arrive here
-           now we 1 microsecond from COMMAND.COM
-           now we claim the ID = INIT_DATA segment,
-           which should no longer be used
-        ClaimINITDataSegment();
-        */
-
         if (InDOS)
           --InDOS;
         exec_user(irp);
@@ -658,7 +655,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     /*err,     */
     /*env_size,*/
     i;
-  COUNT nBytesRead;
+  UCOUNT nBytesRead;
   UWORD mem,
     env,
     asize,
@@ -722,6 +719,8 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     }
 
     exe_size = (LONG) long2para(image_size) + header.exMinAlloc;
+    
+    
     /* + long2para((LONG) sizeof(psp)); ?? see above
        image_size += sizeof(psp) -- 1999/04/21 ska */
     if (exe_size > asize && (mem_access_mode & 0x80))
@@ -745,6 +744,16 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     /* + long2para((LONG) sizeof(psp)); ?? -- 1999/04/21 ska */
     if (exe_size > asize)
       exe_size = asize;
+    
+    /* TE if header.exMinAlloc == header.exMaxAlloc == 0,
+       DOS will allocate the largest possible memory area
+       and load the image as high as possible into it.
+       discovered (and after that found in RBIL), when testing NET */
+       
+    if ((header.exMinAlloc | header.exMaxAlloc ) == 0)
+      exe_size = asize;
+      
+      
 /* /// Removed closing curly brace.  We should not attempt to allocate
        memory if we are overlaying the current process, because the new
        process will simply re-use the block we already have allocated.
@@ -848,25 +857,23 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   /* read in the image in 32K chunks                      */
   if (mode != OVERLAY)
   {
-    exe_size = image_size - long2para((LONG) sizeof(psp));
+    exe_size = image_size - sizeof(psp);
   }
   else
     exe_size = image_size;
 
   if (exe_size > 0)
   {
-    UCOUNT tmp = 16;
-      
-    sp = MK_FP(start_seg, 0x0);
-
     if (mode != OVERLAY)
     {
       if ((header.exMinAlloc == 0) && (header.exMaxAlloc == 0))
       {
-        sp = MK_FP(start_seg + mp->m_size
-                   - (image_size + 15) / tmp, 0);
+                             /* then the image should be placed as high as possible */
+        start_seg = start_seg + mp->m_size - (image_size + 15) / 16;
       }
     }
+
+    sp = MK_FP(start_seg, 0x0);
 
     do
     {
@@ -941,14 +948,6 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     case LOADNGO:
       cu_psp = mem;
       dta = p->ps_dta;
-
-
-      /* if that's the first time, we arrive here
-         now we 1 microsecond from COMMAND.COM
-         now we claim the ID = INIT_DATA segment,
-         which should no longer be used
-      ClaimINITDataSegment();
-      */
 
       if (InDOS)
         --InDOS;

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.17  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -177,16 +180,14 @@ static BYTE *fatdirRcsId = "$Id$";
 
 VOID pop_dmp(dmatch FAR *, f_node_ptr);
 
-f_node_ptr dir_open(BYTE FAR * dirname)
+f_node_ptr dir_open(BYTE * dirname)
 {
   f_node_ptr fnp;
   COUNT drive;
   BYTE *p;
   WORD i;
-    /*TEunused x; */
-/*  BYTE *s;*/
   struct cds FAR *cdsp;
-  BYTE *pszPath = &TempCDS.cdsCurrentPath[2];
+  BYTE *pszPath = dirname + 2;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (f_node_ptr)0)
@@ -197,10 +198,7 @@ f_node_ptr dir_open(BYTE FAR * dirname)
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
-  /* and initialize temporary CDS                                 */
-  TempCDS.cdsFlags = 0;
   /* determine what drive we are using...                         */
-  dirname = adjust_far(dirname);
   if (ParseDosName(dirname, &drive, (BYTE *) 0, (BYTE *) 0, (BYTE *) 0, FALSE)
       != SUCCESS)
   {
@@ -227,16 +225,10 @@ f_node_ptr dir_open(BYTE FAR * dirname)
 
   cdsp = &CDSp->cds_table[drive];
 
-  TempCDS.cdsDpb = cdsp->cdsDpb;
-
-  TempCDS.cdsCurrentPath[0] = 'A' + drive;
-  TempCDS.cdsCurrentPath[1] = ':';
-  TempCDS.cdsJoinOffset = 2;
-
-  i = cdsp->cdsJoinOffset;
-
   /* Generate full path name                                      */
-  ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[i]);
+  /* not necessary anymore, since truename did that already
+       i = cdsp->cdsJoinOffset;
+     ParseDosPath(dirname, (COUNT *) 0, pszPath, (BYTE FAR *) & cdsp->cdsCurrentPath[i]); */
 
 /* for testing only for now */
 #if 0
@@ -247,24 +239,24 @@ f_node_ptr dir_open(BYTE FAR * dirname)
   }
 #endif
 
-  if (TempCDS.cdsDpb == 0)
+  if (cdsp->cdsDpb == 0)
   {
     release_f_node(fnp);
     return NULL;
   }
 
-  fnp->f_dpb = TempCDS.cdsDpb;
+  fnp->f_dpb = cdsp->cdsDpb;
 
   /* Perform all directory common handling after all special      */
   /* handling has been performed.                                 */
 
-  if (media_check(TempCDS.cdsDpb) < 0)
+  if (media_check(fnp->f_dpb) < 0)
   {
     release_f_node(fnp);
     return (f_node_ptr)0;
   }
 
-  fnp->f_dsize = DIRENT_SIZE * TempCDS.cdsDpb->dpb_dirents;
+  fnp->f_dsize = DIRENT_SIZE * fnp->f_dpb->dpb_dirents;
 
   fnp->f_diroff = 0l;
   fnp->f_flags.f_dmod = FALSE;  /* a brand new fnode            */
@@ -323,7 +315,7 @@ f_node_ptr dir_open(BYTE FAR * dirname)
     {
       if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED)
       {
-        if (fcmp((BYTE FAR *) TempBuffer, (BYTE FAR *) fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
+        if (fcmp(TempBuffer, (BYTE *)fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
         {
           i = TRUE;
           break;
@@ -353,7 +345,7 @@ f_node_ptr dir_open(BYTE FAR * dirname)
       fnp->f_diroff = 0l;
       fnp->f_flags.f_dmod = FALSE;
       fnp->f_flags.f_dnew = TRUE;
-      fnp->f_dsize = DIRENT_SIZE * TempCDS.cdsDpb->dpb_dirents;
+      fnp->f_dsize = DIRENT_SIZE * fnp->f_dpb->dpb_dirents;
 
     }
   }
@@ -594,15 +586,14 @@ VOID dir_close(REG f_node_ptr fnp)
 }
 
 #ifndef IPL
-COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
+COUNT dos_findfirst(UCOUNT attr, BYTE *name)
 {
   REG f_node_ptr fnp;
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
   REG COUNT i;
-  COUNT nDrive;
   BYTE *p;
 
-  static BYTE local_name[FNAME_SIZE + 1],
+  BYTE local_name[FNAME_SIZE + 1],
     local_ext[FEXT_SIZE + 1];
 
 /*  printf("ff %Fs\n", name);*/
@@ -616,15 +607,10 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
   /* Start out by initializing the dirmatch structure.            */
   
-  fmemset(dmp, sizeof(*dmp),0);
-  dmp->dm_drive = default_drive;
-/*  dmp->dm_entry = 0;
-  dmp->dm_cluster = 0;
-*/
   dmp->dm_attr_srch = attr;
 
   /* Parse out the drive, file name and file extension.           */
-  i = ParseDosName((BYTE FAR *)name, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
+  i = ParseDosName(name, NULL, &szDirName[2], local_name, local_ext, TRUE);
   if (i != SUCCESS)
     return i;
 /*
@@ -632,22 +618,10 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   printf("ff %s", local_name);
   printf("ff %s\n", local_ext);
 */
-  if (nDrive >= 0)
-  {
-    dmp->dm_drive = nDrive;
-  }
-  else
-    nDrive = default_drive;
-
-  if (nDrive >= lastdrive) {
-    return DE_INVLDDRV;
-  }
-  current_ldt = &CDSp->cds_table[nDrive];
-  SAttr = (BYTE) attr;
 
   /* Now build a directory.                                       */
-  if (!LocalPath[2])
-    fstrcpy(&LocalPath[0], current_ldt->cdsCurrentPath);
+  if (!szDirName[2])
+    fstrcpy(&szDirName[0], current_ldt->cdsCurrentPath);
 
   /* Build the match pattern out of the passed string             */
   /* copy the part of the pattern which belongs to the filename and is fixed */
@@ -675,11 +649,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
   /* Complete building the directory from the passed in   */
   /* name                                                 */
-  if (nDrive >= 0)
-    LocalPath[0] = 'A' + nDrive;
-  else
-    LocalPath[0] = 'A' + default_drive;
-  LocalPath[1] = ':';
+  szDirName[0] = 'A' + dmp->dm_drive;
+  szDirName[1] = ':';
     
   /* Special handling - the volume id is only in the root         */
   /* directory and only searched for once.  So we need to open    */
@@ -687,14 +658,14 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   /* volume id bit set.                                           */
   if ((attr & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
   {
-    LocalPath[2] = '\\';
-    LocalPath[3] = '\0';
+    szDirName[2] = '\\';
+    szDirName[3] = '\0';
   }
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
   
-/*  printf("dir_open %Fs\n",(BYTE FAR *) LocalPath);*/
-  if ((fnp = dir_open((BYTE FAR *) LocalPath)) == NULL)
+/*  printf("dir_open %s\n", szDirName);*/
+  if ((fnp = dir_open(szDirName)) == NULL)
     return DE_PATHNOTFND;
 
   if ((attr & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
@@ -806,7 +777,7 @@ COUNT dos_findnext(void)
     ++dmp->dm_entry;
     if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED)
     {
-      if (fcmp_wild((BYTE FAR *) (dmp->dm_name_pat), (BYTE FAR *) fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
+      if (fcmp_wild((BYTE FAR *)dmp->dm_name_pat, (BYTE FAR *)fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
       {
         /*
             MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.

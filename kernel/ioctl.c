@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.10  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -193,10 +196,12 @@ COUNT DosDevIOctl(iregs FAR * r)
   {
     case 0x00:
       /* Get the flags from the SFT                           */
-      r->AX = s->sft_dev->dh_attr;
-      r->DH = r->AH;
+      if (s->sft_flags & SFT_FDEVICE)	    
+          r->AX = (s->sft_dev->dh_attr & 0xff00) | s->sft_flags_lo;
+      else	  
+          r->AX = s->sft_flags;
 /* Undocumented result, Ax = Dx seen using Pcwatch */
-      r->DL = r->AL = s->sft_flags;
+      r->DX = r->AX;	  
       break;
 
     case 0x01:
@@ -272,10 +277,6 @@ COUNT DosDevIOctl(iregs FAR * r)
       if(!dpbp)
       {
         return DE_INVLDDRV;
-      }
-      if (media_check(dpbp) < 0)
-      {
-        return DE_INVLDDRV;  
       }
       if ( ((r->AL == 0x04 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x05 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))

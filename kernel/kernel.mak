@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.12  2001/07/22 01:58:58  bartoldeman
+# Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+#
 # Revision 1.11  2001/07/09 22:19:33  bartoldeman
 # LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
 #
@@ -335,7 +338,7 @@ DynInit.obj: DynInit.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)version.h proto.h turboc.cfg  dyndata.h
 	$(CC) $(INITCFLAGS) -c DynInit.c
 
-initdisk.obj: initdisk.c disk.h $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
+initdisk.obj: initdisk.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
@@ -399,7 +402,7 @@ dosnames.obj: dosnames.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
  $(HDR)version.h proto.h turboc.cfg
 
-dsk.obj: dsk.c disk.h $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
+dsk.obj: dsk.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \

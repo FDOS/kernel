@@ -28,6 +28,8 @@
 
 #include "portab.h"
 
+/* #define DOSEMU */
+
 #ifdef FORINIT
 #define fstrlen reloc_call_fstrlen
 #define put_console init_put_console
@@ -48,6 +50,9 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.10  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -70,6 +75,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.11  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.10  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -238,19 +246,36 @@ BYTE *
 #define RIGHT   1
 
 /* printf -- short version of printf to conserve space */
+#ifdef DOSEMU
+WORD printf(CONST BYTE * fmt, ...)
+{
+  WORD ret;
+
+  static char buff[80]; /* adjust if necessary */	
+  charp = buff;
+  ret = do_printf(fmt, (BYTE **)&fmt + 1);
+  handle_char(NULL);
+  _ES = FP_SEG(buff);
+  _DX = FP_OFF(buff);
+  _AX = 0x13;
+  __int__(0xe6);
+  return ret;
+}
+#else
 WORD printf(CONST BYTE * fmt, ...)
 {
   charp = 0;
   return do_printf(fmt, (BYTE **)&fmt + 1);
 }
+#endif
 
 WORD
-sprintf(BYTE * buff, CONST BYTE * fmt, BYTE * args,...)
+sprintf(BYTE * buff, CONST BYTE * fmt, ...)
 {
   WORD ret;
 
   charp = buff;
-  ret = do_printf(fmt, &args);
+  ret = do_printf(fmt, (BYTE **)&fmt + 1);
   handle_char(NULL);
   return ret;
 }

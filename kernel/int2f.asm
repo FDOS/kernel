@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.10  2001/07/22 01:58:58  bartoldeman
+; Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+;
 ; Revision 1.9  2001/07/09 22:19:33  bartoldeman
 ; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
 ;
@@ -99,8 +102,6 @@
 
 segment	HMA_TEXT
             extern  _nul_dev:wrt DGROUP
-            extern  _umb_start:wrt DGROUP
-            extern  _UMB_top:wrt DGROUP
             extern  _cu_psp:wrt DGROUP
             extern _syscall_MUX14:wrt HMA_TEXT
 
@@ -113,6 +114,10 @@ Int2f1:
                 or      al,al                   ; Installation check?
                 jz      FarTabRetn              ; yes, just return
 Int2f2:
+                mov ax,1                        ; TE 07/13/01
+                                                ; at least for redirected INT21/5F44
+                                                ; --> 2f/111e
+                                                ; the error code is AX=0001 = unknown function
                 stc
 FarTabRetn:
                 retf    2                       ; Return far
@@ -327,8 +332,81 @@ int2f_call:
                 pop     bp
                 pop     bp
                 ret
+                
+%if 0
+; int_2f_111e_call(iregs FAR *iregs)
+; 
+; set up all registers to the int21 entry registers
+; call int2f/111e
+; copy returned registers into int21 entry registers back
+;
+;  disabled: does not work better than previous implementation
+                global  _int_2f_111e_call
+_int_2f_111e_call:
+
+    push bp
+    mov  bp,sp
+    push si
+    push di
+    push ds
+
+    lds  si, [bp+4]     ; ds:si -> iregs
+    
+    mov  ax, [si  ]
+    mov  bx, [si+2]
+    mov  cx, [si+4]
+    mov  dx, [si+6]
+    push word [si+8]            ; si
+    mov  di, [si+10]
+    mov  bp, [si+12]
+    mov  es, [si+16]
+    mov  ds, [si+14]
+    pop  si
+
+    push ax
+    mov  ax, 111eh
+    int  2fh
+    jc   fault
+    pop  ax                     ; restore orig value of ax if no errors
+    push ax    
+fault:        
+
+    pushf
+    push ds
+    push si
+    push bp
+    
+    mov bp,sp
+    lds si,[bp+4+6+10]        ; 4=fun, 6=si,di,ds, 10 additional bytes on stack
+    
+    pop word [si+12]          ; bp
+    pop word [si+ 8]          ; si
+    pop word [si+14]          ; ds
+    pop word [si+22]          ; flags
+    add sp,2                ; pushed function value
+
+    mov [si  ],ax
+
+    cmp ax, 5f02h             ; 5f02 is special: it manipulates the user stack directly
+    je  skip5f02    
+    mov [si+2],bx
+    mov [si+4],cx
+skip5f02:
+        
+    mov [si+6],dx
+    mov [si+10],di
+    mov [si+16],es
+    
+    pop ds
+    pop di
+    pop si
+    pop bp
+    ret        
+%endif
+          
 ;
 ; Test to see if a umb driver has been loaded.
+; if so, retrieve largest available block+size
 ;
 ; From RB list and Dosemu xms.c.
 ;
@@ -353,18 +431,16 @@ int2f_call:
 ;
 ;
 
+
 segment INIT_TEXT
-                global  _Umb_Test
-_Umb_Test
+                ; int UMB_get_largest(UCOUNT *seg, UCOUNT *size);
+                global _UMB_get_largest
+                
+_UMB_get_largest:
                 push    bp
                 mov     bp,sp
-                push    es
-                push    ds
-                push    dx
-                push    bx
 
-                mov     ax, DGROUP
-                mov     ds, ax
+                sub     sp,4            ; for the far call
 
                 mov     ax,4300h        ; is there a xms driver installed?
                 int     2fh
@@ -374,54 +450,41 @@ _Umb_Test
                 mov     ax,4310h
                 int     2fh
 
-                push    es              ; save driver entry point
-                push    bx
 
-                push    cs              ; setup far return
-                mov	ax, umbt1
-                push    ax
-                push    es              ; push the driver entry point
-                push    bx
+                mov     [bp-2],es              ; save driver entry point
+                mov     [bp-4],bx
+
                 mov     dx,0xffff       ; go for broke!
                 mov     ax,1000h        ; get the umb's
-                retf                    ; Call the driver
-umbt1:
+                call    far [bp-4]      ; Call the driver
 ;
 ;       bl = 0xB0 and  ax = 0 so do it again.
 ;
                 cmp     bl,0xb0         ; fail safe
-                je      umbtb
-                add     sp,4
-                jmp     umbt_error
-umbtb:
-                and     dx,dx           ; if it returns a size of zero.
-                jne     umbtc
-                add     sp,4
-                jmp     umbt_error
-
-umbtc:
-                pop     bx              ; restore driver entry
-                pop     es
-
-                push    cs
-                mov	ax, umbt2
-                push    ax
-                push    es
-                push    bx
-                mov     ax,1000h        ; dx set with largest size
-                retf
-umbt2:
-                cmp     ax,1
                 jne     umbt_error
 
-                mov     word [_umb_start], bx   ; save the segment
-                mov     word [_UMB_top], dx     ; and the true size
+                and     dx,dx           ; if it returns a size of zero.
+                je      umbt_error
 
-umbt_error:     dec     ax
+                mov     ax,1000h        ; dx set with largest size
+                call    far [bp-4]      ; Call the driver
 
-                pop     bx
-                pop     dx
-                pop     ds
-                pop     es
+                cmp     ax,1
+                jne     umbt_error
+                                                ; now return the segment
+                                                ; and the size
+
+                mov cx,bx                       ; *seg = segment
+                mov bx, [bp+4]
+                mov [bx],cx
+
+                mov bx, [bp+6]                  ; *size = size
+                mov [bx],dx
+
+umbt_ret:
+                mov     sp,bp
                 pop     bp
                 ret                ; this was called NEAR!!
+
+umbt_error:     xor ax,ax
+                jmp umbt_ret

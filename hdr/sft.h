@@ -35,6 +35,9 @@ static BYTE *sft_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.4  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -135,6 +138,7 @@ typedef struct
   WORD sft_psp;                 /* owner psp                            */
   WORD sft_shroff;              /* Sharing offset                       */
   WORD sft_status;              /* this sft status                      */
+  BYTE FAR * sft_ifsptr;        /* pointer to IFS driver for file, 0000000h if native DOS */
 }
 sft;
 

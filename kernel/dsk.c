@@ -26,13 +26,15 @@
 
 #include "portab.h"
 #include "globals.h"
-#include "disk.h"
 #ifdef VERSION_STRINGS
 static BYTE *dskRcsId = "$Id$";
 #endif
 
 /*
  * $Log$
+ * Revision 1.18  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.17  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -152,7 +154,7 @@ static BYTE *dskRcsId = "$Id$";
     #define DebugPrintf(x) 
 #endif    
 
-#define STATIC 
+/* #define STATIC  */
 
 
 
@@ -170,7 +172,7 @@ COUNT fl_verify(WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
 extern COUNT fl_lba_ReadWrite (BYTE drive, WORD mode, 
     struct _bios_LBA_address_packet FAR *dap_p);
 
-int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer, 
+int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer, 
                                 ULONG LBA_address,unsigned total, UWORD *transferred);
 #else
 BOOL fl_reset();
@@ -207,13 +209,18 @@ static struct Access_info
   BYTE  AI_Flag;
 };
 
-struct media_info *miarrayptr; /* Internal media info structs  */
-bpb bpbarray[NDEV];      /* BIOS parameter blocks        */
+struct FS_info
+{
+    ULONG serialno;
+    BYTE  volume[11];
+    BYTE  fstype[8];
+};
+
+ddt *pddt0; /* Internal media info structs  */
 /* STATIC bpb *bpbptrs[NDEV];      pointers to bpbs             */
 
 /*TE - array access functions */
-struct media_info *getPMiarray(int dev) { return &miarrayptr[dev];}
-       bpb        *getPBpbarray(unsigned dev){ return &bpbarray[dev];}
+ddt *getddt(int dev) { return &pddt0[dev];}
 
 #define N_PART 4                /* number of partitions per
                    table partition              */
@@ -225,20 +232,20 @@ COUNT nUnits;            /* number of returned units     */
 
 #ifdef PROTO
 WORD
-    _dsk_init  (rqptr rq, struct media_info *pmiarray),
-    mediachk   (rqptr rq, struct media_info *pmiarray),
-    bldbpb     (rqptr rq, struct media_info *pmiarray),
-    blockio    (rqptr rq, struct media_info *pmiarray),
-    IoctlQueblk(rqptr rq, struct media_info *pmiarray),
-    Genblkdev  (rqptr rq, struct media_info *pmiarray),
-    Getlogdev  (rqptr rq, struct media_info *pmiarray),
-    Setlogdev  (rqptr rq, struct media_info *pmiarray),
-    blk_Open   (rqptr rq, struct media_info *pmiarray),
-    blk_Close  (rqptr rq, struct media_info *pmiarray),
-    blk_Media  (rqptr rq, struct media_info *pmiarray),
-    blk_noerr  (rqptr rq, struct media_info *pmiarray),
-    blk_nondr  (rqptr rq, struct media_info *pmiarray),
-    blk_error  (rqptr rq, struct media_info *pmiarray);
+    _dsk_init  (rqptr rq, ddt *pddt),
+    mediachk   (rqptr rq, ddt *pddt),
+    bldbpb     (rqptr rq, ddt *pddt),
+    blockio    (rqptr rq, ddt *pddt),
+    IoctlQueblk(rqptr rq, ddt *pddt),
+    Genblkdev  (rqptr rq, ddt *pddt),
+    Getlogdev  (rqptr rq, ddt *pddt),
+    Setlogdev  (rqptr rq, ddt *pddt),
+    blk_Open   (rqptr rq, ddt *pddt),
+    blk_Close  (rqptr rq, ddt *pddt),
+    blk_Media  (rqptr rq, ddt *pddt),
+    blk_noerr  (rqptr rq, ddt *pddt),
+    blk_nondr  (rqptr rq, ddt *pddt),
+    blk_error  (rqptr rq, ddt *pddt);
 WORD dskerr(COUNT);
 #else
 WORD _dsk_init(),
@@ -263,7 +270,7 @@ WORD dskerr();
 /*                                                                      */
 
 #ifdef PROTO
-static WORD(*dispatch[NENTRY]) (rqptr rq, struct media_info *pmiarray) =
+static WORD(*dispatch[NENTRY]) (rqptr rq, ddt *pddt) =
 #else
 static WORD(*dispatch[NENTRY]) () =
 #endif
@@ -319,21 +326,21 @@ COUNT FAR blk_driver(rqptr rp)
     return failure(E_FAILURE);  /* general failure */
   }
   else
-    return ((*dispatch[rp->r_command]) (rp, getPMiarray(rp->r_unit)));
+    return ((*dispatch[rp->r_command]) (rp, getddt(rp->r_unit)));
 }
 
 /* disk init is done in diskinit.c, so this should never be called */
-WORD _dsk_init(rqptr rp, struct media_info *pmiarray)
+WORD _dsk_init(rqptr rp, ddt *pddt)
 {
   UNREFERENCED_PARAMETER(rp);
-  UNREFERENCED_PARAMETER(pmiarray);
+  UNREFERENCED_PARAMETER(pddt);
   fatal("No disk init!");
   return S_DONE; /* to keep the compiler happy */
 }
 
-WORD mediachk(rqptr rp, struct media_info *pmiarray)
+WORD mediachk(rqptr rp, ddt *pddt)
 {
-  COUNT drive = pmiarray->drive.driveno;
+  COUNT drive = pddt->ddt_driveno;
   COUNT result;
 
   /* if it's a hard drive, media never changes */
@@ -365,24 +372,24 @@ WORD mediachk(rqptr rp, struct media_info *pmiarray)
  */
 STATIC WORD RWzero(rqptr rp, WORD t)
 {
-  struct media_info *pmiarray = getPMiarray(rp->r_unit);
+  ddt *pddt = getddt(rp->r_unit);
   UWORD  done;
 
-  return LBA_Transfer(&pmiarray->drive,
+  return LBA_Transfer(pddt,
                       t == 0 ? LBA_READ : LBA_WRITE,
                       (UBYTE FAR *)&DiskTransferBuffer, 
-                      pmiarray->mi_offset,1,&done);
+                      pddt->ddt_offset,1,&done);
 }
 
 /*
    0 if not set, 1 = a, 2 = b, etc, assume set.
    page 424 MS Programmer's Ref.
  */
-static WORD Getlogdev(rqptr rp, struct media_info *pmiarray)
+static WORD Getlogdev(rqptr rp, ddt *pddt)
 {
     BYTE x = rp->r_unit;
     
-    UNREFERENCED_PARAMETER(pmiarray);
+    UNREFERENCED_PARAMETER(pddt);
     
     x++;
     if( x > nblk_rel )
@@ -392,68 +399,77 @@ static WORD Getlogdev(rqptr rp, struct media_info *pmiarray)
     return S_DONE;
 }
 
-static WORD Setlogdev(rqptr rp, struct media_info *pmiarray)
+static WORD Setlogdev(rqptr rp, ddt *pddt)
 {
     UNREFERENCED_PARAMETER(rp);
-    UNREFERENCED_PARAMETER(pmiarray);
+    UNREFERENCED_PARAMETER(pddt);
 
     return S_DONE;
 }
 
-static WORD blk_Open(rqptr rp, struct media_info *pmiarray)
+static WORD blk_Open(rqptr rp, ddt *pddt)
 {
     UNREFERENCED_PARAMETER(rp);
 
-    pmiarray->mi_FileOC++;
+    pddt->ddt_FileOC++;
     return S_DONE;
 }
 
-static WORD blk_Close(rqptr rp, struct media_info *pmiarray)
+static WORD blk_Close(rqptr rp, ddt *pddt)
 {
    UNREFERENCED_PARAMETER(rp);
 
-   pmiarray->mi_FileOC--;
+   pddt->ddt_FileOC--;
    return S_DONE;
 }
 
-static WORD blk_nondr(rqptr rp, struct media_info *pmiarray)
+static WORD blk_nondr(rqptr rp, ddt *pddt)
 {
     UNREFERENCED_PARAMETER(rp);
-    UNREFERENCED_PARAMETER(pmiarray);
+    UNREFERENCED_PARAMETER(pddt);
 
     return S_BUSY|S_DONE;
 }
 
-static WORD blk_Media(rqptr rp, struct media_info *pmiarray)
+static WORD blk_Media(rqptr rp, ddt *pddt)
 {
   UNREFERENCED_PARAMETER(rp);
 
-  if (hd( pmiarray->drive.driveno))
+  if (hd( pddt->ddt_driveno))
     return S_BUSY|S_DONE;       /* Hard Drive */
   else
     return S_DONE;              /* Floppy */
 }
 
-STATIC WORD bldbpb(rqptr rp, struct media_info *pmiarray)
+STATIC WORD bldbpb(rqptr rp, ddt *pddt)
 {
   ULONG count;
-  bpb *pbpbarray;
+  bpb *pbpbarray = &pddt->ddt_bpb;
   WORD head,/*track,*/sector,ret;
 
   ret = RWzero( rp, 0);
+  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NBYTE]), &pbpbarray->bpb_nbyte);
+
+  pddt->ddt_descflags |= 0x200; /* set drive to not accessible */
 
   if (ret != 0)
-    return (dskerr(ret));
+      return (dskerr(ret));
+      
+  if (DiskTransferBuffer[0x1fe]!=0x55 || DiskTransferBuffer[0x1ff]!=0xaa ||
+      pbpbarray->bpb_nbyte != 512) {
+      /* copy default bpb to be sure that there is no bogus data */
+      memcpy(pbpbarray, &pddt->ddt_defbpb, sizeof(bpb));
+      return S_DONE;
+  }
+
+  pddt->ddt_descflags &= ~0x200; /* set drive to accessible */
 
 /*TE ~ 200 bytes*/    
-  pbpbarray = getPBpbarray(rp->r_unit);
 
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NBYTE]), &pbpbarray->bpb_nbyte);
   getbyte(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NSECTOR]), &pbpbarray->bpb_nsector);
   getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NRESERVED]), &pbpbarray->bpb_nreserved);
   getbyte(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NFAT]), &pbpbarray->bpb_nfat);
   getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NDIRENT]), &pbpbarray->bpb_ndirent);
-  getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
   getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
   getbyte(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_MDESC]), &pbpbarray->bpb_mdesc);
   getword(&((((BYTE *) & DiskTransferBuffer[BT_BPB]))[BPB_NFSECT]), &pbpbarray->bpb_nfsect);
@@ -466,10 +482,10 @@ STATIC WORD bldbpb(rqptr rp, struct media_info *pmiarray)
 
 /* Needs fat32 offset code */
 
-  getlong(&((((BYTE *) & DiskTransferBuffer[0x27])[0])), &pmiarray->fs.serialno);
+  getlong(&((((BYTE *) & DiskTransferBuffer[0x27])[0])), &pddt->ddt_serialno);
 
-  memcpy(pmiarray->fs.volume,&DiskTransferBuffer[0x2B], 11);
-  memcpy(pmiarray->fs.fstype,&DiskTransferBuffer[0x36], 8);
+  memcpy(pddt->ddt_volume,&DiskTransferBuffer[0x2B], 11);
+  memcpy(pddt->ddt_fstype,&DiskTransferBuffer[0x36], 8);
 
 
 
@@ -486,23 +502,19 @@ STATIC WORD bldbpb(rqptr rp, struct media_info *pmiarray)
   rp->r_bpptr = pbpbarray;
 
   
-  count = pmiarray->mi_size =
+  count =
       pbpbarray->bpb_nsize == 0 ?
       pbpbarray->bpb_huge :
       pbpbarray->bpb_nsize;
-  getword((&(((BYTE *) & DiskTransferBuffer[BT_BPB])[BPB_NHEADS])), &pmiarray->drive.chs.Head);
-  head = pmiarray->drive.chs.Head;
-  getword((&(((BYTE *) & DiskTransferBuffer[BT_BPB])[BPB_NSECS])), &pmiarray->drive.chs.Sector);
-  if (pmiarray->mi_size == 0)
-    getlong(&((((BYTE *) & DiskTransferBuffer[BT_BPB])[BPB_HUGE])), &pmiarray->mi_size);
-  sector = pmiarray->drive.chs.Sector;
+  head = pbpbarray->bpb_nheads;
+  sector = pbpbarray->bpb_nsecs;
 
   if (head == 0 || sector == 0)
   {
     tmark();
     return failure(E_FAILURE);
   }
-  pmiarray->drive.chs.Cylinder = count / (head * sector);
+  pddt->ddt_ncyl = count / (head * sector);
   tmark();
 
 #ifdef DSK_DEBUG
@@ -515,9 +527,9 @@ STATIC WORD bldbpb(rqptr rp, struct media_info *pmiarray)
 }
 
 
-static WORD IoctlQueblk(rqptr rp, struct media_info *pmiarray)
+static WORD IoctlQueblk(rqptr rp, ddt *pddt)
 {
-    UNREFERENCED_PARAMETER(pmiarray);
+    UNREFERENCED_PARAMETER(pddt);
 
     switch(rp->r_count){
     case 0x0846:
@@ -533,9 +545,10 @@ static WORD IoctlQueblk(rqptr rp, struct media_info *pmiarray)
 
 }
 
-STATIC WORD Genblkdev(rqptr rp,struct media_info *pmiarray)
+STATIC WORD Genblkdev(rqptr rp,ddt *pddt)
 {
     int ret;
+    bpb FAR *pbpb;
     
     switch(rp->r_count){
     case 0x0860:            /* get device parameters */
@@ -543,11 +556,10 @@ STATIC WORD Genblkdev(rqptr rp,struct media_info *pmiarray)
     struct gblkio FAR * gblp = (struct gblkio FAR *) rp->r_trans;
     REG COUNT x = 5,y = 1,z = 0;
 
-    if (!hd(pmiarray->drive.driveno)){
+    if (!hd(pddt->ddt_driveno)){
         y = 2;
         x = 8;      /* any odd ball drives return this */
-        if (pmiarray->mi_size <= 0xffff)
-          switch((UWORD)pmiarray->mi_size)
+        switch(pddt->ddt_bpb.bpb_nsize)
           {
         case 640:
         case 720:      /* 320-360 */
@@ -571,19 +583,30 @@ STATIC WORD Genblkdev(rqptr rp,struct media_info *pmiarray)
     gblp->gbio_devtype = (UBYTE) x;
     gblp->gbio_devattrib = (UWORD) y;
     gblp->gbio_media = (UBYTE) z;
-    gblp->gbio_ncyl = pmiarray->drive.chs.Cylinder;
-    fmemcpy(&gblp->gbio_bpb, &bpbarray[rp->r_unit], sizeof(gblp->gbio_bpb));
-    gblp->gbio_nsecs = bpbarray[rp->r_unit].bpb_nsector;
+    gblp->gbio_ncyl = pddt->ddt_ncyl;
+    /* use default dpb or current bpb? */
+    pbpb = (gblp->gbio_spcfunbit & 0x01) == 0 ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
+    fmemcpy(&gblp->gbio_bpb, pbpb, sizeof(gblp->gbio_bpb));
+    gblp->gbio_spcfunbit |= 0x04; /* bit 2 set if all sectors in track same size (should be set) */
+    gblp->gbio_nsecs = pbpb->bpb_nsector;
     break;
     }
     case 0x0866:        /* get volume serial number */
     {
     struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
-    struct FS_info FAR * fs = &pmiarray->fs;
+    struct FS_info FAR * fs = (struct FS_info FAR *) &DiskTransferBuffer[0x27];
+
+        ret = RWzero( rp, 0);
+        if (ret != 0)
+        return (dskerr(ret));
 
         gioc->ioc_serialno = fs->serialno;
-        fmemcpy(gioc->ioc_volume,fs->volume,11);
-        fmemcpy(gioc->ioc_fstype, fs->fstype,8);
+        pddt->ddt_serialno = fs->serialno;
+        
+        fmemcpy(pddt->ddt_volume, fs->volume,11);
+        fmemcpy(pddt->ddt_volume, fs->fstype,8);
+        fmemcpy(gioc->ioc_volume, pddt->ddt_volume,11);
+        fmemcpy(gioc->ioc_fstype, pddt->ddt_fstype,8);
     }
     break;
     case 0x0846:        /* set volume serial number */
@@ -596,20 +619,25 @@ STATIC WORD Genblkdev(rqptr rp,struct media_info *pmiarray)
         return (dskerr(ret));
 
         fs->serialno =  gioc->ioc_serialno;
-        pmiarray->fs.serialno = fs->serialno;
+        pddt->ddt_serialno = fs->serialno;
 
         ret = RWzero( rp, 1);
         if (ret != 0)
         return (dskerr(ret));
     }
     break;
-    case 0x0867:        /* get access flag, always on*/
+    case 0x0867:        /* get access flag */
     {
     struct Access_info FAR * ai = (struct Access_info FAR *) rp->r_trans;
-    ai->AI_Flag = 1;
+    ai->AI_Flag = pddt->ddt_descflags & 0x200 ? 0 : 1; /* bit 9 */
     }
     break;
-    case 0x0847:        /* set access flag, no real use*/
+    case 0x0847:        /* set access flag */
+    {
+    struct Access_info FAR * ai = (struct Access_info FAR *) rp->r_trans;
+    pddt->ddt_descflags &= ~0x200;
+    pddt->ddt_descflags |= (ai->AI_Flag ? 0 : 0x200);
+    }
     break;
     default:
         return failure(E_CMD);
@@ -617,12 +645,13 @@ STATIC WORD Genblkdev(rqptr rp,struct media_info *pmiarray)
   return S_DONE;
 }
 
-WORD blockio(rqptr rp, struct media_info *pmiarray)
+WORD blockio(rqptr rp, ddt *pddt)
 {
-    ULONG start;
+    ULONG start, size;
     WORD ret;
   
     int action;
+    bpb *pbpb;
 
 
     switch (rp->r_command){
@@ -632,19 +661,23 @@ WORD blockio(rqptr rp, struct media_info *pmiarray)
         default:
                 return failure(E_FAILURE);
         }
-  
+
+    if (pddt->ddt_descflags & 0x200) /* drive inaccessible */
+        return failure(E_FAILURE);
 
     tmark();
     start = (rp->r_start != HUGECOUNT ? rp->r_start : rp->r_huge);
+    pbpb = hd(pddt->ddt_driveno) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
+    size = (pbpb->bpb_nsize ? pbpb->bpb_nsize : pbpb->bpb_huge);
     
-    if (start               >= pmiarray->mi_size ||
-        start + rp->r_count >  pmiarray->mi_size)
+    if (start               >= size ||
+        start + rp->r_count >  size)
         {
         return 0x0408;
         }    
-    start += pmiarray->mi_offset;
+    start += pddt->ddt_offset;
     
-    ret = LBA_Transfer(&pmiarray->drive ,action, 
+    ret = LBA_Transfer(pddt, action, 
                             rp->r_trans, 
                             start, rp->r_count,(UWORD*)&rp->r_count);
     
@@ -655,19 +688,19 @@ WORD blockio(rqptr rp, struct media_info *pmiarray)
     return S_DONE;
 }
 
-STATIC  WORD blk_error(rqptr rp, struct media_info *pmiarray)
+STATIC  WORD blk_error(rqptr rp, ddt *pddt)
 {
-  UNREFERENCED_PARAMETER(pmiarray);
+  UNREFERENCED_PARAMETER(pddt);
     
   rp->r_count = 0;
   return failure(E_FAILURE);    /* general failure */
 }
 
 
-STATIC WORD blk_noerr(rqptr rp, struct media_info *pmiarray)
+STATIC WORD blk_noerr(rqptr rp, ddt *pddt)
 {
     UNREFERENCED_PARAMETER(rp);
-    UNREFERENCED_PARAMETER(pmiarray);
+    UNREFERENCED_PARAMETER(pddt);
     
     return S_DONE;
 }
@@ -710,14 +743,14 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, struct DriveParamS *driveparam)
+void LBA_to_CHS(struct CHS *chs, ULONG LBA_address, ddt *pddt)
 {
-    chs->Sector = LBA_address% driveparam->chs.Sector + 1;
+    chs->Sector = LBA_address% pddt->ddt_bpb.bpb_nsecs + 1;
 
-    LBA_address /= driveparam->chs.Sector;
+    LBA_address /= pddt->ddt_bpb.bpb_nsecs;
 
-    chs->Head     = LBA_address % driveparam->chs.Head;
-    chs->Cylinder = LBA_address / driveparam->chs.Head;
+    chs->Head     = LBA_address % pddt->ddt_bpb.bpb_nheads;
+    chs->Cylinder = LBA_address / pddt->ddt_bpb.bpb_nheads;
 }
 
 
@@ -745,7 +778,7 @@ STATIC unsigned DMA_max_transfer(void FAR *buffer, unsigned count)
 
 /*
     int LBA_Transfer(
-        struct DriveParamS *driveParam,     physical characteristics of drive
+        ddt *pddt,                          physical characteristics of drive
         UWORD mode,                         LBA_READ/WRITE/WRITE_VERIFY
         VOID FAR *buffer,                   user buffer
         ULONG LBA_address,                  absolute sector address
@@ -771,7 +804,7 @@ STATIC unsigned DMA_max_transfer(void FAR *buffer, unsigned count)
     
 */
 
-int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer, 
+int LBA_Transfer(ddt *pddt ,UWORD mode,  VOID FAR *buffer, 
                                 ULONG LBA_address,unsigned totaltodo, UWORD *transferred)
 {
     static struct _bios_LBA_address_packet dap = {
@@ -787,13 +820,13 @@ int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer,
 
     *transferred = 0;
 
-    
-    if (LBA_address+totaltodo > driveParam->total_sectors)
+/*    
+    if (LBA_address+totaltodo > pddt->total_sectors)
         {
         printf("LBA-Transfer error : address overflow = %lu > %lu max\n",LBA_address+totaltodo,driveParam->total_sectors);
         return 1;
         }
-    
+*/    
 
     for ( ;totaltodo != 0; )
         {
@@ -824,7 +857,7 @@ int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer,
 
         for ( num_retries = 0; num_retries < N_RETRY; num_retries++)
             {
-            if (driveParam->LBA_supported)
+            if (pddt->ddt_LBASupported)
                 {
                 dap.number_of_blocks    = count;
         
@@ -836,31 +869,31 @@ int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer,
             
                   /* Load the registers and call the interrupt. */
 
-                if (driveParam->WriteVerifySupported || mode != LBA_WRITE_VERIFY)
+                if (pddt->ddt_WriteVerifySupported || mode != LBA_WRITE_VERIFY)
                     {            
 
-                    error_code = fl_lba_ReadWrite(driveParam->driveno,mode, &dap);
+                    error_code = fl_lba_ReadWrite(pddt->ddt_driveno,mode, &dap);
                     }
                 else {
                                 /* verify requested, but not supported */
-                    error_code = fl_lba_ReadWrite(driveParam->driveno,LBA_WRITE, &dap);
+                    error_code = fl_lba_ReadWrite(pddt->ddt_driveno,LBA_WRITE, &dap);
 
                     if (error_code == 0)
                         {
-                        error_code = fl_lba_ReadWrite(driveParam->driveno,LBA_VERIFY, &dap);
+                        error_code = fl_lba_ReadWrite(pddt->ddt_driveno,LBA_VERIFY, &dap);
                         }    
                     }
                 }
              else
                 {                            /* transfer data, using old bios functions */
 
-                LBA_to_CHS(&chs, LBA_address, driveParam);
+                LBA_to_CHS(&chs, LBA_address, pddt);
                 
                                         /* avoid overflow at end of track */
                 
-                if (chs.Sector + count > driveParam->chs.Sector + 1)
+                if (chs.Sector + count > pddt->ddt_bpb.bpb_nsecs + 1)
                     {
-                    count = driveParam->chs.Sector + 1 - chs.Sector;
+                    count = pddt->ddt_bpb.bpb_nsecs + 1 - chs.Sector;
                     }    
                 
                 if (chs.Cylinder > 1023)
@@ -870,7 +903,7 @@ int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer,
                     }
                 
                 error_code = (mode == LBA_READ ? fl_read : fl_write)(
-                        driveParam->driveno,
+                        pddt->ddt_driveno,
                         chs.Head, chs.Cylinder, chs.Sector,
                         count, transfer_address);
                 
@@ -878,7 +911,7 @@ int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer,
                         mode == LBA_WRITE_VERIFY)
                    {
                    error_code = fl_verify(
-                            driveParam->driveno,
+                            pddt->ddt_driveno,
                             chs.Head, chs.Cylinder, chs.Sector,
                             count, transfer_address);
                    }    
@@ -886,7 +919,7 @@ int LBA_Transfer(struct DriveParamS *driveParam ,UWORD mode,  VOID FAR *buffer,
             if (error_code == 0)
                 break;
                 
-            fl_reset(driveParam->driveno);                
+            fl_reset(pddt->ddt_driveno);                
                 
             }       /* end of retries */
         

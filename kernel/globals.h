@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/07/22 01:58:58  bartoldeman
+ * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
+ *
  * Revision 1.14  2001/07/09 22:19:33  bartoldeman
  * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
  *
@@ -432,6 +435,7 @@ extern cdstbl
   FAR * CDSp;                   /* Current Directory Structure          */
 extern
 struct cds FAR *current_ldt;
+extern LONG current_filepos;    /* current file position                */
 extern sfttbl
   FAR * FCBp;                   /* FCB table pointer                    */
 extern WORD
@@ -442,8 +446,6 @@ extern UBYTE
   uppermem_link;                /* UMB Link flag */
 extern struct dhdr
   nul_dev;
-extern BYTE
-  LocalPath[PARSE_MAX + 3];     /* Room for drive spec                  */
 extern UBYTE
   mem_access_mode;              /* memory allocation scheme             */
 extern BYTE
@@ -474,42 +476,31 @@ extern struct
 }
 FcbSearchBuffer;
 
-extern union                    /* Path name parsing buffer             */
+extern struct                    /* Path name parsing buffer             */
 {
   BYTE _PriPathName[128];
-  struct
-  {
-    BYTE _dname[NAMEMAX];
-    BYTE _fname[FNAME_SIZE];
-    BYTE _fext[FEXT_SIZE];
-  }
-  _f;
 }
 _PriPathBuffer;
-#define PriPathName _PriPathBuffer._PriPathName
-#define szDirName _PriPathBuffer._f._dname
-#define szFileName _PriPathBuffer._f._fname
-#define szFileExt _PriPathBuffer._f._fext
-#define szPriDirName _PriPathBuffer._f._dname
-#define szPriFileName _PriPathBuffer._f._fname
-#define szPriFileExt _PriPathBuffer._f._fext
 
-extern union                    /* Alternate path name parsing buffer   */
+extern struct
+{
+  BYTE _fname[FNAME_SIZE];
+  BYTE _fext[FEXT_SIZE+1]; /* space for 0 */
+}
+szNames;
+
+#define PriPathName _PriPathBuffer._PriPathName
+#define szDirName TempCDS.cdsCurrentPath
+#define szFileName szNames._fname
+#define szFileExt szNames._fext
+
+extern struct                    /* Alternate path name parsing buffer   */
 {
   BYTE _SecPathName[128];
-  struct
-  {
-    BYTE _dname[NAMEMAX];
-    BYTE _fname[FNAME_SIZE];
-    BYTE _fext[FEXT_SIZE];
-  }
-  _f;
 }
 _SecPathBuffer;
+
 #define SecPathName _SecPathBuffer._SecPathName
-#define szSecDirName _SecPathBuffer._f._dname
-#define szSecFileName _SecPathBuffer._f._fname
-#define szSecFileExt _SecPathBuffer._f._fext
 
 extern UWORD
   wAttr;

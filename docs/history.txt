@@ -1,3 +1,31 @@
++ fixes Bart
+    * ioctl.c fix for INT21/AX=4400 + sft driveno field
+    * various small fcb fixes
+    * put file position number and pointers to Pri/SecPathName into
+      SDA. Now MSCDEX works as redirector 
+    * redirector set attribute fixes + various cleanups
+    * truename+attr+ioctl fix => DJGPP libc compiles cleanly!
++ changes Bart
+    * use the output of truename() consistently: this saves a lot of
+      headaches in parsing later and also allows a lot of simplifying:
+      made many parameters in fatfs.c and fatdir.c NEAR
++ added Bart
+    * partly implemented the "Drive Data Table" see RBIL INT2f/AX=0803
+    * implemented construction of default BPB in initdisk.c
+    * implemented the access flag in dsk.c
+    * printf writes to DOSEMU log if prf.c compiled with #define DOSEMU
++ fixes Bart
+    * dsk.c uses default BPB in the right places (with help from Tom and Brian)
+    * Brian's FORMAT now works
+    * Tab fix (bug reported by Martin Stromberg)
+    * INT21/AH=0x1f now simply uses AH=0x32 for the default drive
++ fixes Tom
+    * saved some static variables
+    * implementation of int_2f_111e_call() for network/LAN manager
+    * return AX=0001 for default redirector handler
+    * enable use of multiple UMBs
+    * fixed task.c 'LOADHIGH executables': minAlloc == maxAlloc = 0
+      and an fixed overwriting the MCB
 2001 Jul 9 - Build 2024/d
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + fixes Bart:
