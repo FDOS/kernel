@@ -306,7 +306,7 @@ void write_char_stdout(int c)
 #define iscntrl(c) ((unsigned char)(c) < ' ')
 
 /* this is for handling things like ^C, mostly used in echoed input */
-STATIC int echo_char(int c, int sft_idx)
+int echo_char(int c, int sft_idx)
 {
   int out = c;
   if (iscntrl(c) && c != HT && c != LF && c != CR)
@@ -316,11 +316,6 @@ STATIC int echo_char(int c, int sft_idx)
   }
   write_char(out, sft_idx);
   return c;
-}
-
-int echo_char_stdin(int c)
-{
-  return echo_char(c, get_sft_idx(STDIN));
 }
 
 STATIC void destr_bs(int sft_idx)

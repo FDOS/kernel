@@ -58,7 +58,7 @@ void handle_break(struct dhdr FAR **pdev);
 struct dhdr FAR *sft_to_dev(sft FAR *sft);
 long BinaryCharIO(struct dhdr FAR **pdev, size_t n, void FAR * bp,
                   unsigned command);
-int echo_char_stdin(int c);
+int echo_char(int c, int sft_idx);
 int con_break(void);
 int StdinBusy(void);
 void con_flush(struct dhdr FAR **pdev);

@@ -68,7 +68,7 @@ int check_handle_break(void)
  */
 void handle_break(struct dhdr FAR **pdev)
 {
-  echo_char_stdin(CTL_C);
+  echo_char(CTL_C, get_sft_idx(STDOUT));
   con_flush(pdev);
   if (!ErrorMode)               /* within int21_handler, InDOS is not incremented */
     if (InDOS)
