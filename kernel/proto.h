@@ -196,7 +196,8 @@ COUNT dos_getfattr(BYTE * name);
 COUNT dos_setfattr(BYTE * name, UWORD attrp);
 COUNT media_check(REG struct dpb FAR * dpbp);
 f_node_ptr xlt_fd(COUNT fd);
-COUNT xlt_fnp(f_node_ptr fnp);
+/* translate the f_node pointer into an fd */
+#define xlt_fnp(fnp) (fnode_fd[(fnp) - fnode])
 struct dhdr FAR * select_unit(COUNT drive);
 
 /* fattab.c */

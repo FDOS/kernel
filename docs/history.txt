@@ -313,6 +313,10 @@
         * country.asm / country.sys support now replaces hard-coded data
         * 8 countries added to country.asm: GR, RO, AT, KR, TR, IN, M.East, IL
         * dyninit.c: unused function DynFree() commented out
+        * fatfs.c:
+          - zero creation/access stamp on directory entry write as MS-DOS 7.10
+          - prevent removal or renaming of the current directory of that drive
+          - optimisation and clean-up
         * fattab.c: ISFAT32 function removed (now macro), "wasfree" optimised
         * globals.h: __TIME__ removed - no two kernels released on same day
         * intr.asm: lseek() added (necessary for COUNTRY.SYS processing)
