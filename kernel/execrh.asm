@@ -81,7 +81,11 @@ segment	HMA_TEXT
 EXECRH:
 	EXECRHM
 
+%ifndef WATCOM
+
 segment INIT_TEXT
 
 INIT_EXECRH:
 	EXECRHM
+
+%endif

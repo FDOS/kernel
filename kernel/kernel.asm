@@ -201,15 +201,6 @@ cont:		; Now set up call frame
                 mov     es,ax
 		jmp	_FreeDOSmain
 
-%ifdef WATCOM
-global _IU4M
-_IU4M:
-                LMULU
-global _IU4D
-_IU4D:
-		LDIVMODU
-%endif
-
 
 segment	INIT_TEXT_END
 

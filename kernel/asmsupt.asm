@@ -34,6 +34,14 @@
 ; $Id$
 ;
 
+%ifdef WATCOM
+%ifdef _INIT
+%define WATCOM_INIT ; no seperate init segment for watcom.
+%endif
+%endif
+
+%ifndef WATCOM_INIT
+
 		%include "segs.inc"
 
 %ifdef _INIT
@@ -530,3 +538,4 @@ strncmp_done:
 		ror  ah,1
 strncmp_done2:  jmp  pascal_return
 
+%endif

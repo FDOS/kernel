@@ -34,6 +34,7 @@ extern struct _KernelConfig InitKernelConfig;
  */
 #define printf      init_printf
 #define sprintf     init_sprintf
+#ifndef __WATCOMC__
 #define execrh      init_execrh
 #define  memcpy     init_memcpy
 #define fmemcpy     init_fmemcpy
@@ -44,6 +45,7 @@ extern struct _KernelConfig InitKernelConfig;
 #define  strcpy     init_strcpy
 #define  strlen     init_strlen
 #define fstrlen     init_fstrlen
+#endif
 #define open        init_DosOpen
 
 /* execrh.asm */
@@ -65,16 +67,16 @@ char * ASMPASCAL  strchr(const char     *s,  int ch);
 /* bx, cx, dx and es not used or clobbered for all asmsupt.asm functions except
    (f)memchr/(f)strchr (which clobber dx) */
 #pragma aux (pascal) pascal_ax modify exact [ax]
-#pragma aux (pascal_ax) init_memset
-#pragma aux (pascal_ax) init_fmemset
-#pragma aux (pascal_ax) init_memcpy
-#pragma aux (pascal_ax) init_fmemcpy
-#pragma aux (pascal_ax) init_memcmp modify nomemory
-#pragma aux (pascal_ax) init_fmemcmp modify nomemory
-#pragma aux (pascal_ax) init_strcpy
-#pragma aux (pascal_ax) init_strlen modify nomemory
-#pragma aux (pascal_ax) init_fstrlen modify nomemory
-#pragma aux (pascal) init_strchr modify exact [ax dx] nomemory
+#pragma aux (pascal_ax) memset
+#pragma aux (pascal_ax) fmemset
+#pragma aux (pascal_ax) memcpy
+#pragma aux (pascal_ax) fmemcpy
+#pragma aux (pascal_ax) memcmp modify nomemory
+#pragma aux (pascal_ax) fmemcmp modify nomemory
+#pragma aux (pascal_ax) strcpy
+#pragma aux (pascal_ax) strlen modify nomemory
+#pragma aux (pascal_ax) fstrlen modify nomemory
+#pragma aux (pascal) strchr modify exact [ax dx] nomemory
 #endif
 
 #undef LINESIZE

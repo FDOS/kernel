@@ -64,5 +64,4 @@ MATH_INSERT=+i4m
 ALLCFLAGS=-I..\hdr $(TARGETOPT) $(ALLCFLAGS)-zq-os-s-e5-j-zl-zp1-wx-we-zgf-zff-r
 INITCFLAGS=$(ALLCFLAGS)-ntINIT_TEXT-gTGROUP-ndI
 CFLAGS=$(ALLCFLAGS)-ntHMA_TEXT
-INITPATCH=..\utils\patchobj __U4D=_IU4D __U4M=_IU4M
 
