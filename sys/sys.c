@@ -268,6 +268,7 @@ int main(int argc, char **argv)
     srcDrive = (unsigned) getdisk();
 #else
     _dos_getdrive(&srcDrive);
+    srcDrive--;
 #endif
   }
 

@@ -23,6 +23,8 @@
     * don't copy FCBs on exec if they are pointed to by FFFF:FFFF.
     * resolved warnings for  Watcom (now compiles with -wx -we)
     * truename fix (return DE_FILENOTFND for foo.bar.foo)
++ Changes Jeremy
+    * fixed SYS _dos_getdrive for non-Borland compilers
 + Changes Tom and Bart
     * cleaned up fatfs.c, fattab.c, sysclk.c (CLOCK$ driver), systime.c
 2002 Feb 17 - Build 2026a
