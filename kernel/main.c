@@ -478,6 +478,7 @@ BOOL init_device(struct dhdr FAR * dhp, PCStr cmdLine, int mode, VFP *r_top)
   if (r_top)
   {
     /* Don't link in device drivers which do not take up memory */
+    /* ie device drivers that fail to load and return top==CS:0 */
     if (rq.r_endaddr == (BYTE FAR *) dhp)
       return TRUE;
 
@@ -530,10 +531,15 @@ BOOL init_device(struct dhdr FAR * dhp, PCStr cmdLine, int mode, VFP *r_top)
     *r_top = rq.r_endaddr;
   }
 
-  if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
+  if (!(dhp->dh_attr & ATTR_CHAR))  /* if block device (not character) */
   {
-    dhp->dh_name[0] = rq.r_nunits;
-    update_dcb(dhp);
+    if (rq.r_nunits)  /* if unit count is nonzero */
+    {
+      dhp->dh_name[0] = rq.r_nunits;
+      update_dcb(dhp);
+    }
+    else /* returned unit count of 0, indication of load failure */
+      return TRUE;
   }
 
   if (dhp->dh_attr & ATTR_CONIN)

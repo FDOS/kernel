@@ -1443,7 +1443,8 @@ STATIC BOOL LoadDevice(PCStr p, VFP top, int mode)
     do
     {
       struct dhdr FAR *dhp = MK_PTR(struct dhdr, base, next);
-      if ((ret = init_device(dhp, szBuf, mode, &top)) != SUCCESS)
+      /* init_device returns FALSE on SUCCESS, TRUE otherwise */
+      if ((ret = init_device(dhp, szBuf, mode, &top)))
         break;
 
       next = FP_OFF(dhp->dh_next);
