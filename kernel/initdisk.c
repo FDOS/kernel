@@ -324,6 +324,8 @@ COUNT init_getdriveparm(UBYTE drive, bpb * pbpbarray)
     type = 4;                   /* 5 and 4 are both 2.88 MB */
 
   memcpy(pbpbarray, &floppy_bpbs[type & 7], sizeof(floppy_bpb));
+  ((bpb *)pbpbarray)->bpb_hidden = 0;  /* very important to init to 0, see bug#1789 */
+  ((bpb *)pbpbarray)->bpb_huge = 0;
 
   if (type == 3)
     return 7;                   /* 1.44 MB */
