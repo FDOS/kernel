@@ -184,7 +184,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     REG UBYTE FAR *fbp0, FAR * fbp1;
     struct buffer FAR * bp1;
-    unsigned cluster;
+    unsigned cluster, cluster2;
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
@@ -212,38 +212,38 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
       fbp1 = &bp1->b_buffer[0];
     }
 
-    idx = *fbp0 | (*fbp1 << 8);
-    if (Cluster2 == READ_CLUSTER)
+    cluster = *fbp0 | (*fbp1 << 8);
+    if ((unsigned)Cluster2 == READ_CLUSTER)
     {
       /* Now to unpack the contents of the FAT entry. Odd and */
       /* even bytes are packed differently.                   */
 
       if (Cluster1 & 0x01)
-        idx >>= 4;
-      idx &= 0x0fff;
+        cluster >>= 4;
+      cluster &= 0x0fff;
 
-      if (idx >= MASK12)
+      if (cluster >= MASK12)
         return LONG_LAST_CLUSTER;
-      if (idx == BAD12)
+      if (cluster == BAD12)
         return LONG_BAD;
-      return idx;
+      return cluster;
     }
 
     /* Cluster2 may be set to LONG_LAST_CLUSTER == 0x0FFFFFFFUL or 0xFFFF */
     /* -- please don't remove this mask!                                  */
-    cluster = (unsigned)Cluster2 & 0x0fff;
+    cluster2 = (unsigned)Cluster2 & 0x0fff;
 
     /* Now pack the value in                                */
     if ((unsigned)Cluster1 & 0x01)
     {
-      idx &= 0x000f;
-      cluster <<= 4;
+      cluster &= 0x000f;
+      cluster2 <<= 4;
     }
     else
     {
-      idx &= 0xf000;
+      cluster &= 0xf000;
     }
-    cluster |= idx;
+    cluster |= cluster2;
     *fbp0 = (UBYTE)cluster;
     *fbp1 = (UBYTE)(cluster >> 8);
   }
@@ -251,7 +251,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    if (Cluster2 == READ_CLUSTER)
+    if ((unsigned)Cluster2 == READ_CLUSTER)
     {
       /* and get the cluster number                           */
       UWORD res = fgetword(&bp->b_buffer[idx * 2]);
