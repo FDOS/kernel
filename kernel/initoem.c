@@ -39,15 +39,15 @@ UWORD init_oem(void)
 {
   UWORD top_k = 0;
 
-#ifndef __TURBOC__
+#ifdef __TURBOC__
+  __int__(0x12);
+  top_k = _AX;
+#elif defined(I86)
   asm
   {
     int 0x12;
     mov top_k, ax;
   }
-#else
-  __int__(0x12);
-  top_k = _AX;
 #endif
   return top_k;
 }

@@ -87,6 +87,7 @@ VOID ASMCFUNC FAR _DisableA20(VOID);
 void FAR * ASMCFUNC DetectXMSDriver(VOID);
 int ASMCFUNC init_call_XMScall(void FAR * driverAddress, UWORD ax,
                                       UWORD dx);
+STATIC void InstallVDISK(void);
 
 #ifdef DEBUG
 #ifdef __TURBOC__
@@ -239,14 +240,19 @@ int MoveKernelToHMA()
     DosLoadedInHMA = TRUE;
   }
 
-  /* report the fact we are running high thorugh int 21, ax=3306 */
+  /*
+    on finalize, will install a VDISK
+  */
+
+  InstallVDISK();
+
+  /* report the fact we are running high through int 21, ax=3306 */
   version_flags |= 0x10;
 
   return TRUE;
 
 }
 
-/* not necessary anymore : BO */
 /*   
     now protect against HIMEM/FDXMS/... by simulating a VDISK 
     FDXMS should detect us and not give HMA access to ohers
@@ -254,8 +260,7 @@ int MoveKernelToHMA()
 
     so: we install this after all drivers have been loaded
 */
-#if 0
-void InstallVDISK(VOID)
+STATIC void InstallVDISK(void)
 {
   static struct {               /* Boot-Sektor of a RAM-Disk */
     UBYTE dummy1[3];            /* HIMEM.SYS uses 3, but FDXMS uses 2 */
@@ -278,38 +283,12 @@ void InstallVDISK(VOID)
 
   if (!DosLoadedInHMA)
     return;
-  if (HMAclaimed)
-    return;
 
   fmemcpy(MK_FP(0xffff, 0x0010), &VDISK_BOOT_SEKTOR,
           sizeof(VDISK_BOOT_SEKTOR));
 
-  setvec(0x19, MK_FP(0xffff, 0x0010));  /* let INT 19 point to VDISK */
-
   *(WORD FAR *) MK_FP(0xffff, 0x002e) = 1024 + 64;
 }
-#endif
-
-/*
-    this should be called, after each device driver 
-    has been loaded with FALSE
-    and on finished CONFIG processing with TRUE.
-    
-    will try to grab HMA;
-    
-    on finalize, will install a VDISK
-*/
-
-#if 0                           /* not necessary anymore */
-
-void HMAconfig(int finalize)
-{
-  ClaimHMA();
-
-  if (finalize)
-    InstallVDISK();
-}
-#endif
 
 /*
     this allocates some bytes from the HMA area
@@ -346,7 +325,6 @@ void MoveKernel(unsigned NewKernelSegment)
   UBYTE FAR *HMASource;
   unsigned len;
 
-  int3();
   if (CurrentKernelSegment == 0)
     CurrentKernelSegment = FP_SEG(_HMATextEnd);
 

@@ -581,8 +581,10 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_WriteVerifySupported = driveParam->WriteVerifySupported;
   pddt->ddt_ncyl = driveParam->chs.Cylinder;
 
+#ifdef DEBUG
   if (pddt->ddt_LBASupported)
     DebugPrintf(("LBA enabled for drive %c:\n", 'A' + nUnits));
+#endif
 
   pddt->ddt_offset = StartSector;
 
@@ -761,8 +763,8 @@ ErrorReturn:
     converts physical into logical representation of partition entry
 */
 
-ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
-                           UBYTE FAR * pDisk)
+BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
+                                UBYTE FAR * pDisk)
 {
   int i;
 
@@ -797,7 +799,7 @@ ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
   return TRUE;
 }
 
-ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
+BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
                          struct PartTableEntry * pEntry, ULONG startSector,
                          int partitionsToIgnore, int extendedPartNo)
 {
@@ -1249,7 +1251,7 @@ void ReadAllPartitionTables(void)
   setvec(0x1e, (intvec)int1e_table);
 
   /* Setup media info and BPBs arrays for floppies */
-  for (Unit = 0; Unit < nUnits; Unit++)
+  for (Unit = 0; Unit < 2; Unit++)
   {
     pddt = DynAlloc("ddt", 1, sizeof(ddt));
 
@@ -1266,6 +1268,9 @@ void ReadAllPartitionTables(void)
     pddt->ddt_serialno = 0x12345678l;
     fmemcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
   }
+
+  /* Initial number of disk units                                 */
+  nUnits = 2;
 
   /*
      this is a quick patch - see if B: exists
@@ -1363,9 +1368,6 @@ COUNT dsk_init()
 
   /* Reset the drives                                             */
   BIOS_drive_reset(0);
-
-  /* Initial number of disk units                                 */
-  nUnits = 2;
 
   ReadAllPartitionTables();
 
