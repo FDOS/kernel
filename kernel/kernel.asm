@@ -137,9 +137,10 @@ kernel_start:
 		mov	ax,cs
 		mov	dx,__InitTextStart wrt HMA_TEXT
 %ifdef WATCOM
-		mov	cx,dx
-		shr	cx,4
-		add	ax,cx
+		mov	si,dx
+		mov	cl,4
+		shr	si,cl
+		add	ax,si
 %endif
 		mov	ds,ax
 		mov	cx,-2 + init_end wrt INIT_TEXT
