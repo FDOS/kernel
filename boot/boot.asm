@@ -308,7 +308,8 @@ fat_12:         add     si, si          ; multiply cluster number by 3...
                 ; the number was odd, CF was set in the last shift instruction.
 
                 jnc     fat_even
-		div     word[LBA_PACKET]; luckily 16 !! -- divide the cluster number
+		mov	cl, 4
+		shr	ax, cl
 
 fat_even:       and     ah, 0x0f        ; mask off the highest 4 bits
                 cmp     ax, 0x0ff8      ; check for EOF
@@ -449,7 +450,7 @@ read_next:
 read_normal_BIOS:      
 
 ;******************** END OF LBA_READ ************************
-		mov     ax,LBA_SECTOR_0
+		mov     cx,LBA_SECTOR_0
 		mov     dx,LBA_SECTOR_16
 
 
@@ -462,7 +463,6 @@ read_normal_BIOS:
                 ;     + head * sectPerTrack             offset in cylinder
                 ;     + track * sectPerTrack * nHeads   offset in platter
                 ;
-                xchg    ax, cx
                 mov     al, [sectPerTrack]
                 mul     byte [nHeads]
                 xchg    ax, cx
