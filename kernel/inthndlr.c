@@ -451,11 +451,11 @@ dispatch:
 
       /* Auxiliary Output                                                     */
     case 0x04:
-      write_char(get_sft_idx(STDAUX), lr.DL);
+      write_char(lr.DL, get_sft_idx(STDAUX));
       break;
       /* Print Character                                                      */
     case 0x05:
-      write_char(get_sft_idx(STDPRN), lr.DL);
+      write_char(lr.DL, get_sft_idx(STDPRN));
       break;
 
       /* Direct Console I/O                                            */

@@ -288,7 +288,7 @@ STATIC int echo_char(int c, int sft_idx)
 
 int echo_char_stdin(int c)
 {
-  return echo_char(get_sft_idx(STDIN), c);
+  return echo_char(c, get_sft_idx(STDIN));
 }
 
 STATIC void destr_bs(int sft_idx)
