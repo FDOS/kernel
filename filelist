@@ -4,7 +4,7 @@
 */*/clobber.bat
 */*/config.b
 */*/filelist
-*/*/getmake.bat
+*/*/default.bat
 */*/makefile
 */*/bin/autoexec.bat
 */*/bin/config.sys

@@ -1,18 +1,13 @@
 @echo off
-rem batch file to clobber everything
 
-rem $Id$
+:- batch file to clobber everything
+:- $Id$
 
-if not exist config.bat goto noconfigbat
-goto start
+if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
+if not exist config.bat goto end
 
-:noconfigbat
-echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
-goto end
-
-:start
-call config.bat
-call getmake.bat
+call config
+call default
 
 cd utils
 %MAKE% clobber
@@ -33,13 +28,11 @@ cd ..\kernel
 %MAKE% clobber
 
 cd ..\hdr
-del *.bak
+if exist *.bak del *.bak
 
 cd ..
-
-del *.bak
-del status.me
+if exist *.bak del *.bak
+if exist status.me del status.me
 
 :end
-set MAKE=
-set COMPILER=
+default clearset

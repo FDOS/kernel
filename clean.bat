@@ -1,19 +1,13 @@
 @echo off
 
-rem batch file to clean everything
+:- batch file to clean everything
+:- $Id$
 
-rem $Id$
+if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
+if not exist config.bat goto end
 
-if not exist config.bat goto noconfigbat
-goto start
-
-:noconfigbat
-echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
-goto end
-
-:start
-call config.bat
-call getmake.bat
+call config
+call default
 
 cd utils
 %MAKE% clean
@@ -34,12 +28,10 @@ cd ..\kernel
 %MAKE% clean
 
 cd ..\hdr
-del *.bak
+if exist *.bak del *.bak
 
 cd ..
-
-del *.bak
+if exist *.bak del *.bak
 
 :end
-set MAKE=
-set COMPILER=
+default clearset
