@@ -15,7 +15,7 @@ LIBTERM=
 LIBPLUS=+
 
 TINY=-lt
-CFLAGST=-L$(LIBPATH) -mt -a- -k- -f- -ff- -O -Z -d
+CFLAGST=-L$(LIBPATH) -mt -a- -k- -f- -ff- -O -Z -d -w
 CFLAGSC=-L$(LIBPATH) -a- -mc
 
 TARGET=KTC
