@@ -39,6 +39,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/08/07 03:03:12  jimtabor
+ * Fix problem with devicehigh
+ *
  * Revision 1.6  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -398,19 +401,19 @@ INIT VOID configDone(VOID)
     {
 
     mumcb_init((mcb FAR *) (MK_FP(0x9fff, 0)),
-                               umb_start - 0x9fff);
-
-/* make last end of mem block normal with SC */
-
+                               umb_start - 0x9fff - 1);
+/* Check if any devices were loaded in umb */
+    if(umb_start != FP_SEG(upBase) ){
+/* make last block normal with SC for the devices */
     mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
     (FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4)) - uppermem_root - 1);
 
     uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
-
     zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
                                (umb_start + UMB_top ) - uppermem_root - 1);
     upBase += 16;
 
+    }
     }
 
 #ifdef DEBUG
@@ -503,11 +506,12 @@ INIT VOID DoConfig(VOID)
             upBase = MK_FP(umb_start , 0);
             uppermem_root = umb_start;
 
-/* master sig for umb region with full size */
 
+/* master sig for umb region with full size */
+/*
             umcb_init((mcb FAR *) upBase, UMB_top );
             upBase += 16;
-
+*/
 /* reset root */
 
             uppermem_root = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
@@ -516,11 +520,6 @@ INIT VOID DoConfig(VOID)
 
             zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),  UMB_top - 1);
             upBase += 16;
-
-#ifdef DEBUG
-  printf("UMB Allocation completed: top at 0x%04x:0x%04x\n",
-         FP_SEG(upBase), FP_OFF(upBase));
-#endif
         }
     }
 
@@ -1107,6 +1106,9 @@ INIT VOID
   mcbp->m_type = MCB_LAST;
   mcbp->m_psp = FREE_PSP;
   mcbp->m_size = size;
+  for (i = 0; i < 8; i++)
+    mcbp->m_name[i] = '\0';
+
 }
 
 INIT VOID
