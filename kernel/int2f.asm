@@ -412,6 +412,7 @@ _call_nls:
 		push	bp
 		mov	bp, sp
 		push	si
+		push	di
 		mov	al, [bp + 4]	; subfct
 		mov	ah, 0x14
 		mov	si, [bp + 6]	; nlsinfo
@@ -428,6 +429,7 @@ _call_nls:
 		jz	nostore
 		mov	[bp], bx
 nostore:
+		pop	di
 		pop	si
 		pop	bp
 		ret
