@@ -1,3 +1,36 @@
+2003 Jul 19 - Build 2031
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Luchezar Georgiev
+    * (with Bart) add extra low disk buffer to avoid HMA
+      problems with certain device drivers.
+    * Add an extra space for the device driver command line
+    * point to a correct environment for INSTALL=
+      (fixes problems with xmsdsk).
+    * change device driver error code check (using S_ERROR | S_DONE)
+      (fixes problem with the SystemSoft PCMCIA socket services driver)
+    * correct parameter order in inthndlr.c, chario.c
+    * INSTALLHIGH correction.
++ Changes Tom
+    * Fix a problem with the 'BootFromHarddiskIfNoKeyHit' option. 
+      that occurred with some Compaq and Fujitsu/Siemens highend equipment.
++ Changes Bernd Blaauw
+    * config.txt updates
++ Changes Steffen Kaiser
+    * NLS adjustments
++ Changes Bart
+    * Correct problem with multiple UMBs (bug #1671)
+    * main.c: there aren't lastdrive open file handles but a
+      maximum of 20.
+    * Make "unable to disable A20" message #ifdef DEBUG only.
+    * config.c,main.c: Small size optimizations (some proposed by
+      Arkady Belousov) 
+    * asmsupt.asm: Removed unnecessary jcxz's (Arkady)
+    * intr.asm: intr() cleanup and small optimizations (Arkady)
+    * Use PASCAL calling convention by default for Turbo compilers.
+    * Move more externs to header files
+    * SFT init cleanup (+3 files need to be low)
+    * config.c, main.c: Fix bug in block device driver init of
+      DPBs (bug #1969, TDSK problem)
 2003 Jun 18 - Build 2030
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
