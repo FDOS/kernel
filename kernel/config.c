@@ -2490,11 +2490,11 @@ STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePa
 ** implementation of INSTALL=NANSI.COM /P /X /BLA 
 */
 
-int  numInstallCmds = 0;
+int  numInstallCmds BSS_INIT(0);
 struct instCmds {
   char buffer[128];
   int mode;
-} InstallCommands[10];
+} InstallCommands[10] BSS_INIT({0});
 
 #ifdef DEBUG
 #define InstallPrintf(x) printf x
