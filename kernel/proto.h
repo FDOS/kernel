@@ -182,6 +182,7 @@ COUNT dos_write(COUNT fd, const VOID FAR * buffer, UCOUNT count);
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin);
 CLUSTER dos_free(struct dpb FAR * dpbp);
 BOOL dir_exists(char * path);
+VOID dpb16to32(struct dpb FAR *dpbp);
 
 VOID trim_path(BYTE FAR * s);
 

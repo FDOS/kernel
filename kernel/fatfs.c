@@ -1919,6 +1919,16 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 #endif
 
 #ifdef WITHFAT32
+VOID dpb16to32(struct dpb FAR *dpbp)
+{
+  dpbp->dpb_xflags = 0;
+  dpbp->dpb_xfsinfosec = 0xffff;
+  dpbp->dpb_xbackupsec = 0xffff;
+  dpbp->dpb_xrootclst = 0;
+  dpbp->dpb_xdata = dpbp->dpb_data;
+  dpbp->dpb_xsize = dpbp->dpb_size;
+}
+
 VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp, BOOL extended)
 #else
 VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
@@ -1977,14 +1987,7 @@ ckok:;
         : sbpb.bpb_nfsect;
     dpbp->dpb_xcluster = UNKNCLUSTER;
     dpbp->dpb_xnfreeclst = XUNKNCLSTFREE;       /* number of free clusters */
-
-    dpbp->dpb_xflags = 0;
-    dpbp->dpb_xfsinfosec = 0xffff;
-    dpbp->dpb_xbackupsec = 0xffff;
-    dpbp->dpb_xrootclst = 0;
-    dpbp->dpb_xdata = dpbp->dpb_data;
-    dpbp->dpb_xsize = dpbp->dpb_size;
-
+    dpb16to32(dpbp);
     if (ISFAT32(dpbp))
     {
       dpbp->dpb_xflags = sbpb.bpb_xflags;
