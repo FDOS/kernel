@@ -1,4 +1,4 @@
-2003 Sep xx - Build 2032
+2003 Sep 21 - Build 2032
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Rune Espeseth <re@icd.no> (modified by Bart)
     * config.txt, config.c: Full screen config.sys menus (use MENUCOLOR=)
@@ -20,6 +20,8 @@
     * build.txt: Fix some typos.
     * inthndlr.c: Add missing (); small optimization for DosGetdate/time.
 + Changes Lucho
+    * boot.asm, boot32.asm, boot32lb.asm, sys.c: add metakern support:
+      sys looks for a file metakern.sys which is a multiple of 512.
     * break.c: Fix ctrl-break bug.
     * ioctl.c: IOCTL 4406 provided reverse AL output on regular
       files - FF if EOF, 0 if not. It should output 0 if EOF, FF if not.
