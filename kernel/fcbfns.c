@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/08/20 20:32:15  bartoldeman
+ * Truename, get free space and ctrl-break fixes.
+ *
  * Revision 1.16  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -209,7 +212,7 @@ VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
   }
 
   /* get the data vailable from dpb                       */
-  *nc = dpbp->dpb_size;
+  *nc = dpbp->dpb_size - 1;
   *spc = dpbp->dpb_clsmask + 1;
   *bps = dpbp->dpb_secsize;
 

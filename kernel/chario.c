@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/08/20 20:32:15  bartoldeman
+ * Truename, get free space and ctrl-break fixes.
+ *
  * Revision 1.11  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -293,7 +296,10 @@ VOID con_hold(void)
     c = con_read();
   }
   if (c == CTL_C)
+  {
+    con_read();
     handle_break();
+  }
 }
 
 UCOUNT _sti(BOOL check_break)

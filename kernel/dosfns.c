@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.25  2001/08/20 20:32:15  bartoldeman
+ * Truename, get free space and ctrl-break fixes.
+ *
  * Revision 1.24  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -1144,7 +1147,7 @@ VOID DosGetFree(UBYTE drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
       return;
 
   /* get the data vailable from dpb       */
-  *nc = dpbp->dpb_size;
+  *nc = dpbp->dpb_size - 1;
   *spc = dpbp->dpb_clsmask + 1;
   *bps = dpbp->dpb_secsize;
 

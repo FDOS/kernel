@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.13  2001/08/20 20:32:15  bartoldeman
+ * Truename, get free space and ctrl-break fixes.
+ *
  * Revision 1.12  2001/07/28 18:13:06  bartoldeman
  * Fixes for FORMAT+SYS, FATFS, get current dir, kernel init memory situation.
  *
@@ -277,23 +280,13 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   if (src[1] == ':')
     src += 2;
 
-/* /// Added to adjust for filenames which begin with ".\"
-       The problem was manifesting itself in the inability
-       to run an program whose filename (without the extension)
-       was longer than six characters and the PATH variable
-       contained ".", unless you explicitly specified the full
-       path to the executable file.
-       Jun 11, 2000 - rbc */
-/* /// Changed to "while" from "if".  - Ron Cemer */
-  while ( (src[0] == '.') && (src[1] == '\\') ) src += 2;
-
 /*
     Code repoff from dosfns.c
     MSD returns X:/CON for truename con. Not X:\CON
 */
   /* check for a device  */
   
-  if ((dhp = IsDevice(src)) != NULL)
+  if ((*src != '.') && (*src != '\\') && (*src != '/') && ((dhp = IsDevice(src)) != NULL))
     {
   
     froot = get_root(src);
@@ -331,6 +324,16 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
     goto exit_tn;
   }
 
+  /* /// Added to adjust for filenames which begin with ".\"
+   *     The problem was manifesting itself in the inability
+   *     to run an program whose filename (without the extension)
+   *     was longer than six characters and the PATH variable
+   *     contained ".", unless you explicitly specified the full
+   *     path to the executable file.
+   *     Jun 11, 2000 - rbc */
+  /* /// Changed to "while" from "if".  - Ron Cemer */
+  while ( (src[0] == '.') && (src[1] == '\\') ) src += 2;
+    
   current_ldt = &CDSp->cds_table[i];
 
   /* Always give the redirector a chance to rewrite the filename */
@@ -495,11 +498,14 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
                                    && (*bufp != '/')
                                    && (*bufp != '\\')   )
                                 bufp--;
-                        }
+                        } else {
+			    /* .. in root dir illegal */			
+			    return DE_PATHNOTFND;		
+			}
                     } else {
                             /* New segment.  If any wildcards in previous
                                segment(s), this is an invalid path. */
-                        if (gotAnyWildcards) return DE_PATHNOTFND;
+                        if (gotAnyWildcards || src[0]=='.') return DE_PATHNOTFND;
                             /* Append current path segment to result. */
                         *(bufp++) = '\\';
                         if (bufp >= bufend) break;
