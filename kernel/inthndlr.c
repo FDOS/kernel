@@ -482,14 +482,13 @@ dispatch:
       /* Display String                                               */
     case 0x09:
       {
-        size_t count = 0;
-        char FAR *bp = FP_DS_DX;
+        unsigned char c;
+        unsigned char FAR *bp = FP_DS_DX;
 
-        while (bp[count] != '$')
-          count++;
+        while ((c = *bp++) != '$')
+          write_char_stdout(c);
 
-        DosWrite(STDOUT, count, bp);
-        lr.AL = '$';
+        lr.AL = c;
       }
       break;
 

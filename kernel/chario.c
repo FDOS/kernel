@@ -277,7 +277,33 @@ void write_char(int c, int sft_idx)
 
 void write_char_stdout(int c)
 {
-  write_char(c, get_sft_idx(STDOUT));
+  unsigned char scrpos = scr_pos;
+  unsigned char count = 1;
+  unsigned flags = get_sft(STDOUT)->sft_flags & (SFT_FDEVICE | SFT_FBINARY);
+
+  /* ah=2, ah=9 should expand tabs even for raw devices and disk files */
+  if (flags != SFT_FDEVICE)
+  {
+    if (c == CR)
+      scrpos = 0;
+    else if (c == BS) {
+      if (scrpos > 0)
+      scrpos--;
+    } else if (c != LF && c != BELL) {
+      if (c == HT) {
+        count = 8 - (scrpos & 7);
+        c = ' ';
+      }
+      scrpos += count;
+    }
+    /* for raw devices already updated in dosfns.c */
+    if (!(flags & SFT_FDEVICE))
+      scr_pos = scrpos;
+  }
+
+  do {
+    write_char(c, get_sft_idx(STDOUT));
+  } while (--count != 0);
 }
 
 #define iscntrl(c) ((unsigned char)(c) < ' ')
