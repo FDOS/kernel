@@ -91,14 +91,8 @@ void put_console(int c)
 }
 #else
 #ifdef __WATCOMC__
-void int10_e(char c);
-#pragma aux int10_e = \
-    "push bp" \
-    "mov ah, 0xe" \
-    "mov bx, 0x0070" \
-    "int 0x10" \
-    "pop bp" \
-    parm [al] modify [ah bx];
+void int29(char c);
+#pragma aux int29 = "int 0x29" parm [al] modify exact [bx];
 #endif
 
 void put_console(int c)
@@ -111,18 +105,14 @@ void put_console(int c)
 #else
 #if defined(__TURBOC__)
   _AL = c;
-  _AH = 0x0e;
-  _BX = 0x0070;
-  __int__(0x10);
+  __int__(0x29);
 #elif defined(__WATCOMC__)
-  int10_e(c);
+  int29(c);
 #elif defined(I86)
   __asm
   {
     mov al, byte ptr c;
-    mov ah, 0x0e;
-    mov bx, 0x0070;
-    int 0x10;
+    int 0x29;
   }
 #endif                          /* __TURBO__ */
 #endif                          /*  FORSYS   */

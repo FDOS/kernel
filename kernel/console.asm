@@ -244,8 +244,7 @@ _int29_handler:
                 push    bp
                 push    bx
                 mov     ah,0Eh
-                mov     bh,0
-                mov     bl,7
+                mov     bx,7
                 int     10h                     ; write char al, teletype mode
                 pop     bx
                 pop     bp

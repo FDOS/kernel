@@ -259,6 +259,10 @@ STATIC void setup_int_vectors(void)
     setvec(pvec->intno, (intvec)MK_FP(FP_SEG(empty_handler), pvec->handleroff));
   pokeb(0, 0x30 * 4, 0xea);
   pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
+
+  /* these two are in the device driver area LOWTEXT (0x70) */
+  setvec(0x1b, got_cbreak);
+  setvec(0x29, int29_handler);  /* required for printf! */
 }
 
 STATIC void init_kernel(void)
@@ -607,8 +611,6 @@ STATIC void InitIO(void)
   struct dhdr far *device = &LoL->nul_dev;
 
   /* Initialize driver chain                                      */
-  setvec(0x1b, got_cbreak);
-  setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
   do {
     init_device(device, NULL, 0, &lpTop);
     device = device->dh_next;
