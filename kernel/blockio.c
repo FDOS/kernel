@@ -36,13 +36,15 @@ static BYTE *blockioRcsId = "$Id$";
 #endif
 
 /*
+ * $Log$
+ * Revision 1.6  2000/10/30 00:32:08  jimtabor
+ * Minor Fixes
+ *
+ * Revision 1.5  2000/10/30 00:21:15  jimtabor
+ * Adding Brian Reifsnyder Fix for Int 25/26
  * 2000/9/04   Brian Reifsnyder
  * Modified dskxfer() such that error codes are now returned.
  * Functions that rely on dskxfer() have also been modified accordingly.
- *
- * $Log$
- * Revision 1.5  2000/10/30 00:21:15  jimtabor
- * Adding Brian Reifsnyder Fix for Int 25/26
  *
  * Revision 1.4  2000/05/25 20:56:21  jimtabor
  * Fixed project history
