@@ -908,12 +908,8 @@ STATIC void Config_Buffers(BYTE * pLine)
   COUNT nBuffers;
 
   /* Get the argument                                             */
-  if (GetNumArg(pLine, &nBuffers) == (BYTE *) 0)
-    return;
-
-  /* Got the value, assign either default or new value            */
-  Config.cfgBuffers =
-      (nBuffers < 0 ? nBuffers : max(Config.cfgBuffers, nBuffers));
+  if (GetNumArg(pLine, &nBuffers))
+    Config.cfgBuffers = nBuffers;
 }
 
 /**
@@ -1697,43 +1693,45 @@ STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s)
     that saves some relocation problems    
 */
 
-STATIC void config_init_buffers(int anzBuffers)
+STATIC void config_init_buffers(int wantedbuffers)
 {
-  REG WORD i;
   struct buffer FAR *pbuffer;
-  unsigned wantedbuffers = anzBuffers;
+  unsigned buffers = 0;
 
-  if (anzBuffers < 0)
-  {
-    wantedbuffers = anzBuffers = -anzBuffers;
-  }
+  /* fill HMA with buffers if BUFFERS count >=0 and DOS in HMA        */
+  if (wantedbuffers < 0)
+    wantedbuffers = -wantedbuffers;
   else if (HMAState == HMA_DONE)
-  {
-    anzBuffers = (0xfff0 - HMAFree) / sizeof(struct buffer);
-  }
+    buffers = (0xfff0 - HMAFree) / sizeof(struct buffer);
 
-  anzBuffers = max(anzBuffers, 6);
-  if (anzBuffers > 99)
+  if (wantedbuffers < 6)         /* min 6 buffers                     */
+    wantedbuffers = 6;
+  if (wantedbuffers > 99)        /* max 99 buffers                    */
   {
-    printf("BUFFERS=%u not supported, reducing to 99\n", anzBuffers);
-    anzBuffers = 99;
+    printf("BUFFERS=%u not supported, reducing to 99\n", wantedbuffers);
+    wantedbuffers = 99;
   }
-  LoL->nbuffers = anzBuffers;
+  if (wantedbuffers > buffers)   /* more specified than available -> get em */
+    buffers = wantedbuffers;
 
+  LoL->nbuffers = buffers;
   LoL->inforecptr = &LoL->firstbuf;
-  
   {
-    size_t bytes = sizeof(struct buffer) * anzBuffers;
+    size_t bytes = sizeof(struct buffer) * buffers;
     pbuffer = HMAalloc(bytes);
 
     if (pbuffer == NULL)
     {
       pbuffer = KernelAlloc(bytes, 'B', 0);
+      if (HMAState == HMA_DONE)
+        firstAvailableBuf = MK_FP(0xffff, HMAFree);
     }
     else
     {
       LoL->bufloc = LOC_HMA;
       LoL->deblock_buf = KernelAlloc(SEC_SIZE, 'B', 0);
+      /* space in HMA beyond requested buffers available as user space */
+      firstAvailableBuf = pbuffer + wantedbuffers;
     }
   }
 
@@ -1742,18 +1740,19 @@ STATIC void config_init_buffers(int anzBuffers)
   DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
   DebugPrintf((" (%p)", LoL->firstbuf));
 
-  pbuffer->b_prev = FP_OFF(pbuffer + (anzBuffers-1));
-  for (i = 1; i < anzBuffers; ++i)
+  buffers--;
+  pbuffer->b_prev = FP_OFF(pbuffer + buffers);
   {
-    if (i == wantedbuffers)
+    int i = buffers;
+    do
     {
-      firstAvailableBuf = pbuffer;
-    }      
-    pbuffer->b_next = FP_OFF(pbuffer + 1);
-    pbuffer++;
-    pbuffer->b_prev = FP_OFF(pbuffer - 1);
+      pbuffer->b_next = FP_OFF(pbuffer + 1);
+      pbuffer++;
+      pbuffer->b_prev = FP_OFF(pbuffer - 1);
+    }
+    while (--i);
   }
-  pbuffer->b_next = FP_OFF(pbuffer - (anzBuffers-1));
+  pbuffer->b_next = FP_OFF(pbuffer - buffers);
 
     /* now, we can have quite some buffers in HMA
        -- up to 50 for KE38616.
@@ -1764,8 +1763,11 @@ STATIC void config_init_buffers(int anzBuffers)
   DebugPrintf((" done\n"));
 
   if (FP_SEG(pbuffer) == 0xffff)
+  {
+    buffers++;
     printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
-           anzBuffers, anzBuffers * sizeof(struct buffer));
+           buffers, buffers * sizeof(struct buffer));
+  }
 }
 
 STATIC void config_init_fnodes(int f_nodes_cnt)
