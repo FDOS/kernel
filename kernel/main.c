@@ -364,6 +364,8 @@ STATIC void kernel()
   int rc;
 
   exb.exec.env_seg = DOS_PSP + 8;
+  if (master_env[0] == '\0')   /* some shells panic on empty master env. */
+    strcpy(master_env, "PATH=.");
   fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
 
   /* process 0       */

@@ -137,8 +137,8 @@ UWORD ram_top = 0; /* How much ram in Kbytes               */
 static UBYTE ErrorAlreadyPrinted[128];
 
 
-char master_env[128] = {"PATH="};   /* some shells panic on empty master env. */
-static char *envp = master_env + 6; /* point to the second zero */
+char master_env[128] = {0};
+static char *envp = master_env;
 
 struct config Config = {
   0,
