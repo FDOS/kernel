@@ -863,7 +863,7 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
       printCHS(" with calculated values ", &chs);
       printCHS(" instead of ", &pEntry->Begin);
       printf("\n");
-      fmemcpy(&pEntry->Begin, &chs, sizeof(struct CHS));
+      memcpy(&pEntry->Begin, &chs, sizeof(struct CHS));
 
     }
 
@@ -885,7 +885,7 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
       printCHS(" with calculated values ", &end);
       printCHS(" instead of ", &pEntry->End);
       printf("\n");
-      fmemcpy(&pEntry->End, &end, sizeof(struct CHS));
+      memcpy(&pEntry->End, &end, sizeof(struct CHS));
 
     }
 
