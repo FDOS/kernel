@@ -59,9 +59,9 @@ _kbdType        db      0		; 00 for 84key, 10h for 102key
 
                 global  ConInit
 ConInit:
-	        mov	ax,40h
+	        xor	ax,ax
 	        mov	ds,ax
-	        mov	al,[96h]
+	        mov	al,[496h]
 		and	al,10h
 		mov	byte[cs:_kbdType],al ; enhanced keyboard if bit 4 set
                 jmp     _IOExit
