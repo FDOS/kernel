@@ -82,6 +82,7 @@ if "%LAST%" == "1" goto end
 :clearset
 
 set NASM=
+set NASMFLAGS=
 set COMPILER=
 set BASE=
 set BINPATH=
