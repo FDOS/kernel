@@ -2009,7 +2009,7 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
     /* many clusters. Otherwise back the number of clusters down (LG & AB) */
     unsigned fatsiz;
     ULONG tmp = dpbp->dpb_fatsize * (ULONG)(dpbp->dpb_secsize / 2);/* entries/2 */
-    if (tmp >= 0x10000)
+    if (tmp >= 0x10000UL)
       goto ckok;
     fatsiz = (unsigned) tmp;
     if (dpbp->dpb_size > FAT_MAGIC) {/* FAT16 */
