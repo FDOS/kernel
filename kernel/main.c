@@ -73,6 +73,7 @@ struct lol FAR *LoL = &DATASTART;
 VOID ASMCFUNC FreeDOSmain(void)
 {
   unsigned char drv;
+  unsigned char FAR *p;
 
 #ifdef _MSC_VER
   extern FAR prn_dev;
@@ -87,17 +88,18 @@ VOID ASMCFUNC FreeDOSmain(void)
                             at 50:e0
                         */
 
-  if (fmemcmp(MK_FP(0x50,0xe0+2),"CONFIG",6) == 0)      /* UPX */
+  drv = LoL->BootDrive + 1;
+  p = MK_FP(0, 0x5e0);
+  if (fmemcmp(p+2,"CONFIG",6) == 0)      /* UPX */
   {
-    fmemcpy(&InitKernelConfig, MK_FP(0,0x5e0+2), sizeof(InitKernelConfig));
+    fmemcpy(&InitKernelConfig, p+2, sizeof(InitKernelConfig));
 
-    drv = *(UBYTE FAR *)MK_FP(0,0x5e0) + 1;
-    *(DWORD FAR *)MK_FP(0,0x5e0+2) = 0;
+    drv = *p + 1;
+    *(DWORD FAR *)(p+2) = 0;
   }
   else
   {
-    drv = LoL->BootDrive + 1;
-    *(UBYTE FAR *)MK_FP(0,0x5e0) = drv - 1;
+    *p = drv - 1;
     fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
   }
 
