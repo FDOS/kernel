@@ -348,6 +348,13 @@ void printCHS(char *title, struct CHS *chs)
   printf("%s%4u-%u-%u", title, chs->Cylinder, chs->Head, chs->Sector);
 }
 
+STATIC VOID printStartEnd(struct CHS *chs, struct CHS *end)
+{
+  printCHS(" start ", chs);
+  printCHS(", end ", end);
+  printf("\n");
+}
+
 /*
     reason for this modules existence:
     
@@ -807,66 +814,45 @@ BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
   return TRUE;
 }
 
-BOOL is_suspect(struct CHS *chs, struct CHS *pEntry_chs)
+STATIC void warning_suspect(char *partitionName, struct CHS *chs,
+                                                 struct CHS *pEntry_chs)
 {
-  /* Valid entry:
-     entry == chs ||           // partition entry equal to computed values
-     (chs->Cylinder > 1023 &&  // or LBA partition
-      (entry->Cylinder == 1023 ||
-       entry->Cylinder == (0x3FF & chs->Cylinder)))
-  */
-  return !((pEntry_chs->Cylinder == chs->Cylinder &&
-            pEntry_chs->Head     == chs->Head     &&
-            pEntry_chs->Sector   == chs->Sector)        ||
-           chs->Cylinder > 1023u &&
-           (pEntry_chs->Cylinder == 1023 ||
-            pEntry_chs->Cylinder == (0x3ff & chs->Cylinder)));
+  if (pEntry_chs->Cylinder != (chs->Cylinder & 0x3FF)
+   || pEntry_chs->Head     !=  chs->Head
+   || pEntry_chs->Sector   !=  chs->Sector)
+  {
+    printf("WARNING: %s", partitionName);
+    printCHS(" has CHS=", chs);
+    printCHS(", not ", pEntry_chs);
+    printf("\n");
+    memcpy(pEntry_chs, chs, sizeof(struct CHS));
+  }
 }
 
-void print_warning_suspect(char *partitionName, UBYTE fs, struct CHS *chs,
-                           struct CHS *pEntry_chs)
-{
-  printf("WARNING: using suspect partition %s FS %02x:", partitionName, fs);
-  printCHS(" with calculated values ", chs);
-  printCHS(" instead of ", pEntry_chs);
-  printf("\n");
-  memcpy(pEntry_chs, chs, sizeof(struct CHS));
-}
-
-BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
+int ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
                          struct PartTableEntry * pEntry, ULONG startSector,
                          int partitionsToIgnore, int extendedPartNo)
 {
   int i;
   struct CHS chs, end;
   ULONG partitionStart;
-  char partitionName[12];
+  char partitionName[28];
 
   for (i = 0; i < 4; i++, pEntry++)
   {
-    if (pEntry->FileSystem == 0)
-      continue;
-
-    if (partitionsToIgnore & (1 << i))
-      continue;
-
-    if (IsExtPartition(pEntry->FileSystem))
-      continue;
-
-    if (scan_type == SCAN_PRIMARYBOOT && !pEntry->Bootable)
+    if (pEntry->FileSystem == 0
+      || partitionsToIgnore & (1 << i)
+      || IsExtPartition(pEntry->FileSystem)
+      || scan_type == SCAN_PRIMARYBOOT && !pEntry->Bootable
+      || !IsFATPartition(pEntry->FileSystem))
       continue;
 
     partitionStart = startSector + pEntry->RelSect;
 
-    if (!IsFATPartition(pEntry->FileSystem))
-    {
-      continue;
-    }
-
-    if (extendedPartNo)
-      sprintf(partitionName, "Ext:%d", extendedPartNo);
-    else
-      sprintf(partitionName, "Pri:%d", i + 1);
+    sprintf(partitionName, "partition %s:%d FS %02x",
+      extendedPartNo ? "Ext" : "Pri",
+      extendedPartNo ? extendedPartNo : i + 1,
+      pEntry->FileSystem);
 
     /*
        some sanity checks, that partition
@@ -876,39 +862,25 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
     LBA_to_CHS(&end, partitionStart + pEntry->NumSect - 1, driveParam);
 
     /* some FDISK's enter for partitions 
-       > 8 GB cyl = 1023, other (cyl&1023)
+       > 8 GB cyl = 1022 or 1023, other (cyl&1023)
      */
-
-    if (is_suspect(&chs, &pEntry->Begin))
+    if (!IsLBAPartition(pEntry->FileSystem))
     {
-      print_warning_suspect(partitionName, pEntry->FileSystem, &chs,
-                            &pEntry->Begin);
+      warning_suspect(partitionName, &chs, &pEntry->Begin);
+      warning_suspect(partitionName, &end, &pEntry->End);
     }
-
-    if (is_suspect(&end, &pEntry->End))
+    if (pEntry->NumSect == 0)
     {
-      if (pEntry->NumSect == 0)
-      {
-        printf("Not using partition %s with 0 sectors\n", partitionName);
-        continue;
-      }
-      print_warning_suspect(partitionName, pEntry->FileSystem, &end,
-                            &pEntry->End);
+      printf("Not using %s with 0 sectors\n", partitionName);
+      continue;
     }
-
     if (chs.Cylinder > 1023 || end.Cylinder > 1023)
     {
 
       if (!(driveParam->descflags & DF_LBA))
       {
-        printf
-            ("can't use LBA partition without LBA support - part %s FS %02x",
-             partitionName, pEntry->FileSystem);
-
-        printCHS(" start ", &chs);
-        printCHS(", end ", &end);
-        printf("\n");
-
+        printf("Can't use LBA %s without LBA support", partitionName);
+        printStartEnd(&chs, &end);
         continue;
       }
 
@@ -916,13 +888,10 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
           && !IsLBAPartition(pEntry->FileSystem))
       {
         printf
-            ("WARNING: Partition ID does not suggest LBA - part %s FS %02x.\n"
+            ("WARNING: %s is not LBA\n"
              "Please run FDISK to correct this - using LBA to access partition.\n",
-             partitionName, pEntry->FileSystem);
-
-        printCHS(" start ", &chs);
-        printCHS(", end ", &end);
-        printf("\n");
+             partitionName);
+        printStartEnd(&chs, &end);
         pEntry->FileSystem = (pEntry->FileSystem == FAT12 ? FAT12_LBA :
                               pEntry->FileSystem == FAT32 ? FAT32_LBA :
                               /*  pEntry->FileSystem == FAT16 ? */
@@ -931,11 +900,9 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
 
       /* else its a diagnostic message only */
 #ifdef DEBUG
-      printf("found and using LBA partition %s FS %02x",
-             partitionName, pEntry->FileSystem);
-      printCHS(" start ", &chs);
-      printCHS(", end ", &end);
-      printf("\n");
+      printf("found and using LBA %s",
+             partitionName);
+      printStartEnd(&chs, &end);
 #endif
     }
 
