@@ -149,7 +149,20 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
       wipe_out(fnp);
       status = S_REPLACED;
     }
-    else if (!(flags & O_OPEN))
+    else if (flags & O_OPEN)
+    {
+      /* force r/o open for FCB if the file is read-only */
+      if ((flags & O_FCB) && (fnp->f_dir.dir_attrib & D_RDONLY))
+        flags = (flags & ~3) | O_RDONLY;
+
+      /* Check permissions. -- JPP */
+      if ((fnp->f_dir.dir_attrib & D_RDONLY) && ((flags & 3) != O_RDONLY))
+      {
+        dir_close(fnp);
+        return DE_ACCESS;
+      }
+    }
+    else
     {
       dir_close(fnp);
       return DE_FILEEXISTS;
@@ -216,19 +229,6 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
     }
   }
 
-  /* force r/o open for FCB and legacy creat if the file is read-only */
-  if (((flags & O_FCB)
-       || (flags & (O_CREAT | O_LEGACY)) == (O_CREAT | O_LEGACY))
-      && (fnp->f_dir.dir_attrib & D_RDONLY))
-    fnp->f_mode = O_RDONLY;
-
-  /* Check permissions. -- JPP */
-  if ((fnp->f_dir.dir_attrib & D_RDONLY) && (fnp->f_mode != O_RDONLY))
-  {
-    dir_close(fnp);
-    return DE_ACCESS;
-  }
-    
   /* Now change to file                                   */
   fnp->f_offset = 0l;
     
