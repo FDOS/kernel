@@ -749,11 +749,8 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
     }
     return SUCCESS;
   }
-  if (commitonly)
+  if (commitonly || sftp->sft_count > 0)
     return dos_commit(sftp->sft_status);
-  
-  if (sftp->sft_count > 0)
-    return SUCCESS;
 
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
   if (IsShareInstalled())
