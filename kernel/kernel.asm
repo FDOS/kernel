@@ -659,10 +659,6 @@ blk_stk_top:
                 times 64 dw 0
 clk_stk_top:
 
-; have a jump to the real thing here for AARD compliance
-                global  _CharMapSrvc ; in _DATA (see AARD)
-_CharMapSrvc:   jmp 0x70:CharMapSrvc2
-            
 ; Dynamic data:
 ; member of the DOS DATA GROUP
 ; and marks definitive end of all used data in kernel data segment
@@ -829,9 +825,9 @@ _reloc_call_clk_driver:
                 jmp 0:_clk_driver
                 call near forceEnableA20
 
-;               global  _CharMapSrvc ; in _DATA (see AARD)
+                global  _CharMapSrvc ; in _DATA (see AARD)
                 extern  _reloc_call_CharMapSrvc
-CharMapSrvc2:   jmp 0:_reloc_call_CharMapSrvc
+_CharMapSrvc:   jmp 0:_reloc_call_CharMapSrvc
                 call near forceEnableA20
 
 
