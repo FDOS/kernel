@@ -36,6 +36,9 @@ static BYTE *syspackRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.4  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *

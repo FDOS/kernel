@@ -36,6 +36,9 @@ static BYTE *clock_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.5  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -101,18 +104,9 @@ struct dpb
   UWORD dpb_fatstrt;            /* FAT start sector             */
   UBYTE dpb_fats;               /* # of FAT copies              */
   UWORD dpb_dirents;            /* # of dir entries             */
-#ifdef WITHFAT32
-  UWORD dpb_wdata;              /* start of data area           */
-  UWORD dpb_wsize;              /* # of clusters+1 on media     */
-  UWORD dpb_wfatsize;           /* # of sectors / FAT           */
-#else
   UWORD dpb_data;               /* start of data area           */
   UWORD dpb_size;               /* # of clusters+1 on media     */
   UWORD dpb_fatsize;            /* # of sectors / FAT           */
-#define dpb_wdata dpb_data
-#define dpb_wsize dpb_size
-#define dpb_wfatsize dpb_fatsize  
-#endif
   UWORD dpb_dirstrt;            /* start sec. of root dir       */
   struct dhdr FAR *             /* pointer to device header     */
     dpb_device;
@@ -120,36 +114,40 @@ struct dpb
   BYTE dpb_flags;               /* -1 = force MEDIA CHK         */
   struct dpb FAR *              /* next dpb in chain            */
     dpb_next;                   /* -1 = end                     */
-#ifdef WITHFAT32
-  UWORD dpb_wcluster;           /* cluster # of first free      */
+  UWORD dpb_cluster;            /* cluster # of first free      */
                                 /* -1 if not known              */
-  ULONG dpb_nfreeclst;          /* number of free clusters      */
+#ifndef WITHFAT32
+  UWORD dpb_nfreeclst;          /* number of free clusters      */    
                                 /* -1 if not known              */
+#else    
+  union
+  {
+    struct
+    {
+      UWORD dpb_nfreeclst_lo;
+      UWORD dpb_nfreeclst_hi;
+    } dpb_nfreeclst_st;
+    ULONG _dpb_xnfreeclst;      /* number of free clusters      */    
+                                /* -1 if not known              */
+  } dpb_nfreeclst_un;
+  #define dpb_nfreeclst dpb_nfreeclst_un.dpb_nfreeclst_st.dpb_nfreeclst_lo
+  #define dpb_xnfreeclst dpb_nfreeclst_un._dpb_xnfreeclst    
+      
   UWORD dpb_xflags;             /* extended flags, see bpb      */
   UWORD dpb_xfsinfosec;         /* FS info sector number,       */
                                 /* 0xFFFF if unknown            */
   UWORD dpb_xbackupsec;         /* backup boot sector number    */
                                 /* 0xFFFF if unknown            */
-  ULONG dpb_data;
-  ULONG dpb_size;               /* # of clusters+1 on media     */
-  ULONG dpb_fatsize;            /* # of sectors / FAT           */
+  ULONG dpb_xdata;
+  ULONG dpb_xsize;              /* # of clusters+1 on media     */
+  ULONG dpb_xfatsize;           /* # of sectors / FAT           */
   ULONG dpb_xrootclst;          /* starting cluster of root dir */
-  ULONG dpb_cluster;            /* cluster # of first free      */
+  ULONG dpb_xcluster;           /* cluster # of first free      */
                                 /* -1 if not known              */
-#else
-  UWORD dpb_cluster;            /* cluster # of first free      */
-                                /* -1 if not known              */
-#define dpb_wcluster dpb_cluster
-  UWORD dpb_nfreeclst;          /* number of free clusters      */
-                                /* -1 if not known              */
-#endif
+#endif    
 };
 
 #define UNKNCLUSTER      0x0000      /* see RBIL INT 21/AH=52 entry */
-#ifdef WITHFAT32
-#define UNKNCLSTFREE     0xffffffffl  /* unknown for DOS */
-#else
+#define XUNKNCLSTFREE    0xffffffffl /* unknown for DOS */
 #define UNKNCLSTFREE     0xffff      /* unknown for DOS */
-#endif
-#define UNKNCLSTFREE16   0xffff      /* unknown for DOS */
 

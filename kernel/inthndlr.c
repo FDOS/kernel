@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.32  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.31  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -301,13 +304,21 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
       {
           /* Get Ctrl-C flag                                      */
         case 0x00:
-          irp->DL = break_ena ? TRUE : FALSE;
+          irp->DL = break_ena;
           break;
 
           /* Set Ctrl-C flag                                      */
         case 0x01:
-          break_ena = irp->DL ? TRUE : FALSE;
+          break_ena = irp->DL != 0;
           break;
+
+        case 0x02:  /* andrew schulman: get/set extended control break  */
+        {
+        	UBYTE tmp = break_ena;
+        	irp->DL = break_ena;
+        	break_ena = tmp != 0;
+        }
+
 
           /* Get Boot Drive                                       */
         case 0x05:
@@ -322,8 +333,6 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
           irp->DH = version_flags; /* bit3:runs in ROM,bit 4: runs in HMA*/
           break;
           
-        case 0x02:  /* andrew schulman: get/set extended control break 
-                       should be done */
         case 0x03:  /* DOS 7 does not set AL */
         case 0x07:  /* neither here */
 
@@ -377,9 +386,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
 VOID ASMCFUNC int21_service(iregs FAR * r)
 {
-  COUNT rc = 0,
-	  rc1;
-  psp FAR *p = MK_FP(cu_psp, 0);
+  COUNT rc = 0;
   void FAR *FP_DS_DX = MK_FP(r->DS, r->DX); /* this is saved so often,
                                                that this saves ~100 bytes */
 
@@ -387,7 +394,7 @@ VOID ASMCFUNC int21_service(iregs FAR * r)
 #define CLEAR_CARRY_FLAG()  r->FLAGS &= ~FLG_CARRY
 #define SET_CARRY_FLAG()    r->FLAGS |= FLG_CARRY
 
-  p->ps_stack = (BYTE FAR *) r;
+  ((psp FAR *)MK_FP(cu_psp, 0))->ps_stack = (BYTE FAR *) r;
 
 #ifdef DEBUG 
   if (bDumpRegs)
@@ -785,13 +792,10 @@ dispatch:
       /* Set Date                                                     */
     case 0x2b:
       rc = DosSetDate(
-                       (BYTE FAR *) & (r->DH),	/* Month                */
-                       (BYTE FAR *) & (r->DL),	/* MonthDay             */
-                       (COUNT FAR *) & (r->CX));	/* Year                 */
-      if (rc != SUCCESS)
-        r->AL = 0xff;
-      else
-        r->AL = 0;
+                       r->DH,	/* Month                */
+                       r->DL,	/* MonthDay             */
+                       r->CX);	/* Year                 */
+      r->AL = (rc != SUCCESS ? 0xff : 0);
       break;
 
       /* Get Time                                                     */
@@ -806,14 +810,11 @@ dispatch:
       /* Set Date                                                     */
     case 0x2d:
       rc = DosSetTime(
-                       (BYTE FAR *) & (r->CH),	/* Hour                 */
-                       (BYTE FAR *) & (r->CL),	/* Minutes              */
-                       (BYTE FAR *) & (r->DH),	/* Seconds              */
-                       (BYTE FAR *) & (r->DL));	/* Hundredths           */
-      if (rc != SUCCESS)
-        r->AL = 0xff;
-      else
-        r->AL = 0;
+                       r->CH,	/* Hour                 */
+                       r->CL,	/* Minutes              */
+                       r->DH,	/* Seconds              */
+                       r->DL);	/* Hundredths           */
+      r->AL = (rc != SUCCESS ? 0xff : 0);
       break;
 
       /* Set verify flag                                              */
@@ -1048,20 +1049,16 @@ dispatch:
 
       /* Dos Read                                                     */
     case 0x3f:
-      rc1 = DosRead(r->BX, r->CX, FP_DS_DX, (COUNT FAR *) & rc);
+      r->AX = DosRead(r->BX, r->CX, FP_DS_DX, (COUNT FAR *) & rc);
       if (rc != SUCCESS)
         goto error_exit;
-      else
-        r->AX = rc1;
       break;
 
       /* Dos Write                                                    */
     case 0x40:
-      rc1 = DosWrite(r->BX, r->CX, FP_DS_DX, (COUNT FAR *) & rc);
+      r->AX = DosWrite(r->BX, r->CX, FP_DS_DX, (COUNT FAR *) & rc);
       if (rc != SUCCESS)
         goto error_exit;
-      else
-        r->AX = rc1;
       break;
 
       /* Dos Delete File                                              */
@@ -1075,7 +1072,7 @@ dispatch:
     case 0x42:
       {
       ULONG lrc;
-      if ((rc = DosSeek(r->BX, (LONG) ((((LONG) (r->CX)) << 16) + r->DX), r->AL, &lrc)) < 0)
+      if ((rc = DosSeek(r->BX, (LONG) ((((LONG) (r->CX)) << 16) | r->DX), r->AL, &lrc)) < 0)
         goto error_exit;
       else
       {
@@ -1243,13 +1240,8 @@ dispatch:
       /* dta for this call is set on entry.  This     */
       /* needs to be changed for new versions.        */
       if ((rc = DosFindNext()) < 0)
-      {
-        if (rc == DE_FILENOTFND)
-          rc = DE_NFILES;
         goto error_exit;
-      }
-      else
-        r->AX = -SUCCESS;
+      r->AX = -SUCCESS;
       break;
 /*
     case 0x50:  
@@ -1363,10 +1355,12 @@ dispatch:
             break;
 
         case 0x03:
-            if (uppermem_root) {
+            if (uppermem_root)    /* always error if not exists */
+	        {		    
                 DosUmbLink(r->BL);
                 break;
-            } /* else fall through */            
+                } 
+	    /* else fall through */            
 
         default:
           goto error_invalid;
@@ -1463,7 +1457,7 @@ dispatch:
         case 0x07:
         case 0x08:
         case 0x09:
-	  rc = -int2f_Remote_call(REM_PRINTREDIR, 0, 0, r->DX, 0, 0, (MK_FP(0, Int21AX)));
+	  rc = remote_printredir(r->DX, Int21AX);
 	  if (rc != SUCCESS)
             goto error_exit;
           CLEAR_CARRY_FLAG();
@@ -1486,7 +1480,7 @@ dispatch:
           break;
 
         default:
-          rc = -int2f_Remote_call(REM_PRINTSET, r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
+          rc = remote_printset(r->BX, r->CX, r->DX, (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
 	  if (rc != SUCCESS) goto error_exit;
           r->AX=SUCCESS;
           break;
@@ -1515,7 +1509,7 @@ dispatch:
             int_2f_111e_call(r);          
           break;*/
 
-          rc = -int2f_Remote_call(REM_DOREDIRECT, r->BX, r->CX, r->DX,
+          rc = remote_doredirect(r->BX, r->CX, r->DX,
                                  (MK_FP(r->ES, r->DI)), r->SI, (MK_FP(r->DS, Int21AX)));
 	  if (rc != SUCCESS)
             goto error_exit;
@@ -1561,21 +1555,17 @@ dispatch:
       /* UNDOCUMENTED: Double byte and korean tables                  */
     case 0x63:
       {
-#define DBLBYTE
-#ifdef DBLBYTE
-        static char dbcsTable[2] =
+        static char dbcsTable[4] =
         {
-          0, 0
+          0, 0, 0, 0
         };
-        void FAR *dp = &dbcsTable;
-
-        r->DS = FP_SEG(dp);
-        r->SI = FP_OFF(dp);
-        r->AL = 0;
-#else
+        r->DS = FP_SEG(&dbcsTable);
+        r->SI = FP_OFF(&dbcsTable);
+#if 0
         /* not really supported, but will pass.                 */
         r->AL = 0x00;           /*jpp: according to interrupt list */	
-				/*Bart: fails for PQDI: use the above again */
+				/*Bart: fails for PQDI and WATCOM utilities: 
+				  use the above again */
 #endif
         break;
       }
@@ -1819,17 +1809,31 @@ break_out:
                   {
                     DWORD nfreeclst = xdffp->xdff_f.setdpbcounts.nfreeclst;
                     DWORD cluster = xdffp->xdff_f.setdpbcounts.cluster;
-                    if ((dpb->dpb_xfsinfosec == 0xffff && (nfreeclst != 0 ||
+                    if (ISFAT32(dpb))
+                    {
+                      if ((dpb->dpb_xfsinfosec == 0xffff && (nfreeclst != 0 ||
                     		                           cluster != 0)) ||
-                        nfreeclst == 1 || nfreeclst > dpb->dpb_size ||
+                        nfreeclst == 1 || nfreeclst > dpb->dpb_xsize ||
+                        cluster == 1 || cluster > dpb->dpb_xsize)
+                      {
+                        r->AX = -DE_INVLDPARM;
+                        goto error_out;
+                      }
+                      dpb->dpb_xnfreeclst = nfreeclst;
+                      dpb->dpb_xcluster = cluster;
+                      write_fsinfo(dpb);
+                    }
+                    else 
+                    {
+                      if (nfreeclst == 1 || nfreeclst > dpb->dpb_size ||
                         cluster == 1 || cluster > dpb->dpb_size)
                       {
                         r->AX = -DE_INVLDPARM;
                         goto error_out;
                       }
-                    dpb->dpb_nfreeclst = nfreeclst;
-                    dpb->dpb_cluster = cluster;
-		    write_fsinfo(dpb);
+                      dpb->dpb_nfreeclst = nfreeclst;
+                      dpb->dpb_cluster = cluster;
+                    }
                     break;
                   }
                 case 0x01:
@@ -1856,13 +1860,14 @@ rebuild_dpb:
                     struct buffer FAR *bp;
                     bpb FAR *bpbp;
                     DWORD newmirroring = xdffp->xdff_f.setmirroring.newmirroring;
-                    if (newmirroring != -1 && newmirroring & ~(0xf | 0x80))
+
+                    if (newmirroring != -1 && (ISFAT32(dpb) && (newmirroring & ~(0xf | 0x80))))
                       {
                         r->AX = -DE_INVLDPARM;
                         goto error_out;
                       }
-                    xdffp->xdff_f.setmirroring.oldmirroring = dpb->dpb_xflags;
-                    if (newmirroring != -1)
+                    xdffp->xdff_f.setmirroring.oldmirroring = (ISFAT32(dpb) ? dpb->dpb_xflags : 0);
+                    if (newmirroring != -1 && ISFAT32(dpb))
                       {
                         bp = getblock(1, dpb->dpb_unit);
                         bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
@@ -1877,8 +1882,8 @@ rebuild_dpb:
                     struct buffer FAR *bp;
                     bpb FAR *bpbp;
                     DWORD rootclst = xdffp->xdff_f.setroot.newrootclst;
-                    if (rootclst != -1 && (rootclst == 1 ||
-                        rootclst > dpb->dpb_size))
+                    if (!ISFAT32(dpb) || (rootclst != -1 && (rootclst == 1 ||
+                                                             rootclst > dpb->dpb_xsize)))
                       {
                         r->AX = -DE_INVLDPARM;
                         goto error_out;
@@ -2115,19 +2120,52 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 
         case 0x03:      /* get DOS data segment */
             r.ds = FP_SEG(&nul_dev);
-            break;         
+            break;
+
+        case 0x06:      /* invoke critical error */
+
+            /* code, drive number, error, device header */
+            r.ax &= 0xff00;
+            r.ax |= CriticalError(
+                r.callerARG1 >> 8,
+                (r.callerARG1 & (EFLG_CHAR << 8)) ? 0 : r.callerARG1 & 0xff,
+                r.di,
+                MK_FP(r.bp,r.si));
+            break;
             
         case 0x08:      /* decrease SFT reference count */
             {
-            UWORD FAR *SFTp = MK_FP(r.es,r.di);
+            sft FAR *p = MK_FP(r.es,r.di);
             
-            r.ax = *SFTp;
+            r.ax = p->sft_count;
             
-            if (--*SFTp == 0) --*SFTp;
-            
+            if (--p->sft_count == 0) --p->sft_count;            
             }
             break;
 
+        case 0x0c: /* perform "device open" for device, set owner for FCB */
+
+            if (lpCurSft->sft_flags & SFT_FDEVICE)
+            {
+                request rq;
+
+                rq.r_unit = 0;
+                rq.r_status = 0;
+                rq.r_command = C_OPEN;
+                rq.r_length = sizeof(request);
+                execrh((request FAR *) & rq, lpCurSft->sft_dev);
+            }
+
+            /* just do it always, not just for FCBs */
+            lpCurSft->sft_psp = cu_psp;    
+	    break;
+
+        case 0x0d: /* get dos date/time */
+
+            r.ax = dos_getdate();
+            r.dx = dos_gettime();
+            break;
+	    
         case 0x12:      /* get length of asciiz string */
             
             r.cx = fstrlen(MK_FP(r.es, r.di))+1;
@@ -2135,6 +2173,44 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
             break;
 
 
+        case 0x16:      /* get address of system file table entry - used by NET.EXE
+                           BX system file table entry number ( such as returned from 2F/1220)
+                           returns
+                           ES:DI pointer to SFT entry */
+            {
+            sft FAR *p = get_sft(r.bx);
+            
+            r.es = FP_SEG(p);                
+            r.di = FP_OFF(p);                
+            break;
+            }
+
+        case 0x17:      /* get current directory structure for drive - used by NET.EXE
+                           STACK: drive (0=A:,1=B,...)
+                            ; returns
+                            ;   CF set if error
+                            ;   DS:SI pointer to CDS for drive
+                            ; 
+                            ; called like
+                            ;   push 2 (c-drive)
+                            ;   mov ax,1217
+                            ;   int 2f
+                            ;
+                            ; probable use: get sizeof(CDSentry)
+                            */
+            {
+            UWORD drv = r.callerARG1 & 0xff;
+            
+            if (drv >= lastdrive)
+                r.flags |= FLG_CARRY;
+            else
+                {
+                r.ds = FP_SEG(CDSp);
+                r.si = FP_OFF(&CDSp->cds_table[drv]);
+                r.flags &= ~FLG_CARRY;
+                }
+            break;
+            }                        
 
         case 0x18:      /* get caller's registers */
         
@@ -2151,6 +2227,25 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         
             truename(MK_FP(r.ds,r.si), MK_FP(r.es,r.di),0);
     
+            break;
+            
+        case 0x23:    /* check if character device */
+            {
+            struct dhdr FAR *dhp;
+
+            dhp = IsDevice((BYTE FAR *)DirEntBuffer.dir_name);
+
+            if (dhp)
+                {
+                r.bx = (r.bx & 0xff) | (dhp->dh_attr <<8);
+                r.flags &= ~FLG_CARRY;
+                }
+            else {
+                r.flags |= FLG_CARRY;
+                }
+
+            }
+
             break;
 
         case 0x25:      /* get length of asciiz string */
@@ -2178,48 +2273,11 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 		       doesn't work!! */
             break;
 
-        case 0x16:      /* get address of system file table entry - used by NET.EXE
-                           BX system file table entry number ( such as returned from 2F/1220)
-                           returns
-                           ES:DI pointer to SFT entry */
-            {
-            sft FAR *p = get_sft(r.bx);
-            
-            r.es = FP_SEG(p);                
-            r.di = FP_OFF(p);                
-            break;
-            }
-
-                                       
-        case 0x17:      /* get current directory structure for drive - used by NET.EXE
-                           STACK: drive (0=A:,1=B,...)
-                            ; returns
-                            ;   CF set if error
-                            ;   DS:SI pointer to CDS for drive
-                            ; 
-                            ; called like
-                            ;   push 2 (c-drive)
-                            ;   mov ax,1217
-                            ;   int 2f
-                            ;
-                            ; probable use: get sizeof(CDSentry)
-                            */
-            {
-            UWORD drv = r.callerARG1 & 0xff;
-            
-            if (drv >= lastdrive)
-                r.flags |= FLG_CARRY;
-            else
-                {
-                r.ds = FP_SEG(CDSp);
-                r.si = FP_OFF(&CDSp->cds_table[drv]);
-                r.flags &= ~FLG_CARRY;
-                }
-            break;
-            }                        
         default:
-            printf("unknown internal dos function INT2F/12%02x\n",function);
-        
-        }
+            printf("unimplemented internal dos function INT2F/12%02x\n",function);
+            r.flags |= FLG_CARRY;
+            break;
+
+    }
 
 }

@@ -13,14 +13,6 @@ See the DOCS directory for more documentation and information about
 the FreeDOS Kernel.
 
 
-AGREEMENT
----------
-All users of the FreeDOS kernel must accept the disclaimer of
-warranty and license terms contained in the file "COPYING" in order
-to use it.  You may not, under any circumstance, use this operating
-system or any component without first reading and agreeing to the
-terms of the license.
-
 BUG REPORTS
 -----------
 If you have found a bug, think you have found a bug, or would just

@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.8  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.7  2001/04/21 22:32:53  bartoldeman
 ; Init DS=Init CS, fixed stack overflow problems and misc bugs.
 ;
@@ -105,33 +108,26 @@ segment	HMA_TEXT
 _execrh:
                 push    bp              ; perform c entry
                 mov     bp,sp
-;                push    bx              ; random char on display
                 push    si
-                push    es              ; sometimes it get lost
                 push    ds              ; sp=bp-8
 
                 lds     si,[bp+8]       ; ds:si = device header
                 les     bx,[bp+4]       ; es:bx = request header
 
-                push    bp
-                push    ds              
-                push    si              ; needed later
-                mov     ax, [si+6]
+
+                mov     ax, [si+6]      ; construct strategy address
                 mov     [bp+8], ax    
-                call    far[bp+8]       ; call far the strategy
-                pop     si              ; these were saved
-                pop     ds
-                pop     bp
+
+                mov     si, [si+8]      ; save 'interrupt' address
         
-                mov     ax, [si+8]                         
-                mov     [bp+8], ax
+                call    far[bp+8]       ; call far the strategy
+
+                mov     [bp+8],si       ; construct interrupt address 
                 call    far[bp+8]       ; call far the interrupt
 
                 sti                     ; damm driver turn off ints
                 cld                     ; has gone backwards
                 pop     ds
-                pop     es
                 pop     si
-;                pop     bx
                 pop     bp
                 ret

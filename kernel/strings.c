@@ -34,6 +34,9 @@ static BYTE *stringsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.5  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -97,7 +100,7 @@ static BYTE *stringsRcsId = "$Id$";
  * Initial revision.
  */
 
-#ifndef ASMSUPT
+#ifndef I86
 COUNT strlen(REG BYTE * s)
 {
   REG WORD cnt = 0;

@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.11  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -139,6 +142,7 @@ VOID XlateLcase(BYTE * szFname, COUNT nChars);
 VOID DosTrimPath(BYTE * lpszPathNamep);
 
 /* Should be converted to a portable version after v1.0 is released.    */
+#if 0
 VOID XlateLcase(BYTE * szFname, COUNT nChars)
 {
   while (nChars--)
@@ -148,6 +152,7 @@ VOID XlateLcase(BYTE * szFname, COUNT nChars)
     ++szFname;
   }
 }
+#endif
 
 VOID SpacePad(BYTE * szString, COUNT nChars)
 {
@@ -156,12 +161,14 @@ VOID SpacePad(BYTE * szString, COUNT nChars)
   for (i = strlen(szString); i < nChars; i++)
     szString[i] = ' ';
 }
+
 /*
     MSD durring an FindFirst search string looks like this;
     (*), & (.)  == Current directory *.*
     (\)         == Root directory *.*
     (..)        == Back one directory *.*
 
+    This always has a "truename" as input, so we may do some shortcuts
  */
 COUNT ParseDosName(BYTE * lpszFileName,
                    COUNT * pnDrive,
@@ -187,26 +194,11 @@ COUNT ParseDosName(BYTE * lpszFileName,
   lpszLclFile = lpszLclExt = lpszLclDir = 0;
   nDirCnt = nFileCnt = nExtCnt = 0;
 
-  /* Start by cheking for a drive specifier ...                   */
-  if (DriveChar(*lpszFileName) && ':' == lpszFileName[1])
-  {
-    /* found a drive, fetch it and bump pointer past drive  */
-    /* NB: this code assumes ASCII                          */
-    if (pnDrive)
-    {
-      *pnDrive = *lpszFileName - 'A';
-      if (*pnDrive > 26)
-        *pnDrive -= ('a' - 'A');
-    }
-    lpszFileName += 2;
-  }
-  else
-  {
-    if (pnDrive)
-    {
-      *pnDrive = -1;
-    }
-  }
+  /* found a drive, fetch it and bump pointer past drive  */
+  /* NB: this code assumes ASCII                          */
+  if (pnDrive)
+    *pnDrive = *lpszFileName - 'A';
+  lpszFileName += 2;
   if (!pszDir && !pszFile && !pszExt)
     return SUCCESS;
 
@@ -214,11 +206,15 @@ COUNT ParseDosName(BYTE * lpszFileName,
   lpszLclDir = lpszLclFile = lpszFileName;
   while (DirChar(*lpszFileName))
   {
-    if (PathSep(*lpszFileName))
+    if (*lpszFileName == '\\')
       lpszLclFile = lpszFileName + 1;
     ++lpszFileName;
   }
   nDirCnt = FP_OFF(lpszLclFile) - FP_OFF(lpszLclDir);
+  /* Fix lengths to maximums allowed by MS-DOS.                   */
+  if (nDirCnt > PARSE_MAX-1)
+    nDirCnt = PARSE_MAX-1;
+
   /* Parse out the file name portion.                             */
   lpszFileName = lpszLclFile;
   while (bAllowWildcards ? WildChar(*lpszFileName) : NameChar(*lpszFileName))
@@ -231,36 +227,19 @@ COUNT ParseDosName(BYTE * lpszFileName,
 /* Lixing Yuan Patch */
      if (bAllowWildcards)  /* for find first */
      {
-       if (*lpszFileName == '.')
-         lpszFileName++;
-       if (*lpszFileName == '.')
-         lpszFileName++;
        if (*lpszFileName != '\0')
          return DE_FILENOTFND;
        if (nDirCnt == 1) /* for d:\ */
          return DE_NFILES;
        if (pszDir)
        {
-         if ((lpszFileName - lpszLclFile) == 2) /* for tail DotDot */
-           nDirCnt += 2;
-         if (nDirCnt > PARSE_MAX-1)
-           nDirCnt = PARSE_MAX-1;
-         bcopy(lpszLclDir, pszDir, nDirCnt);
-         if (((lpszFileName - lpszLclFile) == 2) && (nDirCnt < PARSE_MAX))
-           pszDir[nDirCnt++] = '\\';  /* make DosTrimPath() enjoy, for tail DotDot */
+         memcpy(pszDir, lpszLclDir, nDirCnt);
          pszDir[nDirCnt] = '\0';
-         DosTrimPath(pszDir);
        }
        if (pszFile)
-       {
-         *pszFile++ = '*';
-         *pszFile = '\0';
-       }
+         memcpy(pszFile, "????????", FNAME_SIZE+1);
        if (pszExt)
-       {
-         *pszExt++ = '*';
-         *pszExt = '\0';
-       }
+         memcpy(pszExt, "???", FEXT_SIZE+1);
        return SUCCESS;
      }
    else
@@ -288,36 +267,25 @@ COUNT ParseDosName(BYTE * lpszFileName,
   else if (*lpszFileName)
     return DE_FILENOTFND;
 
-  /* Fix lengths to maximums allowed by MS-DOS.                   */
-  if (nDirCnt > PARSE_MAX-1)
-    nDirCnt = PARSE_MAX-1;
-  if (nFileCnt > FNAME_SIZE)
-    nFileCnt = FNAME_SIZE;
-  if (nExtCnt > FEXT_SIZE)
-    nExtCnt = FEXT_SIZE;
-
   /* Finally copy whatever the user wants extracted to the user's */
   /* buffers.                                                     */
   if (pszDir)
   {
-    bcopy(lpszLclDir, pszDir, nDirCnt);
+    memcpy(pszDir, lpszLclDir, nDirCnt);
     pszDir[nDirCnt] = '\0';
   }
   if (pszFile)
   {
-    bcopy(lpszLclFile, pszFile, nFileCnt);
+    memcpy(pszFile, lpszLclFile, nFileCnt);
     pszFile[nFileCnt] = '\0';
   }
   if (pszExt)
   {
-    bcopy(lpszLclExt, pszExt, nExtCnt);
+    memcpy(pszExt, lpszLclExt, nExtCnt);
     pszExt[nExtCnt] = '\0';
   }
 
   /* Clean up before leaving                              */
-  if (pszDir)
-    DosTrimPath(pszDir);
-
 
   return SUCCESS;
 }
@@ -412,7 +380,6 @@ COUNT ParseDosPath(BYTE * lpszFileName,
 
   return SUCCESS;
 }
-#endif
 
 VOID DosTrimPath(BYTE * lpszPathNamep)
 {
@@ -526,4 +493,5 @@ VOID DosTrimPath(BYTE * lpszPathNamep)
       ++lpszNext;
   }
 }
+#endif
 

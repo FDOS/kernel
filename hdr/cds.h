@@ -34,6 +34,9 @@ static BYTE *Cds_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.4  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -87,14 +90,14 @@ struct cds
       _cdsRedirRec;
     struct
     {
-      WORD _cdsStrtClst;
+      UWORD _cdsStrtClst;
       UWORD _cdsParam;
     }
     _cdsRedir;
   }
   _cdsUnion;
 
-  WORD cdsStoreUData;
+  UWORD cdsStoreUData;
 
   WORD cdsJoinOffset;
 

@@ -26,9 +26,12 @@
 
 ***************************************************************/
 /* $Log$
- * Revision 1.10  2001/09/24 02:28:14  bartoldeman
- * Minor printf fixes.
+ * Revision 1.11  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
  *
+/* Revision 1.10  2001/09/24 02:28:14  bartoldeman
+/* Minor printf fixes.
+/*
 /* Revision 1.9  2001/09/24 02:21:14  bartoldeman
 /* SYS and printer fixes
 /*
@@ -160,7 +163,8 @@
        #include <memory.h>
 #endif
 #include <string.h>
-#include <dir.h>
+/*#include <dir.h> */
+#define MAXPATH   260
 #include "portab.h"
 
 #include "b_fat12.h"
@@ -169,7 +173,7 @@
 #include "b_fat32.h"
 #endif
 
-BYTE pgm[] = "sys";
+BYTE pgm[] = "SYS";
 
 void put_boot(COUNT);
 BOOL check_space(COUNT, BYTE *);
@@ -257,6 +261,7 @@ UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
 #define SBSIZE32        (sizeof(struct bootsectortype32) - SBOFFSET)
 
 
+int FDKrnConfigMain(int argc,char **argv);
 
 int main(int argc, char **argv)
 {
@@ -267,6 +272,11 @@ int main(int argc, char **argv)
   WORD slen;
 
   printf("FreeDOS System Installer " SYS_VERSION "\n\n");
+  
+  if (memicmp(argv[1],"CONFIG",6) == 0)
+    {
+    exit(FDKrnConfigMain(argc,argv));
+    }
 
   if (argc == 2)
   {
@@ -294,6 +304,7 @@ int main(int argc, char **argv)
     printf("Usage: %s [source] drive\n", pgm);
     printf("  source = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n");
     printf("  drive  = A,B,etc.\n");
+    printf("%s CONFIG /help\n",pgm);
     exit(1);
   }
 
@@ -307,7 +318,13 @@ int main(int argc, char **argv)
   if ((strlen(srcPath) > 1) && (srcPath[1] == ':'))  /* src specifies drive */
     srcDrive = toupper(*srcPath) - 'A';
   else /* src doesn't specify drive, so assume current drive */
+    {
+#ifdef __TURBOC__
     srcDrive = getdisk();
+#else        
+    _dos_getdrive(&srcDrive);
+#endif    
+    }
 
   /* Don't try root if src==dst drive or source path given */
   if ( (drive == srcDrive) || (*srcPath && ((srcPath[1] != ':') || ((srcPath[1] == ':') && srcPath[2]))) )
@@ -700,7 +717,7 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
     copied += ret;        
     }        
 
-#ifdef __TURBO__
+#ifdef __TURBOC__
   {
     struct ftime ftime;
     getftime(fdin, &ftime);

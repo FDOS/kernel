@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.24  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.23  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -193,6 +196,38 @@ static BYTE *fatdirRcsId = "$Id$";
  * Initial revision.
  */
 
+/* Description.
+ *  Initialize a fnode so that it will point to the directory with 
+ *  dirstart starting cluster; in case of passing dirstart == 0
+ *  fnode will point to the start of a root directory */
+VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
+{
+  /* reset the directory flags    */
+  fnp->f_flags.f_dmod = FALSE;
+  fnp->f_flags.f_droot = FALSE;
+  fnp->f_flags.f_ddir = TRUE;
+  fnp->f_flags.f_dnew = TRUE;
+  fnp->f_diroff = fnp->f_offset = fnp->f_cluster_offset = fnp->f_highwater = 0l;
+
+  /* root directory */
+  if (dirstart == 0)
+    {
+#ifdef WITHFAT32
+      if (ISFAT32(fnp->f_dpb))
+        {
+          fnp->f_cluster = fnp->f_dirstart = fnp->f_dpb->dpb_xrootclst;
+        }
+      else
+#endif
+        {
+          fnp->f_dirstart = 0l;
+          fnp->f_flags.f_droot = TRUE;
+       }
+    }
+  else /* non-root */
+    fnp->f_cluster = fnp->f_dirstart = dirstart;
+}
+
 f_node_ptr dir_open(BYTE * dirname)
 {
   f_node_ptr fnp;
@@ -269,31 +304,11 @@ f_node_ptr dir_open(BYTE * dirname)
     return (f_node_ptr)0;
   }
 
-  fnp->f_dsize = DIRENT_SIZE * fnp->f_dpb->dpb_dirents;
-
-  fnp->f_diroff = 0l;
-  fnp->f_flags.f_dmod = FALSE;  /* a brand new fnode            */
-  fnp->f_flags.f_dnew = TRUE;
-  fnp->f_flags.f_dremote = FALSE;
-
-  fnp->f_dirstart = 0;
-
   /* Walk the directory tree to find the starting cluster         */
   /*                                                              */
-  /* Set the root flags since we always start from the root       */
+  /* Start from the root directory (dirstart = 0)                 */
 
-  fnp->f_flags.f_droot = TRUE;
-#ifdef WITHFAT32
-  if (ISFAT32(fnp->f_dpb)) {
-      fnp->f_flags.f_droot = FALSE;
-      fnp->f_flags.f_ddir = TRUE;
-      fnp->f_offset = 0l;
-      fnp->f_cluster_offset = 0l;
-      fnp->f_highwater = 0l;
-      fnp->f_cluster = fnp->f_dpb->dpb_xrootclst;
-      fnp->f_dirstart = fnp->f_dpb->dpb_xrootclst;
-  }
-#endif
+  dir_init_fnode(fnp, 0);
 
   for (p = pszPath; *p != '\0';)
   {
@@ -336,7 +351,7 @@ f_node_ptr dir_open(BYTE * dirname)
 
     DosUpFMem((BYTE FAR *) TempBuffer, FNAME_SIZE + FEXT_SIZE);
 
-    while (dir_read(fnp) == DIRENT_SIZE)
+    while (dir_read(fnp) == 1)
     {
       if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED)
       {
@@ -358,149 +373,122 @@ f_node_ptr dir_open(BYTE * dirname)
     {
       /* make certain we've moved off */
       /* root                         */
-      fnp->f_flags.f_droot = FALSE;
-      fnp->f_flags.f_ddir = TRUE;
-      /* set up for file read/write   */
-      fnp->f_offset = 0l;
-      fnp->f_cluster_offset = 0l;	/*JPP */
-      fnp->f_highwater = 0l;
-      fnp->f_cluster = getdstart(fnp->f_dir);
-      fnp->f_dirstart = fnp->f_cluster;
-      /* reset the directory flags    */
-      fnp->f_diroff = 0l;
-      fnp->f_flags.f_dmod = FALSE;
-      fnp->f_flags.f_dnew = TRUE;
-      fnp->f_dsize = DIRENT_SIZE * fnp->f_dpb->dpb_dirents;
-
+      dir_init_fnode(fnp, getdstart(fnp->f_dir));
     }
   }
   return fnp;
 }
 
+/* Description.
+ *  Read next consequitive directory entry, pointed by fnp.
+ *  If some error occures the other critical
+ *  fields aren't changed, except those used for caching.
+ *  The fnp->f_diroff always corresponds to the directory entry
+ *  which has been read.
+ * Return value.
+ *  1              - all OK, directory entry having been read is not empty.
+ *  0              - Directory entry is empty.
+ *  DE_HNDLDSKFULL - Disk full
+ *  DE_SEEK        - Other error from map_cluster
+ *  DE_TOOMANY     - Too many files in root dir.
+ *  DE_BLKINVLD    - Invalid block
+ * Note. Empty directory entries always resides at the end of the directory. */
 COUNT dir_read(REG f_node_ptr fnp)
 {
-/* REG i; */
-/* REG j; */
-
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
+  ULONG new_diroff = fnp->f_diroff;
 
   /* Directories need to point to their current offset, not for   */
   /* next op. Therefore, if it is anything other than the first   */
   /* directory entry, we will update the offset on entry rather   */
   /* than wait until exit. If it was new, clear the special new   */
   /* flag.                                                        */
-  if (fnp->f_flags.f_dnew)
-    fnp->f_flags.f_dnew = FALSE;
-  else
-    fnp->f_diroff += DIRENT_SIZE;
+  if (!fnp->f_flags.f_dnew)
+    new_diroff += DIRENT_SIZE;
 
   /* Determine if we hit the end of the directory. If we have,    */
   /* bump the offset back to the end and exit. If not, fill the   */
   /* dirent portion of the fnode, clear the f_dmod bit and leave, */
   /* but only for root directories                                */
-  if (fnp->f_flags.f_droot && fnp->f_diroff >= fnp->f_dsize)
+
+  if (fnp->f_flags.f_droot)
   {
-    fnp->f_diroff -= DIRENT_SIZE;
-    return 0;
+    if (new_diroff >= DIRENT_SIZE * (ULONG)fnp->f_dpb->dpb_dirents)
+      return DE_TOOMANY;
+
+    bp = getblock((ULONG) (new_diroff / secsize
+                           + fnp->f_dpb->dpb_dirstrt),
+                  fnp->f_dpb->dpb_unit);
+#ifdef DISPLAY_GETBLOCK
+    printf("DIR (dir_read)\n");
+#endif
   }
   else
   {
-    if (fnp->f_flags.f_droot)
-    {
-      if ((fnp->f_diroff / secsize
-           + fnp->f_dpb->dpb_dirstrt)
-          >= fnp->f_dpb->dpb_data)
-      {
-        fnp->f_flags.f_dfull = TRUE;
-        return 0;
-      }
+    COUNT rc;
+      
+    /* Do a "seek" to the directory position        */
+    fnp->f_offset = new_diroff;
 
-      bp = getblock((ULONG) (fnp->f_diroff / secsize
-                             + fnp->f_dpb->dpb_dirstrt),
-                    fnp->f_dpb->dpb_unit);
+    /* Search through the FAT to find the block     */
+    /* that this entry is in.                       */
 #ifdef DISPLAY_GETBLOCK
-      printf("DIR (dir_read)\n");
+    printf("dir_read: ");
 #endif
-    }
-    else
-    {
+    if ((rc = map_cluster(fnp, XFR_READ)) != SUCCESS)
+      return rc;
 
-      /* Do a "seek" to the directory position        */
-      fnp->f_offset = fnp->f_diroff;
+    /* If the returned cluster is FREE, LAST_CLUSTER */
+    /* LONG_LAST_CLUSTER, return "disk as full"      */
 
-      /* Search through the FAT to find the block     */
-      /* that this entry is in.                       */
+    if (fnp->f_cluster == FREE || last_link(fnp))
+      return DE_HNDLDSKFULL;
+
+    /* Compute the block within the cluster and the */
+    /* offset within the block.                     */
+    fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    fnp->f_boff = fnp->f_offset % secsize;
+
+    /* Get the block we need from cache             */
+    bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
+                  fnp->f_dpb->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
-      printf("dir_read: ");
+    printf("DIR (dir_read)\n");
 #endif
-      if (map_cluster(fnp, XFR_READ) != SUCCESS)
-      {
-        fnp->f_flags.f_dfull = TRUE;
-        return 0;
-      }
-
-      /* If the returned cluster is FREE, return zero */
-      /* bytes read.                                  */
-      if (fnp->f_cluster == FREE)
-        return 0;
-
-      /* If the returned cluster is LAST_CLUSTER or   */
-      /* LONG_LAST_CLUSTER, return zero bytes read    */
-      /* and set the directory as full.               */
-
-      if (last_link(fnp))
-      {
-        fnp->f_diroff -= DIRENT_SIZE;
-        fnp->f_flags.f_dfull = TRUE;
-        return 0;
-      }
-
-      /* Compute the block within the cluster and the */
-      /* offset within the block.                     */
-      fnp->f_sector = (fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-      fnp->f_boff = fnp->f_offset % secsize;
-
-      /* Get the block we need from cache             */
-      bp = getblock((ULONG) clus2phys(fnp->f_cluster,
-                                      (fnp->f_dpb->dpb_clsmask + 1),
-                                      fnp->f_dpb->dpb_data)
-                    + fnp->f_sector,
-                    fnp->f_dpb->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-      printf("DIR (dir_read)\n");
-#endif
-    }
-
-    /* Now that we have the block for our entry, get the    */
-    /* directory entry.                                     */
-    if (bp == NULL)
-    {
-      fnp->f_flags.f_dfull = TRUE;
-      return 0;
-    }
-
-    bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-    bp->b_flag |= BFR_DIR | BFR_VALID;
-
-    getdirent((BYTE FAR *) & bp->b_buffer[((UWORD)fnp->f_diroff) % fnp->f_dpb->dpb_secsize],
-                (struct dirent FAR *)&fnp->f_dir);
-
-    /* Update the fnode's directory info                    */
-    fnp->f_flags.f_dfull = FALSE;
-    fnp->f_flags.f_dmod = FALSE;
-    
-    /* and for efficiency, stop when we hit the first       */
-    /* unused entry.                                        */
-    if (fnp->f_dir.dir_name[0] == '\0')
-      return 0;
-    else
-      return DIRENT_SIZE;
   }
+
+  /* Now that we have the block for our entry, get the    */
+  /* directory entry.                                     */
+  if (bp == NULL)
+    return DE_BLKINVLD;
+
+  bp->b_flag &= ~(BFR_DATA | BFR_FAT);
+  bp->b_flag |= BFR_DIR | BFR_VALID;
+
+  getdirent((BYTE FAR *) & bp->b_buffer[((UWORD)new_diroff) % fnp->f_dpb->dpb_secsize],
+              (struct dirent FAR *)&fnp->f_dir);
+
+  /* Update the fnode's directory info                    */
+  fnp->f_flags.f_dmod = FALSE;
+  fnp->f_flags.f_dnew = FALSE;
+  fnp->f_diroff = new_diroff;
+    
+  /* and for efficiency, stop when we hit the first       */
+  /* unused entry.                                        */
+  /* either returns 1 or 0                                */
+  return (fnp->f_dir.dir_name[0] != '\0');
 }
 
+/* Description.
+ *  Writes directory entry pointed by fnp to disk. In case of erroneous
+ *  situation fnode is released.
+ * Return value.
+ *  TRUE  - all OK.
+ *  FALSE - error occured (fnode is released).
+ */
 #ifndef IPL
-COUNT dir_write(REG f_node_ptr fnp)
+BOOL dir_write(REG f_node_ptr fnp)
 {
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
@@ -539,19 +527,12 @@ COUNT dir_write(REG f_node_ptr fnp)
 #ifdef DISPLAY_GETBLOCK
       printf("dir_write: ");
 #endif
-      if (map_cluster(fnp, XFR_READ) != SUCCESS)
-      {
-        fnp->f_flags.f_dfull = TRUE;
-        release_f_node(fnp);
-        return 0;
-      }
-
-      /* If the returned cluster is FREE, return zero */
-      /* bytes read.                                  */
-      if (fnp->f_cluster == FREE)
+      /* If map_cluster gives an error or the returned cluster is FREE,
+         return FALSE */
+      if (map_cluster(fnp, XFR_READ) != SUCCESS || fnp->f_cluster == FREE)
       {
         release_f_node(fnp);
-        return 0;
+        return FALSE;
       }
 
       /* Compute the block within the cluster and the */
@@ -560,10 +541,7 @@ COUNT dir_write(REG f_node_ptr fnp)
       fnp->f_boff = fnp->f_offset % secsize;
 
       /* Get the block we need from cache             */
-      bp = getblock((ULONG) clus2phys(fnp->f_cluster,
-                                      (fnp->f_dpb->dpb_clsmask + 1),
-                                      fnp->f_dpb->dpb_data)
-                    + fnp->f_sector,
+      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
                     fnp->f_dpb->dpb_unit);
       bp->b_flag &= ~(BFR_DATA | BFR_FAT);
       bp->b_flag |= BFR_DIR | BFR_VALID;
@@ -577,7 +555,7 @@ COUNT dir_write(REG f_node_ptr fnp)
     if (bp == NULL)
     {
       release_f_node(fnp);
-      return 0;
+      return FALSE;
     }
     
     if (fnp->f_flags.f_dnew && fnp->f_dir.dir_attrib != D_LFN)
@@ -588,7 +566,7 @@ COUNT dir_write(REG f_node_ptr fnp)
     bp->b_flag &= ~(BFR_DATA | BFR_FAT);
     bp->b_flag |= BFR_DIR | BFR_DIRTY | BFR_VALID;
   }
-  return DIRENT_SIZE;
+  return TRUE;
 }
 #endif
 
@@ -643,24 +621,20 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   printf("ff %s\n", local_ext);
 */
 
-  /* Now build a directory.                                       */
-  if (!szDirName[2])
-    fstrcpy(&szDirName[0], current_ldt->cdsCurrentPath);
-
   /* Build the match pattern out of the passed string             */
   /* copy the part of the pattern which belongs to the filename and is fixed */
-  for (p = local_name, i = 0; i < FNAME_SIZE && *p && *p != '*'; ++p, ++i)
+  for (p = local_name, i = 0; i < FNAME_SIZE && *p; ++p, ++i)
     SearchDir.dir_name[i] = *p;
 
   for (; i < FNAME_SIZE; ++i)
-      SearchDir.dir_name[i] = *p == '*' ?  '?' : ' ';
+      SearchDir.dir_name[i] = ' ';
 
   /* and the extension (don't forget to add trailing spaces)...   */
-  for (p = local_ext, i = 0; i < FEXT_SIZE && *p && *p != '*'; ++p, ++i)
+  for (p = local_ext, i = 0; i < FEXT_SIZE && *p; ++p, ++i)
     SearchDir.dir_ext[i] = *p;
 
   for (; i < FEXT_SIZE; ++i)
-      SearchDir.dir_ext[i] = *p == '*' ?  '?' : ' ';
+      SearchDir.dir_ext[i] = ' ';
 
   /* Convert everything to uppercase. */
   DosUpFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
@@ -703,7 +677,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   if (attr == D_VOLID)
   {
     /* Now do the search                                    */
-    while (dir_read(fnp) == DIRENT_SIZE)
+    while (dir_read(fnp) == 1)
     {
       /* Test the attribute and return first found    */
       if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
@@ -767,13 +741,13 @@ COUNT dos_findnext(void)
     return DE_NFILES;
   }
 
-  fnp->f_dsize = DIRENT_SIZE * (fnp->f_dpb)->dpb_dirents;
+  dir_init_fnode(fnp, dmp->dm_dircluster);
 
   /* Search through the directory to find the entry, but do a     */
   /* seek first.                                                  */
   if (dmp->dm_entry > 0)
     {
-    fnp->f_diroff = (dmp->dm_entry - 1) * DIRENT_SIZE;
+    fnp->f_diroff = (ULONG)(dmp->dm_entry - 1) * DIRENT_SIZE;
     fnp->f_flags.f_dnew = FALSE;
     }
   else
@@ -782,26 +756,8 @@ COUNT dos_findnext(void)
     fnp->f_flags.f_dnew = TRUE;
     }          
 
-  fnp->f_offset = fnp->f_diroff;
-
-  fnp->f_dir.dir_start = dmp->dm_dircluster;
-#ifdef WITHFAT32
-  fnp->f_dir.dir_start_high = dmp->dm_dircluster >> 16;
-#endif
-
-  fnp->f_cluster = fnp->f_dirstart =
-      dmp->dm_dircluster;
-
-  fnp->f_flags.f_droot = fnp->f_dirstart == 0;
-  fnp->f_flags.f_ddir  = TRUE;
-  
-  
-  fnp->f_flags.f_dfull = FALSE;
-  
-  fnp->f_cluster_offset = 0l;   /*JPP */
-
   /* Loop through the directory                                   */
-  while (dir_read(fnp) == DIRENT_SIZE)
+  while (dir_read(fnp) == 1)
   {
     ++dmp->dm_entry;
     if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED

@@ -35,6 +35,9 @@ static BYTE *memmgrRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.15  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -569,27 +572,28 @@ COUNT DosMemCheck(void)
 COUNT FreeProcessMem(UWORD ps)
 {
   mcb FAR *p;
-  COUNT x = 0;
+  BYTE oldumbstate = uppermem_link;
 
-  /* Initialize                                           */
-  p = para2far(first_mcb);
+       /* link in upper memory to free those , too */
+  DosUmbLink(1);
 
-  /* Search through memory blocks                         */
-  while (mcbValid(p))           /* check for corruption */
-  {
+  /* Search through all memory blocks                         */
+  for (p = para2far(first_mcb);;  p = nxtMCB(p))
+    {
+
+    if (!mcbValid(p))           /* check for corruption */
+        return DE_MCBDESTRY;
+
     if (p->m_psp == ps)
-      DosMemFree(FP_SEG(p));
-
-    /* not corrupted - if last we're OK!            */
-    if (p->m_type == MCB_LAST){
-        if(x)
-            return DE_MCBDESTRY;
-        return SUCCESS;
+      DosMemFree(FP_SEG(p));   
+      
+    if (p->m_type == MCB_LAST)
+        break;
     }
 
-    p = nxtMCB(p);
-  }
-  return DE_MCBDESTRY;
+    DosUmbLink(oldumbstate);
+    
+  return SUCCESS;
 }
 
 #if 0 
@@ -661,6 +665,9 @@ VOID DosUmbLink(BYTE n)
     REG mcb FAR *p;
     REG mcb FAR *q;
     mcb FAR *end_of_conv_mem = para2far(ram_top*64-1);
+    
+    if (uppermem_root == 0)     
+        return;
 
     q = p = para2far(first_mcb);
 /* like a xor thing! */

@@ -49,7 +49,7 @@ COUNT lfn_allocate_inode()
 COUNT lfn_free_inode(COUNT handle)
 {
   f_node_ptr fnp = xlt_fd(handle);
-  if (fnp == 0 || fnp->f_count <= 0) return E_INVLHNDL;
+  if (fnp == 0 || fnp->f_count <= 0) return E_INVLDHNDL;
 
   release_f_node(fnp);
 }
@@ -90,7 +90,7 @@ COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip)
                       name string */
   ULONG original_diroff;
   f_node_ptr fnp = xlt_fd(handle);
-  if (fnp == 0 || fnp->f_count <= 0) return E_INVLHNDL;
+  if (fnp == 0 || fnp->f_count <= 0) return E_INVLDHNDL;
 
   if (lfnp->l_dirstart == 0)
     {
@@ -102,13 +102,13 @@ COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip)
 
   while (TRUE)
     {
-      if (dir_read(fnp) != DIRENT_SIZE) return E_IOERROR;
-      if (fnp->f_dir.dir_name[0] != DELETED && fnp->f_dir.dir_name[0] != 0
-          && fnp->f_dir.dir_attrib != D_LFN)
+      if (dir_read(fnp) <= 0) return E_IOERROR;	    
+      if (fnp->f_dir.dir_name[0] != DELETED && fnp->f_dir.dir_name[0] != '\0' 
+	  && fnp->f_dir.dir_attrib != D_LFN)
         {
-          fmemcpy(lip->l_dir, fnp->f_dir, sizeof(struct dirent));
+	  fmemcpy(lip->l_dir, fnp->f_dir, sizeof(struct dirent));
           lip->l_diroff = fnp->f_diroff;
-          lip->l_dirstart = fnp->f_dirstart;
+	  lip->l_dirstart = fnp->f_dirstart;
           break;
         }
     }
@@ -118,11 +118,11 @@ COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip)
     {
       if (fnp->f_diroff == 0) break;
       fnp->f_diroff -= 2*DIRENT_SIZE;
-      if (dir_read(fnp) != DIRENT_SIZE) return E_IOERROR;
+      if (dir_read(fnp) <= 0) return E_IOERROR;
       if (fnp->f_dir.dir_name[0] == '\0'
           || fnp->f_dir.dir_name[0] == DELETED) break;
       if (!lfn_to_unicode(lip->name,
-                          (UBYTE FAR *)fnp->f_dir, index)) break;
+			  (UBYTE FAR *)fnp->f_dir, index)) break;
     }
 
   if (lip->name[0] == 0)

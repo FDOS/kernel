@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.6  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.5  2000/08/06 04:18:21  jimtabor
 ; See history.txt
 ;
@@ -152,3 +155,64 @@ irp_hi    equ 26
                 pop     es
 %endmacro
 
+; I386.inc - 10/25/01 by tom ehlert
+;
+; compiling the kernel for 386 will (sometimes) change the
+; high part of (some) registers, which will be (sometimes) be used 
+; later
+;
+; assumption:
+; we have never seen MSVC (our only I386 compiler) to use
+; anything but eax,ecx, edx
+; so we only protect eax, ebx, ecx, edx to conserve stack space
+;
+; to save even more stack space, we save only HIGH part of regs
+; at some expense of slower execution. it's easier anyway :-)
+;
+
+
+%IFNDEF I386
+	; no need to save/restore  anything
+
+;	error 1 2 3
+	%macro  ProtectHighPartOfRegistersOn386 0
+	%endmacro
+	
+	%macro  RestoreHighPartOfRegistersOn386 0
+	%endmacro
+
+
+%ELSE           
+	%macro  ProtectHighPartOfRegistersOn386  0
+
+		ror eax,16
+		push ax
+		ror eax,16
+		ror ebx,16
+		push bx
+		ror ebx,16
+		ror ecx,16
+		push cx
+		ror ecx,16
+		ror edx,16
+		push dx
+		ror edx,16
+
+	%endmacro
+
+	%macro  RestoreHighPartOfRegistersOn386  0
+		ror edx,16
+		pop  dx
+		ror edx,16
+		ror ecx,16
+		pop  cx
+		ror ecx,16
+		ror ebx,16
+		pop  bx
+		ror ebx,16
+		ror eax,16
+		pop  ax
+		ror eax,16
+	%endmacro
+
+%ENDIF

@@ -73,14 +73,27 @@ segment	HMA_TEXT
 ;
                 global  _ReadATClock
 _ReadATClock:
-                mov     ah,2
+		push	bp
+		mov	bp, sp
+		xor	cx, cx		; cx=dx=0 check if present
+		xor	dx, dx		; if it returns non-zero
+		clc			; necessary according to RBIL
+                mov     ah,4		
                 int     1ah
-		jnc	@RdAT1140
-		sbb	ax,ax
+		jc	@RdATerror
+
+		or	cx, cx
+		jnz	@RdAT1140
+		or	dx, dx
+		jnz	@RdAT1140
+@RdATerror:	mov	ax, 1
+		pop	bp
                 ret
 @RdAT1140:
-                push    bp
-                mov     bp,sp
+		clc
+		mov	ah, 2
+		int	1ah
+		jc	@RdATerror
 ;               bcdSeconds = 10
 ;               bcdMinutes = 8
 ;               bcdHours = 6
@@ -91,11 +104,13 @@ _ReadATClock:
                 mov     byte [bx],cl        ;Minutes
                 mov     bx,word [bp+10]     ;bcdSeconds
                 mov     byte [bx],dh        ;Seconds
+		clc
                 mov     ah,4
                 int     1ah
+		jc	@RdATerror
                 mov     bx,word [bp+4]      ;bcdDays
                 mov     word [bx],dx        ;Days    
                 mov     word [bx+2],cx
                 sub     ax,ax
-                pop     bp
+		pop	bp
                 ret

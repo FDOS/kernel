@@ -36,6 +36,9 @@ static BYTE *process_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.5  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -126,24 +129,24 @@ exec_blk;
 
 typedef struct
 {
-  UWORD ps_exit;                /* CP/M-like exit poimt         */
-  UWORD ps_size;                /* memory size in paragraphs    */
-  BYTE ps_fill1;                /* single char fill             */
+  UWORD ps_exit;                /* 00 CP/M-like exit poimt         */
+  UWORD ps_size;                /* 02 memory size in paragraphs    */
+  BYTE ps_fill1;                /* 04 single char fill             */
 
   /* CP/M-like entry point                                */
-  UBYTE ps_farcall;              /* far call opcode              */
-    VOID(FAR * ps_reentry) ();  /* re-entry point          */
-    VOID(interrupt FAR * ps_isv22) (),	/* terminate address */
-    (interrupt FAR * ps_isv23) (),	/* break address   */
-    (interrupt FAR * ps_isv24) ();	/* critical error address */
-  UWORD ps_parent;              /* parent psp segment           */
-  UBYTE ps_files[20];           /* file table - 0xff is unused  */
-  UWORD ps_environ;             /* environment paragraph        */
-  BYTE FAR *ps_stack;           /* user stack pointer - int 21  */
-  WORD ps_maxfiles;             /* maximum open files           */
-  UBYTE FAR *ps_filetab;        /* open file table pointer      */
-  VOID FAR *ps_prevpsp;         /* previous psp pointer         */
-  BYTE FAR *ps_dta;             /* process dta address          */
+  UBYTE ps_farcall;             /* 05  far call opcode              */
+    VOID(FAR * ps_reentry) ();  /* 06  re-entry point          */
+    VOID(interrupt FAR * ps_isv22) (),/* 0a  terminate address */
+    (interrupt FAR * ps_isv23) (),	  /* 0e break address   */
+    (interrupt FAR * ps_isv24) ();	  /* 12 critical error address */
+  UWORD ps_parent;              /* 16 parent psp segment           */
+  UBYTE ps_files[20];           /* 18 file table - 0xff is unused  */
+  UWORD ps_environ;             /* 2c environment paragraph        */
+  BYTE FAR *ps_stack;           /* 2e user stack pointer - int 21  */
+  WORD ps_maxfiles;             /* 32 maximum open files           */
+  UBYTE FAR *ps_filetab;        /* 34 open file table pointer      */
+  VOID FAR *ps_prevpsp;         /* 38 previous psp pointer         */
+  BYTE FAR *ps_dta;             /* 3c process dta address          */
   BYTE ps_fill2[16];
   UBYTE ps_unix[3];              /* unix style call - 0xcd 0x21 0xcb */
   BYTE ps_fill3[9];

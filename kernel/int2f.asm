@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.14  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.13  2001/09/23 20:39:44  bartoldeman
 ; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 ;
@@ -200,161 +203,254 @@ IntDosCal:
     
     iret
                     
-        
-
 ; Int 2F Multipurpose Remote System Calls
 ;
 ; added by James Tabor jimtabor@infohwy.com
+; changed by Bart Oldeman
 ;
-; int_2f_Remote_call(ax,bx,cx,dx,[es:di],si, return data * ptr)
 ; assume ss == ds after setup of stack in entry
 ; sumtimes return data *ptr is the push stack word
-;
-                global  _int2f_Remote_call
-_int2f_Remote_call:
+;        
+
+                global  _remote_rmdir
+_remote_rmdir:  
+                mov     al, 01h
+                jmp     short call_int2f
+
+                global  _remote_mkdir
+_remote_mkdir:  
+                mov     al, 03h
+                jmp     short call_int2f
+
+                global  _remote_chdir
+_remote_chdir:  
+                mov     al, 05h
+                jmp     short call_int2f
+
+                global  _remote_close
+_remote_close: 
+                mov     al, 06h
+                jmp     short call_int2f
+
+                global  _remote_read
+_remote_read:   mov     al, 08h
+                jmp     short call_int2f
+        
+                global  _remote_write        
+_remote_write:  mov     al, 09h
+                jmp     short call_int2f
+        
+                global  _remote_getfree
+_remote_getfree:
+                mov     al, 0ch
+                jmp     short call_int2f
+
+                global  _remote_setfattr
+_remote_setfattr: 
+                mov     al, 0eh
+                jmp     short call_int2f
+
+                global  _remote_getfattr
+_remote_getfattr:
+                mov     al, 0fh
+                jmp     short call_int2f
+                
+                global  _remote_rename
+_remote_rename: 
+                mov     al, 11h
+                jmp     short call_int2f
+
+                global  _remote_delete
+_remote_delete: 
+                mov     al, 13h
+                jmp     short call_int2f
+
+                global  _remote_open
+_remote_open: 
+                mov     al, 16h
+                jmp     short call_int2f
+
+                global  _remote_creat
+_remote_creat: 
+                mov     al, 17h
+                jmp     short call_int2f
+
+                global  _remote_findfirst
+_remote_findfirst: 
+                mov     al, 1bh
+                jmp     short call_int2f
+
+                global  _remote_findnext
+_remote_findnext: 
+                mov     al, 1ch
+                jmp     short call_int2f
+
+                global  _remote_close_all
+_remote_close_all: 
+                mov     al, 1dh
+                jmp     short call_int2f
+
+                global  _remote_doredirect
+_remote_doredirect:
+                mov     al, 1eh
+                jmp     short call_int2f
+
+                global  _remote_printset
+_remote_printset:
+                mov     al, 1fh
+                jmp     short call_int2f
+
+                global  _remote_flushall
+_remote_flushall: 
+                mov     al, 20h
+                jmp     short call_int2f
+
+                global  _remote_lseek
+_remote_lseek: 
+                mov     al, 21h
+                jmp     short call_int2f
+
+                global  _QRemote_Fn
+_QRemote_Fn
+                mov     al, 23h
+                jmp     short call_int2f
+        
+                global  _remote_printredir
+_remote_printredir:
+                mov     al, 25h
+                
+call_int2f:
+                mov     ah, 11h
                 push    bp
                 mov     bp,sp
                 push    es
-                push    ds
                 push    si
                 push    di
                 push    dx
                 push    cx
                 push    bx
 
-                push    ss              ; hay, did I say assume
-                pop     ds
+                cmp     al, 0eh
+                je      remote_setfattr
+                cmp     al, 0fh
+                je      remote_getfattr
+                cmp     al, 1eh
+                je      print_doredir
+                cmp     al, 1fh
+                je      print_doredir
+                cmp     al, 21h        ; 21h, Lseek from eof
+                je      lseekeof
+                cmp     al, 23h
+                je      qremote_fn
+                cmp     al, 25h
+                je      remote_printredir
 
-                mov     si,[bp+16]
-                les     di,[bp+12]
-                mov     dx,[bp+10]
-                mov     cx,[bp+8]
-                mov     bx,[bp+6]
-                mov     ax,[bp+4]
-
-                cmp     al,08h              ; R/W Remote File
-                je      short int2f_r_1
-                cmp     al,09h
-                jne     short int2f_r_2
-int2f_r_1:
-                call    int2f_call
-                jnc     short int2f_skip1
-                jmp     int2f_rfner
-int2f_skip1:
+                les     di, [bp+4]
+                cmp     al, 08h
+                je      remote_rw
+                cmp     al, 09h
+                je      remote_rw                
+                cmp     al, 0ch
+                je      remote_getfree
+        
+int2f_call_push:                
+                push    word [bp+8]    ; very fakey, HaHa ;)
+int2f_call:
+                stc                     ; set to fail
+                int     2fh
+                pop     bx
+                jc      no_clear_ax
+clear_ax:       
                 xor     ax,ax
-                les     di,[bp+18]          ; do return data stuff
-                mov     [es:di],cx
-                jmp     int2f_rfner
-int2f_r_2:
-                cmp     al,0ch              ; Get Remote DPB
-                jne     short int2f_r_3
-                call    int2f_call
-                jc      int2f_rfner
-                les     di,[bp+18]
-                mov     [es:di+0],ax
-                mov     [es:di+2],bx
-                mov     [es:di+4],cx
-                mov     [es:di+6],dx
-                xor     ax,ax
-                jmp     short int2f_rfner
-int2f_r_3:
-                cmp     al,0fh              ; Get Remote File Attrib
-                jne     short int2f_r_4
-                call    int2f_call
-                jc      short int2f_rfner
-                mov     si,di
-                les     di,[bp+18]      ; pointer to struct
-                mov     [es:di+0],ax
-                mov     [es:di+2],si    ; lo
-                mov     [es:di+4],bx    ; high
-                mov     [es:di+6],cx
-                mov     [es:di+8],dx
-                xor     ax,ax
-                jmp     short int2f_rfner
-int2f_r_4:
-                cmp     al,01eh
-                je      short int2f_r_5
-                cmp     al,01fh
-                jne     short int2f_r_6
-int2f_r_5:
-                push    ds
-                push    word [bp+20]
-                pop     ds
-                call    int2f_call
-                pop     ds
-                jc      short int2f_rfner
-                xor     ax,ax
-                jmp     short int2f_rfner
-int2f_r_6:
-                cmp     al,021h             ; Lseek from eof
-                jne     short int2f_r_7
-                call    int2f_call
-                jc      short int2f_rfner
-                les     di,[bp+18]
-                mov     [es:di],ax
-                mov     [es:di+2],dx
-                xor     ax,ax
-                jmp     short int2f_rfner
-int2f_r_7:
-                cmp     al,022h             ; Terminate process
-                jne     short int2f_r_8
-                mov     ds,[_cu_psp]
-                call    int2f_call
-                jmp     short int2f_rfner
-;
-;   everything else goes through here.
-;
-int2f_r_8:      
-                call    int2f_call
-                jc      int2f_rfner
-                xor     ax,ax
-int2f_rfner:
+no_clear_ax:
+                neg     ax
+no_neg_ax:              
                 pop     bx
                 pop     cx
                 pop     dx
                 pop     di
                 pop     si
-                pop     ds
                 pop     es
                 pop     bp
                 ret
-;
-;  Pull this one out of the Chain.
-;
-                global  _QRemote_Fn
-_QRemote_Fn
-                push    bp
-                mov     bp,sp
-                push    es
+
+lseekeof:              
+                mov     dx, [bp+8]
+                mov     cx, [bp+10]
+                jmp     int2f_call_push
+        
+remote_getfattr:        
+                stc                     ; set to fail
+                int     2fh
+                jc      no_clear_ax
+                jmp     short no_neg_ax
+
+remote_setfattr:       
+                push    word [bp+4]        
+                jmp     short int2f_call
+
+print_doredir:  
                 push    ds
-                push    si
-                push    di
-                mov     ax,1123h
+                mov     si,[bp+14]
+                les     di,[bp+10]
+                mov     dx,[bp+8]
+                mov     cx,[bp+6]
+                mov     bx,[bp+4]
+
+                mov     ds, [bp+18]
+                push    word [bp+16]    ; very fakey, HaHa ;)
+                stc                     ; set to fail
+                int     2fh
+                pop     bx
+                pop     ds
+                jc      no_clear_ax
+                jmp     short clear_ax
+
+remote_getfree:
+                stc                     ; set to fail
+                int     2fh
+                jc      no_clear_ax
+                mov     di,[bp+8]
+                mov     [di],ax
+                mov     [di+2],bx
+                mov     [di+4],cx
+                mov     [di+6],dx
+                jmp     short clear_ax
+
+remote_printredir:       
+                mov     dx, [bp+4]
+                push    word [bp+6]
+                jmp     short int2f_call
+                     
+qremote_fn:     
                 lds     si,[bp+4]
                 les     di,[bp+8]
                 stc
                 int     2fh
                 mov     ax,0xffff
-                jc      QRemote_Fn_out
-                xor     ax,ax
-QRemote_Fn_out:	
-                pop     di
-                pop     si
-                pop     ds
-                pop     es
-                pop     bp
-                ret
+                jc      no_neg_ax
+                jmp     short clear_ax
 
-
-int2f_call:
-                push    bp
-                push    word [bp+18]    ; very fakey, HaHa ;)
+remote_rw:      mov     cx, [bp+8]
                 stc                     ; set to fail
                 int     2fh
-                pop     bp
-                pop     bp
-                ret
+                jc      int2f_carry
+                xor     ax, ax
+int2f_carry:    neg     ax
+                mov     di, [bp+10]
+                mov     [di], ax
+                mov     ax, cx
+                jmp     short no_neg_ax
                 
+                global  _remote_process_end
+_remote_process_end:                     ; Terminate process
+                mov     ds, [_cu_psp] 
+                mov     al, 22h
+                call    call_int2f
+                push    ss
+                pop     ds
+                ret
+
 %if 0
 ; int_2f_111e_call(iregs FAR *iregs)
 ; 

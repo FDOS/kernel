@@ -37,6 +37,9 @@ static BYTE *blockioRcsId = "$Id$";
                                                                                                                                                                    
 /*
  * $Log$
+ * Revision 1.14  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.13  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -346,6 +349,27 @@ BOOL searchblock(ULONG blkno, COUNT dsk,
   return FALSE;
 }                                
 
+BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk)
+{
+    struct buffer FAR *bp;
+
+  /* Search through buffers to see if the required block  */
+  /* is already in a buffer                               */
+
+  for (bp = firstbuf; bp != NULL; bp = bp->b_next)
+  {
+    if (blknolow  <= getblkno(bp) &&
+        getblkno(bp) <= blknohigh &&
+        (bp->b_flag & BFR_VALID)  && (bp->b_unit == dsk))
+    {
+        flush1(bp);
+    }
+  }
+
+  return FALSE;  
+}                                
+
+
 void dumpBufferCache(void)
 {
     struct buffer FAR *bp;
@@ -535,7 +559,7 @@ BOOL flush(void)
     bp = bp->b_next;
   }
 
-  int2f_Remote_call(REM_FLUSHALL, 0, 0, 0, 0, 0, 0);
+  remote_flushall();
 
   return (ok);
 }

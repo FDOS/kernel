@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.17  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -376,15 +379,16 @@ GLOBAL WORD bDumpRdWrParms
 #endif
 #endif
 
-GLOBAL BYTE copyright[]
-#ifdef MAIN
-= "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n\
-All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n\
-WARRANTY; you can redistribute it and/or modify it under the terms of the\n\
-GNU General Public License as published by the Free Software Foundation;\n\
-either version 2, or (at your option) any later version.\n"
+#if 0   /* defined in MAIN.C now to save low memory */
+
+GLOBAL BYTE copyright[] = 
+    "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n"
+    "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
+    "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
+    "GNU General Public License as published by the Free Software Foundation;\n"
+    "either version 2, or (at your option) any later version.\n";
+    
 #endif
-;
 
 GLOBAL BYTE os_release[]
 #ifdef MAIN
@@ -536,7 +540,7 @@ extern request                  /* I/O Request packets                  */
 extern fcb
   FAR * lpFcb;                  /* Pointer to users fcb                 */
 
-extern sfttbl
+extern sft
   FAR * lpCurSft;
 
 extern BYTE
@@ -548,8 +552,8 @@ extern BYTE
 extern BYTE
   BootDrive,                    /* Drive we came up from                */
   scr_pos;                      /* screen position for bs, ht, etc      */
-extern WORD
-  NumFloppies;                  /* How many floppies we have            */
+/*extern WORD
+  NumFloppies; !!*/             /* How many floppies we have            */
 
 extern keyboard
   kb_buf;
@@ -578,9 +582,9 @@ GLOBAL f_node_ptr f_nodes;      /* pointer to the array                 */
 
 GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
-GLOBAL iregs
-  FAR * ustackp,                /* user stack                           */
-  FAR * kstackp;                /* kernel stack                         */
+/*!! GLOBAL iregs
+      FAR * ustackp,                /* user stack                           */
+/*!!  FAR * kstackp; */             /* kernel stack                         */
 
 /*                                                                      */
 /* Function prototypes - automatically generated                        */

@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.11  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.10  2001/09/23 20:39:44  bartoldeman
 ; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 ;
@@ -81,7 +84,7 @@
                 extern   ComTable:wrt TGROUP
                 extern   uPrtNo:wrt TGROUP
                 extern   CommonNdRdExit:wrt TGROUP
-                extern   _NumFloppies:wrt DGROUP
+;!!                extern   _NumFloppies:wrt DGROUP
                 extern   blk_stk_top:wrt DGROUP
                 extern   clk_stk_top:wrt DGROUP
                 extern   _reloc_call_blk_driver

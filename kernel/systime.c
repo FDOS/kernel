@@ -37,6 +37,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.6  2001/08/19 12:58:36  bartoldeman
  * Time and date fixes, Ctrl-S/P, findfirst/next, FCBs, buffers, tsr unloading
  *
@@ -166,17 +169,17 @@ VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
   *hdp = ClkRecord.clkHundredths;
 }
 
-COUNT DosSetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp)
+COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd)
 {
   BYTE Month, DayOfMonth, DayOfWeek; COUNT Year;
     
   DosGetDate((BYTE FAR *) & DayOfWeek, (BYTE FAR *) & Month,
              (BYTE FAR *) & DayOfMonth, (COUNT FAR *) & Year);
 
-  ClkRecord.clkHours = *hp;
-  ClkRecord.clkMinutes = *mp;
-  ClkRecord.clkSeconds = *sp;
-  ClkRecord.clkHundredths = *hdp;
+  ClkRecord.clkHours = h;
+  ClkRecord.clkMinutes = m;
+  ClkRecord.clkSeconds = s;
+  ClkRecord.clkHundredths = hd;
 
   ClkRecord.clkDays = DaysFromYearMonthDay(Year, Month, DayOfMonth);
 
@@ -232,15 +235,12 @@ COUNT FAR *yp;
   *wdp = (ClkRecord.clkDays + 2) % 7;
 }
 
-COUNT DosSetDate(mp, mdp, yp)
-BYTE FAR *mp,
-  FAR * mdp;
-COUNT FAR *yp;
+COUNT DosSetDate(Month, DayOfMonth, Year)
+UWORD Month,
+  DayOfMonth,
+  Year;
 {
-  UWORD *pdays, Month, DayOfMonth,Year;
-  Month = *mp;
-  DayOfMonth = *mdp;
-  Year = *yp;
+  UWORD *pdays;
   pdays = is_leap_year_monthdays(Year);     
   
   if (Year < 1980 || Year > 2099

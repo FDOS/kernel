@@ -89,6 +89,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.29  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.28  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -293,8 +296,11 @@ STATIC COUNT nPass = 0;
 STATIC BYTE szLine[256] = {0};
 STATIC BYTE szBuf[256]  = {0};
 
-int singleStep    = FALSE;
-int SkipAllConfig = FALSE;
+BYTE singleStep    		  = FALSE;	/* F8 processing */
+BYTE SkipAllConfig 		  = FALSE;	/* F5 processing */
+BYTE askThisSingleCommand = FALSE;  /* ?device=  device?= */
+
+
 
 INIT VOID  zumcb_init(UCOUNT seg, UWORD size);
 INIT VOID  mumcb_init(UCOUNT seg, UWORD size);
@@ -817,7 +823,7 @@ ULONG GetBiosTime(VOID)
 {
    return *(ULONG FAR *)(MK_FP(0x40,0x6c));
 }    
-GetBiosKey(int timeout)
+UWORD GetBiosKey(int timeout)
 {
     iregs r;
     
@@ -854,11 +860,15 @@ INIT BOOL SkipLine(char *pLine)
   if (!initialized)
   {
               
-        initialized = TRUE;
+        initialized = TRUE;  
         
-        printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
+        if (InitKernelConfig.SkipConfigSeconds < 0)
+            return FALSE;
+                         
+        if (InitKernelConfig.SkipConfigSeconds > 0)
+            printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
         
-        key = GetBiosKey(2);      /* wait 2 seconds */
+        key = GetBiosKey(InitKernelConfig.SkipConfigSeconds);      /* wait 2 seconds */
             
         if (key == 0x3f00)        /* F5 */
         {
@@ -874,11 +884,13 @@ INIT BOOL SkipLine(char *pLine)
         if (SkipAllConfig)
             printf("Skipping CONFIG.SYS/AUTOEXEC.BAT\n");
   }
+
+
     
   if (SkipAllConfig) 
     return TRUE;
 
-  if (!singleStep)
+  if (!askThisSingleCommand && !singleStep)
     return FALSE;
             
   printf("%s[Y,N]?", pLine);
@@ -923,7 +935,7 @@ INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg)
 {
   /* look for NUMBER                               */
   pLine = skipwh(pLine);
-  if (!isnum(pLine))
+  if (!isnum(pLine) && *pLine != '-')
   {
     CfgFailure(pLine);
     return (BYTE *) 0;
@@ -949,7 +961,7 @@ INIT void Config_Buffers(BYTE * pLine)
     return;
 
   /* Got the value, assign either default or new value            */
-  Config.cfgBuffers = max(Config.cfgBuffers, nBuffers);
+  Config.cfgBuffers = (nBuffers < 0 ? nBuffers : max(Config.cfgBuffers, nBuffers));
 }
 
 INIT STATIC VOID sysScreenMode(BYTE * pLine)
@@ -1284,8 +1296,12 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
 #endif
 
 
-  if (init_DosExec(3, &eb, szBuf) == SUCCESS)
-  {
+  if ((result = init_DosExec(3, &eb, szBuf)) != SUCCESS)
+    {
+    CfgFailure(pLine);
+    return result;
+    }
+  
         strcpy(szBuf, pLine);
 
     /* TE this fixes the loading of devices drivers with
@@ -1321,9 +1337,7 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
       HMAState = HMA_DONE;
       config_init_buffers( Config.cfgBuffers);
     }
-  }
-  else
-    CfgFailure(pLine);
+
   return result;
 }
 
@@ -1402,6 +1416,8 @@ INIT BYTE *
 INIT BYTE *
   scan(BYTE * s, BYTE * d)
 {
+  askThisSingleCommand = FALSE;
+  
   s = skipwh(s);
   while (*s &&
          !(*s == 0x0d
@@ -1409,11 +1425,20 @@ INIT BYTE *
            || *s == ' '
            || *s == '\t'
            || *s == '='))
-    *d++ = *s++;
+  	{
+  	if (*s == '?')
+  		{
+  		askThisSingleCommand = TRUE;
+  		s++;
+  		}
+	else  		         
+    	*d++ = *s++;
+	}    	
   *d = '\0';
   return s;
 }
 
+/*
 INIT BYTE *scan_seperator(BYTE * s, BYTE * d)
 {
   s = skipwh(s);
@@ -1422,6 +1447,7 @@ INIT BYTE *scan_seperator(BYTE * s, BYTE * d)
   *d = '\0';
   return s;
 }
+*/
 
 INIT BOOL isnum(BYTE * pLine)
 {
@@ -1432,8 +1458,15 @@ INIT BOOL isnum(BYTE * pLine)
 INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
 {
   BYTE Base = 10;
+  BOOL Sign = FALSE;
 
   *pnNum = 0;
+  if (*pszString == '-')
+  {
+    pszString++;
+    Sign = TRUE;
+  }
+      
   while (isnum(pszString) || toupper(*pszString) == 'X')
   {
     if (toupper(*pszString) == 'X')
@@ -1444,6 +1477,8 @@ INIT BYTE *GetNumber(REG BYTE * pszString, REG COUNT * pnNum)
     else
       *pnNum = *pnNum * Base + (*pszString++ - '0');
   }
+  if (Sign)
+    *pnNum = -*pnNum;
   return pszString;
 }
 
@@ -1577,6 +1612,13 @@ VOID config_init_buffers(COUNT anzBuffers)
   struct buffer FAR *pbuffer;
   int HMAcount = 0;
   BYTE FAR *tmplpBase = lpBase;
+  BOOL fillhma = TRUE;
+
+  if (anzBuffers < 0)
+  {
+    anzBuffers = -anzBuffers;
+    fillhma = FALSE;
+  }
   
   anzBuffers = max(anzBuffers,6);
   if (anzBuffers > 99)
@@ -1614,6 +1656,7 @@ VOID config_init_buffers(COUNT anzBuffers)
         		/* now, we can have quite some buffers in HMA
         		   -- up to 37 for KE38616.
         		   so we fill the HMA with buffers
+                           but not if the BUFFERS count is negative ;-)
         		*/   
         
     if (i < (anzBuffers - 1))
@@ -1628,6 +1671,8 @@ VOID config_init_buffers(COUNT anzBuffers)
     	    pbuffer->b_next = ConfigAlloc(sizeof (struct buffer));
         }
     }
+    else if (fillhma)
+        pbuffer->b_next = HMAalloc(sizeof (struct buffer));        
     
     if (pbuffer->b_next == NULL)
         break;  

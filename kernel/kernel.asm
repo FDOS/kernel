@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.19  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.18  2001/09/23 20:39:44  bartoldeman
 ; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 ;
@@ -156,8 +159,51 @@ segment	PSP
 
 STACK_SIZE      equ     384/2           ; stack allocated in words
 
+;************************************************************	    
+; KERNEL BEGINS HERE, i.e. this is byte 0 of KERNEL.SYS
+;************************************************************	    
+
 ..start:
-entry:		    
+entry:	
+                jmp short realentry
+
+;************************************************************	    
+; KERNEL CONFIGURATION AREA
+; this is copied up on the very beginning
+; it's a good idea to keep this in sync with KConfig.h
+;************************************************************	    
+                global _LowKernelConfig                                        
+_LowKernelConfig:
+                db 'CONFIG'             ; constant
+                dw configend-configstart; size of config area
+                                        ; to be checked !!!
+
+configstart:                
+
+DLASortByDriveNo            db 0        ; sort disks by drive order
+InitDiskShowDriveAssignment db 1        ;  
+SkipConfigSeconds           db 2        ;                 
+
+configend:                
+
+;************************************************************	    
+; KERNEL CONFIGURATION AREA END
+;************************************************************	    
+
+
+;************************************************************	    
+; KERNEL real entry (at ~60:20)
+;                               
+; moves the INIT part of kernel.sys to high memory (~9000:0)
+; then jumps there
+; to aid debugging, some '123' messages are output
+; this area is discardable and used as temporary PSP for the
+; init sequence
+;************************************************************	    
+
+
+realentry:                              ; execution continues here
+
                 push ax
                 push bx
                 pushf              
@@ -249,11 +295,12 @@ cont:		; inititalize api stacks for high water tests
 		jns	floppy
 		add	bl,3-1-128
 floppy:		mov	byte [_BootDrive],bl ; tell where we came from
-		int	11h
-		mov	cl,6
-		shr	al,cl
-		inc	al
-                mov     byte [_NumFloppies],al ; and how many
+
+;!!		int	11h
+;!!		mov	cl,6
+;!!		shr	al,cl
+;!!		inc	al
+;!!                mov     byte [_NumFloppies],al ; and how many
                 
                 mov     ax,cs
                 mov     ds,ax
@@ -261,6 +308,12 @@ floppy:		mov	byte [_BootDrive],bl ; tell where we came from
         jmp _FreeDOSmain
 
 segment	INIT_TEXT_END
+
+
+;************************************************************	    
+; KERNEL CODE AREA END
+; the NUL device
+;************************************************************	    
 
 segment	_TEXT
 
@@ -286,6 +339,11 @@ _nul_intr:
                 pop     es
                 retf
 
+
+
+;************************************************************	    
+; KERNEL FIXED DATA AREA 
+;************************************************************	    
 
 
 segment	_FIXED_DATA
@@ -365,8 +423,14 @@ setverPtr       dw      0,0             ; 0037 setver list
 _LoL_nbuffers   dw      1               ; 003F number of buffers
                 dw      1               ; 0041 size of pre-read buffer
                 global  _BootDrive
-_BootDrive      db      1               ; 0043 drive we booted from
+_BootDrive      db      1               ; 0043 drive we booted from   
+
+%IFNDEF I386
                 db      0               ; 0044 cpu type (1 if >=386)
+%ELSE                
+                db      1               ; 0044 cpu type (1 if >=386)
+%ENDIF
+
                 dw      0               ; 0045 Extended memory in KBytes
 buf_info:		
 		global	_firstbuf
@@ -595,11 +659,12 @@ _lpCurSft       times 2 dw 0       ;27e - Current SFT
 _current_ldt     times 2 dw 0       ;282 - Current CDS
                 global  _lpFcb
 _lpFcb          times 2 dw 0       ;286 - pointer to callers FCB
-                global  current_ifn
-current_ifn     dw      0               ;28A - SFT index for next open
+                global  _current_sft_idx
+_current_sft_idx    dw      0               ;28A - SFT index for next open
+                                        ; used by MS NET
 
 		; Pad to 05b2h
-		times (292h - ($ - _internal_data)) db 0
+                times (292h - ($ - _internal_data)) db 0
                 dw      __PriPathBuffer  ; 292 - "sda_WFP_START" offset in DOS DS of first filename argument
                 dw      __SecPathBuffer  ; 294 - "sda_REN_WFP" offset in DOS DS of second filename argument
 
@@ -641,22 +706,23 @@ _disk_api_tos:
                 global  _char_api_tos
 _char_api_tos:
 apistk_top:
-
+                db      0               ; 780 ???
 _VolChange      db      0               ;781 - volume change
 _VirtOpen       db      0               ;782 - virtual open flag
 
                 ; controlled variables end at offset 78Ch so pad to end
                 times (78ch - ($ - _internal_data)) db 0
 _swap_indos:
+
 ;
 ; end of controlled variables
 ;
 
 segment	_BSS
-                global  _NumFloppies
-_NumFloppies	resw	1
-intr_dos_stk	resw	1
-intr_dos_seg	resw	1
+;!!                global  _NumFloppies
+;!!_NumFloppies	resw	1
+;!!intr_dos_stk	resw	1
+;!!intr_dos_seg	resw	1
 
 
                 global  _ram_top

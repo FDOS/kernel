@@ -35,6 +35,9 @@ static BYTE *sft_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.5  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -97,11 +100,11 @@ static BYTE *sft_hRcsId = "$Id$";
 /* Handle Definition entry                                              */
 typedef struct
 {
-  WORD sft_count;               /* reference count                      */
-  WORD sft_mode;                /* open mode - see below                */
-  BYTE sft_attrib;              /* file attribute - dir style           */
+  WORD sft_count;               /* 00 - reference count                      */
+  WORD sft_mode;                /* 02 - open mode - see below                */
+  BYTE sft_attrib;              /* 04 - file attribute - dir style           */
 
-  union
+  union                         /* 05 */
   {
     WORD _sft_flags;
     struct
@@ -113,7 +116,7 @@ typedef struct
   }
   sft_flags_union;
 
-  union
+  union                         /* 07 */
   {
     struct dpb FAR *
       _sft_dcb;                 /* The device control block     */
@@ -122,23 +125,23 @@ typedef struct
   }
   
   sft_dcb_or_dev;
-  WORD sft_stclust;             /* Starting cluster                     */
-  time sft_time;                /* File time                            */
-  date sft_date;                /* File date                            */
-  LONG sft_size;                /* File size                            */
-  LONG sft_posit;               /* Current file position                */
-  WORD sft_relclust;            /* File relative cluster                */
-  WORD sft_cuclust;             /* File current cluster                 */
-  WORD sft_dirdlust;            /* Sector containing cluster            */
-  BYTE sft_diridx;              /* directory index                      */
-  BYTE sft_name[11];            /* dir style file name                  */
+  WORD sft_stclust;             /* 0b - Starting cluster                     */
+  time sft_time;                /* 0d - File time                            */
+  date sft_date;                /* 0f - File date                            */
+  LONG sft_size;                /* 11 - File size                            */
+  LONG sft_posit;               /* 15 - Current file position                */
+  WORD sft_relclust;            /* 19 - File relative cluster                */
+  WORD sft_cuclust;             /* 1b - File current cluster                 */
+  WORD sft_dirdlust;            /* 1d - Sector containing cluster            */
+  BYTE sft_diridx;              /* 1f - directory index                      */
+  BYTE sft_name[11];            /* 20 - dir style file name                  */
   BYTE FAR *
-    sft_bshare;                 /* backward link of file sharing sft    */
-  WORD sft_mach;                /* machine number - network apps        */
-  WORD sft_psp;                 /* owner psp                            */
-  WORD sft_shroff;              /* Sharing offset                       */
-  WORD sft_status;              /* this sft status                      */
-  BYTE FAR * sft_ifsptr;        /* pointer to IFS driver for file, 0000000h if native DOS */
+    sft_bshare;                 /* 2b - backward link of file sharing sft    */
+  WORD sft_mach;                /* 2f - machine number - network apps        */
+  WORD sft_psp;                 /* 31 - owner psp                            */
+  WORD sft_shroff;              /* 33 - Sharing offset                       */
+  WORD sft_status;              /* 35 - this sft status                      */
+  BYTE FAR * sft_ifsptr;        /* 37 - pointer to IFS driver for file, 0000000h if native DOS */
 }
 sft;
 

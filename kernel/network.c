@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.14  2001/07/24 16:56:29  bartoldeman
  * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
  *
@@ -108,28 +111,3 @@ VOID set_machine_name(BYTE FAR * netname, UWORD name_num)
   fmemcpy(&net_name, netname, 15);
   net_set_count++;
 }
-
-/*
-   *   Read/Write from/to remote file.
-   *   SFT gets updated with the amount of bytes r/w.
-   *
- */
-UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err)
-{
-
-  BYTE FAR *save_dta;
-  UWORD rc,
-    rx;
-
-  save_dta = dta;
-  lpCurSft = (sfttbl FAR *) s;
-  current_filepos = s->sft_posit; /* needed for MSCDEX */
-  dta = bp;
-  rx = int2f_Remote_call(func, 0, n, 0, (VOID FAR *) s, 0, (VOID FAR *) & rc);
-  dta = save_dta;
-  *err = -rx;
-  return ((UCOUNT) rc);
-}
-
-
-

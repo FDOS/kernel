@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.23  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.22  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -200,6 +203,7 @@ BOOL flush_buffers(REG COUNT dsk);
 BOOL flush1(struct buffer FAR * bp);
 BOOL flush(void);
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk);
+BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk);
 /* *** Changed on 9/4/00  BER */
 UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mode);
 /* *** End of change */
@@ -227,12 +231,15 @@ struct dpb FAR *GetDriveDPB(UBYTE drive, COUNT *rc);
 BYTE FAR *get_root(BYTE FAR *);
 BOOL fnmatch(BYTE FAR *, BYTE FAR *, COUNT, COUNT);
 BOOL check_break(void);
-UCOUNT GenericRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
+UCOUNT GenericReadSft(sft far *sftp, UCOUNT n, BYTE FAR * bp, COUNT FAR * err,
 		   BOOL force_binary);
 COUNT SftSeek(sft FAR *sftp, LONG new_pos, COUNT mode);
 /* COUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err); */
-#define DosRead(hndl,n,bp,err) GenericRead(hndl, n, bp, err,FALSE)
-UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
+#define GenericRead(hndl, n, bp, err, t) GenericReadSft(get_sft(hndl), n, bp, err, t)
+#define DosRead(hndl, n, bp, err) GenericRead(hndl, n, bp, err, FALSE)
+#define DosReadSft(sftp, n, bp, err) GenericReadSft(sftp, n, bp, err, FALSE)
+UCOUNT DosWriteSft(sft FAR *sftp, UCOUNT n, BYTE FAR * bp, COUNT FAR * err);
+#define DosWrite(hndl, n, bp, err) DosWriteSft(get_sft(hndl), n, bp, err)
 COUNT DosSeek(COUNT hndl, LONG new_pos, COUNT mode, ULONG * set_pos);
 COUNT DosCreat(BYTE FAR * fname, COUNT attrib);
 COUNT DosCreatSft(BYTE * fname, COUNT attrib);
@@ -286,9 +293,10 @@ COUNT char_error(request * rq, struct dhdr FAR * lpDevice);
 COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice);
 
 /* fatdir.c */
+VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart);
 f_node_ptr dir_open(BYTE * dirname);
 COUNT dir_read(REG f_node_ptr fnp);
-COUNT dir_write(REG f_node_ptr fnp);
+BOOL dir_write(REG f_node_ptr fnp);
 VOID dir_close(REG f_node_ptr fnp);
 COUNT dos_findfirst(UCOUNT attr, BYTE * name);
 COUNT dos_findnext(void);
@@ -296,6 +304,7 @@ void ConvertName83ToNameSZ(BYTE FAR *destSZ, BYTE FAR *srcFCBName);
 int FileName83Length(BYTE *filename83);
 
 /* fatfs.c */
+ULONG clus2phys(CLUSTER cl_no, struct dpb FAR *dpbp);
 COUNT dos_open(BYTE * path, COUNT flag);
 BOOL fcmp(BYTE * s1, BYTE * s2, COUNT n);
 BOOL fcmp_wild(BYTE FAR * s1, BYTE FAR * s2, COUNT n);
@@ -499,9 +508,9 @@ VOID break_handler(void);
 
 /* systime.c */
 VOID DosGetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp);
-COUNT DosSetTime(BYTE FAR * hp, BYTE FAR * mp, BYTE FAR * sp, BYTE FAR * hdp);
+COUNT DosSetTime(BYTE h, BYTE m, BYTE s, BYTE hd);
 VOID DosGetDate(BYTE FAR * wdp, BYTE FAR * mp, BYTE FAR * mdp, COUNT FAR * yp);
-COUNT DosSetDate(BYTE FAR * mp, BYTE FAR * mdp, COUNT FAR * yp);
+COUNT DosSetDate(UWORD Month, UWORD DayOfMonth, UWORD Year);
 
 UWORD  *is_leap_year_monthdays(UWORD year);
 UWORD DaysFromYearMonthDay(UWORD Year, UWORD Month, UWORD DayOfMonth);
@@ -523,13 +532,32 @@ COUNT get_verify_drive(char FAR * src);
 COUNT ASMCFUNC truename(char FAR * src, char FAR * dest, COUNT t);
 
 /* network.c */
-COUNT ASMCFUNC int2f_Remote_call(UWORD func, UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
+COUNT ASMCFUNC remote_doredirect(UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
+COUNT ASMCFUNC remote_printset(UWORD b, UCOUNT n, UWORD d, VOID FAR * s, UWORD i, VOID FAR * data);
+COUNT ASMCFUNC remote_rename(VOID);
+COUNT ASMCFUNC remote_delete(VOID);
+COUNT ASMCFUNC remote_chdir(VOID);
+COUNT ASMCFUNC remote_mkdir(VOID);
+COUNT ASMCFUNC remote_rmdir(VOID);
+COUNT ASMCFUNC remote_close_all(VOID);
+COUNT ASMCFUNC remote_process_end(VOID);
+COUNT ASMCFUNC remote_flushall(VOID);
+COUNT ASMCFUNC remote_findfirst(VOID FAR *s);
+COUNT ASMCFUNC remote_findnext(VOID FAR *s);
+COUNT ASMCFUNC remote_getfattr(VOID);
+COUNT ASMCFUNC remote_getfree(VOID FAR *s, VOID *d);
+COUNT ASMCFUNC remote_open(sft FAR *s, COUNT mode);
+LONG ASMCFUNC remote_lseek(sft FAR *s, LONG new_pos);
+UCOUNT ASMCFUNC remote_read(sft FAR *s, UCOUNT n, COUNT * err);
+UCOUNT ASMCFUNC remote_write(sft FAR *s, UCOUNT n, COUNT * err);
+COUNT ASMCFUNC remote_creat(sft FAR *s, COUNT attr);
+COUNT ASMCFUNC remote_setfattr(COUNT attr);
+COUNT ASMCFUNC remote_printredir(UCOUNT dx, UCOUNT ax);
+COUNT ASMCFUNC remote_close(sft FAR *s);
 COUNT ASMCFUNC QRemote_Fn(char FAR * s, char FAR * d);
 
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
-UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err);
-COUNT Remote_find(UWORD func);
 
 /* procsupt.asm */
 VOID ASMCFUNC exec_user(iregs FAR * irp);

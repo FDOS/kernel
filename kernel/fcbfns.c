@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.18  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -180,12 +183,8 @@ VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
 {
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
-#ifdef WITHFAT32
-  UCOUNT shift = 0;
-  ULONG cluster_size, ntotal;
-#endif
 
-                	/* first check for valid drive          */
+  /* first check for valid drive          */
   *spc = -1;
   
   drive = (drive == 0 ? default_drive : drive - 1);
@@ -218,22 +217,24 @@ VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
     return;
   }
 
-#ifdef WITHFAT32
-  cluster_size = (dpbp->dpb_clsmask + 1) * dpbp->dpb_secsize;
-  ntotal = dpbp->dpb_size - 1;
-  while (cluster_size <= 0x7fff) {
-    cluster_size <<= 1;
-    ntotal >>= 1;
-    shift++;
-  }
-  /* get the data available from dpb                      */
-  if (ntotal > 0xfffe) ntotal = 0xfffe;
-  *nc = (UCOUNT)ntotal;
-  *spc = (dpbp->dpb_clsmask + 1) << shift;
-#else
-  /* get the data vailable from dpb                       */
+  /* get the data available from dpb                       */
   *nc = dpbp->dpb_size - 1;
   *spc = dpbp->dpb_clsmask + 1;
+#ifdef WITHFAT32
+  if (ISFAT32(dpbp))
+  {
+    ULONG cluster_size, ntotal;
+
+    cluster_size = (ULONG)dpbp->dpb_secsize << dpbp->dpb_shftcnt;
+    ntotal = dpbp->dpb_xsize - 1;
+    while (ntotal > FAT_MAGIC16 && cluster_size < 0x8000) {
+      cluster_size <<= 1;
+      *spc <<= 1;
+      ntotal >>= 1;
+    }
+    /* get the data available from dpb                      */
+    *nc = ntotal > FAT_MAGIC16 ? FAT_MAGIC16 : (UCOUNT)ntotal;
+  }
 #endif
   *bps = dpbp->dpb_secsize;
 
@@ -432,16 +433,8 @@ BOOL FcbRead(xfcb FAR * lpXfcb, COUNT * nErrorCode)
     return FALSE;
   }
 
-  if (s->sft_flags & SFT_FSHARED)
-  {
-    nRead = Remote_RW(REM_READ, lpFcb->fcb_recsiz, p->ps_dta, s, nErrorCode);
-  }
-  else
-  {
-
-    /* Do the read                                                  */
-    nRead = dos_read(s->sft_status, p->ps_dta, lpFcb->fcb_recsiz);
-  }
+  /* Do the read                                                  */
+  nRead = DosReadSft(s, lpFcb->fcb_recsiz, p->ps_dta, nErrorCode);
 
   /* Now find out how we will return and do it.                   */
   if (nRead == lpFcb->fcb_recsiz)
@@ -462,14 +455,7 @@ BOOL FcbRead(xfcb FAR * lpXfcb, COUNT * nErrorCode)
   }
   else
   {
-    COUNT nIdx,
-      nCount;
-    BYTE FAR *lpDta;
-
-    nCount = lpFcb->fcb_recsiz - nRead;
-    lpDta = (BYTE FAR *) & (p->ps_dta[nRead]);
-    for (nIdx = 0; nIdx < nCount; nIdx++)
-      *lpDta++ = 0;
+    fmemset(&p->ps_dta[nRead], 0, lpFcb->fcb_recsiz - nRead);
     *nErrorCode = FCB_ERR_EOF;
     FcbNextRecord(lpFcb);
     return FALSE;
@@ -503,17 +489,7 @@ BOOL FcbWrite(xfcb FAR * lpXfcb, COUNT * nErrorCode)
     return FALSE;
   }
 
-  if (s->sft_flags & SFT_FSHARED)
-  {
-    nWritten = Remote_RW(REM_WRITE, lpFcb->fcb_recsiz, p->ps_dta, s, nErrorCode);
-  }
-  else
-  {
-
-    /* Do the read                                                  */
-    nWritten = dos_write(s->sft_status, p->ps_dta, lpFcb->fcb_recsiz);
-    s->sft_size = dos_getcufsize(s->sft_status);
-  }
+  nWritten = DosWriteSft(s, lpFcb->fcb_recsiz, p->ps_dta, nErrorCode);
 
   /* Now find out how we will return and do it.                   */
   if (nWritten == lpFcb->fcb_recsiz)
@@ -578,14 +554,13 @@ BOOL FcbSetRandom(xfcb FAR * lpXfcb)
 
 BOOL FcbCalcRec(xfcb FAR * lpXfcb)
 {
-  UWORD div=128;
-  
+
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
 
   /* Now update the fcb and compute where we need to position     */
   /* to.                                                          */
-  lpFcb->fcb_cublock = lpFcb->fcb_rndm / div;
+  lpFcb->fcb_cublock = lpFcb->fcb_rndm / 128;
   lpFcb->fcb_curec = lpFcb->fcb_rndm & 127;
 
   return TRUE;

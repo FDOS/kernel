@@ -36,6 +36,9 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.8  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -121,10 +124,6 @@ static BYTE *fat_hRcsId = "$Id$";
                                         * (ULONG) cluster_size \
                                         + (ULONG) data_start))
 
-#define clus2phys(cl_no,cl_size,d_st)   ((ULONG) (((ULONG) cl_no - 2L) \
-                                        * (ULONG) cl_size \
-                                        + (ULONG) d_st))
-
 /* Test for 16 bit or 12 bit FAT                                        */
 #define SIZEOF_CLST16   2
 #define SIZEOF_CLST32   4
@@ -135,9 +134,13 @@ static BYTE *fat_hRcsId = "$Id$";
 /* int ISFAT32(struct dpb FAR *dpbp);*/
 #define ISFAT32(x) _ISFAT32(x)
 
+/*
 #define _ISFAT32(dpbp)  (((dpbp)->dpb_size)>FAT_MAGIC16 && ((dpbp)->dpb_size)<=FAT_MAGIC32 )
+*/
+#define _ISFAT32(dpbp)  (((dpbp)->dpb_fatsize)==0)
 #define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC   && ((dpbp)->dpb_size)<=FAT_MAGIC16 )
-#define ISFAT12(dpbp)   (((dpbp)->dpb_size)<=FAT_MAGIC)
+#define ISFAT12(dpbp)   ((((dpbp)->dpb_size)-1)<FAT_MAGIC)
+/* dpb_size == 0 for FAT32, hence doing -1 here */
 
 /* FAT file system directory entry                                      */
 struct dirent

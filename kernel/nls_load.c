@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.2  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.1  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -58,7 +61,7 @@ static int err(void)
 
 #define readStruct(s)	readStructure(&(s), sizeof(s), fd)
 static int readStructure(void *buf, int size, COUNT fd)
-{	if(dos_read(fd, buf, size) == size)
+{	if(DosRead(fd, buf, size) == size)
 		return 1;
 
 	return err();
@@ -66,14 +69,14 @@ static int readStructure(void *buf, int size, COUNT fd)
 	/* Evaluate each argument only once */
 #define readFct(p,f)	readFct_((p), (f), fd)
 int readFct_(void *buf, struct csys_function *fct, COUNT fd)
-{	if(dos_lseek(fd, fct->csys_rpos, 0) >= 0)
+{	if(DosLseek(fd, fct->csys_rpos, 0) >= 0)
 		return readStructure(buf, fct->csys_length, fd);
 	return err();
 }
 
 #define seek(n)	rseek((LONG)(n), fd)
 static rseek(LONG rpos, COUNT fd)
-{	if(dos_lseek(fd, rpos, 1) >= 0)
+{	if(DosLseek(fd, rpos, 1) >= 0)
 		return 1;
 
 	return err();
@@ -84,18 +87,18 @@ COUNT csysOpen(void)
 {	COUNT fd;
 	struct nlsCSys_fileHeader header;
 
-	if((fd = dos_open((BYTE FAR*)filename, 0)) < 0) {
+	if((fd = DosOpen((BYTE FAR*)filename, 0)) < 0) {
 		printf("Cannot open: \"%s\"\n", filename);
 		return 1;
 	}
 
-	if(dos_read(fd, &header, sizeof(header)) != sizeof(header);
+	if(DosRead(fd, &header, sizeof(header)) != sizeof(header);
 	 || strcmp(header.csys_idstring, CSYS_FD_IDSTRING) != 0
-	 || dos_lseek(fd, (LONG)sizeof(csys_completeFileHeader), 0)
+	 || DosLseek(fd, (LONG)sizeof(csys_completeFileHeader), 0)
 	  != (LONG)sizeof(csys_completeFileHeader)) {
 	 	printf("No valid COUNTRY.SYS: \"%s\"\n\nTry NLSFUNC /i %s\n"
 	 	 , filename, filename);
-	 	dos_close(fd);
+	 	DosClose(fd);
 	 	return -1;
 	}
 
@@ -265,7 +268,7 @@ int csysLoadPackage(COUNT fd)
 				}
 
 				/* OK --> update the rpos member */
-				fct.csys_rpos += dos_ltell(fd);
+				fct.csys_rpos += DosLtell(fd);
 				totalSize += fct.csys_length;
 				++numFct;
 			} while(--numE);
@@ -379,7 +382,7 @@ INIT BOOL LoadCountryInfo(char *fnam)
 		strcpy(filename, fnam);
 		if((fd = csysOpen()) >= 0) {
 			rc = csysLoadPackage(fd);
-			dos_close(fd);
+			DosClose(fd);
 			return rc;
 		}
 	} else

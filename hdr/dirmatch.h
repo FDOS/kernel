@@ -36,6 +36,9 @@ static BYTE *dirmatch_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.6  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -120,10 +123,8 @@ typedef struct
     f_dnew:1;
     BITS                        /* fnode is assigned to dir     */
     f_ddir:1;
-    BITS                        /* directory is full            */
-    f_dfull:1;
     BITS                        /* filler to avoid a bad bug (feature?) in */
-    f_filler:11;                /* TC 2.01           */
+    f_filler:12;                /* TC 2.01           */
   }
   dm_flags;                     /* file flags                   */
 

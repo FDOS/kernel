@@ -35,6 +35,9 @@ static BYTE *device_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.8  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -321,7 +324,7 @@ typedef struct ddtstruct
     {
       UWORD ddt_part;   /* partition (FFFFh = primary, 0001h = extended)
                            always 0001h for DOS 5+ */
-      UWORD ddt_absyl; /* absolute cylinder number of partition's
+      UWORD ddt_abscyl; /* absolute cylinder number of partition's
                            start on physical drive
                            (FFFFh if primary partition in DOS 4.x)*/
     } ddt_hd;
@@ -359,6 +362,24 @@ struct gblkio
     UBYTE   gbio_media;
     bpb     gbio_bpb;
     UWORD   gbio_nsecs;
+};
+
+struct gblkfv /* for format / verify track */
+{
+    UBYTE   gbfv_spcfunbit;
+    UWORD   gbfv_head;
+    UWORD   gbfv_cyl;
+    UWORD   gbfv_ntracks;
+};
+
+struct gblkrw /* for read / write track */
+{
+    UBYTE   gbrw_spcfunbit;
+    UWORD   gbrw_head;
+    UWORD   gbrw_cyl;
+    UWORD   gbrw_sector;
+    UWORD   gbrw_nsecs;
+    UBYTE FAR * gbrw_buffer;
 };
 
 struct Gioc_media

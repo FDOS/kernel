@@ -5,6 +5,9 @@ rem batch file to clean everything
 rem $Id$
 
 rem $Log$
+rem Revision 1.5  2001/11/04 19:47:37  bartoldeman
+rem kernel 2025a changes: see history.txt
+rem
 rem Revision 1.4  2001/03/22 04:13:30  bartoldeman
 rem Change LF to CR/LF in batch files.
 rem
@@ -47,23 +50,26 @@ echo You must copy CONFIG.M to CONFIG.MAK and edit it to reflect your setup!
 goto end
 
 :start
+@set COMPILER=tc2
 call config.bat
 
-cd lib
-%MAKE% -flibm.mak clean
+cd utils
+%MAKE% clean
+
+cd ..\lib
+%MAKE% clean
 
 cd ..\drivers
-%MAKE% -fdevice.mak clean
+%MAKE% clean
 
 cd ..\boot
-%MAKE% -fboot.mak clean
+%MAKE% clean
 
 cd ..\sys
-%MAKE% -fbin2c.mak clean
-%MAKE% -fsys.mak clean
+%MAKE% clean
 
 cd ..\kernel
-%MAKE% -fkernel.mak clean
+%MAKE% clean
 
 cd ..\hdr
 del *.bak
@@ -74,3 +80,4 @@ del *.bak
 
 :end
 set MAKE=
+set COMPILER=

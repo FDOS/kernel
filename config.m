@@ -6,11 +6,44 @@
 #  NOTICE!  You must edit and rename this file to CONFIG.MAK!  #
 ################################################################
 
-# These are generic definitions
-RM=..\utils\rm -f
+#*********************************************************************
+# determine your compiler settings
+# 
+# you have to
+#   search for NASM     - and set the path for NASM
+#   search for ??_BASE  - and set the path to your compiler
+#   search for LINK     - and set the path to your linker
+# 
+#*********************************************************************
 
-# Give path to nasm here (or if it's in your path just uncomment the line).
-#NASM=nasm
+#**********************************************************************
+#- define where to find NASM - remember - it should not be protected
+#  mode DJGPP version if you're using Windows NT/2k/XP to compile
+#**********************************************************************
+
+NASM=c:\bin\nasm16
+
+#**********************************************************************
+#- where is the BASE dir of your compiler(s) ??
+#**********************************************************************
+						
+WC_BASE=C:\watcom
+MS_BASE=C:\msvc
+TC2_BASE=C:\tc201
+TP1_BASE=C:\tcpp
+TC3_BASE=C:\tc3
+BC5_BASE=C:\bc5
+
+#**********************************************************************
+#- select your default target: required CPU and what FAT system to support
+#**********************************************************************
+
+#XCPU=86
+#XCPU=186
+#XCPU=386
+
+#XFAT=16
+#XFAT=32
 
 # Give extra Turbo C compiler flags here
 # such as -DDEBUG : extra DEBUG output
@@ -18,50 +51,33 @@ RM=..\utils\rm -f
 #         -DWITHFAT32 : compile with FAT32 support
 #ALLCFLAGS=-DDEBUG
 
+!include "..\mkfiles\generic.mak"
 
-# Use these for Turbo C 2.01
-#COMPILER=TC2
-#COMPILERPATH=c:\tc201
-#CC=$(COMPILERPATH)\tcc
-#LINK=$(COMPILERPATH)\tlink
-#LIBUTIL=$(COMPILERPATH)\tlib
-#LIBPATH=$(COMPILERPATH)\lib
-#CLIB=$(COMPILERPATH)\lib\cs.lib
-#INCLUDEPATH=$(COMPILERPATH)\include
-#MATH_EXTRACT=*LDIV *LLSH *LURSH *LXMUL *LRSH *SPUSH *SCOPY
-#MATH_INSERT=+LDIV +LLSH +LURSH +LXMUL +LRSH +SPUSH +SCOPY
+#**********************************************************************
+#- which linker to use: WATCOM wlink is not suitable for linking
+#**********************************************************************
 
+# Turbo Link
+#LINK=$(TC2_BASE)\tlink /m/c
+LINK=d:\util\tlink /m/c
+# Microsoft Link
+#LINK=$(COMPILERBIN)\link /ONERROR:NOEXE /ma
+# VAL: you need VAL95, NOT the one in LANG1.ZIP (yet); 
+# look at the software list on www.freedos.org.
+# VAL complains about MODEND record missing for Watcom compiled objects!
+# LINK=c:\bin\val /MP /NCI
 
-# Use these for Turbo C 3.0
-#COMPILER=TC3
-#COMPILERPATH=c:\tc
-#CC=$(COMPILERPATH)\bin\tcc
-#LINK=$(COMPILERPATH)\bin\tlink
-#LIBUTIL=$(COMPILERPATH)\bin\tlib
-#LIBPATH=$(COMPILERPATH)\lib
-#CLIB=$(COMPILERPATH)\lib\cs.lib
-#INCLUDEPATH=$(COMPILERPATH)\include
-#MATH_EXTRACT=*H_LDIV *H_LLSH *H_LURSH *N_LXMUL *F_LXMUL *H_LRSH *H_SPUSH *N_SCOPY *F_SCOPY
-#MATH_INSERT=+H_LDIV +H_LLSH +H_LURSH +N_LXMUL +F_LXMUL +H_LRSH +H_SPUSH +N_SCOPY +F_SCOPY
-
-
-# Use these for Borland C++
-#COMPILER=BC5
-#COMPILERPATH=c:\bc5
-#CC=$(COMPILERPATH)\bin\tcc
-#LINK=$(COMPILERPATH)\bin\tlink
-#LIBUTIL=$(COMPILERPATH)\bin\tlib
-#LIBPATH=$(COMPILERPATH)\lib
-#CLIB=$(COMPILERPATH)\lib\cs.lib
-#INCLUDEPATH=$(COMPILERPATH)\include
-#MATH_EXTRACT=*H_LDIV *H_LLSH *H_LURSH *N_LXMUL *F_LXMUL *H_LRSH *H_SPUSH *N_SCOPY *F_SCOPY
-#MATH_INSERT=+H_LDIV +H_LLSH +H_LURSH +N_LXMUL +F_LXMUL +H_LRSH +H_SPUSH +N_SCOPY +F_SCOPY
-
+# use a ; to end the LINK command line?
+LINKTERM=;
+						
 
 #
 # $Id$
 #
 # $Log$
+# Revision 1.9  2001/11/04 19:47:37  bartoldeman
+# kernel 2025a changes: see history.txt
+#
 # Revision 1.8  2001/09/23 20:39:43  bartoldeman
 # FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 #

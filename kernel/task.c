@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.19  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.18  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -313,7 +316,7 @@ COUNT ChildEnv(exec_blk FAR * exp, UWORD * pChildEnvSeg, char far * pathname)
 /* The following code is 8086 dependant                         */
 VOID new_psp(psp FAR * p, int psize)
 {
-  REG COUNT i;
+  REG COUNT i;	
   psp FAR *q = MK_FP(cu_psp, 0);
 
   /* Clear out new psp first                              */
@@ -356,6 +359,7 @@ VOID new_psp(psp FAR * p, int psize)
   /* user stack pointer - int 21                          */
   p->ps_stack = q->ps_stack;
   /* file table - 0xff is unused                          */
+
   for (i = 0; i < 20; i++)
     p->ps_files[i] = 0xff;
 
@@ -390,7 +394,7 @@ VOID new_psp(psp FAR * p, int psize)
     RootPsp = FP_SEG(p);
 }
 
-static UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR *exb,
+STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR *exb,
                       BYTE FAR * fnam)
 {
   psp FAR *psp;
@@ -475,6 +479,9 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     {
       return rc;
     }
+    
+    /* COMFILES will always be loaded in largest area. is that true TE*/
+    
     /* Now find out how many paragraphs are available       */
     if ((rc = DosMemLargest((seg FAR *) & asize)) != SUCCESS)
     {
@@ -483,7 +490,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     }
     com_size = asize;
     
-    if (  ModeLoadHigh && uppermem_root)
+    if (  ModeLoadHigh )
         {
         DosUmbLink(1);                          /* link in UMB's */
         }
@@ -519,7 +526,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   else
     mem = exp->load.load_seg;
     
-  if (  ModeLoadHigh && uppermem_root)
+  if (  ModeLoadHigh )
     {
     DosUmbLink(UMBstate);               /* restore link state */
     }
@@ -539,16 +546,19 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       sp = MK_FP(mem, 0);
     else
     {                 /* test the filesize against the allocated memory */
-      UWORD tmp = 16;
-        
+      
       sp = MK_FP(mem, sizeof(psp));
 
       /* This is a potential problem, what to do with .COM files larger than
          the allocated memory?
          MS DOS always only loads the very first 64KB - sizeof(psp) bytes.
          -- 1999/04/21 ska */
-      if ((ULONG)com_size > (ULONG)asize * tmp)  /* less memory than the .COM file has */
-        (ULONG)com_size = (ULONG)asize * tmp; /* << 4 */
+         
+         /* BUG !! in case of LH, memory may be smaller then 64K TE*/
+         
+         
+      if ((ULONG)com_size > ((ULONG)asize << 4))  /* less memory than the .COM file has */
+        (ULONG)com_size = (ULONG)asize << 4;
     }
     do
     {
@@ -581,6 +591,12 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   {
     case LOADNGO:
       {
+                            /*  BUG !!
+                                this works only, if COMSIZE >= 64K
+                                in case of LH, this is not necessarily true
+                            */    
+      
+      
         *((UWORD FAR *) MK_FP(mem, 0xfffe)) = (UWORD) 0;
   
         /* build the user area on the stack                     */
@@ -603,8 +619,8 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
           --InDOS;
         exec_user(irp);
 
-        /* We should never be here                      */
-        fatal("KERNEL RETURNED!!!");
+        /* We should never be here          
+        fatal("KERNEL RETURNED!!!");                    */
         break;
       }
     case LOAD:
@@ -634,10 +650,11 @@ VOID return_user(void)
   setvec(0x24, p->ps_isv24);
 
   /* And free all process memory if not a TSR return      */
-  int2f_Remote_call(REM_PROCESS_END, 0, 0, 0, 0, 0, 0);
+  remote_process_end();     /* might be a good idea to do that after closing
+                               but doesn't help NET either TE */
   if (!tsr)
   {
-    int2f_Remote_call(REM_CLOSEALL, 0, 0, 0, 0, 0, 0);
+    remote_close_all();
     for (i = 0; i < p->ps_maxfiles; i++)
     {
       DosClose(i);
@@ -645,6 +662,7 @@ VOID return_user(void)
     FcbCloseAll();
     FreeProcessMem(cu_psp);
   }
+                    
 
   cu_psp = p->ps_parent;
   q = MK_FP(cu_psp, 0);
@@ -662,25 +680,14 @@ VOID return_user(void)
 
 COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 {
-  COUNT rc,
+  COUNT rc;    
     /*err,     */
     /*env_size,*/
-    i;
-  UCOUNT nBytesRead;
+  
   UWORD mem,
     env,
     asize,
     start_seg;
-  ULONG image_size;
-  ULONG image_offset;
-  BYTE FAR *sp;
-  psp FAR *p;
-  psp FAR *q = MK_FP(cu_psp, 0);
-  mcb FAR *mp;
-  iregs FAR *irp;
-  UWORD reloc[2];
-  seg FAR *spot;
-  LONG exe_size;
 
   int  ModeLoadHigh = mode & 0x80;
   UBYTE UMBstate = uppermem_link;
@@ -696,17 +703,23 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   }
   else
     mem = exp->load.load_seg;
+  
+
+  {
+  ULONG image_size;
+  ULONG image_offset;
+  LONG exe_size;
+  mcb FAR *mp;
+    
 
   /* compute image offset from the header                 */
-  asize = 16;
-  image_offset = (ULONG)header.exHeaderSize * asize;
+  image_offset = (ULONG)header.exHeaderSize * 16;
 
   /* compute image size by removing the offset from the   */
   /* number pages scaled to bytes plus the remainder and  */
   /* the psp                                              */
   /*  First scale the size                                */
-  asize = 512;
-  image_size = (ULONG)header.exPages * asize;
+  image_size = (ULONG)header.exPages * 512;
   /* remove the offset                                    */
   image_size -= image_offset;
 
@@ -716,7 +729,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     
   if (mode != OVERLAY)
   {
-    if (  ModeLoadHigh && uppermem_root)
+    if (  ModeLoadHigh )
     {
       DosUmbLink(1);                          /* link in UMB's */
       mem_access_mode |= ModeLoadHigh;
@@ -765,7 +778,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       exe_size = asize;
       
       
-/* /// Removed closing curly brace.  We should not attempt to allocate
+    /* /// Removed closing curly brace.  We should not attempt to allocate
        memory if we are overlaying the current process, because the new
        process will simply re-use the block we already have allocated.
        This was causing execl() to fail in applications which use it to
@@ -822,7 +835,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     asize = exe_size;
 /* /// End of additions.  Jun 11, 2000 - rbc */
 
-  if (  ModeLoadHigh && uppermem_root)
+  if (  ModeLoadHigh )
     {
     mem_access_mode &= ~ModeLoadHigh;              /* restore old situation */
     DosUmbLink(UMBstate);                          /* restore link state */
@@ -875,6 +888,9 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
 
   if (exe_size > 0)
   {
+    UCOUNT nBytesRead;
+    BYTE FAR *sp;
+      
     if (mode != OVERLAY)
     {
       if ((header.exMinAlloc == 0) && (header.exMaxAlloc == 0))
@@ -894,8 +910,13 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
     }
     while (nBytesRead && exe_size > 0);
   }
-
-  /* relocate the image for new segment                   */
+  }
+  
+  { /* relocate the image for new segment                   */
+  COUNT i;
+  UWORD reloc[2];
+  seg FAR *spot;
+      
   doslseek(rc, (LONG) header.exRelocTable, 0);
   for (i = 0; i < header.exRelocItems; i++)
   {
@@ -915,13 +936,19 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       *spot += start_seg;
     }
   }
-
+  }
+  
   /* and finally close the file                           */
   DosClose(rc);
 
   /* exit here for overlay                                */
   if (mode == OVERLAY)
     return SUCCESS;
+
+  
+  {
+  psp FAR *p;
+  psp FAR *q = MK_FP(cu_psp, 0);      
 
   /* point to the PSP so we can build it                  */
   p = MK_FP(mem, 0);
@@ -939,8 +966,9 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
   switch (mode)
   {
     case LOADNGO:
+    {
       /* build the user area on the stack                     */
-      irp = MK_FP(header.exInitSS + start_seg,
+      iregs FAR *irp = MK_FP(header.exInitSS + start_seg,
               ((header.exInitSP - sizeof(iregs)) & 0xffff));
 
       /* start allocating REGs                                */
@@ -963,9 +991,10 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       if (InDOS)
         --InDOS;
       exec_user(irp);
-      /* We should never be here                      */
-      fatal("KERNEL RETURNED!!!");
+      /* We should never be here     
+      fatal("KERNEL RETURNED!!!");                    */
       break;
+    }
 
     case LOAD:
       cu_psp = mem;
@@ -973,6 +1002,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk FAR * exp, COUNT mode)
       *((UWORD FAR *) exp->exec.stack) = asize; /* fcbcode */
       exp->exec.start_addr = MK_FP(header.exInitCS + start_seg, header.exInitIP);
       return SUCCESS;
+  }
   }
   return DE_INVLDFMT;
 }

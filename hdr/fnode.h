@@ -36,6 +36,9 @@ static BYTE *fnode_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.9  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -116,8 +119,6 @@ struct f_node
     BITS f_droot:1;             /* directory is the root        */
     BITS f_dnew:1;              /* fnode is new and needs fill  */
     BITS f_ddir:1;              /* fnode is assigned to dir     */
-    BITS f_dfull:1;             /* directory is full            */
-    BITS f_dremote:1;           /* Remote Fake FNode            */
     BITS f_ddate:1;             /* date set using setdate       */
   }
   f_flags;                      /* file flags                   */
@@ -129,7 +130,6 @@ struct f_node
   /* when dir is not root         */
   struct dpb FAR *f_dpb;        /* the block device for file    */
 
-  ULONG f_dsize;                /* file size (for directories)  */
   ULONG f_offset;               /* byte offset for next op      */
   ULONG f_highwater;            /* the largest offset ever      */
   CLUSTER f_back;               /* the cluster we were at       */

@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.15  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.14  2001/09/23 20:39:44  bartoldeman
 ; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 ;
@@ -278,9 +281,12 @@ reloc_call_int21_handler:
                 ;
                 sti
                 PUSH$ALL
+                mov bp,sp
+				
+				ProtectHighPartOfRegistersOn386
 
                 ;
-                ; Create kernel refernce frame.
+                ; Create kernel reference frame.
                 ;
                 ; NB: At this point, SS != DS and won't be set that way
                 ; until later when which stack to run on is determined.
@@ -300,7 +306,7 @@ int21_reentry:
 
 int21_user:     
                 call    dos_crit_sect
-                mov     bp,sp
+
                 push    ss
                 push    bp
                 call    _int21_syscall
@@ -319,7 +325,6 @@ int21_user:
 
 int21_1:
                 mov si,ss   ; save user stack, to be retored later
-                mov bx,sp
 
 
                 ;
@@ -329,8 +334,8 @@ int21_1:
                 ;
                 mov     word [_lpUserStack+2],ss
                 mov     word [_user_r+2],ss
-                mov     word [_lpUserStack],sp        ; store and init
-                mov     word [_user_r],sp     ; store and init
+                mov     word [_lpUserStack],bp        ; store and init
+                mov     word [_user_r],bp  			  ; store and init
 
                 ;
                 ; Decide which stack to run on.
@@ -363,7 +368,7 @@ int21_onerrorstack:
                 sti
                 
                 push    si  ; user SS:SP
-                push    bx
+                push    bp
                 
                 call    _int21_service
                 jmp     short int21_exit_nodec
@@ -395,7 +400,7 @@ int21_normalentry:
                 ;
                 
                 push    si  ; user SS:SP
-                push    bx
+                push    bp
                 call    _int21_service
 
 int21_exit:     dec     byte [_InDOS]
@@ -407,14 +412,21 @@ int21_exit:     dec     byte [_InDOS]
 
                 
 int21_exit_nodec:
-                pop bx      ; get back user stack
+                pop bp      ; get back user stack
                 pop si
+
+%IFDEF I386
+				sub bp,8
+%endif				
 
                 cli
                 mov     ss,si
-                mov     sp,bx
-                sti
-int21_ret:      POP$ALL
+                mov     sp,bp
+
+int21_ret:      
+				RestoreHighPartOfRegistersOn386
+
+				POP$ALL
 
                 ;
                 ; ... and return.

@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.9  2001/11/04 19:47:39  bartoldeman
+; kernel 2025a changes: see history.txt
+;
 ; Revision 1.8  2001/09/23 20:39:44  bartoldeman
 ; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 ;
@@ -224,6 +227,18 @@ _fl_rd_status:
 
 
 ;
+; Format Sectors
+;
+; COUNT fl_format(WORD drive, WORD head, WORD track, WORD sector, WORD count, BYTE FAR *buffer);
+;
+; Formats one or more tracks, sector should be 0.
+;
+; Returns 0 if successful, error code otherwise.
+		global	_fl_format
+_fl_format:
+                mov     ah, 5
+                jmp     short fl_common
+;
 ; Read Sectors
 ;
 ; COUNT fl_read(WORD drive, WORD head, WORD track, WORD sector, WORD count, BYTE FAR *buffer);
@@ -294,15 +309,7 @@ fl_error:
                 ret
 
 
-
 %if 0
-		global	_fl_format
-_fl_format:
-
-                xor     ax,ax
-                ret
-
-
 ;
 ;
 ; Get number of disks
@@ -463,3 +470,54 @@ global _fl_readkey
 _fl_readkey:    xor	ah, ah
 		int	16h
 		ret
+
+global _fl_setdisktype
+_fl_setdisktype:
+                push    bp
+                mov     bp, sp
+                mov     dl,[bp+4]       ; drive number
+                mov     al,[bp+6]       ; disk type
+                mov     ah,17h
+                int     13h
+                mov     al,ah
+                xor     ah,ah
+                pop     bp
+                ret
+                        
+global _fl_setmediatype
+_fl_setmediatype:
+                push    bp
+                mov     bp, sp
+                push    di
+        
+                mov     dl,[bp+4]       ; drive number
+                mov     bx,[bp+6]       ; number of tracks
+		dec	bx		; should be highest track
+                mov     ch,bl           ; low 8 bits of cyl number
+                
+                xor     bl,bl           ; extract bits 8+9 to cl
+                shr     bx,1
+                shr     bx,1
+                
+                mov     cl,[bp+8]       ; sectors/track
+                and     cl,03fh         ; mask to sector field bits 5-0
+                or      cl,bl           ; or in bits 7-6
+
+                mov     ah,18h
+                int     13h
+                mov     al,ah
+                mov     ah,0
+		jc	skipint1e
+                mov     bx,es
+                xor     dx,dx
+                mov     es,dx
+		cli
+                mov     [es:0x1e*4  ], di
+                mov     [es:0x1e*4+2], bx ; set int 0x1e table to es:di (bx:di)
+		sti
+skipint1e:		
+                pop     di
+                pop     bp
+                ret
+                
+                        

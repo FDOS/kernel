@@ -32,6 +32,12 @@
 #include "dyndata.h"
 #include "init-dat.h"   
 
+GLOBAL BYTE copyright[] = 
+    "(C) Copyright 1995-2001 Pasquale J. Villani and The FreeDOS Project.\n"
+    "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
+    "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
+    "GNU General Public License as published by the Free Software Foundation;\n"
+    "either version 2, or (at your option) any later version.\n";
 
 
 /*
@@ -53,7 +59,7 @@ GLOBAL BYTE
     DOSFAR default_drive;                /* default drive for dos                */
 
 GLOBAL BYTE DOSFAR os_release[];
-GLOBAL BYTE DOSFAR copyright[];
+/* GLOBAL BYTE DOSFAR copyright[]; */
 GLOBAL seg DOSFAR RootPsp;               /* Root process -- do not abort         */
 
 extern struct dpb FAR * DOSFAR DPBp; /* First drive Parameter Block          */
@@ -73,8 +79,14 @@ extern BYTE FAR _HMATextEnd[];
 static BYTE *mainRcsId = "$Id$";
 #endif
 
+struct _KernelConfig InitKernelConfig = {0};    
+
+
 /*
  * $Log$
+ * Revision 1.22  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.21  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -264,8 +276,9 @@ INIT VOID ASMCFUNC FreeDOSmain(void)
  	DosDataSeg = (__segment)&DATASTART;	
  	DosTextSeg = (__segment)&prn_dev;
 #endif 	
-	
-	
+
+	fmemcpy(&InitKernelConfig,&LowKernelConfig,sizeof(InitKernelConfig));
+
 	
     setvec(0, int0_handler);        /* zero divide */
     setvec(1, empty_handler);       /* single step */
@@ -417,7 +430,7 @@ INIT VOID FsConfig(VOID)
   dup2(STDIN, STDOUT);
 
   /* 2 is /dev/con (stderr)     */
-  dup2(STDIN, STDERR);
+  dup2(STDIN, STDERR); 
 
   /* 3 is /dev/aux                                                */
   open("AUX", O_RDWR);

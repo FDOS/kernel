@@ -4,6 +4,9 @@ rem batch file to clobber everything
 rem $Id$
 
 rem $Log$
+rem Revision 1.5  2001/11/04 19:47:37  bartoldeman
+rem kernel 2025a changes: see history.txt
+rem
 rem Revision 1.4  2001/03/22 04:13:30  bartoldeman
 rem Change LF to CR/LF in batch files.
 rem
@@ -40,23 +43,27 @@ echo You must copy CONFIG.M to CONFIG.MAK and edit it to reflect your setup!
 goto end
 
 :start
+set COMPILER=tc2
 call config.bat
 
-cd lib
-%MAKE% -flibm.mak clobber
+cd utils
+%MAKE% clobber
+
+cd ..\lib
+%MAKE% clobber
 
 cd ..\drivers
-%MAKE% -fdevice.mak clobber
+%MAKE% clobber
 
 cd ..\boot
-%MAKE% -fboot.mak clobber
+%MAKE% clobber
 
 cd ..\sys
-%MAKE% -fbin2c.mak clobber
-%MAKE% -fsys.mak clobber
+%MAKE% clobber
+%MAKE% clobber
 
 cd ..\kernel
-%MAKE% -fkernel.mak clobber
+%MAKE% clobber
 
 cd ..\hdr
 del *.bak
@@ -68,3 +75,4 @@ del status.me
 
 :end
 set MAKE=
+set COMPILER=

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/11/04 19:47:39  bartoldeman
+ * kernel 2025a changes: see history.txt
+ *
  * Revision 1.11  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -124,13 +127,37 @@ static BYTE *RcsId = "$Id$";
  * WARNING:  this code is non-portable (8086 specific).
  */
 
+/*  TE 10/29/01
+
+	although device drivers have only 20 pushes available for them,
+	MS NET plays by its own rules
+
+	at least TE's network card driver DM9PCI (some 10$ NE2000 clone) does:
+	with SP=8DC before calling down to execrh, and SP=8CC when 
+	callf [interrupt], 	DM9PCI touches DOSDS:792, 
+	14 bytes into error stack :-(((
+	
+	so some optimizations were made.		
+	this uses the fact, that only CharReq device buffer is ever used.
+	fortunately, this saves some code as well :-)
+
+*/
+
+
 COUNT DosDevIOctl(iregs FAR * r)
 {
   sft FAR *s;
   struct dpb FAR *dpbp;
-  struct cds FAR *cdsp;
-  BYTE FAR *pBuffer = MK_FP(r->DS, r->DX);
-  COUNT nMode , dev;
+  COUNT nMode;
+
+					/* commonly used, shouldn't harm to do front up */
+
+  CharReqHdr.r_length = sizeof(request);
+  CharReqHdr.r_trans  = MK_FP(r->DS, r->DX);
+  CharReqHdr.r_status = 0;
+  CharReqHdr.r_count  = r->CX;
+  
+
 
   /* Test that the handle is valid                                */
   switch (r->AL)
@@ -169,14 +196,14 @@ COUNT DosDevIOctl(iregs FAR * r)
 /* JPP - changed to use default drive if drive=0 */
 /* JT Fixed it */
 
-      dev = ( r->BL == 0 ? default_drive : r->BL - 1);
+      CharReqHdr.r_unit = ( r->BL == 0 ? default_drive : r->BL - 1);
 
-      if (dev >= lastdrive)
+      if (CharReqHdr.r_unit >= lastdrive)
         return DE_INVLDDRV;
       else
       {
-        cdsp = &CDSp->cds_table[dev];
-        dpbp = cdsp->cdsDpb;
+/*        cdsp = &CDSp->cds_table[CharReqHdr.r_unit];	*/
+        dpbp = CDSp->cds_table[CharReqHdr.r_unit].cdsDpb;
       }
       break;
 
@@ -234,11 +261,7 @@ COUNT DosDevIOctl(iregs FAR * r)
             || ((r->AL == 0x0c) && (s->sft_dev->dh_attr & ATTR_GENIOCTL)))
       {
           CharReqHdr.r_unit = 0;
-          CharReqHdr.r_length = sizeof(request);
           CharReqHdr.r_command = nMode;
-          CharReqHdr.r_count = r->CX;
-          CharReqHdr.r_trans = pBuffer;
-          CharReqHdr.r_status = 0;
           execrh((request FAR *) & CharReqHdr, s->sft_dev);
 
           if (CharReqHdr.r_status & S_ERROR)
@@ -287,12 +310,7 @@ COUNT DosDevIOctl(iregs FAR * r)
       }
 
 
-      CharReqHdr.r_unit = dev;
-      CharReqHdr.r_length = sizeof(request);
       CharReqHdr.r_command = nMode;
-      CharReqHdr.r_count = r->CX;
-      CharReqHdr.r_trans = pBuffer;
-      CharReqHdr.r_status = 0;
       execrh((request FAR *) & CharReqHdr,
              dpbp->dpb_device);
 
@@ -348,7 +366,7 @@ COUNT DosDevIOctl(iregs FAR * r)
       return DE_INVLDFUNC;
 
     case 0x09:
-      if(cdsp->cdsFlags & CDSNETWDRV)
+      if(CDSp->cds_table[CharReqHdr.r_unit].cdsFlags & CDSNETWDRV)
         {
             r->DX = ATTR_REMOTE ;
             r->AX = S_DONE|S_BUSY;
@@ -384,12 +402,7 @@ COUNT DosDevIOctl(iregs FAR * r)
       {
 
 
-        CharReqHdr.r_unit = dev;
-        CharReqHdr.r_length = sizeof(request);
         CharReqHdr.r_command = nMode;
-        CharReqHdr.r_count = r->CX;
-        CharReqHdr.r_trans = pBuffer;
-        CharReqHdr.r_status = 0;
         execrh((request FAR *) & CharReqHdr,
                dpbp->dpb_device);
 

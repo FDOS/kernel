@@ -148,6 +148,15 @@ extern UWORD DOSFAR LBA_WRITE_VERIFY;
                               /* the 8.4GB boundary                        */
 #define EXTENDED_LBA    0x0f  /* like 0x05, but it is supposed to end past */
 
+/* Let's play it safe and do not allow partitions with clusters above  *
+ * or equal to 0xff0/0xfff0/0xffffff0 to be created		       *
+ * the problem with fff0-fff6 is that they might be interpreted as BAD *
+ * even though the standard BAD value is ...ff7                        */
+ 
+#define FAT12MAX	(FAT_MAGIC-7)
+#define FAT16MAX	(FAT_MAGIC16-7)
+#define FAT32MAX	(FAT_MAGIC32-7)
+
 #define IsExtPartition(parttyp) ((parttyp) == EXTENDED || \
                                  (parttyp) == EXTENDED_LBA )
 
@@ -231,6 +240,65 @@ COUNT init_readdasd(UBYTE drive)
     return 0;
 }
 
+typedef struct 
+{
+  UWORD bpb_nbyte;              /* Bytes per Sector             */
+  UBYTE bpb_nsector;            /* Sectors per Allocation Unit  */
+  UWORD bpb_nreserved;          /* # Reserved Sectors           */
+  UBYTE bpb_nfat;               /* # FAT's                      */
+  UWORD bpb_ndirent;            /* # Root Directory entries     */
+  UWORD bpb_nsize;              /* Size in sectors              */
+  UBYTE bpb_mdesc;              /* MEDIA Descriptor Byte        */
+  UWORD bpb_nfsect;             /* FAT size in sectors          */
+  UWORD bpb_nsecs;              /* Sectors per track            */
+  UWORD bpb_nheads;             /* Number of heads              */
+} floppy_bpb;
+
+floppy_bpb floppy_bpbs[5] = {
+/* copied from Brian Reifsnyder's FORMAT, bpb.h */    
+  {SEC_SIZE,2,1,2,112, 720,0xfd,2, 9,2},  /* FD360  5.25 DS   */
+  {SEC_SIZE,1,1,2,224,2400,0xf9,7,15,2},  /* FD1200 5.25 HD   */
+  {SEC_SIZE,2,1,2,112,1440,0xf9,3, 9,2},  /* FD720  3.5  LD   */
+  {SEC_SIZE,1,1,2,224,2880,0xf0,9,18,2},  /* FD1440 3.5  HD   */
+  {SEC_SIZE,2,1,2,240,5760,0xf0,9,36,2}   /* FD2880 3.5  ED   */
+};
+
+COUNT init_getdriveparm(UBYTE drive, bpb FAR *pbpbarray)
+{
+    static iregs regs;
+    
+    if (drive & 0x80)
+        return 5;
+    regs.a.b.h = 0x08;
+    regs.d.b.l = drive;
+    init_call_intr(0x13,&regs);
+    if (regs.flags & 1)
+        return 0; /* return 320-360 for XTs */
+
+    switch(regs.b.b.l)
+    {
+    case 1:        /* 320-360 */
+        fmemcpy(pbpbarray, &floppy_bpbs[0], sizeof(floppy_bpb));
+        return 0;
+    case 2:        /* 1.2 */
+        fmemcpy(pbpbarray, &floppy_bpbs[1], sizeof(floppy_bpb));
+        return 1;
+    case 3:        /* 720 */
+        fmemcpy(pbpbarray, &floppy_bpbs[2], sizeof(floppy_bpb));
+        return 2;
+    case 4:        /* 1.44 */
+        fmemcpy(pbpbarray, &floppy_bpbs[3], sizeof(floppy_bpb));
+        return 7;
+    case 5:        /* 2.88 almost forgot this one*/
+    case 6:
+        fmemcpy(pbpbarray, &floppy_bpbs[4], sizeof(floppy_bpb));
+        return 9;
+    }
+    /* any odd ball drives return this */
+    fmemcpy(pbpbarray, &floppy_bpbs[0], sizeof(floppy_bpb));
+    return 8;
+}
+
 /*
     translate LBA sectors into CHS addressing
     copied and pasted from dsk.c!
@@ -280,11 +348,11 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
     
     /* FAT related items */
     defbpb->bpb_nfat = 2;
-    defbpb->bpb_ndirent = 512; /* normal value of number of entries in root dir
-                                  should be 0 for FAT32 drives */
-    defbpb->bpb_nreserved = 1; /* 0x20 for FAT32 */
+    defbpb->bpb_ndirent = (FileSystem == FAT32 || FileSystem == FAT32_LBA) ? 0 : 512;
+    /* normal value of number of entries in root dir */
+    defbpb->bpb_nreserved = (FileSystem == FAT32 || FileSystem == FAT32_LBA) ? 0x20 : 1;
 
-    fatdata = NumSectors - cdiv (defbpb->bpb_ndirent * 32, defbpb->bpb_nbyte) -
+    fatdata = NumSectors - cdiv (defbpb->bpb_ndirent * DIRENT_SIZE, defbpb->bpb_nbyte) -
         defbpb->bpb_nreserved;
     maxclustsize = 128;
 #ifdef DEBUG    
@@ -299,10 +367,10 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
         defbpb->bpb_nsector = 8;
         /* Force maximal fatdata=32696 sectors since with our only possible sector
            size (512 bytes) this is the maximum for 4k clusters.
-           #clus*secperclus+#fats*fatlength= 4084 * 8 + 2 * 12 = 32696.
+           #clus*secperclus+#fats*fatlength= 4077 * 8 + 2 * 12 = 32640.
            max FAT12 size for FreeDOS = 16,728,064 bytes */
-        if (fatdata > 32696)
-            fatdata = 32696;
+        if (fatdata > 32640)
+            fatdata = 32640;
         /* The factor 2 below avoids cut-off errors for nr_fats == 1.
          * The "defbpb->bpb_nfat*3" is for the reserved first two FAT entries */
         clust = 2*((ULONG) fatdata * defbpb->bpb_nbyte + defbpb->bpb_nfat*3) /
@@ -313,10 +381,10 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
          * not really present cluster. */
         clust = (fatdata - defbpb->bpb_nfat*fatlength)/defbpb->bpb_nsector;
         maxclust = (fatlength * 2 * defbpb->bpb_nbyte) / 3;
-        if (maxclust > FAT_MAGIC)
-            maxclust = FAT_MAGIC;
+        if (maxclust > FAT12MAX)
+            maxclust = FAT12MAX;
         DebugPrintf(( "FAT12: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%u\n",
-                      clust, fatlength, maxclust, FAT_MAGIC ));
+                      clust, fatlength, maxclust, FATMAX12 ));
         if (clust > maxclust-2) {
             clust = maxclust-2;
             DebugPrintf(( "FAT12: too many clusters: setting to maxclu-2\n" ));
@@ -333,10 +401,10 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
         /* Force maximal fatdata=8387584 sectors (NumSectors=8387617)
            since with our only possible sectorsize (512 bytes) this is the
            maximum we can address with 64k clusters
-           #clus*secperclus+#fats*fatlength=65524 * 128 + 2 * 256=8387584.
-           max FAT16 size for FreeDOS = 4,294,180,864 bytes = 4GiB-786,432 */
-        if (fatdata > 8387584ul)
-            fatdata = 8387584ul;
+           #clus*secperclus+#fats*fatlength=65517 * 128 + 2 * 256=8386688.
+           max FAT16 size for FreeDOS = 4,293,984,256 bytes = 4GiB-983,040 */
+        if (fatdata > 8386688ul)
+            fatdata = 8386688ul;
         do {
             DebugPrintf(( "Trying with %d sectors/cluster:\n", defbpb->bpb_nsector ));
 
@@ -348,8 +416,8 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
              * not really present cluster. */
             clust = (fatdata - defbpb->bpb_nfat*fatlength)/defbpb->bpb_nsector;
             maxclust = (fatlength * defbpb->bpb_nbyte) / 2;
-            if (maxclust > FAT_MAGIC16)
-                maxclust = FAT_MAGIC16;
+            if (maxclust > FAT16MAX)
+                maxclust = FAT16MAX;
             DebugPrintf(( "FAT16: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%u\n",
                           clust, fatlength, maxclust, FAT_MAGIC16 ));
             if (clust > maxclust-2) {
@@ -372,10 +440,11 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
         
 #ifdef WITHFAT32
     case FAT32:
+    case FAT32_LBA:
         /* For FAT32, use 4k clusters on sufficiently large file systems,
          * otherwise 1 sector per cluster. This is also what M$'s format
          * command does for FAT32. */
-	defbpb->bpb_nsector = (NumSectors >= 512*1024 ? 8 : 1);
+	defbpb->bpb_nsector = (NumSectors >= 512*1024ul ? 8 : 1);
         do {
 	    /* simple calculation - no long long available */
 	    clust = (ULONG)fatdata / defbpb->bpb_nsector;
@@ -389,11 +458,11 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
              * not really present cluster. */
             clust = (fatdata - defbpb->bpb_nfat*fatlength)/defbpb->bpb_nsector;
             maxclust = (fatlength * defbpb->bpb_nbyte) / 4;
-            if (maxclust > FAT_MAGIC32)
-                maxclust = FAT_MAGIC32;
+            if (maxclust > FAT32MAX)
+                maxclust = FAT32MAX;
             DebugPrintf(( "FAT32: #clu=%u, fatlen=%u, maxclu=%u, limit=%u\n",
-                          clust, fatlength, maxclust, FAT_MAGIC32 ));
-            if (clust > maxclust) 
+                          clust, fatlength, maxclust, FATMAX32 ));
+            if (clust > maxclust-2) 
             {
                 clust = 0;
                 DebugPrintf(( "FAT32: too many clusters\n" ));
@@ -404,6 +473,12 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
         }  while (defbpb->bpb_nsector && defbpb->bpb_nsector <= maxclustsize);
         defbpb->bpb_nfsect = 0;
         defbpb->bpb_xnfsect = fatlength;
+        /* set up additional FAT32 fields */
+        defbpb->bpb_xflags = 0;
+        defbpb->bpb_xfsversion = 0;
+        defbpb->bpb_xrootclst = 2;
+        defbpb->bpb_xfsinfosec = 1;
+        defbpb->bpb_xbackupsec = 6;
         fmemcpy(pddt->ddt_fstype, MSDOS_FAT32_SIGN, 8);
         break;
 #endif
@@ -413,7 +488,7 @@ VOID CalculateFATData(ddt FAR *pddt, ULONG NumSectors, UBYTE FileSystem)
 
 
 void DosDefinePartition(struct DriveParamS *driveParam,
-            ULONG StartSector, struct PartTableEntry *pEntry)
+            ULONG StartSector, struct PartTableEntry *pEntry, int extendedPartNo, int PrimaryNum)
 {
       ddt FAR *pddt = DynAlloc("ddt", 1, sizeof(ddt));
       struct CHS chs;
@@ -452,22 +527,32 @@ void DosDefinePartition(struct DriveParamS *driveParam,
       pddt->ddt_serialno = 0x12345678l;
       /* drive inaccessible until bldbpb successful */
       pddt->ddt_descflags = init_readdasd(pddt->ddt_driveno) | DF_NOACCESS;
+      pddt->ddt_type = 5;
       fmemcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
 
-#ifdef _BETA_      /* Alain whishes to keep this in later versions, too */
-      LBA_to_CHS(&chs,StartSector,driveParam);
+      /* Alain whishes to keep this in later versions, too 
+         Tom likes this too, so he made it configurable by SYS CONFIG ...
+      */
 
-      printf("%c: disk %02x",
-            'A' + nUnits,
-            driveParam->driveno);
+      if (InitKernelConfig.InitDiskShowDriveAssignment)
+        {
+          LBA_to_CHS(&chs,StartSector,driveParam);
+        
+          printf("%c: HD%d",
+                'A' + nUnits,
+                (driveParam->driveno & 0x7f)+1);
+        
+          if (extendedPartNo) printf(" Ext:%d", extendedPartNo);
+          else                printf(" Pri:%d", PrimaryNum + 1);
+        
+          printCHS(" CHS= ",&chs);
+          
+          printf(" start = %5luMB,size =%5lu",
+                StartSector/2048,pEntry->NumSect/2048);
+          
+          printf("\n");
+        }  
 
-      printCHS(" CHS= ",&chs);
-      
-      printf(" start = %5luMB,size =%5lu",
-            StartSector/2048,pEntry->NumSect/2048);
-      
-      printf("\n");
-#endif                
       
       
       nUnits++;
@@ -660,7 +745,7 @@ ConvPartTableEntryToIntern(struct PartTableEntry *pEntry, UBYTE FAR * pDisk)
 
 ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
                     struct PartTableEntry *pEntry, ULONG startSector,
-                    int partitionsToIgnore
+                    int partitionsToIgnore, int extendedPartNo
                     )
 {
     int i;
@@ -755,7 +840,7 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
                 }
 
             /* else its a diagnostic message only */
-#ifdef _BETA_            
+#ifdef DEBUG
            printf("found and using LBA partition %u FS %02x",
                        i, pEntry->FileSystem);
            printCHS(" start ",&chs);
@@ -771,7 +856,8 @@ ScanForPrimaryPartitions(struct DriveParamS *driveParam,int scan_type,
 
         partitionsToIgnore |= 1 << i;
         
-        DosDefinePartition(driveParam,partitionStart, pEntry);
+        DosDefinePartition(driveParam,partitionStart, pEntry, 
+            extendedPartNo, i);
 
         if (scan_type == SCAN_PRIMARYBOOT ||
             scan_type == SCAN_PRIMARY     )
@@ -912,7 +998,7 @@ strange_restart:
          {
 
             PartitionsToIgnore = ScanForPrimaryPartitions(&driveParam,scanType,
-                                PTable, RelSectorOffset,PartitionsToIgnore);
+                                PTable, RelSectorOffset,PartitionsToIgnore,num_extended_found);
          }
 
     if (scanType != SCAN_EXTENDED)
@@ -1075,48 +1161,33 @@ I don't know, if I did it right, but I tried to do it that way. TE
 
 ***********************************************************************/
 
-
-
 void ReadAllPartitionTables(void)
 {
     UBYTE foundPartitions[MAX_HARD_DRIVE];
 
     int HardDrive;
     int nHardDisk = BIOS_nrdrives();
-    bpb FAR *pbpbarray;
     int Unit;
     ddt FAR *pddt;
     static iregs regs;
 
-    /* Setup media info and BPBs arrays for floppies (this is a 360kb flop) */
+    /* Setup media info and BPBs arrays for floppies */
     for (Unit = 0; Unit < nUnits; Unit++)
     {
         pddt = DynAlloc("ddt", 1, sizeof(ddt));
         
-        pbpbarray = &pddt->ddt_defbpb;    
-
-        pbpbarray->bpb_nbyte = SEC_SIZE;
-        pbpbarray->bpb_nsector = 2;
-        pbpbarray->bpb_nreserved = 1;
-        pbpbarray->bpb_nfat = 2;
-        pbpbarray->bpb_ndirent = 112;
-        pbpbarray->bpb_nsize = 360*2;
-        pbpbarray->bpb_mdesc = 0xfd;
-        pbpbarray->bpb_nfsect = 2;
-        pbpbarray->bpb_nheads = 2;
-        pbpbarray->bpb_nsecs = 9;
-
         pddt->ddt_driveno = 0;
 	pddt->ddt_logdriveno = Unit;
-        pddt->ddt_ncyl = 40;
+        pddt->ddt_type = init_getdriveparm(0, &pddt->ddt_defbpb);
+        pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
         pddt->ddt_LBASupported = FALSE;
         pddt->ddt_descflags = init_readdasd(0);
     
         pddt->ddt_offset = 0l;
         pddt->ddt_serialno = 0x12345678l;
-        fmemcpy(&pddt->ddt_bpb, pbpbarray, sizeof(bpb));
-    }    
-
+        fmemcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+    }
+    
     /*
       this is a quick patch - see if B: exists
       test for A: also, need not exist
@@ -1124,7 +1195,9 @@ void ReadAllPartitionTables(void)
     init_call_intr(0x11,&regs);              /* get equipment list */
     if ((regs.a.x & 1) && (regs.a.x & 0xc0)) {
         pddt->ddt_driveno = 1;
+        pddt->ddt_type = init_getdriveparm(1, &pddt->ddt_defbpb);
         pddt->ddt_descflags = init_readdasd(1);
+        pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
         /* floppy drives installed and a B: drive */
         /*if ((r.a.x & 1)==0) */ /* no floppy drives installed  */
     } else { /* set up the DJ method : multiple logical drives */
@@ -1145,28 +1218,57 @@ void ReadAllPartitionTables(void)
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
       BIOS_drive_reset(HardDrive);
     
-    
-    /* Process primary partition table   1 partition only      */
-    for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
-    {
-        foundPartitions[HardDrive] =
-            ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
-    
-    if (foundPartitions[HardDrive] == 0)
-        foundPartitions[HardDrive] = ProcessDisk(SCAN_PRIMARY, HardDrive, 0);
-    }
 
-    /* Process extended partition table                      */
-    for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+
+    if (InitKernelConfig.DLASortByDriveNo == 0)
     {
-        ProcessDisk(SCAN_EXTENDED, HardDrive , 0);
-    }
+        /* printf("Drive Letter Assignment - DOS order \n"); */
+        
+        
+        /* Process primary partition table   1 partition only      */
+        for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+        {
+            foundPartitions[HardDrive] =
+                ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
+        
+        if (foundPartitions[HardDrive] == 0)
+            foundPartitions[HardDrive] = ProcessDisk(SCAN_PRIMARY, HardDrive, 0);
+        }
     
-    /* Process primary a 2nd time */
-    for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
-    {
-        ProcessDisk(SCAN_PRIMARY2, HardDrive ,foundPartitions[HardDrive]);
+        /* Process extended partition table                      */
+        for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+        {
+            ProcessDisk(SCAN_EXTENDED, HardDrive , 0);
+        }
+        
+        /* Process primary a 2nd time */
+        for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+        {
+            ProcessDisk(SCAN_PRIMARY2, HardDrive ,foundPartitions[HardDrive]);
+        }
     }
+    else
+    {
+        printf("Drive Letter Assignment - sorted by drive\n");
+        
+        
+        /* Process primary partition table   1 partition only      */
+        for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+        {
+            foundPartitions[HardDrive] =
+                ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
+        
+            if (foundPartitions[HardDrive] == 0)
+                foundPartitions[HardDrive] = ProcessDisk(SCAN_PRIMARY, HardDrive, 0);
+    
+        /* Process extended partition table                      */
+            ProcessDisk(SCAN_EXTENDED, HardDrive , 0);
+
+        
+        /* Process primary a 2nd time */
+            ProcessDisk(SCAN_PRIMARY2, HardDrive ,foundPartitions[HardDrive]);
+        }
+    }    
 }
 
 /* disk initialization: returns number of units */

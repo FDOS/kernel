@@ -21,6 +21,10 @@
 #include "nls.h"
 #include "buffer.h"
 
+#include "KConfig.h"
+extern struct _KernelConfig InitKernelConfig;    
+
+
 /*
  * The null macro `INIT' can be used to allow the reader to differentiate
  * between functions defined in `INIT_TEXT' and those defined in `_TEXT'.
@@ -76,7 +80,7 @@ extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
 /* Start of configuration variables                                     */
 struct config
 {
-    UBYTE cfgBuffers;
+    BYTE cfgBuffers;
     /* number of buffers in the system      */
     UBYTE cfgFiles;
     /* number of available files            */
@@ -152,7 +156,7 @@ void ASMCFUNC init_call_intr(int nr, iregs *rp);
 UCOUNT ASMCFUNC read(int fd, void *buf, UCOUNT count); 
 int ASMCFUNC open(const char *pathname, int flags);
 int ASMCFUNC close(int fd);
-int ASMCFUNC dup2(int oldfd, int newfd); 
+int ASMCFUNC dup2(int oldfd, int newfd);
 int ASMCFUNC allocmem(UWORD size, seg *segp);
 INIT VOID ASMCFUNC init_PSPInit(seg psp_seg);
 INIT VOID ASMCFUNC init_PSPSet(seg psp_seg);

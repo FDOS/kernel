@@ -1,3 +1,50 @@
+2001 Nov xx - Build 2025a
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ Changes tom
+    * config.sys processing: placing ? on the left side of '=' like
+	 ?device=  or device ?= 
+	 asks for this single line 
+      fill the available HMA with buffers
+    * added kernel configuration options to sys.com, small area at 60:xx
+    * readblock optimized to read as many data as possible in one
+      int13 request - great speedups for large reads
+    * some more SDA variables need to be updated for the network 
+      redirector (the sft index)
+    * reduce stack usage in task.c, fattab.c, ioctl.c, execrh.asm, inthndlr.c
+    * protect high part of 32-bit registers (stacks.inc)
+    * moved copyright messages to init data to save a bit of memory
+    * added relocinf, patchobj, sorted + some more output of exeflat
+    * UMB fixes
++ Fixes Bart, Victor, Tom
+    * more FAT32 fixes - to work with device drivers
+    * fixed overflow problem with more than 2048 directory entries
+    * various space saving changes, dir_init_fnode
++ Changes Bart, Tom
+    * many makefile changes to enable compilation with different
+      compilers (MS, Watcom, Borland). Watcom compiles but the result 
+      does not run yet.
++ Changes Bart
+    * support for IOCTL AX=440D, CL=40,41,42,61,62 for 
+      read/write/format track - this enables R. Nordier format to work
+    * default floppy type depends on the drive
+    * rewrote many parts of int2f.asm to have a cleaner remote_xxx
+      interface with less code and stack usage.
+    * limit for int21/ah=36 is FFF6 total/free sectors
+    * made the rtc clock reading code a bit more robust - assumes
+      there is no rtc if the returned date is zero
+    * removed non-necessary code in dosnames.c because we're always
+      dealing with a TRUENAME there
+    * added zero extending of files, but removed it (unless you force
+      it) since MSDOS doesn't zero-extend files either
+    * wrote a source for exeflat, removed all binaries from the source
+    * added more INT2F/AH=12 functions to solve some MSCDEX issues
+    * changed BAD sector handling : only ....FF7 is recognized as BAD,
+      but FORMAT information from initdisk will only give ....FEF as
+      the largest cluster (for safety), so ....FF0-....FF6 are not used
+      for newly formatted disks (here .... is either nothing, F, or
+      FFFF, FAT12/FAT16/FAT32).
+    * more fatfs/fatdir clean-ups - now unnecessary fields dfull,
+      dremote and dsize removed from fnodes.
 2001 Sep 24 - Build 2025
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Fixes Victor

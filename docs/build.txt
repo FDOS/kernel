@@ -23,11 +23,17 @@ you put the tools.
 *TE*******  Make sure to use the NASMR version, as the DosExtender version
   _seems_ to produce wrong code. the tested version is 
   NASM98R, 06/04/99, 202.606 bytes.
+*Bart*****  This is probably only true for Windows NT/2k/XP; In that
+  case you could use the Win32 version anyway.
+Look at
+ftp://ftp.kernel.org/pub/software/devel/nasm
+or a mirror of ftp.kernel.org.
 
 
 This program will now compile with Turbo C 2.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
-other Borland compilers as well.
+other Borland compilers and Microsoft C as well. Watcom C can compile
+it but the result does not work yet.
 
 If you feel hardy, read on to understand the directory structure.  A
 more complete description of the build environment is contained in a
@@ -70,6 +76,9 @@ component.  Study the makefile to better understand this.
 $Id$
 
 $Log$
+Revision 1.5  2001/11/04 19:47:39  bartoldeman
+kernel 2025a changes: see history.txt
+
 Revision 1.4  2001/07/09 22:19:33  bartoldeman
 LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
 
