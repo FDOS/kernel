@@ -28,6 +28,7 @@
 
 #define DEBUG
 /* #define DDEBUG */
+/* #define WITHOEMCOMPATBS */ /* uncomment for larger sys that support MS/PC DOS */
 
 #define SYS_VERSION "v3.4"
 
@@ -68,12 +69,38 @@ extern int VA_CDECL sprintf(char * buff, const char * fmt, ...);
 #include "fat32chs.h"
 #include "fat32lba.h"
 #endif
+#ifdef WITHOEMCOMPATBS
+#include "oemfat12.h"
+#include "oemfat16.h"
+#endif
 
 #ifndef __WATCOMC__
 
 #include <io.h>
 
+/* returns current DOS drive, A=0, B=1,C=2, ... */
+#ifdef __TURBOC__
+#define getcurdrive (unsigned)getdisk
 #else
+unsigned getcurdrive(void)
+{
+  union REGS regs;
+  regs.h.ah = 0x19;
+  int86(0x21, &regs, &regs);
+  return regs.h.al;
+}
+#endif
+
+#else
+
+/* returns current DOS drive, A=0, B=1,C=2, ... */
+unsigned getcurdrive(void);
+#pragma aux getcurdrive = \
+      "mov ah, 0x19"      \
+      "int 0x21"          \
+      "xor ah, ah"        \
+      value [ax];
+
 
 long filelength(int __handle);
 #pragma aux filelength = \
@@ -159,7 +186,7 @@ char *getenv(const char *name)
 
 BYTE pgm[] = "SYS";
 
-void put_boot(int, char *, char *, int, int);
+void put_boot(int, char *, char *, int, int, int);
 BOOL check_space(COUNT, ULONG);
 BOOL get_full_path(BYTE * srcPath, BYTE * rootPath, BYTE * filename, BYTE *source);
 BOOL copy(BYTE *source, COUNT drive, BYTE * filename);
@@ -251,8 +278,16 @@ int FDKrnConfigMain(int argc, char **argv);
 #define FDKERNEL   "KERNEL.SYS"
 #define OEMKERNEL  "IBMBIO.COM"
 #define OEMDOS     "IBMDOS.COM"
+#define MSKERNEL   "IO.SYS"
+#define MSDOS      "MSDOS.SYS"
 #define FDLOADSEG  0x60
 #define OEMLOADSEG 0x70
+
+#define NO_OEMKERN 0  /* standard FreeDOS mode */
+#define DR_OEMKERN 1  /* use FreeDOS boot sector, but OEM names */
+#define PC_OEMKERN 2  /* use PC-DOS compatible boot sector and names */
+#define MS_OEMKERN 3  /* use PC-DOS compatible BS with MS names */
+
 
 int main(int argc, char **argv)
 {
@@ -270,7 +305,7 @@ int main(int argc, char **argv)
   int both = 0;
   char *kernel_name = FDKERNEL;
   int load_segment = FDLOADSEG;
-  int altkern = 0;              /* use OEM kernel values instead of FD ones */
+  int altkern = NO_OEMKERN;     /* use OEM kernel values instead of FD ones */
 
   printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
@@ -300,9 +335,43 @@ int main(int argc, char **argv)
 
       if (memicmp(argp, "OEM", 3) == 0)
       {
-        altkern = 1;  /* kernel is split into 2 files and update BS name */
-        kernel_name = OEMKERNEL;
-        load_segment = OEMLOADSEG;
+        #ifdef WITHOEMCOMPATBS
+        if (*(argp+3) == ':')
+        {
+          argp+=4;  /* point to DR/PC/MS that follows */
+          if (memicmp(argp, "PC", 2) == 0)
+          {
+            altkern = PC_OEMKERN;  /* kernel is split into 2 files and update BS name */
+            load_segment = OEMLOADSEG;
+            kernel_name = OEMKERNEL;
+          }
+          else if (memicmp(argp, "MS", 2) == 0)
+          {
+            altkern = MS_OEMKERN;  /* kernel is split into 2 files and update BS name */
+            load_segment = OEMLOADSEG;
+            kernel_name = MSKERNEL;
+          }
+          else if (memicmp(argp, "DR", 2) == 0)
+          {
+            altkern = DR_OEMKERN;  /* kernel is split into 2 files and update BS name */
+            load_segment = OEMLOADSEG;
+            kernel_name = OEMKERNEL;
+          }
+          else /* if (memicmp(argp, "FD", 2) == 0) */
+          {
+            altkern = NO_OEMKERN;  /* restore defaults */
+            load_segment = FDLOADSEG;
+            kernel_name = FDKERNEL;
+          }
+        }
+        else  /* generic support, just change names and load sector */
+        #endif
+        {
+          altkern = DR_OEMKERN;  /* kernel is split into 2 files and update BS name */
+          load_segment = OEMLOADSEG;
+          if (kernel_name == FDKERNEL)  /* preserve /K name if on cmd line 1st */
+            kernel_name = OEMKERNEL;
+        }
       }
       else if (memicmp(argp, "BOOTONLY", 8) == 0)
       {
@@ -347,6 +416,11 @@ int main(int argc, char **argv)
       "  BOTH     : write to *both* the real boot sector and the image file\n"
       "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
       "  /OEM     : indicates kernel is IBMIO.SYS/IBMDOS.SYS loaded at 0x70\n"
+#ifdef WITHOEMCOMPATBS
+      "             /OEM:DR use IBMBIO.COM/IBMDOS.SYS and FD boot sector (default)\n"
+      "             /OEM:PC use PC-DOS compatible boot sector\n"
+      "             /OEM:MS use PC-DOS compatible boot sector with IO.SYS/MSDOS.SYS\n"
+#endif
       "  /K name  : name of kernel to use instead of KERNEL.SYS\n"
       "  /L segm  : hex load segment to use instead of 60\n"
       "%s CONFIG /help\n", pgm, pgm);
@@ -382,14 +456,7 @@ int main(int argc, char **argv)
   if ((strlen(srcPath) > 1) && (srcPath[1] == ':'))     /* src specifies drive */
     srcDrive = toupper(*srcPath) - 'A';
   else                          /* src doesn't specify drive, so assume current drive */
-  {
-#ifdef __TURBOC__
-    srcDrive = (unsigned) getdisk();
-#else
-    _dos_getdrive(&srcDrive);
-    srcDrive--;
-#endif
-  }
+    srcDrive = getcurdrive();
 
   /* Don't try root if src==dst drive or source path given */
   if ((drive == srcDrive)
@@ -414,7 +481,7 @@ int main(int argc, char **argv)
       }
       else /* else OEM kernel found, so switch modes */
       {
-        altkern = 1;
+        altkern = DR_OEMKERN;
         kernel_name = OEMKERNEL;
         load_segment = OEMLOADSEG;
       }
@@ -422,7 +489,7 @@ int main(int argc, char **argv)
   }
 
   printf("Processing boot sector...\n");
-  put_boot(drive, bsFile, kernel_name, load_segment, both);
+  put_boot(drive, bsFile, kernel_name, load_segment, both, altkern);
 
   if (!bootonly)
   {
@@ -434,10 +501,15 @@ int main(int argc, char **argv)
 
     if (altkern)
     {
-      if ( (!get_full_path(srcPath, rootPath, OEMDOS, srcFile)) ||
-           (!copy(srcFile, drive, OEMDOS)) )
+      char *dosfn = OEMDOS;
+      #ifdef WITHOEMCOMPATBS
+      if (altkern == MS_OEMKERN) dosfn = MSDOS;
+      #endif
+
+      if ( (!get_full_path(srcPath, rootPath, dosfn, srcFile)) ||
+           (!copy(srcFile, drive, dosfn)) )
       {
-        printf("\n%s: cannot copy \"%s\"\n", pgm, OEMDOS);
+        printf("\n%s: cannot copy \"%s\"\n", pgm, dosfn);
         exit(1);
       }
     }
@@ -452,7 +524,7 @@ int main(int argc, char **argv)
           printf("\n%s: failed to find command interpreter (shell) file %s\n", pgm, "COMMAND.COM");
           exit(1);
       }
-      printf("%s: Using shell from %COMSPEC%  \"%s\"\n", pgm, comspec);
+      printf("\n%s: Using shell from %COMSPEC%  \"%s\"\n", pgm, comspec);
     }
     if (!copy(srcFile, drive, "COMMAND.COM"))
     {
@@ -493,6 +565,7 @@ VOID dump_sector(unsigned char far * sec)
 }
 
 #endif
+
 
 #ifdef __WATCOMC__
 
@@ -741,7 +814,7 @@ void correct_bpb(struct bootsectortype *default_bpb,
   oldboot->bsHiddenSecs = default_bpb->bsHiddenSecs;
 }
 
-void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both)
+void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both, int altkern)
 {
 #ifdef WITHFAT32
   struct bootsectortype32 *bs32;
@@ -819,6 +892,15 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
 
 #ifdef WITHFAT32                /* copy one of the FAT32 boot sectors */
+    #ifdef WITHOEMCOMPATBS
+    if (altkern >= 2) /* MS or PC compatible BS requested */
+    {
+      printf("%s: FAT32 versions of PC/MS DOS compatible boot sectors\n"
+             "are not supported [yet].\n");
+      exit(1);
+    }
+    #endif
+
     memcpy(newboot, haveLBA() ? fat32lba : fat32chs, SEC_SIZE);
 #else
     printf("SYS hasn't been compiled with FAT32 support.\n"
@@ -832,7 +914,21 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
     if (drive >= 2 &&
         generic_block_ioctl(drive + 1, 0x860, default_bpb) == 0)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
-    memcpy(newboot, fs == FAT16 ? fat16com : fat12com, SEC_SIZE);
+    #ifdef WITHOEMCOMPATBS
+    {
+      unsigned char * bs;
+      if (altkern >= 2)
+      {
+        printf("Using PC-DOS compatible boot sector.\n");
+        bs = (fs == FAT16) ? oemfat16 : oemfat12;
+      }
+      else
+        bs = (fs == FAT16) ? fat16com : fat12com;
+      memcpy(newboot, bs, SEC_SIZE);
+    }
+    #else
+      memcpy(newboot, fs == FAT16 ? fat16com : fat12com, SEC_SIZE);
+    #endif
   }
 
   /* Copy disk parameter from old sector to new sector */
@@ -859,7 +955,10 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
        This happens to be offset 0x78 (=0x3c * 2) for FAT32 and
        offset 0x5c (=0x2e * 2) for FAT16 */
     /* i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! */
-    ((int *)newboot)[0x3C] = load_seg;
+    #ifdef WITHOEMCOMPATBS
+    if (altkern < 2)  /* PC-DOS compatible bs has fixed load sector */
+    #endif
+      ((int *)newboot)[0x3C] = load_seg;
 #ifdef DEBUG
     printf(" FAT starts at sector %lx + %x\n",
            bs32->bsHiddenSecs, bs32->bsResSectors);
@@ -870,7 +969,10 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   {
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
     bs->bsDriveNumber = drive < 2 ? 0 : 0xff;
-    ((int *)newboot)[0x2E] = load_seg;
+    #ifdef WITHOEMCOMPATBS
+    if (altkern < 2)  /* PC-DOS compatible bs has fixed load sector */
+    #endif
+      ((int *)newboot)[0x2E] = load_seg;
   }
 
 #ifdef DEBUG /* add an option to display this on user request? */

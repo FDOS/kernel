@@ -12,6 +12,7 @@
 */*/boot/boot.asm
 */*/boot/boot32.asm
 */*/boot/boot32lb.asm
+*/*/boot/oemboot.asm
 */*/boot/makefile
 */*/docs/bugs.txt
 */*/docs/build.txt

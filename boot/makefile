@@ -8,7 +8,7 @@
 
 ########################################################################
 
-all:		fat12.bin fat16.bin fat32chs.bin fat32lba.bin
+all:		fat12.bin fat16.bin fat32chs.bin fat32lba.bin oemfat12.bin oemfat16.bin
 
 fat12.bin:	boot.asm $(DEPENDS)
 		$(NASM) -DISFAT12 boot.asm -o$*.bin
@@ -21,6 +21,12 @@ fat32chs.bin:	boot32.asm $(DEPENDS)
 
 fat32lba.bin:	boot32lb.asm $(DEPENDS)
 		$(NASM) boot32lb.asm -o$*.bin
+
+oemfat12.bin:	oemboot.asm $(DEPENDS)
+		$(NASM) -DISFAT12 oemboot.asm -o$*.bin
+
+oemfat16.bin:	oemboot.asm $(DEPENDS)
+		$(NASM) -DISFAT16 oemboot.asm -o$*.bin
 
 ########################################################################
 

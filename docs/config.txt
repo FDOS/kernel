@@ -14,7 +14,7 @@ file named FDCONFIG.SYS, should it exist, it will will be used
 instead of CONFIG.SYS; this allows the FreeDOS kernel to coexist
 and be configured differently than another DOS kernel.  There
 are additional options available to adjust other aspects of the
-kernels behaviour.  Note: some options listed below are FreeDOS
+kernel's behaviour.  Note: some options listed below are FreeDOS
 specific and will not work when using other/older DOS kernels.
 Below is list of all documented FreeDOS config.sys supported
 options; additional undocumented options may exist but are not
