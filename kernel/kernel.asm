@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.12  2001/04/29 17:34:40  bartoldeman
+; A new SYS.COM/config.sys single stepping/console output/misc fixes.
+;
 ; Revision 1.11  2001/04/22 01:19:34  bartoldeman
 ; Avoid sys warning and have a VDISK signature in the HMA
 ;
@@ -270,7 +273,8 @@ _first_mcb      dw      0               ;-0002 Start of user memory
 MARK0026H       equ     $
 _DPBp           dd      0               ; 0000 First drive Parameter Block
                 global  _sfthead
-_sfthead        dd      0               ; 0004 System File Table head
+_sfthead        dw      _firstsftt      ; 0004 System File Table head
+                dw      seg _firstsftt
                 global  _clock
 _clock          dd      0               ; 0008 CLOCK$ device
                 global  _syscon
@@ -333,7 +337,12 @@ _uppermem_root  dw      0	        ; 0066 dmd_upper_root
 _umb_start      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
-; We've got (01fb-006a) some room here: don't use all zeros!
+;;  The first 5 sft entries appear to have to be at DS:00cc
+                times (0cch - ($ - DATASTART)) db 0
+                global _firstsftt
+_firstsftt:             
+                dd -1                   ; link to next
+                dw 5                    ; count 
         
 ; Some references seem to indicate that this data should start at 01fbh in
 ; order to maintain 100% MS-DOS compatibility.
@@ -670,10 +679,8 @@ __HMATextStart:
 ;
 segment HMA_TEXT
 begin_hma:              
-                times 13h db 0   ; filler [ffff:0..ffff:12]
-                db 'VDISK',0    ; VDISK3.3 signature at ffff:0013
-                times (2eh-($-begin_hma)) db 0
-                dw 1088         ; 0x2e: first free kb position for extended memory
+                times 10h db 0   ; filler [ffff:0..ffff:10]
+                times 20h db 0
                 db 0
 
 init_ret_np:    push ds
@@ -1006,7 +1013,16 @@ FAIL            equ     03h
 _int24_handler: mov     al,FAIL
                 iret
 
+;
+; this makes some things easier
+;
 
+segment _TEXT
+                global _TEXT_DGROUP
+_TEXT_DGROUP dw DGROUP
 
+segment INIT_TEXT
+                global _INIT_DGROUP
+_INIT_DGROUP dw DGROUP
 
 

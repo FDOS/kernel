@@ -4,6 +4,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.8  2001/04/29 17:34:41  bartoldeman
+# A new SYS.COM/config.sys single stepping/console output/misc fixes.
+#
 # Revision 1.7  2001/04/15 03:21:50  bartoldeman
 # See history.txt for the list of fixes.
 #
@@ -46,7 +49,7 @@
 !include "..\config.mak"
 
 CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
-	 -DI86;PROTO
+	 -DI86;PROTO;FORSYS
 
 #               *Implicit Rules*
 .c.obj:
@@ -57,11 +60,10 @@ CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
 
 #		*List Macros*
 
-LIBS =  floppy.obj
 
 EXE_dependencies =  \
  sys.obj \
- floppy.obj
+ prf.obj
 
 #		*Explicit Rules*
 production:     ..\bin\sys.com
@@ -75,11 +77,14 @@ b_fat12.h:      ..\boot\b_fat12.bin bin2c.com
 b_fat16.h:      ..\boot\b_fat16.bin bin2c.com
                 bin2c ..\boot\b_fat16.bin b_fat16.h b_fat16
 
-floppy.obj:     ..\drivers\floppy.asm
-                $(NASM) -fobj -DSYS=1 ..\drivers\floppy.asm -o floppy.obj 
+#floppy.obj:     ..\drivers\floppy.asm
+#                $(NASM) -fobj -DSYS=1 ..\drivers\floppy.asm -o floppy.obj 
+
+prf.obj:	..\kernel\prf.c
+		$(CC) $(CFLAGS) -c ..\kernel\prf.c
             
 sys.com:        $(EXE_dependencies)
-		$(LINK) /m/t/c $(LIBPATH)\c0t.obj+sys.obj+$(LIBS),sys,,\
+		$(LINK) /m/t/c $(LIBPATH)\c0t.obj+$(EXE_dependencies),sys,,\
                 $(CLIB);
 
 clobber:	clean

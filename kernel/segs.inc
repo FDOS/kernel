@@ -29,6 +29,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.7  2001/04/29 17:34:40  bartoldeman
+; A new SYS.COM/config.sys single stepping/console output/misc fixes.
+;
 ; Revision 1.6  2001/04/21 22:32:53  bartoldeman
 ; Init DS=Init CS, fixed stack overflow problems and misc bugs.
 ;
@@ -78,7 +81,7 @@ segment	_DATA		class=DATA align=2
 segment	_BSSSTART       class=BSS align=2
 segment	_BSS		class=BSS align=2
 segment	_BSSEND		class=BSS
-segment	HMA_TEXT_START	class=HMA
+segment	HMA_TEXT_START	class=HMA align=16
 segment	HMA_TEXT	class=HMA
 segment	HMA_TEXT_END	class=HMA
 segment	INIT_TEXT_START	class=INIT align=16

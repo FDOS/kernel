@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.15  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -184,7 +187,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
 /* *** End of change
 
 /* chario.c */
-/* VOID cso(COUNT c);*/
+VOID cso(COUNT c);
 VOID sto(COUNT c);
 VOID mod_sto(REG UCOUNT c);
 VOID destr_bs(void);
@@ -481,7 +484,7 @@ COUNT QRemote_Fn(char FAR * s, char FAR * d);
 UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * err);
-COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp);
+COUNT Remote_find(UWORD func, UCOUNT attr, BYTE FAR * name);
 
 /* procsupt.asm */
 VOID INRPT FAR exec_user(iregs FAR * irp);

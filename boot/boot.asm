@@ -27,6 +27,9 @@
 ;
 ;
 ; $Log$
+; Revision 1.4  2001/04/29 17:34:39  bartoldeman
+; A new SYS.COM/config.sys single stepping/console output/misc fixes.
+;
 ; Revision 1.3  2000/05/25 20:56:19  jimtabor
 ; Fixed project history
 ;
@@ -300,6 +303,7 @@ cont:           mov     ds, ax
                 mov     dx, word [root_dir_start+2]
                 mov     di, word [RootDirSecs]
                 xor     bx, bx
+                mov     word [tempbuf], LOADSEG
                 mov     es, [tempbuf]
                 call    readDisk
                 jc      jmp_boot_error

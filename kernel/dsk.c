@@ -32,6 +32,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.15  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -172,18 +175,17 @@ BOOL fl_format();
 
 extern BYTE FAR nblk_rel;
 
+
+                            /* this buffer must not overlap a 64K boundary
+                               due to DMA transfers
+                               this is certainly true, if located somewhere
+                               at 0xf+1000 and must hold already during BOOT time
+                            */   
 union
 {
   BYTE bytes[1 * SEC_SIZE];
   boot boot_sector;
-} buffer;
-
-                            /* if the buffer above is good enough for booting
-                               it's also good enough for DMA input           */
-BYTE                        /* scratchpad used for working around                                           */
-  FAR * dma_scratch_buffer = (BYTE FAR *)&buffer; /* DMA transfers during disk I/O                                                */
-
-
+} DiskTransferBuffer;
 
 
 STATIC struct media_info
@@ -194,16 +196,21 @@ STATIC struct media_info
   UWORD mi_sectors;             /* number of sectors/cyl        */
   ULONG mi_offset;              /* relative partition offset    */
   BYTE mi_drive;                /* BIOS drive number            */
-  COUNT mi_partidx;             /* Index to partition array     */
   ULONG mi_FileOC;              /* Count of Open files on Drv   */
+  
+  UWORD mi_BeginCylinder;
+  BYTE  mi_BeginHead;
+  BYTE  mi_BeginSector;
+
+  struct FS_info
+    {
+    ULONG serialno;
+    BYTE  volume[11];
+    BYTE  fstype[8];
+    }fs;
 };
 
-static struct FS_info
-{
-  ULONG fs_serialno;
-  BYTE  fs_volume[11];
-  BYTE  fs_fstype[8];
-};
+
 
 static struct Access_info
 {
@@ -212,7 +219,6 @@ static struct Access_info
 };
 
 STATIC struct media_info miarray[NDEV]; /* Internal media info structs  */
-STATIC struct FS_info fsarray[NDEV];
 STATIC bpb bpbarray[NDEV];      /* BIOS parameter blocks        */
 STATIC bpb *bpbptrs[NDEV];      /* pointers to bpbs             */
 
@@ -224,26 +230,9 @@ struct media_info *getPMiarray(int dev) { return &miarray[dev];}
                                    table partition              */
 
 STATIC COUNT nUnits;            /* number of returned units     */
-STATIC COUNT nPartitions;       /* number of DOS partitions     */
 
 #define PARTOFF 0x1be
 
-STATIC struct dos_partitionS
-{
-  BYTE peDrive;                 /* BIOS drive number            */
-  BYTE peBootable;
-  BYTE peBeginHead;
-  BYTE peBeginSector;
-  UWORD peBeginCylinder;
-  BYTE peFileSystem;
-  BYTE peEndHead;
-  BYTE peEndSector;
-  UWORD peEndCylinder;
-  LONG peStartSector;
-  LONG peSectors;
-  LONG peAbsStart;              /* Absolute sector start        */
-}
-dos_partition[NDEV - 2];
 
 #ifdef PROTO
 WORD _dsk_init(rqptr),
@@ -376,12 +365,12 @@ ULONG StartSector(WORD ptDrive,     unsigned  BeginCylinder,
                                         
         if (startPos != oldStartPos)
           {
-          printf("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
+          PartCodePrintf(("PART TABLE mismatch for drive %x, CHS=%d %d %d, startsec %d, offset %ld\n",
                         ptDrive, BeginCylinder, BeginHead,BeginSector,   
-                        peStartSector, ptAccuOff);
+                        peStartSector, ptAccuOff));
                         
-          printf(" old startpos = %ld, new startpos = %ld, using new\n", 
-                oldStartPos, startPos);
+          PartCodePrintf((" old startpos = %ld, new startpos = %ld, using new\n", 
+                oldStartPos, startPos));
           }                                      
         
         return startPos;
@@ -516,7 +505,7 @@ restart:                    /* yes, it's a GOTO >:-) */
     for ( retry = N_RETRY; --retry >= 0; )
     {
     ret = fl_read((WORD) ptDrive, (WORD) ptHead, (WORD) ptCylinder,
-                  (WORD) ptSector, (WORD) 1, (byteptr) & buffer);
+                  (WORD) ptSector, (WORD) 1, (byteptr) & DiskTransferBuffer);
     if (ret == 0)
         break;                  
     }
@@ -525,7 +514,7 @@ restart:                    /* yes, it's a GOTO >:-) */
 
   /* Read each partition into temporary array     */
   
-    p = (BYTE *) & buffer.bytes[PARTOFF];
+    p = (BYTE *) & DiskTransferBuffer.bytes[PARTOFF];
   
     for (ptemp_part = &temp_part[0];
        ptemp_part < &temp_part[N_PART]; ptemp_part++)
@@ -585,12 +574,10 @@ restart:                    /* yes, it's a GOTO >:-) */
             	  ptemp_part->peFileSystem == FAT16SMALL ||
         	      ptemp_part->peFileSystem == FAT16LARGE  )
             {
-                  struct dos_partitionS *pdos_partition; 
                   
                   struct media_info *pmiarray = getPMiarray(nUnits);
         
                   pmiarray->mi_drive   = ptDrive;
-                  pmiarray->mi_partidx = nPartitions;
                   	
                   pmiarray->mi_offset  = StartSector(ptDrive, 
                                                 ptemp_part->peBeginCylinder, 
@@ -598,35 +585,14 @@ restart:                    /* yes, it's a GOTO >:-) */
                                                 ptemp_part->peBeginSector,   
                                                 ptemp_part->peStartSector,
                                                 ptAccuOff);
+                                                
+                  pmiarray->mi_BeginCylinder = ptemp_part->peBeginCylinder;
+                  pmiarray->mi_BeginHead     = ptemp_part->peBeginHead;
+                  pmiarray->mi_BeginSector   = ptemp_part->peBeginSector;
+                                                
                   
                   nUnits++;
             
-            	  pdos_partition = &dos_partition[nPartitions];
-            
-                  pdos_partition->peDrive = ptDrive;
-                  pdos_partition->peBootable    = ptemp_part->peBootable;
-                  pdos_partition->peBeginHead   = ptemp_part->peBeginHead;
-                  pdos_partition->peBeginSector = ptemp_part->peBeginSector;
-                  pdos_partition->peBeginCylinder=ptemp_part->peBeginCylinder;
-                  pdos_partition->peFileSystem   =ptemp_part->peFileSystem;
-                  pdos_partition->peEndHead      =ptemp_part->peEndHead;
-                  pdos_partition->peEndSector    =ptemp_part->peEndSector;
-                  pdos_partition->peEndCylinder  =ptemp_part->peEndCylinder;
-                  pdos_partition->peStartSector  =ptemp_part->peStartSector;
-                  pdos_partition->peSectors      =ptemp_part->peSectors;
-                  pdos_partition->peAbsStart     =ptemp_part->peStartSector + ptAccuOff;
-            
-                  PartCodePrintf(("DOS PARTITION drive %x CHS %x-%x-%x  %x-%x-%x  %lx %lx %lx FS %x\n",
-                      pdos_partition->peDrive,
-                      pdos_partition->peBeginCylinder,pdos_partition->peBeginHead   ,pdos_partition->peBeginSector  ,
-                      pdos_partition->peEndCylinder  ,pdos_partition->peEndHead      ,pdos_partition->peEndSector   , 
-                      pdos_partition->peStartSector , 
-                      pdos_partition->peSectors     , 
-                      pdos_partition->peAbsStart    ,
-                       pdos_partition->peFileSystem
-                      )); 
-                  
-                  nPartitions++;
                   
                   PartitionDone |= partMask;
                   
@@ -695,8 +661,6 @@ WORD _dsk_init(rqptr rp)
 
   /* Initial number of disk units                                 */
   nUnits = 2;
-  /* Initial number of DOS partitions                             */
-  nPartitions = 0;
 
   /* Setup media info and BPBs arrays                             */
   for (Unit = 0; Unit < NDEV; Unit++)
@@ -709,8 +673,13 @@ WORD _dsk_init(rqptr rp)
     pmiarray->mi_sectors = 9;
     pmiarray->mi_offset = 0l;
     pmiarray->mi_drive = Unit;
+    
+    pmiarray->mi_BeginCylinder = 0;     /* initialize for floppies */
+    pmiarray->mi_BeginHead     = 0;
+    pmiarray->mi_BeginSector   = 1;
+    
 
-    fsarray[Unit].fs_serialno = 0x12345678l;
+    pmiarray->fs.serialno = 0x12345678l;
 
 	pbpbarray = getPBpbarray(Unit);    
 
@@ -802,35 +771,17 @@ static WORD mediachk(rqptr rp)
 STATIC WORD RWzero(rqptr rp, WORD t)
 {
   REG retry = N_RETRY;
-  WORD head,track,sector,ret;
-  
-
-  if (hd(miarray[rp->r_unit].mi_drive))
-  {
-    COUNT partidx = miarray[rp->r_unit].mi_partidx;
-    head = dos_partition[partidx].peBeginHead;
-    track = dos_partition[partidx].peBeginCylinder;
-    sector = dos_partition[partidx].peBeginSector;
-  }
-  else
-  {
-    head = 0;
-    sector = 1;
-    track = 0;
-  }
+  WORD ret;
+  struct media_info *pmiarray = getPMiarray(rp->r_unit);
 
   do
   {
-    if (!t)   /* 0 == Read */
-        {
-    ret = fl_read((WORD) miarray[rp->r_unit].mi_drive,
-                  (WORD) head, (WORD) track, (WORD) sector, (WORD) 1, (byteptr) & buffer);
-        }
-    else
-        {
-    ret = fl_write((WORD) miarray[rp->r_unit].mi_drive,
-                  (WORD) head, (WORD) track, (WORD) sector, (WORD) 1, (byteptr) & buffer);
-        }
+    ret = (t == 0 ? fl_read : fl_write)(
+                  (WORD) pmiarray->mi_drive,
+                  (WORD) pmiarray->mi_BeginHead,
+                  (WORD) pmiarray->mi_BeginCylinder,
+                  (WORD) pmiarray->mi_BeginSector, 
+                  (WORD) 1, (byteptr) & DiskTransferBuffer);
   }
   while (ret != 0 && --retry > 0);
   return ret;
@@ -885,10 +836,7 @@ static WORD blk_Media(rqptr rp)
 
 STATIC WORD bldbpb(rqptr rp)
 {
-  ULONG count/*, i*/;
-/*  byteptr trans;*/
-/*  WORD local_word;*/
-/*TE*/  
+  ULONG count;
   bpb *pbpbarray;
   struct media_info *pmiarray;
   WORD head,/*track,*/sector,ret;
@@ -901,31 +849,29 @@ STATIC WORD bldbpb(rqptr rp)
 /*TE ~ 200 bytes*/    
   pbpbarray = getPBpbarray(rp->r_unit);
 
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NBYTE]), &pbpbarray->bpb_nbyte);
-  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSECTOR]), &pbpbarray->bpb_nsector);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NRESERVED]), &pbpbarray->bpb_nreserved);
-  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NFAT]), &pbpbarray->bpb_nfat);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NDIRENT]), &pbpbarray->bpb_ndirent);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
-  getbyte(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_MDESC]), &pbpbarray->bpb_mdesc);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NFSECT]), &pbpbarray->bpb_nfsect);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NSECS]), &pbpbarray->bpb_nsecs);
-  getword(&((((BYTE *) & buffer.bytes[BT_BPB]))[BPB_NHEADS]), &pbpbarray->bpb_nheads);
-  getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HIDDEN])), &pbpbarray->bpb_hidden);
-  getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &pbpbarray->bpb_huge);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NBYTE]), &pbpbarray->bpb_nbyte);
+  getbyte(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NSECTOR]), &pbpbarray->bpb_nsector);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NRESERVED]), &pbpbarray->bpb_nreserved);
+  getbyte(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NFAT]), &pbpbarray->bpb_nfat);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NDIRENT]), &pbpbarray->bpb_ndirent);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NSIZE]), &pbpbarray->bpb_nsize);
+  getbyte(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_MDESC]), &pbpbarray->bpb_mdesc);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NFSECT]), &pbpbarray->bpb_nfsect);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NSECS]), &pbpbarray->bpb_nsecs);
+  getword(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB]))[BPB_NHEADS]), &pbpbarray->bpb_nheads);
+  getlong(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB])[BPB_HIDDEN])), &pbpbarray->bpb_hidden);
+  getlong(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB])[BPB_HUGE])), &pbpbarray->bpb_huge);
+
+
+  pmiarray = getPMiarray(rp->r_unit);
 
 /* Needs fat32 offset code */
 
-  getlong(&((((BYTE *) & buffer.bytes[0x27])[0])), &fsarray[rp->r_unit].fs_serialno);
-/*TE  
-  for(i = 0; i < 11 ;i++ )
-    fsarray[rp->r_unit].fs_volume[i] = buffer.bytes[0x2B + i];
-  for(i = 0; i < 8; i++ )
-    fsarray[rp->r_unit].fs_fstype[i] = buffer.bytes[0x36 + i];
-*/    
-  memcpy(fsarray[rp->r_unit].fs_volume,&buffer.bytes[0x2B], 11);
-  memcpy(fsarray[rp->r_unit].fs_fstype,&buffer.bytes[0x36], 8);
+  getlong(&((((BYTE *) & DiskTransferBuffer.bytes[0x27])[0])), &pmiarray->fs.serialno);
+
+  memcpy(pmiarray->fs.volume,&DiskTransferBuffer.bytes[0x2B], 11);
+  memcpy(pmiarray->fs.fstype,&DiskTransferBuffer.bytes[0x36], 8);
 
 
 
@@ -941,17 +887,16 @@ STATIC WORD bldbpb(rqptr rp)
 #endif
   rp->r_bpptr = pbpbarray;
 
-  pmiarray = getPMiarray(rp->r_unit);
   
   count = pmiarray->mi_size =
       pbpbarray->bpb_nsize == 0 ?
       pbpbarray->bpb_huge :
       pbpbarray->bpb_nsize;
-  getword((&(((BYTE *) & buffer.bytes[BT_BPB])[BPB_NHEADS])), &pmiarray->mi_heads);
+  getword((&(((BYTE *) & DiskTransferBuffer.bytes[BT_BPB])[BPB_NHEADS])), &pmiarray->mi_heads);
   head = pmiarray->mi_heads;
-  getword((&(((BYTE *) & buffer.bytes[BT_BPB])[BPB_NSECS])), &pmiarray->mi_sectors);
+  getword((&(((BYTE *) & DiskTransferBuffer.bytes[BT_BPB])[BPB_NSECS])), &pmiarray->mi_sectors);
   if (pmiarray->mi_size == 0)
-    getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &pmiarray->mi_size);
+    getlong(&((((BYTE *) & DiskTransferBuffer.bytes[BT_BPB])[BPB_HUGE])), &pmiarray->mi_size);
   sector = pmiarray->mi_sectors;
 
   if (head == 0 || sector == 0)
@@ -1001,17 +946,19 @@ static WORD IoctlQueblk(rqptr rp)
 static WORD Genblkdev(rqptr rp)
 {
     int ret;
+    struct media_info *pmiarray = getPMiarray(rp->r_unit);
+    
     switch(rp->r_count){
         case 0x0860:            /* get device parameters */
         {
         struct gblkio FAR * gblp = (struct gblkio FAR *) rp->r_trans;
         REG COUNT x = 5,y = 1,z = 0;
 
-        if (!hd(miarray[rp->r_unit].mi_drive)){
+        if (!hd(pmiarray->mi_drive)){
             y = 2;
-	    x = 8;      /* any odd ball drives return this */
-            if (miarray[rp->r_unit].mi_size <= 0xffff)
-              switch((UWORD)miarray[rp->r_unit].mi_size)
+	        x = 8;      /* any odd ball drives return this */
+            if (pmiarray->mi_size <= 0xffff)
+              switch((UWORD)pmiarray->mi_size)
               {
                 case 640:
                 case 720:      /* 320-360 */
@@ -1035,7 +982,7 @@ static WORD Genblkdev(rqptr rp)
         gblp->gbio_devtype = (UBYTE) x;
         gblp->gbio_devattrib = (UWORD) y;
         gblp->gbio_media = (UBYTE) z;
-        gblp->gbio_ncyl = miarray[rp->r_unit].mi_cyls;
+        gblp->gbio_ncyl = pmiarray->mi_cyls;
         fmemcpy(&gblp->gbio_bpb, &bpbarray[rp->r_unit], sizeof(gblp->gbio_bpb));
         gblp->gbio_nsecs = bpbarray[rp->r_unit].bpb_nsector;
         break;
@@ -1043,24 +990,24 @@ static WORD Genblkdev(rqptr rp)
         case 0x0866:        /* get volume serial number */
         {
         struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
-        struct FS_info FAR * fs = &fsarray[rp->r_unit];
+        struct FS_info FAR * fs = &pmiarray->fs;
 
-            gioc->ioc_serialno = fs->fs_serialno;
-            fmemcpy(gioc->ioc_volume,fs->fs_volume,11);
-            fmemcpy(gioc->ioc_fstype, fs->fs_fstype,8);
+            gioc->ioc_serialno = fs->serialno;
+            fmemcpy(gioc->ioc_volume,fs->volume,11);
+            fmemcpy(gioc->ioc_fstype, fs->fstype,8);
         }
         break;
         case 0x0846:        /* set volume serial number */
         {
         struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
-        struct FS_info FAR * fs = (struct FS_info FAR *) &buffer.bytes[0x27];
+        struct FS_info FAR * fs = (struct FS_info FAR *) &DiskTransferBuffer.bytes[0x27];
 
             ret = RWzero( rp, 0);
             if (ret != 0)
                 return (dskerr(ret));
 
-            fs->fs_serialno =  gioc->ioc_serialno;
-            fsarray[rp->r_unit].fs_serialno = fs->fs_serialno;
+            fs->serialno =  gioc->ioc_serialno;
+            pmiarray->fs.serialno = fs->serialno;
 
             ret = RWzero( rp, 1);
             if (ret != 0)
@@ -1092,6 +1039,9 @@ WORD blockio(rqptr rp)
   WORD head,track,sector,ret,count;
   
   COUNT(*action) (WORD, WORD, WORD, WORD, WORD, BYTE FAR *);
+  
+  struct media_info *pmiarray = getPMiarray(rp->r_unit);
+  
 
   cmd = rp->r_command;
   total = 0;
@@ -1099,7 +1049,7 @@ WORD blockio(rqptr rp)
   tmark();
   remaining = rp->r_count;
   start = (rp->r_start != HUGECOUNT ? rp->r_start : rp->r_huge)
-        + miarray[rp->r_unit].mi_offset;
+        + pmiarray->mi_offset;
   while(remaining > 0)
   {
     count = ltop(&track, &sector, &head, rp->r_unit, remaining, start, trans);
@@ -1127,7 +1077,7 @@ WORD blockio(rqptr rp)
       
       if (count && FP_SEG(trans) != 0xffff)
         {    
-        ret = action((WORD) miarray[rp->r_unit].mi_drive, head, track, sector,
+        ret = action((WORD) pmiarray->mi_drive, head, track, sector,
                      count, trans);
         }                     
       else
@@ -1137,14 +1087,14 @@ WORD blockio(rqptr rp)
         /* use scratchpad also, if going to HIGH memory */
 
         if (cmd != C_INPUT)
-          fbcopy(trans, dma_scratch_buffer, SEC_SIZE);
-        ret = action((WORD) miarray[rp->r_unit].mi_drive, head, track, sector,
-                     1, dma_scratch_buffer);
+          fbcopy(trans, &DiskTransferBuffer, SEC_SIZE);
+        ret = action((WORD) pmiarray->mi_drive, head, track, sector,
+                     1, (byteptr)&DiskTransferBuffer);
         if (cmd == C_INPUT)
-          fbcopy(dma_scratch_buffer, trans, SEC_SIZE);
+          fbcopy(&DiskTransferBuffer, trans, SEC_SIZE);
       }
       if (ret != 0)
-        fl_reset((WORD) miarray[rp->r_unit].mi_drive);
+        fl_reset((WORD) pmiarray->mi_drive);
     }
     while (ret != 0 && --retry > 0);
     if (ret != 0)

@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.11  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -125,16 +128,14 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
 /*
 
  */
-COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
+COUNT Remote_find(UWORD func, UCOUNT attr, BYTE FAR * name)
 {
   COUNT i;
   char FAR *p;
-  VOID FAR * test;
-  struct dirent FAR *SDp = (struct dirent FAR *) &SearchDir;
 
   if (func == REM_FINDFIRST)
   {
-    test = (VOID FAR *) current_ldt;
+    SAttr = attr;
     i = truename(name, PriPathName, FALSE);
     if (i != SUCCESS) {
 	    return i;
@@ -147,25 +148,23 @@ COUNT Remote_find(UWORD func, BYTE FAR * name, REG dmatch FAR * dmp )
     printf("'\n");
 #endif
   }
-  else
-    test = (VOID FAR *) &TempBuffer;
 
-  fmemcpy((BYTE FAR *) &TempBuffer, dta, 21);
+  fmemcpy(TempBuffer, dta, 21);
   p = dta;
-  dta = (BYTE FAR *) &TempBuffer;
-  i = int2f_Remote_call(func, 0, 0, 0, test, 0, 0);
+  dta = (BYTE FAR *)TempBuffer;
+  i = int2f_Remote_call(func, 0, 0, 0, (VOID FAR *)current_ldt, 0, 0);
   dta = p;
-  fmemcpy(dta, (BYTE FAR *) &TempBuffer, 21);
+  fmemcpy(dta, TempBuffer, 21);
 
   if (i != 0)
     return i;
 
-  dmp->dm_attr_fnd = (BYTE) SDp->dir_attrib;
-  dmp->dm_time = SDp->dir_time;
-  dmp->dm_date = SDp->dir_date;
-  dmp->dm_size = (LONG) SDp->dir_size;
+  ((dmatch FAR *)dta)->dm_attr_fnd = (BYTE) SearchDir.dir_attrib;
+  ((dmatch FAR *)dta)->dm_time = SearchDir.dir_time;
+  ((dmatch FAR *)dta)->dm_date = SearchDir.dir_date;
+  ((dmatch FAR *)dta)->dm_size = (LONG) SearchDir.dir_size;
 
-  ConvertName83ToNameSZ((BYTE FAR *) dmp->dm_name, (BYTE FAR *) SDp->dir_name);
+  ConvertName83ToNameSZ(((dmatch FAR *)dta)->dm_name, (BYTE *)SearchDir.dir_name);
   return i;
 }
 

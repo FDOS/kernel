@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.17  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.16  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -510,72 +513,49 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     else
     {
       REG WORD /*c,*/
-        cnt = n,
-        spaces_left = 0,
-        next_pos,
-        xfer = 0;
-      static BYTE space = ' ';
+      cnt = n,
+      xfer = 0;
 
-    start:
-      if (cnt-- == 0)
-        goto end;
-      if (*bp == CTL_Z)
-        goto end;
-      if (s->sft_flags & SFT_FCONOUT)
-      {
-        switch (*bp)
+      while(cnt-- != 0 && *bp != CTL_Z){
+        if (s->sft_flags & SFT_FCONOUT)
         {
-          case CR:
-            next_pos = 0;
-            break;
-          case LF:
-          case BELL:
-            next_pos = scr_pos;
-            break;
-          case BS:
-            next_pos = scr_pos ? scr_pos - 1 : 0;
-            break;
-          case HT:
-            spaces_left = 8 - (scr_pos & 7);
-            next_pos = scr_pos + spaces_left;
-            goto output_space;
-          default:
-            next_pos = scr_pos + 1;
+          switch (*bp)
+          {
+            case CR:
+              scr_pos = 0;
+              break;
+            case LF:
+            case BELL:
+              break;
+            case BS:
+              scr_pos = scr_pos ? scr_pos - 1 : 0;
+              break;
+            case HT:
+              do cso(' '); while ((++scr_pos) & 7);
+            default:
+              scr_pos++;
+          }
+          if (*bp != HT) cso(*bp);
+        }
+        else
+        {
+          rq.r_length = sizeof(request);
+          rq.r_command = C_OUTPUT;
+          rq.r_count = 1;
+          rq.r_trans = bp;
+          rq.r_status = 0;
+          execrh((request FAR *) & rq, s->sft_dev);
+          if (rq.r_status & S_ERROR)
+              char_error(&rq, s->sft_dev);
+        }
+        ++bp;
+        ++xfer;
+        if (break_ena && control_break())
+        {
+          handle_break();
+          break;
         }
       }
-      rq.r_length = sizeof(request);
-      rq.r_command = C_OUTPUT;
-      rq.r_count = 1;
-      rq.r_trans = bp;
-      rq.r_status = 0;
-      execrh((request FAR *) & rq, s->sft_dev);
-      if (rq.r_status & S_ERROR)
-        char_error(&rq, s->sft_dev);
-      goto post;
-    output_space:
-      rq.r_length = sizeof(request);
-      rq.r_command = C_OUTPUT;
-      rq.r_count = 1;
-      rq.r_trans = &space;
-      rq.r_status = 0;
-      execrh((request FAR *) & rq, s->sft_dev);
-      if (rq.r_status & S_ERROR)
-        char_error(&rq, s->sft_dev);
-      --spaces_left;
-    post:
-      if (spaces_left)
-        goto output_space;
-      ++bp;
-      ++xfer;
-      if (s->sft_flags & SFT_FCONOUT)
-        scr_pos = next_pos;
-      if (break_ena && control_break())
-      {
-        handle_break();
-        goto end;
-      }
-      goto start;
-    end:
       *err = SUCCESS;
       return xfer;
     }
@@ -724,17 +704,17 @@ sft FAR *get_free_sft(WORD FAR * sft_idx)
   /* Get the SFT block that contains the SFT      */
   for (sp = sfthead; sp != (sfttbl FAR *) - 1; sp = sp->sftt_next)
   {
-    REG WORD i;
+    REG COUNT i = sp->sftt_count;
+    sft FAR *sfti = sp->sftt_table;
 
-    for (i = 0; i < sp->sftt_count; i++)
+    for(sys_idx += i; i >= 1 ; sfti++, i--)
     {
-      if (sp->sftt_table[i].sft_count == 0)
+      if (sfti->sft_count == 0)
       {
-        *sft_idx = sys_idx + i;
-        return (sft FAR *) & sp->sftt_table[sys_idx + i];
+        *sft_idx = sys_idx - i;
+        return sfti;
       }
     }
-    sys_idx += i;
   }
   /* If not found, return an error                */
   return (sft FAR *) - 1;
@@ -1251,12 +1231,75 @@ COUNT DosChangeDir(BYTE FAR * s)
 
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 {
+  COUNT nDrive;
+  REG dmatch FAR *dmp = (dmatch FAR *) dta;
+
+      /* /// Added code here to do matching against device names.
+           DOS findfirst will match exact device names if the
+           filename portion (excluding the extension) contains
+           a valid device name.
+           Credits: some of this code was ripped off from truename()
+           in newstuff.c.
+           - Ron Cemer */
+  fmemset(dmp, 0, sizeof(dmatch));
+
+  nDrive=get_verify_drive(name);
+  if (nDrive < 0)
+      return nDrive;
+
+  current_ldt = &CDSp->cds_table[nDrive];
+  if (current_ldt->cdsFlags & CDSNETWDRV)
+  {
+    COUNT rc = -Remote_find(REM_FINDFIRST, attr, name);
+    if (dmp->dm_drive & 0x80)
+      return rc;
+    fmemset(dmp, 0, sizeof(dmatch));
+    /* still have to resolve locally if dm_drive not set to remote */
+  }
+  if (IsDevice(name))
+  {
+    /* Found a matching device. Hence there cannot be wildcards. */
+    dmp->dm_attr_fnd = D_DEVICE;
+    dmp->dm_time = dos_gettime();
+    dmp->dm_date = dos_getdate();
+    fstrncpy(dmp->dm_name, get_root(name), FNAME_SIZE+FEXT_SIZE+1);
+    return SUCCESS;
+  }
+  /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
   return dos_findfirst(attr, name);
 }
 
 COUNT DosFindNext(void)
 {
-  return dos_findnext();
+
+  /* /// findnext will always fail on a device name.  - Ron Cemer */
+  if (((dmatch FAR *)dta)->dm_attr_fnd == D_DEVICE)
+      return DE_NFILES;
+
+/*
+ *  The new version of SHSUCDX 1.0 looks at the dm_drive byte to
+ *  test 40h. I used RamView to see location MSD 116:04be and
+ *  FD f??:04be, the byte set with 0xc4 = Remote/Network drive 4.
+ *  Ralf Brown docs for dos 4eh say bit 7 set == remote so what is
+ *  bit 6 for? 
+ *  SHSUCDX Mod info say "test redir not network bit".
+ *  Just to confuse the rest, MSCDEX sets bit 5 too.
+ *
+ *  So, assume bit 6 is redirector and bit 7 is network.
+ *  jt
+ *  Bart: dm_drive can be the drive _letter_.
+ *  but better just stay independent of it: we only use
+ *  bit 7 to detect a network drive; the rest untouched.
+ *  RBIL says that findnext can only return one error type anyway
+ *  (12h, DE_NFILES)
+ */
+#if 0
+  printf("findnext: %d\n", 
+	  ((dmatch FAR *)dta)->dm_drive);
+#endif
+  return (((dmatch FAR *)dta)->dm_drive & 0x80) ?
+      -Remote_find(REM_FINDNEXT, 0, NULL) :
+      dos_findnext();
 }
 
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.14  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -549,7 +552,7 @@ COUNT dir_write(REG struct f_node FAR * fnp)
 #endif
     }
 
-    /* Now that we have a block, transfer the diectory      */
+    /* Now that we have a block, transfer the directory      */
     /* entry into the block.                                */
     if (bp == NULL)
     {
@@ -660,54 +663,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
          FNAME_SIZE + FEXT_SIZE);
 
-
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    dmp->dm_drive |= 0x80;
-    return -Remote_find(REM_FINDFIRST, name, dmp);
-  }
-
-    /* /// Added code here to do matching against device names.
-           DOS findfirst will match exact device names if the
-           filename portion (excluding the extension) contains
-           a valid device name.
-           Credits: some of this code was ripped off from truename()
-           in newstuff.c.
-           - Ron Cemer */
-  if (!(attr & D_VOLID)) {
-    char Name[FNAME_SIZE];
-    int d, wild = 0;
-    for (d = 0; d < FNAME_SIZE; d++) {
-        if ((Name[d] = SearchDir.dir_name[d]) == '?') {
-            wild = 1;
-            break;
-        }
-    }
-    if (!wild) {
-        if (IsDevice(Name)) {
-                                /* Found a matching device. */
-            dmp->dm_entry = 0;
-            dmp->dm_cluster = 0;
-            dmp->dm_flags.f_dmod = 0;
-            dmp->dm_flags.f_droot = 0;
-            dmp->dm_flags.f_dnew = 0;
-            dmp->dm_flags.f_ddir = 0;
-            dmp->dm_flags.f_dfull = 0;
-            dmp->dm_dirstart = 0;
-            dmp->dm_attr_fnd = D_DEVICE;
-            dmp->dm_time = dos_gettime();
-            dmp->dm_date = dos_getdate();
-            dmp->dm_size = 0L;
-            for (d = 0; ( (d < FNAME_SIZE) && (Name[d] != ' ') ); d++)
-                dmp->dm_name[d] = Name[d];
-            dmp->dm_name[d] = '\0';
-            return SUCCESS;
-            }
-        }
-  }
-    /* /// End of additions.  - Ron Cemer */
-
-
   /* Now search through the directory to find the entry...        */
 
   /* Complete building the directory from the passed in   */
@@ -776,38 +731,6 @@ COUNT dos_findnext(void)
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
   REG struct f_node FAR *fnp;
   BOOL found = FALSE;
-
-  /* assign our match parameters pointer.                         */
-  dmp = (dmatch FAR *) dta;
-
-    /* /// findnext will always fail on a device name.  - Ron Cemer */
-  if (dmp->dm_attr_fnd == D_DEVICE) return DE_FILENOTFND;
-
-/*
- *  The new version of SHSUCDX 1.0 looks at the dm_drive byte to
- *  test 40h. I used RamView to see location MSD 116:04be and
- *  FD f??:04be, the byte set with 0xc4 = Remote/Network drive 4.
- *  Ralf Brown docs for dos 4eh say bit 7 set == remote so what is
- *  bit 6 for? 
- *  SHSUCDX Mod info say "test redir not network bit".
- *  Just to confuse the rest, MSCDEX sets bit 5 too.
- *
- *  So, assume bit 6 is redirector and bit 7 is network.
- *  jt
- *  Bart: dm_drive can be the drive _letter_.
- *  but better just stay independent of it: we only use
- *  bit 7 to detect a network drive; the rest untouched.
- *  RBIL says that findnext can only return one error type anyway
- *  (12h, DE_NFILES)
- */
-
-#if 0
-  printf("findnext: %d\n", 
-	  dmp->dm_drive);
-#endif
-
-  if (dmp->dm_drive & 0x80)
-    return -Remote_find(REM_FINDNEXT, 0, dmp);
 
   /* Allocate an fnode if possible - error return (0) if not.     */
   if ((fnp = get_f_node()) == (struct f_node FAR *)0)

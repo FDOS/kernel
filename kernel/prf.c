@@ -48,6 +48,9 @@ static BYTE *prfRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.9  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -67,6 +70,9 @@ static BYTE *prfRcsId = "$Id$";
  * recoded for smaller object footprint, added main() for testing+QA
  *
  * $Log$
+ * Revision 1.10  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.9  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -152,6 +158,17 @@ VOID cso();
 void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
 #endif
 
+#ifdef FORSYS
+COUNT fstrlen (BYTE FAR * s)        /* don't want globals.h, sorry */
+{
+    int i = 0;
+
+    while (*s++)
+       i++;
+
+    return i;
+}
+#endif
 
 /* special console output routine */
 VOID
@@ -159,10 +176,14 @@ put_console(COUNT c)
 {
   if (c == '\n')
     put_console('\r');
-    
+
+#ifdef FORSYS
+  write(1,&c,1);      /* write character to stdout */
+#else  
   _AX = 0x0e00 | c;
   _BX = 0x0070;
   __int__(0x10);
+#endif  
 }
 
 /* special handler to switch between sprintf and printf */
@@ -336,6 +357,7 @@ COUNT
             p = *((BYTE FAR **) arg)++;
             goto do_outputstring;
 
+      case 'i':
       case 'd':
             base = -10;
             goto lprt;
@@ -348,6 +370,7 @@ COUNT
             base = 10;
             goto lprt;
 
+      case 'X':
       case 'x':
             base = 16;
 

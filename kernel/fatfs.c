@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.16  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -341,6 +344,14 @@ COUNT dos_close(COUNT fd)
 
   if (fnp->f_mode != RDONLY)
   {
+    /*TE experimental */
+    if (fnp->f_flags.f_dmod)
+        {
+        fnp->f_dir.dir_attrib |= D_ARCHIVE;
+        fnp->f_dir.dir_time = dos_gettime();
+        fnp->f_dir.dir_date = dos_getdate();
+        }
+    
     fnp->f_dir.dir_size = fnp->f_highwater;
     fnp->f_flags.f_dmod = TRUE;
     merge_file_changes(fnp, FALSE);    /* /// Added - Ron Cemer */
@@ -1887,6 +1898,9 @@ UCOUNT writeblock(COUNT fd, VOID FAR * buffer, UCOUNT count, COUNT * err)
 */
     fbcopy(buffer, (BYTE FAR *) & bp->b_buffer[fnp->f_boff], xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
+
+    fnp->f_flags.f_dmod = TRUE;  /* mark file as modified */
+
 
     /* update pointers and counters                         */
     ret_cnt += xfr_cnt;

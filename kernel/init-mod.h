@@ -69,7 +69,7 @@ extern fmemcmp(BYTE far *s1, BYTE FAR *s2, unsigned len);
 #define NFILES          16      /* number of files in table     */
 #define NFCBS           16      /* number of fcbs               */
 #define NSTACKS         8       /* number of stacks             */
-#define NLAST           6       /* last drive                   */
+#define NLAST           5       /* last drive                   */
 #define NUMBUFF         6       /* Number of track buffers      */
                                         /* -- must be at least 3        */
 
@@ -144,7 +144,8 @@ VOID FAR *HMAalloc(COUNT bytesToAllocate);
 UWORD init_oem(void);
 
 /* intr.asm */
-/* void init_call_intr(int nr, iregs *rp); */
+
+void init_call_intr(int nr, iregs *rp);
 UCOUNT read(int fd, void *buf, UCOUNT count); 
 int open(const char *pathname, int flags);
 int close(int fd);

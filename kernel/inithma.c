@@ -80,6 +80,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.5  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -494,6 +497,7 @@ void InstallVDISK(VOID)
 
     setvec(0x19, MK_FP(0xffff,0x0010));   /* let INT 19 point to VDISK */ 
         
+    *(WORD FAR *)MK_FP(0xffff,0x002e) = 1024+64;
     }
 
 

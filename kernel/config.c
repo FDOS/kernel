@@ -80,6 +80,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.22  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.21  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -235,7 +238,7 @@ struct config Config
      NFCBS,
      0,
      "command.com",
-     " /P\r\n",
+     " /P /E:256\r\n",
      NLAST,
      NSTACKS,
        128
@@ -258,7 +261,8 @@ static COUNT nPass;
 static BYTE szLine[256];
 static BYTE szBuf[256];
 
-int singleStep;
+int singleStep    = FALSE;
+int SkipAllConfig = FALSE;
 
 INIT VOID  zumcb_init(mcb FAR * mcbp, UWORD size);
 INIT VOID  mumcb_init(mcb FAR * mcbp, UWORD size);
@@ -407,9 +411,11 @@ INIT void PreConfig(void)
   /* FCBp = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
                   + Config.cfgFiles * sizeof(sft));*/
-  sfthead = (sfttbl FAR *)
+  sfthead->sftt_next = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
-                  + Config.cfgFiles * sizeof(sft));
+                  + (Config.cfgFiles-5) * sizeof(sft));
+  sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
+  sfthead->sftt_next->sftt_count = Config.cfgFiles-5;
 
   CDSp = (cdstbl FAR *)
       KernelAlloc(0x58 * lastdrive);
@@ -420,7 +426,7 @@ INIT void PreConfig(void)
 #ifdef DEBUG
   printf("Preliminary f_node allocated at at 0x%p\n",f_nodes);
   printf("Preliminary FCB table allocated at 0x%p\n",FCBp);
-  printf("Preliminary sft table allocated at 0x%p\n",sfthead);
+  printf("Preliminary sft table allocated at 0x%p\n",sfthead->sftt_next);
   printf("Preliminary CDS table allocated at 0x%p\n",CDSp);
   printf("Preliminary DPB table allocated at 0x%p\n",DPBp);
 #endif
@@ -493,9 +499,11 @@ INIT void PostConfig(void)
   /* FCBp = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
                   + Config.cfgFiles * sizeof(sft));*/
-  sfthead = (sfttbl FAR *)
+  sfthead->sftt_next = (sfttbl FAR *)
       KernelAlloc(sizeof(sftheader)
-                  + Config.cfgFiles * sizeof(sft));
+                  + (Config.cfgFiles-5) * sizeof(sft));
+  sfthead->sftt_next->sftt_next = (sfttbl FAR *) - 1;
+  sfthead->sftt_next->sftt_count = Config.cfgFiles-5;
 
   CDSp = (cdstbl FAR *)
       KernelAlloc(0x58 * lastdrive);
@@ -507,7 +515,7 @@ INIT void PostConfig(void)
 #ifdef DEBUG
   printf("f_node    allocated at 0x%p\n",f_nodes);
   printf("FCB table allocated at 0x%p\n",FCBp);
-  printf("sft table allocated at 0x%p\n",sfthead);
+  printf("sft table allocated at 0x%p\n",sfthead->sftt_next);
   printf("CDS table allocated at 0x%p\n",CDSp);
   printf("DPB table allocated at 0x%p\n",DPBp);
 #endif
@@ -695,18 +703,18 @@ INIT VOID DoConfig(VOID)
 
         if (pEntry->pass < 0 || pEntry->pass == nPass)
         {
-          if (!singleStep || !SkipLine(pLineStart))
+          if ( !SkipLine(pLineStart))
           {
-            skipwh(pLine);
+            pLine = skipwh(pLine);
 
             if ('=' != *pLine)
               CfgFailure(pLine);
             else
-              (*(pEntry->func)) (++pLine);
+              (*(pEntry->func)) (skipwh(pLine+1));
           }
         }
       }
-    skipLine:nCfgLine++;
+    nCfgLine++;
       pLine += strlen(pLine) + 1;
     }
   }
@@ -725,20 +733,124 @@ INIT struct table *LookUp(struct table *p, BYTE * token)
   return p;
 }
 
+/*
+    get BIOS key with timeout:
+    
+    timeout < 0: no timeout
+    timeout = 0: poll only once
+    timeout > 0: timeout in seconds
+    
+    return
+            0xffff : no key hit
+            
+            0xHH.. : scancode in upper  half
+            0x..LL : asciicode in lower half
+*/
+
+ULONG GetBiosTime(VOID)
+{
+   return *(ULONG FAR *)(MK_FP(0x40,0x6c));
+}    
+GetBiosKey(int timeout)
+{
+    iregs r;
+    
+    ULONG startTime = GetBiosTime();        
+
+    for (;;)
+    {
+        r.a.x = 0x0100;                 /* are there keys available ? */
+        init_call_intr(0x16,&r);
+
+        if ((r.flags & 0x40) == 0)      /* yes - fetch and return     */
+        {
+            r.a.x = 0x0000;
+            init_call_intr(0x16,&r);
+            
+            return r.a.x;
+        }            
+
+    if (timeout < 0)
+        continue;
+ 
+    if (GetBiosTime() - startTime >= timeout*18)
+            break;
+    }
+    return 0xffff;
+}    
+
 INIT BOOL SkipLine(char *pLine)
 {
-  char kbdbuf[16];
-  char *pKbd = kbdbuf;
-
-  printf("%s [Y,N]?", pLine);
-  read(STDIN, kbdbuf, 12);
-
-  pKbd = skipwh(pKbd);
-
-  if (*pKbd == 'n' || *pKbd == 'N')
+  short key;
+  
+  static char initialized = FALSE;
+  
+  if (!initialized)
+  {
+              
+        initialized = TRUE;
+        
+        printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
+        
+        key = GetBiosKey(2);      /* wait 2 seconds */
+            
+        if (key == 0x3f00)        /* F5 */
+        {
+            SkipAllConfig = TRUE;
+        }
+        if (key == 0x4200)        /* F8 */
+        {
+            singleStep = TRUE;
+        }
+        
+        printf("\r%79s\r","");      /* clear line */
+        
+        if (SkipAllConfig)
+            printf("Skipping CONFIG.SYS/AUTOEXEC.BAT\n");
+  }
+    
+  if (SkipAllConfig) 
     return TRUE;
 
-  return FALSE;
+  if (!singleStep)
+    return FALSE;
+            
+  printf("%s[Y,N]?", pLine);
+  
+  for (;;)
+  {
+    key = GetBiosKey(-1);
+    
+    switch(toupper(key & 0x00ff))
+    {
+        case 'N':
+        case 'n':
+            printf("N");
+            return TRUE;
+
+        case 0x1b:          /* don't know where documented
+                               ESCAPE answers all following questions
+                               with YES
+                            */
+            singleStep = FALSE; /* and fall through */
+
+        case '\r':    
+        case '\n':    
+        case 'Y':    
+        case 'y':    
+            printf("Y");
+            return FALSE;
+            
+    }
+    
+    if (key == 0x3f00)        /* YES, you may hit F5 here, too */
+    {
+            printf("N");
+            SkipAllConfig = TRUE;
+            return TRUE;
+    }
+  }  
+  
 }
 
 INIT BYTE *GetNumArg(BYTE * pLine, COUNT * pnArg)
@@ -1102,13 +1214,36 @@ INIT BOOL LoadDevice(BYTE * pLine, COUNT top, COUNT mode)
   if (init_DosExec(3, &eb, szBuf) == SUCCESS)
   {
         strcpy(szBuf, pLine);
-    
-        /* add \r\n to the command line */
-        strcat(szBuf, "\r\n");
 
     /* TE this fixes the loading of devices drivers with
        multiple devices in it. NUMEGA's SoftIce is such a beast
     */   
+    
+    /*  that's a nice hack >:-)   
+    
+        although we don't want HIMEM.SYS,(it's not free), other people
+        might load HIMEM.SYS to see if they are compatible to it.
+
+        if it's HIMEM.SYS, we won't survive TESTMEM:ON
+        
+        so simply add TESTMEM:OFF to the commandline
+    */
+
+    if (DosLoadedInHMA)
+        if (stristr(szBuf, "HIMEM.SYS") != NULL)
+        {
+            if (stristr(szBuf, "/TESTMEM:OFF") == NULL)
+                {
+                strcat(szBuf, " /TESTMEM:OFF");
+                }
+        }
+    /* end of HIMEM.SYS HACK */    
+
+    
+    /* add \r\n to the command line */
+    strcat(szBuf, "\r\n");
+    
+    
     for (next_dhp=NULL; FP_OFF(next_dhp) != 0xffff &&
              (result=init_device(dhp, szBuf, mode, top))==SUCCESS
             ; dhp = next_dhp)

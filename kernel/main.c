@@ -41,9 +41,6 @@
 extern UBYTE FAR nblkdev,
     FAR lastdrive;                    /* value of last drive                  */
 
-GLOBAL struct f_node FAR
-    * FAR f_nodes;                /* pointer to the array                 */
-
 GLOBAL BYTE
     FAR os_major,                     /* major version number                 */
     FAR os_minor,                     /* minor version number                 */
@@ -55,10 +52,8 @@ GLOBAL BYTE FAR os_release[];
 GLOBAL BYTE FAR copyright[];
 GLOBAL seg FAR RootPsp;               /* Root process -- do not abort         */
 
-GLOBAL struct f_node * FAR pDirFileNode;
 extern struct dpb FAR * FAR DPBp; /* First drive Parameter Block          */
 extern cdstbl FAR * FAR CDSp; /* Current Directory Structure          */
-extern sfttbl FAR * FAR sfthead;  /* System File Table head               */
 
 extern struct dhdr FAR * FAR clock,           /* CLOCK$ device                        */
                    FAR * FAR syscon;          /* console device                       */
@@ -76,6 +71,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.16  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.15  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -351,15 +349,7 @@ INIT VOID FsConfig(VOID)
 
   /* The system file tables need special handling and are "hand   */
   /* built. Included is the stdin, stdout, stdaux and stdprn. */
-  sfthead->sftt_next = (sfttbl FAR *) - 1;
-  sfthead->sftt_count = Config.cfgFiles;
-  for (i = 0; i < Config.cfgFiles; i++)
-  {
-  /* Initialize the file tables */
-    f_nodes[i].f_count = 0;
-    sfthead->sftt_table[i].sft_count = 0;
-    sfthead->sftt_table[i].sft_status = -1;
-  }
+
   /* 0 is /dev/con (stdin) */
   open("CON", O_RDWR);
 
@@ -406,6 +396,20 @@ INIT VOID FsConfig(VOID)
     pcds_table->cdsJoinOffset = 2;
   }
 
+  /*
+    this is a quick patch - see if B: exists
+    test for A: also, need not exist
+  */
+  {
+    iregs r;
+
+    init_call_intr(0x11,&r);              /* get equipment list */
+    if ((r.a.x & 1)==0 || ((r.a.x & 1) && (r.a.x & 0xc0)==0))
+      /* no floppy drives installed or no B: drive */
+      CDSp->cds_table[1].cdsFlags = 0;
+    if ((r.a.x & 1)==0) 		  /* no floppy drives installed  */
+      CDSp->cds_table[0].cdsFlags = 0;
+  }
   /* Initialize the disk buffer management functions */
   /* init_call_init_buffers(); done from CONFIG.C   */
 }
@@ -462,16 +466,62 @@ INIT void kernel()
   fmemcpy(MK_FP(exb.exec.env_seg, 0), master_env, sizeof(master_env));
 #endif  
 #endif  
+
   
   RootPsp = ~0;
 
+ 
+
   /* process 0       */
   /* Execute command.com /P from the drive we just booted from    */
-  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail)-1);
+  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail, 
+                    sizeof(Config.cfgInitTail)-1);
 
   for (Cmd.ctCount = 0; Cmd.ctCount < 127; Cmd.ctCount++)
     if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
       break;
+
+
+
+
+  /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it */  
+
+  if (Cmd.ctCount < 127 - 3)
+  {      
+      extern int singleStep   ;
+      extern int SkipAllConfig;
+      char *insertString = NULL;
+
+      if (singleStep) insertString = " /Y"; /* single step AUTOEXEC */
+      
+      if (SkipAllConfig)  insertString = " /D"; /* disable AUTOEXEC */
+      
+      if (insertString)
+      {
+        
+                                     /* insert /D, /Y as first argument */
+        int cmdEnd,i,slen = strlen(insertString);
+        
+        for (cmdEnd = 0;cmdEnd < 127; cmdEnd++)
+        {
+            if (Cmd.ctBuffer[cmdEnd] == ' ' ||
+                Cmd.ctBuffer[cmdEnd] == '\t' ||
+                Cmd.ctBuffer[cmdEnd] == '\r')
+            {
+                for (i = 127 - slen; i >= cmdEnd; i--)
+                    Cmd.ctBuffer[i+slen] = Cmd.ctBuffer[i];
+                    
+                fmemcpy(&Cmd.ctBuffer[cmdEnd], insertString,slen);
+
+                Cmd.ctCount += slen;
+
+                break;
+            }
+        }
+      }  
+  }
+
+      
 
   exb.exec.cmd_line = (CommandTail FAR *) & Cmd;
   exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0;
@@ -483,7 +533,7 @@ INIT void kernel()
   while ((rc = init_DosExec(Config.cfgP_0_startmode, &exb, Config.cfgInit)) != SUCCESS)
   {
     BYTE *pLine;
-    printf("\nBad or missing Command Interpreter: %d\n", rc);
+    printf("\nBad or missing Command Interpreter: %d - %s\n", rc, Cmd.ctBuffer);
     printf("\nPlease enter the correct location (for example C:\\COMMAND.COM):\n");
     rc = read(STDIN, Cmd.ctBuffer, sizeof(Cmd.ctBuffer)-1);
     Cmd.ctBuffer[rc]='\0';

@@ -97,7 +97,6 @@ _int3:
 
 
 segment	INIT_TEXT
-%if 0
 ;
 ;       void init_call_intr(nr, rp)
 ;       REG int nr
@@ -159,7 +158,6 @@ init_intr?1:
                 ret
 
 
-%endif
 ;
 ; int init_call_XMScall( (WORD FAR * driverAddress)(), WORD AX, WORD DX)
 ;

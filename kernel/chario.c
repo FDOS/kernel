@@ -36,6 +36,9 @@ static BYTE *charioRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.7  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -135,10 +138,15 @@ static VOID kbfill();
 struct dhdr FAR *finddev();
 #endif
 
+#ifdef __TURBOC__
+void __int__(int);              /* TC 2.01 requires this. :( -- ror4 */
+#endif
+
 /*      Return a pointer to the first driver in the chain that
  *      matches the attributes.
+ *      not necessary because we have the syscon pointer.
  */
-
+#if 0
 struct dhdr FAR *finddev(UWORD attr_mask)
 {
   struct dhdr far *dh;
@@ -152,24 +160,24 @@ struct dhdr FAR *finddev(UWORD attr_mask)
   /* return dev/null if no matching driver found */
   return &nul_dev;
 }
+#endif
 
-#if 0
 VOID cso(COUNT c)
 {
-   BYTE buf = c;
-   struct dhdr FAR *lpDevice;
-
+   if (syscon->dh_attr & ATTR_FASTCON) {
+     _AL = c;
+     __int__(0x29);
+     return;
+   }
    CharReqHdr.r_length = sizeof(request);
    CharReqHdr.r_command = C_OUTPUT;
    CharReqHdr.r_count = 1;
-   CharReqHdr.r_trans = (BYTE FAR *) (&buf);
+   CharReqHdr.r_trans = (BYTE FAR *) (&c);
    CharReqHdr.r_status = 0;
-   execrh((request FAR *) & CharReqHdr,
-   lpDevice = (struct dhdr FAR *)finddev(ATTR_CONOUT));
+   execrh((request FAR *) & CharReqHdr, syscon);
    if (CharReqHdr.r_status & S_ERROR)
-   char_error(&CharReqHdr, lpDevice);
+     char_error(&CharReqHdr, syscon);
 }
-#endif
 
 
 VOID sto(COUNT c)
@@ -183,18 +191,18 @@ VOID mod_sto(REG UCOUNT c)
 {
   if (c < ' ' && c != HT)
   {
-    sto('^');
-    sto(c + '@');
+    cso('^');
+    cso(c + '@');
   }
   else
-    sto(c);
+    cso(c);
 }
 
 VOID destr_bs(void)
 {
-  sto(BS);
-  sto(' ');
-  sto(BS);
+  cso(BS);
+  cso(' ');
+  cso(BS);
 }
 
 VOID Do_DosIdle_loop(void)
@@ -230,7 +238,7 @@ BOOL con_break(void)
   CharReqHdr.r_status = 0;
   CharReqHdr.r_command = C_NDREAD;
   CharReqHdr.r_length = sizeof(request);
-  execrh((request FAR *) & CharReqHdr, (struct dhdr FAR *)finddev(ATTR_CONIN));
+  execrh((request FAR *) & CharReqHdr, syscon);
   if (CharReqHdr.r_status & S_BUSY)
     return FALSE;
   if (CharReqHdr.r_ndbyte == CTL_C)
@@ -272,14 +280,14 @@ VOID KbdFlush(void)
   CharReqHdr.r_status = 0;
   CharReqHdr.r_command = C_IFLUSH;
   CharReqHdr.r_length = sizeof(request);
-  execrh((request FAR *) & CharReqHdr, (struct dhdr FAR *)finddev(ATTR_CONIN));
+  execrh((request FAR *) & CharReqHdr, syscon);
 }
 
 static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
 {
   if (kp->kb_count > kp->kb_size)
   {
-    sto(BELL);
+    cso(BELL);
     return;
   }
   kp->kb_buf[kp->kb_count++] = c;
@@ -290,7 +298,7 @@ static VOID kbfill(keyboard FAR * kp, UCOUNT c, BOOL ctlf, UWORD * vp)
   }
   else
   {
-    sto(c);
+    cso(c);
     if (c != HT)
       ++ * vp;
     else
@@ -402,16 +410,16 @@ UCOUNT sti(keyboard FAR * kp)
           return kp->kb_count;
 
       case LF:
-        sto(CR);
-        sto(LF);
+        cso(CR);
+        cso(LF);
         break;
 
       case ESC:
-        sto('\\');
-        sto(CR);
-        sto(LF);
+        cso('\\');
+        cso(CR);
+        cso(LF);
         for (c = 0; c < cu_pos; c++)
-          sto(' ');
+          cso(' ');
         kp->kb_count = init_count;
         eof = FALSE;
         break;

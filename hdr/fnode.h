@@ -36,6 +36,9 @@ static BYTE *fnode_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.4  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -97,12 +100,12 @@ struct f_node
 
   struct
   {
-    BOOL f_dmod:1;              /* directory has been modified  */
-    BOOL f_droot:1;             /* directory is the root        */
-    BOOL f_dnew:1;              /* fnode is new and needs fill  */
-    BOOL f_ddir:1;              /* fnode is assigned to dir     */
-    BOOL f_dfull:1;             /* directory is full            */
-    BOOL f_dremote:1;           /* Remote Fake FNode            */
+    BITS f_dmod:1;              /* directory has been modified  */
+    BITS f_droot:1;             /* directory is the root        */
+    BITS f_dnew:1;              /* fnode is new and needs fill  */
+    BITS f_ddir:1;              /* fnode is assigned to dir     */
+    BITS f_dfull:1;             /* directory is full            */
+    BITS f_dremote:1;           /* Remote Fake FNode            */
   }
   f_flags;                      /* file flags                   */
 

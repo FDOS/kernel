@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.9  2001/04/29 17:34:40  bartoldeman
+; A new SYS.COM/config.sys single stepping/console output/misc fixes.
+;
 ; Revision 1.8  2001/04/21 22:32:53  bartoldeman
 ; Init DS=Init CS, fixed stack overflow problems and misc bugs.
 ;
@@ -80,6 +83,8 @@
                 extern   clk_stk_top:wrt DGROUP
                 extern   _reloc_call_blk_driver
                 extern   _reloc_call_clk_driver
+
+                extern   _TEXT_DGROUP:wrt TGROUP                
 
 ;---------------------------------------------------
 ;
@@ -223,12 +228,13 @@ DiskTable       db      0
 ;
 ; Local storage
 ;
-
+%if 0
 segment	_BSS
 blk_dos_stk	resw	1
 blk_dos_seg	resw	1
 clk_dos_stk	resw	1
 clk_dos_seg	resw	1
+%endif
 
 segment _IO_TEXT
 		global	_ReqPktPtr
@@ -539,38 +545,71 @@ GetUnitNum:
                 ; NOTE: This code is not standard device driver handlers
                 ; It is written for sperate code and data space.
                 ;
+
+blk_driver_params:
+                   dw  blk_stk_top
+                   dw  _reloc_call_blk_driver
+                   dw  seg _reloc_call_blk_driver
+
+clk_driver_params:
+                   dw  clk_stk_top
+                   dw  _reloc_call_clk_driver
+                   dw  seg _reloc_call_clk_driver
+
+                ; clock device interrupt
+clk_entry:
+                pushf
+                push    bx
+                
+                mov     bx, clk_driver_params
+                
+                jmp short clk_and_blk_common
+
+
+                ; block device interrupt
 blk_entry:
                 pushf
-                push    ax
                 push    bx
-                push    ds
+                
+                mov     bx, blk_driver_params
+                
+clk_and_blk_common:                
+                
+                push    ax
+                push    cx
+                push    dx
 
                 
                 ; small model
-                mov     ax,DGROUP                   ; correct for segments
-                mov     ds,ax                           ; ax to carry segment
-                mov     word [blk_dos_stk],sp		; use internal stack
-                mov     word [blk_dos_seg],ss
-                pushf                                   ; put flags in bx
-                pop     bx
+                mov     ax,sp	                    	; use internal stack
+                mov     dx,ss
+                pushf                                   ; put flags in cx
+                pop     cx
                 cli                                     ; no interrupts
-                mov     ss,ax
-                mov     sp,blk_stk_top
-                push    bx
+                mov     ss,[cs:_TEXT_DGROUP]
+                mov     sp,[cs:bx]
+                
+                push    cx
                 popf                                    ; restore interrupt flag
+                
+                
 
-
-                push    cx                          ; push these registers on
-                push    dx                          ; BLK_STACK
+                push    ax                          ; save old SS/SP
+                push    dx
+                
+                                                    ; push these registers on
+                push    ds                          ; BLK_STACK
                 push    bp                          ; to save stack space
                 push    si
                 push    di
                 push    es
+
+                mov     ds,[cs:_TEXT_DGROUP]        ; 
                 
                 
                 push    word [cs:_ReqPktPtr+2]
                 push    word [cs:_ReqPktPtr]
-                call    far _reloc_call_blk_driver
+                call    far [cs:bx+2]
                 pop     cx
                 pop     cx
                 
@@ -582,74 +621,21 @@ blk_entry:
                 pop     di
                 pop     si
                 pop     bp
-                pop     dx
-                pop     cx
+                pop     ds
+                
+
+                pop    dx                       ; get back old SS/SP
+                pop    ax
                 
                 cli                             ; no interrupts
-                mov     sp,[blk_dos_stk]		; use dos stack
-                mov     ss,[blk_dos_seg]
+                mov     ss,dx           		; use dos stack
+                mov     sp,ax
 
 
-                pop     ds
-                pop     bx
-                pop     ax
-                popf
-                retf
-
-
-
-
-
-                ;
-                ; clock device interrupt
-                ;
-                ; NOTE: This code is not standard device driver handlers
-                ; It is written for sperate code and data space.
-                ;
-clk_entry:
-                pushf
-                push    ax
-                push    bx
-                push    cx
-                push    dx
-                push    bp
-                push    si
-                push    di
-                push    ds
-                push    es
-                
-                ; small model
-                mov     ax,DGROUP                   ; correct for segments
-                mov     ds,ax                           ; ax to carry segment
-                mov     word [clk_dos_stk],sp		; use internal stack
-                mov     word [clk_dos_seg],ss
-                pushf                                   ; put flags in bx
-                pop     bx
-                cli                                     ; no interrupts
-                mov     ss,ax
-                mov     sp,clk_stk_top
-                push    bx
-                popf                                    ; restore interrupt flag
-                mov     bp,sp                           ; make a c frame
-                push    word [cs:_ReqPktPtr+2]
-                push    word [cs:_ReqPktPtr]
-                call    far _reloc_call_clk_driver
-                pop     cx
-                pop     cx
-                les     bx,[cs:_ReqPktPtr]		; now return completion code
-                mov     word [es:bx+status],ax		; mark operation complete
-                cli                                     ; no interrupts
-                mov     sp,[clk_dos_stk]		; use dos stack
-                mov     ss,[clk_dos_seg]
-                pop     es
-                pop     ds
-                pop     di
-                pop     si
-                pop     bp
                 pop     dx
                 pop     cx
-                pop     bx
                 pop     ax
+                pop     bx
                 popf
                 retf
 

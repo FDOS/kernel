@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.23  2001/04/29 17:34:40  bartoldeman
+ * A new SYS.COM/config.sys single stepping/console output/misc fixes.
+ *
  * Revision 1.22  2001/04/21 22:32:53  bartoldeman
  * Init DS=Init CS, fixed stack overflow problems and misc bugs.
  *
@@ -961,7 +964,11 @@ dispatch:
         	/* Get Country Information */
             if((rc = DosGetCountryInformation(cntry, FP_DS_DX)) < 0)
         		goto error_invalid;
-        	r->AX = r->BX = cntry;
+            /* HACK FIXME */
+	    if(cntry == (UWORD)-1)
+		cntry = 1;
+            /* END OF HACK */
+            r->AX = r->BX = cntry;
         }
       }
       break;
