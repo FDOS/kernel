@@ -53,13 +53,6 @@ VOID fstrcpy(REG BYTE FAR * d, REG CONST BYTE FAR * s)
   *d = '\0';
 }
 
-VOID fstrncpy(BYTE FAR * d, BYTE CONST FAR * s, REG size_t n)
-{
-  while (*s && n--)
-    *d++ = *s++;
-  *d = '\0';
-}
-
 VOID * memcpy(REG VOID * d, REG CONST VOID * s, REG size_t n)
 {
   char *cd = d;

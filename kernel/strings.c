@@ -59,16 +59,6 @@ VOID _fstrcpy(REG BYTE FAR * d, REG BYTE FAR * s)
   *d = 0;
 }
 
-char *strncpy(register char *d, register const char *s, size_t l)
-{
-  size_t idx = 1;
-  char *tmp = d;
-  while (*s != 0 && idx++ <= l)
-    *d++ = *s++;
-  *d = 0;
-  return tmp;
-}
-
 int strcmp(REG CONST BYTE * d, REG CONST BYTE * s)
 {
   while (*s != '\0' && *d != '\0')
@@ -117,14 +107,6 @@ COUNT fstrncmp(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l)
       return *d - *s;
   }
   return *d - *s;
-}
-
-VOID fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, COUNT l)
-{
-  COUNT idx = 1;
-  while (*s != 0 && idx++ <= l)
-    *d++ = *s++;
-  *d = 0;
 }
 
 char *strchr(const char * s, int c)

@@ -52,7 +52,6 @@ segment HMA_TEXT
 ; fmemcpy(void FAR *dest, void FAR *src, int count)
 ;  memset(void *dest, int ch, int count);
 ; fmemset(void FAR *dest, int ch, int count);
-; fstrncpy(void FAR*dest, void FAR *src, int count);
 ;  strcpy (void    *dest, void     *src);
 ; fstrcpy (void FAR*dest, void FAR *src);
 ;  strlen (void    *dest);
@@ -222,37 +221,6 @@ pascal_return:
 		add	sp,bx
 		jmp	cx
                 
-;***************************************************************
-%if 0
-nix pascal - still untested
-                global  _fstrncpy
-_fstrncpy:
-                call pascal_setup
-
-                ; Get the source pointer, ss
-                lds             si,[bp+8]
-
-                ; and the destination pointer, d
-                les             di,[bp+4]
-
-                mov             cx,[bp+12]
-                
-                jcxz    pascal_return
-                ;;                 dec     cx
-                ;          jcxz    store_one_byte
-strncpy_loop:   lodsb
-                stosb
-                test al,al
-                loopnz strncpy_loop
-                
-store_one_byte: xor al,al
-                                    ; the spec for strncpy() would require
-                                    ; rep stosb 
-                                    ; to fill remaining part of buffer
-                stosb
-                
-                jmp  short pascal_return
-%endif                
 ;*****************************************************************
                 
 ; fstrcpy (void FAR*dest, void FAR *src);
