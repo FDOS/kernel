@@ -21,12 +21,62 @@
 ;
 ; You should have received a copy of the GNU General Public
 ; License along with DOS-C; see the file COPYING.  If not,
-; write to the Free Software Foundation, 675 Mass Ave,
-; Cambridge, MA 02139, USA.
+; write to the Free Software Foundation, Inc.,
+; 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
 ;
 
-
 		%include "segs.inc"
+
+%macro INTR 0
+        
+                push    bp                      ; Standard C entry
+                mov     bp,sp
+                push    si
+                push    di
+                push	ds
+                push    es
+
+                mov	ax, [bp+4]		; interrupt number
+                mov	[cs:%%intr_1-1], al
+                jmp 	short %%intr_2		; flush the instruction cache
+%%intr_2	mov	bx, [bp+6]		; regpack structure
+		mov	ax, [bx]
+		mov	cx, [bx+4]
+		mov	dx, [bx+6]
+		mov	si, [bx+8]
+		mov	di, [bx+10]
+		mov	bp, [bx+12]
+		push	word [bx+14]		; ds
+		mov	es, [bx+16]
+		mov	bx, [bx+2]
+		pop	ds
+		int	0
+%%intr_1:
+
+		pushf
+		push	ds
+		push	bx
+		mov	bx, sp
+		mov	ds, [ss:bx+8]
+		mov	bx, [ss:bx+20]		; address of REGPACK
+		mov	[bx], ax
+		pop	word [bx+2]
+		mov	[bx+4], cx
+		mov	[bx+6], dx
+		mov	[bx+8], si
+		mov	[bx+10], di
+		mov	[bx+12], bp
+		pop	word [bx+14]
+		mov	[bx+16], es
+		pop	word [bx+22]
+
+		pop	es
+		pop	ds
+		pop	di
+		pop	si
+		pop	bp
+		ret
+%endmacro
 
 segment	HMA_TEXT
 ;
@@ -35,60 +85,9 @@ segment	HMA_TEXT
 ;       REG struct REGPACK *rp
 ;
 ;
-                global	_intr
+		global	_intr
 _intr:
-                push    bp                      ; Standard C entry
-                mov     bp,sp
-                push    si
-                push    di
-                push	ds
-                push    es
-
-                mov ax, [bp+4]			; interrupt number
-                mov [CS:intr?1-1], al
-                jmp short intr?2		; flush the instruction cache
-intr?2			mov bx, [bp+6]			; regpack structure
-				mov ax, [bx]
-				mov cx, [bx+4]
-				mov dx, [bx+6]
-				mov si, [bx+8]
-				mov di, [bx+10]
-				mov bp, [bx+12]
-				push Word [bx+14]			; ds
-				mov es, [bx+16]
-				mov bx, [bx+2]
-				pop ds
-
-				int 0
-intr?1:
-
-				pushf
-				push ds
-				push bx
-				mov bx, sp
-				mov ds, [SS:bx+8]
-				mov bx, [ss:bx+20]		; address of REGPACK
-				mov [bx], ax
-				pop ax
-				mov [bx+2], ax
-				mov [bx+4], cx
-				mov [bx+6], dx
-				mov [bx+8], si
-				mov [bx+10], di
-				mov [bx+12], bp
-				pop ax
-				mov [bx+14], ax
-				mov [bx+16], es
-				pop ax
-				mov [bx+22], ax
-
-			    pop     es
-				pop		ds
-                pop     di
-                pop     si
-                pop     bp
-                ret
-
+		INTR
 
 segment	INIT_TEXT
 ;
@@ -97,60 +96,9 @@ segment	INIT_TEXT
 ;       REG struct REGPACK *rp
 ;
 ; same stuff as above, but in INIT_SEGMENT
-                global	_init_call_intr
+		global	_init_call_intr
 _init_call_intr:
-                push    bp                      ; Standard C entry
-                mov     bp,sp
-                push    si
-                push    di
-                push	ds
-                push    es
-
-                mov ax, [bp+4]			; interrupt number
-                mov [CS:init_intr?1-1], al
-                jmp short init_intr?2		; flush the instruction cache
-init_intr?2 	mov bx, [bp+6]			; regpack structure
-				mov ax, [bx]
-				mov cx, [bx+4]
-				mov dx, [bx+6]
-				mov si, [bx+8]
-				mov di, [bx+10]
-				mov bp, [bx+12]
-				push Word [bx+14]			; ds
-				mov es, [bx+16]
-				mov bx, [bx+2]
-				pop ds
-
-				int 0
-init_intr?1:
-
-				pushf
-				push ds
-				push bx
-				mov bx, sp
-				mov ds, [SS:bx+8]
-				mov bx, [ss:bx+20]		; address of REGPACK
-				mov [bx], ax
-				pop ax
-				mov [bx+2], ax
-				mov [bx+4], cx
-				mov [bx+6], dx
-				mov [bx+8], si
-				mov [bx+10], di
-				mov [bx+12], bp
-				pop ax
-				mov [bx+14], ax
-				mov [bx+16], es
-				pop ax
-				mov [bx+22], ax
-
-			    pop     es
-				pop		ds
-                pop     di
-                pop     si
-                pop     bp
-                ret
-
+		INTR
 
 ;
 ; int init_call_XMScall( (WORD FAR * driverAddress)(), WORD AX, WORD DX)
@@ -282,13 +230,14 @@ _init_DosExec:
         int 21h
         jc short exec_no_error
         xor ax, ax
-exec_no_error        
+exec_no_error:
         ret
 
 ;; int init_setdrive(int drive)
    global _init_setdrive
 _init_setdrive:
 	mov ah, 0x0e
+common_dl_int21:
 	mov bx, sp
 	mov dl, [bx+2]
 	int 21h
@@ -298,10 +247,7 @@ _init_setdrive:
    global _init_switchar
 _init_switchar:
 	mov ax, 0x3701
-	mov bx, sp
-	mov dl, [bx+2]
-	int 21h
-	ret
+	jmp short common_dl_int21
 
 ;; int allocmem(UWORD size, seg *segp)
     global _allocmem
