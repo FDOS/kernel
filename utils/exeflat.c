@@ -73,7 +73,7 @@ int compReloc(const void *p1, const void *p2)
   return 0;
 }
 
-void usage()
+void usage(void)
 {
   printf("usage: exeflat (src.exe) (dest.sys) (relocation-factor)\n");
   printf

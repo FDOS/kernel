@@ -17,8 +17,8 @@ libm.lib:	$(CLIB)
 
 
 clobber:        clean
-	-$(RM) libm.lib status.me
+	-$(RM) status.me
 
 clean:
-	-$(RM) *.obj *.bak
+	-$(RM) *.obj *.bak libm.lib
 
