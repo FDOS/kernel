@@ -56,6 +56,7 @@ extern struct _KernelConfig InitKernelConfig;
 #define fmemcmp     init_fmemcmp
 #define  memcmp     init_memcmp
 #define  memset     init_memset
+#define  strchr     init_strchr
 #define  strcpy     init_strcpy
 #define  strlen     init_strlen
 #define fstrlen     init_fstrlen
