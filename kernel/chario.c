@@ -386,7 +386,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
   unsigned cu_pos = scr_pos;
   unsigned count = 0, stored_pos = 0;
   unsigned size = kp->kb_size, stored_size = kp->kb_count; 
-  BOOL insert = FALSE;
+  BOOL insert = FALSE, first = TRUE;
 
   if (size == 0)
     return;
@@ -404,8 +404,17 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
       c = (unsigned)read_char_check_break(sft_in) << 8;
     switch (c)
     {
+      case LF:
+        /* show LF if it's not the first character. Never store it */
+        if (!first)
+        {
+          write_char(CR, sft_out);
+          write_char(LF, sft_out);
+        }
+        break;
+
       case CTL_F:
-        continue;
+        break;
 
       case RIGHT:
       case F1:
@@ -515,6 +524,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
           stored_pos++;
         break;
     }
+    first = FALSE;
   } while (c != CR);
   fmemcpy(kp->kb_buf, local_buffer, count);
   /* if local_buffer overflows into the CON default buffer we
