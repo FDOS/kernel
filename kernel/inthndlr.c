@@ -353,7 +353,7 @@ int int21_fat32(lregs *r)
         return DE_INVLDPARM;
       }
     
-      if (r->DL - 1 >= lastdrive || r->DL == 0)
+      if (r->DL > lastdrive || r->DL == 0)
         return -0x207;
     
       if (r->SI == 0)
@@ -608,7 +608,7 @@ dispatch:
 
       /* Set DTA                                                      */
     case 0x1a:
-      dos_setdta(FP_DS_DX);
+      dta = FP_DS_DX;
       break;
 
       /* Get Default Drive Data                                       */
@@ -907,7 +907,7 @@ dispatch:
       lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL);
       if (lrc == -1)
       {
-        lrc = -DE_INVLDHNDL;
+        lrc = DE_INVLDHNDL;
       }
       else
       {
@@ -1266,23 +1266,16 @@ dispatch:
       if (lr.AL == 7 || lr.AL == 8)
       {
         struct cds FAR *cdsp;
-        if (lr.DL < lastdrive)
+        if (lr.DL >= lastdrive)
         {
           rc = DE_INVLDDRV;
           goto error_exit;
         }
+        cdsp = &CDSp[lr.DL];
+        if (lr.AL == 7)
+          cdsp->cdsFlags |= CDSPHYSDRV;
         else
-        {
-          cdsp = &CDSp[lr.DL];
-          if (lr.AL == 7)
-          {
-            cdsp->cdsFlags |= 0x100;
-          }
-          else
-          {
-            cdsp->cdsFlags &= ~0x100;
-          }
-        }
+          cdsp->cdsFlags &= ~CDSPHYSDRV;
       }
       else
       {
@@ -1380,7 +1373,7 @@ dispatch:
             printf("DosGetData() := %d\n", rc);
             goto error_exit;
           }
-          printf("DosGetData() returned successfully\n", rc);
+          printf("DosGetData() returned successfully\n");
           break;
 #else
           rc = DosGetData(lr.AL, lr.BX, lr.DX, lr.CX, FP_ES_DI);
@@ -1421,15 +1414,16 @@ dispatch:
       /* Get/Set Serial Number */
     case 0x69:
       rc = (lr.BL == 0 ? default_drive : lr.BL - 1);
-      if (lr.AL == 0 || lr.AL == 1)
+      if (lr.AL < 2)
       {
-        UWORD saveCX = lr.CX;
         if (get_cds(rc) == NULL)
-          rc = DE_INVLDDRV;
-        else if (get_dpb(rc) == NULL)
-          goto error_invalid;
-        else
         {
+          rc = DE_INVLDDRV;
+          goto error_exit;
+        }
+        if (get_dpb(rc) != NULL)
+        {
+          UWORD saveCX = lr.CX;
           lr.CX = lr.AL == 0 ? 0x0866 : 0x0846;
           lr.AL = 0x0d;
           rc = DosDevIOctl(&lr);
@@ -1437,9 +1431,7 @@ dispatch:
           goto short_check;
         }
       }
-      else
-        goto error_invalid;
-      break;
+      goto error_invalid;
 /*
     case 0x6a: see case 0x68
     case 0x6b: dummy func: return AL=0
@@ -1631,21 +1623,14 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
 
   r->ax = dskxfer(drv, blkno, buf, nblks, mode);
 
-  if (mode == DSKWRITE)
-    if (r->ax <= 0)
-      setinvld(drv);
-
-  if (r->ax > 0)
+  r->flags &= ~FLG_CARRY;
+  if (r->ax != 0)
   {
     r->flags |= FLG_CARRY;
-    --InDOS;
-    return;
+    if (mode == DSKWRITEINT26)
+      setinvld(drv);
   }
-
-  r->ax = 0;
-  r->flags &= ~FLG_CARRY;
   --InDOS;
-
 }
 
 /*
@@ -1932,7 +1917,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         put_unsigned(r.AL, 16, 2);
         put_string("\n");
         r.FLAGS |= FLG_CARRY;
-        break;
       }
   }
 }

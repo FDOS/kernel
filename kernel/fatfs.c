@@ -1944,11 +1944,6 @@ VOID release_f_node(f_node_ptr fnp)
 }
 
 #ifndef IPL
-VOID dos_setdta(BYTE FAR * newdta)
-{
-  dta = newdta;
-}
-
 COUNT dos_getfattr_fd(COUNT fd)
 {
   f_node_ptr fnp = xlt_fd(fd);
