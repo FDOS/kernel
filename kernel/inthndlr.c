@@ -74,21 +74,18 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
       setvec(irp->AL, (intvec)MK_FP(irp->DS, irp->DX));
       break;
 
-      /* DosVars - get/set dos variables                              */
-    case 0x33:
+    case 0x33:		/* DosVars - get/set dos variables	*/
       switch (irp->AL)
       {
-          /* Get Ctrl-C flag                                      */
-        case 0x00:
+        case 0x01:	/* Set Ctrl-C flag			*/
+          break_ena = irp->DL & 1;
+          /* fall through so DL only low bit (as in MS-DOS) */
+
+        case 0x00:	/* Get Ctrl-C flag			*/
           irp->DL = break_ena;
           break;
 
-          /* Set Ctrl-C flag                                      */
-        case 0x01:
-          break_ena = irp->DL & 1;
-          break;
-
-        case 0x02:             /* andrew schulman: get/set extended control break  */
+        case 0x02:	/* andrew schulman: get/set extended control break */
           {
             UBYTE tmp = break_ena;
             break_ena = irp->DL & 1;
@@ -1247,31 +1244,31 @@ dispatch:
     case 0x5f:
       if (lr.AL == 7 || lr.AL == 8)
       {
-        struct cds FAR *cdsp = &CDSp[lr.DL];
-        if (lr.DL >= lastdrive || FP_OFF(cdsp->cdsDpb) == 0)
+        if (lr.DL < lastdrive)
         {
-          rc = DE_INVLDDRV;
-          goto error_exit;
+          struct cds FAR *cdsp = CDSp + lr.DL;
+          if (FP_OFF(cdsp->cdsDpb))	/* letter of physical drive?	*/
+          {
+            cdsp->cdsFlags &= ~CDSPHYSDRV;
+            if (lr.AL == 7)
+              cdsp->cdsFlags |= CDSPHYSDRV;
+            break;
+          }
         }
-        if (lr.AL == 7)
-          cdsp->cdsFlags |= CDSPHYSDRV;
-        else
-          cdsp->cdsFlags &= ~CDSPHYSDRV;
+        rc = DE_INVLDDRV;
+        goto error_exit;
       }
-      else
+
+      rc = -(int)network_redirector_mx(REM_DOREDIRECT, &lr, (void *)Int21AX);
+      /* the remote function manipulates *r directly !,
+         so we should not copy lr to r here */
+      r->AX = rc;
+      if (rc != SUCCESS)
       {
-        rc = (int)network_redirector_mx(REM_DOREDIRECT, &lr, (void *)Int21AX);
-        /* the remote function manipulates *r directly !,
-           so we should not copy lr to r here            */
-        if (rc != SUCCESS)
-        {
-          CritErrCode = -rc;      /* Maybe set */
-          SET_CARRY_FLAG();
-        }
-        r->AX = -rc;
-        goto real_exit;
+        SET_CARRY_FLAG();
+        CritErrCode = rc;	/* Maybe set */
       }
-      break;
+      goto real_exit;
 
     case 0x60:                 /* TRUENAME */
       rc = DosTruename(MK_FP(lr.DS, lr.SI), adjust_far(FP_ES_DI));
@@ -1633,9 +1630,10 @@ STATIC VOID StartTrace(VOID)
 }
 #endif
 
-/* this function is called from an assembler wrapper function
-   and serves the internal dos calls - int2f/12xx and int2f/4a01,4a02.
+/* this function is called from an assembler wrapper function and
+   serves the internal dos calls - int2f/12xx and int2f/4a01,4a02
 */
+
 struct int2f12regs {
 #ifdef I386
 #ifdef __WATCOMC__
@@ -1654,7 +1652,7 @@ struct int2f12regs {
   UWORD di, si, bp;
   xreg b, d, c, a;
   UWORD ip, cs, flags;
-  UWORD callerARG1;             /* used if called from INT2F/12 */
+  xreg callerARG1;		/* used if called from INT2F/12	*/
 };
 
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
@@ -1694,12 +1692,12 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       r.DS = FP_SEG(&nul_dev);
       break;
 
-    case 0x06:                 /* invoke critical error */
-
-      /* code, drive number, error, device header */
-      r.AL = CriticalError(r.callerARG1 >> 8,
-                           (r.callerARG1 & (EFLG_CHAR << 8)) ? 0 :
-                           r.callerARG1 & 0xff, r.DI, MK_FP(r.BP, r.SI));
+    case 0x06:		/* invoke critical error		*/
+      /* code, drive number, error, device header		*/
+      r.AL = CriticalError(r.callerARG1.b.h,
+                           (r.callerARG1.b.h & EFLG_CHAR)
+				? 0 : r.callerARG1.b.l,
+			   r.DI, MK_FP(r.BP, r.SI));
       break;
 
     case 0x08:                 /* decrease SFT reference count */
@@ -1757,18 +1755,15 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       break;
     }
 
-    case 0x12:                 /* get length of asciiz string */
-
+    case 0x12:		/* get length of asciiz string		*/
       r.CX = fstrlen(MK_FP(r.ES, r.DI)) + 1;
-
       break;
 
-    case 0x13:
-      /* uppercase character */  
-      /* for now, ASCII only because nls.c cannot handle DS!=SS */
-      r.AL = (unsigned char)r.callerARG1;
-      if (r.AL >= 'a' && r.AL <= 'z')
-        r.AL -= 'a' - 'A';
+    case 0x13:		/* uppercase character			*/
+      /* for now, ASCII only because nls.c cannot handle DS!=SS	*/
+      r.AL = r.callerARG1.b.l;
+      if (_islower(r.AL))
+        r.AL -= (UBYTE)('a' - 'A');
       break;
 
     case 0x16:
@@ -1805,10 +1800,9 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                                    ;
                                    ; probable use: get sizeof(CDSentry)
                                  */
-      {
-        struct cds FAR *cdsp = get_cds(r.callerARG1 & 0xff);
-
-        if (cdsp == NULL)
+    {
+        const struct cds FAR *cdsp;
+        if ((cdsp = get_cds(r.callerARG1.b.l)) == NULL)
         {
           r.FLAGS |= FLG_CARRY;
           break;
@@ -1817,7 +1811,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         r.SI = FP_OFF(cdsp);
         r.FLAGS &= ~FLG_CARRY;
         break;
-      }
+    }
 
     case 0x18:                 /* get caller's registers */
 
@@ -1878,6 +1872,15 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
     case 0x2a:                 /* Set FastOpen but does nothing. */
 
       r.FLAGS &= ~FLG_CARRY;
+      break;
+
+    /* 0x26-0x29 & 0x2B, internal functions necessary for NLSFUNC */
+    case 0x26:                 /* Open File */
+    case 0x27:                 /* Close File */
+    case 0x28:                 /* Move File Pointer */
+    case 0x29:                 /* Read From File */
+    case 0x2B:                 /* IOctl */
+      r.FLAGS |= FLG_CARRY;    /* Not implemented yet! */
       break;
 
     case 0x2c:                 /* added by James Tabor For Zip Drives

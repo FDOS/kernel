@@ -146,6 +146,7 @@
 */*/sys/makefile
 */*/sys/sys.c
 */*/sys/talloc.c
+*/*/sys/turboc.cfg
 */*/utils/echoto.bat
 */*/utils/exeflat.c
 */*/utils/makefile
@@ -153,3 +154,4 @@
 */*/utils/relocinf.c
 */*/utils/rmfiles.bat
 */*/utils/wlinker.bat
+*/*/utils/turboc.cfg

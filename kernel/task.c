@@ -303,7 +303,7 @@ static void load_transfer(seg_t ds, exec_blk *ep, int mode)
   if (mode == LOADNGO)
   {
     /* build the user area on the stack                     */
-    iregs FAR *irp = (iregs FAR *)(ep->exec.stack - sizeof(iregs));
+    iregs FAR *irp = (iregs FAR *)ep->exec.stack - 1;
 
     /* start allocating REGs (as in MS-DOS - some demos expect them so --LG) */
     /* see http://www.beroset.com/asm/showregs.asm */

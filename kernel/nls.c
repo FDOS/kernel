@@ -122,8 +122,14 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /* make sure the NLSFUNC ID is updated */
 #error "NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID"
 #endif
-  if (muxGo(0, 0, NLS_FREEDOS_NLSFUNC_VERSION, 0, NLS_FREEDOS_NLSFUNC_ID, 0,
-            (UWORD *)&id) != 0x14ff)
+  /* Install check must pass the FreeDOS NLSFUNC version as codepage (cp) and
+     the FreeDOS NLSFUNC ID as buffer size (bufsize).  If they match the
+     version in NLSFUNC, on return it will set BX (cp on entry) to FreeDOS
+     NLSFUNC ID.  If not NULL, call_nls will set *id = BX on return.
+     Note: &id should be the pointer offset addressable via SS (SS:BP == &id)
+  */
+  if (muxGo(NLSFUNC_INSTALL_CHECK, 0, NLS_FREEDOS_NLSFUNC_VERSION,
+            0, NLS_FREEDOS_NLSFUNC_ID, 0, (UWORD *)&id) != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
   if (id != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
     return DE_INVLDACC;         /* This magic number */

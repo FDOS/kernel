@@ -109,6 +109,7 @@ set XUPX=upx --8086 --best
 :-----------------------------------------------------------------------
 :- select default target: CPU type (default is 86) and
 :- what FAT system (default is 32) to support
+:- NOTE: Turbo C doesn't support 386 CPU.
 
 ::set XCPU=86
 ::set XCPU=186

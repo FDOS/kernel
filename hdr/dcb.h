@@ -80,8 +80,8 @@ struct dpb {
   ULONG dpb_xdata;
   ULONG dpb_xsize;              /* # of clusters+1 on media     */
   ULONG dpb_xfatsize;           /* # of sectors / FAT           */
-  ULONG dpb_xrootclst;          /* starting cluster of root dir */
-  ULONG dpb_xcluster;           /* cluster # of first free      */
+  CLUSTER dpb_xrootclst;        /* starting cluster of root dir */
+  CLUSTER dpb_xcluster;         /* cluster # of first free      */
   /* -1 if not known              */
 #endif
 };
@@ -89,4 +89,3 @@ struct dpb {
 #define UNKNCLUSTER      0x0000 /* see RBIL INT 21/AH=52 entry */
 #define XUNKNCLSTFREE    0xffffffffl    /* unknown for DOS */
 #define UNKNCLSTFREE     0xffff /* unknown for DOS */
-

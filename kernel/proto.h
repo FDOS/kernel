@@ -77,11 +77,14 @@ long cooked_write(struct dhdr FAR **pdev, size_t n, char FAR *bp);
 sft FAR *get_sft(UCOUNT);
 
 /* dosfns.c */
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 const char FAR *get_root(const char FAR *);
 BOOL check_break(void);
 UCOUNT GenericReadSft(sft far * sftp, UCOUNT n, void FAR * bp,
                       COUNT * err, BOOL force_binary);
-COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode);
+COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode);
 /*COUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err); */
 void BinarySftIO(int sft_idx, void *bp, int mode);
 #define BinaryIO(hndl, bp, mode) BinarySftIO(get_sft_idx(hndl), bp, mode)
@@ -101,7 +104,7 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
                 UWORD * bps, UWORD * nc);
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s);
 COUNT DosChangeDir(BYTE FAR * s);
-COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name);
+COUNT DosFindFirst(UCOUNT attr, const char FAR * name);
 COUNT DosFindNext(void);
 COUNT DosGetFtime(COUNT hndl, date * dp, time * tp);
 COUNT DosSetFtimeSft(int sft_idx, date dp, time tp);
@@ -374,7 +377,6 @@ void child_psp(seg_t para, seg_t cur_psp, seg_t beyond);
 void return_user(void);
 COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp);
 ULONG SftGetFsize(int sft_idx);
-VOID InitPSP(VOID);
 #ifdef __WATCOMC__
 # pragma aux return_user aborts
 #endif

@@ -4,7 +4,7 @@
 :- $Id$
 
 :-----------------------------------------------------------------------
-:- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp] [86|186|386]
+:- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp] [86|186|386] [debug] [lfnapi]
 :- option case is significant !!
 :-----------------------------------------------------------------------
 
@@ -38,6 +38,9 @@ if "%1" == "tcpp"  set COMPILER=TCPP
 if "%1" == "86"    set XCPU=86
 if "%1" == "186"   set XCPU=186
 if "%1" == "386"   set XCPU=386
+
+if "%1" == "debug" set ALLCFLAGS=%ALLCFLAGS% -DDEBUG
+if "%1" == "lfnapi" set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI
 
 shift
 if not "%1" == "" goto loop_commandline
@@ -108,10 +111,13 @@ goto end
 
 :-----------------------------------------------------------------------
 
-:abort-cd
-cd ..
 :noenv
 echo Unable to set necessary environment variables!
+goto abort
+
+:abort-cd
+cd ..
+
 :abort
 echo Compilation was aborted!
 

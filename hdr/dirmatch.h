@@ -38,32 +38,25 @@ static BYTE *dirmatch_hRcsId =
 typedef struct {
   UBYTE dm_drive;
   BYTE dm_name_pat[FNAME_SIZE + FEXT_SIZE];
-  BYTE dm_attr_srch;
+  BYTE dm_attr_srch;		/* !!! should be UBYTE --avb	*/
   UWORD dm_entry;
-#ifdef WITHFAT32
-  ULONG dm_dircluster;
-#else
-  UWORD dm_dircluster;
+  CLUSTER dm_dircluster;
+#ifndef WITHFAT32
   UWORD reserved;
 #endif
 
   struct {
-    BITS                        /* directory has been modified  */
-    f_dmod:1;
-    BITS                        /* directory is the root        */
-    f_droot:1;
-    BITS                        /* fnode is new and needs fill  */
-    f_dnew:1;
-    BITS                        /* fnode is assigned to dir     */
-    f_ddir:1;
-    BITS                        /* filler to avoid a bad bug (feature?) in */
-    f_filler:12;                /* TC 2.01           */
+    BITS f_dmod:1;              /* directory has been modified  */
+    BITS f_droot:1;             /* directory is the root        */
+    BITS f_dnew:1;              /* fnode is new and needs fill  */
+    BITS f_ddir:1;              /* fnode is assigned to dir     */
+    BITS f_filler:12;           /* filler to avoid a bad bug    */
+                                /*  (feature?) in TC 2.01       */
   } dm_flags;                   /* file flags                   */
 
-  BYTE dm_attr_fnd;             /* found file attribute         */
+  UBYTE dm_attr_fnd;            /* found file attribute         */
   time dm_time;                 /* file time                    */
   date dm_date;                 /* file date                    */
-  LONG dm_size;                 /* file size                    */
+  ULONG dm_size;                /* file size                    */
   BYTE dm_name[FNAME_SIZE + FEXT_SIZE + 2];     /* file name    */
 } dmatch;
-

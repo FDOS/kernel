@@ -59,10 +59,6 @@ typedef signed short sword;
 typedef unsigned long dword;
 typedef signed long sdword;
 
-/* These structures need to be byte packed, if your compiler
-   does not do this by default, add the appropriate command,
-   such as #pragma pack(1) here, protected with #ifdefs of course.
-*/
 
 /* Displays command line syntax */
 void showUsage(void)

@@ -711,7 +711,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         break;
       }
     case 0x67:                 /* get access flag */
-      rp->r_ai->AI_Flag = (descflags / DF_NOACCESS) & 1; /* bit 9 */
+      rp->r_ai->AI_Flag = (UBYTE)~(descflags / DF_NOACCESS) & 1; /* bit 9 */
       break;
     default:
       return failure(E_CMD);
@@ -804,32 +804,22 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-STATIC int LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
+STATIC void LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
 {
   /* we need the defbpb values since those are taken from the
      BIOS, not from some random boot sector, except when
      we're dealing with a floppy */
 
-  const bpb *pbpb = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
-  unsigned hs = pbpb->bpb_nsecs * pbpb->bpb_nheads;
-  unsigned hsrem = (unsigned)(LBA_address % hs);
-
-  LBA_address /= hs;
-
-  if (LBA_address > 1023ul)
+  const bpb *p = hd(pddt->ddt_descflags) ? &pddt->ddt_defbpb : &pddt->ddt_bpb;
+  unsigned hs = p->bpb_nsecs * p->bpb_nheads;
+  chs->Cylinder = 0xffffu;
+  if (hs > hiword(LBA_address))	/* LBA_address < hs * 0x10000ul	*/
   {
-#ifdef DEBUG
-    printf("LBA-Transfer error : cylinder %lu > 1023\n", LBA_address);
-#else
-    put_string("LBA-Transfer error : cylinder > 1023\n");
-#endif
-    return 1;
+    chs->Cylinder = (unsigned)(LBA_address / hs);
+	       hs = (unsigned)(LBA_address % hs);
+    chs->Head     = hs / p->bpb_nsecs;
+    chs->Sector   = hs % p->bpb_nsecs + 1;
   }
-
-  chs->Cylinder = (UWORD)LBA_address;
-  chs->Head = hsrem / pbpb->bpb_nsecs;
-  chs->Sector =  hsrem % pbpb->bpb_nsecs + 1;
-  return 0;
 }
 
   /* Test for 64K boundary crossing and return count small        */
@@ -945,8 +935,16 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
       else
       {                         /* transfer data, using old bios functions */
         struct CHS chs;
-        if (LBA_to_CHS(LBA_address, &chs, pddt))
+        LBA_to_CHS(LBA_address, &chs, pddt);
+        if (chs.Cylinder > 1023u)
+        {
+#ifdef DEBUG
+          printf("IO error: cylinder (%u) > 1023\n", chs.Cylinder);
+#else
+          put_string("IO error: cylinder > 1023\n");
+#endif
           return failure(E_CMD); /*dskerr(1)*/
+        }
 
         /* avoid overflow at end of track */
         if (count > pddt->ddt_bpb.bpb_nsecs + 1 - chs.Sector)

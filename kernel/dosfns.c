@@ -308,22 +308,27 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   }
 }
 
-COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
+COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
 {
   sft FAR *s = idx_to_sft(sft_idx);
   if (FP_OFF(s) == (size_t) -1)
     return DE_INVLDHNDL;
         
   /* Test for invalid mode                        */
-  if (mode < 0 || mode > 2)
+  if (mode > SEEK_END) /* 2 */
     return DE_INVLDFUNC;
 
   lpCurSft = s;
 
   if (s->sft_flags & SFT_FSHARED)
   {
+    /* SEEK_SET handled below (s->sft_posit=new_pos) */
+    if (mode == SEEK_CUR)
+    {
+      new_pos += s->sft_posit;
+    }
     /* seek from end of file */
-    if (mode == 2)
+    else if (mode == SEEK_END)
     {
 /*
  *  RB list has it as Note:
@@ -336,41 +341,24 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
  *  Mfs.c looks for these mode bits set, so here is my best guess.;^)
  */
       if (s->sft_mode & (O_DENYREAD | O_DENYNONE))
-        s->sft_posit = remote_lseek(s, new_pos);
+        new_pos = remote_lseek(s, new_pos);
       else
-        s->sft_posit = s->sft_size + new_pos;
-      return SUCCESS;
+        new_pos += s->sft_size;
     }
-    if (mode == 0)
-    {
-      s->sft_posit = new_pos;
-      return SUCCESS;
-    }
-    if (mode == 1)
-    {
-      s->sft_posit += new_pos;
-      return SUCCESS;
-    }
-    return DE_INVLDFUNC;
   }
-
   /* Do special return for character devices      */
-  if (s->sft_flags & SFT_FDEVICE)
+  else if (s->sft_flags & SFT_FDEVICE)
   {
-    s->sft_posit = 0l;
-    return SUCCESS;
+    new_pos = 0;
   }
   else
   {
-    LONG result = dos_lseek(s->sft_status, new_pos, mode);
-    if (result < 0l)
-      return (int)result;
-    else
-    {
-      s->sft_posit = result;
-      return SUCCESS;
-    }
+    if ((new_pos = dos_lseek(s->sft_status, new_pos, mode)) < 0)
+      return (int)new_pos;
   }
+
+  s->sft_posit = new_pos;
+  return SUCCESS;
 }
 
 ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode)
@@ -1018,22 +1006,26 @@ COUNT DosChangeDir(BYTE FAR * s)
   return SUCCESS;
 }
 
-STATIC VOID pop_dmp(dmatch FAR * dmp)
+STATIC int pop_dmp(int rc, dmatch FAR * save_dta)
 {
-  dmp->dm_attr_fnd = (BYTE) SearchDir.dir_attrib;
-  dmp->dm_time = SearchDir.dir_time;
-  dmp->dm_date = SearchDir.dir_date;
-  dmp->dm_size = (LONG) SearchDir.dir_size;
-  ConvertName83ToNameSZ(dmp->dm_name, (BYTE FAR *) SearchDir.dir_name);
+  dta = save_dta;
+  if (rc == SUCCESS)
+  {
+    fmemcpy(save_dta, &sda_tmp_dm, 21 /*offsetof(save_dta->dm_attr_fnd)*/ );
+    save_dta->dm_attr_fnd = SearchDir.dir_attrib;
+    save_dta->dm_time = SearchDir.dir_time;
+    save_dta->dm_date = SearchDir.dir_date;
+    save_dta->dm_size = SearchDir.dir_size;
+    ConvertName83ToNameSZ(save_dta->dm_name, SearchDir.dir_name);
+  }
+  return rc;
 }
 
-COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
+COUNT DosFindFirst(UCOUNT attr, const char FAR * name)
 {
-  int rc;
-  register dmatch FAR *dmp = dta;
-
-  rc = truename(name, PriPathName,
-                CDS_MODE_CHECK_DEV_PATH | CDS_MODE_ALLOW_WILDCARDS);
+  dmatch FAR *save_dta = dta;
+  int rc = truename(name, PriPathName,
+                    CDS_MODE_CHECK_DEV_PATH | CDS_MODE_ALLOW_WILDCARDS);
   if (rc < SUCCESS)
     return rc;
 
@@ -1065,32 +1057,26 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
     SearchDir.dir_attrib = D_DEVICE;
     SearchDir.dir_time = dos_gettime();
     SearchDir.dir_date = dos_getdate();
-    p = (char *)FP_OFF(get_root(PriPathName));
-    memset(SearchDir.dir_name, ' ', FNAME_SIZE + FEXT_SIZE);
+    p = (const char *)get_root(PriPathName);
     for (i = 0; i < FNAME_SIZE && *p && *p != '.'; i++)
       SearchDir.dir_name[i] = *p++;
+    for (; i < FNAME_SIZE + FEXT_SIZE; i++)
+      SearchDir.dir_name[i] = ' ';
     rc = SUCCESS;
     /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
   }
   else
     rc = dos_findfirst(attr, PriPathName);
 
-  dta = dmp;
-  if (rc == SUCCESS)
-  {
-    fmemcpy(dta, &sda_tmp_dm, 21);
-    pop_dmp(dmp);
-  }
-  return rc;
+  return pop_dmp(rc, save_dta);
 }
 
 COUNT DosFindNext(void)
 {
-  COUNT rc;
-  register dmatch FAR *dmp = dta;
+  dmatch FAR *save_dta = dta;
 
-  /* findnext will always fail on a device name device name or volume id */
-  if (dmp->dm_attr_fnd & (D_DEVICE | D_VOLID))
+  /* findnext will always fail on a device name or volume id */
+  if (save_dta->dm_attr_fnd & (D_DEVICE | D_VOLID))
     return DE_NFILES;
 
 /*
@@ -1111,21 +1097,13 @@ COUNT DosFindNext(void)
  *  (12h, DE_NFILES)
  */
 #if 0
-  printf("findnext: %d\n", dmp->dm_drive);
+  printf("findnext: %d\n", save_dta->dm_drive);
 #endif
-  fmemcpy(&sda_tmp_dm, dmp, 21);
+  fmemcpy(dta = &sda_tmp_dm, save_dta, 21 /*offsetof(save_dta->dm_attr_fnd)*/ );
   memset(&SearchDir, 0, sizeof(struct dirent));
-  dta = &sda_tmp_dm;
-  rc = (sda_tmp_dm.dm_drive & 0x80) ?
-    network_redirector_fp(REM_FINDNEXT, &sda_tmp_dm) : dos_findnext();
-
-  dta = dmp;
-  if (rc == SUCCESS)
-  {
-    fmemcpy(dmp, &sda_tmp_dm, 21);
-    pop_dmp(dmp);
-  }
-  return rc;
+  return pop_dmp(sda_tmp_dm.dm_drive & 0x80
+			? network_redirector_fp(REM_FINDNEXT, &sda_tmp_dm)
+			: dos_findnext(), save_dta);
 }
 
 COUNT DosGetFtime(COUNT hndl, date * dp, time * tp)

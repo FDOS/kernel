@@ -174,7 +174,7 @@ typedef struct {
   /* bits 6-4: reserved (0)       */
   /* bits 3-0: active FAT number  */
   UWORD bpb_xfsversion;         /* filesystem version           */
-  ULONG bpb_xrootclst;          /* starting cluster of root dir */
+  CLUSTER bpb_xrootclst;        /* starting cluster of root dir */
   UWORD bpb_xfsinfosec;         /* FS info sector number,       */
   /* 0xFFFF if unknown            */
   UWORD bpb_xbackupsec;         /* backup boot sector number    */

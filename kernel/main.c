@@ -195,6 +195,12 @@ STATIC void PSPInit(void)
   /* this area reused for master environment			*/
   /*p->ps_cmd.ctCount = 0;*/	/* local command line		*/
   /*p->ps_cmd.ctBuffer[0] = '\r';*/ /* command tail		*/
+
+  /* !!! dirty hack: because bug in old FreeCOM, which wrongly
+     process empty environment in MS-DOS style, garbage empty
+     environment by dummy variable: --avb
+  */
+  fmemcpy(&p->ps_cmd, "PATH=.", 6/*strlen("PATH=.")*/);
 }
 
 #ifndef __WATCOMC__
@@ -328,8 +334,10 @@ STATIC VOID FsConfig(VOID)
   for (i = 0; i < LoL->lastdrive; i++)
   {
     struct cds FAR *pcds_table = &LoL->CDSp[i];
-    fmemcpy(pcds_table->cdsCurrentPath, "A:\\\0", 4);
-    pcds_table->cdsCurrentPath[0] += i;
+    pcds_table->cdsCurrentPath[0] = 'A' + i;
+    pcds_table->cdsCurrentPath[1] = ':';
+    pcds_table->cdsCurrentPath[2] = '\\';
+    pcds_table->cdsCurrentPath[3] = '\0';
     pcds_table->cdsFlags = 0;
     if (i < LoL->nblkdev && (LONG) dpb != -1l)
     {

@@ -124,11 +124,20 @@ COUNT DosDevIOctl(lregs * r)
       attr = dev->dh_attr;
       break;
 
+    case 0x0d:
+      /* NOTE: CX checked before check if get_dpb()->dpb_device->dh_attr
+         contains ATTR_GENIOCTL bit set
+      */
+      if ((r->CX & ~0x4021) == 0x084A)
+      {			/* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
+        r->AX = 0;	/* (lock/unlock logical/physical volume) */
+        return SUCCESS;	/* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
+      }
+
     case 0x04:
     case 0x05:
     case 0x08:
     case 0x09:
-    case 0x0d:
     case 0x0e:
     case 0x0f:
     case 0x11:
@@ -258,17 +267,10 @@ COUNT DosDevIOctl(lregs * r)
           break;
         }
 
-    case 0x0d:
-          if ((r->CX & ~0x4021) == 0x084A)
-          {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
-            r->AX = 0;  /* (lock/unlock logical/physical volume) */
-            break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
-          }
-          /* fall through */
-
     case 0x04:
     case 0x05:
     case 0x08:
+    case 0x0d:
     case 0x11:
     execrequest:
           execrh(&CharReqHdr, dev);

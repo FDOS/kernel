@@ -17,7 +17,7 @@ all:		..\lib\device.lib
 		-$(RM) $*.lib
 		$(LIBUTIL) $(LIBFLAGS) $* $(LIBOBJS) $(LIBTERM)
 
-$(OBJS):	$(DEPENDS)
+$(OBJS):	$(DEPENDS) ../kernel/segs.inc
 
 ########################################################################
 

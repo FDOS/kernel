@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v3.2"
+#define SYS_VERSION "v3.3"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -483,13 +483,13 @@ void truename(char far *dest, const char *src);
       "int 0x21"          \
       parm [es di] [si];
 
-int generic_block_ioctl(unsigned char drive, unsigned cx, unsigned char *par);
+int generic_block_ioctl(unsigned drive, unsigned cx, unsigned char *par);
 #pragma aux generic_block_ioctl = \
       "mov ax, 0x440d" \
       "int 0x21" \
       "sbb ax, ax" \
       value [ax] \
-      parm [bl] [cx] [dx];
+      parm [bx] [cx] [dx]; /* BH must be 0 for lock! */
 
 #else
 
@@ -541,14 +541,14 @@ void reset_drive(int DosDrive)
   intdos(&regs, &regs);
 } /* reset_drive */
 
-int generic_block_ioctl(unsigned char drive, unsigned cx, unsigned char *par)
+int generic_block_ioctl(unsigned drive, unsigned cx, unsigned char *par)
 {
   union REGS regs;
 
   regs.x.ax = 0x440d;
   regs.x.cx = cx;
   regs.x.dx = (unsigned)par;
-  regs.h.bl = drive + 1;
+  regs.x.bx = drive; /* BH must be 0 for lock! */
   intdos(&regs, &regs);
   return regs.x.cflag;
 } /* generic_block_ioctl */
@@ -692,7 +692,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
 #endif
 
   /* lock drive */
-  generic_block_ioctl((unsigned char)drive + 1, 0x84a, NULL);
+  generic_block_ioctl(drive + 1, 0x84a, NULL);
 
   reset_drive(drive);
   /* suggestion: allow reading from a boot sector or image file here */
@@ -752,7 +752,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
     printf("FAT type: FAT32\n");
     /* get default bpb (but not for floppies) */
     if (drive >= 2 &&
-        generic_block_ioctl((unsigned char)drive + 1, 0x4860, default_bpb) == 0)
+        generic_block_ioctl(drive + 1, 0x4860, default_bpb) == 0)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
 
 #ifdef WITHFAT32                /* copy one of the FAT32 boot sectors */
@@ -767,7 +767,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   { /* copy the FAT12/16 CHS+LBA boot sector */
     printf("FAT type: FAT1%c\n", fs + '0' - 10);
     if (drive >= 2 &&
-        generic_block_ioctl((unsigned char)drive + 1, 0x860, default_bpb) == 0)
+        generic_block_ioctl(drive + 1, 0x860, default_bpb) == 0)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
     memcpy(newboot, fs == FAT16 ? fat16com : fat12com, SEC_SIZE);
   }
@@ -782,7 +782,8 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
 
   bs = (struct bootsectortype *)&newboot;
 
-  memcpy(bs->OemName, "FreeDOS ", 8);
+  /* originally OemName was "FreeDOS", changed for better compatibility */
+  memcpy(bs->OemName, "FRDOS4.1", 8);
 
 #ifdef WITHFAT32
   if (fs == FAT32)
@@ -893,7 +894,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   reset_drive(drive);
 
   /* unlock_drive */
-  generic_block_ioctl((unsigned char)drive + 1, 0x86a, NULL);
+  generic_block_ioctl(drive + 1, 0x86a, NULL);
 } /* put_boot */
 
 

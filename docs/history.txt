@@ -1,5 +1,8 @@
 2004 July 8 - UNSTABLE branch
 -------- Jeremy Davis (jeremyd@computer.org)
++ Changes Bart
+      * int2f.asm
+        - bugfix: call_nls: DI register was not preserved
 + Changes Tom
 	* inthndlr.c
 	  - improve handling of case where eg. FindFirst(I:\*.*) fails, causes Int24,
@@ -264,6 +267,16 @@
 	    bytes, because Shell=SecPathName+50 and sizeof SecPathName=128).
 	  - P_0(): now supported command line without space between command and
 	    options (starting from '/').
+	* dosfns.c
+	  - common code from DosFindFirst() and DosFindNext() moved to pop_dmp()
+	  - optimization for SftSeek()
+      * ludivmul.inc
+        - bugfix: division of long numbers in LDIVMODU macro (used for Watcom)
+          was wrong. Example: 100000h%8000Fh was gives 0FFFF1h instead 7_FFF1h.
+        - shorter code.
+      * inthndlr.c
+        - fix: INT21/3301 now returns in DL low bit of input value (as in MS-DOS).
+        - callerARG1 declared as xreg instead UWORD.
 + Changes Bernd, Aitor, & Arkady
 	*  config.c
 	  - source: (Bernd) the codepage table rewritten into a smaller layout.
@@ -276,6 +289,19 @@
 	  - fix: for MSVC CONST segment should be class CONST, not DATA.
 	* dsk.c
 	  - play_dj() now says same words as MS-DOS6.
+      * boot.asm
+        - optimize and make more user friendly instead of retrying endlessly
+      * sys.c
+        - change OEM Name field to FRDOS4.1 per Eric Auer for better compatibility.
+      * ludivmul.inc
+        - 32-bit division code for 386-enabled Watcom kernel.
+      * inthndlr.c
+        - fix: for INT21/5F07 and 5F08, before changing bit CDSPHYSDRV,
+          MS-DOS checks if physical device associated with drive letter. Without
+          this check MS-FORMAT under FreeDOS was destroys RAMDISK.
+ + Changes Jeremy
+	* config.txt
+	  - update to include all CONFIG.SYS options (except ANYDOS)
 *** Sync - Stable Build 2035 ***
 
 2004 May 30 - Build 2035

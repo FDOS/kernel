@@ -80,6 +80,7 @@ set MAKE=
 set XUPX=
 set XCPU=
 set XFAT=
+set ALLCFLAGS=
 
 if not "%OLDPATH%" == "" set PATH=%OLDPATH%
 set OLDPATH=
