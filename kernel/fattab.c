@@ -177,7 +177,7 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    idx = (((unsigned)Cluster1 << 1) + (unsigned)Cluster1) % dpbp->dpb_secsize;
+    idx = (((unsigned)Cluster1 >> 1) + (unsigned)Cluster1) % dpbp->dpb_secsize;
 
     /* Test to see if the cluster straddles the block. If   */
     /* it does, get the next block and use both to form the */
@@ -294,7 +294,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    idx = ((((unsigned)ClusterNum << 1) + (unsigned)ClusterNum) >> 1) %
+    idx = (((unsigned)ClusterNum >> 1) + (unsigned)ClusterNum) %
       dpbp->dpb_secsize;
 
     clusterbuff.bytes[0] = bp->b_buffer[idx];
