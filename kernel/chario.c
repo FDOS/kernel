@@ -174,6 +174,8 @@ void update_scr_pos(unsigned char c, unsigned char count)
   scr_pos = scrpos;
 }
 
+STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break);
+
 /* writes a character in cooked mode; maybe with printer echo;
    handles TAB expansion */
 STATIC int cooked_write_char(struct dhdr FAR **pdev,
@@ -290,15 +292,6 @@ STATIC void destr_bs(int sft_idx)
 
 /* READ FUNCTIONS */
 
-STATIC unsigned char read_char_sft_dev(int sft_in, int sft_out,
-                                       struct dhdr FAR **pdev,
-                                       BOOL check_break);
-
-STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break)
-{
-  return read_char_sft_dev(-1, -1, pdev, check_break);
-}
-
 long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
 {
   unsigned xfer = 0;
@@ -359,6 +352,11 @@ STATIC unsigned char read_char_sft_dev(int sft_in, int sft_out,
     c = read_char(sft_in, sft_out, FALSE);
   }
   return c;
+}
+
+STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break)
+{
+  return read_char_sft_dev(-1, -1, pdev, check_break);
 }
 
 unsigned char read_char(int sft_in, int sft_out, BOOL check_break)
