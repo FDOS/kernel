@@ -40,6 +40,10 @@ static BYTE *RcsId =
 /*                                                                      */
 /************************************************************************/
 
+/* special "impossible" "Cluster2" value of 1 denotes reading the
+   cluster number rather than overwriting it */
+#define READ_CLUSTER 1
+
 #ifndef ISFAT32
 int ISFAT32(struct dpb FAR * dpbp)
 {
@@ -166,8 +170,8 @@ void write_fsinfo(struct dpb FAR * dpbp)
 /*      12 bytes are compressed to 9 bytes                      */
 /*                                                              */
 
-unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
-                REG CLUSTER Cluster2)
+CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
+                 REG CLUSTER Cluster2)
 {
   struct buffer FAR *bp;
   unsigned idx;
@@ -176,12 +180,16 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   bp = getFATblock(Cluster1, dpbp, &idx);
 
   if (bp == NULL)
-    return DE_BLKINVLD;
+    return 1; /* the only error code possible here */
 
   if (ISFAT12(dpbp))
   {
     REG UBYTE FAR *fbp0, FAR * fbp1;
     struct buffer FAR * bp1;
+    union {
+      UBYTE bytes[2];
+      unsigned word;
+    } clusterbuff;
 
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
@@ -191,6 +199,10 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* it does, get the next block and use both to form the */
     /* the FAT word. Otherwise, just point to the next      */
     /* block.                                               */
+    clusterbuff.bytes[0] = bp->b_buffer[idx];
+
+    /* next byte, will be overwritten, if not valid */
+    clusterbuff.bytes[1] = bp->b_buffer[idx + 1];
     fbp0 = &bp->b_buffer[idx];
     fbp1 = fbp0 + 1;
   
@@ -198,11 +210,39 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     {
       bp1 = getFATblock((unsigned)Cluster1 + 1, dpbp, NULL);
       if (bp1 == 0)
-        return DE_BLKINVLD;
+        return 1; /* the only error code possible here */
       
-      bp1->b_flag |= BFR_DIRTY | BFR_VALID;
+      if (Cluster2 != READ_CLUSTER)
+        bp1->b_flag |= BFR_DIRTY | BFR_VALID;
       
       fbp1 = &bp1->b_buffer[0];
+      clusterbuff.bytes[1] = bp1->b_buffer[0];
+    }
+
+    if (Cluster2 == READ_CLUSTER)
+    {
+      /* Now to unpack the contents of the FAT entry. Odd and */
+      /* even bytes are packed differently.                   */
+
+#ifndef I86                     /* the latter assumes byte ordering */
+      if (Cluster1 & 0x01)
+        idx =
+          ((clusterbuff.bytes[0] & 0xf0) >> 4) | (clusterbuff.bytes[1] << 4);
+      else
+        idx = clusterbuff.bytes[0] | ((clusterbuff.bytes[1] & 0x0f) << 8);
+#else
+
+      if (Cluster1 & 0x01)
+        idx = (unsigned short)clusterbuff.word >> 4;
+      else
+        idx = clusterbuff.word & 0x0fff;
+#endif
+
+      if (idx >= MASK12)
+        return LONG_LAST_CLUSTER;
+      if (idx == BAD12)
+        return LONG_BAD;
+      return idx;
     }
 
     /* Now pack the value in                                */
@@ -223,6 +263,17 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
+    if (Cluster2 == READ_CLUSTER)
+    {
+      /* and get the cluster number                           */
+      UWORD res = fgetword(&bp->b_buffer[idx * 2]);
+      if (res >= MASK16)
+        return LONG_LAST_CLUSTER;
+      if (res == BAD16)
+        return LONG_BAD;
+
+      return res;
+    }
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
     fputword(&bp->b_buffer[idx * 2], (UWORD)Cluster2);
@@ -232,13 +283,21 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
+    if (Cluster2 == READ_CLUSTER)
+    {
+      UDWORD res = fgetlong(&bp->b_buffer[idx * 4]);
+      if (res > LONG_BAD)
+        return LONG_LAST_CLUSTER;
+
+      return res;
+    }
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
     fputlong(&bp->b_buffer[idx * 4], Cluster2);
   }
 #endif
   else
-    return DE_BLKINVLD;
+    return 1;
 
   /* update the free space count                          */
   bp->b_flag |= BFR_DIRTY | BFR_VALID;
@@ -281,97 +340,6 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
    looks at the FAT, and returns the next cluster in the clain. */
 CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
 {
-  struct buffer FAR *bp;
-  unsigned idx;
-
-  /* Get the block that this cluster is in                */
-  bp = getFATblock(ClusterNum, dpbp, &idx);
-
-  if (bp == NULL)
-    return 1; /* the only error code possible here */
-
-  if (ISFAT12(dpbp))
-  {
-    union {
-      UBYTE bytes[2];
-      unsigned word;
-    } clusterbuff;
-
-    /* form an index so that we can read the block as a     */
-    /* byte array                                           */
-    idx /= 2;
-
-    clusterbuff.bytes[0] = bp->b_buffer[idx];
-
-    clusterbuff.bytes[1] = bp->b_buffer[idx + 1];       /* next byte, will be overwritten,
-                                                           if not valid */
-
-    /* Test to see if the cluster straddles the block. If it */
-    /* does, get the next block and use both to form the    */
-    /* the FAT word. Otherwise, just point to the next      */
-    /* block.                                               */
-    if (idx >= (unsigned)dpbp->dpb_secsize - 1)
-    {
-      bp = getFATblock(ClusterNum + 1, dpbp, NULL);
-
-      if (bp == 0)
-        return LONG_BAD;
-
-      clusterbuff.bytes[1] = bp->b_buffer[0];
-    }
-
-    /* Now to unpack the contents of the FAT entry. Odd and */
-    /* even bytes are packed differently.                   */
-
-#ifndef I86                     /* the latter assumes byte ordering */
-    if (ClusterNum & 0x01)
-      idx =
-          ((clusterbuff.bytes[0] & 0xf0) >> 4) | (clusterbuff.bytes[1] << 4);
-    else
-      idx = clusterbuff.bytes[0] | ((clusterbuff.bytes[1] & 0x0f) << 8);
-#else
-
-    if (ClusterNum & 0x01)
-      idx = (unsigned short)clusterbuff.word >> 4;
-    else
-      idx = clusterbuff.word & 0x0fff;
-#endif
-
-    if (idx >= MASK12)
-      return LONG_LAST_CLUSTER;
-    if (idx == BAD12)
-      return LONG_BAD;
-    return idx;
-  }
-  else if (ISFAT16(dpbp)) 
-  {
-    UWORD res;
-
-    /* form an index so that we can read the block as a     */
-    /* byte array                                           */
-    /* and get the cluster number                           */
-
-    res = fgetword(&bp->b_buffer[idx * 2]);
-
-    if (res >= MASK16)
-      return LONG_LAST_CLUSTER;
-    if (res == BAD16)
-      return LONG_BAD;
-
-    return res;
-  }
-#ifdef WITHFAT32
-  else if (ISFAT32(dpbp))
-  {
-    UDWORD res;
-
-    res = fgetlong(&bp->b_buffer[idx * 4]);
-    if (res > LONG_BAD)
-      return LONG_LAST_CLUSTER;
-
-    return res;
-  }
-#endif
-  return LONG_LAST_CLUSTER;
+  return link_fat(dpbp, ClusterNum, READ_CLUSTER);
 }
 
