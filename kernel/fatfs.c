@@ -2062,42 +2062,46 @@ ckok:;
 #endif
 }
 
-COUNT media_check(REG struct dpb FAR * dpbp)
+STATIC int blockio(unsigned char command, struct dpb FAR * dpbp)
 {
-  if (dpbp == NULL)
-    return DE_INVLDDRV;
-  
-  /* First test if anyone has changed the removable media         */
-  FOREVER
+ retry:
+  MediaReqHdr.r_length = sizeof(request);
+  MediaReqHdr.r_unit = dpbp->dpb_subunit;
+  MediaReqHdr.r_command = command;
+  MediaReqHdr.r_mcmdesc = dpbp->dpb_mdb;
+  MediaReqHdr.r_status = 0;
+  execrh((request FAR *) & MediaReqHdr, dpbp->dpb_device);
+  if ((MediaReqHdr.r_status & S_ERROR) || !(MediaReqHdr.r_status & S_DONE))
   {
-    MediaReqHdr.r_length = sizeof(request);
-    MediaReqHdr.r_unit = dpbp->dpb_subunit;
-    MediaReqHdr.r_command = C_MEDIACHK;
-    MediaReqHdr.r_mcmdesc = dpbp->dpb_mdb;
-    MediaReqHdr.r_status = 0;
-    execrh((request FAR *) & MediaReqHdr, dpbp->dpb_device);
-    if ((MediaReqHdr.r_status & S_ERROR)
-        || !(MediaReqHdr.r_status & S_DONE))
+    FOREVER
     {
-    loop1:
       switch (block_error(&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device, 0))
       {
-        case ABORT:
-        case FAIL:
-          return DE_INVLDDRV;
+      case ABORT:
+      case FAIL:
+        return DE_INVLDDRV;
 
-        case RETRY:
-          continue;
+      case RETRY:
+        goto retry;
 
-        case CONTINUE:
-          break;
-
-        default:
-          goto loop1;
+      case CONTINUE:
+        return SUCCESS;
       }
     }
-    break;
   }
+  return SUCCESS;
+}
+
+COUNT media_check(REG struct dpb FAR * dpbp)
+{
+  int ret;
+  if (dpbp == NULL)
+    return DE_INVLDDRV;
+
+  /* First test if anyone has changed the removable media         */
+  ret = blockio(C_MEDIACHK, dpbp);
+  if (ret < SUCCESS)
+    return ret;
 
   switch (MediaReqHdr.r_mcretcode | dpbp->dpb_flags)
   {
@@ -2116,37 +2120,9 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     case M_CHANGED:
     default:
       setinvld(dpbp->dpb_unit);
-      FOREVER
-      {
-        MediaReqHdr.r_length = sizeof(request);
-        MediaReqHdr.r_unit = dpbp->dpb_subunit;
-        MediaReqHdr.r_command = C_BLDBPB;
-        MediaReqHdr.r_mcmdesc = dpbp->dpb_mdb;
-        MediaReqHdr.r_status = 0;
-        execrh((request FAR *) & MediaReqHdr, dpbp->dpb_device);
-        if ((MediaReqHdr.r_status & S_ERROR)
-            || !(MediaReqHdr.r_status & S_DONE))
-        {
-        loop2:
-          switch (block_error
-                  (&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device, 0))
-          {
-            case ABORT:
-            case FAIL:
-              return DE_INVLDDRV;
-
-            case RETRY:
-              continue;
-
-            case CONTINUE:
-              break;
-
-            default:
-              goto loop2;
-          }
-        }
-        break;
-      }
+      ret = blockio(C_BLDBPB, dpbp);
+      if (ret < SUCCESS)
+        return ret;
 #ifdef WITHFAT32
       /* extend dpb only for internal or FAT32 devices */
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp,
