@@ -228,7 +228,10 @@ COUNT DosDevIOctl(lregs * r)
 #endif
 
       dpbp = get_dpb(CharReqHdr.r_unit);
-      attr = dpbp->dpb_device->dh_attr;
+      if (dpbp)
+        attr = dpbp->dpb_device->dh_attr;
+      else if (r->AL != 9)
+        return DE_INVLDDRV;
 
       switch (r->AL)
       {
@@ -239,10 +242,6 @@ COUNT DosDevIOctl(lregs * r)
           nMode = C_IOCTLOUT;
           goto IoBlockCommon;
         case 0x08:
-          if (!dpbp)
-          {
-            return DE_INVLDDRV;
-          }
           if (attr & ATTR_EXCALLS)
           {
             nMode = C_REMMEDIA;
@@ -277,10 +276,6 @@ COUNT DosDevIOctl(lregs * r)
         case 0x11:
           nMode = C_IOCTLQRY;
         IoBlockCommon:
-          if (!dpbp)
-          {
-            return DE_INVLDDRV;
-          }
           if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
           {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
@@ -315,10 +310,6 @@ COUNT DosDevIOctl(lregs * r)
         default: /* 0x0f */
           nMode = C_SETLDEV;
         IoLogCommon:
-          if (!dpbp)
-          {
-            return DE_INVLDDRV;
-          }
           if (attr & ATTR_GENIOCTL)
           {
             
