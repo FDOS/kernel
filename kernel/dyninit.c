@@ -38,6 +38,7 @@ additionally:
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
+#include "lol.h"
 
 #if defined(DEBUG)
 #define DebugPrintf(x) printf x
@@ -58,37 +59,41 @@ void far *DynAlloc(char *what, unsigned num, unsigned size)
 {
   void far *now;
   unsigned total = num * size;
+  struct DynS far *Dynp = MK_FP(FP_SEG(LoL), FP_OFF(&Dyn));
+
 #ifndef DEBUG
   UNREFERENCED_PARAMETER(what);
 #endif
 
-  if ((ULONG) total + Dyn.Allocated > 0xffff)
+  if ((ULONG) total + Dynp->Allocated > 0xffff)
   {
-    printf("PANIC:Dyn %lu\n", (ULONG) total + Dyn.Allocated);
+    printf("PANIC:Dyn %lu\n", (ULONG) total + Dynp->Allocated);
     for (;;) ;
   }
 
   DebugPrintf(("DYNDATA:allocating %s - %u * %u bytes, total %u, %u..%u\n",
-               what, num, size, total, Dyn.Allocated,
-               Dyn.Allocated + total));
+               what, num, size, total, Dynp->Allocated,
+               Dynp->Allocated + total));
 
-  now = (void far *)&Dyn.Buffer[Dyn.Allocated];
+  now = (void far *)&Dynp->Buffer[Dynp->Allocated];
   fmemset(now, 0, total);
 
-  Dyn.Allocated += total;
+  Dynp->Allocated += total;
 
   return now;
 }
 
 void DynFree(void *ptr)
 {
-  Dyn.Allocated = (char *)ptr - (char *)Dyn.Buffer;
+  struct DynS far *Dynp = MK_FP(FP_SEG(LoL), FP_OFF(&Dyn));
+  Dynp->Allocated = (char *)ptr - (char *)Dynp->Buffer;
 }
 
 void FAR * DynLast()
 {
+  struct DynS far *Dynp = MK_FP(FP_SEG(LoL), FP_OFF(&Dyn));
   DebugPrintf(("dynamic data end at %p\n",
-               (void FAR *)(Dyn.Buffer + Dyn.Allocated)));
+               (void FAR *)(Dynp->Buffer + Dynp->Allocated)));
 
-  return Dyn.Buffer + Dyn.Allocated;
+  return Dynp->Buffer + Dynp->Allocated;
 }

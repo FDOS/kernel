@@ -33,12 +33,12 @@ static BYTE *dskRcsId =
     "$Id$";
 #endif
 
+UBYTE InitDiskTransferBuffer[SEC_SIZE];
+COUNT nUnits;
+
 /*
     data shared between DSK.C and INITDISK.C
 */
-extern UBYTE DOSFAR DiskTransferBuffer[1 * SEC_SIZE];
-
-extern COUNT DOSFAR nUnits;
 
 extern UWORD DOSFAR LBA_WRITE_VERIFY;
 
@@ -766,7 +766,7 @@ ErrorReturn:
 */
 
 BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
-                                UBYTE FAR * pDisk)
+                                UBYTE * pDisk)
 {
   int i;
 
@@ -948,7 +948,7 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
 void BIOS_drive_reset(unsigned drive);
 
 int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
-                   ULONG LBA_address, void FAR * buffer)
+                   ULONG LBA_address, void * buffer)
 {
   static struct _bios_LBA_address_packet dap = {
     16, 0, 0, 0, 0, 0, 0
@@ -1051,14 +1051,14 @@ ReadNextPartitionTable:
 strange_restart:
 
   if (Read1LBASector
-      (&driveParam, drive, RelSectorOffset, DiskTransferBuffer))
+      (&driveParam, drive, RelSectorOffset, InitDiskTransferBuffer))
   {
     printf("Error reading partition table drive %02x sector %lu", drive,
            RelSectorOffset);
     return PartitionsToIgnore;
   }
 
-  if (!ConvPartTableEntryToIntern(PTable, DiskTransferBuffer))
+  if (!ConvPartTableEntryToIntern(PTable, InitDiskTransferBuffer))
   {
     /* there is some strange hardware out in the world,
        which returns OK on first read, but the data are

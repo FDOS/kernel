@@ -123,8 +123,6 @@ STATIC BOOL tdelay(ddt *pddt, ULONG ticks)
 #define N_PART 4                /* number of partitions per
                                    table partition              */
 
-COUNT nUnits;                   /* number of returned units     */
-
 #define PARTOFF 0x1be
 
 #ifdef PROTO
@@ -187,7 +185,7 @@ static dsk_proc * const dispatch[NENTRY] =
 
 COUNT ASMCFUNC FAR blk_driver(rqptr rp)
 {
-  if (rp->r_unit >= nUnits && rp->r_command != C_INIT)
+  if (rp->r_unit >= blk_dev.dh_name[0] && rp->r_command != C_INIT)
     return failure(E_UNIT);
   if (rp->r_command > NENTRY)
   {
@@ -207,14 +205,14 @@ STATIC WORD play_dj(ddt * pddt)
   {
     int i;
     ddt *pddt2 = getddt(0);
-    for (i = 0; i < nUnits; i++, pddt2++)
+    for (i = 0; i < blk_dev.dh_name[0]; i++, pddt2++)
     {
       if (pddt->ddt_driveno == pddt2->ddt_driveno &&
           (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) ==
           (DF_MULTLOG | DF_CURLOG))
         break;
     }
-    if (i == nUnits)
+    if (i == blk_dev.dh_name[0])
     {
       put_string("Error in the DJ mechanism!\n");   /* should not happen! */
       return M_CHANGED;
@@ -314,7 +312,7 @@ STATIC WORD Getlogdev(rqptr rp, ddt * pddt)
     return S_DONE;
   }
 
-  for (i = 0; i < nUnits; i++, pddt2++)
+  for (i = 0; i < blk_dev.dh_name[0]; i++, pddt2++)
   {
     if (pddt->ddt_driveno == pddt2->ddt_driveno &&
         (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) ==
@@ -336,7 +334,7 @@ STATIC WORD Setlogdev(rqptr rp, ddt * pddt)
     return S_DONE;
   }
 
-  for (i = 0; i < nUnits; i++, pddt2++)
+  for (i = 0; i < blk_dev.dh_name[0]; i++, pddt2++)
   {
     if (pddt->ddt_driveno == pddt2->ddt_driveno &&
         (pddt2->ddt_descflags & (DF_MULTLOG | DF_CURLOG)) ==
