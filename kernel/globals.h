@@ -178,20 +178,10 @@ extern struct ClockRecord
 /*                                                                      */
 /* Global variables                                                     */
 /*                                                                      */
-GLOBAL BYTE os_major,           /* major version number                 */
+extern BYTE os_major,           /* major version number                 */
   os_minor,                     /* minor version number                 */
-  rev_number                    /* minor version number                 */
-#ifdef MAIN
-    = REV_NUMBER,
-#else
- ,
-#endif
-  version_flags                 /* minor version number                 */
-#ifdef MAIN
-    = 0;
-#else
- ;
-#endif
+  rev_number,                   /* minor version number                 */
+  version_flags;                /* minor version number                 */
 
 #ifdef DEBUG
 GLOBAL WORD bDumpRegs
@@ -313,9 +303,9 @@ extern BYTE ASM default_drive;      /* default drive for dos                */
 
 extern dmatch ASM sda_tmp_dm;       /* Temporary directory match buffer     */
 extern BYTE
-  FAR ASM internal_data[],          /* sda areas                            */
-  FAR ASM swap_always[],            /*  "    "                              */
-  FAR ASM swap_indos[],             /*  "    "                              */
+  ASM internal_data[],              /* sda areas                            */
+  ASM swap_always[],                /*  "    "                              */
+  ASM swap_indos[],                 /*  "    "                              */
   ASM tsr,                          /* true if program is TSR               */
   ASM break_flg,                    /* true if break was detected           */
   ASM break_ena;                    /* break enabled flag                   */
@@ -354,9 +344,8 @@ GLOBAL WORD dump_regs;          /* dump registers of bad call           */
 
 #endif
 
-GLOBAL f_node_ptr f_nodes;      /* pointer to the array                 */
-
-GLOBAL UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
+extern f_node_ptr f_nodes;      /* pointer to the array                 */
+extern UWORD f_nodes_cnt;       /* number of allocated f_nodes          */
 
 /*                                                                      */
 /* Function prototypes - automatically generated                        */
