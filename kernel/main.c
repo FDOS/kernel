@@ -388,7 +388,7 @@ STATIC VOID signon()
 #ifdef WITHFAT32
   " - FAT32 support"
 #endif
-  "\n\n%S",
+  "\n\n%s",
          MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)),
          MAJOR_RELEASE, MINOR_RELEASE, copyright);
 }
