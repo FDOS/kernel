@@ -207,12 +207,15 @@ STATIC void PSPInit(void)
   p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
 }
 
+#ifndef __WATCOMC__
+/* for WATCOMC we can use the one in task.c */
 void setvec(unsigned char intno, intvec vector)
 {
   disable();
   *(intvec FAR *)MK_FP(0,4 * intno) = vector;
   enable();
 }
+#endif
 
 STATIC void setup_int_vectors(void)
 {

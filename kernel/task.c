@@ -65,6 +65,13 @@ static BYTE *RcsId =
            + 1 byte: '\0'
            -- 1999/04/21 ska */
 
+void setvec(unsigned char intno, intvec vector)
+{
+  disable();
+  *(intvec FAR *)MK_FP(0,4 * intno) = vector;
+  enable();
+}
+
 ULONG SftGetFsize(int sft_idx)
 {
   sft FAR *s = idx_to_sft(sft_idx);

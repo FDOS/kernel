@@ -408,9 +408,10 @@ VOID fputword(VOID FAR *, UWORD);
 VOID fputbyte(VOID FAR *, UBYTE);
 #endif
 
-#ifdef I86
-#define setvec(n, isr)  (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
+#ifndef __WATCOMC__
+#define setvec setvec_resident
 #endif
+void setvec(unsigned char intno, intvec vector);
 /*#define is_leap_year(y) ((y) & 3 ? 0 : (y) % 100 ? 1 : (y) % 400 ? 0 : 1) */
 
 /* ^Break handling */
