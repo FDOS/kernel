@@ -17,11 +17,13 @@ if "%BASE%"     == ""       goto clearset
 
 :-----------------------------------------------------------------------
 
+if not "%BINPATH%" == "" goto skip_binpath
 set BINPATH=%BASE%\bin
 if "%COMPILER%" == "TC"     set BINPATH=%BASE%
 if "%COMPILER%" == "WATCOM" set BINPATH=%BASE%\binw
-if "%COMPILER%" == "WATCOM" if "%OS%" == "Windows_NT" set BINPATH=%BASE%\binnt
+if "%COMPILER%-%OS%" == "WATCOM-Windows_NT" set BINPATH=%BASE%\binnt
 
+:skip_binpath
 echo Path to compiler programs (binaries) is %BINPATH%
 
 :-----------------------------------------------------------------------
@@ -32,7 +34,8 @@ set OLDPATH=%PATH%
 set PATH=%BINPATH%;%PATH%
 
 :- MSC searches libraries only through LIB variable.
-if "%COMPILER%" == "MSC" set LIB=%MSC_BASE%\lib
+:- If already set then assume preset to include MSC's lib
+if "%COMPILER%%LIB%" == "MSC" set LIB=%MSC_BASE%\lib
 
 :-----------------------------------------------------------------------
 

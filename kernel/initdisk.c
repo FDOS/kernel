@@ -595,15 +595,13 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_defbpb.bpb_nheads = driveParam->chs.Head;
   pddt->ddt_defbpb.bpb_nsecs = driveParam->chs.Sector;
   pddt->ddt_defbpb.bpb_hidden = pEntry->RelSect;
-  if (pEntry->NumSect > 0xffff)
+
+  pddt->ddt_defbpb.bpb_nsize = 0;
+  pddt->ddt_defbpb.bpb_huge = pEntry->NumSect;
+  if (pEntry->NumSect <= 0xffff)
   {
-    pddt->ddt_defbpb.bpb_nsize = 0;
-    pddt->ddt_defbpb.bpb_huge = pEntry->NumSect;
-  }
-  else
-  {
-    pddt->ddt_defbpb.bpb_nsize = (UWORD) (pEntry->NumSect);
-    pddt->ddt_defbpb.bpb_huge = 0;
+    pddt->ddt_defbpb.bpb_nsize = loword (pEntry->NumSect);
+    pddt->ddt_defbpb.bpb_huge = 0;  /* may still be set on Win95 */
   }
 
   /* sectors per cluster, sectors per FAT etc. */

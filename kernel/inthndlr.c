@@ -252,7 +252,7 @@ int int21_fat32(lregs *r)
           if (ISFAT32(dpb))
           {
             if ((dpb->dpb_xfsinfosec == 0xffff
-                 && (nfreeclst != 0 || cluster != 0))
+                 && (nfreeclst || cluster))
                  || nfreeclst > dpb->dpb_xsize
                  || cluster   > dpb->dpb_xsize)
             {
@@ -1962,7 +1962,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
          omitting the NUL device TE */
       r.BX = FP_SEG(nul_dev.dh_next);
       r.AX = FP_OFF(nul_dev.dh_next);
-
+      /* fall through only to re-use break */
     case 0x2e:                 /* GET or SET error table addresse - ignored
                                    called by MS debug with  DS != DOSDS, printf
                                    doesn't work!! */
