@@ -693,6 +693,11 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       if (DosRWSft
           (fd, sizeof(reloc), (VOID FAR *) & reloc[0], XFR_READ) != sizeof(reloc))
       {
+        if (mode != OVERLAY)
+        {
+          DosMemFree(--mem);
+          DosMemFree(env);
+        }
         return DE_INVLDDATA;
       }
       if (mode == OVERLAY)
