@@ -1953,8 +1953,13 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   COUNT fd;
   f_node_ptr fnp;
 
-  /* JPP-If user tries to set VOLID or DIR bits, return error */
-  if ((attrp & (D_VOLID | D_DIR | 0xC0)) != 0)
+  /* JPP-If user tries to set VOLID or RESERVED bits, return error.
+     We used to also check for D_DIR here, but causes issues with deltree
+     which is trying to work around another issue.  So now we check
+     these here, and only report DE_ACCESS if user tries to set directory
+     bit on a non-directory entry.
+   */
+  if ((attrp & (D_VOLID | 0xC0)) != 0)
     return DE_ACCESS;
 
   fd = (short)dos_open(name, O_RDONLY | O_OPEN, 0);
@@ -1966,6 +1971,10 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   /* Set the attribute from the fnode and return          */
   /* clear all attributes but DIR and VOLID */
   fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);   /* JPP */
+
+  /* if caller tries to set DIR on non-directory, return error */
+  if (!(fnp->f_dir.dir_attrib & D_DIR) && (attrp & D_DIR))
+    return DE_ACCESS;
     
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
