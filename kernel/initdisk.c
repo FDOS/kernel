@@ -840,9 +840,7 @@ int ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
 
   for (i = 0; i < 4; i++, pEntry++)
   {
-    if (pEntry->FileSystem == 0
-      || partitionsToIgnore & (1 << i)
-      || IsExtPartition(pEntry->FileSystem)
+    if (partitionsToIgnore & (1 << i)
       || scan_type == SCAN_PRIMARYBOOT && !pEntry->Bootable
       || !IsFATPartition(pEntry->FileSystem))
       continue;
