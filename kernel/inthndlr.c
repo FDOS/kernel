@@ -1570,7 +1570,7 @@ dispatch:
         long lrc;
         CLEAR_CARRY_FLAG();
       
-        if (lr.AL != 0 || lr.DH != 0 ||
+        if (lr.AL != 0 ||
             (lr.DL & 0x0f) > 0x2 || (lr.DL & 0xf0) > 0x10)
           goto error_invalid;
         lrc = DosOpen(MK_FP(lr.DS, lr.SI),
