@@ -1,3 +1,16 @@
+2001 Aug 19 - Build 2024/g
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ fixes Bart
+    * set file time fixes
+    * clock fixes
+    * findfirst/next fixes
+    * added a bit more int2f/ax=12xx functionality
+    * buffers trick to fool MFT so that it does not crash
+    * Ctrl-S (pause) and Ctrl-P (printer echo) now work. 
+      Ctrl-Q is ignored by DOS.
+    * FCB "closing twice is legal" fix. Necessary for visicalc.  
++ fixes Bart + Tom
+    * fixed shsucdx /u unloading problem	
 2001 Jul 28 - Build 2024/f
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + fixes Bart
