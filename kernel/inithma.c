@@ -163,13 +163,17 @@ int EnableHMA(VOID)
 
 int MoveKernelToHMA()
 {
+  void far *xms_addr;
+
   if (DosLoadedInHMA)
   {
     return TRUE;
   }
 
-  if ((XMSDriverAddress = DetectXMSDriver()) == NULL)
+  if ((xms_addr = DetectXMSDriver()) == NULL)
     return FALSE;
+
+  XMSDriverAddress = xms_addr;
 
 #ifdef DEBUG
   /* A) for debugging purpose, suppress this, 
@@ -196,7 +200,7 @@ int MoveKernelToHMA()
 
   if (HMAclaimed == 0 &&
       (HMAclaimed =
-       init_call_XMScall(XMSDriverAddress, 0x0100, 0xffff)) == 0)
+       init_call_XMScall(xms_addr, 0x0100, 0xffff)) == 0)
   {
     printf("Can't reserve HMA area ??\n");
 

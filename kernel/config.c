@@ -170,7 +170,6 @@ STATIC seg base_seg = 0;
 STATIC seg umb_base_seg = 0;
 BYTE FAR *lpTop = 0;
 STATIC unsigned nCfgLine = 0;
-STATIC COUNT nPass = 0;
 COUNT UmbState = 0;
 STATIC BYTE szLine[256] = { 0 };
 STATIC BYTE szBuf[256] = { 0 };
@@ -545,8 +544,12 @@ STATIC void umb_init(void)
 {
   UCOUNT umb_seg, umb_size;
   seg umb_max;
+  void far *xms_addr;
 
-  if (UMB_get_largest(&umb_seg, &umb_size))
+  if ((xms_addr = DetectXMSDriver()) == NULL)
+    return;
+
+  if (UMB_get_largest(xms_addr, &umb_seg, &umb_size))
   {
     UmbState = 1;
 
@@ -571,7 +574,7 @@ STATIC void umb_init(void)
        the first UMB.
     */
 
-    while (UMB_get_largest(&umb_seg, &umb_size))
+    while (UMB_get_largest(xms_addr, &umb_seg, &umb_size))
     {
       seg umb_prev, umb_next;
 
@@ -621,15 +624,12 @@ STATIC void umb_init(void)
   }
 }
 
-VOID DoConfig(int pass)
+VOID DoConfig(int nPass)
 {
   COUNT nFileDesc;
   BYTE *pLine;
   BOOL bEof;
 
-
-  /* Set pass number                                              */
-  nPass = pass;
 
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */

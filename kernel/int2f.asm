@@ -677,34 +677,20 @@ skip5f02:
 ;  B1h    no UMB's are available
 ;  B2h    UMB segment number is invalid
 ;
-;
-
 
 segment INIT_TEXT
-                ; int UMB_get_largest(UCOUNT *seg, UCOUNT *size);
-                global _UMB_get_largest
+                ; int ASMPASCAL UMB_get_largest(void FAR * driverAddress,
+                ;                UCOUNT * seg, UCOUNT * size);
+                global UMB_GET_LARGEST
                 
-_UMB_get_largest:
+UMB_GET_LARGEST:
                 push    bp
                 mov     bp,sp
 
-                sub     sp,4            ; for the far call
-
-                mov     ax,4300h        ; is there a xms driver installed?
-                int     2fh
-                cmp     al,80h
-                jne     umbt_error
-
-                mov     ax,4310h
-                int     2fh
-
-
-                mov     [bp-2],es              ; save driver entry point
-                mov     [bp-4],bx
-
                 mov     dx,0xffff       ; go for broke!
                 mov     ax,1000h        ; get the umb's
-                call    far [bp-4]      ; Call the driver
+                call    far [bp+8]      ; Call the driver
+
 ;
 ;       bl = 0xB0 and  ax = 0 so do it again.
 ;
@@ -715,7 +701,7 @@ _UMB_get_largest:
                 je      umbt_error
 
                 mov     ax,1000h        ; dx set with largest size
-                call    far [bp-4]      ; Call the driver
+                call    far [bp+8]      ; Call the driver
 
                 cmp     ax,1
                 jne     umbt_error
@@ -723,16 +709,15 @@ _UMB_get_largest:
                                         ; and the size
 
                 mov 	cx,bx           ; *seg = segment
-                mov 	bx, [bp+4]
+                mov 	bx, [bp+6]
                 mov 	[bx],cx
 
-                mov 	bx, [bp+6]      ; *size = size
+                mov 	bx, [bp+4]      ; *size = size
                 mov 	[bx],dx
 
 umbt_ret:
-                mov     sp,bp
                 pop     bp
-                ret                	; this was called NEAR!!
+                ret     8           	; this was called NEAR!!
 
 umbt_error:     xor 	ax,ax
                 jmp 	short umbt_ret

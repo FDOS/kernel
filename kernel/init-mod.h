@@ -111,8 +111,6 @@ VOID configDone(VOID);
 VOID FAR * KernelAlloc(size_t nBytes, char type, int mode);
 void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode);
 char *strcat(char * d, const char * s);
-COUNT ASMCFUNC Umb_Test(void);
-COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
 BYTE * GetStringArg(BYTE * pLine, BYTE * pszString);
 void DoInstall(void);
 UWORD GetBiosKey(int timeout);
@@ -121,7 +119,12 @@ UWORD GetBiosKey(int timeout);
 COUNT dsk_init(VOID);
 
 /* int2f.asm */
-COUNT ASMCFUNC Umb_Test(void);
+COUNT ASMPASCAL Umb_Test(void);
+COUNT ASMPASCAL UMB_get_largest(void FAR * driverAddress,
+                                UCOUNT * seg, UCOUNT * size);
+#ifdef __WATCOMC__
+#pragma aux (pascal) UMB_get_largest modify exact [ax bx cx dx]
+#endif
 
 /* inithma.c */
 int MoveKernelToHMA(void);
