@@ -108,7 +108,7 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
 #define DEBUG_TRUENAME
 #endif
 
-#define drLetterToNr(dr) ((dr) - 'A')
+#define drLetterToNr(dr) ((unsigned char)((dr) - 'A'))
 /* Convert an uppercased drive letter into the drive index */
 #define drNrToLetter(dr) ((dr) + 'A')
 /* the other direction */
@@ -116,22 +116,6 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
   /* In DOS there are no free-standing UNC paths, therefore there
      is always a logical drive letter associated with a path
      spec. This letter is also the index into the CDS */
-
-COUNT get_verify_drive(const char FAR * src)
-{
-  int drive;
-
-  /* Do we have a drive?                                          */
-  if (src[1] == ':')
-    drive = drLetterToNr(DosUpFChar(src[0]));
-  else
-    drive = default_drive;
-
-  if (get_cds(drive) == NULL)
-    return DE_PATHNOTFND;
-    
-  return drive;
-}
 
 /* 
 	Definition of functions for the handling of the Current
@@ -260,7 +244,7 @@ COUNT get_verify_drive(const char FAR * src)
 
 #define addChar(c) \
 { \
-  if (p - dest >= SFTMAX) PATH_ERROR; /* path too long */	\
+  if (p >= dest + SFTMAX) PATH_ERROR; /* path too long */	\
   *p++ = c; \
 }
 
@@ -321,6 +305,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   struct cds FAR *cdsEntry;
   char *p = dest;	  /* dynamic pointer into dest */
   char *rootPos;
+  char src0;
   enum { DONT_ADD, ADD, ADD_UNLESS_LAST } addSep;
 
   tn_printf(("truename(%S)\n", src));
@@ -330,14 +315,37 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
 
   /* In opposite of the TRUENAME shell command, an empty string is
      rejected by MS DOS 6 */
-  if (src[0] == '\0')
+  src0 = src[0];
+  if (src0 == '\0')
     return DE_FILENOTFND;
 
-  result = get_verify_drive(src);
-  if (result < SUCCESS)
-    return result;
+  if (src0 == '\\' && src[1] == '\\') {
+    const char FAR *unc_src = src;
+    /* Flag UNC paths and short circuit processing.  Set current LDT   */
+    /* to sentinel (offset 0xFFFF) for redirector processing.          */
+    tn_printf(("Truename: UNC detected\n"));
+    do {
+      src0 = unc_src[0];
+      addChar(src0);
+      unc_src++;
+    } while (src0);
+    current_ldt = (struct cds FAR *)MK_FP(0xFFFF,0xFFFF);
+    tn_printf(("Returning path: \"%s\"\n", dest));
+    /* Flag as network - drive bits are empty but shouldn't get */
+    /* referenced for network with empty current_ldt.           */
+    return IS_NETWORK;
+  }
+  
+  /* Do we have a drive?                                          */
+  if (src[1] == ':')
+    result = drLetterToNr(DosUpFChar(src0));
+  else
+    result = default_drive;
 
-  cdsEntry = &CDSp[result];
+  cdsEntry = get_cds(result);
+  if (cdsEntry == NULL)
+    return DE_PATHNOTFND;
+
   tn_printf(("CDS entry: #%u @%p (%u) '%S'\n", result, cdsEntry,
             cdsEntry->cdsBackslashOffset, cdsEntry->cdsCurrentPath));
   /* is the current_ldt thing necessary for compatibly??

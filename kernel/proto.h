@@ -111,7 +111,7 @@ BOOL IsShareInstalled(void);
 COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
 sft FAR *idx_to_sft(int SftIndex);
 int get_sft_idx(UCOUNT hndl);
-struct cds FAR *get_cds(int dsk);
+struct cds FAR *get_cds(unsigned dsk);
 COUNT DosTruename(const char FAR * src, char FAR * dest);
 
 /*dosidle.asm */
@@ -340,7 +340,6 @@ VOID InitPSP(VOID);
 /* newstuff.c */
 int SetJFTSize(UWORD nHandles);
 int DosMkTmp(BYTE FAR * pathname, UWORD attr);
-COUNT get_verify_drive(const char FAR * src);
 COUNT truename(const char FAR * src, char * dest, COUNT t);
 
 /* network.c */

@@ -16,6 +16,9 @@
     * distinguish between the builtin DOS version and the settable
       DOS version.
     * console.asm now accepts extended scancodes (modified by Bart)
+    * added BOOTONLY option to SYS (modified by Bart)
++ Changes David Bolen
+    * add support for UNC-style paths (that start with "\\")
 + Changes Bart
     * flip some slashes in drivers/*.asm 
       (enables cross-assembly on Linux)

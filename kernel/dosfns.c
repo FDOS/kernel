@@ -92,7 +92,7 @@ STATIC int remote_lock_unlock(sft FAR *sftp,  /* SFT for file */
 /* get current directory structure for drive
    return NULL if the CDS is not valid or the
    drive is not within range */
-struct cds FAR *get_cds(int drive)
+struct cds FAR *get_cds(unsigned drive)
 {
   struct cds FAR *cdsp;
   unsigned flags;
@@ -966,7 +966,8 @@ COUNT DosChangeDir(BYTE FAR * s)
     return result;
   }
 
-  if (strlen(PriPathName) > sizeof(current_ldt->cdsCurrentPath) - 1)
+  if ((FP_OFF(current_ldt) != 0xFFFF) &&
+      (strlen(PriPathName) > sizeof(current_ldt->cdsCurrentPath) - 1))
     return DE_PATHNOTFND;
 
 #if defined(CHDIR_DEBUG)
@@ -988,8 +989,12 @@ COUNT DosChangeDir(BYTE FAR * s)
         SHSUCdX needs this. jt
 */
   fstrcpy(current_ldt->cdsCurrentPath, PriPathName);
-  if (PriPathName[7] == 0)
-    current_ldt->cdsCurrentPath[8] = 0; /* Need two Zeros at the end */
+  if (FP_OFF(current_ldt) != 0xFFFF)
+  {
+     fstrcpy(current_ldt->cdsCurrentPath, PriPathName);
+     if (PriPathName[7] == 0)
+       current_ldt->cdsCurrentPath[8] = 0; /* Need two Zeros at the end */
+  }
   return SUCCESS;
 }
 
@@ -1271,7 +1276,7 @@ COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
   {
     return DE_DEVICE; /* not same device */
   }
-  if (current_ldt->cdsFlags & CDSNETWDRV)
+  if (FP_OFF(current_ldt) == 0xFFFF || (current_ldt->cdsFlags & CDSNETWDRV))
     return remote_rename();
 
   return dos_rename(path1, path2, attrib);

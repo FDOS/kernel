@@ -92,6 +92,10 @@ void DosGetTime(struct dostime *dt)
 
 int DosSetTime(const struct dostime *dt)
 {
+  if (dt->hour > 23 || dt->minute > 59 ||
+      dt->second > 59 || dt->hundredth > 99)
+     return DE_INVLDDATA;
+ 
   /* for ClkRecord.clkDays */
   ExecuteClockDriverRequest(C_INPUT);
 
