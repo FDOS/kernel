@@ -1,0 +1,24 @@
+                         FreeDOS LFN aid API.
+
+
+struct lfn_inode
+{
+  UNICODE name[255];
+
+  struct dirent l_dir;          /* this file's dir entry image  */
+
+  ULONG l_diroff;               /* offset of the dir entry      */
+  CLUSTER l_dirstart;           /* the starting cluster of dir  */
+                                /* when dir is not root         */
+};
+
+typedef struct lfn_inode FAR * lfn_inode_ptr;
+
+COUNT lfn_allocate_inode();
+COUNT lfn_free_inode(COUNT handle);
+
+COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip);
+COUNT lfn_remove_entries(COUNT handle, lfn_inode_ptr lip);
+
+COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip);
+COUNT lfn_dir_write(COUNT handle, lfn_inode_ptr lip);

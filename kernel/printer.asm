@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2001/09/24 02:21:14  bartoldeman
+; SYS and printer fixes
+;
 ; Revision 1.4  2001/09/23 20:39:44  bartoldeman
 ; FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 ;
@@ -106,19 +109,29 @@ uPrtQuantum     dw      50h
 
 PrtWrite:
                 jcxz    PrtWr3                  ; Exit if nothing to write
-PrtWr1:
-                mov     bx,2			; number of retries
-PrtWr2:
 
-                call    PrintSingleCharacter 
+PrtCharLoop:                                    ; next character loop
+		 
+                mov     bx, 2			; number of retries
+PrtRetryTwice:
+                mov     ah, PRT_GETSTATUS       ; get status, ah=2
+                call    PrtIOCall               ;
+                jnz     PrtWr4
 
-                jnz     PrtWr4                  ; Exit if done
-                loop    PrtWr1                  ; otherwise loop
+		mov     al,[es:di]
+
+                mov     ah, PRT_WRITECHAR       ; print character, ah=0
+                call    PrtIOCall               ; (0800)
+
+                jnz     PrtWr4                  ; NZ = error, retry
+
+                inc     di
+                loop    PrtCharLoop             ; next character
 PrtWr3:
                 jmp     _IOExit
-PrtWr4:
+PrtWr4:						; repeat
                 dec     bx
-                jnz     PrtWr2
+                jnz     PrtRetryTwice
 PrtWr5:
                 jmp     _IOErrCnt
 
@@ -141,18 +154,27 @@ GetPrtStat:
 
 PrtIOCall:
                 call    GetUnitNum
-                int     17h                     ; print char al, get status ah
-                test    ah, PRT_TIMEOUT|PRT_IOERROR
-                jnz     PrtIOCal2
-                mov     al, E_PAPER
-                test    ah, PRT_OUTOFPAPER
-                jnz     PrtIOCal1
-                inc     al			; al<-E_WRITE
-PrtIOCal1:
-                retn
-PrtIOCal2:
+                int     17h             ; print char al, get status ah
+
+                mov     al, ah          ; if (stat & 0x30) == 0x30 return 10;
+                and     al, PRT_SELECTED|PRT_OUTOFPAPER
+                cmp     al, PRT_SELECTED|PRT_OUTOFPAPER
+		mov     al, E_WRITE
+                je      ret_error_code
+
+                test    ah, PRT_OUTOFPAPER|PRT_IOERROR|PRT_TIMEOUT          ; 29h
                 mov     al, E_NOTRDY
-                test    ah, PRT_TIMEOUT
+		jz      ret_error_code
+
+                test    ah, PRT_OUTOFPAPER	; 20h 
+                mov     al, E_WRITE
+                jz      ret_error_code		; not out of paper -> E_WRITE
+
+ret_error_code_9:
+                mov     al, E_PAPER  
+
+ret_error_code:
+                cmp     al, E_NOTRDY            ; 2 = no error
                 retn
 
 
@@ -222,8 +244,11 @@ PrtGnIoctl3:
 
 
 ;
-; original implementation didn't work at all. 
-; this one's not much better either,
+; some comments to last changes (TE, 23/09/01)
+;
+; original implementation didn't print at all  - on my machine,LPT2
+;
+; maybe this one's not much better either,
 ; but should print a little bit
 ;
 ; the status bits = AH
@@ -242,42 +267,7 @@ PrtGnIoctl3:
 ; 10 - printer with power, but not initialized
 ; 90 - this one is fine
 ;
-
-
 ; you must not simply print without asking for status
 ; as the BIOS has a LARGE timeout before aborting
 ;
 
-PrintSingleCharacter:
-
-                mov     ah, PRT_GETSTATUS       ; get status, ah=2
-                call    GetUnitNum
-                int     17h                     ; print char al, get status ah
-
-                test    ah, PRT_OUTOFPAPER|PRT_IOERROR
-                jnz     decode_error                
-
-                test    ah, PRT_NOTBUSY
-                jz      decode_error                
-
-
-                mov     al,[es:di]
-                mov     ah,PRT_WRITECHAR	; print character, ah=0
-                call    GetUnitNum
-                int     17h                     ; print char al, get status ah
-
-                test    ah, PRT_OUTOFPAPER|PRT_IOERROR|PRT_TIMEOUT
-                jnz     decode_error
-                inc     di
-                xor     al,al                   ; set zero flag + clear al
-                ret
-
-
-decode_error:
-                mov     al, E_PAPER
-                test    ah, PRT_OUTOFPAPER	;out_of_paper, 20h
-                jnz     out_of_paper
-                mov     al, E_WRITE
-out_of_paper:
-                or al,al                	; reset zero flag                
-                ret

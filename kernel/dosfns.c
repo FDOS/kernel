@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.27  2001/09/24 02:21:14  bartoldeman
+ * SYS and printer fixes
+ *
  * Revision 1.26  2001/09/23 20:39:44  bartoldeman
  * FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
  *
@@ -551,16 +554,15 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     }
     else
     {
-      REG WORD /*c,*/
-      cnt = n,
-      xfer = 0;
+      REG WORD xfer;
 
-      while(cnt-- != 0 && *bp != CTL_Z){
+      for(xfer = 0; xfer < n && *bp != CTL_Z; bp++, xfer++)
+      {
         if (s->sft_flags & SFT_FCONOUT)
 	{	
 	  cso(*bp);
         }
-        else
+        else FOREVER
         {
           rq.r_length = sizeof(request);
           rq.r_command = C_OUTPUT;
@@ -568,11 +570,24 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
           rq.r_trans = bp;
           rq.r_status = 0;
           execrh((request FAR *) & rq, s->sft_dev);
-          if (rq.r_status & S_ERROR)
-              char_error(&rq, s->sft_dev);
+          if (!(rq.r_status & S_ERROR))
+	    break;			  
+	  charloop:		  
+            switch(char_error(&rq, s->sft_dev))
+	    {
+	      case ABORT:
+	      case FAIL:
+		*err = DE_INVLDACC;
+		return xfer;
+	      case CONTINUE:
+		break;
+	      case RETRY:
+		continue;
+	      default:
+		goto charloop;
+	    }
+	    break;
         }
-        ++bp;
-        ++xfer;
         if (control_break())
         {
           handle_break();
