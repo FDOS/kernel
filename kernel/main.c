@@ -555,7 +555,6 @@ STATIC void InitIO(void)
 
   /* Initialize driver chain                                      */
   setvec(0x29, int29_handler);  /* Requires Fast Con Driver     */
-  device = &LoL->nul_dev;
   do {
     init_device(device, NULL, NULL, lpTop);
     device = device->dh_next;
