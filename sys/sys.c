@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v3.3"
+#define SYS_VERSION "v3.4"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -161,7 +161,8 @@ BYTE pgm[] = "SYS";
 
 void put_boot(int, char *, char *, int, int);
 BOOL check_space(COUNT, ULONG);
-BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
+BOOL get_full_path(BYTE * srcPath, BYTE * rootPath, BYTE * filename, BYTE *source);
+BOOL copy(BYTE *source, COUNT drive, BYTE * filename);
 
 #define SEC_SIZE        512
 #define COPY_SIZE	0x7e00
@@ -240,6 +241,19 @@ struct VerifyBootSectorSize {
 
 int FDKrnConfigMain(int argc, char **argv);
 
+/* FreeDOS sys, we default to our kernel and load segment, but
+   if not found (or explicitly given) support OEM DOS variants
+   (such as DR-DOS or a FreeDOS kernel mimicing other DOSes).
+   PC-DOS requires particular steps from the boot loader, which
+   we do not currently fullfill, so it will not boot and MS-DOS
+   uses different names, so it also will not work.
+*/
+#define FDKERNEL   "KERNEL.SYS"
+#define OEMKERNEL  "IBMBIO.COM"
+#define OEMDOS     "IBMDOS.COM"
+#define FDLOADSEG  0x60
+#define OEMLOADSEG 0x70
+
 int main(int argc, char **argv)
 {
   COUNT drive;                  /* destination drive */
@@ -249,12 +263,14 @@ int main(int argc, char **argv)
   unsigned srcDrive;            /* source drive */
   BYTE srcPath[SYS_MAXPATH];    /* user specified source drive and/or path */
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
+  BYTE srcFile[SYS_MAXPATH];    /* full path+name of [kernel] file to copy */
   WORD slen;
   int argno = 0;
   int bootonly = 0;
   int both = 0;
-  char *kernel_name = "KERNEL.SYS";
-  int load_segment = 0x60;
+  char *kernel_name = FDKERNEL;
+  int load_segment = FDLOADSEG;
+  int altkern = 0;              /* use OEM kernel values instead of FD ones */
 
   printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
@@ -274,23 +290,36 @@ int main(int argc, char **argv)
     {
       srcarg = argno;
     }
-    else if (argp[0] == '/' && toupper(argp[1]) == 'K' && argno + 1 < argc)
-    {
-      argno++;
-      kernel_name = argv[argno];
-    }
-    else if (argp[0] == '/' && toupper(argp[1]) == 'L' && argno + 1 < argc)
-    {
-      argno++;
-      load_segment = (int)strtol(argv[argno], NULL, 16);
-    }
-    else if (memicmp(argp, "BOOTONLY", 8) == 0 && !bootonly)
-    {
-      bootonly = 1;
-    }
     else if (memicmp(argp, "BOTH", 4) == 0 && !both)
     {
       both = 1;
+    }
+    else if (argp[0] == '/')  /* optional switch */
+    {
+      argp++;  /* skip past the '/' character */
+
+      if (memicmp(argp, "OEM", 3) == 0)
+      {
+        altkern = 1;  /* kernel is split into 2 files and update BS name */
+        kernel_name = OEMKERNEL;
+        load_segment = OEMLOADSEG;
+      }
+      else if (memicmp(argp, "BOOTONLY", 8) == 0)
+      {
+        bootonly = 1;
+      }
+      else if (argno + 1 < argc)   /* two part options, /SWITCH VALUE */
+      {
+        argno++;
+        if (toupper(*argp) == 'K')      /* set Kernel name */
+        {
+          kernel_name = argv[argno];
+        }
+        else if (toupper(*argp) == 'L') /* set Load segment */
+        {
+          load_segment = (int)strtol(argv[argno], NULL, 16);
+        }
+      }
     }
     else if (drivearg != argno)
     {
@@ -304,18 +333,20 @@ int main(int argc, char **argv)
         break;
       }
     }
-  }
+  } /* for() */
 
   if (drivearg == 0)
   {
     printf(
-      "Usage: %s [source] drive: [bootsect [BOTH]] [BOOTONLY] [/K name] [/L segm]\n"
+      "Usage: \n"
+      "%s [source] drive: [bootsect [BOTH]] [/BOOTONLY] [/OEM] [/K name] [/L segm]\n"
       "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
       "  drive    = A,B,etc.\n"
       "  bootsect = name of 512-byte boot sector file image for drive:\n"
       "             to write to *instead* of real boot sector\n"
       "  BOTH     : write to *both* the real boot sector and the image file\n"
-      "  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n"
+      "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
+      "  /OEM     : indicates kernel is IBMIO.SYS/IBMDOS.SYS loaded at 0x70\n"
       "  /K name  : name of kernel to use instead of KERNEL.SYS\n"
       "  /L segm  : hex load segment to use instead of 60\n"
       "%s CONFIG /help\n", pgm, pgm);
@@ -368,33 +399,65 @@ int main(int argc, char **argv)
   else
     sprintf(rootPath, "%c:\\", 'A' + srcDrive);
 
+
+  /* unless we are only setting boot sector, verify kernel file exists */
+  if (!bootonly)
+  {
+    /* if FDKERNEL not found and an explicit kernel name was not specified,
+       then see if OEM kernel available and switch to it instead. */
+    if (!get_full_path(srcPath, rootPath, kernel_name, srcFile) && (kernel_name == FDKERNEL))
+    {
+      if (!get_full_path(srcPath, rootPath, OEMKERNEL, srcFile))
+      {
+        printf("\n%s: failed to find kernel file %s\n", pgm, kernel_name);
+        exit(1);
+      }
+      else /* else OEM kernel found, so switch modes */
+      {
+        altkern = 1;
+        kernel_name = OEMKERNEL;
+        load_segment = OEMLOADSEG;
+      }
+    }
+  }
+
   printf("Processing boot sector...\n");
   put_boot(drive, bsFile, kernel_name, load_segment, both);
 
   if (!bootonly)
   {
-    printf("\nCopying %s...\n", kernel_name);
-    if (!copy(drive, srcPath, rootPath, kernel_name))
+    if (!copy(srcFile, drive, kernel_name))
     {
       printf("\n%s: cannot copy \"%s\"\n", pgm, kernel_name);
       exit(1);
     } /* copy kernel */
 
-    printf("\nCopying COMMAND.COM...\n");
-    if (!copy(drive, srcPath, rootPath, "COMMAND.COM"))
+    if (altkern)
     {
-      char *comspec = getenv("COMSPEC");
-      if (comspec != NULL)
+      if ( (!get_full_path(srcPath, rootPath, OEMDOS, srcFile)) ||
+           (!copy(srcFile, drive, OEMDOS)) )
       {
-        printf("%s: Trying \"%s\"\n", pgm, comspec);
-        if (!copy(drive, comspec, NULL, "COMMAND.COM"))
-          comspec = NULL;
-      }
-      if (comspec == NULL)
-      {
-        printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);
+        printf("\n%s: cannot copy \"%s\"\n", pgm, OEMDOS);
         exit(1);
       }
+    }
+
+    /* copy command.com, 1st try source path, then try %COMSPEC% */
+    if (!get_full_path(srcPath, rootPath, "COMMAND.COM", srcFile))
+    {
+      char *comspec = getenv("COMSPEC");
+      if ( (comspec == NULL) ||
+           (!get_full_path(comspec, NULL, "COMMAND.COM", srcFile)) )
+      {
+          printf("\n%s: failed to find command interpreter (shell) file %s\n", pgm, "COMMAND.COM");
+          exit(1);
+      }
+      printf("%s: Using shell from %COMSPEC%  \"%s\"\n", pgm, comspec);
+    }
+    if (!copy(srcFile, drive, "COMMAND.COM"))
+    {
+      printf("\n%s: cannot copy \"%s\"\n", pgm, "COMMAND.COM");
+      exit(1);
     } /* copy shell */
   }
 
@@ -929,41 +992,50 @@ BOOL check_space(COUNT drive, ULONG bytes)
 } /* check_space */
 
 
-BYTE copybuffer[COPY_SIZE];
-
-BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
+/* returns TRUE if file exists, FALSE otherwise
+   1st checks for srcPath + filename, if that does not exist then
+   will check for rootPath + filename
+   On failure, source is undefined. source must be >= SYS_MAXPATH bytes
+ */
+BOOL get_full_path(BYTE * srcPath, BYTE * rootPath, BYTE * filename, BYTE *source)
 {
-  static BYTE dest[SYS_MAXPATH], source[SYS_MAXPATH];
-  unsigned ret;
-  int fdin, fdout;
-  ULONG copied = 0;
   struct stat fstatbuf;
 
   strcpy(source, srcPath);
-  if (rootPath != NULL) /* trick for comspec */
-    strcat(source, file);
+  if (rootPath != NULL) /* trick for comspec, append filename if srcPath doesn't include it */
+    strcat(source, filename);
 
+  /* check if file exists in source directory */
   if (stat(source, &fstatbuf))
   {
-    printf("%s: \"%s\" not found\n", pgm, source);
-
+    /* not found in source path, so try root of source drive */
     if ((rootPath != NULL) && (*rootPath) /* && (errno == ENOENT) */ )
     {
-      sprintf(source, "%s%s", rootPath, file);
-      printf("%s: Trying \"%s\"\n", pgm, source);
+      sprintf(source, "%s%s", rootPath, filename);
       if (stat(source, &fstatbuf))
-      {
-        printf("%s: \"%s\" not found\n", pgm, source);
         return FALSE;
-      }
     }
     else
       return FALSE;
   }
+  return TRUE;
+} /* get_full_path */
+
+BYTE copybuffer[COPY_SIZE];
+
+/* copies file (path+filename specified by srcFile) to drive:\filename */
+BOOL copy(BYTE *source, COUNT drive, BYTE * filename)
+{
+  static BYTE dest[SYS_MAXPATH];
+  unsigned ret;
+  int fdin, fdout;
+  ULONG copied = 0;
+
+  printf("\nCopying %s...\n", source);
 
   truename(dest, source);
   strcpy(source, dest);
-  sprintf(dest, "%c:\\%s", 'A' + drive, file);
+  sprintf(dest, "%c:\\%s", 'A' + drive, filename);
   if (stricmp(source, dest) == 0)
   {
     printf("%s: source and destination are identical: skipping \"%s\"\n",
@@ -979,7 +1051,7 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 
   if (!check_space(drive, filelength(fdin)))
   {
-    printf("%s: Not enough space to transfer %s\n", pgm, file);
+    printf("%s: Not enough space to transfer %s\n", pgm, filename);
     close(fdin);
     exit(1);
   }
