@@ -33,6 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2000/06/01 06:37:38  jimtabor
+ * Read History for Changes
+ *
  * Revision 1.6  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -154,6 +157,7 @@ static struct media_info
   ULONG mi_offset;              /* relative partition offset    */
   BYTE mi_drive;                /* BIOS drive number            */
   COUNT mi_partidx;             /* Index to partition array     */
+  ULONG mi_FileOC;              /* Count of Open files on Drv   */
 };
 
 static struct FS_info
@@ -211,6 +215,9 @@ WORD init(rqptr),
   blockio(rqptr),
   IoctlQueblk(rqptr),
   Genblkdev(rqptr),
+  blk_Open(rqptr),
+  blk_Close(rqptr),
+  blk_Media(rqptr),
   blk_error(rqptr);
 COUNT ltop(WORD *, WORD *, WORD *, COUNT, COUNT, LONG, byteptr);
 WORD dskerr(COUNT);
@@ -220,6 +227,11 @@ WORD init(),
   mediachk(),
   bldbpb(),
   blockio(),
+  IoctlQueblk(),
+  Genblkdev(),
+  blk_Open(),
+  blk_Close(),
+  blk_Media(),
   blk_error();
 WORD dskerr();
 COUNT processtable();
@@ -248,9 +260,9 @@ static WORD(*dispatch[NENTRY]) () =
       blk_error,                /* Output Status                */
       blk_error,                /* Output Flush                 */
       blk_error,                /* Ioctl Out                    */
-      blk_error,                /* Device Open                  */
-      blk_error,                /* Device Close                 */
-      blk_error,                /* Removable Media              */
+      blk_Open,                 /* Device Open                  */
+      blk_Close,                /* Device Close                 */
+      blk_Media,                /* Removable Media              */
       blk_error,                /* Output till busy             */
       blk_error,                /* undefined                    */
       blk_error,                /* undefined                    */
@@ -521,6 +533,28 @@ static WORD RWzero(rqptr rp, WORD t)
   }
   while (ret != 0 && --retry > 0);
   return ret;
+}
+
+static WORD blk_Open(rqptr rp)
+{
+   miarray[rp->r_unit].mi_FileOC++;
+   return S_DONE;
+}
+
+static WORD blk_Close(rqptr rp)
+{
+   miarray[rp->r_unit].mi_FileOC--;
+   return S_DONE;
+}
+
+static WORD blk_Media(rqptr rp)
+{
+  COUNT drive = miarray[rp->r_unit].mi_drive;
+
+  if (hd(drive))
+    return S_BUSY|S_DONE;	/* Hard Drive */
+  else
+    return S_DONE;      	/* Floppy */
 }
 
 static WORD bldbpb(rqptr rp)

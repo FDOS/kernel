@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/01 06:37:38  jimtabor
+ * Read History for Changes
+ *
  * Revision 1.5  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -279,8 +282,11 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
       if (fnmatch((BYTE FAR *) &Name, (BYTE FAR *) dhp->dh_name, FNAME_SIZE, FALSE))
       {
         buf[2] ='/';
-        for (d = 0; d < FNAME_SIZE || Name[d] == ' '; d++)
+        for (d = 0; d < FNAME_SIZE; d++){
+            if(Name[d] == 0x20)
+                goto exit_tn;
             *bufp++ = Name[d];
+        }
         goto exit_tn;
       }
     }

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/01 06:37:38  jimtabor
+ * Read History for Changes
+ *
  * Revision 1.5  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -568,7 +571,11 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   BYTE FAR *ptr;
 
   static BYTE local_name[FNAME_SIZE + 1],
-    local_ext[FEXT_SIZE + 1];
+    local_ext[FEXT_SIZE + 1],
+    Tname[65];
+
+  fscopy(name, (BYTE FAR *)&Tname);
+  printf("ff %s", Tname);
 
   /* The findfirst/findnext calls are probably the worst of the   */
   /* DOS calls. They must work somewhat on the fly (i.e. - open   */
@@ -585,10 +592,13 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   dmp->dm_attr_srch = attr | D_RDONLY | D_ARCHIVE;
 
   /* Parse out the drive, file name and file extension.           */
-  i = ParseDosName(name, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
+  i = ParseDosName((BYTE FAR *)&Tname, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
   if (i != SUCCESS)
     return i;
 
+  printf("\nff %s", Tname);
+  printf("ff %s", local_name);
+  printf("ff %s\n", local_ext);
   if (nDrive >= 0)
   {
     dmp->dm_drive = nDrive;
@@ -601,13 +611,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   }
   current_ldt = &CDSp->cds_table[nDrive];
   SAttr = (BYTE) attr;
-
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    if (Remote_find(REM_FINDFIRST, attr, name, dmp) != 0)
-      return DE_FILENOTFND;
-    return SUCCESS;
-  }
 
   /* Now build a directory.                                       */
   if (!LocalPath[2])
@@ -646,6 +649,14 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   /* Copy the raw pattern from our data segment to the DTA. */
   fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
          FNAME_SIZE + FEXT_SIZE);
+
+
+  if (current_ldt->cdsFlags & CDSNETWDRV)
+  {
+    if (Remote_find(REM_FINDFIRST, attr, name, dmp) != 0)
+      return DE_FILENOTFND;
+    return SUCCESS;
+  }
 
   /* Now search through the directory to find the entry...        */
   /* Special handling - the volume id is only in the root         */

@@ -1,3 +1,18 @@
+2000 Jun 01 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Clean  Removed test prinf statements in source.
+* Thanks to Lixing Yuan for pointing out an copy to root error.
+ 
+2000 May 31 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Patch  Lixing Yuan (yuanlixg@china.com) Patch for parsing bug in 
+	 FindFirst with wildcards -> ParseDosName (dosnames.c).
+
+2000 May 28 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Added  Open/Close/Media check to dsk.c and io.asm.
++ Fixed  Device checking in truename. Truename needs to be rewriten.
+
 2000 May 26 - Build 2020
 -------- James Tabor (jimtabor@infohwy.com)
          Code Clean up and Now the Release.
@@ -44,7 +59,7 @@
 
 2000 May 08 - Build 2020
 -------- James Tabor (jimtabor@infohwy.com)
-+ Update Started Update to the New CVS at Sourceforge.net. Seting source
++ Update Started Update to the New CVS at Sourceforge.net. Setting source
          from 2018 to 2020.
 
 2000 May 06 
@@ -54,7 +69,7 @@
 2000 Apr 28 - Build 2020
 -------- James Tabor (jimtabor@infohwy.com)
 + Added  Dos Function calls 0x69, and 0x6C. IOCTL support in disk driver.
-         New funtions not yet fully implemented. 
+         New functions not yet fully implemented. 
          Clean up DSK.C, IOCTL.C and FCBFNS.C. Removed old blk_device
          pointers.
 

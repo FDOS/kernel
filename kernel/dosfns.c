@@ -34,6 +34,9 @@ static BYTE *dosfnsRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/06/01 06:37:38  jimtabor
+ * Read History for Changes
+ *
  * Revision 1.5  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -1196,7 +1199,6 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD FAR * attrp)
 	BYTE FAR *p;
 
     if (IsDevice(name) ) {
-        printf("SetAtt\n");
 		return DE_PATHNOTFND;
 	}
 

@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.5  2000/06/01 06:37:38  jimtabor
+; Read History for Changes
+;
 ; Revision 1.4  2000/05/26 19:25:19  jimtabor
 ; Read History file for Change info
 ;
@@ -193,7 +196,7 @@ _clk_dev        equ     $
                 global  _blk_dev
 _blk_dev        equ     $
                 dd      -1
-                dw      00c2h           ; block device with ioctl
+                dw      08c2h           ; block device with ioctl
                 dw      GenStrategy
                 dw      blk_entry
                 global  _nblk_rel

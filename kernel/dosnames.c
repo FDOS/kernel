@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2000/06/01 06:37:38  jimtabor
+ * Read History for Changes
+ *
  * Revision 1.4  2000/05/26 19:25:19  jimtabor
  * Read History file for Change info
  *
@@ -192,7 +195,6 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
     ++lpszFileName;
   }
   nDirCnt = lpszLclFile - lpszLclDir;
-
   /* Parse out the file name portion.                             */
   lpszFileName = lpszLclFile;
   while (bAllowWildcards ? WildChar(*lpszFileName) : NameChar(*lpszFileName))
@@ -200,8 +202,44 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
     ++nFileCnt;
     ++lpszFileName;
   }
+
   if (nFileCnt == 0)
+/* Lixing Yuan Patch */
+     if (bAllowWildcards)  /* for find first */
+     {
+       if (*lpszFileName == '.')
+         lpszFileName++;
+       if (*lpszFileName == '.')
+         lpszFileName++;
+       if (*lpszFileName != '\0')
+         return DE_FILENOTFND;
+       if (pszDir)
+       {
+         if ((lpszFileName - lpszLclFile) == 2) /* for tail DotDot */
+           nDirCnt += 2;
+         if (nDirCnt > PARSE_MAX)
+           nDirCnt = PARSE_MAX;
+         fbcopy(lpszLclDir, (BYTE FAR *) pszDir, nDirCnt);
+         if (((lpszFileName - lpszLclFile) == 2) && (nDirCnt < PARSE_MAX))
+           pszDir[nDirCnt++] = '\\';  /* make DosTrimPath() enjoy, for tail DotDot */
+         pszDir[nDirCnt] = '\0';
+         DosTrimPath(pszDir);
+       }
+       if (pszFile)
+       {
+         *pszFile++ = '*';
+         *pszFile = '\0';
+       }
+       if (pszExt)
+       {
+         *pszExt++ = '*';
+         *pszExt = '\0';
+       }
+       return SUCCESS;
+     }
+   else
     return DE_FILENOTFND;
+
 
   /* Now we have pointers set to the directory portion and the    */
   /* file portion.  Now determine the existance of an extension.  */
@@ -252,6 +290,7 @@ COUNT ParseDosName(BYTE FAR * lpszFileName,
   /* Clean up before leaving                              */
   if (pszDir)
     DosTrimPath(pszDir);
+
 
   return SUCCESS;
 }
