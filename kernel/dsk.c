@@ -237,7 +237,8 @@ STATIC WORD diskchange(ddt * pddt)
 {
   COUNT result;
 
-  if (hd(pddt->ddt_descflags) && !(pddt->ddt_descflags & DF_CHANGELINE))
+  /* if it's a hard drive, media never changes */
+  if (hd(pddt->ddt_descflags))
     return M_NOT_CHANGED;
 
   if (play_dj(pddt) == M_CHANGED)
