@@ -1,3 +1,30 @@
+2002 May 9 - Build 2026b
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * limit output at boot time somewhat
+    * GetCurrentDirectory should fail, if drive is accessible
+    * fixed some minor config.sys parser bugs and have the possibility
+      of things like 123?device=EMM386.EXE NOEMS
+    * shorter version of DosMemLargest()
++ Changes Bart
+    * repaired makefile dependencies
+    * implemented multi-sector writes, and re-merged
+      readblock()/writeblock() into rwblock ()
+    * implemented int21/ah=1c for network drives (RHIDE needs this)
+    * initialize current_ldt for findnext (hinted by Steffen)
+    * check serial number for floppy disk changes where the drive
+      does not feature a changeline
+    * reset to root directory when floppy has changed
+    * cleaned up endian helpers {get,put}{byte,word,long}
+    * don't close file if disk is full
+    * enforce minimum of 9 sectors per track for INT1E (necessary for
+      some floppies on some XTs)
+    * clear carry when calling INT23 (ctrl-break handler) as per RBIL
+    * don't copy FCBs on exec if they are pointed to by FFFF:FFFF.
+    * resolved warnings for  Watcom (now compiles with -wx -we)
+    * truename fix (return DE_FILENOTFND for foo.bar.foo)
++ Changes Tom and Bart
+    * cleaned up fatfs.c, fattab.c, sysclk.c (CLOCK$ driver), systime.c
 2002 Feb 17 - Build 2026a
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Martin
