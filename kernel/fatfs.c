@@ -48,6 +48,7 @@ STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2);
     /* /// Added - Ron Cemer */
 STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
 BOOL find_free(f_node_ptr);
+STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname);
 VOID wipe_out(f_node_ptr);
 CLUSTER extend(f_node_ptr);
 COUNT extend_dir(f_node_ptr);
@@ -198,35 +199,10 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
   }
   else if (flags & O_CREAT)
   {
-    BOOL is_free;
+    int ret = alloc_find_free(fnp, path, fcbname);
+    if (ret != SUCCESS)
+      return ret;
 
-    /* Reset the directory by a close followed by   */
-    /* an open                                      */
-    fnp->f_flags.f_dmod = FALSE;
-    dir_close(fnp);
-    fnp = split_path(path, fcbname);
-    
-    /* Get a free f_node pointer so that we can use */
-    /* it in building the new file.                 */
-    /* Note that if we're in the root and we don't  */
-    /* find an empty slot, we need to abort.        */
-    if (((is_free = find_free(fnp)) == 0) && (fnp->f_flags.f_droot))
-    {
-      fnp->f_flags.f_dmod = FALSE;
-      dir_close(fnp);
-      return DE_TOOMANY;
-    }
-    
-    /* Otherwise just expand the directory          */
-    else if (!is_free && !(fnp->f_flags.f_droot))
-    {
-      COUNT ret;
-      
-      if ((ret = extend_dir(fnp)) != SUCCESS)
-        /* fnp already closed in extend_dir */
-        return ret;
-    }
-      
     /* put the fnode's name into the directory.             */
     memcpy(fnp->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
     status = S_CREATED;
@@ -701,7 +677,6 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 {
   REG f_node_ptr fnp1;
   REG f_node_ptr fnp2;
-  BOOL is_free;
   COUNT ret;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
@@ -736,29 +711,10 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
     return DE_FILENOTFND;
   }
 
-  /* Reset the directory by a close followed by an open           */
-  fnp2->f_flags.f_dmod = FALSE;
-  dir_close(fnp2);
-  fnp2 = split_path(path2, fcbname);
-
-  /* Now find a free slot to put the file into.                   */
-  /* If it's the root and we don't have room, return an error.    */
-  if (((is_free = find_free(fnp2)) == 0) && (fnp2->f_flags.f_droot))
-  {
-    fnp2->f_flags.f_dmod = FALSE;
+  ret = alloc_find_free(fnp2, path2, fcbname);
+  if (ret != SUCCESS) {
     dir_close(fnp1);
-    dir_close(fnp2);
-    return DE_TOOMANY;
-  }
-
-  /* Otherwise just expand the directory                          */
-  else if (!is_free && !(fnp2->f_flags.f_droot))
-  {
-    if ((ret = extend_dir(fnp2)) != SUCCESS)
-    {
-      dir_close(fnp1);
-      return ret;
-    }
+    return ret;
   }
 
   if ((ret = remove_lfn_entries(fnp1)) < 0)
@@ -857,6 +813,41 @@ STATIC BOOL find_free(f_node_ptr fnp)
       return TRUE;
   return rc >= 0;
 }
+
+/* alloc_find_free: resets the directory by a close followed by   */
+/* an open. Then finds a spare directory entry and if not         */
+/* available, tries to extend the directory.                      */
+STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
+{
+  fnp->f_flags.f_dmod = FALSE;
+  dir_close(fnp);
+  fnp = split_path(path, fcbname);
+
+  /* Get a free f_node pointer so that we can use */
+  /* it in building the new file.                 */
+  /* Note that if we're in the root and we don't  */
+  /* find an empty slot, we need to abort.        */
+  if (find_free(fnp) == 0)
+  {
+    if (fnp->f_flags.f_droot)
+    {
+      fnp->f_flags.f_dmod = FALSE;
+      dir_close(fnp);
+      return DE_TOOMANY;
+    }
+    else
+    {
+      /* Otherwise just expand the directory          */
+      int ret;
+
+      if ((ret = extend_dir(fnp)) != SUCCESS)
+        /* fnp already closed in extend_dir */
+        return ret;
+    }
+  }
+  return SUCCESS;
+}
+
 
 /*                                                              */
 /* dos_getdate for the file date                                */
@@ -1093,31 +1084,11 @@ COUNT dos_mkdir(BYTE * dir)
     return DE_ACCESS;
   }
 
-  /* Reset the directory by a close followed by   */
-  /* an open                                      */
-  fnp->f_flags.f_dmod = FALSE;
   parent = fnp->f_dirstart;
-  dir_close(fnp);
-  fnp = split_path(dir, fcbname);
 
-  /* Get a free f_node pointer so that we can use */
-  /* it in building the new file.                 */
-  /* Note that if we're in the root and we don't  */
-  /* find an empty slot, we need to abort.        */
-  if (find_free(fnp) == 0)
-  {
-    if (fnp->f_flags.f_droot)
-    {
-      fnp->f_flags.f_dmod = FALSE;
-      dir_close(fnp);
-      return DE_TOOMANY;
-    }
-
-    /* Otherwise just expand the directory          */
-
-    if ((ret = extend_dir(fnp)) != SUCCESS)
-      return ret;
-  }
+  ret = alloc_find_free(fnp, dir, fcbname);
+  if (ret != SUCCESS)
+    return ret;
 
   /* get an empty cluster, so that we make it into a      */
   /* directory.                                           */
