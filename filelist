@@ -11,6 +11,7 @@
 */*/bin/install.bat
 */*/boot/boot.asm
 */*/boot/boot32.asm
+*/*/boot/boot32lb.asm
 */*/boot/makefile
 */*/docs/bugs.txt
 */*/docs/build.txt
