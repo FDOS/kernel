@@ -201,6 +201,4 @@ void go_records(FILE * fdin, FILE * fdo)
 
   }
   while (Record.rectyp != 0x00 /*ENDFIL*/);
-
-  printf("\n");
 }
