@@ -25,6 +25,20 @@
 #include "init-dat.h"
 
 #include "kconfig.h"
+
+/* MSC places uninitialized data into COMDEF records,
+   that end up in DATA segment. this can't be tolerated in INIT code.
+   please make sure, that ALL data in INIT is initialized !!
+
+   These guys are marked BSS_INIT to mark that they really should be BSS
+   but can't be because of MS
+*/
+#ifdef _MSC_VER
+#define BSS_INIT(x) = x
+#else
+#define BSS_INIT(x)
+#endif
+
 extern struct _KernelConfig InitKernelConfig;
 
 /*

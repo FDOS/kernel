@@ -43,7 +43,7 @@ static char copyright[] =
     "GNU General Public License as published by the Free Software Foundation;\n"
     "either version 2, or (at your option) any later version.\n";
 
-struct _KernelConfig InitKernelConfig;
+struct _KernelConfig InitKernelConfig BSS_INIT({0});
 
 STATIC VOID InitIO(void);
 
@@ -64,11 +64,9 @@ __segment DosDataSeg = 0;       /* serves for all references to the DOS DATA seg
                                  */
 __segment DosTextSeg = 0;
 
-struct lol FAR *LoL;
-
-#else
-struct lol FAR *LoL = &DATASTART;
 #endif
+
+struct lol FAR *LoL = &DATASTART;
 
 VOID ASMCFUNC FreeDOSmain(void)
 {
@@ -79,7 +77,6 @@ VOID ASMCFUNC FreeDOSmain(void)
   extern FAR prn_dev;
   DosDataSeg = (__segment) & DATASTART;
   DosTextSeg = (__segment) & prn_dev;
-  LoL = &DATASTART;
 #endif
 
                         /*  if the kernel has been UPX'ed,

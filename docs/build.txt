@@ -31,8 +31,8 @@ enable it.
 
 This kernel compiles with Turbo C 2.01, Turbo C++ 1.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
-other Borland compilers and (Open)Watcom C. Microsoft C and GCC can
-compile the kernel but the result does *not* work.
+other Borland and Microsoft compilers and (Open)Watcom C. GCC can
+compile the kernel but the result does *not* work (no 16-bit x86 support).
 
 The OpenWatcom 1.0 compiler (or later) for DOS can be downloaded at
 www.openwatcom.org: you need at least the following zips from

@@ -32,8 +32,8 @@ static BYTE *dskRcsId =
     "$Id$";
 #endif
 
-UBYTE InitDiskTransferBuffer[SEC_SIZE];
-COUNT nUnits;
+UBYTE InitDiskTransferBuffer[SEC_SIZE] BSS_INIT({0});
+COUNT nUnits BSS_INIT(0);
 
 /*
  *    Rev 1.0   13 May 2001  tom ehlert

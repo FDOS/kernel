@@ -71,9 +71,9 @@ static BYTE *RcsId =
     "$Id$";
 #endif
 
-BYTE DosLoadedInHMA = FALSE;    /* set to TRUE if loaded HIGH          */
-BYTE HMAclaimed = FALSE;        /* set to TRUE if claimed from HIMEM   */
-UWORD HMAFree = 0;              	/* first byte in HMA not yet used      */
+BYTE DosLoadedInHMA BSS_INIT(FALSE);  /* set to TRUE if loaded HIGH          */
+BYTE HMAclaimed BSS_INIT(0);          /* set to TRUE if claimed from HIMEM   */
+UWORD HMAFree BSS_INIT(0);            /* first byte in HMA not yet used      */
 
 STATIC void InstallVDISK(void);
 

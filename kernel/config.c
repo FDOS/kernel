@@ -58,9 +58,9 @@ struct MenuSelector
 };
 
 /** Structure below holds the menu-strings */
-STATIC struct MenuSelector MenuStruct[MENULINESMAX];
+STATIC struct MenuSelector MenuStruct[MENULINESMAX] BSS_INIT({0});
 
-int nMenuLine;
+int nMenuLine BSS_INIT(0);
 BOOL MenuColor = -1;
 
 STATIC void WriteMenuLine(int MenuSelected)
@@ -116,13 +116,13 @@ STATIC void SelectLine(int MenuSelected)
   WriteMenuLine(MenuSelected);
 }
 
-UWORD umb_start, UMB_top;
-UWORD ram_top; /* How much ram in Kbytes               */
-size_t ebda_size;
+UWORD umb_start BSS_INIT(0), UMB_top BSS_INIT(0);
+UWORD ram_top BSS_INIT(0); /* How much ram in Kbytes               */
+size_t ebda_size BSS_INIT(0);
 
-static UBYTE ErrorAlreadyPrinted[128];
+static UBYTE ErrorAlreadyPrinted[128] BSS_INIT({0});
 
-char master_env[128];
+char master_env[128] BSS_INIT({0});
 static char *envp = master_env;
 
 struct config Config = {
@@ -148,23 +148,23 @@ struct config Config = {
       , 0xFFFF                  /* default value for switches=/E:nnnn */
 };
 
-STATIC seg base_seg;
-STATIC seg umb_base_seg;
-BYTE FAR *lpTop;
-STATIC unsigned nCfgLine;
-COUNT UmbState;
-STATIC BYTE szLine[256];
-STATIC BYTE szBuf[256];
+STATIC seg base_seg BSS_INIT(0);
+STATIC seg umb_base_seg BSS_INIT(0);
+BYTE FAR *lpTop BSS_INIT(0);
+STATIC unsigned nCfgLine BSS_INIT(0);
+COUNT UmbState BSS_INIT(0);
+STATIC BYTE szLine[256] BSS_INIT({0});
+STATIC BYTE szBuf[256] BSS_INIT({0});
 
-BYTE singleStep;        /* F8 processing */
-BYTE SkipAllConfig;     /* F5 processing */
-BYTE askThisSingleCommand;      /* ?device=  device?= */
-BYTE DontAskThisSingleCommand;  /* !files=            */
+BYTE singleStep BSS_INIT(FALSE);        /* F8 processing */
+BYTE SkipAllConfig BSS_INIT(FALSE);     /* F5 processing */
+BYTE askThisSingleCommand BSS_INIT(FALSE);      /* ?device=  device?= */
+BYTE DontAskThisSingleCommand BSS_INIT(FALSE);  /* !files=            */
 
 COUNT MenuTimeout = -1;
-BYTE  MenuSelected;
-UCOUNT MenuLine;
-UCOUNT Menus;
+BYTE  MenuSelected BSS_INIT(0);
+UCOUNT MenuLine BSS_INIT(0);
+UCOUNT Menus BSS_INIT(0);
 
 STATIC VOID CfgMenuColor(BYTE * pLine);
 
@@ -313,9 +313,9 @@ int  findend(BYTE * s)
   return nLen;
 }
 
-BYTE *pLineStart;
+BYTE *pLineStart BSS_INIT(0);
 
-BYTE HMAState;
+BYTE HMAState BSS_INIT(0);
 #define HMA_NONE 0              /* do nothing */
 #define HMA_REQ 1               /* DOS = HIGH detected */
 #define HMA_DONE 2              /* Moved kernel to HMA */
@@ -1634,7 +1634,7 @@ STATIC VOID mcb_init_copy(UCOUNT seg, UWORD size, mcb *near_mcb)
 
 STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type)
 {
-  static mcb near_mcb;
+  static mcb near_mcb BSS_INIT({0});
   near_mcb.m_type = type;
   mcb_init_copy(seg, size, &near_mcb);
 }
