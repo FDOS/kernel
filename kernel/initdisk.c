@@ -806,6 +806,25 @@ BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
   return TRUE;
 }
 
+BOOL is_suspect(struct CHS *chs, struct CHS *pEntry_chs)
+{
+  return !((chs->Cylinder & 0x3ff) == pEntry_chs->Cylinder ||
+           1023 == pEntry_chs->Cylinder ||
+           (chs->Cylinder == pEntry_chs->Cylinder &&
+            chs->Head == pEntry_chs->Head &&
+            chs->Sector == pEntry_chs->Sector));
+}
+
+void print_warning_suspect(char *partitionName, UBYTE fs, struct CHS *chs,
+                           struct CHS *pEntry_chs)
+{
+  printf("WARNING: using suspect partition %s FS %02x:", partitionName, fs);
+  printCHS(" with calculated values ", chs);
+  printCHS(" instead of ", pEntry_chs);
+  printf("\n");
+  memcpy(pEntry_chs, chs, sizeof(struct CHS));
+}
+
 BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
                          struct PartTableEntry * pEntry, ULONG startSector,
                          int partitionsToIgnore, int extendedPartNo)
@@ -852,41 +871,21 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
        > 8 GB cyl = 1023, other (cyl&1023)
      */
 
-    if (!((chs.Cylinder & 0x3ff) == pEntry->Begin.Cylinder ||
-          1023 == pEntry->Begin.Cylinder ||
-          (chs.Cylinder == pEntry->Begin.Cylinder &&
-           chs.Head == pEntry->Begin.Head &&
-           chs.Sector == pEntry->Begin.Sector)))
+    if (is_suspect(&chs, &pEntry->Begin))
     {
-      printf("WARNING: using suspect partition %s FS %02x:",
-             partitionName, pEntry->FileSystem);
-      printCHS(" with calculated values ", &chs);
-      printCHS(" instead of ", &pEntry->Begin);
-      printf("\n");
-      memcpy(&pEntry->Begin, &chs, sizeof(struct CHS));
-
+      print_warning_suspect(partitionName, pEntry->FileSystem, &chs,
+                            &pEntry->Begin);
     }
 
-    if (!((end.Cylinder & 0x3ff) == pEntry->End.Cylinder ||
-          1023 == pEntry->End.Cylinder ||
-          (end.Cylinder == pEntry->End.Cylinder &&
-           end.Head == pEntry->End.Head &&
-           end.Sector == pEntry->End.Sector)))
+    if (is_suspect(&end, &pEntry->End))
     {
       if (pEntry->NumSect == 0)
       {
         printf("Not using partition %s with 0 sectors\n", partitionName);
         continue;
       }
-
-      printf("WARNING: using suspect partition %s FS %02x:",
-             partitionName, pEntry->FileSystem);
-
-      printCHS(" with calculated values ", &end);
-      printCHS(" instead of ", &pEntry->End);
-      printf("\n");
-      memcpy(&pEntry->End, &end, sizeof(struct CHS));
-
+      print_warning_suspect(partitionName, pEntry->FileSystem, &end,
+                            &pEntry->End);
     }
 
     if (chs.Cylinder > 1023 || end.Cylinder > 1023)
