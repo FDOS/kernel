@@ -41,7 +41,7 @@ segment HMA_TEXT
 		global	FL_RESET
 FL_RESET:
 		pop	ax		; return address
-		pop	dx		; drive, (DL only, bit 7 set resets both floppy & hd)
+		pop	dx		; drive (DL only)
 		push	ax		; restore address
 		mov	ah,0		; BIOS reset diskette & fixed disk
 		int	13h
@@ -74,7 +74,7 @@ FL_DISKCHANGED:
 		cmp	ah,6		; if AH==6 then disk change, else error
 		jne	fl_dc		; if error, return -1
 		mov	al, 1		; set change occurred
-fl_dc:	cbw			; extend AL into AX, AX={1,-1}
+fl_dc:	cbw			; extend AL into AX, AX={1,0,-1}
 		ret			; note: AH=0 on no change, AL set above
 
 ;
@@ -112,18 +112,18 @@ fl_common:
                 push    bp              ; setup stack frame
                 mov     bp,sp
 
-                mov     cx,[bp+0Ch]     ; cylinder number (lo only if hard)
+                mov     cx,[bp+0Ch]     ; cylinder number
 
                 mov     al,1            ; this should be an error code                     
                 cmp     ch,3            ; this code can't write above 3FFh=1023
-                ja      fl_error
+                ja      fl_error        ; as cylinder # is limited to 10 bits.
 
                 xchg    ch,cl           ; ch=low 8 bits of cyl number
                 ror     cl,1            ; bits 8-9 of cylinder number...
                 ror     cl,1            ; ...to bits 6-7 in CL
                 or      cl,[bp+0Ah]	; or in the sector number (bits 0-5)
 
-                mov     al,[bp+08h]     ; count to read/write (# of sectors)
+                mov     al,[bp+08h]     ; count of sectors to read/write/...
                 les     bx,[bp+04h]     ; Load 32 bit buffer ptr into ES:BX
 
                 mov     dl,[bp+10h]     ; drive (if or'ed 80h its a hard drive)
@@ -133,9 +133,8 @@ fl_common:
 
 		sbb	al,al		; carry: al=ff, else al=0
 		and	al,ah		; carry: error code, else 0
-					; (Zero transfer count)
 fl_error:
-                mov     ah,0            ; force into < 255 count
+                mov     ah,0            ; extend AL into AX without sign extension
                 pop     bp
                 ret     14
 
