@@ -4,6 +4,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.6  2001/03/25 04:33:56  bartoldeman
+# Fix compilation of sys.com. Now a proper .com file once again.
+#
 # Revision 1.5  2001/03/22 04:18:09  bartoldeman
 # Compilation command shortened.
 #
@@ -39,10 +42,8 @@
 
 !include "..\config.mak"
 
-#CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
-#	 -L$(LIBPATH) -DI86;PROTO;DEBUG
-CFLAGS = -ms -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
-	 -DI86;PROTO -zAHMA -zCHMA_TEXT
+CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
+	 -DI86;PROTO -zAHMA -zCHMA_TEXT -zPDGROUP
 
 #               *Implicit Rules*
 .c.obj:
@@ -72,8 +73,7 @@ b_fat16.h:      ..\boot\b_fat16.bin bin2c.com
                 bin2c ..\boot\b_fat16.bin b_fat16.h b_fat16
 
 sys.com:        $(EXE_dependencies)
-#		 $(LINK) /m/t/c $(LIBPATH)\c0t.obj+sys.obj,sys,,\
-		$(LINK) /m/c $(LIBPATH)\c0s.obj+sys.obj,sys.com,,\
+		$(LINK) /m/t/c $(LIBPATH)\c0t.obj+sys.obj,sys,,\
                 $(LIBS)+$(CLIB);
 
 clobber:	clean
