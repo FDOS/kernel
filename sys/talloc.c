@@ -12,6 +12,8 @@
  **  use it only, if your programs are already debugged !!
  **/
 
+#ifndef _MSC_VER /* MSC has no brk/sbrk */
+
 #include <stddef.h>
 #include <string.h>
 
@@ -218,4 +220,6 @@ main()
 
   return 1;
 }
+#endif
+
 #endif
