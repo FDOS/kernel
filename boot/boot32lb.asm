@@ -81,6 +81,7 @@ Entry:		jmp	short real_start
 			; +0x32 dw -1 or sector number of boot sector backup
 			; (+0x34 .. +0x3f reserved)
 %define drive		bp+0x40	; Drive number
+%define loadsegoff_60	bp+loadseg_off-Entry
 
 %define LOADSEG		0x0060
 
@@ -107,24 +108,27 @@ Entry:		jmp	short real_start
 ;-----------------------------------------------------------------------
 
 real_start:	cld
+		cli
 		sub	ax, ax
 		mov	ds, ax
-		lss	sp, [mystack]	; initialize stack
-		int	0x13		; reset drive
+		mov	bp, 0x7c00
 
 		mov	ax, 0x1FE0
 		mov	es, ax
-		mov	si, sp
-		mov	di, sp
-		mov 	bp, sp		; bp-relative parameter addresses used
+		mov	si, bp
+		mov	di, bp
 		mov	cx, 0x0100
 		rep	movsw		; move boot code to the 0x1FE0:0x0000
 		jmp	word 0x1FE0:cont
+
+loadseg_off	dw	0, LOADSEG
 
 ; -------------
 
 cont:		mov	ds, ax
 		mov	ss, ax		; stack and BP-relative moves up, too
+                lea     sp, [bp-0x20]
+		sti
 		mov	[drive], dl	; BIOS passes drive number in DL
 
 		mov	si, msg_LoadFreeDOS
@@ -177,9 +181,7 @@ ff_next_clust:	push	eax			; save cluster
 		jc	boot_error		; EOC encountered
 		; EDX is clust/sector, EAX is sector
 				
-ff_next_sector:	mov	bx, LOADSEG
-		mov	es, bx
-		sub	bx, bx			; load to loadseg:0
+ff_next_sector:	les	bx, [loadsegoff_60]	; load to loadseg:0
 		call	readDisk
 ;---		push	eax			; save sector
 
@@ -233,7 +235,7 @@ rk_walk_fat:	pop	eax
 ;-----------------------------------------------------------------------
 
 boot_success:	mov	bl, [drive]
-		jmp	word LOADSEG:0
+		jmp	far [loadsegoff_60]
 
 ;-----------------------------------------------------------------------
 
@@ -388,9 +390,6 @@ no_incr_es:	pop	di
 ;-----------------------------------------------------------------------
 
 msg_LoadFreeDOS db "Loading FreeDOS ",0
-
-mystack        dw 0x7c00   ; the 0 for SS overlaps into pad bytes!
-       ; (so we can LSS SP to 0:7c00)
 
        times 0x01ee-$+$$ db 0
 

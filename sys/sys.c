@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.9"
+#define SYS_VERSION "v3.0"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -159,7 +159,7 @@ char *getenv(const char *name)
 
 BYTE pgm[] = "SYS";
 
-void put_boot(int, char *, char *, int);
+void put_boot(int, char *, char *, int, int);
 BOOL check_space(COUNT, ULONG);
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
 
@@ -254,6 +254,7 @@ int main(int argc, char **argv)
   int bootonly = 0;
   int both = 0;
   char *kernel_name = "KERNEL.SYS";
+  int load_segment = 0x60;
 
   printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
@@ -277,6 +278,11 @@ int main(int argc, char **argv)
     {
       argno++;
       kernel_name = argv[argno];
+    }
+    else if (argp[0] == '/' && toupper(argp[1]) == 'L' && argno + 1 < argc)
+    {
+      argno++;
+      load_segment = (int)strtol(argv[argno], NULL, 16);
     }
     else if (memicmp(argp, "BOOTONLY", 8) == 0 && !bootonly)
     {
@@ -303,7 +309,7 @@ int main(int argc, char **argv)
   if (drivearg == 0)
   {
     printf(
-      "Usage: %s [source] drive: [bootsect [BOTH]] [BOOTONLY] [/K name]\n"
+      "Usage: %s [source] drive: [bootsect [BOTH]] [BOOTONLY] [/K name] [/L segm]\n"
       "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
       "  drive    = A,B,etc.\n"
       "  bootsect = name of 512-byte boot sector file image for drive:\n"
@@ -311,6 +317,7 @@ int main(int argc, char **argv)
       "  BOTH     : write to *both* the real boot sector and the image file\n"
       "  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n"
       "  /K name  : name of kernel to use instead of KERNEL.SYS\n"
+      "  /L segm  : hex load segment to use instead of 60\n"
       "%s CONFIG /help\n", pgm, pgm);
     exit(1);
   }
@@ -362,7 +369,7 @@ int main(int argc, char **argv)
     sprintf(rootPath, "%c:\\", 'A' + srcDrive);
 
   printf("Processing boot sector...\n");
-  put_boot(drive, bsFile, kernel_name, both);
+  put_boot(drive, bsFile, kernel_name, load_segment, both);
 
   if (!bootonly)
   {
@@ -662,7 +669,7 @@ BOOL haveLBA(void)
 }
 #endif
 
-void put_boot(int drive, char *bsFile, char *kernel_name, int both)
+void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both)
 {
 #ifdef WITHFAT32
   struct bootsectortype32 *bs32;
@@ -756,6 +763,12 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int both)
     bs32 = (struct bootsectortype32 *)&newboot;
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
     bs32->bsDriveNumber = drive < 2 ? 0 : 0xff;
+    /* the location of the "0060" segment portion of the far pointer
+       in the boot sector is just before cont: in boot*.asm.
+       This happens to be offset 0x78 (=0x3c * 2) for FAT32 and
+       offset 0x5c (=0x2e * 2) for FAT16 */
+    /* i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! */
+    ((int *)newboot)[0x3C] = load_seg;
 #ifdef DEBUG
     printf(" FAT starts at sector %lx + %x\n",
            bs32->bsHiddenSecs, bs32->bsResSectors);
@@ -766,6 +779,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int both)
   {
     /* put 0 for A: or B: (force booting from A:), otherwise use DL */
     bs->bsDriveNumber = drive < 2 ? 0 : 0xff;
+    ((int *)newboot)[0x2E] = load_seg;
   }
 
 #ifdef DEBUG /* add an option to display this on user request? */
@@ -801,6 +815,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int both)
 #ifdef DEBUG
   /* there's a zero past the kernel name in all boot sectors */
   printf("Boot sector kernel name set to %s\n", &newboot[0x1f1]);
+  printf("Boot sector load segment set to %Xh\n", load_seg);
 #endif
 
 #ifdef DDEBUG

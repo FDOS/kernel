@@ -139,10 +139,8 @@ Entry:          jmp     short real_start
 
 		times	0x3E-$+$$ db 0
 
-%define loadsegoff_60         bp+0x3E
-                dw      0
-%define loadseg_60         bp+0x40
-                dw      LOADSEG
+%define loadsegoff_60	bp+loadseg_off-Entry
+%define loadseg_60	bp+loadseg_seg-Entry
 
 ;%define LBA_PACKET      bp+0x42
 ;		db      10h  ; size of packet
@@ -198,6 +196,9 @@ real_start:
 		mov	cx, 0x0100
 		rep	movsw
                 jmp     word 0x1FE0:cont
+
+loadseg_off	dw	0
+loadseg_seg	dw	LOADSEG
 
 cont:
 		mov     ds, ax

@@ -65,10 +65,8 @@ Entry:          jmp     short real_start
 
 %define fat_sector      bp+0x48         ; last accessed sector of the FAT
 
-%define loadsegoff_60	bp+0x5a         ; FAR pointer = 60:0
-                dw      0
-%define loadseg_60	bp+0x5c
-                dw      LOADSEG
+%define loadsegoff_60	bp+loadseg_off-Entry ; FAR pointer = 60:0
+%define loadseg_60	bp+loadseg_seg-Entry
 
 %define fat_start       bp+0x5e         ; first FAT sector
 %define data_start      bp+0x62         ; first data sector
@@ -92,6 +90,9 @@ real_start:     cld
 		mov	cx, 0x0100
 		rep	movsw           ; move boot code to the 0x1FE0:0x0000
 		jmp     word 0x1FE0:cont
+
+loadseg_off	dw	0
+loadseg_seg	dw	LOADSEG
 
 cont:           mov     ds, ax
                 mov     ss, ax
