@@ -4,6 +4,9 @@
 # $Id$
 #
 # $Log$
+# Revision 1.5  2001/03/22 04:18:09  bartoldeman
+# Compilation command shortened.
+#
 # Revision 1.4  2001/03/21 02:56:26  bartoldeman
 # See history.txt for changes. Bug fixes and HMA support are the main ones.
 #
@@ -38,8 +41,8 @@
 
 #CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
 #	 -L$(LIBPATH) -DI86;PROTO;DEBUG
-CFLAGS = -mt -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
-	 -L$(LIBPATH) -DI86;PROTO -zAHMA -zCHMA_TEXT -zDHMA_TEXT
+CFLAGS = -ms -1- -v -vi- -k- -f- -ff- -O -Z -d -I$(INCLUDEPATH);..\hdr \
+	 -DI86;PROTO -zAHMA -zCHMA_TEXT
 
 #               *Implicit Rules*
 .c.obj:
