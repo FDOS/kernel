@@ -31,6 +31,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.9  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.8  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -220,7 +223,7 @@ COUNT get_verify_drive(char FAR *src)
   }
   else
     drive = default_drive;
-  if ((drive < 0) || (drive > lastdrive)) {
+  if ((drive < 0) || (drive >= lastdrive)) {
     drive = DE_INVLDDRV;
   }
   return drive;
@@ -255,7 +258,7 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   {
     buf[0] = (src[0] | 0x20) + 'A' - 'a';
 
-    if (buf[0] > lastdrive + 'A')
+    if (buf[0] >= lastdrive + 'A')
       return DE_PATHNOTFND;
 
     src += 2;

@@ -39,8 +39,8 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
- * Revision 1.11  2001/03/30 20:11:14  bartoldeman
- * Truly got DOS=HIGH reporting for INT21/AX=0x3306 working now.
+ * Revision 1.12  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
  *
  * Revision 1.10  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
@@ -552,7 +552,7 @@ BOOL init_device(struct dhdr FAR * dhp, BYTE FAR * cmdLine, COUNT mode, COUNT r_
       pblk_devices->dpb_subunit = Index;
       pblk_devices->dpb_device = dhp;
       pblk_devices->dpb_flags = M_CHANGED;
-      if ((CDSp != 0) && (nblkdev <= lastdrive))
+      if ((CDSp != 0) && (nblkdev < lastdrive))
       {
         CDSp->cds_table[nblkdev].cdsDpb = pblk_devices;
         CDSp->cds_table[nblkdev].cdsFlags = CDSPHYSDRV;

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.11  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -202,7 +205,7 @@ struct f_node FAR *dir_open(BYTE FAR * dirname)
   {
     drive = default_drive;
   }
-  if (drive > (lastdrive-1)) {
+  if (drive >= lastdrive) {
     release_f_node(fnp);
     return NULL;
   }
@@ -618,7 +621,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   else
     nDrive = default_drive;
 
-  if (nDrive > (lastdrive -1)) {
+  if (nDrive >= lastdrive) {
     return DE_INVLDDRV;
   }
   current_ldt = &CDSp->cds_table[nDrive];
@@ -799,7 +802,7 @@ COUNT dos_findnext(void)
  */
   nDrive = dmp->dm_drive  & 0x1f;
 
-  if (nDrive > (lastdrive -1)) {
+  if (nDrive >= lastdrive) {
     return DE_INVLDDRV;
   }
   current_ldt = &CDSp->cds_table[nDrive];
@@ -825,7 +828,7 @@ COUNT dos_findnext(void)
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
-  if (dmp->dm_drive > (lastdrive)) {
+  if (dmp->dm_drive >= lastdrive) {
     return DE_INVLDDRV;
   }
   /* Select the default to help non-drive specified path          */

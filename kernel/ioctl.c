@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.6  2000/06/21 18:16:46  jimtabor
  * Add UMB code, patch, and code fixes
  *
@@ -164,7 +167,7 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 
       dev = ( r->BL == 0 ? default_drive : r->BL - 1);
 
-      if (dev > (lastdrive -1))
+      if (dev >= lastdrive)
       {
         *err = DE_INVLDDRV;
         return 0;

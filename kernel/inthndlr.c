@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.17  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -631,7 +634,7 @@ dispatch:
 
       /* Get default DPB                                              */
     case 0x1f:
-      if (default_drive <= (lastdrive -1))
+      if (default_drive < lastdrive)
       {
         struct dpb FAR *dpb = (struct dpb FAR *)CDSp->cds_table[default_drive].cdsDpb;
         if (dpb == 0)
@@ -840,7 +843,7 @@ dispatch:
       /* Get DPB                                                      */
     case 0x32:
       r->DL = ( r->DL == 0 ? default_drive : r->DL - 1);
-      if (r->DL <= (lastdrive - 1))
+      if (r->DL < lastdrive)
       {
         struct dpb FAR *dpb = CDSp->cds_table[r->DL].cdsDpb;
         if (dpb == 0 ||
@@ -1517,13 +1520,13 @@ dispatch:
       switch (r->AL)
       {
         case 0x07:
-          if (r->DL <= (lastdrive -1)) {
+          if (r->DL < lastdrive) {
           CDSp->cds_table[r->DL].cdsFlags |= 0x100;
 	  }
           break;
 
         case 0x08:
-          if (r->DL <= (lastdrive -1)) {
+          if (r->DL < lastdrive) {
           CDSp->cds_table[r->DL].cdsFlags &= ~0x100;
 	  }
           break;
@@ -1680,7 +1683,7 @@ dispatch:
       /* Get/Set Serial Number */
     case 0x69:
       rc = ( r->BL == 0 ? default_drive : r->BL - 1);
-      if (rc <= (lastdrive -1))
+      if (rc < lastdrive)
       {
         UWORD saveCX = r->CX;
         if (CDSp->cds_table[rc].cdsFlags & CDSNETWDRV) {
@@ -1881,7 +1884,7 @@ VOID int2526_handler(WORD mode, struct int25regs FAR * r)
   
   drv = r->ax;
 
-  if (drv >= (lastdrive - 1))
+  if (drv >= lastdrive)
   {
     r->ax = 0x202;
     r->flags |= FLG_CARRY;

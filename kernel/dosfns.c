@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.13  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.12  2001/03/30 19:30:06  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -1117,7 +1120,7 @@ VOID DosGetFree(COUNT drive, COUNT FAR * spc, COUNT FAR * navc, COUNT FAR * bps,
   drive = (drive == 0 ? default_drive : drive - 1);
 
 	/* first check for valid drive          */
-    if (drive < 0 || drive > (lastdrive - 1))
+    if (drive < 0 || drive >= lastdrive)
   {
 		*spc = -1;
     return;
@@ -1166,7 +1169,7 @@ COUNT DosGetCuDir(COUNT drive, BYTE FAR * s)
   drive = (drive == 0 ? default_drive : drive - 1);
 
 	/* first check for valid drive          */
-    if (drive < 0 || drive > (lastdrive - 1)) {
+    if (drive < 0 || drive >= lastdrive) {
 		return DE_INVLDDRV;
 	}
 

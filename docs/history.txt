@@ -12,6 +12,7 @@
          Bart: getdpb fixes (int 21/ah=32).
                fix carry handling in int 21/ah=5e.   
                fix {get,set}_machine_name in network.c
+	       saner lastdrive handling
 + Add    Support for SHELLHIGH in config.sys
 2001 Mar 28 - Build 2023
 + Fixes  Bug fix release 2023b: dsk.c (reported by Nagy Daniel), inthndlr and

@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.7  2001/03/21 02:56:26  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -152,7 +155,7 @@ VOID FatGetDrvData(COUNT drive, COUNT FAR * spc, COUNT FAR * bps,
   printf("FGDD\n");
 
   /* first check for valid drive                                  */
-    if ((drive < 0) || (drive > (lastdrive -1)) || (drive > NDEVS))
+    if ((drive < 0) || (drive >= lastdrive) || (drive >= NDEVS))
   {
     *spc = -1;
     return;
@@ -235,7 +238,7 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
     if (Drive < 'A' || Drive > 'Z')
       return PARSE_RET_BADDRIVE;
     Drive -= ('A' - 1);
-    if (Drive > (lastdrive -1))
+    if (Drive >= lastdrive)
       return PARSE_RET_BADDRIVE;
     else
       lpFcb->fcb_drive = Drive;
@@ -804,7 +807,7 @@ BOOL FcbOpen(xfcb FAR * lpXfcb)
         return TRUE;
   }
   fbcopy((BYTE FAR *) & lpFcb->fcb_fname, (BYTE FAR *) & sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
-  if ((FcbDrive < 0) || (FcbDrive > (lastdrive -1))) {
+  if ((FcbDrive < 0) || (FcbDrive >= lastdrive)) {
     return DE_INVLDDRV;
   }
   if (CDSp->cds_table[FcbDrive].cdsFlags & CDSNETWDRV) {
@@ -850,7 +853,7 @@ BOOL FcbDelete(xfcb FAR * lpXfcb)
   /* Build a traditional DOS file name                            */
   CommonFcbInit(lpXfcb, PriPathName, &FcbDrive);
 
-  if ((FcbDrive < 0) || (FcbDrive > (lastdrive -1))) {
+  if ((FcbDrive < 0) || (FcbDrive >= lastdrive)) {
     return DE_INVLDDRV;
   }
   current_ldt = &CDSp->cds_table[FcbDrive];

@@ -40,6 +40,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/03/30 22:27:42  bartoldeman
+ * Saner lastdrive handling.
+ *
  * Revision 1.14  2001/03/30 19:30:00  bartoldeman
  * Misc fixes and implementation of SHELLHIGH. See history.txt for details.
  *
@@ -339,7 +342,7 @@ INIT void PreConfig(void)
                   + Config.cfgFiles * sizeof(sft));
 
   CDSp = (cdstbl FAR *)
-      KernelAlloc(0x58 * (lastdrive));
+      KernelAlloc(0x58 * lastdrive);
 
 #ifdef DEBUG
   printf("Preliminary f_node allocated at at 0x%p\n",f_nodes);
@@ -418,7 +421,7 @@ INIT void PostConfig(void)
                   + Config.cfgFiles * sizeof(sft));
 
   CDSp = (cdstbl FAR *)
-      KernelAlloc(0x58 * (lastdrive));
+      KernelAlloc(0x58 * lastdrive);
 
 #ifdef DEBUG
 
@@ -458,7 +461,7 @@ INIT VOID configDone(VOID)
 #endif /* DEBUG */
     lastdrive = nblkdev;
     CDSp = (cdstbl FAR *)
-       KernelAlloc(0x58 * (lastdrive ));
+       KernelAlloc(0x58 * lastdrive);
   }
   first_mcb = FP_SEG(lpBase) + ((FP_OFF(lpBase) + 0x0f) >> 4);
 
