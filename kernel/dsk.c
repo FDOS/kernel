@@ -387,7 +387,8 @@ STATIC WORD getbpb(ddt * pddt)
 {
   ULONG count;
   bpb *pbpbarray = &pddt->ddt_bpb;
-  WORD head, /*track, */ sector, ret;
+  unsigned secs_per_cyl;
+  WORD ret;
 
   /* pddt->ddt_descflags |= DF_NOACCESS; 
    * disabled for now - problems with FORMAT ?? */
@@ -455,21 +456,22 @@ STATIC WORD getbpb(ddt * pddt)
   count =
       pbpbarray->bpb_nsize == 0 ?
       pbpbarray->bpb_huge : pbpbarray->bpb_nsize;
-  head = pbpbarray->bpb_nheads;
-  sector = pbpbarray->bpb_nsecs;
+  secs_per_cyl = pbpbarray->bpb_nheads * pbpbarray->bpb_nsecs;
 
-  if (head == 0 || sector == 0)
+  if (secs_per_cyl == 0)
   {
     tmark(pddt);
     return failure(E_FAILURE);
   }
-  pddt->ddt_ncyl = (count + head * sector - 1) / (head * sector);
+  /* this field is problematic for partitions > 65535 cylinders,
+     in general > 512 GiB. However: we are not using it ourselves. */
+  pddt->ddt_ncyl = (UWORD)((count + (secs_per_cyl - 1)) / secs_per_cyl);
 
   tmark(pddt);
 
 #ifdef DSK_DEBUG
-  printf("BPB_NSECS     = %04x\n", sector);
-  printf("BPB_NHEADS    = %04x\n", head);
+  printf("BPB_NSECS     = %04x\n", pbpbarray->bpb_nsecs);
+  printf("BPB_NHEADS    = %04x\n", pbpbarray->bpb_nheads);
   printf("BPB_HIDDEN    = %08lx\n", pbpbarray->bpb_hidden);
   printf("BPB_HUGE      = %08lx\n", pbpbarray->bpb_huge);
 #endif
@@ -891,7 +893,7 @@ STATIC int LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
     return 1;
   }
 
-  chs->Cylinder = LBA_address;
+  chs->Cylinder = (UWORD)LBA_address;
   chs->Head = hsrem / pbpb->bpb_nsecs;
   chs->Sector =  hsrem % pbpb->bpb_nsecs + 1;
   return 0;

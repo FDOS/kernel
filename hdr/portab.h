@@ -81,10 +81,6 @@ static unsigned short __inline SS(void)
   asm mov ax, ss;
 }
 
-#if defined(M_I286)             /* /G3 doesn't set M_I386, but sets M_I286 TE */
-#define I386
-#endif
-
 #elif defined(__WATCOMC__)      /* don't know a better way */
 
 #define I86
@@ -96,8 +92,10 @@ static unsigned short __inline SS(void)
 #define _SS SS()
 unsigned short SS(void);
 #pragma aux SS = "mov dx,ss" value [dx];
+/* enable Possible loss of precision warning for compatibility with Borland */
+#pragma enable_message(130)
 
-#if _M_IX86 >= 300
+#if _M_IX86 >= 300 || defined(M_I386)
 #define I386
 #endif
 
@@ -112,6 +110,14 @@ unsigned short SS(void);
 #else
 #error Unknown compiler
 We might even deal with a pre-ANSI compiler. This will certainly not compile.
+#endif
+
+#ifdef I86
+#if _M_IX86 >= 300 || defined(M_I386)
+#define I386
+#elif _M_IX86 >= 100 || defined(M_I286)
+#define I186
+#endif
 #endif
 
 #ifdef MC68K

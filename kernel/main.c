@@ -332,29 +332,33 @@ STATIC VOID signon()
 {
   printf("\r%S", MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)));
 
-  printf("Kernel compatibility %d.%d", MAJOR_RELEASE, MINOR_RELEASE);
+  printf("Kernel compatibility %d.%d - ", MAJOR_RELEASE, MINOR_RELEASE);
 
-#if defined(__TURBOC__)
-  printf(" - TURBOC");
+  printf(
+#if defined(__BORLANDC__)
+  "BORLANDC"
+#elif defined(__TURBOC__)
+  "TURBOC"
 #elif defined(_MSC_VER)
-  printf(" - MSC");
+  "MSC"
 #elif defined(__WATCOMC__)
-  printf(" - WATCOMC");
+  "WATCOMC"
 #elif defined(__GNUC__)
-  printf(" - GNUC"); /* this is hypothetical only */
+  "GNUC" /* this is hypothetical only */
 #else
+#error Unknown compiler
   generate some bullshit error here, as the compiler should be known
 #endif
 #if defined (I386)
-    printf(" - 80386 CPU required");
+    " - 80386 CPU required"
 #elif defined (I186)
-    printf(" - 80186 CPU required");
+    " - 80186 CPU required"
 #endif
 
 #ifdef WITHFAT32
-  printf(" - FAT32 support");
+  " - FAT32 support"
 #endif
-  printf("\n\n%S", (void FAR *)copyright);
+  "\n\n%S", (void FAR *)copyright);
 }
 
 STATIC void kernel()

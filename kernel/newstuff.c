@@ -89,7 +89,7 @@ int DosMkTmp(BYTE FAR * pathname, UWORD attr)
     unsigned long tmp = randvar++;
     int i;
     for(i = 7; i >= 0; tmp >>= 4, i--)
-      ptmp[i] = (tmp & 0xf) + 'A';
+      ptmp[i] = ((char)tmp & 0xf) + 'A';
 
     /* DOS versions: > 5: characters A - P
        < 5: hex digits */
@@ -602,10 +602,11 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     }
     /* nothing found => continue normally */
   }
-  if ((mode & CDS_MODE_CHECK_DEV_PATH) && (result & IS_DEVICE) &&
-      !(result & IS_NETWORK) && dest[2] != '/' && !dir_exists(dest))
+  if ((mode & CDS_MODE_CHECK_DEV_PATH) &&
+      ((result & (IS_DEVICE|IS_NETWORK)) == IS_DEVICE) &&
+      dest[2] != '/' && !dir_exists(dest))
     return DE_PATHNOTFND;
-  
+
   tn_printf(("Physical path: \"%s\"\n", dest));
   return result;
 }
