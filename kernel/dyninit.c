@@ -82,11 +82,13 @@ void far *DynAlloc(char *what, unsigned num, unsigned size)
   return now;
 }
 
+/*
 void DynFree(void *ptr)
 {
   struct DynS far *Dynp = MK_FP(FP_SEG(LoL), FP_OFF(&Dyn));
   Dynp->Allocated = (char *)ptr - (char *)Dynp->Buffer;
 }
+*/
 
 void FAR * DynLast()
 {

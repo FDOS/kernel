@@ -191,43 +191,46 @@ int main(int argc, char **argv)
       return 1;
     }
   }
-  fseek(src, header.exRelocTable, SEEK_SET);
-  reloc = malloc(header.exRelocItems * sizeof(farptr));
-  if (reloc == NULL)
+  if (header.exRelocTable && header.exRelocItems)
   {
-    printf("Allocation error\n");
-    return 1;
-  }
-  if (fread(reloc, sizeof(farptr), header.exRelocItems, src) !=
-      header.exRelocItems)
-  {
-    printf("Source file read error\n");
-    return 1;
-  }
-  fclose(src);
-  qsort(reloc, header.exRelocItems, sizeof(reloc[0]), compReloc);
-  for (i = 0; i < header.exRelocItems; i++)
-  {
-    ULONG spot = ((ULONG) reloc[i].seg << 4) + reloc[i].off;
-    UBYTE *spot0 = &buffers[(size_t)(spot / BUFSIZE)][(size_t)(spot % BUFSIZE)];
-    UBYTE *spot1 = &buffers[(size_t)((spot + 1) / BUFSIZE)][(size_t)((spot + 1) % BUFSIZE)];
-    UWORD segment = ((UWORD) * spot1 << 8) + *spot0;
+    fseek(src, header.exRelocTable, SEEK_SET);
+    reloc = malloc(header.exRelocItems * sizeof(farptr));
+    if (reloc == NULL)
+    {
+      printf("Allocation error\n");
+      return 1;
+    }
+    if (fread(reloc, sizeof(farptr), header.exRelocItems, src) !=
+        header.exRelocItems)
+    {
+      printf("Source file read error\n");
+      return 1;
+    }
+    fclose(src);
+    qsort(reloc, header.exRelocItems, sizeof(reloc[0]), compReloc);
+    for (i = 0; i < header.exRelocItems; i++)
+    {
+      ULONG spot = ((ULONG) reloc[i].seg << 4) + reloc[i].off;
+      UBYTE *spot0 = &buffers[(size_t)(spot / BUFSIZE)][(size_t)(spot % BUFSIZE)];
+      UBYTE *spot1 = &buffers[(size_t)((spot + 1) / BUFSIZE)][(size_t)((spot + 1) % BUFSIZE)];
+      UWORD segment = ((UWORD) * spot1 << 8) + *spot0;
 
-    for (j = 0; j < silentcount; j++)
-      if (segment == silentSegments[j])
-      {
-        silentdone++;
-        goto dontPrint;
-      }
-    
-    printf("relocation at 0x%04x:0x%04x ->%04x\n", reloc[i].seg,
-           reloc[i].off, segment);
-    
-  dontPrint:
-    
-    segment += start_seg;
-    *spot0 = segment & 0xff;
-    *spot1 = segment >> 8;
+      for (j = 0; j < silentcount; j++)
+        if (segment == silentSegments[j])
+        {
+          silentdone++;
+          goto dontPrint;
+        }
+
+      printf("relocation at 0x%04x:0x%04x ->%04x\n", reloc[i].seg,
+             reloc[i].off, segment);
+
+    dontPrint:
+
+      segment += start_seg;
+      *spot0 = segment & 0xff;
+      *spot1 = segment >> 8;
+    }
   }
   
   if (UPX)
@@ -292,25 +295,28 @@ int main(int argc, char **argv)
     static char trailer[] = {
       0x0E,			/*  0 push cs			*/
       0x1F,			/*  1 pop  ds	; =0x60		*/
-      0xBF,0x5E,0x00,		/*  2 mov di,start_seg-2	*/
-      0x8E,0xC7,		/*  5 mov es,di			*/
-      0xFC,			/*  7 cld			*/
-      0x33,0xFF,		/*  8 xor di,di			*/
-      0x93,			/* 10 xchg ax,bx ; mov al,bl	*/
-      0xAA,			/* 11 stosb	 ; mov [es:0],al */
-      0x8B,0xF7,		/* 12 mov si,di			*/
-      0xB9,0x00,0x00,		/* 14 mov cx,offset trailer	*/
-      0xF3,0xA4,		/* 17 rep movsb			*/
-      0xBF,0x00,0x00,		/* 19 mov di,...		*/
-      0x8E,0xD7,		/* 22 mov ss,di			*/
-      0xBC,0x00,0x00,		/* 24 mov sp,...		*/
-      0x33,0xFF,		/* 27 xor di,di			*/
-      0xFF,0xE7,		/* 29 jmp di	; jmp 0		*/
+      0x8C,0xDF,		/*  2 mov di,ds			*/
+      0x4F,			/*  4 dec di			*/
+      0x4F,			/*  5 dec di			*/
+      0x8E,0xC7,		/*  6 mov es,di			*/
+      0xFC,			/*  8 cld			*/
+      0x33,0xFF,		/*  9 xor di,di			*/
+      0x93,			/* 11 xchg ax,bx ; mov al,bl	*/
+      0xAA,			/* 12 stosb	 ; mov [es:0],al */
+      0x8B,0xF7,		/* 13 mov si,di			*/
+      0xB9,0x00,0x00,		/* 15 mov cx,offset trailer	*/
+      0xF3,0xA4,		/* 18 rep movsb			*/
+      0x1E,			/* 20 push ds			*/
+      0x58,			/* 21 pop  ax			*/
+      0x05,0x00,0x00,		/* 22 add ax,...		*/
+      0x8E,0xD0,		/* 25 mov ss,ax			*/
+      0xBC,0x00,0x00,		/* 27 mov sp,...		*/
+      0x31,0xC0,		/* 30 xor ax,ax			*/
+      0xFF,0xE0,		/* 32 jmp ax	; jmp 0		*/
     };
-    *(short *)&trailer[3] = start_seg - 2;
-    *(short *)&trailer[15] = (short)size + 0x20;
-    *(short *)&trailer[20] = start_seg + header.exInitSS;
-    *(short *)&trailer[25] = header.exInitSP;
+    *(short *)&trailer[16] = (short)size + 0x20;
+    *(short *)&trailer[23] = header.exInitSS;
+    *(short *)&trailer[28] = header.exInitSP;
     fwrite(trailer, 1, sizeof trailer, dest);
   }
   fclose(dest);

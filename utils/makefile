@@ -1,6 +1,7 @@
 !include "../mkfiles/generic.mak"
 
 DEPENDS=$(DEPENDS) *.cfg
+CFLAGSC=$(CFLAGSC) -DEXEFLAT
 
 ########################################################################
 

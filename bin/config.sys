@@ -1,5 +1,1 @@
-rem dos=high
-rem device=fdxms.sys (or himem.sys)
-files=20
-buffers=20
-rem screen=0x12
+;

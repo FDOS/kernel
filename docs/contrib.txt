@@ -4,10 +4,13 @@ please email the current kernel maintainer so we can add you to the list!
 
 Thanks to all the following for contributing to the FreeDOS kernel:
 
+Aitor Santamaria (aitor.sm@wanadoo.es)
 Arkady Belousov (ark@mos.ru)
 Bart Oldeman (bart@dosemu.org)
+Bernd Blaauw (bblaauw@home.nl)
 Brian Reifsnyder (reifsnyderb@mindspring.com)
 Charles Dye (raster@highfiber.com)
+Eduardo Casino (eduardo@terra.es)
 Eric Auer (eric@coli.uni-sb.de)
 Eric Biederman (ebiederm+eric@ccr.net)
 Eric Luttmann (ecl@users.sourceforge.net)

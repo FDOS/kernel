@@ -44,13 +44,6 @@ static BYTE *RcsId =
    cluster number rather than overwriting it */
 #define READ_CLUSTER 1
 
-#ifndef ISFAT32
-int ISFAT32(struct dpb FAR * dpbp)
-{
-  return _ISFAT32(dpbp);
-}
-#endif
-
 struct buffer FAR *getFATblock(struct dpb FAR * dpbp, CLUSTER clussec)
 {
   struct buffer FAR *bp = getblock(clussec, dpbp->dpb_unit);
@@ -125,7 +118,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   struct buffer FAR *bp;
   unsigned idx;
   unsigned secdiv;
-  unsigned char wasfree;
+  unsigned char wasfree = 0;
   CLUSTER clussec = Cluster1;
   CLUSTER max_cluster = dpbp->dpb_size;
 
@@ -207,7 +200,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
       if (bp1 == 0)
         return 1; /* the only error code possible here */
       
-      if (Cluster2 != READ_CLUSTER)
+      if ((unsigned)Cluster2 != READ_CLUSTER)
         bp1->b_flag |= BFR_DIRTY | BFR_VALID;
       
       fbp1 = &bp1->b_buffer[0];
@@ -232,11 +225,8 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
           return LONG_BAD;
         return cluster;
       }
-
-      wasfree = 0;
       if (cluster == FREE)
-        wasfree = 1;
-
+        wasfree++;
       cluster = res;
     }
 
@@ -245,7 +235,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     cluster2 = (unsigned)Cluster2 & 0x0fff;
 
     /* Now pack the value in                                */
-    if ((unsigned)Cluster1 & 0x01)
+    if (Cluster1 & 0x01)
     {
       cluster &= 0x000f;
       cluster2 <<= 4;
@@ -276,9 +266,8 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
     fputword(&bp->b_buffer[idx * 2], (UWORD)Cluster2);
-    wasfree = 0;
     if (res == FREE)
-      wasfree = 1;
+      wasfree++;
   }
 #ifdef WITHFAT32
   else if (ISFAT32(dpbp))
@@ -296,9 +285,8 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
     fputlong(&bp->b_buffer[idx * 4], Cluster2);
-    wasfree = 0;
     if (res == FREE)
-      wasfree = 1;
+      wasfree++;
   }
 #endif
   else
@@ -310,9 +298,9 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     int adjust = 0;
     if (!wasfree)
-      adjust = 1;
+      adjust++;
     else if (Cluster2 != FREE)
-      adjust = -1;
+      adjust--;
 #ifdef WITHFAT32
     if (ISFAT32(dpbp) && dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
     {

@@ -77,11 +77,12 @@ long cooked_write(struct dhdr FAR **pdev, size_t n, char FAR *bp);
 sft FAR *get_sft(UCOUNT);
 
 /* dosfns.c */
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#define SEEK_END 2
+
+#define SEEK_SET 0u
+#define SEEK_CUR 1u
+#define SEEK_END 2u
+
 const char FAR *get_root(const char FAR *);
-BOOL check_break(void);
 UCOUNT GenericReadSft(sft far * sftp, UCOUNT n, void FAR * bp,
                       COUNT * err, BOOL force_binary);
 COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode);
@@ -91,7 +92,7 @@ void BinarySftIO(int sft_idx, void *bp, int mode);
 long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode);
 #define DosRead(hndl, n, bp) DosRWSft(get_sft_idx(hndl), n, bp, XFR_READ)
 #define DosWrite(hndl, n, bp) DosRWSft(get_sft_idx(hndl), n, bp, XFR_WRITE)
-ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode);
+int _SftSeek(sft FAR*, LONG new_pos, unsigned mode);
 long DosOpen(char FAR * fname, unsigned flags, unsigned attrib);
 COUNT CloneHandle(unsigned hndl);
 long DosDup(unsigned Handle);
@@ -100,8 +101,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib);
 COUNT DosClose(COUNT hndl);
 COUNT DosCloseSft(int sft_idx, BOOL commitonly);
 #define DosCommit(hndl) DosCloseSft(get_sft_idx(hndl), TRUE)
-BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
-                UWORD * bps, UWORD * nc);
+UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc);
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s);
 COUNT DosChangeDir(BYTE FAR * s);
 COUNT DosFindFirst(UCOUNT attr, const char FAR * name);
@@ -122,7 +122,8 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
 int idx_to_sft_(int SftIndex);
 sft FAR *idx_to_sft(int SftIndex);
 int get_sft_idx(UCOUNT hndl);
-struct cds FAR *get_cds(unsigned dsk);
+struct cds FAR *get_cds1(unsigned drv);
+struct cds FAR *get_cds(unsigned drv);
 COUNT DosTruename(const char FAR * src, char FAR * dest);
 
 /*dosidle.asm */
@@ -212,9 +213,8 @@ int DosCharInput(VOID);
 VOID DosDirectConsoleIO(iregs FAR * r);
 VOID DosCharOutput(COUNT c);
 VOID DosDisplayOutput(COUNT c);
-BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps,
-                   UWORD * nc);
-UWORD FcbParseFname(int *wTestMode, const BYTE FAR *lpFileName, fcb FAR * lpFcb);
+UBYTE FAR *FatGetDrvData(UBYTE drive, UBYTE * spc, UWORD * bps, UWORD * nc);
+ofs_t FcbParseFname(UBYTE *wTestMode, const char FAR * lpFileName, fcb FAR * lpFcb);
 const BYTE FAR *ParseSkipWh(const BYTE FAR * lpFileName);
 BOOL TestCmnSeps(BYTE FAR * lpFileName);
 BOOL TestFieldSeps(BYTE FAR * lpFileName);

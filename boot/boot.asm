@@ -30,6 +30,13 @@
 ;	|BOOT SEC|
 ;	|RELOCATE|
 ;	|--------| 1FE0:7C00
+;     |LBA PKT |
+;     |--------| 1FE0:7BC0
+;     |--------| 1FE0:7BA0
+;     |BS STACK|
+;     |--------|
+;     |4KBRDBUF| used to avoid crossing 64KB DMA boundary
+;     |--------| 1FE0:63A0
 ;	|        |
 ;	|--------| 1FE0:3000
 ;	| CLUSTER|
@@ -95,24 +102,24 @@ Entry:          jmp     short real_start
 
 		times	0x3E-$+$$ db 0
 
-%define loadsegoff_60	bp+loadseg_off-Entry
-%define loadseg_60	bp+loadseg_seg-Entry
+; using bp-Entry+loadseg_xxx generates smaller code than using just
+; loadseg_xxx, where bp is initialized to Entry, so bp-Entry equals 0
+%define loadsegoff_60	bp-Entry+loadseg_off
+%define loadseg_60	bp-Entry+loadseg_seg
 
-;%define LBA_PACKET      bp+0x42
-;		db      10h  ; size of packet
-;		db      0        ; const
-;		dw      1        ; number of sectors to read
 %define LBA_PACKET       bp-0x40
-%define LBA_SIZE       word [LBA_PACKET]
-%define LBA_SECNUM     word [LBA_PACKET+2]
-%define LBA_OFF        LBA_PACKET+4
+%define LBA_SIZE       word [LBA_PACKET]    ; size of packet, should be 10h
+%define LBA_SECNUM     word [LBA_PACKET+2]  ; number of sectors to read
+%define LBA_OFF        LBA_PACKET+4         ; buffer to read/write to
 %define LBA_SEG        LBA_PACKET+6
-%define LBA_SECTOR_0   word [LBA_PACKET+8 ]
+%define LBA_SECTOR_0   word [LBA_PACKET+8 ] ; LBA starting sector #
 %define LBA_SECTOR_16  word [LBA_PACKET+10]
 %define LBA_SECTOR_32  word [LBA_PACKET+12]
 %define LBA_SECTOR_48  word [LBA_PACKET+14]
 
-
+%define READBUF 0x63A0 ; max 4KB buffer (min 2KB stack), == stacktop-0x1800
+%define READADDR_OFF   BP-0x60-0x1804    ; pointer within user buffer
+%define READADDR_SEG   BP-0x60-0x1802
 
 %define PARAMS LBA_PACKET+0x10
 %define RootDirSecs     PARAMS+0x0         ; # of sectors root dir uses
@@ -133,7 +140,7 @@ real_start:
 		cld
 		xor	ax, ax
 		mov	ds, ax
-		mov     bp, 0x7c00
+		mov	bp, BASE
 
 
 					; a reset should not be needed here
@@ -171,6 +178,8 @@ dont_use_dl:				; no,  rely on [drive] written by SYS
 
 		mov     LBA_SIZE, 10h
 		mov     LBA_SECNUM,1    ; initialise LBA packet constants
+		mov     word [LBA_SEG],ds
+		mov     word [LBA_OFF],READBUF
 
 
 ;       GETDRIVEPARMS:  Calculate start of some disk areas.
@@ -223,7 +232,7 @@ dont_use_dl:				; no,  rely on [drive] written by SYS
                 mov     di, word [RootDirSecs]
                 les     bx, [loadsegoff_60] ; es:bx = 60:0
                 call    readDisk
-		les     di, [loadsegoff_60] ; es:di = 60:0
+                les     di, [loadsegoff_60] ; es:di = 60:0
 
 
 		; Search for KERNEL.SYS file name, and find start cluster.
@@ -356,7 +365,8 @@ show:           pop     si
                 ret
 
 boot_error:     call    show
-                db      "Error! Hit a key to reboot."
+;                db      "Error! Hit a key to reboot."
+                db      "Err."
 
                 xor     ah,ah
                 int     0x13                    ; reset floppy
@@ -377,8 +387,8 @@ readDisk:       push    si
 
 		mov     LBA_SECTOR_0,ax
 		mov     LBA_SECTOR_16,dx
-		mov     word [LBA_SEG],es
-		mov     word [LBA_OFF],bx
+		mov     word [READADDR_SEG], es
+		mov     word [READADDR_OFF], bx
 
                 call    show
                 db      "."
@@ -409,7 +419,7 @@ read_next:
 		lea	si,[LBA_PACKET]
                             
 						; setup LBA disk block                            	
-		mov	LBA_SECTOR_32,bx
+		mov	LBA_SECTOR_32,bx  ; bx is 0 if extended 13h mode supported
 		mov	LBA_SECTOR_48,bx
 	
 		mov	ah,042h
@@ -459,22 +469,33 @@ read_normal_BIOS:
                 or      cl, ah                  ; merge sector into cylinder
                 inc     cx                      ; make sector 1-based (1-63)
 
-		les     bx,[LBA_OFF]
+                les     bx,[LBA_OFF]
                 mov     ax, 0x0201
 do_int13_read:                
                 mov     dl, [drive]
                 int     0x13
                 jc      boot_error              ; exit on error
-		mov	ax, word [bsBytesPerSec]
-		div	byte[LBA_PACKET] ; luckily 16 !!
-		add     word [LBA_SEG], ax
+
+                mov     ax, word [bsBytesPerSec]  
+
+                push    di
+                mov     si,READBUF              ; copy read in sector data to
+                les     di,[READADDR_OFF]       ; user provided buffer
+                mov     cx, ax
+;                shr     cx, 1                   ; convert bytes to word count
+;                rep     movsw
+                rep     movsb
+                pop     di
+
+                shr     ax, 4                   ; adjust segment pointer by increasing
+                add     word [READADDR_SEG], ax ; by paragraphs read in (per sector)
 
                 add     LBA_SECTOR_0,  byte 1
                 adc     LBA_SECTOR_16, byte 0   ; DX:AX = next sector to read
                 dec     di                      ; if there is anything left to read,
                 jnz     read_next               ; continue
 
-		mov     es,word [LBA_SEG]
+                les     bx, [READADDR_OFF]
                 ; clear carry: unnecessary since adc clears it
                 pop     si
                 ret
@@ -484,3 +505,32 @@ do_int13_read:
 filename        db      "KERNEL  SYS",0,0
 
 sign            dw      0xAA55
+
+%ifdef DBGPRNNUM
+; DEBUG print hex digit routines
+PrintLowNibble:         ; Prints low nibble of AL, AX is destroyed
+	and  AL, 0Fh	; ignore upper nibble
+	cmp  AL, 09h	; if greater than 9, then don't base on '0', base on 'A'
+	jbe .printme
+	add  AL, 7		; convert to character A-F
+	.printme:
+	add  AL, '0'	; convert to character 0-9
+      mov  AH,0x0E      ; show character
+      int  0x10         ; via "TTY" mode
+      retn
+PrintAL:                ; Prints AL, AX is preserved
+	push AX		; store value so we can process a nibble at a time
+	shr  AL, 4		; move upper nibble into lower nibble
+      call PrintLowNibble
+	pop  AX		; restore for other nibble
+	push AX		; but save so we can restore original AX
+      call PrintLowNibble
+	pop  AX		; restore for other nibble
+      retn
+PrintNumber:            ; Prints (in Hex) value in AX, AX is preserved
+      xchg AH, AL ; high byte 1st
+      call PrintAL
+      xchg AH, AL  ; now low byte
+      call PrintAL
+	retn
+%endif

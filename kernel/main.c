@@ -36,12 +36,12 @@ static BYTE *mainRcsId =
     "$Id$";
 #endif
 
+/* The Holy Copyright Message. Do NOT remove it or you'll be cursed forever! */
+
 static char copyright[] =
-    "(C) Copyright 1995-2004 Pasquale J. Villani and The FreeDOS Project.\n"
-    "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
-    "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
-    "GNU General Public License as published by the Free Software Foundation;\n"
-    "either version 2, or (at your option) any later version.\n";
+"Copyright 1995-2004 Pasquale J. Villani and The FreeDOS Project.\n"
+"This free software has ABSOLUTELY NO WARRANTY and is licensed under\n"
+"the GNU General Public License (http://www.gnu.org/licenses/gpl.html)\n\n";
 
 struct _KernelConfig InitKernelConfig BSS_INIT({0});
 
@@ -67,7 +67,7 @@ __segment DosTextSeg = 0;
 
 #endif
 
-struct lol FAR *LoL = &DATASTART;
+struct lol FAR * const LoL = &DATASTART;
 
 void ASMCFUNC FreeDOSmain(void)
 {
@@ -130,26 +130,6 @@ void ASMCFUNC FreeDOSmain(void)
   init_shell();
 
   init_call_p_0(&Config); /* execute process 0 (the shell) */
-}
-
-/*
-    InitializeAllBPBs()
-    or MakeNortonDiskEditorHappy()
-    it has been determined, that FDOS's BPB tables are initialized,
-    only when used (like DIR H:).
-    at least one known utility (norton DE) seems to access them directly.
-    ok, so we access for all drives, that the stuff gets build
-*/
-void InitializeAllBPBs(VOID)
-{
-  static char filename[] = "A:-@JUNK@-.TMP";
-  int drive, fileno;
-  for (drive = 'C'; drive < 'A' + LoL->nblkdev; drive++)
-  {
-    filename[0] = drive;
-    if ((fileno = open(filename, O_RDONLY)) >= 0)
-      close(fileno);
-  }
 }
 
 STATIC void PSPInit(void)
@@ -267,6 +247,7 @@ STATIC void init_kernel(void)
 
   LoL->os_setver_major = LoL->os_major = MAJOR_RELEASE;
   LoL->os_setver_minor = LoL->os_minor = MINOR_RELEASE;
+  LoL->rev_number = REVISION_SEQ;
 
   /* move kernel to high conventional RAM, just below the init code */
 #ifdef __WATCOMC__
@@ -319,8 +300,6 @@ STATIC void init_kernel(void)
   FsConfig();
 
   configDone();
-
-  InitializeAllBPBs();
 
   DoInstall();
 }
@@ -652,34 +631,12 @@ static int EmulatedDriveStatus(int drive,char statusOnly)
 
 STATIC void CheckContinueBootFromHarddisk(void)
 {
-  char *bootedFrom = "Floppy/CD";
-
-  if (InitKernelConfig.BootHarddiskSeconds <= 0)
+  if (InitKernelConfig.BootHarddiskSeconds <= 0         /* feature disabled */
+   || LoL->BootDrive >= 3 && EmulatedDriveStatus(0x80,1)) /* booted from HD */
     return;
 
-  if (LoL->BootDrive >= 3)
-  {
-#if 0
-    if (EmulatedDriveStatus(0x80,1))
-#endif
-      /* already booted from HD */
-      return;
-  }
-  else
-  {
-#if 0
-    if (EmulatedDriveStatus(0x00,1))
-#endif
-      bootedFrom = "Floppy";
-  }
-
-  printf("\n"
-         "\n"
-         "\n"
-         "     Hit any key within %d seconds to continue booot from %s\n"
-         "     Hit 'H' or    wait %d seconds to boot from Harddisk\n",
-         InitKernelConfig.BootHarddiskSeconds,
-         bootedFrom,
+  printf("\n\nTo boot from hard disk, press 'H' or wait %d seconds\n"
+             "To boot from floppy/CD, press any other key NOW!\n",
          InitKernelConfig.BootHarddiskSeconds);
 
   if (GetBiosKey(InitKernelConfig.BootHarddiskSeconds))

@@ -96,6 +96,13 @@ STATIC int remote_lock_unlock(sft FAR *sftp,    /* SFT for file */
 /* get current directory structure for drive
    return NULL if the CDS is not valid or the
    drive is not within range */
+struct cds FAR *get_cds1(unsigned drv)
+{
+  if (drv-- == 0) /* 0 = A:, 1 = B:, ... */
+    drv = default_drive;
+  return get_cds(drv);
+}
+
 struct cds FAR *get_cds(unsigned drive)
 {
   struct cds FAR *cdsp;
@@ -106,9 +113,9 @@ struct cds FAR *get_cds(unsigned drive)
   cdsp = &CDSp[drive];
   flags = cdsp->cdsFlags;
   /* Entry is disabled or JOINed drives are accessable by the path only */
-  if (!(flags & CDSVALID) || (flags & CDSJOINED) != 0)
-    return NULL;
-  if (!(flags & CDSNETWDRV) && cdsp->cdsDpb == NULL)
+  if ((flags & CDSVALID) == 0 ||
+      (flags & CDSJOINED) != 0 ||
+      (flags & CDSNETWDRV) == 0 && cdsp->cdsDpb == NULL)
     return NULL;
   return cdsp;
 }
@@ -308,9 +315,13 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   }
 }
 
-COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
+int SftSeek(int sft_idx, LONG new_pos, unsigned mode)
 {
-  sft FAR *s = idx_to_sft(sft_idx);
+  return _SftSeek(idx_to_sft(sft_idx), new_pos, mode);
+}
+
+int _SftSeek(sft FAR *s, LONG new_pos, unsigned mode)
+{
   if (FP_OFF(s) == (size_t) -1)
     return DE_INVLDHNDL;
         
@@ -322,7 +333,6 @@ COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
 
   if (s->sft_flags & SFT_FSHARED)
   {
-    /* SEEK_SET handled below (s->sft_posit=new_pos) */
     if (mode == SEEK_CUR)
     {
       new_pos += s->sft_posit;
@@ -359,20 +369,6 @@ COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
 
   s->sft_posit = new_pos;
   return SUCCESS;
-}
-
-ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode)
-{
-  int sft_idx = get_sft_idx(hndl);
-  COUNT result;
-
-  /* Get the SFT block that contains the SFT      */
-  result = SftSeek(sft_idx, new_pos, mode);
-  if (result == SUCCESS)
-  {
-    return idx_to_sft(sft_idx)->sft_posit;
-  }
-  return (ULONG)-1;
 }
 
 STATIC long get_free_hndl(void)
@@ -764,28 +760,22 @@ COUNT DosClose(COUNT hndl)
   return ret;
 }
 
-BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
-                UWORD * bps, UWORD * nc)
+UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
 {
   /* navc==NULL means: called from FatGetDrvData, fcbfns.c */
   struct dpb FAR *dpbp;
   struct cds FAR *cdsp;
-  COUNT rg[4];
+  UWORD spc;
 
-  /* next - "log" in the drive            */
-  drive = (drive == 0 ? default_drive : drive - 1);
-
-  /* first check for valid drive          */
-  *spc = -1;
-  cdsp = get_cds(drive);
-
-  if (cdsp == NULL)
-    return FALSE;
+  /* first check for valid drive				*/
+  if ((cdsp = get_cds1(drive)) == NULL)
+    return -1;
 
   if (cdsp->cdsFlags & CDSNETWDRV)
   {
+    COUNT rg[4];
     if (remote_getfree(cdsp, rg) != SUCCESS)
-      return FALSE;
+      return -1;
 
     /* for int21/ah=1c:
        Undoc DOS says, its not supported for
@@ -794,21 +784,15 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
        the redirector can provide all info
        - Bart, 2002 Apr 1 */
 
-    if (navc != NULL)
-    {
-      *navc = (COUNT) rg[3];
-      *spc &= 0xff; /* zero out media ID byte */
-    }
-
-    *spc = (COUNT) rg[0];
-    *nc = (COUNT) rg[1];
-    *bps = (COUNT) rg[2];
-    return TRUE;
+    *bps = rg[2];
+    *nc = rg[1];
+    if (navc)
+      *navc = rg[3];
+    return rg[0];
   }
 
-  dpbp = cdsp->cdsDpb;
-  if (dpbp == NULL)
-    return FALSE;
+  if ((dpbp = cdsp->cdsDpb) == NULL)
+    return -1;
 
   if (navc == NULL)
   {
@@ -816,56 +800,60 @@ BOOL DosGetFree(UBYTE drive, UWORD * spc, UWORD * navc,
     flush_buffers(dpbp->dpb_unit);
     dpbp->dpb_flags = M_CHANGED;
   }
-
   if (media_check(dpbp) < 0)
-    return FALSE;
-  /* get the data available from dpb      */
-  *spc = (dpbp->dpb_clsmask + 1);
+    return -1;
+
+  /* get the data available from dpb				*/
+  spc = dpbp->dpb_clsmask + 1;
   *bps = dpbp->dpb_secsize;
 
-  /* now tell fs to give us free cluster  */
-  /* count                                */
 #ifdef WITHFAT32
   if (ISFAT32(dpbp))
   {
     ULONG cluster_size, ntotal, nfree;
 
-    /* we shift ntotal until it is equal to or below 0xfff6 */
     cluster_size = (ULONG) dpbp->dpb_secsize << dpbp->dpb_shftcnt;
     ntotal = dpbp->dpb_xsize - 1;
-    if (navc != NULL)
+    /* now tell fs to give us free cluster count		*/
+    if (navc)
       nfree = dos_free(dpbp);
+
+    /* we shift ntotal until it is equal to or below 0xfff6	*/
     while (ntotal > FAT_MAGIC16 && cluster_size < 0x8000)
     {
       cluster_size <<= 1;
-      *spc <<= 1;
+      spc <<= 1;
       ntotal >>= 1;
       nfree >>= 1;
     }
-    /* get the data available from dpb      */
-    *nc = ntotal > FAT_MAGIC16 ? FAT_MAGIC16 : (UCOUNT) ntotal;
 
-    /* now tell fs to give us free cluster  */
-    /* count                                */
-    if (navc != NULL)
-      *navc = nfree > FAT_MAGIC16 ? FAT_MAGIC16 : (UCOUNT) nfree;
-    return TRUE;
+    *nc = ntotal > FAT_MAGIC16 ? FAT_MAGIC16 : (UWORD) ntotal;
+    if (navc)
+      *navc = nfree > FAT_MAGIC16 ? FAT_MAGIC16 : (UWORD) nfree;
+    return spc;
   }
 #endif
-  /* a passed nc of 0xffff means: skip free; see FatGetDrvData
-     fcbfns.c */
-  if (*nc != 0xffff)
-    *navc = (COUNT) dos_free(dpbp);
+
   *nc = dpbp->dpb_size - 1;
-  if (*spc > 64)
+  /* now tell fs to give us free cluster count			*/
+  if (navc)
+    *navc = (UWORD) dos_free(dpbp);
+  if (spc > 64)
   {
     /* fake for 64k clusters do confuse some DOS programs, but let
        others work without overflowing */
-    *spc >>= 1;
-    *navc = ((unsigned)*navc < FAT_MAGIC16 / 2) ? ((unsigned)*navc << 1) : FAT_MAGIC16;
-    *nc = ((unsigned)*nc < FAT_MAGIC16 / 2) ? ((unsigned)*nc << 1) : FAT_MAGIC16;
+    spc >>= 1;
+    if (*nc > FAT_MAGIC16 / 2)
+      *nc = FAT_MAGIC16;
+    else
+      *nc <<= 1;
+    if (navc)
+      if (*navc > FAT_MAGIC16 / 2)
+        *navc = FAT_MAGIC16;
+      else
+        *navc <<= 1;
   }
-  return TRUE;
+  return spc;
 }
 
 #ifdef WITHFAT32

@@ -123,6 +123,10 @@ unsigned short getSS(void);
 #pragma aux getSS = "mov dx,ss" value [dx] modify exact[dx];
 /* enable Possible loss of precision warning for compatibility with Borland */
 #pragma enable_message(130)
+#if !defined(FORSYS) && !defined(EXEFLAT)
+#pragma aux default parm [ax dx cx] modify [ax dx es fs] /* min.unpacked size */
+/* #pragma aux default parm [ax dx] modify [ax bx cx dx es fs]min.packed size */
+#endif
 
 #if _M_IX86 >= 300 || defined(M_I386)
 #define I386

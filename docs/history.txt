@@ -277,6 +277,7 @@
       * inthndlr.c
         - fix: INT21/3301 now returns in DL low bit of input value (as in MS-DOS).
         - callerARG1 declared as xreg instead UWORD.
+        * fcbfns.c: FatGetDrvData() and FcbParseFname() optimised
 + Changes Bernd, Aitor, & Arkady
 	*  config.c
 	  - source: (Bernd) the codepage table rewritten into a smaller layout.
@@ -285,6 +286,8 @@
 	* exeflat.c
 	  - fix: eliminated warning by explicit cast.
 	  - reduced trailer, added to UPXed kernel.
+          - allow processing of files with 0 relocations
+          - UPX trailer no longer depends on load segment
 	* segs.inc
 	  - fix: for MSVC CONST segment should be class CONST, not DATA.
 	* dsk.c
@@ -293,15 +296,46 @@
         - optimize and make more user friendly instead of retrying endlessly
       * sys.c
         - change OEM Name field to FRDOS4.1 per Eric Auer for better compatibility.
+        - added fat32readwrite int return type, now required by OpenWatcom 1.3
       * ludivmul.inc
         - 32-bit division code for 386-enabled Watcom kernel.
       * inthndlr.c
         - fix: for INT21/5F07 and 5F08, before changing bit CDSPHYSDRV,
           MS-DOS checks if physical device associated with drive letter. Without
           this check MS-FORMAT under FreeDOS was destroys RAMDISK.
+        - zero serial number of Int 21h/30h (else buggy 32RTM thrashed stack)
+        - set AX = ES after Int 21h/4Ah (undocumented but expected by BRUN45)
+          (the last 2 changes needed to fix bugs discovered by Michael Devore)
+        - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
+        * autoexec.bat now single-line for FreeCOM compatibility when EOL=LF
+        * config.sys: all commands removed as they were close to defaults
+        * contrib.txt: added Aitor Santamaria, Bernd Blaauw and Eduardo Casino
+        * country.asm / country.sys support now replaces hard-coded data
+        * 8 countries added to country.asm: GR, RO, AT, KR, TR, IN, M.East, IL
+        * dyninit.c: unused function DynFree() commented out
+        * fattab.c: ISFAT32 function removed (now macro), "wasfree" optimised
+        * globals.h: __TIME__ removed - no two kernels released on same day
+        * intr.asm: lseek() added (necessary for COUNTRY.SYS processing)
+        * ioctl.c:
+          - r_si/r_di contents added as documented in PC-DOS Technical Update
+          - r_unit now set to dpb_subunit (allows ZIP disk serial number)
+        * main.c:
+          - copyright message cleanup, now shows URL for the full GNU GPL text
+          - (with Bart) LoL pointer made const (saves some size for Watcom)
+          - InitializeAllBPBs() kludge removed (no longer needed - verified)
+          - revision sequence now initialised along with DOS version in LoL
+          - CheckContinueBootFromHardDisk() function code and text cleaned up
+        * makefile: object files reordered to gain ~300B packed size
+        * portab.h: pragma aux default to gain ~800B unpacked size (Watcom)
+          (the last 2 changes proposed by Bart Oldeman)
+ + Changes Eduardo
+        * inthndlr.c: added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
+        * nls.c: MuxLoadPkg(), MuxGo() functions modified for NLSFUNC
  + Changes Jeremy
 	* config.txt
 	  - update to include all CONFIG.SYS options (except ANYDOS)
+        * exeflat.c
+          - show usage also when number of arguments incorrect
 *** Sync - Stable Build 2035 ***
 
 2004 May 30 - Build 2035

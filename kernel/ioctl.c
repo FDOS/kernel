@@ -92,8 +92,9 @@ COUNT DosDevIOctl(lregs * r)
 
   sft FAR *s;
   struct dhdr FAR *dev;
+  struct dpb FAR *dpbp;
   unsigned attr, flags;
-  UBYTE cmd;
+  UBYTE cmd, unit;
 
   switch (r->AL)
   {
@@ -141,8 +142,6 @@ COUNT DosDevIOctl(lregs * r)
     case 0x0e:
     case 0x0f:
     case 0x11:
-    {
-      struct dpb FAR *dpbp;
 /*
    Line below previously returned the deviceheader at r->bl. But,
    DOS numbers its drives starting at 1, not 0. A=1, B=2, and so
@@ -154,25 +153,23 @@ COUNT DosDevIOctl(lregs * r)
 #define NDN_HACK
 #ifdef NDN_HACK
 /* NDN feeds the actual ASCII drive letter to this function */
-      UBYTE unit = (r->BL & 0x1f) - 1;
+    unit = (r->BL & 0x1f) - 1;
 #else
-      UBYTE unit = r->BL - 1;
+    unit = r->BL - 1;
 #endif
-      if (unit == 0xff)
-          unit = default_drive;
-      CharReqHdr.r_unit = unit;
+    if (unit == 0xff)
+      unit = default_drive;
 
-      if ((dpbp = get_dpb(unit)) == NULL)
-      {
-        if (r->AL != 0x09)
-          return DE_INVLDDRV;
-        attr = ATTR_REMOTE;
-      }
-      else
-      {
-        dev = dpbp->dpb_device;
-        attr = dev->dh_attr;
-      }
+    if ((dpbp = get_dpb(unit)) == NULL)
+    {
+      if (r->AL != 0x09)
+        return DE_INVLDDRV;
+      attr = ATTR_REMOTE;
+    }
+    else
+    {
+      dev = dpbp->dpb_device;
+      attr = dev->dh_attr;
     }
   } /* switch */
 
@@ -186,6 +183,8 @@ COUNT DosDevIOctl(lregs * r)
   {
     CharReqHdr.r_cat = r->CH;            /* category (major) code */
     CharReqHdr.r_fun = r->CL;            /* function (minor) code */
+    CharReqHdr.r_si = r->SI;             /* contents of SI and DI */
+    CharReqHdr.r_di = r->DI;
     CharReqHdr.r_io = MK_FP(r->DS, r->DX);    /* parameter block */
   }
   else
@@ -194,6 +193,7 @@ COUNT DosDevIOctl(lregs * r)
     CharReqHdr.r_trans = MK_FP(r->DS, r->DX);
   }
   CharReqHdr.r_length = sizeof(request);
+  CharReqHdr.r_unit = dpbp->dpb_subunit;
   CharReqHdr.r_status = 0;
 
   switch (r->AL)
@@ -256,7 +256,7 @@ COUNT DosDevIOctl(lregs * r)
 
     case 0x09:
         {
-          const struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
+          const struct cds FAR *cdsp = get_cds(unit);
           if (cdsp == NULL)
             return DE_INVLDDRV;
           if (cdsp->cdsFlags & CDSSUBST)

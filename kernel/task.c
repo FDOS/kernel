@@ -214,13 +214,6 @@ void child_psp(seg_t para, seg_t cur_psp, seg_t beyond)
   }
 }
 
-struct cds FAR *get_cds1(unsigned drv)
-{
-  if (drv-- == 0) /* 0 = A:, 1 = B:, ... */
-    drv = default_drive;
-  return get_cds(drv);
-}
-
 STATIC void makePSP(seg_t pspseg, seg_t envseg, size_t asize, const char FAR * path)
 {
   psp _seg *p = MK_SEG_PTR(psp, pspseg);

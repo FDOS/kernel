@@ -1152,38 +1152,103 @@ STATIC void Fcbs(PCStr p)
  *      matching the specified code page and country code, and loads
  *      the corresponding information into memory. If code page is 0,
  *      the default code page for the country will be used.
- *
- *      Returns TRUE if successful, FALSE if not.
  */
 
-#if 0
 STATIC void LoadCountryInfo(CStr filename, int ccode, int cpage)
 {
-  say("Sorry, the COUNTRY= statement has been temporarily disabled\n");
+  /* COUNTRY.SYS file data structures - see RBIL tables 2619-2622 */
 
-  UNREFERENCED_PARAMETER(cpage);
-  UNREFERENCED_PARAMETER(ccode);
-  UNREFERENCED_PARAMETER(filename);
+  struct {      /* file header */
+    char name[8];       /* "\377COUNTRY.SYS" */
+    char reserved[11];
+    ULONG offset;       /* offset of first entry in file */
+  } header;
+  struct {      /* entry */
+    int length;         /* length of entry, not counting this word, = 12 */
+    int country;        /* country ID */
+    int codepage;       /* codepage ID */
+    int reserved[2];
+    ULONG offset;       /* offset of country-subfunction-header in file */
+  } entry;
+  struct {      /* subfunction header */
+    int length;         /* length of entry, not counting this word, = 6 */
+    int id;             /* subfunction ID */
+    ULONG offset;       /* offset within file of subfunction data entry */
+  } subf_hdr;
+  struct {      /* subfunction data */
+    char signature[8];  /* \377CTYINFO|UCASE|LCASE|FUCASE|FCHAR|COLLATE|DBCS */
+    int length;         /* length of following table in bytes */
+  } subf_data;
+  struct CountrySpecificInfo country;
+  int fd, entries, count, i, j;
 
-  return FALSE;
+  if ((fd = open(filename, 0)) < 0)
+  {
+    printf("%s not found\n", filename);
+    return;
+  }
+  if (read(fd, &header, sizeof(header)) < sizeof(header))
+  {
+    printf("Can't read %s\n", filename);
+    goto ret;
+  }
+  if (memcmp(&header.name, "\377COUNTRY", 8))
+  {
+err:printf("%s has invalid format\n", filename);
+    goto ret;
+  }
+  if (lseek(fd, header.offset) == 0xffffffffL
+    || read(fd, &entries, sizeof(entries)) < sizeof(entries))
+    goto err;
+  for (i = 0; i < entries; i++)
+  {
+    if (read(fd, &entry, sizeof(entry)) < sizeof(entry) || entry.length != 12)
+      goto err;
+    if (entry.country != ccode || entry.codepage != cpage && cpage)
+      continue;
+    if (lseek(fd, entry.offset) == 0xffffffffL
+      || read(fd, &count, sizeof(count)) < sizeof(count))
+      goto err;
+    for (j = 0; j < count; j++)
+    {
+      if (read(fd, &subf_hdr, sizeof(subf_hdr)) < sizeof(subf_hdr)
+        || subf_hdr.length != 6)
+        goto err;
+      if (subf_hdr.id != 1)
+        continue;
+      if (lseek(fd, subf_hdr.offset) == 0xffffffffL
+        || read(fd, &subf_data, sizeof(subf_data)) < sizeof(subf_data)
+        || memcmp(&subf_data.signature, "\377CTYINFO", 8))
+        goto err;
+      if (read(fd, &country, sizeof(country)) < sizeof(country))
+        goto err;
+      if (country.CountryID != entry.country
+       || country.CodePage  != entry.codepage && cpage)
+        continue;
+      i = nlsCountryInfoHardcoded.C.CodePage;
+      fmemcpy(&nlsCountryInfoHardcoded.C, &country,
+        min(sizeof(country), subf_data.length));
+      nlsCountryInfoHardcoded.C.CodePage = i;
+      goto ret;
+    }
+  }
+  printf("couldn't find country info for country ID %u\n", ccode);
+ret:
+  close(fd);
 }
-#endif
 
 /* Format: COUNTRY [=] countryCode [, [codePage] [, filename]]   */
 STATIC void Country(PCStr p)
 {
   int ccode;
-  /*PCStr filename = "";*/
+  PCStr filename = "\\COUNTRY.SYS";
 
   p = GetNumArg(p);
   if (p == NULL)
     return;
 
   ccode = numarg;
-  /* currently 'implemented' COUNTRY=nnn only */
-
-#if 0
-  numarg = NLS_DEFAULT;
+  numarg = 0;
   p = skipwh(p);
   if (*p == ',')
   {
@@ -1204,9 +1269,8 @@ STATIC void Country(PCStr p)
     CfgFailure(p);
     return;
   }
-#endif
 
-  LoadCountryInfoHardCoded(/*filename*/"", ccode, /*numarg*/NLS_DEFAULT);
+  LoadCountryInfo(filename, ccode, numarg);
 }
 
 /* Format: STACKS [=] stacks [, stackSize] */
@@ -1935,100 +1999,6 @@ STATIC void CfgMenuColor(PCStr p)
         attr = 0x07; /* white on black */
     MenuColor = attr;
   }
-}
-
-/*********************************************************************************
-    National specific things.
-    this handles only Date/Time/Currency, and NOT codepage things.
-    Some may consider this a hack, but I like to see 24 Hour support. tom.
-*********************************************************************************/
-
-#define _DATE_MDY 0 /* mm/dd/yy */
-#define _DATE_DMY 1 /* dd.mm.yy */
-#define _DATE_YMD 2 /* yy/mm/dd */
-
-#define _TIME_12 0
-#define _TIME_24 1
-
-struct CountrySpecificInfo specificCountriesSupported[] = {
-
-/* table rewritten by Bernd Blaauw
-Country ID  : international numbering
-Codepage    : codepage to use by default
-Date format : M = Month, D = Day, Y = Year (4digit); 0=USA, 1=Europe, 2=Japan
-Currency    : $ = dollar, EUR = EURO (ALT-128), United Kingdom uses the pound sign
-Thousands   : separator for thousands (1,000,000 bytes; Dutch: 1.000.000 bytes)
-Decimals    : separator for decimals (2.5KB; Dutch: 2,5KB)
-Datesep     : Date separator (2/4/2004 or 2-4-2004 for example)
-Timesep     : usually ":" is used to separate hours, minutes and seconds
-Currencyf   : Currency format (bit array)
-Currencyp   : Currency precision
-Timeformat  : 0=12 hour format (AM/PM), 1=24 hour format (16:12 means 4:12 PM)
-
-  ID  CP   Date    currency   1000 0.1 date time C digit time        Locale/Country   contributor
-------------------------------------------------------------------------------------------------------------- */
-{  1,437,_DATE_MDY,"$"       ,",",".", "/", ":", 0 , 2,_TIME_12}, /* United States                            */
-{  2,863,_DATE_YMD,"$"       ,",",".", "-", ":", 0 , 2,_TIME_24}, /* Canadian French                          */
-{  3,850,_DATE_MDY,"$"       ,",",".", "/", ":", 0 , 2,_TIME_12}, /* Latin America                            */
-{  7,866,_DATE_DMY,"RUB"     ," ",",", ".", ":", 3 , 2,_TIME_24}, /* Russia           Arkady V. Belousov      */
-{ 31,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Dutch            Bart Oldeman            */
-{ 32,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Belgium                                  */
-{ 33,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* France                                   */
-{ 34,850,_DATE_DMY,"EUR"     ,".","'", "-", ":", 0 , 2,_TIME_24}, /* Spain            Aitor Santamaria Merino */
-{ 36,850,_DATE_DMY,"$HU"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Hungary                                  */
-{ 38,850,_DATE_DMY,"$YU"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Yugoslavia                               */
-{ 39,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Italy                                    */
-{ 41,850,_DATE_DMY,"SF"      ,".",",", ".", ":", 0 , 2,_TIME_24}, /* Switserland                              */
-{ 42,850,_DATE_YMD,"$YU"     ,".",",", ".", ":", 0 , 2,_TIME_24}, /* Czech & Slovakia                         */
-{ 44,850,_DATE_DMY,"\x9c"    ,".",",", "/", ":", 0 , 2,_TIME_24}, /* United Kingdom                           */
-{ 45,850,_DATE_DMY,"DKK"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Denmark                                  */
-{ 46,850,_DATE_YMD,"SEK"     ,",",".", "-", ":", 0 , 2,_TIME_24}, /* Sweden                                   */
-{ 47,850,_DATE_DMY,"NOK"     ,",",".", ".", ":", 0 , 2,_TIME_24}, /* Norway                                   */
-{ 48,850,_DATE_YMD,"PLN"     ,",",".", ".", ":", 0 , 2,_TIME_24}, /* Poland           Michael H.Tyc           */
-{ 49,850,_DATE_DMY,"EUR"     ,".",",", ".", ":", 1 , 2,_TIME_24}, /* German           Tom Ehlert              */
-{ 54,850,_DATE_DMY,"$ar"     ,".",",", "/", ":", 1 , 2,_TIME_12}, /* Argentina                                */
-{ 55,850,_DATE_DMY,"$ar"     ,".",",", "/", ":", 1 , 2,_TIME_24}, /* Brazil                                   */
-{ 61,850,_DATE_MDY,"$"       ,".",",", "/", ":", 0 , 2,_TIME_24}, /* Int. English                             */
-{ 81,932,_DATE_YMD,"\x81\x8f",",",".", "/", ":", 0 , 2,_TIME_12}, /* Japan            Yuki Mitsui             */
-{351,850,_DATE_DMY,"EUR"     ,".",",", "-", ":", 0 , 2,_TIME_24}, /* Portugal                                 */
-{358,850,_DATE_DMY,"EUR"     ," ",",", ".", ":",0x3, 2,_TIME_24}, /* Finland          wolf                    */
-{359,855,_DATE_DMY,"BGL"     ," ",",", ".", ":", 3 , 2,_TIME_24}, /* Bulgaria         Luchezar Georgiev       */
-{380,848,_DATE_DMY,"UAH"     ," ",",", ".", ":", 3 , 2,_TIME_24}, /* Ukraine          Oleg Deribas            */
-};
-
-STATIC void LoadCountryInfoHardCoded(CStr filename, int ccode, int cpage)
-{
-  struct CountrySpecificInfo *country;
-  UNREFERENCED_PARAMETER(cpage);
-  UNREFERENCED_PARAMETER(filename);
-
-  /* printf("cntry: %u, CP%u, file=\"%s\"\n", ccode, cpage, filename); */
-
-  for (country = specificCountriesSupported;
-       country < ENDOF(specificCountriesSupported);
-       country++)
-  {
-    if (country->CountryID == ccode)
-    {
-      int codepagesaved = nlsCountryInfoHardcoded.C.CodePage;
-      fmemcpy(&nlsCountryInfoHardcoded.C,
-              country,
-              min(nlsCountryInfoHardcoded.TableSize, sizeof *country));
-      nlsCountryInfoHardcoded.C.CodePage = codepagesaved;
-      return;
-    }
-  }
-
-  printf("could not find country info for country ID %u\n"
-         "current supported countries are ", ccode);
-
-  for (country = specificCountriesSupported;
-       country < ENDOF(specificCountriesSupported);
-       country++)
-  {
-    printf("%u ", country->CountryID);
-  }
-  say("\n");
 }
 
 /* ****************************************************************

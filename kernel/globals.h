@@ -217,7 +217,7 @@ GLOBAL const BYTE ASM os_release[]
     = "DOS-C version %d.%d Beta %d [FreeDOS Release] (Build %d).\n"
 #endif
     = "FreeDOS kernel version " KERNEL_VERSION_STRING
-    " (Build " KERNEL_BUILD_STRING ") [" __DATE__ " " __TIME__ "]\n"
+    " (Build " KERNEL_BUILD_STRING ", " __DATE__ ")\n"
 #if 0
     "For technical information and description of the DOS-C operating system\n\
 consult \"FreeDOS Kernel\" by Pat Villani, published by Miller\n\

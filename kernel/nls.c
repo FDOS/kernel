@@ -109,7 +109,7 @@ STATIC COUNT muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
 /*
  *	Call NLSFUNC to load the NLS package
  */
-COUNT muxLoadPkg(UWORD cp, UWORD cntry)
+COUNT muxLoadPkg(int subfct, UWORD cp, UWORD cntry)
 {
   UWORD id; /* on stack, call_nls in int2f.asm takes care of this
              * if DS != SS */
@@ -128,8 +128,8 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
      NLSFUNC ID.  If not NULL, call_nls will set *id = BX on return.
      Note: &id should be the pointer offset addressable via SS (SS:BP == &id)
   */
-  if (muxGo(NLSFUNC_INSTALL_CHECK, 0, NLS_FREEDOS_NLSFUNC_VERSION,
-            0, NLS_FREEDOS_NLSFUNC_ID, 0, (UWORD *)&id) != 0x14ff)
+  if (muxGo(0, 0, NLS_FREEDOS_NLSFUNC_VERSION, 0, NLS_FREEDOS_NLSFUNC_ID, 0,
+            (UWORD *)&id) != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
   if (id != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
     return DE_INVLDACC;         /* This magic number */
@@ -137,7 +137,7 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /* OK, the correct NLSFUNC is available --> load pkg */
   /* If cp == -1 on entry, NLSFUNC updates cp to the codepage loaded
      into memory. The system must then change to this one later */
-  return muxGo(NLSFUNC_LOAD_PKG, 0, cp, cntry, 0, 0, 0);
+  return muxGo(subfct, 0, cp, cntry, 0, 0, 0);
 }
 
 STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry,
@@ -373,15 +373,30 @@ STATIC COUNT nlsSetPackage(struct nlsPackage FAR * nls)
 }
 STATIC COUNT DosSetPackage(UWORD cp, UWORD cntry)
 {
+  /* Right now, we do not have codepage change support in kernel, so push
+     it through the mux in any case. */
+
+  return muxLoadPkg(NLSFUNC_LOAD_PKG2, cp, cntry);
+}
+
+STATIC COUNT nlsLoadPackage(struct nlsPackage FAR * nls)
+{
+
+  nlsInfo.actPkg = nls;
+
+  return SUCCESS;
+}
+STATIC COUNT DosLoadPackage(UWORD cp, UWORD cntry)
+{
   struct nlsPackage FAR *nls;   /* NLS package to use to return the info from */
 
   /* nls := NLS package of cntry/codepage */
   if ((nls = searchPackage(cp, cntry)) != NULL)
     /* OK the NLS pkg is loaded --> activate it */
-    return nlsSetPackage(nls);
+    return nlsLoadPackage(nls);
 
   /* not loaded --> invoke NLSFUNC to load it */
-  return muxLoadPkg(cp, cntry);
+  return muxLoadPkg(NLSFUNC_LOAD_PKG, cp, cntry);
 }
 
 STATIC void nlsUpMem(struct nlsPackage FAR * nls, VOID FAR * str, int len)
@@ -564,7 +579,7 @@ COUNT DosGetCountryInformation(UWORD cntry, VOID FAR * buf)
 #ifndef DosSetCountry
 COUNT DosSetCountry(UWORD cntry)
 {
-  return DosSetPackage(NLS_DEFAULT, cntry);
+  return DosLoadPackage(NLS_DEFAULT, cntry);
 }
 #endif
 
@@ -636,6 +651,7 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
       /* Does not pass buffer length */
       return nlsGetData(nls, CL, MK_FP(ES, DI), 512);
     case NLSFUNC_LOAD_PKG:
+      return nlsLoadPackage(nls);
     case NLSFUNC_LOAD_PKG2:
       return nlsSetPackage(nls);
     case NLSFUNC_YESNO:

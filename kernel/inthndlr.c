@@ -411,13 +411,6 @@ dispatch:
   }
   /* Clear carry by default for these functions */
 
-       /* see PATCH TE 5 jul 04 explanation at end */
-  if (ErrorMode && lr.AH > 0x0c && lr.AH != 0x30 && lr.AH != 0x59)
-  {
-    ErrorMode = 0;                      
-    fnode[0].f_count = 0;    /* don't panic - THEY ARE unused !! */
-    fnode[1].f_count = 0;
-  }
 
   /* Check for Ctrl-Break */
   if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))
@@ -616,14 +609,12 @@ dispatch:
 
       /* Get Drive Data                                               */
     case 0x1c:
-      {
-        BYTE FAR *p;
-
-        p = FatGetDrvData(lr.DL, &lr.AX, &lr.CX, &lr.DX);
-        lr.DS = FP_SEG(p);
-        lr.BX = FP_OFF(p);
-      }
+    {
+      UBYTE FAR *p = FatGetDrvData(lr.DL, &lr.AL, &lr.CX, &lr.DX);
+      lr.DS = FP_SEG(p);
+      lr.BX = FP_OFF(p);
       break;
+    }
 
       /* Get default DPB                                              */
       /* case 0x1f: see case 0x32 */
@@ -669,9 +660,7 @@ dispatch:
 
       /* Parse File Name                                              */
     case 0x29:
-      rc = 0;
-      lr.SI = FcbParseFname(&rc, MK_FP(lr.DS, lr.SI), FP_ES_DI);
-      lr.AL = rc;
+      lr.SI = FcbParseFname(&lr.AL, MK_FP(lr.DS, lr.SI), FP_ES_DI);
       break;
 
       /* Get Date                                                     */
@@ -709,10 +698,8 @@ dispatch:
     case 0x30:
       lr.AL = os_setver_major;
       lr.AH = os_setver_minor;
-      lr.BH = OEM_ID;
-      lr.CH = REVISION_MAJOR;   /* JPP */
-      lr.CL = REVISION_MINOR;
-      lr.BL = REVISION_SEQ;
+      lr.BX = (OEM_ID << 8) | REVISION_SEQ;
+      lr.CX = 0; /* serial number must be 0 or buggy 32RTM thrashes stack! */
 
       if (ReturnAnyDosVersionExpected)
       {
@@ -801,7 +788,7 @@ dispatch:
 
       /* Dos Get Disk Free Space                                      */
     case 0x36:
-      DosGetFree(lr.DL, &lr.AX, &lr.BX, &lr.CX, &lr.DX);
+      lr.AX = DosGetFree(lr.DL, &lr.BX, &lr.CX, &lr.DX);
       break;
 
       /* Undocumented Get/Set Switchar                                */
@@ -900,19 +887,15 @@ dispatch:
 
       /* Dos Seek                                                     */
     case 0x42:
-      if (lr.AL > 2)
-        goto error_invalid;
-      lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL);
-      if (lrc == -1)
+    {
+      sft FAR *s = get_sft(lr.BX);
+      if ((rc = _SftSeek(s, MK_ULONG(lr.CX, lr.DX), lr.AL)) >= SUCCESS)
       {
-        lrc = DE_INVLDHNDL;
+        lr.DX = hiword (s->sft_posit);
+        lr.AX = loword (s->sft_posit);
       }
-      else
-      {
-        lr.DX = (UWORD)(lrc >> 16);
-        lrc = (UWORD) lrc;
-      }
-      goto long_check;
+      goto short_check;
+    }
 
       /* Get/Set File Attributes                                      */
     case 0x43:
@@ -1003,6 +986,7 @@ dispatch:
           panic("after 4a: MCB chain corrupted");
         goto error_exit;
       }
+      lr.AX = lr.ES; /* Undocumented MS-DOS behaviour expected by BRUN45! */
       break;
 
       /* Load and Execute Program */
@@ -1242,7 +1226,7 @@ dispatch:
       break;
 
     case 0x5f:
-      if (lr.AL == 7 || lr.AL == 8)
+      if (inrange(UBYTE, lr.AL, 7, 8))
       {
         if (lr.DL < lastdrive)
         {
@@ -1660,6 +1644,9 @@ struct int2f12regs {
  */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
 {
+  COUNT rc;
+  long lrc;
+
   if (r.AH == 0x4a)
   {
     size_t size = 0, offs = 0xffff;
@@ -1760,11 +1747,14 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       break;
 
     case 0x13:		/* uppercase character			*/
+    {
       /* for now, ASCII only because nls.c cannot handle DS!=SS	*/
-      r.AL = r.callerARG1.b.l;
-      if (_islower(r.AL))
-        r.AL -= (UBYTE)('a' - 'A');
+      UBYTE ch = r.callerARG1.b.l;
+      if (_islower(ch))
+        ch -= (UBYTE)('a' - 'A');
+      r.AL = ch;
       break;
+    }
 
     case 0x16:
       /* get address of system file table entry - used by NET.EXE
@@ -1869,18 +1859,47 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       r.CX = fstrlen(MK_FP(r.DS, r.SI)) + 1;
       break;
 
+    case 0x26:                 /* open file */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      lrc = DosOpen(MK_FP(r.DS, r.DX), O_LEGACY | O_OPEN | r.CL, 0);
+      goto long_check;
+
+    case 0x27:                 /* close file */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      rc = DosClose(r.BX);
+      goto short_check;
+
+    case 0x28:                 /* move file pointer */
+      /*
+       * RBIL says: "sets user stack frame pointer to dummy buffer,
+       * moves BP to AX, performs LSEEK, and restores frame pointer"
+       * We obviously don't do it like that. Does this do any harm?! --L.G.
+       */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      if (r.BP < 0x4200 || r.BP > 0x4202)
+        goto error_invalid;
+      {
+        sft FAR *s = get_sft(r.BX);
+        if ((rc = _SftSeek(s, MK_ULONG(r.CX, r.DX), r.BP & 0xff)) >= SUCCESS)
+        {
+          r.DX = hiword (s->sft_posit);
+          r.AX = loword (s->sft_posit);
+        }
+      }
+      goto short_check;
+
+    case 0x29:                 /* read from file */
+      r.FLAGS &= ~FLG_CARRY;
+      CritErrCode = SUCCESS;
+      lrc = DosRead(r.BX, r.CX, MK_FP(r.DS, r.DX));
+      goto long_check;
+
     case 0x2a:                 /* Set FastOpen but does nothing. */
 
       r.FLAGS &= ~FLG_CARRY;
-      break;
-
-    /* 0x26-0x29 & 0x2B, internal functions necessary for NLSFUNC */
-    case 0x26:                 /* Open File */
-    case 0x27:                 /* Close File */
-    case 0x28:                 /* Move File Pointer */
-    case 0x29:                 /* Read From File */
-    case 0x2B:                 /* IOctl */
-      r.FLAGS |= FLG_CARRY;    /* Not implemented yet! */
       break;
 
     case 0x2c:                 /* added by James Tabor For Zip Drives
@@ -1897,6 +1916,19 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                                    doesn't work!! */
       break;
 
+    case 0x2f:
+      if (r.DX)
+      {
+        os_setver_major = r.DL;
+        os_setver_minor = r.DH;
+      }
+      else
+      {
+        os_setver_major = os_major;
+        os_setver_minor = os_minor;
+      }
+      break;
+
     default:
       if (r.AL <= 0x31)
       {
@@ -1906,6 +1938,25 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         r.FLAGS |= FLG_CARRY;
       }
   }
+  return;
+long_check:
+  if (lrc >= SUCCESS)
+  {
+    r.AX = (UWORD)lrc;
+    return;
+  }
+  rc = (int)lrc;
+short_check:
+  if (rc < SUCCESS)
+    goto error_exit;
+  return;
+error_invalid:
+  rc = DE_INVLDFUNC;
+error_exit:
+  r.AX = -rc;
+  if (CritErrCode == SUCCESS)
+    CritErrCode = r.AX;      /* Maybe set */
+  r.FLAGS |= FLG_CARRY;
 }
 
 /*

@@ -50,29 +50,27 @@ STATIC void FcbCalcRec(xfcb FAR * lpXfcb);
 #define TestCmnSeps(lpFileName) (*lpFileName && strchr(":<|>+=,", *lpFileName) != NULL)
 #define TestFieldSeps(lpFileName) ((unsigned char)*lpFileName <= ' ' || strchr("/\"[]<>|.", *lpFileName) != NULL)
 
-static dmatch Dmatch;
-
-BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps, UWORD * nc)
+UBYTE FAR *FatGetDrvData(UBYTE drive, UBYTE * pspc, UWORD * bps, UWORD * nc)
 {
-  static BYTE mdb;
+  /* get the data available from dpb				*/
+  UWORD spc = DosGetFree(drive, NULL, bps, nc);
+  if ((*pspc = lobyte(spc)) == 0xff)
+    return NULL;
 
-  /* get the data available from dpb                       */
-  if (DosGetFree(drive, spc, NULL, bps, nc))
+  if (drive-- == 0) /* 0 = A:, 1 = B:, ... */
+    drive = default_drive;
+
+  /* Point to the media desctriptor for this drive		*/
   {
-    struct dpb FAR *dpbp = get_dpb(drive == 0 ? default_drive : drive - 1);
-    /* Point to the media desctriptor for this drive               */
-    if (dpbp == NULL)
-    {
-      mdb = *spc >> 8;
-      *spc &= 0xff;
-      return &mdb;
-    }
-    else
-    {
-      return (BYTE FAR *) & (dpbp->dpb_mdb);
-    }
+    struct dpb FAR *dpbp;
+    if ((dpbp = get_dpb(drive)) != NULL)
+      return &dpbp->dpb_mdb;
   }
-  return NULL;
+
+  {
+    static UBYTE mdb = 0;
+    return &mdb;
+  }
 }
 
 #define PARSE_SEP_STOP          0x01
@@ -85,7 +83,7 @@ BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps, UWORD * nc)
 #define PARSE_RET_BADDRIVE      0xff
 
 #ifndef IPL
-UWORD FcbParseFname(int *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb)
+ofs_t FcbParseFname(UBYTE *wTestMode, const char FAR * lpFileName, fcb FAR * lpFcb)
 {
   WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
 
@@ -157,7 +155,9 @@ UWORD FcbParseFname(int *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb
         GetNameField(++lpFileName, (BYTE FAR *) lpFcb->fcb_fext,
                      FEXT_SIZE, (BOOL *) & wRetCodeExt);
 
-  *wTestMode = (wRetCodeName | wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
+  *wTestMode = PARSE_RET_WILD;
+  if (!(wRetCodeName | wRetCodeExt))
+    *wTestMode = PARSE_RET_NOWILD;
   return FP_OFF(lpFileName);
 }
 
@@ -539,13 +539,14 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
     else do
     {
       /* 'A:' + '.' + '\0' */
-      BYTE loc_szBuffer[2 + FNAME_SIZE + 1 + FEXT_SIZE + 1];
+      char loc_szBuffer[2 + FNAME_SIZE + 1 + FEXT_SIZE + 1];
       fcb LocalFcb;
       BYTE *pToName;
       const BYTE FAR *pFromPattern = Dmatch.dm_name;
-      int i = 0;
+      int i;
 
-      FcbParseFname(&i, pFromPattern, &LocalFcb);
+      loc_szBuffer [0] = 0; /* dummy place */
+      FcbParseFname((UBYTE*)loc_szBuffer, pFromPattern, &LocalFcb);
       /* Overlay the pattern, skipping '?'            */
       /* I'm cheating because this assumes that the   */
       /* struct alignments are on byte boundaries     */
@@ -630,6 +631,10 @@ VOID FcbCloseAll()
       DosCloseSft(idx, FALSE);
 }
 
+/* TE suggest, that there was not enough space on stack for
+   Dmatch in FcbFindFirstNext() --avb */
+static dmatch Dmatch;
+
 UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
 {
   void FAR *orig_dta = dta;
@@ -691,4 +696,3 @@ UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
   return FCB_SUCCESS;
 }
 #endif
-

@@ -14,30 +14,29 @@ HDR=../hdr/
 # files (only 9 directly accessible parameters).
 
 # Order of linking is important: first kernel.asm, last INIT code.
-
-OBJS1=kernel.obj entry.obj io.obj console.obj serial.obj printer.obj dsk.obj \
-sysclk.obj
-OBJS2=asmsupt.obj execrh.obj nlssupt.obj procsupt.obj dosidle.obj int2f.obj \
-nls_hc.obj
-OBJS3=apisupt.obj intr.obj irqstack.obj blockio.obj chario.obj systime.obj \
-error.obj
-OBJS4=break.obj dosfns.obj fatdir.obj fatfs.obj fattab.obj fcbfns.obj \
-inthndlr.obj
-OBJS5=ioctl.obj dosnames.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
-OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj
-OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
-initdisk.obj initclk.obj
+OBJS1=kernel.obj entry.obj intr.obj irqstack.obj apisupt.obj io.obj console.obj
+OBJS2=printer.obj serial.obj dosidle.obj execrh.obj asmsupt.obj int2f.obj \
+nlssupt.obj
+OBJS3=nls_hc.obj procsupt.obj dsk.obj error.obj blockio.obj chario.obj break.obj
+OBJS4=fatfs.obj fatdir.obj fattab.obj dosfns.obj fcbfns.obj inthndlr.obj
+OBJS5=ioctl.obj memmgr.obj task.obj newstuff.obj dosnames.obj nls.obj
+OBJS6=prf.obj network.obj sysclk.obj lfnapi.obj systime.obj initclk.obj
+OBJS7=initdisk.obj inithma.obj main.obj config.obj iprf.obj dyninit.obj \
+iasmsupt.obj
 OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
 
 # Explicit Rules #######################################################
 
-all:		..\bin\$(TARGET).sys
+all:		..\bin\$(TARGET).sys ..\bin\country.sys
 
 ..\bin\$(TARGET).sys: $(TARGET).lnk $(OBJS) $(LIBS) ..\utils\exeflat.exe
 		$(LINK) @$(TARGET).lnk;
 		$(XUPX) kernel.exe
 		..\utils\exeflat kernel.exe $*.sys $(LOADSEG) -S0x10 -S0x8B $(UPXOPT)
 		copy $*.sys ..\bin\kernel.sys
+
+..\bin\country.sys: country.asm
+		$(NASM) -o $*.sys country.asm
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. --ror4
