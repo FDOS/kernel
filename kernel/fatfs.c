@@ -39,6 +39,7 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
+STATIC void save_far_f_node(f_node_ptr fnp);
 STATIC f_node_ptr get_near_f_node(void);
 STATIC f_node_ptr split_path(char *, char *);
 BOOL find_fname(f_node_ptr, char *, int);
@@ -2203,7 +2204,7 @@ f_node_ptr xlt_fd(int fd)
 }
 
 /* copy a near fnode to the corresponding far one and release it */
-void save_far_f_node(f_node_ptr fnp)
+STATIC void save_far_f_node(f_node_ptr fnp)
 {
   fmemcpy(&f_nodes[xlt_fnp(fnp)], fnp, sizeof(*fnp));
   release_near_f_node(fnp);
