@@ -583,7 +583,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_next = MK_FP(0, 0xffff);
   pddt->ddt_driveno = driveParam->driveno;
   pddt->ddt_logdriveno = nUnits;
-  pddt->ddt_descflags |= driveParam->descflags;
+  pddt->ddt_descflags = driveParam->descflags;
   /* Turn of LBA if not forced and the partition is within 1023 cyls and of the right type */
   /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
      above cylinder 1023 was found */
@@ -614,7 +614,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
 
   pddt->ddt_serialno = 0x12345678l;
   /* drive inaccessible until bldbpb successful */
-  pddt->ddt_descflags = init_readdasd(pddt->ddt_driveno) | DF_NOACCESS;
+  pddt->ddt_descflags |= init_readdasd(pddt->ddt_driveno) | DF_NOACCESS;
   pddt->ddt_type = 5;
   memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
 
