@@ -1,3 +1,20 @@
+2000 Oct 29 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
+         Rebuild local cvs tree after a crash. Update CVS at Sourceforge.net
+         with changes.
+
+2000 Sep 04 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
++ ADD	 Adding Ron Cemer patch for Share support!
+
+2000 Sep 04 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixes  Brian Reifsnyder (reifsnyderb@mindspring.com)
+         Modified dskxfer() such that error codes are now returned.
+         Functions that rely on dskxfer() have also been modified accordingly.
+         Modified interrupts 0x25 & 0x26 to return more accurate error codes.
+         Updated dskxfer() prototype.
+
 2000 Aug 15 - Build 2022
 -------- James Tabor (jimtabor@infohwy.com)
          2000/08/12 22:49:00  Ron Cemer (roncemer@gte.net)
