@@ -1036,21 +1036,14 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
      in newstuff.c.
      - Ron Cemer */
 
-  fmemset(dmp, 0, sizeof(dmatch));
-
-  /* initially mark the dta as invalid for further findnexts */
-  dmp->dm_attr_fnd = D_DEVICE;
-
-  memset(&SearchDir, 0, sizeof(struct dirent));
-
   SAttr = (BYTE) attr;
 
 #if defined(FIND_DEBUG)
   printf("Remote Find: n='%Fs\n", PriPathName);
 #endif
 
-  fmemcpy(&sda_tmp_dm, dta, 21);
   dta = &sda_tmp_dm;
+  memset(&sda_tmp_dm, 0, sizeof(dmatch)+sizeof(struct dirent));
 
   if (rc & IS_NETWORK)
     rc = remote_findfirst(current_ldt);
@@ -1074,10 +1067,11 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
     rc = dos_findfirst(attr, PriPathName);
 
   dta = dmp;
-  fmemcpy(dta, &sda_tmp_dm, 21);
-  pop_dmp(dmp);
-  if (rc != SUCCESS)
-    dmp->dm_attr_fnd = D_DEVICE;       /* mark invalid */
+  if (rc == SUCCESS)
+  {
+    fmemcpy(dta, &sda_tmp_dm, 21);
+    pop_dmp(dmp);
+  }
   return rc;
 }
 
@@ -1111,14 +1105,17 @@ COUNT DosFindNext(void)
   printf("findnext: %d\n", dmp->dm_drive);
 #endif
   fmemcpy(&sda_tmp_dm, dmp, 21);
-  fmemset(dmp, 0, sizeof(*dmp));
+  memset(&SearchDir, 0, sizeof(struct dirent));
   dta = &sda_tmp_dm;
   rc = (sda_tmp_dm.dm_drive & 0x80) ?
     remote_findnext(&sda_tmp_dm) : dos_findnext();
 
   dta = dmp;
-  fmemcpy(dmp, &sda_tmp_dm, 21);
-  pop_dmp(dmp);
+  if (rc == SUCCESS)
+  {
+    fmemcpy(dmp, &sda_tmp_dm, 21);
+    pop_dmp(dmp);
+  }
   return rc;
 }
 
