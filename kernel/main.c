@@ -535,8 +535,17 @@ BOOL init_device(struct dhdr FAR * dhp, char *cmdLine, COUNT mode,
     if (rq.r_endaddr == (BYTE FAR *) dhp)
       return TRUE;
 
-    KernelAllocPara(FP_SEG(rq.r_endaddr) + (FP_OFF(rq.r_endaddr) + 15)/16
-                    - FP_SEG(dhp), 'D', name, mode);
+    /* Fix for multisegmented device drivers:                          */
+    /*   If there are multiple device drivers in a single driver file, */
+    /*   only the END ADDRESS returned by the last INIT call should be */
+    /*   the used.  It is recommended that all the device drivers in   */
+    /*   the file return the same address                              */
+
+    if (FP_OFF(dhp->dh_next) == 0xffff)
+    {
+      KernelAllocPara(FP_SEG(rq.r_endaddr) + (FP_OFF(rq.r_endaddr) + 15)/16
+                      - FP_SEG(dhp), 'D', name, mode);
+    }
   }
 
   if (!(dhp->dh_attr & ATTR_CHAR) && (rq.r_nunits != 0))
