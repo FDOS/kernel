@@ -225,7 +225,7 @@ STATIC int SkipLine(char *pLine);
 #if 0
 STATIC char * stristr(char *s1, char *s2);
 #endif
-STATIC int strcasecmp(const char * d, const char * s);
+STATIC char strcaseequal(const char * d, const char * s);
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
 STATIC void umb_init(void);
 
@@ -665,9 +665,7 @@ VOID DoConfig(int nPass)
       if (*pLine == '\n' || *pLine == EOF)      /* end of line */
         break;
 
-      if (*pLine == '\r')       /* ignore */
-        ;
-      else
+      if (*pLine != '\r')       /* ignore CR */
         pLine++;
     }
 
@@ -724,13 +722,8 @@ VOID DoConfig(int nPass)
 
 STATIC struct table * LookUp(struct table *p, BYTE * token)
 {
-  while (*(p->entry) != '\0')
-  {
-    if (strcasecmp(p->entry, token) == 0)
-      break;
-    else
-      ++p;
-  }
+  while (p->entry[0] != '\0' && !strcaseequal(p->entry, token))
+    ++p;
   return p;
 }
 
@@ -1293,7 +1286,7 @@ STATIC VOID CfgBreak(BYTE * pLine)
 {
   /* Format:      BREAK = (ON | OFF)      */
   GetStringArg(pLine, szBuf);
-  break_ena = strcasecmp(szBuf, "OFF") ? 1 : 0;
+  break_ena = strcaseequal(szBuf, "OFF") ? 0 : 1;
 }
 
 STATIC VOID Numlock(BYTE * pLine)
@@ -1304,7 +1297,7 @@ STATIC VOID Numlock(BYTE * pLine)
   GetStringArg(pLine, szBuf);
 
   *keyflags &= ~32;
-  *keyflags |= strcasecmp(szBuf, "OFF") ? 32 : 0;
+  if (!strcaseequal(szBuf, "OFF")) *keyflags |= 32;
   keycheck();
 }
 
@@ -1651,16 +1644,13 @@ char *strcat(register char * d, register const char * s)
 }
 
 /* compare two ASCII strings ignoring case */
-STATIC int strcasecmp(const char * d, const char * s)
+STATIC char strcaseequal(const char * d, const char * s)
 {
-  int ret;
-  for (;; s++, d++)
-  {
-    ret = toupper(*d) - toupper(*s);
-    if (ret != 0 || *d == '\0')
-      break;
-  }
-  return ret;
+  char ch;
+  while ((ch = toupper(*s++)) == toupper(*d++))
+    if (ch == '\0')
+      return 1;
+  return 0;
 }
 
 /*
