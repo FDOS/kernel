@@ -133,6 +133,9 @@ INIT BYTE FAR *KernelAlloc(WORD nBytes);
 INIT COUNT Umb_Test(void);
 INIT BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
 
+/* diskinit.c */
+COUNT dsk_init(VOID);
+
 /* int2f.asm */
 COUNT Umb_Test(void);
 
@@ -189,3 +192,8 @@ INIT VOID init_fatal(BYTE * err_msg);
 
 /* prf.c */
 WORD init_printf(CONST BYTE * fmt,...);
+
+void MoveKernel(unsigned NewKernelSegment);
+extern WORD HMAFree;          /* first byte in HMA not yet used      */
+
+extern unsigned CurrentKernelSegment;

@@ -44,6 +44,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.8  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.7  2001/06/03 14:16:18  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -124,7 +127,7 @@ struct nlsInfoBlock nlsInfo = {
 
 /*== DS:SI _always_ points to global NLS info structure <-> no
  * subfct can use these registers for anything different. ==ska*/
-static COUNT muxGo(int subfct, iregs *rp)
+STATIC COUNT muxGo(int subfct, iregs *rp)
 {
 log( ("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%04x:%04x\n", subfct
  , rp->DX, rp->BX, rp->ES, rp->DI) );
@@ -162,7 +165,7 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
 	return muxGo(NLSFUNC_LOAD_PKG, &r);
 }
 
-static int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry, UWORD bufsize
+STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry, UWORD bufsize
 	, VOID FAR *buf)
 {	iregs r;
 
@@ -195,7 +198,7 @@ log( ("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%04x:%04x
  *	Also resolves the default values (-1) into the currently
  *	active codepage/country code.
  */
-static struct nlsPackage FAR *searchPackage(UWORD cp, UWORD cntry)
+STATIC struct nlsPackage FAR *searchPackage(UWORD cp, UWORD cntry)
 {	struct nlsPackage FAR *nls;
 
 	if(cp == NLS_DEFAULT)
@@ -213,7 +216,7 @@ static struct nlsPackage FAR *searchPackage(UWORD cp, UWORD cntry)
 /* For various robustnesses reasons and to simplify the implementation
 	at other places, locateSubfct() returns NULL (== "not found"),
 	if nls == NULL on entry. */
-static VOID FAR *locateSubfct(struct nlsPackage FAR *nls, int subfct)
+STATIC VOID FAR *locateSubfct(struct nlsPackage FAR *nls, int subfct)
 {	int cnt;
 	struct nlsPointer FAR *p;
 
@@ -232,7 +235,7 @@ static VOID FAR *locateSubfct(struct nlsPackage FAR *nls, int subfct)
 	function is guaranteed to return valid pointers, rather than
 	to let the user (some kernel function) deal with non-existing
 	tables -- 2000/02/26 ska*/
-static VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR *nls)
+STATIC VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR *nls)
 {	struct nlsPointer FAR *poi;
 
 	if((poi = locateSubfct(nls, subfct)) != NULL)
@@ -258,7 +261,7 @@ static VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR *nls)
  *	the code to push bufsize, buf, call cpyBuf() and return its result.
  *	The parameter were ordered to allow this code optimization.
  */
-static COUNT cpyBuf(VOID FAR *dst, UWORD dstlen
+STATIC COUNT cpyBuf(VOID FAR *dst, UWORD dstlen
 	, VOID FAR *src, UWORD srclen)
 {
 	if(srclen <= dstlen) {
@@ -274,7 +277,7 @@ static COUNT cpyBuf(VOID FAR *dst, UWORD dstlen
  *	This function assumes that 'map' is adjusted such that
  *	map[0x80] is the uppercase of character 0x80.
  *== 128 byte chartables, lower range conform to 7bit-US-ASCII ==ska*/
-static VOID upMMem(UBYTE FAR *map, UBYTE FAR * str, unsigned len)
+STATIC VOID upMMem(UBYTE FAR *map, UBYTE FAR * str, unsigned len)
 {
   REG unsigned c;
 
@@ -316,7 +319,7 @@ printf("NLS: upMMem(): result=\"");
 	the direct-access interface.
 	subfct == NLS_DOS_38 is a value > 0xff in order to not clash
 	with subfunctions valid to be passed as DOS-65-XX. */
-static int nlsGetData(struct nlsPackage FAR *nls, int subfct, UBYTE FAR *buf
+STATIC int nlsGetData(struct nlsPackage FAR *nls, int subfct, UBYTE FAR *buf
 	, unsigned bufsize)
 {	VOID FAR *poi;
 
@@ -385,7 +388,7 @@ VOID nlsCPchange(UWORD cp)
  *	appropriate codepage on its own.
  */
 
-static COUNT nlsSetPackage(struct nlsPackage FAR *nls)
+STATIC COUNT nlsSetPackage(struct nlsPackage FAR *nls)
 {
 	if(nls->cp != nlsInfo.actPkg->cp)	/* Codepage gets changed -->
 							inform all character drivers thereabout.
@@ -397,7 +400,7 @@ static COUNT nlsSetPackage(struct nlsPackage FAR *nls)
 
 	return SUCCESS;
 }
-static COUNT DosSetPackage(UWORD cp, UWORD cntry)
+STATIC COUNT DosSetPackage(UWORD cp, UWORD cntry)
 {	struct nlsPackage FAR*nls;	/* NLS package to use to return the info from */
 
 		/* nls := NLS package of cntry/codepage */
@@ -409,18 +412,18 @@ static COUNT DosSetPackage(UWORD cp, UWORD cntry)
 	return muxLoadPkg(cp, cntry);
 }
 
-static void nlsUpMem(struct nlsPackage FAR *nls, VOID FAR *str, int len)
+STATIC void nlsUpMem(struct nlsPackage FAR *nls, VOID FAR *str, int len)
 {
 log( ("NLS: nlsUpMem()\n") );
 		upMMem(getCharTbl2(nls), (UBYTE FAR*)str, len);
 }
-static void nlsFUpMem(struct nlsPackage FAR *nls, VOID FAR *str, int len)
+STATIC void nlsFUpMem(struct nlsPackage FAR *nls, VOID FAR *str, int len)
 {
 log( ("NLS: nlsFUpMem()\n") );
 		upMMem(getCharTbl4(nls), (UBYTE FAR*)str, len);
 }
 
-static VOID xUpMem(struct nlsPackage FAR *nls, VOID FAR * str, unsigned len)
+STATIC VOID xUpMem(struct nlsPackage FAR *nls, VOID FAR * str, unsigned len)
 /* upcase a memory area */
 {
 log( ("NLS: xUpMem(): cp=%u, cntry=%u\n", nls->cp, nls->cntry) );
@@ -431,7 +434,7 @@ log( ("NLS: xUpMem(): cp=%u, cntry=%u\n", nls->cp, nls->cntry) );
 		muxBufGo(NLSFUNC_UPMEM, 0, nls->cp, nls->cntry, len, str);
 }
 
-static int nlsYesNo(struct nlsPackage FAR *nls, unsigned char ch)
+STATIC int nlsYesNo(struct nlsPackage FAR *nls, unsigned char ch)
 {
 	assertDSeqSS();		/* because "&ch" */
 

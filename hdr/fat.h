@@ -36,6 +36,9 @@ static BYTE *fat_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.6  2001/04/15 03:21:50  bartoldeman
  * See history.txt for the list of fixes.
  *
@@ -123,8 +126,8 @@ static BYTE *fat_hRcsId = "$Id$";
 #define FAT_MAGIC16     ((unsigned)65526l)
 #define FAT_MAGIC32     268435456l
 
-#define ISFAT32(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC16 || ((dpbp)->dpb_size)<=FAT_MAGIC32 )
-#define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC || ((dpbp)->dpb_size)<=FAT_MAGIC16 )
+#define ISFAT32(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC16 && ((dpbp)->dpb_size)<=FAT_MAGIC32 )
+#define ISFAT16(dpbp)   (((dpbp)->dpb_size)>FAT_MAGIC   && ((dpbp)->dpb_size)<=FAT_MAGIC16 )
 #define ISFAT12(dpbp)   (((dpbp)->dpb_size)<=FAT_MAGIC)
 
 /* FAT file system directory entry                                      */

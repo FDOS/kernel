@@ -35,6 +35,9 @@ static BYTE *sft_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -114,6 +117,7 @@ typedef struct
     struct dhdr FAR *
       _sft_dev;                 /* device driver for char dev   */
   }
+  
   sft_dcb_or_dev;
   WORD sft_stclust;             /* Starting cluster                     */
   time sft_time;                /* File time                            */

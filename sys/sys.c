@@ -25,6 +25,17 @@
  675 Mass Ave, Cambridge, MA 02139, USA.
 
 ***************************************************************/
+/* $Log$
+ * Revision 1.7  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
+/* Revision 2.1 tomehlert 2001/4/26
+
+    changed the file system detection code.
+    
+
+*/
+
 /* Revision 2.0 tomehlert 2001/4/26
    
    no direct access to the disk any more, this is FORMAT's job
@@ -44,33 +55,9 @@
    size is no ~7500 byte vs. ~13690 before
 
 */
-
-/* $Log$
- * Revision 1.6  2001/04/29 17:34:41  bartoldeman
- * /* Revision 2.1 tomehlert 2001/4/26
- *
- *     changed the file system detection code.
- * */
- *
- * /* Revision 2.0 tomehlert 2001/4/26
- *
- *    no direct access to the disk any more, this is FORMAT's job
- *    no floppy.asm anymore, no segmentation problems.
- *    no access to partition tables
- *
- *    instead copy boot sector using int25/int26 = absdiskread()/write
- *
- *    if xxDOS is able to handle the disk, SYS should work
- *
- *    additionally some space savers:
- *
- *    replaced fopen() by open()
- *
- *    included (slighly modified) PRF.c from kernel
- *
- *    size is no ~7500 byte vs. ~13690 before
- * */
- *
+/* Revision 1.6  2001/04/29 17:34:41  bartoldeman
+/* A new SYS.COM/config.sys single stepping/console output/misc fixes.
+/*
 /* Revision 1.5  2001/03/25 17:11:54  bartoldeman
 /* Fixed sys.com compilation. Updated to 2023. Also: see history.txt.
 /*
@@ -203,7 +190,7 @@ UBYTE newboot[SEC_SIZE], oldboot[SEC_SIZE];
 
 VOID main(COUNT argc, char **argv)
 {
-	printf("FreeDOS System Installer v1.0\n\n");
+	printf("FreeDOS System Installer v2.1\n\n");
 
   if (argc != 2)
   {
@@ -277,6 +264,38 @@ VOID dump_sector(unsigned char far * sec)
 #endif
 
 
+/*
+    TC absRead not functional on MSDOS 6.2, large disks
+    MSDOS requires int25, CX=ffff for drives > 32MB
+*/
+
+int MyAbsReadWrite(char DosDrive, int count, ULONG sector, void *buffer, unsigned intno)
+{
+    struct {
+        unsigned long  sectorNumber;
+        unsigned short count;
+        void far *address;
+        } diskReadPacket;
+    int retval;
+    union REGS regs;
+
+
+    diskReadPacket.sectorNumber = sector;
+    diskReadPacket.count        = count;
+    diskReadPacket.address      = buffer;
+
+    regs.h.al = DosDrive;
+    regs.x.bx = (short)&diskReadPacket;
+    regs.x.cx = 0xffff;
+    
+    if (intno != 0x25 && intno != 0x26) return 0xff;
+    
+    int86(intno,&regs,&regs);
+
+    return regs.x.cflag ? 0xff : 0;
+}    
+
+
 VOID put_boot(COUNT drive)
 {
   COUNT i, z;
@@ -284,13 +303,18 @@ VOID put_boot(COUNT drive)
   WORD count;
   ULONG temp;
   struct bootsectortype *bs;
+  int fs;
+  union REGS regs;
+  struct SREGS sregs;
+  char drivename[] = "A:\\";
+  unsigned char x[0x40];
   
 
 #ifdef DEBUG
     printf("Reading old bootsector from drive %c:\n",drive+'A');
 #endif            
 
-  if (absread(drive, 1, 0, oldboot) != 0)
+  if (MyAbsReadWrite(drive, 1, 0, oldboot,0x25) != 0)
     {
     printf("can't read old boot sector for drive %c:\n", drive +'A');
     exit(1);
@@ -302,23 +326,95 @@ VOID put_boot(COUNT drive)
   dump_sector(oldboot);
 #endif
 
-
   bs = (struct bootsectortype *) & oldboot;
   if ((bs->bsFileSysType[4] == '6') && (bs->bsBootSignature == 0x29))
   {
-    memcpy(newboot, b_fat16, SEC_SIZE); /* copy FAT16 boot sector */
-    printf("FAT type: FAT16\n");
+    fs = 16;
   }
   else
   {
-    memcpy(newboot, b_fat12, SEC_SIZE); /* copy FAT12 boot sector */
-    printf("FAT type: FAT12\n");
+    fs = 12;
   }
+
+/*
+    the above code is not save enough for me (TE), so we change the
+    FS detection method to GetFreeDiskSpace().
+    this should work, as the disk was writeable, so GetFreeDiskSpace should work.
+*/
+    
+    regs.h.ah = 0x36;    /* get drive free space */
+    regs.h.dl = drive+1; /* 1 = 'A',... */
+    int86(0x21,&regs,&regs);
+    
+    if (regs.x.ax == 0xffff) 
+        {
+        printf("can't get free disk space for %c:\n", drive+'A');
+        exit(1);
+        }
+
+    if (regs.x.dx <= 0xff6)
+        {
+        if (fs != 12) printf("warning : new detection overrides old detection\a\n");
+        fs = 12;
+        }
+    else {
+        
+        if (fs != 16) printf("warning : new detection overrides old detection\a\n");
+        fs = 16;
+
+                                /* fs = 16/32.
+                                   we don't want to crash a FAT32 drive
+                                */
+
+        segread(&sregs);
+        sregs.es = sregs.ds;
+        
+        regs.x.ax = 0x7303;    /* get extended drive free space */
+        
+        drivename[0] = 'A' + drive;
+        regs.x.dx = (unsigned)&drivename;
+        regs.x.di = (unsigned)&x;
+        regs.x.cx = sizeof(x);
+        
+        int86x(0x21,&regs,&regs,&sregs);
+        
+        if (regs.x.cflag)       /* error --> no Win98 --> no FAT32 */
+            {
+            printf("get extended drive space not supported --> no FAT32\n");    
+            }
+        else {
+            if (*(unsigned long *)(x+0x2c) /* total number of clusters */
+                    > (unsigned)65526l)
+                {
+                fs = 32;        
+                }
+            }
+        }
+
+
+    if (fs == 16)
+        {
+        memcpy(newboot, b_fat16, SEC_SIZE); /* copy FAT16 boot sector */
+        printf("FAT type: FAT16\n");
+        }
+    else if (fs == 12) 
+        {
+        memcpy(newboot, b_fat12, SEC_SIZE); /* copy FAT12 boot sector */
+        printf("FAT type: FAT12\n");
+        }
+    else {
+        printf("FAT type: FAT32\n");
+        printf("Sorry, we don't have a FAT32 boot sector (yet)\n");
+        printf(" for this reason, we can't make the drive bootable\n");
+        exit(1);
+        }
 
   /* Copy disk parameter from old sector to new sector */
   memcpy(&newboot[SBOFFSET], &oldboot[SBOFFSET], SBSIZE);
 
   bs = (struct bootsectortype *) & newboot;
+  
+  memcpy(bs->OemName, "FreeDOS ",8);
 
 #ifdef STORE_BOOT_INFO
     /* TE thinks : never, see above */
@@ -366,7 +462,7 @@ VOID put_boot(COUNT drive)
     printf("writing new bootsector to drive %c:\n",drive+'A');
 #endif            
 
-  if (abswrite(drive, 1, 0, newboot) != 0)
+  if (MyAbsReadWrite(drive, 1, 0, newboot,0x26) != 0)
     {
     printf("Can't write new boot sector to drive %c:\n", drive +'A');
     exit(1);

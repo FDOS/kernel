@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.11  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -160,6 +163,9 @@ VOID MoveDirInfo();
 
 static dmatch Dmatch;
 
+VOID FAR *FcbFindFirstDirPtr = NULL;
+
+
 VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
                    COUNT FAR * nc, BYTE FAR ** mdp)
 {
@@ -221,7 +227,7 @@ VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
 WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
 {
   COUNT nIndex;
-  WORD wRetCode = PARSE_RET_NOWILD;
+  WORD wRetCodeName,wRetCodeExt;
 
   /* pjv -- ExtFcbToFcb?                                          */
   /* Start out with some simple stuff first.  Check if we are     */
@@ -255,27 +261,24 @@ WORD FcbParseFname(int wTestMode, BYTE FAR ** lpFileName, fcb FAR * lpFcb)
   /* Now check for drive specification                            */
   if (*(*lpFileName + 1) == ':')
   {
-    REG BYTE Drive = DosUpFChar(**lpFileName);
-
     /* non-portable construct to be changed                 */
-    if (Drive < 'A' || Drive > 'Z')
-      return PARSE_RET_BADDRIVE;
-    Drive -= ('A' - 1);
+    REG UBYTE Drive = DosUpFChar(**lpFileName) - 'A' + 1;
+
     if (Drive >= lastdrive)
       return PARSE_RET_BADDRIVE;
-    else
-      lpFcb->fcb_drive = Drive;
+
+    lpFcb->fcb_drive = Drive;
     *lpFileName += 2;
   }
 
   /* Now to format the file name into the string                  */
-  *lpFileName = GetNameField(*lpFileName, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE, (BOOL *) & wRetCode);
+  *lpFileName = GetNameField(*lpFileName, (BYTE FAR *) lpFcb->fcb_fname, FNAME_SIZE, (BOOL *) & wRetCodeName);
 
   /* Do we have an extension? If do, format it else return        */
   if (**lpFileName == '.')
-    *lpFileName = GetNameField(++*lpFileName, (BYTE FAR *) lpFcb->fcb_fext, FEXT_SIZE, (BOOL *) & wRetCode);
+    *lpFileName = GetNameField(++*lpFileName, (BYTE FAR *) lpFcb->fcb_fext, FEXT_SIZE, (BOOL *) & wRetCodeExt);
 
-  return wRetCode ? PARSE_RET_WILD : PARSE_RET_NOWILD;
+  return (wRetCodeName|wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
 }
 
 BYTE FAR *ParseSkipWh(BYTE FAR * lpFileName)
@@ -668,7 +671,7 @@ BOOL FcbCreate(xfcb FAR * lpXfcb)
   return FALSE;
 }
 
-static fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb)
+STATIC fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb)
 {
   if (*((UBYTE FAR *) lpExtFcb) == 0xff)
     return &lpExtFcb->xfcb_fcb;
@@ -676,7 +679,7 @@ static fcb FAR *ExtFcbToFcb(xfcb FAR * lpExtFcb)
     return (fcb FAR *) lpExtFcb;
 }
 
-static fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
+STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
                               COUNT * pCurDrive)
 {
   fcb FAR *lpFcb;
@@ -952,6 +955,12 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
   }
 }
 
+#if 0
+/* TE:the MoveDirInfo() is now done by simply copying the dirEntry into the FCB
+   this prevents problems with ".", ".." and saves code
+*/
+
+
 void MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir)
 {
   BYTE FAR *lpToName,
@@ -998,6 +1007,7 @@ void MoveDirInfo(dmatch FAR * lpDmatch, struct dirent FAR * lpDir)
   lpDir->dir_start = lpDmatch->dm_cluster;
   lpDir->dir_size = lpDmatch->dm_size;
 }
+#endif
 
 BOOL FcbClose(xfcb FAR * lpXfcb)
 {
@@ -1068,17 +1078,22 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
 
   *lpDir++ = FcbDrive;
 
+  FcbFindFirstDirPtr = lpDir;
 
   if (dos_findfirst(wAttr, SecPathName) != SUCCESS)
   {
+    FcbFindFirstDirPtr = NULL;
     dta = lpPsp->ps_dta;
     return FALSE;
   }
 
-  MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
+  FcbFindFirstDirPtr = NULL;
 
-  lpFcb->fcb_dirclst = Dmatch.dm_cluster;
-  lpFcb->fcb_diroff = Dmatch.dm_entry;
+/*
+  MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
+*/
+  lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
+  lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
 /*
     This is undocumented and seen using Pcwatch and Ramview.
@@ -1126,19 +1141,26 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   DosUpFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
 
   Dmatch.dm_attr_srch = wAttr;
-  Dmatch.dm_entry = lpFcb->fcb_diroff;
+  Dmatch.dm_entry = lpFcb->fcb_strtclst;
   Dmatch.dm_cluster = lpFcb->fcb_dirclst;
+  Dmatch.dm_dirstart= lpFcb->fcb_dirclst;
+
+  FcbFindFirstDirPtr = lpDir;
 
   if (dos_findnext() != SUCCESS)
   {
+    FcbFindFirstDirPtr = NULL;
     dta = lpPsp->ps_dta;
     CritErrCode = 0x12;
     return FALSE;
   }
+  FcbFindFirstDirPtr = NULL;
 
+/*
   MoveDirInfo((dmatch FAR *) & Dmatch, (struct dirent FAR *)lpDir);
-  lpFcb->fcb_dirclst = Dmatch.dm_cluster;
-  lpFcb->fcb_diroff = Dmatch.dm_entry;
+*/  
+  lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
+  lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
   lpFcb->fcb_sftno = Dmatch.dm_drive;
 #if 0

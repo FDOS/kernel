@@ -30,6 +30,13 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.7  2001/07/09 22:19:33  bartoldeman
+; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+;
+;
+; Revision 1.7  2001/04/29           brianreifsnyder
+; Added phase 1 support for LBA hard drives
+;
 ; Revision 1.6  2001/04/22 01:19:33  bartoldeman
 ; Avoid sys warning and have a VDISK signature in the HMA
 ;
@@ -285,7 +292,7 @@ fl_error:
 
 
 
-
+%if 0
 		global	_fl_format
 _fl_format:
 
@@ -315,3 +322,136 @@ _fl_nrdrives:
 fl_nrd1:
                 pop     di
                 ret
+%endif
+
+; ---------------------------------------------------------------------------
+;                             LBA Specific Code
+;
+;
+; Added by:  Brian E. Reifsnyder
+; ---------------------------------------------------------------------------
+
+;
+;
+; Check for Enhanced Disk Drive support (EDD).  If EDD is supported then
+;       LBA can be utilized to access the hard disk.
+;
+; unsigned int lba_support(WORD hard_disk_number)
+;
+;       returns TRUE if LBA can be utilized
+;
+%if 0
+		global  _fl_lba_support
+_fl_lba_support:
+		push    bp              ; C entry
+                mov     bp,sp
+
+		mov     dl,[bp+4]       ; get the drive number
+		mov     ah,41h          ; cmd CHECK EXTENSIONS PRESENT
+		mov     bx,55aah
+		int     13h             ; check for int 13h extensions
+
+		jc      fl_lba_support_no_lba   
+					; if carry set, don't use LBA
+		cmp     bx,0aa55h
+		jne     fl_lba_support_no_lba       
+					; if bx!=0xaa55, don't use LBA
+		test    cl,01h
+		jz      fl_lba_support_no_lba
+					; if DAP cannot be used, don't use
+					; LBA
+		mov     ax,0001h        ; return TRUE (LBA supported)
+
+		pop     bp              ; C exit
+		ret
+
+fl_lba_support_no_lba
+		xor    ax,ax            ; return FALSE (LBA not supported)
+		pop     bp              ; C exit
+		ret
+
+;
+; Read Sectors
+;
+; COUNT fl_lba_read(WORD drive, WORD dap_segment, WORD dap_offset);
+;
+; Reads one or more sectors.
+;
+; Returns 0 if successful, error code otherwise.
+;
+;
+; Write Sectors
+;
+; COUNT fl_lba_write(WORD drive, WORD dap_segment, WORD dap_offset);
+;
+; Writes one or more sectors.
+;
+; Returns 0 if successful, error code otherwise.
+;
+		global  _fl_lba_read
+_fl_lba_read:
+		mov     ah,42h          ; cmd READ
+		jmp short fl_lba_common
+		
+		global  _fl_lba_write
+_fl_lba_write:
+		mov     ax,4300h        ; cmd WRITE without verify
+		jmp short fl_lba_common
+
+		global  _fl_lba_write_and_verify
+_fl_lba_write_and_verify:
+		mov     ax,4302h        ; cmd WRITE with VERIFY
+		jmp short fl_lba_common ; This has been added for
+					; possible future use
+
+		global  _fl_lba_verify
+_fl_lba_verify:
+		mov     ah,44h          ; cmd VERIFY
+
+fl_lba_common:                
+		push    bp              ; C entry
+		mov     bp,sp
+		
+		push    ds
+
+		mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
+					; hard drive.
+		lds     si,[bp+6]       ; get far dap pointer
+		int     13h             ; read from/write to drive
+		
+		mov     al,ah           ; place any error code into al
+		
+		xor     ah,ah           ; zero out ah           
+
+		pop     ds
+		
+		pop     bp
+		ret
+%endif
+
+; COUNT fl_lba_ReadWrite(BYTE drive, UWORD mode, VOID FAR *dap_p)
+;
+; Returns 0 if successful, error code otherwise.
+;
+		global  _fl_lba_ReadWrite
+_fl_lba_ReadWrite:
+		push    bp              ; C entry
+		mov     bp,sp
+		
+		push    ds
+		push    si              ; wasn't in kernel < KE2024Bo6!!
+
+		mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
+		mov     ax,[bp+6]       ; get the command
+		lds     si,[bp+8]       ; get far dap pointer
+		int     13h             ; read from/write to drive
+		
+		mov     al,ah           ; place any error code into al
+		
+		xor     ah,ah           ; zero out ah           
+
+                pop     si
+		pop     ds
+		
+		pop     bp
+		ret

@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.19  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.18  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -591,7 +594,9 @@ UCOUNT DosWrite(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err)
     /* /// End of additions for SHARE - Ron Cemer */
 
     WriteCount = writeblock(s->sft_status, bp, n, &rc);
-    if (rc < SUCCESS)
+/*    if (rc < SUCCESS) */
+    if (rc == DE_ACCESS  ||     /* -5  Access denied                */
+        rc == DE_INVLDHNDL )    /* -6  Invalid handle               */
     {
       *err = rc;
       return 0;

@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.17  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.16  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -601,9 +604,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
   static BYTE local_name[FNAME_SIZE + 1],
     local_ext[FEXT_SIZE + 1];
-/*
-  printf("ff %s", Tname);
- */
+
+/*  printf("ff %Fs\n", name);*/
+
   /* The findfirst/findnext calls are probably the worst of the   */
   /* DOS calls. They must work somewhat on the fly (i.e. - open   */
   /* but never close). Since we don't want to lose fnodes every   */
@@ -612,11 +615,13 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   /* current directory, do a seek and read, then close the fnode. */
 
   /* Start out by initializing the dirmatch structure.            */
+  
+  fmemset(dmp, sizeof(*dmp),0);
   dmp->dm_drive = default_drive;
-  dmp->dm_entry = 0;
+/*  dmp->dm_entry = 0;
   dmp->dm_cluster = 0;
-
-  dmp->dm_attr_srch = attr | D_RDONLY | D_ARCHIVE;
+*/
+  dmp->dm_attr_srch = attr;
 
   /* Parse out the drive, file name and file extension.           */
   i = ParseDosName((BYTE FAR *)name, &nDrive, &LocalPath[2], local_name, local_ext, TRUE);
@@ -642,7 +647,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
 
   /* Now build a directory.                                       */
   if (!LocalPath[2])
-    strcpy(&LocalPath[2], ".");
+    fstrcpy(&LocalPath[0], current_ldt->cdsCurrentPath);
 
   /* Build the match pattern out of the passed string             */
   /* copy the part of the pattern which belongs to the filename and is fixed */
@@ -687,6 +692,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
   }
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
+  
+/*  printf("dir_open %Fs\n",(BYTE FAR *) LocalPath);*/
   if ((fnp = dir_open((BYTE FAR *) LocalPath)) == NULL)
     return DE_PATHNOTFND;
 
@@ -728,6 +735,14 @@ COUNT dos_findfirst(UCOUNT attr, BYTE FAR * name)
     return dos_findnext();
   }
 }
+/*
+    BUGFIX TE 06/28/01 
+    
+    when using FcbFindXxx, the only information available is
+    the cluster number + entrycount. everything else MUST\
+    be recalculated. 
+    a good test for this is MSDOS CHKDSK, which now (seems too) work
+*/
 
 COUNT dos_findnext(void)
 {
@@ -740,6 +755,8 @@ COUNT dos_findnext(void)
   {
     return DE_NFILES;
   }
+  
+  memset(fnp, 0, sizeof(*fnp));
 
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
@@ -758,18 +775,30 @@ COUNT dos_findnext(void)
   /* Search through the directory to find the entry, but do a     */
   /* seek first.                                                  */
   if (dmp->dm_entry > 0)
+    {
     fnp->f_diroff = (dmp->dm_entry - 1) * DIRENT_SIZE;
+    fnp->f_flags.f_dnew = FALSE;
+    }
+  else
+    {
+    fnp->f_diroff = 0;
+    fnp->f_flags.f_dnew = TRUE;
+    }          
 
-  fnp->f_offset = fnp->f_highwater = fnp->f_diroff;
-  fnp->f_cluster = dmp->dm_cluster;
+  fnp->f_offset = fnp->f_diroff;
+  
+  fnp->f_dirstart = 
+    fnp->f_dir.dir_start = 
+    fnp->f_cluster = 
+        dmp->dm_dirstart;
+
+  fnp->f_flags.f_droot = fnp->f_dirstart == 0;
+  fnp->f_flags.f_ddir  = TRUE;
+  
+  
+  fnp->f_flags.f_dfull = FALSE;
+  
   fnp->f_cluster_offset = 0l;   /*JPP */
-  fnp->f_flags.f_dmod = dmp->dm_flags.f_dmod;
-  fnp->f_flags.f_droot = dmp->dm_flags.f_droot;
-  fnp->f_flags.f_dnew = dmp->dm_flags.f_dnew;
-  fnp->f_flags.f_ddir = dmp->dm_flags.f_ddir;
-  fnp->f_flags.f_dfull = dmp->dm_flags.f_dfull;
-
-  fnp->f_dirstart = dmp->dm_dirstart;
 
   /* Loop through the directory                                   */
   while (dir_read(fnp) == DIRENT_SIZE)
@@ -782,11 +811,12 @@ COUNT dos_findnext(void)
         /*
             MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.
             Bits 0x21 seem to get set some where in MSD so Rd and Arc
-            files are returned. FD assumes the user knows what they need
-            to see.
+            files are returned. 
+            RdOnly + Archive bits are ignored
          */
+         
         /* Test the attribute as the final step */
-        if (!(~dmp->dm_attr_srch & fnp->f_dir.dir_attrib))
+        if (!(~dmp->dm_attr_srch & (fnp->f_dir.dir_attrib & ~(D_RDONLY|D_ARCHIVE))))
         {
           found = TRUE;
           break;
@@ -799,7 +829,20 @@ COUNT dos_findnext(void)
 
   /* If found, transfer it to the dmatch structure                */
   if (found)
+    {
+    extern VOID FAR *FcbFindFirstDirPtr;
+
+    if (FcbFindFirstDirPtr)
+        {
+                                    /* this works MUCH better, then converting
+                                       83 -> ASCIIZ ->83;
+                                       specifically ".", ".."
+                                    */   
+        fmemcpy(FcbFindFirstDirPtr, &fnp->f_dir, 32);    
+        }
+    
     pop_dmp(dmp, fnp);
+    }
 
   /* return the result                                            */
   release_f_node(fnp);
@@ -807,19 +850,21 @@ COUNT dos_findnext(void)
   return found ? SUCCESS : DE_NFILES;
 }
 
-static VOID pop_dmp(dmatch FAR * dmp, f_node_ptr fnp)
+STATIC VOID pop_dmp(dmatch FAR * dmp, f_node_ptr fnp)
 {
 
   dmp->dm_attr_fnd = fnp->f_dir.dir_attrib;
   dmp->dm_time = fnp->f_dir.dir_time;
   dmp->dm_date = fnp->f_dir.dir_date;
   dmp->dm_size = fnp->f_dir.dir_size;
-/*  dmp -> dm_cluster = fnp -> f_cluster;            /*  */
+  dmp->dm_cluster = fnp->f_dir.dir_start;        /* TE */
+  dmp->dm_dirstart= fnp->f_dirstart;
+/*
   dmp->dm_flags.f_droot = fnp->f_flags.f_droot;
   dmp->dm_flags.f_ddir = fnp->f_flags.f_ddir;
   dmp->dm_flags.f_dmod = fnp->f_flags.f_dmod;
   dmp->dm_flags.f_dnew = fnp->f_flags.f_dnew;
-  
+*/  
   ConvertName83ToNameSZ((BYTE FAR *)dmp->dm_name, (BYTE FAR *) fnp->f_dir.dir_name);
 
 }

@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.25  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.24  2001/06/03 14:16:18  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -489,7 +492,7 @@ dispatch:
     case 0x0a:
       ((keyboard FAR *) FP_DS_DX)->kb_count = 0;
       sti((keyboard FAR *) FP_DS_DX);
-      ((keyboard FAR *) FP_DS_DX)->kb_count--;
+      ((keyboard FAR *) FP_DS_DX)->kb_count --;
       break;
 
       /* Check Stdin Status                                           */
@@ -869,29 +872,44 @@ dispatch:
 
       /* Get DPB                                                      */
     case 0x32:
-      r->DL = ( r->DL == 0 ? default_drive : r->DL - 1);
-      if (r->DL < lastdrive)
+      /* r->DL is NOT changed by MS 6.22 */
+      /* INT21/32 is documented to reread the DPB */
       {
-        struct dpb FAR *dpb = CDSp->cds_table[r->DL].cdsDpb;
-        if (dpb == 0 ||
-            (CDSp->cds_table[r->DL].cdsFlags & CDSNETWDRV) ||
-             media_check(dpb) < 0)
-        {
+      struct dpb FAR *dpb;  
+      UCOUNT drv = r->DL;
+      
+      if (drv == 0) drv = default_drive;
+      else          drv--;
+
+      if (drv >= lastdrive)
+      {
+        r->AL = 0xFF;
+        CritErrCode = 0x0f;
+        break;
+      }  
+        
+      dpb = CDSp->cds_table[drv].cdsDpb;
+      if (dpb == 0 ||
+          CDSp->cds_table[drv].cdsFlags & CDSNETWDRV)
+      {
+        r->AL = 0xFF;
+        CritErrCode = 0x0f;
+        break;
+      }  
+      dpb->dpb_flags = M_CHANGED;       /* force reread of drive BPB/DPB */
+          
+      if (media_check(dpb) < 0)
+      {
           r->AL = 0xff;
           CritErrCode = 0x0f;
           break;
-        }
-        r->DS = FP_SEG(dpb);
-        r->BX = FP_OFF(dpb);
-        r->AL = 0;
       }
-      else {
-        r->AL = 0xFF;
-        CritErrCode = 0x0f;
+      r->DS = FP_SEG(dpb);
+      r->BX = FP_OFF(dpb);
+      r->AL = 0;
+      }
 
-        }
       break;
-
 /*
     case 0x33:  
     see int21_syscall
@@ -1772,14 +1790,14 @@ VOID int2526_handler(WORD mode, struct int25regs FAR * r)
   BYTE  FAR *buf;
   UBYTE drv;
   
-  if (mode == 0x26) mode = DSKWRITE;
-  else              mode = DSKREAD;
+  if (mode == 0x26) mode = DSKWRITEINT26;
+  else              mode = DSKREADINT25;
   
   drv = r->ax;
 
   if (drv >= lastdrive)
   {
-    r->ax = 0x202;
+    r->ax = 0x201;
     r->flags |= FLG_CARRY;
     return;
   }

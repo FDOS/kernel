@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.10  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.9  2001/06/03 14:16:18  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -270,6 +273,10 @@ COUNT DosDevIOctl(iregs FAR * r)
       {
         return DE_INVLDDRV;
       }
+      if (media_check(dpbp) < 0)
+      {
+        return DE_INVLDDRV;  
+      }
       if ( ((r->AL == 0x04 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x05 ) && !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
             || ((r->AL == 0x11) && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
@@ -312,7 +319,7 @@ COUNT DosDevIOctl(iregs FAR * r)
     case 0x06:
       if (s->sft_flags & SFT_FDEVICE)
       {
-        r->AL = s->sft_flags & SFT_FEOF ? 0 : 0xFF;
+        r->AL = s->sft_flags & SFT_FEOF ? 0xFF : 0;
       }
       else
         r->AL = s->sft_posit >= s->sft_size ? 0xFF : 0;

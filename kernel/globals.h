@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.13  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -270,6 +273,10 @@ static BYTE *Globals_hRcsId = "$Id$";
 /* Blockio constants                                                    */
 #define DSKWRITE        1       /* dskxfr function parameters   */
 #define DSKREAD         2
+#define DSKWRITEINT26   3
+#define DSKREADINT25    4
+
+
 
 /* FAT cluster special flags                                            */
 #define FREE                    0x000

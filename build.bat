@@ -5,6 +5,9 @@ rem batch file to build everything
 rem $Id$
 
 rem $Log$
+rem Revision 1.5  2001/07/09 22:19:30  bartoldeman
+rem LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+rem
 rem Revision 1.4  2001/03/22 04:13:30  bartoldeman
 rem Change LF to CR/LF in batch files.
 rem
@@ -78,6 +81,16 @@ if errorlevel 1 goto abort
 
 cd ..\kernel
 %MAKE% -fkernel.mak production
+if errorlevel 1 goto abort
+
+cd..
+
+:- if you like, put some finalizing commands (like copy to floppy)
+:- into build2.bat
+
+if exist build2.bat call build2
+
+goto end
 
 :abort
 cd ..

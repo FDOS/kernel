@@ -28,6 +28,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.14  2001/07/09 22:19:33  bartoldeman
+; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+;
 ; Revision 1.13  2001/06/03 14:16:18  bartoldeman
 ; BUFFERS tuning and misc bug fixes/cleanups (2024c).
 ;
@@ -142,7 +145,18 @@ segment	PSP
 STACK_SIZE      equ     384/2           ; stack allocated in words
 
 ..start:
-entry:		jmp	far kernel_start
+entry:		    
+                push ax
+                push bx
+                pushf              
+                mov ax, 0e31h           ; '1' Tracecode - kernel entered
+                mov bx, 00f0h                                        
+                int 010h
+                popf
+                pop bx
+                pop ax
+
+                jmp	far kernel_start
 beyond_entry:   resb    256-(beyond_entry-entry)
                                         ; scratch area for data (DOS_PSP)
 
@@ -154,6 +168,17 @@ segment	INIT_TEXT
                 ; kernel start-up
                 ;
 kernel_start:
+
+                push ax
+                push bx
+                pushf              
+                mov ax, 0e32h           ; '2' Tracecode - kernel entered
+                mov bx, 00f0h                                        
+                int 010h
+                popf
+                pop bx
+                pop ax
+
 		mov	ax,IGROUP
 		cli
 		mov	ss,ax
@@ -197,6 +222,17 @@ cont:		; inititalize api stacks for high water tests
                 mov     es,ax
                 mov     bp,sp           ; and set up stack frame for c
                 sti                     ; now enable them
+
+                push ax
+                push bx
+                pushf              
+                mov ax, 0e33h           ; '3' Tracecode - kernel entered
+                mov bx, 00f0h                                        
+                int 010h
+                popf
+                pop bx
+                pop ax
+                
 		inc	bl
 		jns	floppy
 		add	bl,3-1-128
@@ -918,10 +954,10 @@ __EnableA20:
 
 enableUsingXMSdriver:
     mov ah,3
-UsingXMSdriver:
+UsingXMSdriver:    
     push bx
     call far [cs:_XMSDriverAddress]
-    pop bx
+    pop  bx
     retf
 
     global __DisableA20

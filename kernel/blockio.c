@@ -34,9 +34,12 @@
 #ifdef VERSION_STRINGS
 static BYTE *blockioRcsId = "$Id$";
 #endif
-
+                                                                                                                                                                   
 /*
  * $Log$
+ * Revision 1.11  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.10  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -553,10 +556,13 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
   REG struct dpb FAR *dpbp = CDSp->cds_table[dsk].cdsDpb;
 
 
-  if ((UCOUNT)dsk >= lastdrive ||
-      !(CDSp->cds_table[dsk].cdsFlags & CDSPHYSDRV))
+  if ((UCOUNT)dsk >= lastdrive )
       {
-      return -1;        /* illegal command */
+      return 0x0201;        /* illegal command */
+      }
+  if (!(CDSp->cds_table[dsk].cdsFlags & CDSPHYSDRV))
+      {
+      return 0x0201;        /* illegal command */
       }
   
 #if 1
@@ -574,10 +580,19 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
   {
     IoReqHdr.r_length = sizeof(request);
     IoReqHdr.r_unit = dpbp->dpb_subunit;
-    IoReqHdr.r_command =
-	mode == DSKWRITE ?
-	(verify_ena ? C_OUTVFY : C_OUTPUT)
-	: C_INPUT;
+
+    switch(mode) 
+        {
+	    case DSKWRITE :     if (verify_ena) { IoReqHdr.r_command = C_OUTVFY; break; }
+	                                                /* else fall through */
+	    case DSKWRITEINT26: IoReqHdr.r_command = C_OUTPUT; break;
+	    
+	    case DSKREADINT25: 
+	    case DSKREAD  :     IoReqHdr.r_command = C_INPUT; break;
+	    default:
+	        return 0x0100;  /* illegal command */
+	    }    
+    
     IoReqHdr.r_status = 0;
     IoReqHdr.r_meddesc = dpbp->dpb_mdb;
     IoReqHdr.r_trans = (BYTE FAR *) buf;
@@ -592,10 +607,23 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
     execrh((request FAR *) & IoReqHdr, dpbp->dpb_device);
     if (!(IoReqHdr.r_status & S_ERROR) && (IoReqHdr.r_status & S_DONE))
       break;
-    else
-    {
+
+                        /* INT25/26 (_SEEMS_ TO) return immediately with 0x8002,
+                           if drive is not online,...
+                           
+                           normal operations (DIR) wait for ABORT/RETRY
+                           
+                           other condition codes not tested
+                        */
+    if (mode >= DSKWRITEINT26)
+        return (IoReqHdr.r_status);
+
 /* Changed 9/4/00   BER */    
     return (IoReqHdr.r_status);
+    
+
+
+    
     
     /* Skip the abort, retry, fail code...it needs fixed...BER */
 /* End of change */
@@ -616,8 +644,8 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks, COUNT mod
 	default:
 	  goto loop;
       }
-    }
-  }
+
+  } /* retry loop */
 /* *** Changed 9/4/00  BER */
   return 0;   /* Success!  Return 0 for a successful operation. */
 /* End of change */

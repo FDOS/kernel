@@ -36,6 +36,9 @@ static BYTE *dirmatch_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.5  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.4  2001/04/16 01:45:26  bartoldeman
  * Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
  *
@@ -115,6 +118,7 @@ typedef struct
     f_filler:11;                /* TC 2.01           */
   }
   dm_flags;                     /* file flags                   */
+
   UWORD dm_dirstart;
 
   BYTE dm_attr_fnd;             /* found file attribute         */

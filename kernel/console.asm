@@ -28,6 +28,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.7  2001/07/09 22:19:33  bartoldeman
+; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+;
 ; Revision 1.6  2001/04/15 03:21:50  bartoldeman
 ; See history.txt for the list of fixes.
 ;
@@ -166,7 +169,7 @@ CommonNdRdExit:
                 jnz     ConNdRd2                ; Jump if there's a char waiting
                 mov     ah,1
                 int     16h                     ; Get status, if zf=0  al=char
-                jz      ConNdRd4                ; Jump if chrar available
+                jz      ConNdRd4                ; Jump if no char available
                 or      ax,ax                   ; Zero ?
                 jnz     ConNdRd1                ; Jump if not zero
                 int     16h                     ; get status, if zf=0  al=char
@@ -178,7 +181,7 @@ ConNdRd1:
                 mov     al,CTL_P
 
 ConNdRd2:
-                lds     bx,[_ReqPktPtr]         ; Set the status
+                lds     bx,[cs:_ReqPktPtr]         ; Set the status
                 mov     [bx+0Dh],al
 
 ConNdRd3:
@@ -285,7 +288,7 @@ ConIS1:
                 mov     al,CTL_P
 
 ConIS2:
-                lds     bx,[_ReqPktPtr]         ; Set the status
+                lds     bx,[cs:_ReqPktPtr]         ; Set the status
                 mov     [bx+0Dh],al
 ConCharReady:
                 jmp     _IOExit                 ; key ready (busy=0)

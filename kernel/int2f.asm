@@ -30,6 +30,9 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.9  2001/07/09 22:19:33  bartoldeman
+; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+;
 ; Revision 1.8  2001/04/02 23:18:30  bartoldeman
 ; Misc, zero terminated device names and redirector bugs fixed.
 ;
@@ -375,7 +378,7 @@ _Umb_Test
                 push    bx
 
                 push    cs              ; setup far return
-		mov	ax, umbt1
+                mov	ax, umbt1
                 push    ax
                 push    es              ; push the driver entry point
                 push    bx
@@ -401,7 +404,7 @@ umbtc:
                 pop     es
 
                 push    cs
-		mov	ax, umbt2
+                mov	ax, umbt2
                 push    ax
                 push    es
                 push    bx

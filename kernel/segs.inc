@@ -29,6 +29,9 @@
 ; $Header$
 ;
 ; $Log$
+; Revision 1.8  2001/07/09 22:19:33  bartoldeman
+; LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+;
 ; Revision 1.7  2001/04/29 17:34:40  bartoldeman
 ; A new SYS.COM/config.sys single stepping/console output/misc fixes.
 ;
@@ -68,7 +71,7 @@
 
 group   PGROUP          PSP
 group	TGROUP		_TEXT _IO_TEXT _IO_FIXED_DATA 
-group	DGROUP		_FIXED_DATA _DATA _BSSSTART _BSS _BSSEND 
+group	DGROUP		_FIXED_DATA _DATA _BSSSTART _BSS _BSSEND DYN_DATA
 group	HGROUP		HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 group	IGROUP		INIT_TEXT_START INIT_TEXT INIT_TEXT_END ID_B ID ID_E IB_B IB IB_E
 
@@ -81,6 +84,7 @@ segment	_DATA		class=DATA align=2
 segment	_BSSSTART       class=BSS align=2
 segment	_BSS		class=BSS align=2
 segment	_BSSEND		class=BSS
+segment	DYN_DATA    class=DYN_DATA
 segment	HMA_TEXT_START	class=HMA align=16
 segment	HMA_TEXT	class=HMA
 segment	HMA_TEXT_END	class=HMA

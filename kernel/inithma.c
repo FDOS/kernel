@@ -67,6 +67,7 @@
 #include "portab.h"
 #include "init-mod.h"
 
+
 extern BYTE FAR   version_flags;              /* minor version number                 */
 
 extern BYTE
@@ -80,6 +81,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.7  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.6  2001/04/29 17:34:40  bartoldeman
  * A new SYS.COM/config.sys single stepping/console output/misc fixes.
  *
@@ -127,6 +131,8 @@ extern void FAR *DetectXMSDriver(VOID);
 #else
     #define HMAInitPrintf(x)
 #endif    
+
+void MoveKernel(unsigned NewKernelSegment);
 
 
 #ifdef DEBUG
@@ -249,10 +255,6 @@ int EnableHMA(VOID)
 
 int MoveKernelToHMA()
 {
-    UBYTE FAR *HMASource;
-    unsigned  len;
-    
-    
     
     if (DosLoadedInHMA) 
     {
@@ -297,137 +299,8 @@ int MoveKernelToHMA()
         return FALSE;
     }          
     
+    MoveKernel(0xffff);
 
-    /* C) we have HMA,  copy HMA_TEXT up to 0xffff:0..ffff */ 
-
-    {
-
-        UBYTE FAR *HMADest   = MK_FP(HMASEGMENT,0x0000);
-        
-                 len = FP_OFF(_HMATextEnd) - FP_OFF(_HMATextStart);
-    
-                  HMASource = (UBYTE FAR *)_HMATextStart;
-    
-    
-        len += FP_OFF(HMASource) & 0x000f;
-        
-        FP_OFF(HMASource) &= 0xfff0;
-        
-        HMASource += HMAOFFSET;
-        HMADest   += HMAOFFSET;
-        len       -= HMAOFFSET;
-        
-            
-        HMAInitPrintf(("HMA moving %p up to %p for %04x bytes\n",
-                                HMASource, HMADest, len));
-                
-        fmemcpy(HMADest, HMASource, len);
-        
-        HMAFree = FP_OFF(HMADest)+len;  /* first free byte after HMA_TEXT */
-        
-        
-    }    
-    {
-        /* D) but it only makes sense, if we can relocate 
-              all our entries to make use of HMA
-        */              
-
-        /* this is for a 
-            call near enableA20
-            jmp far kernelentry
-           style table
-        */    
-        
-        struct RelocationTable {
-            UBYTE jmpFar;
-            UWORD jmpOffset;
-            UWORD jmpSegment;
-            UBYTE callNear;
-            UWORD callOffset;
-        };
-        struct RelocatedEntry {
-            UBYTE callNear;
-            UWORD callOffset;
-            UBYTE jmpFar;
-            UWORD jmpOffset;
-            UWORD jmpSegment;
-        };
-        extern struct RelocationTable  
-                    FAR _HMARelocationTableStart[], 
-                    FAR _HMARelocationTableEnd[];
-
-        struct RelocationTable FAR *rp, rtemp ;
-        
-        UWORD HMATextSegment = FP_SEG( _HMATextStart );
-          
-        /* verify, that all entries are valid */  
-        
-        for (rp = _HMARelocationTableStart; rp < _HMARelocationTableEnd; rp++)
-        {
-            if (rp->jmpFar     != 0xea              || /* jmp FAR */
-                rp->jmpSegment != HMATextSegment    || /* will only relocate HMA_TEXT */
-                rp->callNear   != 0xe8              || /* call NEAR */
-                0)
-            {
-                printf("illegal relocation entry # %d\n",rp - _HMARelocationTableStart);
-                goto errorReturn;
-            }            
-        }
-          
-        /* OK, all valid, go to relocate*/  
-        
-        for (rp = _HMARelocationTableStart; rp < _HMARelocationTableEnd; rp++)
-        {
-            struct RelocatedEntry FAR *rel = (struct RelocatedEntry FAR *)rp;
-            
-            fmemcpy(&rtemp, rp, sizeof(rtemp));
-            
-            rel->jmpFar     = rtemp.jmpFar;
-            rel->jmpSegment = HMASEGMENT;
-            rel->jmpOffset  = rtemp.jmpOffset;
-            rel->callNear   = rtemp.callNear;
-            rel->callOffset = rtemp.callOffset+5; /* near calls are relative */
-        }
-    }
-    {
-        struct initRelocationTable {
-            UBYTE callNear;
-            UWORD callOffset;
-            UBYTE jmpFar;
-            UWORD jmpOffset;
-            UWORD jmpSegment;
-        };
-        extern struct initRelocationTable
-                    _HMAinitRelocationTableStart[], 
-                    _HMAinitRelocationTableEnd[];
-        struct initRelocationTable *rp;
-        
-        /* verify, that all entries are valid */  
-        
-        UWORD HMATextSegment = FP_SEG( _HMATextStart );
-
-        for (rp = _HMAinitRelocationTableStart; rp < _HMAinitRelocationTableEnd; rp++)
-        {
-            if (
-                rp->callNear   != 0xe8              || /* call NEAR */
-                rp->jmpFar     != 0xea              || /* jmp FAR */
-                rp->jmpSegment != HMATextSegment    || /* will only relocate HMA_TEXT */
-                0)
-            {
-                printf("illegal init relocation entry # %d\n",
-                       rp - _HMAinitRelocationTableStart);
-                goto errorReturn;
-            }            
-        }
-          
-        /* OK, all valid, go to relocate*/  
-        
-        for (rp = _HMAinitRelocationTableStart; rp < _HMAinitRelocationTableEnd; rp++)
-        {
-            rp->jmpSegment = HMASEGMENT;
-            rp->callOffset = rp->callOffset-5; /* near calls are relative */
-        }
-    }    
 
     {
         /* E) up to now, nothing really bad was done. 
@@ -437,8 +310,6 @@ int MoveKernelToHMA()
             cause INT 3 on all accesses to this area 
          */
         
-        fmemset(HMASource, 0xcc, len); 
-        HMAInitPrintf(("HMA text segment filled with INT 3\n"));
         
         DosLoadedInHMA = TRUE;
     }        
@@ -575,3 +446,163 @@ VOID FAR *HMAalloc(COUNT bytesToAllocate)
     return HMAptr;
 }
 
+
+
+unsigned CurrentKernelSegment = 0;
+
+void MoveKernel(unsigned NewKernelSegment)
+{
+    UBYTE FAR *HMADest;
+    UBYTE FAR *HMASource;
+    unsigned len;
+
+    __int__(3);
+    if (CurrentKernelSegment == 0)
+       CurrentKernelSegment = FP_SEG(_HMATextEnd);
+       
+    if (CurrentKernelSegment == 0xffff)
+        return;       
+        
+    
+    HMASource = MK_FP(CurrentKernelSegment,(FP_OFF(_HMATextStart) & 0xfff0));
+    HMADest   = MK_FP(NewKernelSegment,0x0000);
+    
+    len = (FP_OFF(_HMATextEnd) | 0x000f) - (FP_OFF(_HMATextStart) & 0xfff0);
+    
+    if (NewKernelSegment == 0xffff)
+        {        
+        HMASource += HMAOFFSET;
+        HMADest   += HMAOFFSET;
+        len       -= HMAOFFSET;
+        }        
+            
+    HMAInitPrintf(("HMA moving %p up to %p for %04x bytes\n",
+                                HMASource, HMADest, len));
+
+    if (NewKernelSegment < CurrentKernelSegment ||
+        NewKernelSegment == 0xffff)
+        {
+        unsigned i; UBYTE FAR *s,FAR *d;    
+        
+        for (i = 0, s = HMASource,d = HMADest; i < len; i++)
+            d[i] = s[i];
+        }
+    else {
+                                            /* might overlap */
+        unsigned i; UBYTE FAR *s,FAR *d;    
+        
+        for (i = len, s = HMASource,d = HMADest; i != 0; i--)
+            d[i] = s[i];
+        }
+       
+    HMAFree = FP_OFF(HMADest)+len;  /* first free byte after HMA_TEXT */
+    
+    {
+        /* D) but it only makes sense, if we can relocate 
+              all our entries to make use of HMA
+        */              
+
+        /* this is for a 
+            call near enableA20
+            jmp far kernelentry
+           style table
+        */    
+        
+        struct RelocationTable {
+            UBYTE jmpFar;
+            UWORD jmpOffset;
+            UWORD jmpSegment;
+            UBYTE callNear;
+            UWORD callOffset;
+        };
+        struct RelocatedEntry {
+            UBYTE callNear;
+            UWORD callOffset;
+            UBYTE jmpFar;
+            UWORD jmpOffset;
+            UWORD jmpSegment;
+        };
+        extern struct RelocationTable  
+                    FAR _HMARelocationTableStart[], 
+                    FAR _HMARelocationTableEnd[];
+
+        struct RelocationTable FAR *rp, rtemp ;
+        
+        /* verify, that all entries are valid */  
+        
+        for (rp = _HMARelocationTableStart; rp < _HMARelocationTableEnd; rp++)
+        {
+            if (rp->jmpFar     != 0xea              || /* jmp FAR */
+                rp->jmpSegment != CurrentKernelSegment    || /* will only relocate HMA_TEXT */
+                rp->callNear   != 0xe8              || /* call NEAR */
+                0)
+            {
+                printf("illegal relocation entry # %d\n",rp - _HMARelocationTableStart);
+                goto errorReturn;
+            }            
+        }
+          
+        /* OK, all valid, go to relocate*/  
+        
+        for (rp = _HMARelocationTableStart; rp < _HMARelocationTableEnd; rp++)
+        {
+            if (NewKernelSegment == 0xffff)
+                {
+                struct RelocatedEntry FAR *rel = (struct RelocatedEntry FAR *)rp;
+                
+                fmemcpy(&rtemp, rp, sizeof(rtemp));
+                
+                rel->jmpFar     = rtemp.jmpFar;
+                rel->jmpSegment = NewKernelSegment;
+                rel->jmpOffset  = rtemp.jmpOffset;
+                rel->callNear   = rtemp.callNear;
+                rel->callOffset = rtemp.callOffset+5; /* near calls are relative */
+                }
+            else
+                rp->jmpSegment = NewKernelSegment;
+            
+        }
+    }
+    {
+        struct initRelocationTable {
+            UBYTE callNear;
+            UWORD callOffset;
+            UBYTE jmpFar;
+            UWORD jmpOffset;
+            UWORD jmpSegment;
+        };
+        extern struct initRelocationTable
+                    _HMAinitRelocationTableStart[], 
+                    _HMAinitRelocationTableEnd[];
+        struct initRelocationTable *rp;
+        
+        /* verify, that all entries are valid */  
+        
+        for (rp = _HMAinitRelocationTableStart; rp < _HMAinitRelocationTableEnd; rp++)
+        {
+            if (
+                rp->callNear   != 0xe8              || /* call NEAR */
+                rp->jmpFar     != 0xea              || /* jmp FAR */
+                rp->jmpSegment != CurrentKernelSegment    || /* will only relocate HMA_TEXT */
+                0)
+            {
+                printf("illegal init relocation entry # %d\n",
+                       rp - _HMAinitRelocationTableStart);
+                goto errorReturn;
+            }            
+        }
+          
+        /* OK, all valid, go to relocate*/  
+        
+        for (rp = _HMAinitRelocationTableStart; rp < _HMAinitRelocationTableEnd; rp++)
+        {
+            rp->jmpSegment = NewKernelSegment;
+        }
+    }
+    
+    CurrentKernelSegment = NewKernelSegment;
+    return;
+    
+errorReturn:
+    for (;;);    
+}

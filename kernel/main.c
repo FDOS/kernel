@@ -71,6 +71,9 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.18  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.17  2001/06/03 14:16:18  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -309,8 +312,14 @@ INIT void init_kernel(void)
   /* Do first initialization of system variable buffers so that   */
   /* we can read config.sys later.  */
   lastdrive = Config.cfgLastdrive;
+
   PreConfig();
-  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top);
+
+  /*  init_device((struct dhdr FAR *)&blk_dev, NULL, NULL, ram_top); */
+  blk_dev.dh_name[0] = dsk_init();
+  /* Number of units */
+  if (blk_dev.dh_name[0] > 0)
+      update_dcb(&blk_dev);
 
   /* Now config the temporary file system */
   FsConfig();

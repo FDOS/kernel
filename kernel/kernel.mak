@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.11  2001/07/09 22:19:33  bartoldeman
+# LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+#
 # Revision 1.10  2001/04/21 22:32:53  bartoldeman
 # Init DS=Init CS, fixed stack overflow problems and misc bugs.
 #
@@ -129,6 +132,23 @@
 
 RELEASE = 1.00
 
+# Compiler and Options for Borland C++
+# ------------------------------------
+#
+#  -zAname       ¦ ¦ Code class
+#  -zBname       ¦ ¦ BSS class
+#  -zCname       ¦ ¦ Code segment
+#  -zDname       ¦ ¦ BSS segment
+#  -zEname       ¦ ¦ Far segment
+#  -zFname       ¦ ¦ Far class
+#  -zGname       ¦ ¦ BSS group
+#  -zHname       ¦ ¦ Far group
+#  -zPname       ¦ ¦ Code group
+#  -zRname       ¦ ¦ Data segment
+#  -zSname       ¦ ¦ Data group
+#  -zTname       ¦ ¦ Data class
+#  -zX           ¦«¦ Use default name for "X"
+
 #
 # Compiler and Options for Borland C++
 # ------------------------------------
@@ -170,6 +190,7 @@ EXE_dependencies =  \
  dosfns.obj   \
  dosnames.obj \
  dsk.obj      \
+ initdisk.obj      \
  entry.obj    \
  error.obj    \
  execrh.obj   \
@@ -203,7 +224,9 @@ EXE_dependencies =  \
  syspack.obj  \
  systime.obj  \
  task.obj     \
- inithma.obj
+ inithma.obj  \
+ DynData.obj  \
+ DynInit.obj
 
 #               *Explicit Rules*
 
@@ -226,13 +249,13 @@ clean:
 kernel.exe: $(EXE_dependencies) $(LIBS)
     $(RM) kernel.lib
     $(LIBUTIL) kernel +entry +io +blockio +chario +dosfns +console
-    $(LIBUTIL) kernel +printer +serial +dsk +error +fatdir +fatfs
+    $(LIBUTIL) kernel +printer +serial +dsk +initdisk+error +fatdir +fatfs
     $(LIBUTIL) kernel +fattab +fcbfns +initoem +initHMA+inthndlr +ioctl +nls_hc
     $(LIBUTIL) kernel +main +config +memmgr +misc +newstuff +nls +intr
     $(LIBUTIL) kernel +dosnames +prf +initprf +strings +network +sysclk +syspack
     $(LIBUTIL) kernel +systime +task +int2f +irqstack +apisupt
     $(LIBUTIL) kernel +asmsupt +execrh +nlssupt +procsupt +break
-    $(LIBUTIL) kernel +dosidle
+    $(LIBUTIL) kernel +dosidle+dyndata+dyninit
     $(RM) kernel.bak
     $(LINK) /m/c/L$(LIBPATH) kernel,kernel,kernel,kernel+$(LIBS);
     $(RM) kernel.lib
@@ -277,7 +300,7 @@ config.obj: config.c init-mod.h $(HDR)portab.h globals.h \
  $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h \
  $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h \
  $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h \
- $(HDR)error.h $(HDR)version.h proto.h turboc.cfg
+ $(HDR)error.h $(HDR)version.h proto.h turboc.cfg  dyndata.h
 	$(CC) $(INITCFLAGS) -c config.c
 
 initoem.obj: initoem.c init-mod.h $(HDR)portab.h globals.h \
@@ -285,7 +308,7 @@ initoem.obj: initoem.c init-mod.h $(HDR)portab.h globals.h \
  $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h \
  $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h \
  $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h \
- $(HDR)error.h $(HDR)version.h proto.h turboc.cfg
+ $(HDR)error.h $(HDR)version.h proto.h turboc.cfg  dyndata.h
 	$(CC) $(INITCFLAGS) -c initoem.c
 
 main.obj: main.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
@@ -293,7 +316,7 @@ main.obj: main.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h turboc.cfg
+ $(HDR)version.h proto.h turboc.cfg dyndata.h
 	$(CC) $(INITCFLAGS) -c main.c
 
 initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
@@ -301,9 +324,40 @@ initHMA.obj: initHMA.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
  $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
- $(HDR)version.h proto.h turboc.cfg
+ $(HDR)version.h proto.h turboc.cfg  dyndata.h
 	$(CC) $(INITCFLAGS) -c initHMA.c
 
+DynInit.obj: DynInit.c init-mod.h $(HDR)portab.h globals.h $(HDR)device.h \
+ $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \
+ $(HDR)fcb.h $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h \
+ $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h \
+ $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
+ $(HDR)version.h proto.h turboc.cfg  dyndata.h
+	$(CC) $(INITCFLAGS) -c DynInit.c
+
+initdisk.obj: initdisk.c disk.h $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
+ $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
+ $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
+ $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
+ $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
+ turboc.cfg  dyndata.h
+	$(CC) $(INITCFLAGS) -c initDISK.c
+	
+
+#  -zBname       ¦ ¦ BSS class
+#  -zDname       ¦ ¦ BSS segment
+#  -zEname       ¦ ¦ Far segment
+#  -zFname       ¦ ¦ Far class
+#  -zGname       ¦ ¦ BSS group
+#  -zHname       ¦ ¦ Far group
+#  -zRname       ¦ ¦ Data segment
+#  -zSname       ¦ ¦ Data group
+#  -zTname       ¦ ¦ Data class
+
+dynDATA.obj: dynDATA.c dynDATA.H
+	$(CC) -c -zRDYN_DATA -zTDYN_DATA -zDDYN_DATA -zBDYN_DATA dynDATA.c
+
+	
 #the printf for INIT_TEXT:
 initprf.obj: prf.c $(HDR)portab.h turboc.cfg
 	$(CC) -DFORINIT $(INITCFLAGS) -oinitprf.obj -c prf.c 
@@ -345,12 +399,13 @@ dosnames.obj: dosnames.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h \
  $(HDR)version.h proto.h turboc.cfg
 
-dsk.obj: dsk.c $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
+dsk.obj: dsk.c disk.h $(HDR)portab.h globals.h $(HDR)device.h $(HDR)mcb.h \
  $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h $(HDR)fcb.h \
  $(HDR)tail.h $(HDR)process.h $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h \
  $(HDR)exe.h $(HDR)fnode.h $(HDR)dirmatch.h $(HDR)file.h \
  $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h $(HDR)version.h proto.h \
  turboc.cfg
+
 
 error.obj: error.c $(HDR)portab.h globals.h $(HDR)device.h \
  $(HDR)mcb.h $(HDR)pcb.h $(HDR)date.h $(HDR)time.h $(HDR)fat.h \

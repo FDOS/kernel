@@ -29,6 +29,9 @@
 
 #include "portab.h"
 #include "init-mod.h"
+#include "dyndata.h"
+
+
 
 /*
   These are the far variables from the DOS data segment that we need here. The
@@ -39,7 +42,7 @@
   -- Bart
  */
 extern struct buffer FAR * FAR lastbuf;/* tail of ditto                        */
-extern struct f_node FAR * FAR f_nodes; /* pointer to the array                 */
+extern f_node_ptr FAR f_nodes; /* pointer to the array                 */
 extern UWORD FAR f_nodes_cnt,           /* number of allocated f_nodes          */
              FAR first_mcb;             /* Start of user memory                 */
 
@@ -78,8 +81,17 @@ extern UWORD FAR ram_top,                /* How much ram in Kbytes              
 static BYTE *RcsId = "$Id$";
 #endif
 
+#ifdef DEBUG
+    #define DebugPrintf(x) printf x
+#else    
+    #define DebugPrintf(x)
+#endif    
+
 /*
  * $Log$
+ * Revision 1.24  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.23  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *
@@ -374,6 +386,8 @@ INIT void PreConfig(void)
   UmbState = 0; 
  
   /* Initialize the base memory pointers                          */
+
+  DynFree(0);
   
   
   if ( HMATextIsAvailable )
@@ -391,9 +405,7 @@ INIT void PreConfig(void)
   /* the dms_scratch buffer is statically allocated
      in the DSK module */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
-#ifdef DEBUG
-  /* printf("Preliminary DMA scratchpad allocated at 0x%p\n",dma_scratch);*/
-#endif
+/*  DebugPrintf(("Preliminary DMA scratchpad allocated at 0x%p\n",dma_scratch));*/
 
 
 
@@ -405,8 +417,12 @@ INIT void PreConfig(void)
 #endif
 
   /* Initialize the file table                                    */
-  f_nodes = (struct f_node FAR *)
-      KernelAlloc(Config.cfgFiles * sizeof(struct f_node));
+/*  f_nodes = (f_node_ptr)
+      KernelAlloc(Config.cfgFiles * sizeof(struct f_node));*/
+      
+
+  f_nodes = (f_node_ptr)
+      DynAlloc("f_nodes", Config.cfgFiles , sizeof(struct f_node));
 
   f_nodes_cnt = Config.cfgFiles;
   /* sfthead = (sfttbl FAR *)&basesft; */
@@ -427,11 +443,11 @@ INIT void PreConfig(void)
       KernelAlloc(blk_dev.dh_name[0]*sizeof(struct dpb));
 
 #ifdef DEBUG
-  printf("Preliminary f_node allocated at at 0x%p\n",f_nodes);
-  printf("Preliminary FCB table allocated at 0x%p\n",FCBp);
-  printf("Preliminary sft table allocated at 0x%p\n",sfthead->sftt_next);
-  printf("Preliminary CDS table allocated at 0x%p\n",CDSp);
-  printf("Preliminary DPB table allocated at 0x%p\n",DPBp);
+  printf("Preliminary:\n f_node 0x%p",f_nodes);
+/*  printf(" FCB table 0x%p\n",FCBp);*/
+  printf(" sft table 0x%p\n",sfthead->sftt_next);
+  printf(" CDS table 0x%p\n",CDSp);
+  printf(" DPB table 0x%p\n",DPBp);
 #endif
 
   /* Done.  Now initialize the MCB structure                      */
@@ -467,14 +483,45 @@ INIT void PostConfig(void)
   if (lastdrive < nblkdev )
     lastdrive = nblkdev ;
 
+                        /* initialize NEAR allocated things */
+
+  DynFree(Config.cfgFiles * sizeof(struct f_node));
+  
+
+  /* Initialize the file table                                    */
+  f_nodes = (f_node_ptr)
+      DynAlloc("f_nodes", Config.cfgFiles , sizeof(struct f_node));
+  
+  f_nodes_cnt = Config.cfgFiles;   /* and the number of allocated files */
 
 
   /* Initialize the base memory pointers from last time.          */
+  /*
+    if the kernel could be moved to HMA, everything behind the dynamic 
+    near data is free.
+    otherwise, the kernel is moved down - behind the dynamic allocated data,
+    and allocation starts after the kernel.
+  */
 
   if ( HMATextIsAvailable )
-      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _HMATextStart);
-    else
-      lpOldLast = lpBase = AlignParagraph((BYTE FAR *) & _InitTextStart);
+      lpBase = AlignParagraph((BYTE FAR *)DynLast()+0x0f);
+  else
+      {
+      lpBase = AlignParagraph((BYTE FAR *)DynLast()+0x0f);
+
+      DebugPrintf(("HMA not available, moving text to %x\n",FP_SEG(lpBase)));
+      MoveKernel(FP_SEG(lpBase));
+      
+      lpBase = AlignParagraph((BYTE FAR *)lpBase + HMAFree + 0x0f);
+      
+      DebugPrintf(("kernel is low, start alloc at %p",lpBase));
+      }
+
+      
+  DebugPrintf(("starting FAR allocations at %p\n",lpBase));
+      
+
+  lpOldLast = lpBase;        
 
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
@@ -492,11 +539,6 @@ INIT void PostConfig(void)
   /* printf("%d buffers allocated at 0x%p\n", Config.cfgBuffers,buffers); */
 #endif
 
-  /* Initialize the file table                                    */
-  f_nodes = (struct f_node FAR *)
-      KernelAlloc(Config.cfgFiles * sizeof(struct f_node));
-  
-  f_nodes_cnt = Config.cfgFiles;   /* and the number of allocated files */
 /* sfthead = (sfttbl FAR *)&basesft; */
   /* FCBp = (sfttbl FAR *)&FcbSft; */
   /* FCBp = (sfttbl FAR *)
@@ -516,25 +558,20 @@ INIT void PostConfig(void)
 
 
 #ifdef DEBUG
-  printf("f_node    allocated at 0x%p\n",f_nodes);
-  printf("FCB table allocated at 0x%p\n",FCBp);
-  printf("sft table allocated at 0x%p\n",sfthead->sftt_next);
-  printf("CDS table allocated at 0x%p\n",CDSp);
-  printf("DPB table allocated at 0x%p\n",DPBp);
+  printf("Final: \n f_node 0x%p\n",f_nodes);
+/*  printf(" FCB table 0x%p\n",FCBp);*/
+  printf(" sft table 0x%p\n",sfthead->sftt_next);
+  printf(" CDS table 0x%p\n",CDSp);
+  printf(" DPB table 0x%p\n",DPBp);
 #endif
   if (Config.cfgStacks)
   {
     VOID FAR *stackBase = KernelAlloc(Config.cfgStacks * Config.cfgStackSize);
     init_stacks(stackBase, Config.cfgStacks, Config.cfgStackSize);
 
-#ifdef  DEBUG
-    printf("Stacks allocated at %p\n",stackBase);
-#endif
+    DebugPrintf(("Stacks allocated at %p\n",stackBase));
   }
-#ifdef DEBUG
-  printf("Allocation completed: top at 0x%p\n",lpBase);
-#endif
-
+  DebugPrintf(("Allocation completed: top at 0x%p\n",lpBase));
 
 }
 
@@ -546,9 +583,9 @@ INIT VOID configDone(VOID)
   
 
   if (lastdrive < nblkdev) {
-#ifdef DEBUG
-    printf("lastdrive %c too small upping it to: %c\n", lastdrive + 'A', nblkdev + 'A' -1);
-#endif /* DEBUG */
+
+    DebugPrintf(("lastdrive %c too small upping it to: %c\n", lastdrive + 'A', nblkdev + 'A' -1));
+
     lastdrive = nblkdev;
     CDSp = (cdstbl FAR *)
        KernelAlloc(0x58 * lastdrive);
@@ -568,21 +605,19 @@ INIT VOID configDone(VOID)
     if(umb_start != FP_SEG(upBase) ){
 /* make last block normal with SC for the devices */
         
-    UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
+        UCOUNT umr_new = FP_SEG(upBase) + ((FP_OFF(upBase) + 0x0f) >> 4);
         
-    mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)), umr_new - uppermem_root - 1);
+        mumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)), umr_new - uppermem_root - 1);
 
-    uppermem_root = umr_new;
-    zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
+        uppermem_root = umr_new;
+        zumcb_init((mcb FAR *) (MK_FP(uppermem_root, 0)),
                                (umb_start + UMB_top ) - uppermem_root - 1);
-    upBase += 16;
+        upBase += 16;
 
-    }
+        }
     }
 
-#ifdef DEBUG
-  printf("UMB Allocation completed: top at 0x%p\n",upBase);
-#endif
+  DebugPrintf(("UMB Allocation completed: top at 0x%p\n",upBase));
 
   /* The standard handles should be reopened here, because
      we may have loaded new console or printer drivers in CONFIG.SYS */
@@ -598,27 +633,21 @@ INIT VOID DoConfig(VOID)
 
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
-  if ((nFileDesc = open("fdconfig.sys", 0)) < 0)
+  if ((nFileDesc = open("fdconfig.sys", 0)) >= 0)
   {
-#ifdef DEBUG
-    printf("FDCONFIG.SYS not found\n");
-#endif
+	  DebugPrintf(("Reading FDCONFIG.SYS...\n"));
+  }
+  else 
+  {
+    DebugPrintf(("FDCONFIG.SYS not found\n"));
     if ((nFileDesc = open("config.sys", 0)) < 0)
     {
-#ifdef DEBUG
-      printf("CONFIG.SYS not found\n");
-#endif
+      DebugPrintf(("CONFIG.SYS not found\n"));
       return;
     }
-#ifdef DEBUG
- 		else
-			printf("Reading CONFIG.SYS...\n");
-#endif
+    DebugPrintf(("Reading CONFIG.SYS...\n"));
   }
-#ifdef DEBUG
-	else
-		printf("Reading FDCONFIG.SYS...\n");
-#endif
+		
 
   /* Have one -- initialize.                                      */
   nCfgLine = 0;
@@ -663,7 +692,7 @@ INIT VOID DoConfig(VOID)
         
      *pLine = 0;
      pLine = szLine;
-     
+
 
       /* Skip leading white space and get verb.               */
       pLine = scan(pLine, szBuf);
@@ -678,15 +707,15 @@ INIT VOID DoConfig(VOID)
       if (pEntry->pass >= 0 && pEntry->pass != nPass)
         continue;
 
-      if ( SkipLine(pLineStart))        /* F5/F8 processing */
-        continue;
-
+      if ( SkipLine(pLineStart))      /* F5/F8 processing */
+          continue;
+          
       pLine = skipwh(pLine);
 
       if ('=' != *pLine)
-              CfgFailure(pLine);
+          CfgFailure(pLine);
       else                              /* YES. DO IT */
-              (*(pEntry->func)) (skipwh(pLine+1));
+          (*(pEntry->func)) (skipwh(pLine+1));
 
 
 
@@ -1555,3 +1584,4 @@ INIT VOID SetAnyDos(BYTE * pLine)
     UNREFERENCED_PARAMETER(pLine);
     ReturnAnyDosVersionExpected = TRUE;
 }
+

@@ -36,6 +36,9 @@ static BYTE *fcb_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2001/07/09 22:19:33  bartoldeman
+ * LBA/FCB/FAT/SYS/Ctrl-C/ioctl fixes + memory savings
+ *
  * Revision 1.3  2000/05/25 20:56:19  jimtabor
  * Fixed project history
  *
@@ -144,7 +147,7 @@ typedef struct
   BYTE fcb_attrib_lo;           /* dev attrib word lo, open mode        */
   UWORD fcb_strtclst;           /* file starting cluster                */
   UWORD fcb_dirclst;            /* cluster of the dir entry             */
-  UBYTE fcb_diroff;             /* offset of the dir entry              */
+  UBYTE fcb_diroff_unused;      /* offset of the dir entry              */
   /* end reserved                                                 */
   UBYTE fcb_curec;              /* Current block number of              */
   ULONG fcb_rndm;               /* Current relative record number       */

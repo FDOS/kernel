@@ -1,0 +1,177 @@
+Release notes for kernel 2024d and its development predecessors
+2024BL,M,N: we think that by now we have ironed out most of these
+bugs, but be careful nonetheless.
+
+About KE2024BL:
+
+    *********************************************************
+    *                                                       *
+    *      THIS IS A BETA RELEASE                           *
+    *                                                       *
+    *             BE CAREFUL                                *
+    *                                                       *
+    *           SAVE YOUR DATA. SAVE OFTEN.                 *
+    *                                                       *
+    * THIS RELEASE MAY DESTROY YOUR DISK COMPLETELY         *
+    *                                                       *
+    *********************************************************
+
+
+KE2024BL introduced full LBA support; i.e. disk may be up to 
+2^32 * 512 bytes = 2000 GB large. 
+
+also new is the working of 64K FAT clustersize for a max 
+logical disksize of 2^16 * 64K = ~4 GB.
+
+KE2024BM is its follower, with some more bugfixes.
+
+
+How dangerous is it?
+
+The KE2024BL kernel has been send by private mail to some of us,
+has been tested on 7 maschines with and without LBA support.
+
+No errors (other then the known bugs) were reported.
+And KE2024BM is pretty conservativ, before it accepts and uses
+a disk.
+
+the main problem may be, that a disk recognized by an older
+kernel, will no longer work with the new one, because strange
+partitioning scemes, although nothing like that has been reported.
+
+So, if after booting you see all your drives, containing resonable 
+data, it should be pretty save to use.
+
+Be a bit careful, nevertheless.
+
+
+
+
+
+
+full LBA support and 64K FAT clustersize for a max 
+logical disksize of 2^16 * 64K = ~4 GB 
+
+
+were have been tested in the following way:
+
+on my 30GB disk, a partition with 1.7 GB for 32K clusters and
+3.5 GB for 64K clusters created. the 3.5 GB partition was created,
+using Win2K.
+
+my WINNT directory (~350MB) was copied there - (using VC)
+once for 32K,
+for 64K,
+    xcopy c:\WINNT j:\WINNT /s
+    xcopy j:\WINNT j:\WINN1 /s
+    xcopy j:\WINN1 j:\WINN2 /s
+    xcopy j:\WINN2 j:\WINN3 /s
+    xcopy j:\WINN3 j:\WINN4 /s
+to fill the disk.
+
+
+the 350 MB files (WINNT for 32K, WINN4 for 64K) were then 
+compared to the original file. they were identical.
+
+no, not all files were copied due to restrictions in MAX_PATH_SIZE,
+but the files, that were copied, compared ok.
+
+the files were also readable with WinNT, and they were identical, too.
+WinNT chkdsk was content with the disk.
+
+
+next, the kernel source was copied to this drive, compiled,
+and verified.
+
+so, it _seems_ to work for me.
+
+known issues:
+  * VC will say, that the disk has size of 0 byte, with 0 byte free.
+    this is not a kernel bug. 
+    VC simply multiplies BytesPerSec*SecPerCluster, gets 
+    128*512 = 0x10000, and saves the low part, which is 0.
+
+  * the behaviour for filesize at or above 2GB (where the sign 
+    gets negative) is completely untested. test it, if you like    
+
+  * there are some bugs, when the pathlength is around 64.
+    this may lead to incontinent (sorry, inconsistent) behaviour,
+    like
+        you can MKDIR a directory, but not CHDIR to it
+    and similiar things.
+    some of them found and removed, but there are probably more
+    to be found yet. fortunately, none lead to data loss :-)
+
+
+    *********************************************************
+    *                                                       *
+    *       BE CAREFUL                                      *
+    * AND SAVE YOUR DATA. SAVE OFTEN.                       *
+    *                                                       *
+    *********************************************************
+
+
+Bugs and fixes in the FAT filesystem (tested on KE2024BN)
+
+---------------------------------------------------------
+KE2024BM:
+Disk Full not detected in a compatible way.
+it was possible to create a directory(pointing to nowhere),
+even if disk was full.
+
+---------------------------------------------------------
+DosGetFreeSpace is wrong (verified on KE2022, too):
+
+when creating files, the 2nd and following clusters are 
+counted twice when created.
+
+simply copy one file to another, delete 2nd file;
+watch free space before and after. 
+corrected in KE2024BP
+
+---------------------------------------------------------
+#include <stdio.h>
+#include <io.h>
+main()
+{
+	FILE *fd = fopen("test.dat","w");
+	int fdn = fileno(fd);
+
+	lseek(fdn,10000,SEEK_CUR);
+	write(fdn,"hello world",10);
+}
+
+creates file of DirSize 10010 bytes, but reserves 
+a single FAT entry cluster
+
+this is obviously nonsense.
+
+and there is no "hello world" in it :-(
+
+cured by FATFS.C, 
+  /* Now that we've found a free FAT entry, mark it as the last   */
+  /* entry and save it.                                           */
+  /* BUG!! this caused wrong allocation, if file was created, 
+     then seeked, then written */
++  fnp->f_cluster = 
+        fnp->f_dir.dir_start = free_fat;
+
+
+
+
+--------------------------------------------------------------
+when a big file is created, and cut afterward, the filespace is NOT freed
+try:
+    copy command.com xx
+    dir
+    echo >xx
+    dir
+and compare disk free info.
+the space is freed, however, if xx is deleted after that.
+--------------------------------------------------------------    
+
+
+
+
+regards
+tom ehlert (tom.ehlert@ginko.de)
