@@ -29,6 +29,7 @@
 
 
 		%include "segs.inc"
+		%include "stacks.inc"
 
 segment	HMA_TEXT
                 global  _reloc_call_CharMapSrvc

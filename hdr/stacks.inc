@@ -118,8 +118,8 @@ irp_hi    equ 26
 ;
 ; assumption:
 ; we have never seen MSVC to use anything but eax, ecx, edx,
-; nor have we seen Borland C to use anything but eax, edx,
-; so we only protect eax, ecx, edx to conserve stack space
+; nor have we seen Borland C to use anything but eax, ebx, edx,
+; so we only protect eax, ebx or ecx, edx to conserve stack space
 ;
 ; to save even more stack space, we save only HIGH part of regs
 ; at some expense of slower execution. it's easier anyway :-)
@@ -149,8 +149,13 @@ irp_hi    equ 26
 	%else
 		push eax
 		pop ax
+        %ifdef MSCL8
 		push ecx
 		pop cx
+        %else ;BC5
+		push ebx
+		pop bx
+        %endif
 		push edx
 		pop dx
 	%endif
@@ -165,8 +170,13 @@ irp_hi    equ 26
 	%else
 		push dx
 		pop edx
+        %ifdef MSCL8
 		push cx
 		pop ecx
+        %else ;BC5
+		push bx
+		pop ebx
+        %endif
 		push ax
 		pop eax
 	%endif

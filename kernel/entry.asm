@@ -352,7 +352,7 @@ int21_exit_nodec:
 %ifdef WATCOM
                 sub bp, 4   ; for fs and gs only
 %else        
-		sub bp, 6   ; high parts of eax, ecx, edx
+		sub bp, 6   ; high parts of eax, ebx or ecx, edx
 %endif        
 %endif				
 

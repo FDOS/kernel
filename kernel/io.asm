@@ -29,6 +29,7 @@
 ;
 
                 %include "segs.inc"
+                %include "stacks.inc"
 
                 extern   ConTable:wrt LGROUP
                 extern   LptTable:wrt LGROUP

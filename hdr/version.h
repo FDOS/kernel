@@ -47,8 +47,8 @@ static BYTE *date_hRcsId =
 
 #define REVISION_MAJOR  1
 #define REVISION_MINOR  1
-#define REVISION_SEQ    34
-#define BUILD           "2034"
+#define REVISION_SEQ    35
+#define BUILD           "2035"
 #define SUB_BUILD	""
-#define KERNEL_VERSION_STRING "1.1.34" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
-#define KERNEL_BUILD_STRING "2034"   /*#BUILD SUB_BUILD */
+#define KERNEL_VERSION_STRING "1.1.35" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
+#define KERNEL_BUILD_STRING "2035"   /*#BUILD SUB_BUILD */

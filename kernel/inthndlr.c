@@ -1635,7 +1635,13 @@ struct int2f12regs {
 #ifdef __WATCOMC__
   /* UWORD gs, fs;  ** GS/FS are protected through SI/DI */
 #else
-  UWORD high_edx, high_ecx, high_eax;
+  UWORD high_edx,
+#ifdef _MSC_VER
+        high_ecx,
+#else /* __BORLANDC__ */
+        high_ebx,
+#endif
+        high_eax;
 #endif
 #endif
   UWORD es, ds;
