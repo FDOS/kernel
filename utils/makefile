@@ -1,4 +1,4 @@
-!include "..\mkfiles\generic.mak"
+!include "../mkfiles/generic.mak"
 
 CFLAGS = -I$(INCLUDEPATH) -I..\hdr
 
@@ -7,7 +7,7 @@ production: patchobj.com exeflat.exe
 patchobj.com: patchobj.c
 	$(CL) $(CFLAGST) $(TINY) $(CFLAGS) patchobj.c
 
-exeflat.exe: exeflat.c ..\hdr\exe.h
+exeflat.exe: exeflat.c ../hdr/exe.h
 	$(CL) $(CFLAGSC) $(CFLAGS) exeflat.c
 
 
