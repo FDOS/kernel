@@ -477,7 +477,7 @@ UBYTE FcbDelete(xfcb FAR * lpXfcb)
   void FAR *lpOldDta = dta;
 
   /* Build a traditional DOS file name                            */
-  fcb FAR *lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
+  CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
   /* check for a device                                           */
   if (IsDevice(SecPathName))
   {
