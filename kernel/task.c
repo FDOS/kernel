@@ -304,12 +304,16 @@ int load_transfer(UWORD ds, exec_blk *exp, UWORD fcbcode, COUNT mode)
     /* build the user area on the stack                     */
     irp = (iregs FAR *)(exp->exec.stack - sizeof(iregs));
     
-    /* start allocating REGs                                */
-    irp->ES = irp->DS = ds;
+    /* start allocating REGs (as in MS-DOS - some demos expect them so --LG) */
+    /* see http://www.beroset.com/asm/showregs.asm */
+    irp->DX = irp->ES = irp->DS = ds;
     irp->CS = FP_SEG(exp->exec.start_addr);
-    irp->IP = FP_OFF(exp->exec.start_addr);
-    irp->AX = fcbcode;
-    irp->BX = irp->CX = irp->DX = irp->SI = irp->DI = irp->BP = 0;
+    irp->SI = irp->IP = FP_OFF(exp->exec.start_addr);
+    irp->DI = FP_OFF(exp->exec.stack);
+    irp->BP = 0x91e; /* this is more or less random but some programs
+                        expect 0x9 in the high byte of BP!! */
+    irp->AX = irp->BX = fcbcode;
+    irp->CX = 0xFF;
     irp->FLAGS = 0x200;
     
     if (InDOS)
