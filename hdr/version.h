@@ -42,5 +42,5 @@ static BYTE *date_hRcsId = "$Id$";
 
 #define REVISION_MAJOR  1
 #define REVISION_MINOR  1
-#define REVISION_SEQ    21
-#define BUILD           2021
+#define REVISION_SEQ    22
+#define BUILD           2022
