@@ -58,8 +58,6 @@ struct f_node {
   CLUSTER f_back;               /* the cluster we were at       */
   CLUSTER f_cluster_offset;     /* relative cluster number within file */
   CLUSTER f_cluster;            /* the cluster we are at        */
-  UWORD f_sector;               /* the sector in the cluster    */
-  UWORD f_boff;                 /* the byte in the cluster      */
 };
 
 typedef struct f_node *f_node_ptr;

@@ -1432,6 +1432,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
   /* The variable secsize will be used later.                     */
   UWORD secsize = fnp->f_dpb->dpb_secsize;
   ULONG count;
+  unsigned sector, boff;
 #endif
 
   if (fnp->f_offset <= fnp->f_dir.dir_size)
@@ -1449,27 +1450,27 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
 #ifdef WRITEZEROS
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
-    fnp->f_sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = (UWORD)(fnp->f_offset % secsize);
+    sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    boff = (UWORD)(fnp->f_offset % secsize);
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
            fnp->f_count, fnp->f_diroff, fnp->f_cluster);
 #endif
 
-    xfr_cnt = count < (ULONG) secsize - fnp->f_boff ?
-        (UWORD) count : secsize - fnp->f_boff;
+    xfr_cnt = count < (ULONG) secsize - boff ?
+        (UWORD) count : secsize - boff;
 
     /* get a buffer to store the block in */
-    if ((fnp->f_boff == 0) && (xfr_cnt == secsize))
+    if ((boff == 0) && (xfr_cnt == secsize))
     {
       bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) +
-                        fnp->f_sector, fnp->f_dpb->dpb_unit);
+                        sector, fnp->f_dpb->dpb_unit);
 
     }
     else
     {
-      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector,
+      bp = getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + sector,
                     fnp->f_dpb->dpb_unit);
     }
     if (bp == NULL)
@@ -1478,7 +1479,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
     }
 
     /* set a block to zero                                  */
-    fmemset((BYTE FAR *) & bp->b_buffer[fnp->f_boff], 0, xfr_cnt);
+    fmemset((BYTE FAR *) & bp->b_buffer[boff], 0, xfr_cnt);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
     if (xfr_cnt == sizeof(bp->b_buffer))        /* probably not used later */
@@ -1635,6 +1636,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   /* can utilize memory management in future DOS-C versions.      */
   while (ret_cnt < count)
   {
+    unsigned sector, boff;
+
     /* Do an EOF test and return whatever was transferred   */
     /* but only for regular files.                          */
     if (mode == XFR_READ && !(fnp->f_flags.f_ddir) && (fnp->f_offset >= fnp->f_dir.dir_size))
@@ -1651,7 +1654,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* file offset case. Here, we need to take the fnode's  */
     /* offset pointer (f_offset) and translate it into a    */
     /* relative cluster position, cluster block (sector)    */
-    /* offset (f_sector) and byte offset (f_boff). Once we  */
+    /* offset (sector) and byte offset (boff). Once we      */
     /* have this information, we need to translate the      */
     /* relative cluster position into an absolute cluster   */
     /* position (f_cluster). This is unfortunate because it */
@@ -1678,15 +1681,15 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
     /* Compute the block within the cluster and the offset  */
     /* within the block.                                    */
-    fnp->f_sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-    fnp->f_boff = (UWORD)(fnp->f_offset % secsize);
+    sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+    boff = (UWORD)(fnp->f_offset % secsize);
 
-    currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + fnp->f_sector;
+    currentblock = clus2phys(fnp->f_cluster, fnp->f_dpb) + sector;
 
     /* see comments above */
 
     if (!fnp->f_flags.f_ddir && /* don't experiment with directories yet */
-        fnp->f_boff == 0)       /* complete sectors only */
+        boff == 0)              /* complete sectors only */
     {
       static ULONG startoffset;
       UCOUNT sectors_to_xfer, sectors_wanted;
@@ -1703,7 +1706,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
       if (sectors_wanted == 0)
         goto normal_xfer;
 
-      sectors_to_xfer = fnp->f_dpb->dpb_clsmask + 1 - fnp->f_sector;
+      sectors_to_xfer = fnp->f_dpb->dpb_clsmask + 1 - sector;
 
       sectors_to_xfer = min(sectors_to_xfer, sectors_wanted);
 
@@ -1772,7 +1775,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* requested transfer size, whichever is smaller.       */
     /* Then compare to what is left, since we can transfer  */
     /* a maximum of what is left.                           */
-    xfr_cnt = min(to_xfer, secsize - fnp->f_boff);
+    xfr_cnt = min(to_xfer, secsize - boff);
     if (!fnp->f_flags.f_ddir && mode == XFR_READ)
       xfr_cnt = (UWORD) min(xfr_cnt, fnp->f_dir.dir_size - fnp->f_offset);
 
@@ -1783,12 +1786,12 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* a maximum of what is left.                           */
     if (mode == XFR_WRITE)
     {
-      fmemcpy(&bp->b_buffer[fnp->f_boff], buffer, xfr_cnt);
+      fmemcpy(&bp->b_buffer[boff], buffer, xfr_cnt);
       bp->b_flag |= BFR_DIRTY | BFR_VALID;
     }
     else
     {
-      fmemcpy(buffer, &bp->b_buffer[fnp->f_boff], xfr_cnt);
+      fmemcpy(buffer, &bp->b_buffer[boff], xfr_cnt);
     }
 
     /* complete buffer transferred ? 
