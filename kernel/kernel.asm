@@ -574,6 +574,15 @@ _prev_user_r:
 prev_int21regs_off      dw      0       ;2D0 - pointer to prev int 21 frame
 prev_int21regs_seg      dw      0
 
+                ; Pad to 02ddh
+                times (2ddh - ($ - _internal_data)) db 0
+                global  _ext_open_action
+                global  _ext_open_attrib
+                global  _ext_open_mode
+_ext_open_action dw 0                   ;2DD - extended open action
+_ext_open_attrib dw 0                   ;2DF - extended open attrib
+_ext_open_mode   dw 0                   ;2E1 - extended open mode
+
                 ; Pad to 0620h
                 times (300h - ($ - _internal_data)) db 0
                 global _szNames
@@ -883,14 +892,7 @@ forceEnableA20retry:
 ;
 ;   ok, we have to enable A20 )at least seems so
 ;
-    ; some debug first
-    ; push bx
-    ; mov  ah, 0eh
-    ; mov  al, 'H'
-    ; mov  bx, 0007h
-    ; int  10h
-    ; pop bx
-    
+
     call far __EnableA20
     
     jmp short forceEnableA20retry
@@ -903,9 +905,27 @@ forceEnableA20success:
     pop ds
     ret
 		
+;
+; global f*cking compatibility issues:
+;
+; very old brain dead software (PKLITE, copyright 1990)
+; forces us to execute with A20 disabled
+;
 
+global _ExecUserDisableA20
 
+_ExecUserDisableA20:
 
+    cmp word [cs:_XMSDriverAddress],0
+    jne NeedToDisable
+    cmp word [cs:_XMSDriverAddress+2],0
+    je noNeedToDisable
+NeedToDisable:        
+    push ax 
+    call far __DisableA20
+    pop ax
+noNeedToDisable:
+    iret        
 
 
 segment _TEXT

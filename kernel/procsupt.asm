@@ -67,7 +67,8 @@ _exec_user:
                 sti
 ;
                 POP$ALL
-                iret
+                extern _ExecUserDisableA20
+                jmp far _ExecUserDisableA20
 
 segment _TEXT
 
