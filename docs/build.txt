@@ -14,11 +14,11 @@ CONFIG.BAT file will not get replaced!
 
 You will also need to download the latest version of NASM and Turbo C
 2.01.  Install Turbo C and NASM somewhere (it doesn't really matter
-where) and then be sure to edit the CONFIG.MAK file to reflect where
+where) and then be sure to edit the CONFIG.BAT file to reflect where
 you put the tools.
 
-You can find NASM at http://nasm.sourceforge.net. Version 0.98.36 is
-strongly recommended. The older 0.98 will also work fine, but
+You can find NASM at http://nasm.sourceforge.net. Version 0.98.36 or
+later is strongly recommended. The older 0.98 will also work fine, but
 any version in between is likely to fail. It's best to use a NASM
 that is native to your host; that is, when compiling in Windows, use
 the win32 version. The DJGPP version is less likely to run out of
@@ -32,7 +32,7 @@ This kernel will now compile with Turbo C 2.01, Turbo C++ 1.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
 other Borland compilers, Microsoft C and (Open)Watcom C.
 
-The OpenWatcom 1.0 compiler for DOS can now be downloaded at
+The OpenWatcom 1.0 compiler (or later) for DOS can now be downloaded at
 www.openwatcom.org: you need at least the following zips from
 ftp://ftp.openwatcom.org/watcom/zips/
 
