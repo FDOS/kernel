@@ -44,4 +44,4 @@ clean:
 		-$(RM) *.bak *.cod *.crf *.err *.las *.lst *.map *.obj *.xrf
 
 clobber:	clean
-		-$(RM) bin2c.com fat*.h status.me
+		-$(RM) bin2c.com fat*.h oem*.h status.me
