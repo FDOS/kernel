@@ -138,7 +138,7 @@ KbdRdRtn:
 
 ;
 ; Name:
-;       ConInStat
+;       CommonNdRdExit
 ;
 ; Function:
 ;       Checks the keyboard input buffer.
