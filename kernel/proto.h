@@ -162,7 +162,7 @@ BOOL dos_setfsize(COUNT fd, LONG size);
 COUNT dos_mkdir(BYTE * dir);
 BOOL last_link(f_node_ptr fnp);
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode);
-UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode);
+long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode);
 COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count);
 COUNT dos_write(COUNT fd, const VOID FAR * buffer, UCOUNT count);
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin);

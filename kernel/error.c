@@ -78,14 +78,18 @@ VOID fatal(BYTE * err_msg)
 /* Abort, retry or fail for character devices                   */
 COUNT char_error(request * rq, struct dhdr FAR * lpDevice)
 {
+  CritErrCode = (rq->r_status & S_MASK) + 0x13;
   return CriticalError(EFLG_CHAR | EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE,
                        0, rq->r_status & S_MASK, lpDevice);
 }
 
 /* Abort, retry or fail for block devices                       */
-COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice)
+COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice,
+                  int mode)
 {
-  return CriticalError(EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE,
+  CritErrCode = (rq->r_status & S_MASK) + 0x13;
+  return CriticalError(EFLG_ABORT | EFLG_RETRY | EFLG_IGNORE |
+                       (mode == DSKWRITE ? EFLG_WRITE : 0),
                        nDrive, rq->r_status & S_MASK, lpDevice);
 }
 

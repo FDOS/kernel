@@ -400,8 +400,14 @@ dispatch:
   }
 #endif
 
-  if ((lr.AH >= 0x38 && lr.AH <= 0x4F) || (lr.AH >= 0x56 && lr.AH <= 0x5c))
+  if ((lr.AH >= 0x38 && lr.AH <= 0x4F) || (lr.AH >= 0x56 && lr.AH <= 0x5c) ||
+      (lr.AH >= 0x5e && lr.AH <= 0x60) || (lr.AH >= 0x65 && lr.AH <= 0x6a) ||
+      lr.AH == 0x6c)
+  {
     CLEAR_CARRY_FLAG();
+    if (lr.AH != 0x59)
+      CritErrCode = SUCCESS;
+  }
   /* Clear carry by default for these functions */
 
 
@@ -1328,12 +1334,12 @@ dispatch:
           CLEAR_CARRY_FLAG();
           break;
         default:
+          CritErrCode = SUCCESS;
           goto error_invalid;
       }
       break;
 
     case 0x5e:
-      CLEAR_CARRY_FLAG();
       switch (lr.AL)
       {
         case 0x00:
@@ -1355,7 +1361,6 @@ dispatch:
       break;
 
     case 0x5f:
-      CLEAR_CARRY_FLAG();
       if (lr.AL == 7 || lr.AL == 8)
       {
         struct cds FAR *cdsp;
@@ -1400,7 +1405,6 @@ dispatch:
       break;
 
     case 0x60:                 /* TRUENAME */
-      CLEAR_CARRY_FLAG();
       if ((rc = DosTruename(MK_FP(lr.DS, lr.SI), adjust_far(FP_ES_DI))) < SUCCESS)
         goto error_exit;
       break;
@@ -1490,12 +1494,10 @@ dispatch:
 
           break;
       }
-      CLEAR_CARRY_FLAG();
       break;
 
       /* Code Page functions */
     case 0x66:
-        CLEAR_CARRY_FLAG();
         switch (lr.AL)
         {
           case 1:
@@ -1514,7 +1516,6 @@ dispatch:
 
       /* Set Max file handle count */
     case 0x67:
-      CLEAR_CARRY_FLAG();
       if ((rc = SetJFTSize(lr.BX)) != SUCCESS)
         goto error_exit;
       break;
@@ -1522,14 +1523,12 @@ dispatch:
       /* Flush file buffer -- COMMIT FILE.  */
     case 0x68:
     case 0x6a:
-      CLEAR_CARRY_FLAG();
       if ((rc = DosCommit(lr.BX)) < 0)
         goto error_exit;
       break;
 
       /* Get/Set Serial Number */
     case 0x69:
-      CLEAR_CARRY_FLAG();
       rc = (lr.BL == 0 ? default_drive : lr.BL - 1);
       if (lr.AL == 0 || lr.AL == 1)
       {
@@ -1560,8 +1559,7 @@ dispatch:
     case 0x6c:
       {
         long lrc;
-        CLEAR_CARRY_FLAG();
-      
+
         if (lr.AL != 0 ||
             (lr.DL & 0x0f) > 0x2 || (lr.DL & 0xf0) > 0x10)
           goto error_invalid;
@@ -1588,6 +1586,7 @@ dispatch:
       /* DOS 7.0+ FAT32 extended functions */
     case 0x73:
       CLEAR_CARRY_FLAG();
+      CritErrCode = SUCCESS;
       rc = int21_fat32(&lr);
       if (rc != SUCCESS)
         goto error_exit;
@@ -1640,7 +1639,8 @@ error_invalid:
   rc = DE_INVLDFUNC;
 error_exit:
   lr.AX = -rc;
-  CritErrCode = lr.AX;      /* Maybe set */
+  if (CritErrCode == SUCCESS)
+    CritErrCode = lr.AX;      /* Maybe set */
 error_carry:
   SET_CARRY_FLAG();
 exit_dispatch:

@@ -449,7 +449,8 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
       *p = '\\'; /* force backslash! */
     }
     p++;
-    DosGetCuDir((UBYTE)((result & 0x1f) + 1), p);
+    if (DosGetCuDir((UBYTE)((result & 0x1f) + 1), p) < 0)
+      return DE_PATHNOTFND;
     if (*src != '\\' && *src != '/')
       p += strlen(p);
     else /* skip the absolute path marker */

@@ -446,7 +446,7 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
       return (IoReqHdr.r_status);
 
   loop:
-    switch (block_error(&IoReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
+    switch (block_error(&IoReqHdr, dpbp->dpb_unit, dpbp->dpb_device, mode))
     {
       case ABORT:
       case FAIL:

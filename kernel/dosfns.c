@@ -306,8 +306,9 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   }
   /* /// End of additions for SHARE - Ron Cemer */
   {
-    UCOUNT XferCount;
-    XferCount = rwblock(s->sft_status, bp, n, mode);
+    long XferCount = rwblock(s->sft_status, bp, n, mode);
+    if (XferCount < 0)
+      return XferCount;
     if (mode == XFR_WRITE)
       s->sft_size = dos_getfsize(s->sft_status);
     s->sft_posit += XferCount;

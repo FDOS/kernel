@@ -1537,7 +1537,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
 /* Read/write block from disk */
 /* checking for valid access was already done by the functions in
    dosfns.c */
-UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
+long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 {
   REG f_node_ptr fnp;
   REG struct buffer FAR *bp;
@@ -1714,7 +1714,7 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
                   mode == XFR_READ ? DSKREAD : DSKWRITE))
       {
         fnp->f_offset = startoffset;
-        return ret_cnt;
+        return DE_ACCESS;
       }
 
       goto update_pointers;
@@ -2080,7 +2080,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
         || !(MediaReqHdr.r_status & S_DONE))
     {
     loop1:
-      switch (block_error(&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
+      switch (block_error(&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device, 0))
       {
         case ABORT:
         case FAIL:
@@ -2129,7 +2129,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
         {
         loop2:
           switch (block_error
-                  (&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device))
+                  (&MediaReqHdr, dpbp->dpb_unit, dpbp->dpb_device, 0))
           {
             case ABORT:
             case FAIL:

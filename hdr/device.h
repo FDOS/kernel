@@ -462,7 +462,7 @@ ddt * getddt(int dev);
 
 /* error.c */
 COUNT char_error(request * rq, struct dhdr FAR * lpDevice);
-COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice);
+COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice, int mode);
 /* sysclk.c */
 WORD ASMCFUNC FAR clk_driver(rqptr rp);
 
