@@ -282,6 +282,7 @@ int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 VOID hexd(char *title, VOID FAR * p, COUNT numBytes);
 void put_unsigned(unsigned n, int base, int width);
 void put_string(const char *s);
+void put_console(int);
 
 /* strings.c */
 size_t /* ASMCFUNC */ ASMPASCAL strlen(const char * s);

@@ -57,7 +57,7 @@ static BYTE *prfRcsId =
 static int buff_offset = 0;
 static char buff[MAX_BUFSIZE];
 
-STATIC VOID put_console(COUNT c)
+void put_console(int c)
 {
   if (buff_offset >= MAX_BUFSIZE)
   {
@@ -91,7 +91,7 @@ STATIC VOID put_console(COUNT c)
   }
 }
 #else
-STATIC VOID put_console(COUNT c)
+void put_console(int c)
 {
   if (c == '\n')
     put_console('\r');
@@ -129,7 +129,6 @@ typedef char *va_list;
 static BYTE *charp = 0;
 
 STATIC VOID handle_char(COUNT);
-STATIC VOID put_console(COUNT);
 STATIC BYTE * ltob(LONG, BYTE *, COUNT);
 STATIC COUNT do_printf(CONST BYTE *, REG va_list);
 int CDECL printf(CONST BYTE * fmt, ...);

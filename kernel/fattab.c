@@ -50,6 +50,23 @@ int ISFAT32(struct dpb FAR * dpbp)
 struct buffer FAR *getFATblock(ULONG clussec, struct dpb FAR * dpbp)
 {
   struct buffer FAR *bp;
+  CLUSTER max_cluster = dpbp->dpb_size;
+
+#ifdef WITHFAT32
+  if (ISFAT32(dpbp))
+    max_cluster = dpbp->dpb_xsize;
+#endif
+ 
+  if (clussec <= 1 || clussec > max_cluster)
+  {
+    put_string("run CHKDSK: trying to access invalid cluster 0x");
+#ifdef WITHFAT32
+    put_unsigned(clussec >> 16, 16, 4);
+#endif
+    put_unsigned(clussec & 0xffffu, 16, 4);
+    put_console('\n');
+    return NULL;
+  }
 
   if (ISFAT12(dpbp))
   {
@@ -259,12 +276,6 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
 {
   struct buffer FAR *bp;
-#ifdef DEBUG
-  if (ClusterNum == LONG_LAST_CLUSTER)
-    printf("fatal error: trying to do next_cluster(dpbp, EOC)!\n");
-  if (ClusterNum == 0)
-    printf("fatal error: trying to do next_cluster(dpbp, 0)!\n");
-#endif
 
   /* Get the block that this cluster is in                */
   bp = getFATblock(ClusterNum, dpbp);

@@ -57,11 +57,6 @@ static BYTE *fat_hRcsId =
 #define DELETED         '\x5'    /* if first char, delete file   */
 #define EXT_DELETED     '\xe5'   /* external deleted flag */
 
-/* FAT cluster to physical conversion macros                            */
-#define clus_add(cl_no)         ((ULONG) (((ULONG) cl_no - 2L) \
-                                        * (ULONG) cluster_size \
-                                        + (ULONG) data_start))
-
 /* Test for 16 bit or 12 bit FAT                                        */
 #define SIZEOF_CLST16   2
 #define SIZEOF_CLST32   4
@@ -70,8 +65,8 @@ static BYTE *fat_hRcsId =
 #define FREE                    0x000
 
 #ifdef WITHFAT32
-#define LONG_LAST_CLUSTER       0x0FFFFFFFl
-#define LONG_BAD                0x0FFFFFF7l
+#define LONG_LAST_CLUSTER       0x0FFFFFFFUL
+#define LONG_BAD                0x0FFFFFF7UL
 #else
 #define LONG_LAST_CLUSTER       0xFFFF
 #define LONG_BAD                0xFFF7
@@ -86,8 +81,8 @@ static BYTE *fat_hRcsId =
    for FAT12; similar for 16 and 32 */
 
 #define FAT_MAGIC       4085
-#define FAT_MAGIC16     ((unsigned)65525l)
-#define FAT_MAGIC32     268435455l
+#define FAT_MAGIC16     65525U
+#define FAT_MAGIC32     268435455UL
 
 /* int ISFAT32(struct dpb FAR *dpbp);*/
 #define ISFAT32(x) _ISFAT32(x)
@@ -133,31 +128,26 @@ struct lfn_entry {
 /*                                                                      */
 
 #ifdef WITHFAT32
-#define getdstart(dentry) \
-  (((ULONG)dentry.dir_start_high << 16) | dentry.dir_start)
-#define setdstart(dentry, value) \
-  dentry.dir_start = (UCOUNT)value; \
-  dentry.dir_start_high = (UCOUNT)(value >> 16)
-#define checkdstart(dentry, value) \
-  (dentry.dir_start == (UCOUNT)value && \
-   dentry.dir_start_high == (UCOUNT)(value >> 16))
+CLUSTER getdstart(struct dpb FAR *dpbp, struct dirent *dentry);
+void setdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);
+BOOL checkdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);
 #else
-#define getdstart(dentry) \
-  dentry.dir_start
-#define setdstart(dentry, value) \
-  dentry.dir_start = (UCOUNT)value
-#define checkdstart(dentry, value) \
-  (dentry.dir_start == (UCOUNT)value)
+#define getdstart(dpbp, dentry) \
+  ((dentry)->dir_start)
+#define setdstart(dpbp, dentry, value) \
+  (((dentry)->dir_start) = (UWORD)(value))
+#define checkdstart(dpbp, dentry, value) \
+  (((dentry)->dir_start) == (UWORD)(value))
 #endif
 
 #define DIR_NAME        0
 #define DIR_EXT         FNAME_SIZE
-#define DIR_ATTRIB      FNAME_SIZE+FEXT_SIZE
-#define DIR_RESERVED    FNAME_SIZE+FEXT_SIZE+1
-#define DIR_TIME        FNAME_SIZE+FEXT_SIZE+11
-#define DIR_DATE        FNAME_SIZE+FEXT_SIZE+13
-#define DIR_START       FNAME_SIZE+FEXT_SIZE+15
-#define DIR_SIZE        FNAME_SIZE+FEXT_SIZE+17
+#define DIR_ATTRIB      (FNAME_SIZE+FEXT_SIZE)
+#define DIR_RESERVED    (FNAME_SIZE+FEXT_SIZE+1)
+#define DIR_TIME        (FNAME_SIZE+FEXT_SIZE+11)
+#define DIR_DATE        (FNAME_SIZE+FEXT_SIZE+13)
+#define DIR_START       (FNAME_SIZE+FEXT_SIZE+15)
+#define DIR_SIZE        (FNAME_SIZE+FEXT_SIZE+17)
 
 #define DIRENT_SIZE     32
 

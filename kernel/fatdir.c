@@ -166,7 +166,7 @@ f_node_ptr dir_open(register const char *dirname)
     {
       /* make certain we've moved off */
       /* root                         */
-      dir_init_fnode(fnp, getdstart(fnp->f_dir));
+      dir_init_fnode(fnp, getdstart(fnp->f_dpb, &fnp->f_dir));
     }
   }
   return fnp;
