@@ -438,7 +438,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
         DebugPrintf(("FAT12: too many clusters: setting to maxclu-2\n"));
       }
       defbpb->bpb_nfsect = fatlength;
-      fmemcpy(pddt->ddt_fstype, MSDOS_FAT12_SIGN, 8);
+      memcpy(pddt->ddt_fstype, MSDOS_FAT12_SIGN, 8);
       break;
     }
     case FAT16SMALL:
@@ -492,7 +492,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       }
       while (defbpb->bpb_nsector && defbpb->bpb_nsector <= maxclustsize);
       defbpb->bpb_nfsect = fatlength;
-      fmemcpy(pddt->ddt_fstype, MSDOS_FAT16_SIGN, 8);
+      memcpy(pddt->ddt_fstype, MSDOS_FAT16_SIGN, 8);
       break;
     }
 #ifdef WITHFAT32
@@ -548,7 +548,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       defbpb->bpb_xrootclst = 2;
       defbpb->bpb_xfsinfosec = 1;
       defbpb->bpb_xbackupsec = 6;
-      fmemcpy(pddt->ddt_fstype, MSDOS_FAT32_SIGN, 8);
+      memcpy(pddt->ddt_fstype, MSDOS_FAT32_SIGN, 8);
       break;
     }
 #endif
