@@ -1,3 +1,8 @@
+2000 Dec 15 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixes	 Added Patches from Bart Oldeman (Bart.Oldeman@bristol.ac.uk)
+         Fix for NLAST in globals.h and change default return in inthndlr.c.
+
 2000 Oct 29 - Build 2022
 -------- James Tabor (jimtabor@infohwy.com)
          Rebuild local cvs tree after a crash. Update CVS at Sourceforge.net

@@ -36,6 +36,9 @@ static BYTE *Globals_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/12/16 01:38:35  jimtabor
+ * Added patches from Bart Oldeman
+ *
  * Revision 1.5  2000/08/06 05:50:17  jimtabor
  * Add new files and update cvs with patches and changes
  *
@@ -213,7 +216,7 @@ static BYTE *Globals_hRcsId = "$Id$";
 #define NFCBS           16      /* number of fcbs               */
 #define NDEVS           8       /* number of supported devices  */
 #define NSTACKS         8       /* number of stacks             */
-#define NLAST           2       /* last drive                   */
+#define NLAST           6       /* last drive                   */
 #define NAMEMAX         PARSE_MAX	/* Maximum path for CDS         */
 #define NUMBUFF         6       /* Number of track buffers      */
                                         /* -- must be at least 3        */

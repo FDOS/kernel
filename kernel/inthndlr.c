@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.12  2000/12/16 01:38:35  jimtabor
+ * Added patches from Bart Oldeman
+ *
  * Revision 1.11  2000/10/30 00:21:15  jimtabor
  * Adding Brian Reifsnyder Fix for Int 25/26
  *
@@ -346,7 +349,6 @@ dispatch:
       /* int 21h common error handler                                 */
     case 0x64:
     case 0x6b:
-    default:
     error_invalid:
       r->AX = -DE_INVLDFUNC;
       goto error_out;
@@ -543,6 +545,7 @@ dispatch:
 #ifndef TSC
     case 0x61:
 #endif
+    default:
       r->AL = 0;
       break;
 
