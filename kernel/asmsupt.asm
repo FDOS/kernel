@@ -291,7 +291,7 @@ strcpy_loop:
 		jmp  short pascal_return
 
 ;******************************************************************                
-                
+%ifndef _INIT                
                 global  FSTRLEN
 FSTRLEN:
                 call pascal_setup
@@ -301,6 +301,7 @@ FSTRLEN:
 		mov   bl,4
 
                 jmp short dostrlen
+%endif
 
 ;**********************************************
                 global  STRLEN
