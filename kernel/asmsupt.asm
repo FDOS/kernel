@@ -242,7 +242,7 @@ MEMSET:
 
 ;*****
 pascal_return:
-                lds     di, [bp]    ; return address in es, saved bp in di
+                lds     di, [bp]    ; return address in ds, saved bp in di
                 mov     bh, 0
                 add     bp, bx      ; point bp to "as if there were 0 args"
                 mov     [bp+2], ds  ; put return address at first arg
