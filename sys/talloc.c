@@ -18,12 +18,12 @@
 #include <string.h>
 
 #ifdef __TURBOC__
-extern void *__brklvl;
-#define sbrk(x) __brklvl
+extern unsigned __brklvl;
+#define sbrk(x) ((void *)__brklvl)
 #define brk(newbrk) \
 	(((char *)(newbrk) > (char *)(&length) - 0x200) ? \
 		-1 : \
-		(__brklvl = (newbrk), 0))
+		(__brklvl = (unsigned)(newbrk), 0))
 #endif
 
 #ifdef __WATCOMC__
