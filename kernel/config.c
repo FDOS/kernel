@@ -2417,7 +2417,6 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
 
 STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage)
 {
-  int i;
   struct CountrySpecificInfo *country;
   UNREFERENCED_PARAMETER(codePage);
   UNREFERENCED_PARAMETER(filename);
