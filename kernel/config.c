@@ -80,12 +80,9 @@ STATIC void WriteMenuLine(int MenuSelected)
   iregs r;
   unsigned char attr = (unsigned char)MenuColor;
   char *pText = MenuStruct[MenuSelected].Text;
-  size_t len = 0;
 
   if (pText[0] == 0)
     return;
-
-  do len++; while (pText[len]);
 
   if(MenuStruct[MenuSelected].bSelected==1)
     attr = ((attr << 4) | (attr >> 4));
@@ -95,7 +92,7 @@ STATIC void WriteMenuLine(int MenuSelected)
   r.b.b.h = attr;
   r.c.b.l = r.d.b.l = MenuStruct[MenuSelected].x;
   r.c.b.h = r.d.b.h = MenuStruct[MenuSelected].y;
-  r.d.b.l += len - 1;
+  r.d.b.l += strlen(pText) - 1;
   init_call_intr(0x10, &r);
 
   /* set cursor position: */
@@ -952,14 +949,12 @@ STATIC VOID sysScreenMode(BYTE * pLine)
 STATIC VOID sysVersion(BYTE * pLine)
 {
   COUNT major, minor;
-  char *p;
+  char *p = strchr(pLine, '.');
 
-  p = pLine;
-  while (*p && *p != '.')
-    p++;
-
-  if (*p++ == '\0')
+  if (p == NULL)
     return;
+
+  p++;
 
   /* Get major number */
   if (GetNumArg(pLine, &major) == (BYTE *) 0)
@@ -2561,10 +2556,8 @@ STATIC VOID InstallExec(struct instCmds *icmd)
   *d = 0;
 
   args--;
-  *args = 0;
-  while (args[*args+1])
-    ++*args;        
-  args[*args+1] = '\r';	
+  *args = strlen(&args[1]);
+  args[*args+1] = '\r';
   args[*args+2] = 0;
 
   exb.exec.env_seg  = 0;

@@ -335,8 +335,6 @@ dostrlen:
 
                 jmp short pascal_return
 
-%ifndef _INIT
-
 ;************************************************************
 ; strchr (BYTE *src , int ch);
 
@@ -369,6 +367,7 @@ strchr_found1:
 
                 jmp short pascal_return
 
+%ifndef _INIT
 
 ;*****
 ;  fstrchr (BYTE     far *src , int ch);

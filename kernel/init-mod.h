@@ -58,10 +58,11 @@ VOID   ASMPASCAL fmemcpy(      void FAR *d,  const void FAR *s,  size_t n);
 VOID   ASMPASCAL  strcpy(char           *d,  const char     *s);
 size_t ASMPASCAL  strlen(const char     *s);
 size_t ASMPASCAL fstrlen(const char FAR *s);
+char * ASMPASCAL  strchr(const char     *s,  int ch);
 
 #ifdef __WATCOMC__
-/* dx and es not used or clobbered for all asmsupt.asm functions except
-   (f)memchr/(f)strchr (which preserve es) */
+/* bx, cx, dx and es not used or clobbered for all asmsupt.asm functions except
+   (f)memchr/(f)strchr (which clobber dx) */
 #pragma aux (pascal) pascal_ax modify exact [ax]
 #pragma aux (pascal_ax) init_memset
 #pragma aux (pascal_ax) init_fmemset
@@ -72,6 +73,7 @@ size_t ASMPASCAL fstrlen(const char FAR *s);
 #pragma aux (pascal_ax) init_strcpy
 #pragma aux (pascal_ax) init_strlen modify nomemory
 #pragma aux (pascal_ax) init_fstrlen modify nomemory
+#pragma aux (pascal) init_strchr modify exact [ax dx] nomemory
 #endif
 
 #undef LINESIZE
