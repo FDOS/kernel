@@ -32,7 +32,8 @@
 
 segment	HMA_TEXT
                 global  _reloc_call_CharMapSrvc
-                extern  _DosUpChar:wrt TGROUP
+                extern  _DosUpChar
+                extern  _DGROUP_
 ;
 ; CharMapSrvc:
 ;       User callable character mapping service.
@@ -51,10 +52,7 @@ _reloc_call_CharMapSrvc:
                 push    bx
 
                 push    ax          ; arg of _upChar
-;                push ax
-                mov  ax,DGROUP   
-                mov     ds, ax
-;                pop ax
+                mov     ds,[cs:_DGROUP_]
 
                 call    _DosUpChar
                 ;add     sp, byte 2	// next POP retrieves orig AX

@@ -33,7 +33,9 @@
 
 segment	HMA_TEXT
             extern  _cu_psp:wrt DGROUP
-            extern _syscall_MUX14:wrt HMA_TEXT
+            extern _syscall_MUX14
+
+            extern _DGROUP_
 
                 global  reloc_call_int2f_handler
 reloc_call_int2f_handler:
@@ -94,8 +96,7 @@ DriverSysCal:
                 extern  _Dyn:wrt DGROUP
                 cmp     al, 3
                 jne     Int2f?iret
-                mov     di, seg _Dyn
-                mov     ds, di
+                mov     ds, [cs:_DGROUP_]
                 mov     di, _Dyn+2
                 jmp     short Int2f?iret
 
@@ -134,9 +135,8 @@ IntDosCal:
   %endif
 %endif          
 
-    mov ax,DGROUP
-    mov ds,ax    
-    extern   _int2F_12_handler:wrt TGROUP
+    mov ds,[cs:_DGROUP_]
+    extern   _int2F_12_handler
     call _int2F_12_handler
 
 %IFDEF I386

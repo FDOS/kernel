@@ -41,14 +41,12 @@ segment HMA_TEXT
                 extern   _MachineId:wrt DGROUP
                 extern   critical_sp:wrt DGROUP
                 extern   _user_r:wrt DGROUP
+                extern   _DGROUP_:wrt HMA_TEXT
 ;
 ;
 _DosIdle_int:
                 push    ds
-                push    ax
-                mov     ax, DGROUP
-                mov     ds,ax
-                pop     ax
+                mov     ds, [cs:_DGROUP_]
                 cmp     byte [_InDOS],1
                 ja      DosId1
                 call    Do_DosI

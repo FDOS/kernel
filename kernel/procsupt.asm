@@ -40,7 +40,7 @@
 
 segment HMA_TEXT
 
-                extern   _DGROUP_:wrt LGROUP
+                extern   _DGROUP_
 
 ;
 ;       Special call for switching processes
@@ -123,8 +123,7 @@ segment	HMA_TEXT
 _spawn_int23:
 
 ;; 1999/03/27 ska - comments: see cmt1.txt
-				mov ax, DGROUP		;; Make sure DS is OK
-				mov ds, ax
+		mov ds, [cs:_DGROUP_]		;; Make sure DS is OK
 
                 ; restore to user stack
                 cli					;; Pre-8086 don't disable INT autom.
@@ -248,8 +247,7 @@ _spawn_int23:
 				;; AH value, which is passed to the _respawn_ call
 				;; into 0, which is "Terminate program".
 				push ds			;; we need DGROUP
-				mov bp, DGROUP
-				mov ds, bp
+				mov ds, [cs:_DGROUP_]
 				inc byte [_break_flg]
 				pop ds
 

@@ -32,9 +32,9 @@
                 %include "stacks.inc"
 
 segment	HMA_TEXT
-                extern   _int21_syscall:wrt TGROUP
-                extern   _int21_service:wrt TGROUP
-                extern   _int2526_handler:wrt TGROUP
+                extern   _int21_syscall
+                extern   _int21_service
+                extern   _int2526_handler
                 extern   _error_tos:wrt DGROUP
                 extern   _char_api_tos:wrt DGROUP
                 extern   _disk_api_tos:wrt DGROUP
@@ -50,6 +50,7 @@ segment	HMA_TEXT
 
                 extern   _Int21AX:wrt DGROUP
 
+		extern	_DGROUP_
 
                 global  reloc_call_cpm_entry
                 global  reloc_call_int20_handler
@@ -57,7 +58,6 @@ segment	HMA_TEXT
                 global  reloc_call_low_int25_handler
                 global  reloc_call_low_int26_handler
                 global  reloc_call_int27_handler
-
 
 ;
 ; MS-DOS CP/M style entry point
@@ -229,7 +229,7 @@ reloc_call_int21_handler:
                 ; until later when which stack to run on is determined.
                 ;
 int21_reentry:
-                mov     dx,DGROUP
+                mov     dx,[cs:_DGROUP_]
                 mov     ds,dx
 
                 cmp     ah,33h
@@ -426,7 +426,7 @@ int2526:
                 mov     dx, ss
 
                 cld
-                mov     bx, DGROUP
+                mov     bx, [cs:_DGROUP_]
                 mov     ds, bx
 
                 ; setup our local stack
@@ -557,7 +557,7 @@ CritErr05:
                 ;
                 cld
                 cli
-                mov     bp, DGROUP
+                mov     bp, [cs:_DGROUP_]
                 mov     ds,bp
                 mov     ss,bp
                 mov     sp,[critical_sp]

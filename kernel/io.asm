@@ -381,10 +381,7 @@ DiskIntrEntry:
                 push    ds
                 push    bx
                 mov     bp,sp
-                push ax
-                mov  ax,DGROUP
-                mov ds,ax
-                pop ax
+                mov	ds,[cs:_TEXT_DGROUP]
                 cld
                 call    word [cs:si+1]
                 pop     cx
@@ -405,10 +402,7 @@ AsmType:        mov     al,[bx+unit]
                 xchg    di,ax
 
                 les     di,[bx+trans]
-                push ax
-                mov ax, DGROUP
-                mov     ds,ax
-                pop ax
+                mov     ds,[cs:_TEXT_DGROUP]
                 cld
                 jmp     word [cs:si+1]
 
