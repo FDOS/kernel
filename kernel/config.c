@@ -1389,15 +1389,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
        (result = init_device(dhp, szBuf, mode, top)) == SUCCESS;
        dhp = next_dhp)
   {
-    next_dhp = dhp->dh_next;
-    if (FP_SEG(next_dhp) == 0xffff)
-      /*  Does this ever occur with FP_OFF(next_dhp) != 0xffff ??? */
-      next_dhp = MK_FP(FP_SEG(dhp), FP_OFF(next_dhp));
-#ifdef DEBUG
-    else if (FP_OFF(next_dhp) != 0xffff)        /* end of internal chain */
-      printf("multisegmented device driver found, next %p\n", next_dhp);
-    /* give warning message */
-#endif
+    next_dhp = MK_FP(FP_SEG(dhp), FP_OFF(dhp->dh_next));
     /* Link in device driver and save LoL->nul_dev pointer to next */
     dhp->dh_next = LoL->nul_dev.dh_next;
     LoL->nul_dev.dh_next = dhp;
