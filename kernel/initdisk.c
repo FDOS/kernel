@@ -306,7 +306,7 @@ floppy_bpb floppy_bpbs[5] = {
   {SEC_SIZE, 2, 1, 2, 240, 5760, 0xf0, 9, 36, 2}        /* FD2880 3.5  ED   */
 };
 
-COUNT init_getdriveparm(UBYTE drive, bpb FAR * pbpbarray)
+COUNT init_getdriveparm(UBYTE drive, bpb * pbpbarray)
 {
   static iregs regs;
   REG UBYTE type;
@@ -324,7 +324,7 @@ COUNT init_getdriveparm(UBYTE drive, bpb FAR * pbpbarray)
   else if (type == 5)
     type = 4;                   /* 5 and 4 are both 2.88 MB */
 
-  fmemcpy(pbpbarray, &floppy_bpbs[type & 7], sizeof(floppy_bpb));
+  memcpy(pbpbarray, &floppy_bpbs[type & 7], sizeof(floppy_bpb));
 
   if (type == 3)
     return 7;                   /* 1.44 MB */
@@ -379,12 +379,12 @@ void printCHS(char *title, struct CHS *chs)
       Portions copyright 1992, 1993 Remy Card
       and 1991 Linus Torvalds
 */
-VOID CalculateFATData(ddt FAR * pddt, ULONG NumSectors, UBYTE FileSystem)
+VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
 {
   UBYTE maxclustsize;
   ULONG fatdata;
 
-  bpb FAR *defbpb = &pddt->ddt_defbpb;
+  bpb *defbpb = &pddt->ddt_defbpb;
 
   /* FAT related items */
   defbpb->bpb_nfat = 2;
@@ -560,7 +560,9 @@ void DosDefinePartition(struct DriveParamS *driveParam,
                         ULONG StartSector, struct PartTableEntry *pEntry,
                         int extendedPartNo, int PrimaryNum)
 {
-  ddt FAR *pddt = DynAlloc("ddt", 1, sizeof(ddt));
+  ddt FAR *fddt;
+  ddt nddt;
+  ddt *pddt = &nddt;
   struct CHS chs;
 
   if (nUnits >= NDEV)
@@ -569,7 +571,6 @@ void DosDefinePartition(struct DriveParamS *driveParam,
     return;                     /* we are done */
   }
 
-  (pddt-1)->ddt_next = pddt; 
   pddt->ddt_next = MK_FP(0, 0xffff);
   pddt->ddt_driveno = driveParam->driveno;
   pddt->ddt_logdriveno = nUnits;
@@ -607,7 +608,11 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   /* drive inaccessible until bldbpb successful */
   pddt->ddt_descflags = init_readdasd(pddt->ddt_driveno) | DF_NOACCESS;
   pddt->ddt_type = 5;
-  fmemcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+  memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+
+  fddt = DynAlloc("ddt", 1, sizeof(ddt));
+  fmemcpy(fddt, pddt, sizeof(ddt));
+  (fddt-1)->ddt_next = fddt;
 
   /* Alain whishes to keep this in later versions, too 
      Tom likes this too, so he made it configurable by SYS CONFIG ...
@@ -770,6 +775,13 @@ ErrorReturn:
     converts physical into logical representation of partition entry
 */
 
+STATIC void ConvCHSToIntern(struct CHS *chs, UBYTE * pDisk)
+{
+  chs->Head = pDisk[0];
+  chs->Sector = pDisk[1] & 0x3f;
+  chs->Cylinder = pDisk[2] + ((pDisk[1] & 0xc0) << 2);
+}
+
 BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
                                 UBYTE * pDisk)
 {
@@ -787,21 +799,14 @@ BOOL ConvPartTableEntryToIntern(struct PartTableEntry * pEntry,
   for (i = 0; i < 4; i++, pDisk += 16, pEntry++)
   {
 
-    pEntry->Bootable = *(UBYTE FAR *) (pDisk + 0);
-    pEntry->FileSystem = *(UBYTE FAR *) (pDisk + 4);
+    pEntry->Bootable = pDisk[0];
+    pEntry->FileSystem = pDisk[4];
 
-    pEntry->Begin.Head = *(UBYTE FAR *) (pDisk + 1);
-    pEntry->Begin.Sector = *(UBYTE FAR *) (pDisk + 2) & 0x3f;
-    pEntry->Begin.Cylinder = *(UBYTE FAR *) (pDisk + 3) +
-        ((UWORD) (0xc0 & *(UBYTE FAR *) (pDisk + 2)) << 2);
+    ConvCHSToIntern(&pEntry->Begin, pDisk+1);
+    ConvCHSToIntern(&pEntry->End, pDisk+5);
 
-    pEntry->End.Head = *(UBYTE FAR *) (pDisk + 5);
-    pEntry->End.Sector = *(UBYTE FAR *) (pDisk + 6) & 0x3f;
-    pEntry->End.Cylinder = *(UBYTE FAR *) (pDisk + 7) +
-        ((UWORD) (0xc0 & *(UBYTE FAR *) (pDisk + 6)) << 2);
-
-    pEntry->RelSect = *(ULONG FAR *) (pDisk + 8);
-    pEntry->NumSect = *(ULONG FAR *) (pDisk + 12);
+    pEntry->RelSect = *(ULONG *) (pDisk + 8);
+    pEntry->NumSect = *(ULONG *) (pDisk + 12);
   }
   return TRUE;
 }
@@ -1248,7 +1253,9 @@ void ReadAllPartitionTables(void)
   int HardDrive;
   int nHardDisk = BIOS_nrdrives();
   int Unit;
-  ddt FAR *pddt;
+  ddt FAR *fddt;
+  ddt nddt;
+  ddt *pddt = &nddt;
   static iregs regs;
 
   /* quick adjustment of diskette parameter table */
@@ -1262,9 +1269,6 @@ void ReadAllPartitionTables(void)
   /* Setup media info and BPBs arrays for floppies */
   for (Unit = 0; Unit < 2; Unit++)
   {
-    pddt = DynAlloc("ddt", 1, sizeof(ddt));
-
-    if (Unit > 0) (pddt-1)->ddt_next = pddt;
     pddt->ddt_next = MK_FP(0, 0xffff);
     pddt->ddt_driveno = 0;
     pddt->ddt_logdriveno = Unit;
@@ -1275,7 +1279,12 @@ void ReadAllPartitionTables(void)
 
     pddt->ddt_offset = 0l;
     pddt->ddt_serialno = 0x12345678l;
-    fmemcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+    memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+
+    fddt = DynAlloc("ddt", 1, sizeof(ddt));
+    if (Unit == 0) {
+      fmemcpy(fddt, pddt, sizeof(ddt));
+    }
   }
 
   /* Initial number of disk units                                 */
@@ -1297,9 +1306,11 @@ void ReadAllPartitionTables(void)
   }
   else
   {                             /* set up the DJ method : multiple logical drives */
-    (pddt - 1)->ddt_descflags |= DF_CURLOG | DF_MULTLOG;
+    (fddt - 1)->ddt_descflags |= DF_CURLOG | DF_MULTLOG;
     pddt->ddt_descflags |= DF_MULTLOG;
   }
+  (fddt-1)->ddt_next = fddt;
+  fmemcpy(fddt, pddt, sizeof(ddt));
 
   nHardDisk = min(nHardDisk, MAX_HARD_DRIVE - 1);
 
