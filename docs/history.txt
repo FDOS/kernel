@@ -311,7 +311,7 @@
         * break.c: check_handle_break() return was undefined if no Ctrl-break
         * config.sys: all commands removed as they were close to defaults
         * contrib.txt: added Aitor Santamaria, Bernd Blaauw and Eduardo Casino
-        * country.asm / country.sys support now replaces hard-coded data
+        * country.asm / config.c: COUNTRY.SYS now replaces hard-coded data
         * 11 countries added to country.asm: GR,RO,AT,MA,SG,KR,CN,TR,IN,M.E,IL
         * dosnames.c: macro to function conversion, optimisation and clean-up
         * dyninit.c: excluded unused DynFree(), "what" passed only on DEBUG
@@ -336,6 +336,7 @@
           - InitializeAllBPBs() kludge removed (no longer needed - verified)
           - revision sequence now initialised along with DOS version in LoL
           - CheckContinueBootFromHardDisk() function code and text cleaned up
+          - "PATH=." now static in config.c ->SET PATH=xxx in CONFIG.SYS works
         * makefile: object files reordered to gain ~300B packed size
         * newstuff.c, fatdir.c, blockio.c, chario.c, prf.c: cleanup & optimise
         * portab.h: pragma aux default to gain ~800B unpacked size (Watcom)

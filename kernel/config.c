@@ -2110,8 +2110,13 @@ VOID DoInstall(void)
 
 /* master_env copied over command line area in
    DOS_PSP, thus its size limited to 128 bytes */
-static char master_env[128] BSS_INIT({0});
-static PStr envp = master_env;
+static char master_env[128] = "PATH=.";
+
+  /* !!! dirty hack: because bug in old FreeCOM, which wrongly
+     process empty environment in MS-DOS style, garbage empty
+     environment by dummy variable: --avb
+  */
+static PStr envp = master_env + 7; /* sizeof("PATH=.") + 1 zero */
 
 /* Format: SET var = string */
 STATIC void CmdSet(PCStr p)

@@ -175,12 +175,6 @@ STATIC void PSPInit(void)
   /* this area reused for master environment			*/
   /*p->ps_cmd.ctCount = 0;*/	/* local command line		*/
   /*p->ps_cmd.ctBuffer[0] = '\r';*/ /* command tail		*/
-
-  /* !!! dirty hack: because bug in old FreeCOM, which wrongly
-     process empty environment in MS-DOS style, garbage empty
-     environment by dummy variable: --avb
-  */
-  fmemcpy(&p->ps_cmd, "PATH=.", 6/*strlen("PATH=.")*/);
 }
 
 #ifndef __WATCOMC__
