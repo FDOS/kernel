@@ -55,7 +55,6 @@ struct f_node {
   struct dpb FAR *f_dpb;        /* the block device for file    */
 
   ULONG f_offset;               /* byte offset for next op      */
-  CLUSTER f_back;               /* the cluster we were at       */
   CLUSTER f_cluster_offset;     /* relative cluster number within file */
   CLUSTER f_cluster;            /* the cluster we are at        */
 };

@@ -50,10 +50,9 @@ STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
 BOOL find_free(f_node_ptr);
 CLUSTER find_fat_free(f_node_ptr);
 VOID wipe_out(f_node_ptr);
-BOOL last_link(f_node_ptr);
-BOOL extend(f_node_ptr);
+CLUSTER extend(f_node_ptr);
 COUNT extend_dir(f_node_ptr);
-BOOL first_fat(f_node_ptr);
+CLUSTER first_fat(f_node_ptr);
 COUNT map_cluster(f_node_ptr, COUNT);
 STATIC VOID shrink_file(f_node_ptr fnp);
 
@@ -261,8 +260,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
 
   /* Now change to file                                   */
   fnp->f_offset = 0l;
-    
-  fnp->f_back = LONG_LAST_CLUSTER;
+
   if (status != S_OPENED)
   {
     fnp->f_cluster = FREE;
@@ -1141,7 +1139,6 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* Set the fnode to the desired mode                            */
   fnp->f_mode = WRONLY;
-  fnp->f_back = LONG_LAST_CLUSTER;
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat);
 
@@ -1152,7 +1149,6 @@ COUNT dos_mkdir(BYTE * dir)
   fnp->f_offset = 0l;
 
   /* Mark the cluster in the FAT as used                  */
-  fnp->f_cluster = free_fat;
   dpbp = fnp->f_dpb;
   link_fat(dpbp, free_fat, LONG_LAST_CLUSTER);
 
@@ -1227,12 +1223,7 @@ COUNT dos_mkdir(BYTE * dir)
   return SUCCESS;
 }
 
-BOOL last_link(f_node_ptr fnp)
-{
-  return (fnp->f_cluster == LONG_LAST_CLUSTER);
-}
-
-STATIC BOOL extend(f_node_ptr fnp)
+STATIC CLUSTER extend(f_node_ptr fnp)
 {
   CLUSTER free_fat;
 
@@ -1245,24 +1236,24 @@ STATIC BOOL extend(f_node_ptr fnp)
   /* No empty clusters, disk is FULL! Translate into a useful     */
   /* error message.                                               */
   if (free_fat == LONG_LAST_CLUSTER)
-    return FALSE;
+    return free_fat;
 
   /* Now that we've found a free FAT entry, mark it as the last   */
   /* entry and save.                                              */
-  link_fat(fnp->f_dpb, fnp->f_back, free_fat);
-  fnp->f_cluster = free_fat;
+  link_fat(fnp->f_dpb, fnp->f_cluster, free_fat);
   link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Mark the directory so that the entry is updated              */
   fnp->f_flags.f_dmod = TRUE;
-  return TRUE;
+  return free_fat;
 }
 
 STATIC COUNT extend_dir(f_node_ptr fnp)
 {
   REG COUNT idx;
 
-  if (!extend(fnp))
+  CLUSTER cluster = extend(fnp);
+  if (cluster == LONG_LAST_CLUSTER)
   {
     dir_close(fnp);
     return DE_HNDLDSKFULL;
@@ -1274,7 +1265,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
     REG struct buffer FAR *bp;
 
     /* as we are overwriting it completely, don't read first */
-    bp = getblockOver(clus2phys(fnp->f_cluster, fnp->f_dpb) + idx,
+    bp = getblockOver(clus2phys(cluster, fnp->f_dpb) + idx,
                       fnp->f_dpb->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
     printf("DIR (extend_dir)\n");
@@ -1306,7 +1297,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 }
 
 /* JPP: finds the next free cluster in the FAT */
-STATIC BOOL first_fat(f_node_ptr fnp)
+STATIC CLUSTER first_fat(f_node_ptr fnp)
 {
   CLUSTER free_fat;
 
@@ -1316,19 +1307,18 @@ STATIC BOOL first_fat(f_node_ptr fnp)
   /* No empty clusters, disk is FULL! Translate into a useful     */
   /* error message.                                               */
   if (free_fat == LONG_LAST_CLUSTER)
-    return FALSE;
+    return free_fat;
 
   /* Now that we've found a free FAT entry, mark it as the last   */
   /* entry and save it.                                           */
   /* BUG!! this caused wrong allocation, if file was created, 
      then seeked, then written */
-  fnp->f_cluster = free_fat;
   setdstart(fnp->f_dpb, &fnp->f_dir, free_fat);
   link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Mark the directory so that the entry is updated              */
   fnp->f_flags.f_dmod = TRUE;
-  return TRUE;
+  return free_fat;
 }
 
 /* Description.
@@ -1352,8 +1342,7 @@ STATIC BOOL first_fat(f_node_ptr fnp)
 
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 {
-  CLUSTER relcluster = (CLUSTER)((fnp->f_offset / fnp->f_dpb->dpb_secsize) >>
-                                 fnp->f_dpb->dpb_shftcnt);
+  CLUSTER relcluster, cluster;
 
 #ifdef DISPLAY_GETBLOCK
   printf("map_cluster: current %lu, offset %lu, diff=%lu ",
@@ -1366,12 +1355,21 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   if ((mode == XFR_WRITE) && checkdstart(fnp->f_dpb, &fnp->f_dir, FREE))
   {
     /* If there are no more free fat entries, then we are full! */
-    if (!first_fat(fnp))
+    cluster = first_fat(fnp);
+    if (cluster == LONG_LAST_CLUSTER)
     {
       return DE_HNDLDSKFULL;
     }
+    fnp->f_cluster = cluster;
   }
 
+  /* If this is a read but the file still has zero bytes return   */
+  /* immediately....                                              */
+  if ((mode == XFR_READ) && (fnp->f_cluster == FREE))
+    return DE_SEEK;
+
+  relcluster = (CLUSTER)((fnp->f_offset / fnp->f_dpb->dpb_secsize) >>
+                         fnp->f_dpb->dpb_shftcnt);
   if (relcluster < fnp->f_cluster_offset)
   {
     /* Set internal index and cluster size.                 */
@@ -1387,27 +1385,30 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   /* up to the relative cluster position where the index falls    */
   /* within the cluster.                                          */
 
-  FOREVER
+  while (fnp->f_cluster_offset != relcluster)
   {
-    /* If this is a read and the next is a LAST_CLUSTER,    */
-    /* then we are going to read past EOF, return zero read */
-    if ((mode == XFR_READ) && (last_link(fnp) || fnp->f_cluster == FREE))
-      return DE_SEEK;
-    /* expand the list if we're going to write and have run into    */
-    /* the last cluster marker.                                     */
-    if ((mode == XFR_WRITE) && last_link(fnp) && !extend(fnp))
-      return DE_HNDLDSKFULL;
-
-    if (fnp->f_cluster_offset == relcluster)
-      break;
-
-    fnp->f_back = fnp->f_cluster;
-
     /* get next cluster in the chain */
-    fnp->f_cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
-    fnp->f_cluster_offset++;
-    if (fnp->f_cluster == 1)
+    cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
+    if (cluster == 1)
       return DE_SEEK;
+
+    /* If this is a read and the next is a LAST_CLUSTER,               */
+    /* then we are going to read past EOF, return zero read            */
+    /* or expand the list if we're going to write and have run into    */
+    /* the last cluster marker.                                        */
+    if (cluster == LONG_LAST_CLUSTER)
+    {
+      if (mode == XFR_READ)
+        return DE_SEEK;
+
+      /* mode == XFR_WRITE */
+      cluster = extend(fnp);
+      if (cluster == LONG_LAST_CLUSTER)
+        return DE_HNDLDSKFULL;
+    }
+
+    fnp->f_cluster = cluster;
+    fnp->f_cluster_offset++;
   }
 
 #ifdef DISPLAY_GETBLOCK

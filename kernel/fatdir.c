@@ -332,7 +332,6 @@ BOOL dir_write(REG f_node_ptr fnp)
       /* Do a "seek" to the directory position        */
       /* and convert the fnode to a directory fnode.  */
       fnp->f_offset = fnp->f_diroff * (ULONG)DIRENT_SIZE;
-      fnp->f_back = LONG_LAST_CLUSTER;
       fnp->f_cluster = fnp->f_dirstart;
       fnp->f_cluster_offset = 0;
 
