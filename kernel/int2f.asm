@@ -63,7 +63,13 @@ Int2f3:
                 je      IntDosCal               ; Dos Internal calls
                 cmp     ax,4a02h
                 je      IntDosCal               ; Dos Internal calls
-                                        
+%ifdef WITHFAT32
+                cmp     ax,4a33h                ; Check DOS version 7
+                jne     Check4Share
+                xor     ax,ax                   ; no undocumented shell strings
+                iret
+Check4Share:
+%endif
                 cmp     ah,10h                  ; SHARE.EXE interrupt?
                 je      Int2f1                  ; yes, do installation check
                 cmp     ah,08h
