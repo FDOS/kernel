@@ -26,15 +26,12 @@
 
 ***************************************************************/
 /* $Log$
- * Revision 1.9  2001/09/24 02:21:14  bartoldeman
- * /* version 2.2 jeremyd 2001/9/20
- *    Changed so if no source given or only source drive (no path)
- *    given, then checks for kernel.sys & command.com in current
- *    path (of current drive or given drive) and if not there
- *    uses root (but only if source & destination drive are different).
- *    Fix printf to include count(ret) if copy can't write all requested bytes
- * */
+ * Revision 1.10  2001/09/24 02:28:14  bartoldeman
+ * Minor printf fixes.
  *
+/* Revision 1.9  2001/09/24 02:21:14  bartoldeman
+/* SYS and printer fixes
+/*
 /* Revision 1.8  2001/09/23 20:39:44  bartoldeman
 /* FAT32 support, misc fixes, INT2F/AH=12 support, drive B: handling
 /*
@@ -662,7 +659,6 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 
   if (stat(source, &fstatbuf))
   {
-    printf( "%s: \"%s\" not found\n", pgm, srcPath);
     printf( "%s: \"%s\" not found\n", pgm, source);
 
     if ((rootPath != NULL) && (*rootPath) /* && (errno == ENOENT) */ )
@@ -681,7 +677,7 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   
   if ((fdin = open(source, O_RDONLY|O_BINARY)) < 0)
   {
-    printf( "%s: \"%s\" not found\n", pgm, srcPath);
+    printf( "%s: failed to open \"%s\"\n", pgm, source);
     return FALSE;
   }
 
