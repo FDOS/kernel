@@ -35,7 +35,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v2.5"
+#define SYS_VERSION "v2.6"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -106,7 +106,9 @@ int stat(const char *file_name, struct stat *buf)
   
   return _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
 }
-#endif
+
+/* WATCOM's getenv is case-insensitive which wastes a lot of space
+   for our purposes. So here's a simple case-sensitive one */
 char *getenv(const char *name)
 {
   char **envp, *ep;
@@ -127,6 +129,7 @@ char *getenv(const char *name)
   }
   return NULL;
 }
+#endif
 
 BYTE pgm[] = "SYS";
 
@@ -314,7 +317,7 @@ int main(int argc, char **argv)
     }
 
     printf("\nCopying KERNEL.SYS...\n");
-    if (!copy(drive, srcPath, rootPath, "kernel.sys"))
+    if (!copy(drive, srcPath, rootPath, "KERNEL.SYS"))
     {
       printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
       exit(1);
@@ -423,6 +426,11 @@ void reset_drive(int DosDrive);
       parm [dx] \
       modify [ax bx];
 
+void truename(char far *dest, const char *src);
+#pragma aux truename = \
+      "mov ah,0x60"	  \
+      "int 0x21"          \
+      parm [es di] [si];
 #else
 
 #ifndef __TURBOC__
@@ -471,6 +479,19 @@ void reset_drive(int DosDrive)
   regs.h.ah = 0x32;
   regs.h.dl = DosDrive + 1;
   intdos(&regs, &regs);
+} /* reset_drive */
+
+void truename(char *dest, const char *src)
+{
+  union REGS regs;
+  struct SREGS sregs;
+
+  regs.h.ah = 0x60;
+  sregs.es = FP_SEG(dest);
+  regs.x.di = FP_OFF(dest);
+  sregs.ds = FP_SEG(src);
+  regs.x.si = FP_OFF(src);
+  intdosx(&regs, &regs, &sregs);
 } /* reset_drive */
 
 #endif
@@ -807,13 +828,12 @@ BYTE copybuffer[COPY_SIZE];
 
 BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 {
-  BYTE dest[SYS_MAXPATH], source[SYS_MAXPATH];
+  static BYTE dest[SYS_MAXPATH], source[SYS_MAXPATH];
   unsigned ret;
   int fdin, fdout;
   ULONG copied = 0;
   struct stat fstatbuf;
 
-  sprintf(dest, "%c:\\%s", 'A' + drive, file);
   strcpy(source, srcPath);
   if (rootPath != NULL) /* trick for comspec */
     strcat(source, file);
@@ -834,6 +854,16 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
     }
     else
       return FALSE;
+  }
+
+  truename(dest, source);
+  strcpy(source, dest);
+  sprintf(dest, "%c:\\%s", 'A' + drive, file);
+  if (strcmp(source, dest) == 0)
+  {
+    printf("%s: source and destination are identical: skipping \"%s\"\n",
+           pgm, source);
+    return TRUE;
   }
 
   if ((fdin = open(source, O_RDONLY | O_BINARY)) < 0)
