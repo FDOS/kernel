@@ -1,4 +1,4 @@
-2001 Nov xx - Build 2025a
+2001 Nov 4 - Build 2025a (test)
 -------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
 + Changes tom
     * config.sys processing: placing ? on the left side of '=' like
@@ -6,6 +6,7 @@
 	 asks for this single line 
       fill the available HMA with buffers
     * added kernel configuration options to sys.com, small area at 60:xx
+      (in cooperation with Jeremy)	
     * readblock optimized to read as many data as possible in one
       int13 request - great speedups for large reads
     * some more SDA variables need to be updated for the network 
