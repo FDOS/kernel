@@ -3,13 +3,11 @@ INTRODUCTION
 This archive contains FreeDOS Kernel version 1.1.18, build 2018, also
 known as DOS-C, originally written by Pasquale J. Villani.
 
-The FreeDOS Kernel is available by anonymous ftp at
-ftp://ftp.gcfl.net/freedos/kernel.  It's also available from
-http://www.dosemu.org (somewhere on there).
+The FreeDOS Kernel is available from http://freedos.sourceforge.net.
+It's also available from http://www.dosemu.org (somewhere on there).
 
-The FreeDOS Kernel is also available through the FreeDOS project.  An
-ftp site is available for downloading Free-DOS at
-ftp://metalab.unc.edu/pub/micro/pc-stuff/freedos.
+The FreeDOS Kernel is also available through the FreeDOS Project at
+http://www.freedos.org.
 
 See the DOCS directory for more documentation and information about
 the FreeDOS Kernel.
@@ -27,8 +25,7 @@ BUG REPORTS
 -----------
 If you have found a bug, think you have found a bug, or would just
 like to make a suggestion, go to the bug tracking web page at
-http://www.gcfl.net/bugs/kernel or send email to
-kernel-bugs@gcfl.net.
+http://www.freedos.org/bugs/
 
 Copyright
 ---------
