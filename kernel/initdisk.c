@@ -306,6 +306,7 @@ COUNT init_getdriveparm(UBYTE drive, bpb * pbpbarray)
     return 5;
   regs.a.b.h = 0x08;
   regs.d.b.l = drive;
+  /* Note: RBIL suggests setting ES:DI to 0:0 to guard against BIOS bugs */
   init_call_intr(0x13, &regs);
   type = regs.b.b.l - 1;
   if (regs.flags & FLG_CARRY)
@@ -316,6 +317,8 @@ COUNT init_getdriveparm(UBYTE drive, bpb * pbpbarray)
     type = 4;                   /* 5 and 4 are both 2.88 MB */
 
   memcpy(pbpbarray, &floppy_bpbs[type & 7], sizeof(floppy_bpb));
+  ((bpb *)pbpbarray)->bpb_hidden = 0;  /* very important to init to 0, see bug#1789 */
+  ((bpb *)pbpbarray)->bpb_huge = 0;
 
   if (type == 3)
     return 7;                   /* 1.44 MB */
@@ -597,12 +600,17 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_defbpb.bpb_mdesc = 0xf8;
   pddt->ddt_defbpb.bpb_nheads = driveParam->chs.Head;
   pddt->ddt_defbpb.bpb_nsecs = driveParam->chs.Sector;
-  pddt->ddt_defbpb.bpb_nsize = 0;
   pddt->ddt_defbpb.bpb_hidden = pEntry->RelSect;
   if (pEntry->NumSect > 0xffff)
+  {
+    pddt->ddt_defbpb.bpb_nsize = 0;
     pddt->ddt_defbpb.bpb_huge = pEntry->NumSect;
+  }
   else
+  {
     pddt->ddt_defbpb.bpb_nsize = (UWORD) (pEntry->NumSect);
+    pddt->ddt_defbpb.bpb_huge = 0;
+  }
 
   /* sectors per cluster, sectors per FAT etc. */
   CalculateFATData(pddt, pEntry->NumSect, pEntry->FileSystem);

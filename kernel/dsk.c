@@ -673,6 +673,8 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         struct gblkio FAR *gblp = rp->r_io;
         bpb *pbpb;
 
+        DebugPrintf(("get params entry: spec=%X, type=%X, devattr=%X\n", gblp->gbio_spcfunbit,pddt->ddt_type,descflags));
+
         gblp->gbio_devtype = pddt->ddt_type;
         gblp->gbio_devattrib = descflags & 3;
         /* 360 kb disk in 1.2 MB drive */
@@ -680,18 +682,25 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         gblp->gbio_ncyl = pddt->ddt_ncyl;
         /* use default dpb or current bpb? */
         pbpb = (gblp->gbio_spcfunbit & 1) ? &pddt->ddt_bpb : &pddt->ddt_defbpb;
+        /* Note: last 6 bytes of standard BPB may not be copied for
+           0x60 when rp->r_cat==8 in some versions of DOS eg MSDOS5,see rbil */
 #ifdef WITHFAT32
+        if (rp->r_cat == 0x08) copy_size -= 6;
         fmemcpy(&gblp->gbio_bpb, pbpb, copy_size);
 #else
-        fmemcpy(&gblp->gbio_bpb, pbpb, sizeof(gblp->gbio_bpb));
+        fmemcpy(&gblp->gbio_bpb, pbpb, sizeof(gblp->gbio_bpb)-6);
 #endif
         /*gblp->gbio_nsecs = pbpb->bpb_nsector;*/
+        DebugPrintf(("get params dev spec=%X, type=%X, attrib=%X, media=%X, ncyl=%X\n", 
+                      gblp->gbio_spcfunbit, gblp->gbio_devtype, gblp->gbio_devattrib, gblp->gbio_media, gblp->gbio_ncyl));
         break;
       }
     case 0x61:                 /* read track */
       {
         struct gblkrw FAR *rw = rp->r_rw;
-        int ret = Genblockio(pddt, LBA_READ, rw->gbrw_head, rw->gbrw_cyl,
+        int ret;
+        DebugPrintf(("read track: head=%X, cyl=%X, sect=%X, nsecs=%X\n", rw->gbrw_head, rw->gbrw_cyl,rw->gbrw_sector, rw->gbrw_nsecs));
+        /*int*/ ret = Genblockio(pddt, LBA_READ, rw->gbrw_head, rw->gbrw_cyl,
                              rw->gbrw_sector, rw->gbrw_nsecs, rw->gbrw_buffer);
         if (ret)
           return ret;
