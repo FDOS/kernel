@@ -1,12 +1,12 @@
 You can check out the latest code (from a UNIX type machine) using
 CVS as follows:
 
-cvs -z3 -d:pserver:anonymous@cvs.freedos.sourceforge.net:/home/cvsroot login
+cvs -z3 -d:pserver:anonymous@cvs.freedos.sourceforge.net:/cvsroot/freedos login
 Password: Press the Enter key.
 
 Then, to get the kernel code:
-cvs -z3 -d:pserver:anonymous@cvs.freedos.sourceforge.net:/home/cvsroot checkout
-kernel
+cvs -z3 -d:pserver:anonymous@cvs.freedos.sourceforge.net:/cvsroot/freedos
+checkout kernel
 
 
 You can also view the CVS code from the web at
