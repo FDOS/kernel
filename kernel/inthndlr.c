@@ -33,6 +33,7 @@
 #include "nls.h"
 
 #ifdef VERSION_STRINGS
+BYTE *RcsId =
     "$Id$";
 #endif
 
