@@ -477,8 +477,12 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
 void AllocateHMASpace (size_t lowbuffer, size_t highbuffer)
 {
   REG struct buffer FAR *bp = firstbuf;
-  int n = LoL_nbuffers;
+  int n;
 
+  if (FP_SEG(bp) != 0xffff)
+    return;
+
+  n = LoL_nbuffers;
   do
   {
     /* check if buffer intersects with requested area                  */
