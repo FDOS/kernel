@@ -80,14 +80,6 @@ seg far2para(VOID FAR * p)
   return FP_SEG(p) + (FP_OFF(p) >> 4);
 }
 
-seg long2para(ULONG size)
-{
-  UWORD high = (UWORD)(size >> 16);
-  if ((UWORD) size > 0xfff0)
-    high++;
-  return (((UWORD) size + 0x0f) >> 4) + (high << 12);
-}
-
 /*
  * Add a displacement to a far pointer and return the result normalized.
  */

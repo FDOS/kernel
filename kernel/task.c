@@ -127,8 +127,8 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
   }
 
   /* allocate enough space for env + path                 */
-  if ((RetCode = DosMemAlloc(long2para(nEnvSize + ENV_KEEPFREE),
-                             mem_access_mode, (seg FAR *) pChildEnvSeg,
+  if ((RetCode = DosMemAlloc((nEnvSize + ENV_KEEPFREE + 15)/16,
+                             mem_access_mode, pChildEnvSeg,
                              NULL /*(UWORD FAR *) MaxEnvSize ska */ )) < 0)
     return RetCode;
   pDest = MK_FP(*pChildEnvSeg + 1, 0);
@@ -551,22 +551,18 @@ VOID return_user(void)
 COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 {
   UWORD mem, env, start_seg, asize = 0;
-  ULONG exe_size;
+  UWORD exe_size;
   {
-    ULONG image_size;
-    ULONG image_offset;
-    
-    /* compute image offset from the ExeHeader                 */
-    image_offset = (ULONG) ExeHeader.exHeaderSize * 16;
+    UWORD image_size;
 
     /* compute image size by removing the offset from the   */
     /* number pages scaled to bytes plus the remainder and  */
     /* the psp                                              */
-    /*  First scale the size                                */
-    image_size = (ULONG) ExeHeader.exPages * 512;
-    /* remove the offset                                    */
-    image_size -= image_offset;
-    
+    /*  First scale the size and remove the offset          */
+    if (ExeHeader.exPages >= 2048)
+      return DE_INVLDDATA; /* we're not able to get >=1MB in dos memory */
+    image_size = ExeHeader.exPages * 32 - ExeHeader.exHeaderSize;
+
     /* We should not attempt to allocate
        memory if we are overlaying the current process, because the new
        process will simply re-use the block we already have allocated.
@@ -579,8 +575,8 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       COUNT rc;
       
       /* and finally add in the psp size                      */
-      image_size += sizeof(psp);        /*TE 03/20/01 */
-      exe_size = (ULONG) long2para(image_size) + ExeHeader.exMinAlloc;
+      image_size += sizeof(psp) / 16;        /*TE 03/20/01 */
+      exe_size = image_size + ExeHeader.exMinAlloc;
       
       /* Clone the environement and create a memory arena     */
       if (mode & 0x80)
@@ -593,10 +589,12 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       
       if (rc == SUCCESS)
         /* Now find out how many paragraphs are available       */
-        rc = ExecMemLargest(&asize, (UWORD)exe_size);
+        rc = ExecMemLargest(&asize, exe_size);
       
-      exe_size = (ULONG) long2para(image_size) + ExeHeader.exMaxAlloc;
-      if (exe_size > asize)
+      exe_size = image_size + ExeHeader.exMaxAlloc;
+      /* second test is for overflow (avoiding longs) --
+         exMaxAlloc can be high */
+      if (exe_size > asize || exe_size < image_size)
         exe_size = asize;
       
       /* TE if ExeHeader.exMinAlloc == ExeHeader.exMaxAlloc == 0,
@@ -609,7 +607,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       
       /* Allocate our memory and pass back any errors         */
       if (rc == SUCCESS)
-        rc = ExecMemAlloc((UWORD)exe_size, &mem, &asize);
+        rc = ExecMemAlloc(exe_size, &mem, &asize);
       
       if (rc != SUCCESS)
         DosMemFree(env);
@@ -645,7 +643,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
     /* Now load the executable                              */
     /* offset to start of image                             */
-    if (SftSeek(fd, image_offset, 0) != SUCCESS)
+    if (SftSeek(fd, ExeHeader.exHeaderSize * 16UL, 0) != SUCCESS)
     {
       if (mode != OVERLAY)
       {
@@ -660,33 +658,32 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     exe_size = image_size;
     if (mode != OVERLAY)
     {
-      exe_size -= sizeof(psp);
-      start_seg += long2para(sizeof(psp));
+      exe_size -= sizeof(psp) / 16;
+      start_seg += sizeof(psp) /16;
       if (exe_size > 0 && (ExeHeader.exMinAlloc == 0) && (ExeHeader.exMaxAlloc == 0))
       {
         mcb FAR *mp = MK_FP(mem - 1, 0);
         
         /* then the image should be placed as high as possible */
-        start_seg = start_seg + mp->m_size - (UWORD)((image_size + 15) / 16);
+        start_seg += mp->m_size - image_size;
       }
     }
   }
 
-  /* read in the image in 32K chunks                      */
+  /* read in the image in 32256 chunks                      */
   {
-    int nBytesRead;
-    BYTE FAR *sp = MK_FP(start_seg, 0x0);
-    
-    while (exe_size > 0)
+    int nBytesRead, toRead = CHUNK;
+    seg sp = start_seg;
+
+    while (toRead == CHUNK)
     {
-      nBytesRead =
-        (int)DosRWSft(fd,
-                (COUNT) (exe_size < CHUNK ? exe_size : CHUNK),
-                (VOID FAR *) sp, XFR_READ);
-      if (nBytesRead <= 0)
+      if (exe_size < CHUNK/16)
+        toRead = exe_size*16;
+      nBytesRead = (int)DosRWSft(fd, toRead, MK_FP(sp, 0), XFR_READ);
+      if (nBytesRead < toRead)
         break;
-      sp = add_far((VOID FAR *) sp, nBytesRead);
-      exe_size -= nBytesRead;
+      sp += CHUNK/16;
+      exe_size -= CHUNK/16;
     }
   }
 
