@@ -51,60 +51,9 @@ int ISFAT32(struct dpb FAR * dpbp)
 }
 #endif
 
-/* idx is a pointer to an index which is the nibble offset of the FAT
-   entry within the sector for FAT12, or word offset for FAT16, or
-   dword offset for FAT32 */
-struct buffer FAR *getFATblock(CLUSTER clussec, struct dpb FAR * dpbp,
-                               unsigned *idx)
+struct buffer FAR *getFATblock(struct dpb FAR * dpbp, CLUSTER clussec)
 {
-  unsigned secdiv;
-  struct buffer FAR *bp;
-  CLUSTER max_cluster = dpbp->dpb_size;
-
-#ifdef WITHFAT32
-  if (ISFAT32(dpbp))
-    max_cluster = dpbp->dpb_xsize;
-#endif
- 
-  if (clussec <= 1 || clussec > max_cluster)
-  {
-    put_string("run CHKDSK: trying to access invalid cluster 0x");
-#ifdef WITHFAT32
-    put_unsigned((unsigned)(clussec >> 16), 16, 4);
-#endif
-    put_unsigned((unsigned)(clussec & 0xffffu), 16, 4);
-    put_console('\n');
-    return NULL;
-  }
-
-  secdiv = dpbp->dpb_secsize;
-  if (ISFAT12(dpbp))
-  {
-    clussec = (unsigned)clussec * 3;
-    secdiv *= 2;
-  }
-  else /* FAT16 or FAT32 */
-  {
-    secdiv /= 2;
-#ifdef WITHFAT32
-    if (ISFAT32(dpbp))
-      secdiv /= 2;
-#endif
-  }
-  if (idx)
-    *idx = (unsigned)(clussec % secdiv);
-  clussec /= secdiv;
-  clussec += dpbp->dpb_fatstrt;
-#ifdef WITHFAT32
-  if (ISFAT32(dpbp) && (dpbp->dpb_xflags & FAT_NO_MIRRORING))
-  {
-    /* we must modify the active fat,
-       it's number is in the 0-3 bits of dpb_xflags */
-    clussec += (dpbp->dpb_xflags & 0xf) * dpbp->dpb_xfatsize;
-  }
-#endif
-
-  bp = getblock(clussec, dpbp->dpb_unit);
+  struct buffer FAR *bp = getblock(clussec, dpbp->dpb_unit);
 
   if (bp)
   {
@@ -175,9 +124,58 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 {
   struct buffer FAR *bp;
   unsigned idx;
+  unsigned secdiv;
+  CLUSTER clussec = Cluster1;
+  CLUSTER max_cluster = dpbp->dpb_size;
+
+#ifdef WITHFAT32
+  if (ISFAT32(dpbp))
+    max_cluster = dpbp->dpb_xsize;
+#endif
+ 
+  if (clussec <= 1 || clussec > max_cluster)
+  {
+    put_string("run CHKDSK: trying to access invalid cluster 0x");
+#ifdef WITHFAT32
+    put_unsigned((unsigned)(clussec >> 16), 16, 4);
+#endif
+    put_unsigned((unsigned)(clussec & 0xffffu), 16, 4);
+    put_console('\n');
+    return NULL;
+  }
+
+  secdiv = dpbp->dpb_secsize;
+  if (ISFAT12(dpbp))
+  {
+    clussec = (unsigned)clussec * 3;
+    secdiv *= 2;
+  }
+  else /* FAT16 or FAT32 */
+  {
+    secdiv /= 2;
+#ifdef WITHFAT32
+    if (ISFAT32(dpbp))
+      secdiv /= 2;
+#endif
+  }
+
+  /* idx is a pointer to an index which is the nibble offset of the FAT
+     entry within the sector for FAT12, or word offset for FAT16, or
+     dword offset for FAT32 */
+  idx = (unsigned)(clussec % secdiv);
+  clussec /= secdiv;
+  clussec += dpbp->dpb_fatstrt;
+#ifdef WITHFAT32
+  if (ISFAT32(dpbp) && (dpbp->dpb_xflags & FAT_NO_MIRRORING))
+  {
+    /* we must modify the active fat,
+       it's number is in the 0-3 bits of dpb_xflags */
+    clussec += (dpbp->dpb_xflags & 0xf) * dpbp->dpb_xfatsize;
+  }
+#endif
 
   /* Get the block that this cluster is in                */
-  bp = getFATblock(Cluster1, dpbp, &idx);
+  bp = getFATblock(dpbp, clussec);
 
   if (bp == NULL)
     return 1; /* the only error code possible here */
@@ -208,7 +206,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   
     if (idx >= (unsigned)dpbp->dpb_secsize - 1)
     {
-      bp1 = getFATblock((unsigned)Cluster1 + 1, dpbp, NULL);
+      bp1 = getFATblock(dpbp, (unsigned)clussec + 1);
       if (bp1 == 0)
         return 1; /* the only error code possible here */
       
