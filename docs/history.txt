@@ -1,3 +1,278 @@
+2004 July 8 - UNSTABLE branch
+-------- Jeremy Davis (jeremyd@computer.org)
++ Changes Arkady
+	* UTILS\PROTO.BAT, UTILS\INDENT, KERNEL\NLS_LOAD.C, KERNEL\KERNEL.CFG: removed.
+
+	* all batch files now check if environment is enough; this prevents wrong
+	  actions in case of small environment.
+	* *.BAT: %MAKE% now called through CALL; this allows to place into PATH
+	  batch file instead utility itself.
+	* BUILDALL.BAT: removed ambiguous ONERROR variable.
+	* BUILDALL.BAT: added ">NUL" for DELs.
+	* CLOBBER.BAT now uses CLEAN.BAT for its job; this eases to update cleaning
+	  code because no code duplication.
+	* CONFIG.B: XNASM replaced by NASM, XLINK by LINK, MS_BASE by MSC_BASE.
+	* CONFIG.B: added possibility to define librarian.
+	* CONFIG.B: added "MAKER -S" as choice for MAKE.
+	* DEFAULT.BAT renamed to DEFAULTS.BAT, for all "call <batchfile>" added
+	  suffix .BAT; this solves compatability problem with 4DOS (where DEFAULT
+	  is a built-in command).
+	* DEFAULTS.BAT: added variable BASE.
+
+	* all MAKEFILEs now look similar.
+	* some makefiles renamed: BC5->BC, TURBOCPP->TCPP, TC3->TCPP3, MSCL8->MSC.
+	* MKFILES\*.MAK: removed space after "=" in macro definitions; this makes
+	  command lines shorter.
+	* common definitions from makefiles moved to MKFILES\GENERIC.MAK
+	  (directories) and CONFIG.B/DEFAULTS.BAT (LINK, NASM, LIBUTIL, etc).
+	* MKFILES\GENERIC.MAK: XCPU=86 and XFAT=32 are defined here, if environment
+	  doesn't contains these variables; this allows to reduce environment.
+	* MKFILES\GENERIC.MAK: ALLCFLAGS and NASMFLAGS placed after all options
+	  (this allows to redefine some options in config.bat); for watcom.mak
+	  this also adds space after ALLCFLAGS (which is required, if ALLCFLAGS
+	  ends by option like -I).
+	* MKFILES\GENERIC.MAK: NASMFLAGS now includes -f and -D$(COMPILER) options.
+	* MKFILES\TCPP.MAK: -zC option moved from ALLCFLAGS into CFLAGS (this
+	  eliminates option duplication in INITCFLAGS and reduces command line
+	  length). ALLCFLAGS now includes -I..\hdr;$(INCLUDEPATH) option (this
+	  allows to reuse compiler headers (for example, limits.h), but own time.h
+	  anyway "overloads" compiler's header).
+	* MKFILES\TC2.MAK, MKFILES\TCPP3.MAK, MKFILES\BC.MAK: reused contents of
+	  MKFILES\TCPP.MAK through "!include".
+	* MKFILES\WATCOM.MAK: removed INCLUDE and EDPATH macroses.
+	* MKFILES\WATCOM.MAK: added option -d1 (to allow make listings with sources).
+
+	* added KERNEL\TCI.CFG, which allows noticeably reduce size of INITCFLAGS
+	  definition in MKFILES\TCPP.MAK; options for other compilers also moved
+	  from command line to consequent KERNEL\*.CFG files.
+
+	* KERNEL\MAKEFILE: $(TARGET).lnk rule now removes *.obj (this allows to
+	  remove explicit dependency for $(TARGET).lnk for all other rules).
+	* KERNEL\TURBOC.CFG: removed redefinition of __STDC__.
+
+	* "production" target replaced by "all" to eliminate warning from NMAKE.
+	* DEVICE\MAKEFILE: device.lib now created directly in ..\lib directory
+	  without intermediate copy.
+	* added SYS\TURBOC.CFG and UTILS\TURBOC.CFG.
+	* SYS\MAKEFILE, UTILS\MAKEFILE: reused implicit rules from MKFILES\GENERIC.MAK.
+
+	* fdkrncfg.c
+	  - fix: eliminated warning "Initialization is only partially bracketed".
+	* exeflat.c
+	  - removed duplicated definition for macro LENGTH().
+	* floppy.asm
+	  - prototypes fixed and syncronized with dsk.c.
+	  - fixed wrong comments, more and better comments.
+	  - bugfix: when fl_lba_ReadWrite() converted to ASMPASCAL (and `ret' replaced
+	    by `ret 8'), "ret_AH" was remained as label for this tail (whereas other
+	    functions use plain `ret'); now ret_AH moved into another function.
+	* procsupt.asm
+	  - exec_user(), reloc_call_p_0(): added "%ifndef WATCOM/%endif" around
+	    popping return address, because exec_user() and init_call_p_0() now
+	    declared with `aborts' attribute for Watcom.
+	* entry.asm
+	  - fix: was used signed comparision instead unsigned.
+	* int2f.asm
+	  - fixed wrong comment.
+	* intr.asm
+	  - wrong prototypes fixed and syncronized with *.h headers.
+	  - small code cleanup (removed jumps) and optimizations, more comments.
+	* break.c
+	  - removed extraneous variable assignment.
+	* dsk.c
+	  - bugfix: blk_driver(): should be checked ">= NENTRY", not "> NENTRY".
+	  - bugfix: Getlogdev(): in case of no DF_CURLOG flag is set, in rp->r_unit
+	    now returned last+1 (equal to blk_dev.dh_name[0]) unit (was last+2).
+	  - Setlogdev(): added comment about undocumented behavior.
+	  - bugfix: Genblkdev():
+	    - formatting loop (0x42 function) rewritten: instead formating many tracks,
+	      was formated one track many times (because afentry.head++ outside loop);
+	    - now checked "afentry.track >= pddt->ddt_ncyl" (instead ">");
+	    - now gbfv_spcfunbit cleared at <exit when bit 0 is set>;
+	    - not fixed: there remained two returns without setting gbfv_spcfunbit;
+	    - verification (0x62) now check only bit 0 of gbfv_spcfunbit;
+	    - not fixed: verification should set gbfv_spcfunbit in case of errors.
+
+	  - removed remained excerpt from history.txt at the end.
+	  - removed all references to PROTO macro name.
+	  - small source cleanup (expressions simplified, extraneous casts removed).
+	  - small code cleanup and optimization for diskchange(), mediachk(),
+	    blk_Media(), bldbpb(), IoctlQueblk(), blockio() and dskerr().
+	  - many variables (like `ret') moved deeply (by adding curly braces) - for
+	    BC this noticeably decreases stack usage.
+	  - getddt(0) and tmark are now macros.
+	  - blk_error() removed, consequent dispatch[] entries contains NULL and they
+	    checked by blk_driver() before calling getddt() and dispatch[] item.
+	  - getbpb(): removed extraneous stack variable; instead (x+y-1)/y for roundup
+	    used (x-1)/y+1 expression; printf sequences joined into one printf.
+	  - LBA_Transfer() now converts error code through dskerr() by itself;
+	    .ddt_offset field added to LBA_address also inside LBA_Transfer().
+	* initdisk.c
+	  - small code optimization.
+	  - added `const' modifier into castings.
+	  - `bootdrv' variable inlined.
+	* ioctl.c
+	  - 3 nested switch splitted into 2 switch (1st prepares parameters for
+	    2nd, which calls execrh()).
+	  - device attribute word checked through table lookup.
+	  - CharReqHdr.r_command computed through table lookup.
+	  - removed all goto, except one.
+	* memmgr.c
+	  - joinMCBs(): check that mcb is valid now before check that mcb is free.
+	  - all "(uppermem_link & 1)" replaced by "uppermem_link", because
+	    DosUmbLink() stores there only 0 and 1.
+	* nls.c
+	  - bugfix: (Eduardo Casino, Steffen Kaiser) DosGetData(): NULL pointer was
+	    addressed when searchPackage returns NULL.
+	* globals.h
+	  - bugfix: NetRetry and NetDelay are UWORD, not UBYTE values.
+	* init-mod.h
+	  - cleaned prototype for function from intr.asm.
+	  - init_fatal() described (for Watcom) as non-returned functions.
+	* proto.h
+	  - fatal() and panic() described (for Watcom) as non-returned functions;
+	    this improves code generation.
+	  - cleaned prototypes for functions from intr.asm.
+	  - removed prototypes for nonexisting functions.
+	  - added brackets around parameters of macro.
+	*  config.c
+	  - source: added types PStr and PCStr to ease using string pointers.
+	  - source: for iregs members used predefined names like BH (instead b.b.h).
+	  - source: instead `seg' type used `seg_t'.
+	  - source: HMAState values now `enum'; for UmbState values now also given
+	    names through `enum'.
+
+	  - added testbit() macro to make source more readable (and code shorter).
+	  - parameter of all command processing functions (like CfgMenu()) now have
+	    `const' modifier.
+	  - far pointers with zero offset now decalred with `_seg' modifier, MK_FP()
+	    replaced by MK_SEG_PTR() macro: this makes more understandable source and
+	    noticeably enhances code for BC.
+	  - added gotoxy() and clearScreenArea() to incapsulate screen manipulations.
+	  - GetNumArg(): returns value in global storage; added GetNumArg1() and
+	    GetNumArg2(), which does all check for command line syntax for other
+	    command processing functions.
+
+	  - bugfix: umb_init() was not checks that new UMB completely inside "hole"
+	    and its size is greater than 2 paragraphs; now borders outside of holes
+	    are trimmed.
+	  - bugfix: umb_init(): when joining adjacent UMBs, umb_base_seg, umb_start
+	    and umb_max was not adjusted if they equal to start of next joined block.
+	  - fix: umb_init(): when joining adjacent UMBs, UMB_top was not adjusted if
+	    it equal to end of previous block; this forces to use only part of given
+	    UMB when loading drivers.
+	  - bugfix: umb_init(): umb_start+UMB_top was point end addres when loading
+	    drivers and initialized to end of (first, largest) block, but this was
+	    overlap link MCB for next UMB if umb_start was not the furthest UMB.
+	  - bugfix: umb_init(): when joining next adjacent UMB to new block, size of
+	    joined block was maked greater than required by 1.
+	  - bugfix: umb_init(): when new UMB is beyond of previous furthest block
+	    (umb_max) and first byte in last paragraph of umb_max block contains 'M',
+	    prev_mcb() was walk after umb_max.
+	  - bugfix: umb_init(): when EMM386 joins A000 area to base memory, it updates
+	    0:413 BIOS variable, but umb_init() was use older value (from ram_top
+	    variable) when adjusts base MCB and thus destroys MCBs chain.
+
+	  - bugfix: GetBiosKey() was wrongly handles timeout==0.
+	  - fix: ClearScreen(): screen width at 0:44A is a word, not byte.
+	  - fix: GetStringArg() was uses scan(), which skips some nonwhitspaces;
+	    now replaced by scanword().
+	  - bugfix: AlignParagraph(): "overflow" on 32-bit targets not makes zero
+	    value, so 0x1000 should be assigned, not added to uSegVal.
+	  - fix: PreConfig2(): to argument of AlignParagraph() was added extra 0x0f,
+	    this captures extra paragraph before first MCB.
+	  - fix: sysVersion(): VERSION= now works properly by setting version for
+	    INT21/30, not for INT21/3306.
+	  - bugfix: _CmdInstall(): "numInstallCmds > LENGTH" - should be ">=".
+	  - bugfix: InstallExec() was call CfgFailure(), but it called after config
+	    file processing, when szLine buffer always contains last line/garbage.
+
+	  - fix: WriteMenuLine(): blink attribute for selected line in menu now cleared.
+	  - fix: DoConfig(): config lines in error messages now counted from 1 (not 0).
+	  - bugfix: DoConfig(): when reading config, EOF (0x1A) was accepted as '\n'.
+	  - fix: DoConfig(): lines with alone sequences like "?" now diagnosed.
+	  - fix: DoConfig(): errors for unknown commands now printed only after menu.
+	  - fix: DoConfig(): in ECHO and EECHO arguments leading spaces now preserved.
+	  - CfgFailure(): message about error in config now same, as in MS-DOS6.
+	  - CfgFailure(): message now contains real config name (instead "CONFIG.SYS").
+	  - fix: CfgFailure(): "^" in error messages now shows proper position.
+
+	  - all pressed before menu keys (if any, but except F5/F8) now preserved in
+	    keyboard buffer.
+	  - config now parsed in 5 passes: SWITCHES=/F/N and MENUCOLOR/MENUDEFAULT
+	    before menu, SHELL/SET/INSTALL after DEVICE (unlike MS-DOS6, which process
+	    SETs before INSTALLs and thus can't redefine variables between INSTALL).
+	  - screen now cleared (when MENUCOLOR present) before all MENU lines; after
+	    menu screen not cleared.
+	  - DoMenu(): now, when MENU lines are longer than screen width or them are
+	    more, than screen height, menu lines highlighting disabled.
+	  - menu selection shown only if there is more than one choice (in "123?"
+	    prefixes), but CONFIG=n will be defined if even one choice is present.
+	  - CONFIG= now not defined if F5 pressed in menu.
+	  - DoMenu(): menu now looks more like MS-DOS6 (same words, hint at bottom).
+	  - DoMenu(): choice 0 now not allowed if it not present in "123?".
+	  - DoMenu(): in menu now allowed to press Left and Right keys; Esc in menu
+	    now ignored; digit pressing not finish selection.
+	  - when tracing, Esc now turns off asks for all following lines, including
+	    lines with "?", and assumes "Y" for all; F8 now behaves similar to Esc.
+	  - removed extraneous COMMAND verb.
+	  - added BUFFERSHIGH verb (for compatability with MS-DOS6; currently dummy).
+	  - SWITCHES=/E now handled after menu and may be asked/traced.
+	  - (E)ECHO now executed without asking and tracing.
+	  - DeviceHigh(): DEVICEHIGH= now reloads driver into low memory without
+	    error messages about UMB (as in MS-DOS6).
+	  - environment for INSTALL= now includes previous SETs.
+	  - fix: CmdSet(): with SET environment variables now may be redefined and
+	    removed ("V=").
+
+	  ? LoadDevice() uppercases command line for driver. Wrong?
+	* main.c
+	  - fix: FreeDOSmain(): "drv >= 0x80" - should be ">".
+	  - PSPinit(): DOS_PSP.ps_environ and ps_parent now set to zero.
+	  - kernel(): "PATH=." now not placed into empty environment (because bug with
+	    copying empty env in task.c:ChildEnv() is fixed).
+	  - kernel(): now "/D" or "/Y" option inserted even if command line is too
+	    long (by trimming command line tail).
+	  - fix: CheckContinueBootFromHarddisk(): "InitKernelConfig.BootHarddiskSeconds == 0" -
+	    should by "<=".
+	* task.c
+	  ! P_0(): old shell command line stored in SecPathName buffer and, thus, will
+	    be overwritten by DOS rename function with argument, longer than 50 bytes.
+
+	  - fix: new_psp(): as in MS-DOS6, ps_parent now not changed; ps_exit, ps_unix,
+	    ps_farcall, ps_reentry, ps_prevpsp, ps_maxfiles, ps_filetab and ps_files
+	    are initialized.
+	  - fix: new_psp(): ps_reentry now have same value, as in MS-DOS6.
+	  - fix: child_psp(): as in MS-DOS6, ps_fcb* and ps_cmd now not changed,
+	    ps_prevpsp is set to -1 (from new_psp()).
+	  - bugfix: ChildEnv(): empty environment now processed correctly.
+	  - bugfix: ChildEnv(): DosMemAlloc() was called with NULL for `asize', but
+	    asize not always checked inside DosMemAlloc() for NULL before dereference.
+	  - fix: ChildEnv(): for environment now allocated memory not more, than
+	    required to store path after environment (was always 80 extra bytes).
+	  - patchPSP(): as in MS-DOS6, FCB addresses in exec block now don't checked
+	    and copied only 12 bytes (drive+name+ext).
+	  - DosComLoader()/DosExeLoader(): if childEnv() failed, then `env' contains
+	    garbage and DosMemFree(env) now not called.
+	  - bugfix: P_0() was copy argument of SHELL line into Shell buffer without
+	    checking length of source (note: max length of SHELL argument is a 74
+	    bytes, because Shell=SecPathName+50 and sizeof SecPathName=128).
+	  - P_0(): now supported command line without space between command and
+	    options (starting from '/').
++ Changes Bernd, Aitor, & Arkady
+	*  config.c
+	  - source: (Bernd) the codepage table rewritten into a smaller layout.
+	  - bugfix: (Bernd, Aitor) country ID for Spain set to 34 (instead 33).
++ Changes Lucho
+	* exeflat.c
+	  - fix: eliminated warning by explicit cast.
+	  - reduced trailer, added to UPXed kernel.
+	* segs.inc
+	  - fix: for MSVC CONST segment should be class CONST, not DATA.
+	* dsk.c
+	  - play_dj() now says same words as MS-DOS6.
+*** Sync - Stable Build 2035 ***
+
 2004 May 30 - Build 2035
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Lucho + Tom
