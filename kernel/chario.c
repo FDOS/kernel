@@ -185,32 +185,32 @@ void int29(char c);
 STATIC int raw_put_char(int sft_idx, int c)
 {
   struct dhdr FAR *dev = idx_to_dev(sft_idx);
-  unsigned char ch = (unsigned char)c;
+  unsigned char chr = (unsigned char)c;
   
   if (PrinterEcho)
-    DosWrite(STDPRN, 1, &ch);
+    DosWrite(STDPRN, 1, &chr);
 
   if (dev->dh_attr & ATTR_FASTCON)
   {
 #if defined(__TURBOC__)
-    _AL = ch;
+    _AL = chr;
     __int__(0x29);
 #elif defined(__WATCOMC__)
-    int29(ch);
+    int29(chr);
 #elif defined(I86)
     asm
     {
-      mov al, byte ptr ch;
+      mov al, byte ptr chr;
       int 0x29;
     }
 #endif
     return 0;
   }
-  c = (int)BinaryCharIO(dev, 1, &ch, C_OUTPUT);
+  c = (int)BinaryCharIO(dev, 1, &chr, C_OUTPUT);
   if (c < 0)
     return c;
   else
-    return ch;
+    return chr;
 }
 
 /* writes a character in cooked mode; maybe with printer echo;
