@@ -59,6 +59,7 @@ COUNT DosDevIOctl(lregs * r)
   sft FAR *s;
   struct dpb FAR *dpbp;
   COUNT nMode;
+  unsigned attr;
   unsigned char al = r->AL;
 
   if (al > 0x11)
@@ -79,9 +80,15 @@ COUNT DosDevIOctl(lregs * r)
   CharReqHdr.r_length = sizeof(request);
   CharReqHdr.r_status = 0;
 
-  /* Test that the handle is valid                                */
   switch (r->AL)
   {
+    case 0x0b:
+      /* skip, it's a special case.                           */
+      NetDelay = r->CX;
+      if (r->DX)
+        NetRetry = r->DX;
+      break;
+
     case 0x00:
     case 0x01:
     case 0x02:
@@ -94,7 +101,8 @@ COUNT DosDevIOctl(lregs * r)
     {
       unsigned attr, flags;
 
-      /* Get the SFT block that contains the SFT              */
+      /* Test that the handle is valid and                    */
+      /* get the SFT block that contains the SFT              */
       if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
         return DE_INVLDHNDL;
 
@@ -166,14 +174,14 @@ COUNT DosDevIOctl(lregs * r)
           nMode = C_GENIOCTL;
           goto IoCharCommon;
           
-        case 0x10:
+        default: /* 0x10 */
           nMode = C_IOCTLQRY;
         IoCharCommon:
           if ((flags & SFT_FDEVICE) &&
-              (  ((r->AL == 0x02 || r->AL == 0x03) && (attr & ATTR_IOCTL))
-              ||   r->AL == 0x06 || r->AL == 0x07
-              || ((r->AL == 0x10) && (attr & ATTR_QRYIOCTL))
-              || ((r->AL == 0x0c) && (attr & ATTR_GENIOCTL))))
+              (  (r->AL <= 0x03 && (attr & ATTR_IOCTL))
+              ||  r->AL == 0x06 || r->AL == 0x07
+              || (r->AL == 0x10 && (attr & ATTR_QRYIOCTL))
+              || (r->AL == 0x0c && (attr & ATTR_GENIOCTL))))
           {
             CharReqHdr.r_unit = 0;
             CharReqHdr.r_command = nMode;
@@ -185,35 +193,20 @@ COUNT DosDevIOctl(lregs * r)
               return DE_DEVICE;
             }
 
-            if (r->AL == 0x06 || r->AL == 0x07)
-            {
-              r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
-            }
-            else if (r->AL == 0x02 || r->AL == 0x03)
-            {
+            if (r->AL <= 0x03)
               r->AX = CharReqHdr.r_count;
-            }
-            else if (r->AL == 0x0c || r->AL == 0x10)
-            {
+            else if (r->AL == 0x06 || r->AL == 0x07)
+              r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
+            else /* 0x0c or 0x10 */
               r->AX = CharReqHdr.r_status;
-            }
             break;
           }
-          /* fall through */
-        default:  
           return DE_INVLDFUNC;
       }
       break;
     }
 
-    case 0x04:
-    case 0x05:
-    case 0x08:
-    case 0x09:
-    case 0x0d:
-    case 0x0e:
-    case 0x0f:
-    case 0x11:
+    default: /* block IOCTL: 4, 5, 8, 9, d, e, f, 11 */
 
 /*
    This line previously returned the deviceheader at r->bl. But,
@@ -235,6 +228,7 @@ COUNT DosDevIOctl(lregs * r)
 #endif
 
       dpbp = get_dpb(CharReqHdr.r_unit);
+      attr = dpbp->dpb_device->dh_attr;
 
       switch (r->AL)
       {
@@ -249,7 +243,7 @@ COUNT DosDevIOctl(lregs * r)
           {
             return DE_INVLDDRV;
           }
-          if (dpbp->dpb_device->dh_attr & ATTR_EXCALLS)
+          if (attr & ATTR_EXCALLS)
           {
             nMode = C_REMMEDIA;
             goto IoBlockCommon;
@@ -269,7 +263,7 @@ COUNT DosDevIOctl(lregs * r)
             {
               return DE_INVLDDRV;
             }
-            r->DX = dpbp->dpb_device->dh_attr;
+            r->DX = attr;
           }
           if (cdsp->cdsFlags & CDSSUBST)
           {
@@ -292,12 +286,9 @@ COUNT DosDevIOctl(lregs * r)
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
             break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
           }
-          if (((r->AL == 0x04 || r->AL == 0x05) &&
-               !(dpbp->dpb_device->dh_attr & ATTR_IOCTL))
-              || ((r->AL == 0x11)
-                  && !(dpbp->dpb_device->dh_attr & ATTR_QRYIOCTL))
-              || ((r->AL == 0x0d)
-                  && !(dpbp->dpb_device->dh_attr & ATTR_GENIOCTL)))
+          if ((r->AL <= 0x05 && !(attr & ATTR_IOCTL))
+           || (r->AL == 0x11 && !(attr & ATTR_QRYIOCTL))
+           || (r->AL == 0x0d && !(attr & ATTR_GENIOCTL)))
           {
             return DE_INVLDFUNC;
           }
@@ -310,32 +301,25 @@ COUNT DosDevIOctl(lregs * r)
             CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
             return DE_DEVICE;
           }
-          if (r->AL == 0x08)
-          {
-            r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
-          }
-
-          else if (r->AL == 0x04 || r->AL == 0x05)
-          {
+          if (r->AL <= 0x05)
             r->AX = CharReqHdr.r_count;
-          }
-          else if (r->AL == 0x0d || r->AL == 0x11)
-          {
+          else if (r->AL == 0x08)
+            r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
+          else /* 0x0d or 0x11 */
             r->AX = CharReqHdr.r_status;
-          }
           break;
 
         case 0x0e:
           nMode = C_GETLDEV;
           goto IoLogCommon;
-        case 0x0f:
+        default: /* 0x0f */
           nMode = C_SETLDEV;
         IoLogCommon:
           if (!dpbp)
           {
             return DE_INVLDDRV;
           }
-          if ((dpbp->dpb_device->dh_attr & ATTR_GENIOCTL))
+          if (attr & ATTR_GENIOCTL)
           {
             
             CharReqHdr.r_command = nMode;
@@ -351,21 +335,10 @@ COUNT DosDevIOctl(lregs * r)
               r->AL = CharReqHdr.r_unit;
               return SUCCESS;
             }
-          } /* fall through */
-        default:  
+          }
           return DE_INVLDFUNC;
       }
       break;
-      
-    case 0x0b:
-      /* skip, it's a special case.                           */
-      NetDelay = r->CX;
-      if (r->DX)
-        NetRetry = r->DX;
-      break;
-      
-    default:
-      return DE_INVLDFUNC;
   }
   return SUCCESS;
 }
