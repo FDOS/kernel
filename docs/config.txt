@@ -1,5 +1,9 @@
 Advanced - FreeDOS specific - CONFIG.SYS processing
 
+a new command DOSDATA=UMB
+DOSDATA=UMB loads some FreeDOS specific stuff in Upper Memory Blocks,
+like the RAM that FILESHIGH, LASTDRIVEHIGH, and STACKSHIGH occupy
+
 a new command ECHO
 ECHO does ECHO its argument (surprised ?-) and is executed at
 the time the DEVICE= lines are executed.
@@ -8,6 +12,10 @@ use it similarly to
 	ECHO loading driver 1
 	device=Driver1.sys
 	ECHO driver1 successfully loaded
+
+a new command called EECHO is also available, for echo-ing ANSI Escape Sequences
+(redefines keyboard input for example).
+
 
 an undocumented command SCREEN=xx
 SCREEN= switches into videomode xxx  (INT10/11xx/000)
@@ -59,8 +67,7 @@ MENUDEFAULT=0,1				( configuration 0, wait 1 second)
 
 
 Although this is definitively worse then MSDOS menuing possibilities,
-IMHO it's better then nothing. Unfortunately your MENU text gets completely 
-uppercase..
+IMHO it's better then nothing. 
 
 It's also possible to combine menu options, to avoid writing thing every 
 time again.
@@ -109,7 +116,7 @@ MENUDEFAULT=0,0
 
 0?device=c:\ntclient\ifshlp.sys
 
-DEVICE=CDROM.SYS /D:MSCD000
+DEVICE=ATAPICDD.SYS /D:MSCD000
 
 
 
@@ -117,7 +124,7 @@ DEVICE=CDROM.SYS /D:MSCD000
 
 
 2002-11-28 - Tom Ehlert
-
+2003-07-15 - Bernd Blaauw
 
 
 
