@@ -123,24 +123,23 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 	  break;
 
           /* Toggle DOS-C rdwrblock trace dump                    */
-        case 0xfd:
 #ifdef DEBUG
+        case 0xfd:
           bDumpRdWrParms = !bDumpRdWrParms;
-#endif
           break;
+#endif
 
           /* Toggle DOS-C syscall trace dump                      */
-        case 0xfe:
 #ifdef DEBUG
+        case 0xfe:
           bDumpRegs = !bDumpRegs;
-#endif
           break;
+#endif
 
           /* Get DOS-C release string pointer                     */
         case 0xff:
           irp->DX = FP_SEG(os_release);
           irp->AX = FP_OFF(os_release);
-          break;
       }
       break;
 
@@ -160,17 +159,13 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
       /* Get PSP                                                      */
     case 0x51:
-      irp->BX = cu_psp;
-      break;
-
       /* UNDOCUMENTED: return current psp                             */
     case 0x62:
       irp->BX = cu_psp;
       break;
 
       /* Normal DOS function - DO NOT ARRIVE HERE          */
-    default:
-      break;
+ /* default: */
   }
 }
 
@@ -839,7 +834,6 @@ dispatch:
         {
           /* Set Country Code */
           rc = DosSetCountry(cntry);
-          goto short_check;
         }
         else
         {
@@ -855,10 +849,9 @@ dispatch:
             /* END OF HACK */
             lr.AX = lr.BX = cntry;
           }
-          goto short_check;
         }
+        goto short_check;
       }
-      break;
 
       /* Dos Create Directory                                         */
     case 0x39:
@@ -1574,7 +1567,7 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
   if (drv >= lastdrive)
   {
     r->ax = 0x201;
-    r->flags |= FLG_CARRY;
+    SET_CARRY_FLAG();
     return;
   }
 
@@ -1584,7 +1577,7 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
     if (dpbp != NULL && ISFAT32(dpbp))
     {
       r->ax = 0x207;
-      r->flags |= FLG_CARRY;
+      SET_CARRY_FLAG();
       return;
     }
   }
@@ -1607,10 +1600,10 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
 
   r->ax = dskxfer(drv, blkno, buf, nblks, mode);
 
-  r->flags &= ~FLG_CARRY;
+  CLEAR_CARRY_FLAG();
   if (r->ax != 0)
   {
-    r->flags |= FLG_CARRY;
+    SET_CARRY_FLAG();
     if (mode == DSKWRITEINT26)
       setinvld(drv);
   }
