@@ -38,10 +38,13 @@ segment HMA_TEXT
 ;
                 global  _WritePCClock
 _WritePCClock:
-                mov     bx,sp
 ;               Ticks = 4
-                mov     cx,word [ss:bx+4]
-                mov     dx,word [ss:bx+2]      ;Ticks
+		pop	ax			; return address
+		pop	dx
+		pop	cx			; Ticks
+		push	cx			; restore stack
+		push	dx
+		push	ax
                 mov     ah,1
                 int     1ah
                 ret

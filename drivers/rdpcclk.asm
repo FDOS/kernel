@@ -38,17 +38,17 @@ segment	HMA_TEXT
 ;
                 global  _ReadPCClock
 _ReadPCClock:
-                xor     ah,ah
+                mov     ah,0
                 int     1ah
 		extern  _DaysSinceEpoch   ;            ; update days if necessary
 
-                mov     ah,0
-
+		; (ah is still 0, al contains midnight flag)
                 add     word [_DaysSinceEpoch  ],ax    ;   *some* BIOS's accumulate several days
                 adc     word [_DaysSinceEpoch+2],0     ;
 
-                mov     ax,dx                          ; set return value
-                mov     dx,cx 
+						; set return value dx:ax
+		xchg	ax,cx			; ax=_cx, cx=_ax
+		xchg	ax,dx			; dx=_cx, ax=_dx (cx=_ax)
 
                 ret
 

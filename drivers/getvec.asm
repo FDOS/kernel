@@ -34,24 +34,14 @@ segment	HMA_TEXT
 
 		global	_getvec
 _getvec:
-                mov     bx,sp
-                mov     ax,[ss:bx+2]
-  
-;
-; assembler version - ax = vector number
-;       returns vector in dx:ax
-;
-  
-		global	getvec
-getvec:
-                shl     ax,1                    ; Multiply by 4
-                shl     ax,1
+		pop	ax			; return address
+		pop	bx			; int #
+		push	bx			; restore stack
+		push	ax
+		add	bx,bx
+		add	bx,bx                   ; Multiply by 4
                 xor     dx,dx                   ; and set segment to 0
                 mov     es,dx
-                mov     bx,ax
-                pushf                           ; Push flags
-                cli                             ; Disable interrupts
-                mov     ax,[es:bx]
-                mov     dx,[es:bx+2]
-                popf                            ; Pop flags
+                les     ax,[es:bx]
+		mov	dx,es
                 ret

@@ -45,16 +45,15 @@
 
 		global	_fl_reset
 _fl_reset:
-		mov	bx,sp
-                mov     ah,0            ; BIOS reset disketter & fixed disk
-		mov	dl,[bx+2]
+		pop	ax		; return address
+		pop	dx		; drive
+		push	dx		; restore stack
+		push	ax		;
+                mov     ah,0            ; BIOS reset diskette & fixed disk
                 int     13h
 
-                jc      fl_rst1         ; cy==1 is error
-                mov     ax,1            ; TRUE on success
-                ret
-
-fl_rst1:        xor     ax,ax           ; FALSE on error
+                sbb	ax,ax		; cy==1 is error
+		inc	ax		; TRUE on success, FALSE on failure
                 ret
 
 
@@ -64,33 +63,29 @@ fl_rst1:        xor     ax,ax           ; FALSE on error
 ;
 ; COUNT fl_diskchanged(WORD drive)
 ;
-;       returns 1 if disk has changed, 0 if not, 0xFF if error
+;       returns 1 if disk has changed, 0 if not, 0xFFFF if error
 ;
 
 		global	_fl_diskchanged
 _fl_diskchanged:
-                push    bp              ; C entry
-                mov     bp,sp
+		pop	ax		; return address
+		pop	dx		; get the drive number
+		push	dx		; restore stack
+		push	ax		;
 
-                mov     dl,[bp+4]       ; get the drive number
                 mov     ah,16h          ;  read change status type
                 int     13h
 
-                jc      fl_dchanged1    ; cy==1 is error or disk has changed
-                xor     ax,ax           ; disk has not changed
-                pop     bp              ; C exit
-                ret
+		mov	al,1
+                jnc	fl_dc_ret1	; cy==1 is error or disk has changed
 
-fl_dchanged1:   cmp     ah,6
-                jne     fl_dc_error
-                mov     ax,1
-                pop     bp              ; C exit
-                ret
+		cmp     ah,6		; ah=6: disk has changed
+		je      fl_dc_ret
+		dec	ax		; 0xFF on error
 
-fl_dc_error:    mov     ax,0FFh         ; 0xFF on error
-                pop     bp              ; C exit
+fl_dc_ret1:	dec	ax
+fl_dc_ret:	cbw
                 ret
-
 
 ;
 ; Format Sectors
@@ -140,37 +135,31 @@ fl_common:
                 push    bp              ; C entry
                 mov     bp,sp
 
-                mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
-                                        ; hard drive.
-                mov     dh,[bp+6]       ; get the head number
-                mov     bx,[bp+8]       ; cylinder number (lo only if hard)
+                mov     cx,[bp+8]       ; cylinder number (lo only if hard)
 
                 mov     al,1            ; this should be an error code                     
-                cmp     bx,3ffh         ; this code can't write above 3ff=1023
+                cmp     ch,3            ; this code can't write above 3ff=1023
                 ja      fl_error
 
-                mov     ch,bl           ; low 8 bits of cyl number
-                
-                xor     bl,bl           ; extract bits 8+9 to cl
-                shr     bx,1
-                shr     bx,1
-                                
-                
-                mov     cl,[bp+0Ah]     ; sector number
-                and     cl,03fh         ; mask to sector field bits 5-0
-                or      cl,bl           ; or in bits 7-6
+                xchg    ch,cl           ; ch=low 8 bits of cyl number
+                ror     cl,1		; extract bits 8+9 to cl
+                ror     cl,1
+                or      cl,[bp+0Ah]	; or in the sector number (bits 0-5)
 
                 mov     al,[bp+0Ch]     ; count to read/write
                 les     bx,[bp+0Eh]   ; Load 32 bit buffer ptr
 
+                mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
+                                        ; hard drive.
+                mov     dh,[bp+6]       ; get the head number
+
                 int     13h             ;  write sectors from mem es:bx
 
-                mov     al,ah
-                jc      fl_wr1          ; error, return error code
-                xor     al,al           ; Zero transfer count
-fl_wr1:
+		sbb	al,al		; carry: al=ff, else al=0
+		and	al,ah		; carry: error code, else 0
+					; (Zero transfer count)
 fl_error:
-                xor     ah,ah           ; force into < 255 count
+                mov     ah,0            ; force into < 255 count
                 pop     bp
                 ret
 
@@ -187,20 +176,23 @@ _fl_lba_ReadWrite:
 		push    ds
 		push    si              ; wasn't in kernel < KE2024Bo6!!
 
-		mov     dl,[bp+4]       ; get the drive (if or'ed 80h its
+		mov     dl,[bp+4]       ; get the drive (if ored 80h harddrive)
 		mov     ax,[bp+6]       ; get the command
 		lds     si,[bp+8]       ; get far dap pointer
 		int     13h             ; read from/write to drive
 		
-		mov     al,ah           ; place any error code into al
-		
-		xor     ah,ah           ; zero out ah           
-
                 pop     si
 		pop     ds
-		
+
 		pop     bp
+ret_AH:
+		mov     al,ah           ; place any error code into al
+		mov     ah,0            ; zero out ah           
 		ret
+
+;
+; void fl_readkey (void);
+;
 
 global _fl_readkey
 _fl_readkey:    xor	ah, ah
@@ -209,50 +201,50 @@ _fl_readkey:    xor	ah, ah
 
 global _fl_setdisktype
 _fl_setdisktype:
-                push    bp
-                mov     bp, sp
-                mov     dl,[bp+4]       ; drive number
-                mov     al,[bp+6]       ; disk type
+		pop	bx		; return address
+		pop	dx		; drive number (dl)
+		pop	ax		; disk type (al)
+		push	ax		; restore stack
+		push	dx
+		push	bx
                 mov     ah,17h
                 int     13h
-                mov     al,ah
-                xor     ah,ah
-                pop     bp
-                ret
+		jmp	short ret_AH
                         
+;
+; COUNT fl_setmediatype (WORD drive, WORD tracks, WORD sectors);
+;
 global _fl_setmediatype
 _fl_setmediatype:
-                push    bp
-                mov     bp, sp
+		pop	ax		; return address
+		pop	dx		; drive number
+		pop	cx		; number of tracks
+                pop     bx		; sectors/track
+		push	bx		; restore stack
+		push	cx		
+		push	dx
+		push	ax
                 push    di
-        
-                mov     dl,[bp+4]       ; drive number
-                mov     bx,[bp+6]       ; number of tracks
-		dec	bx		; should be highest track
-                mov     ch,bl           ; low 8 bits of cyl number
+
+		dec	cx		; should be highest track
+                xchg    ch,cl           ; low 8 bits of cyl number
                 
-                xor     bl,bl           ; extract bits 8+9 to cl
-                shr     bx,1
-                shr     bx,1
+                ror     cl,1		; extract bits 8+9 to cl bit 6+7
+                ror     cl,1
                 
-                mov     cl,[bp+8]       ; sectors/track
-                and     cl,03fh         ; mask to sector field bits 5-0
                 or      cl,bl           ; or in bits 7-6
 
                 mov     ah,18h
                 int     13h
-                mov     al,ah
-                mov     ah,0
 		jc	skipint1e
-                mov     bx,es
+		push	es
                 xor     dx,dx
                 mov     es,dx
 		cli
+                pop     word [es:0x1e*4+2] ; set int 0x1e table to es:di
                 mov     [es:0x1e*4  ], di
-                mov     [es:0x1e*4+2], bx ; set int 0x1e table to es:di (bx:di)
 		sti
 skipint1e:		
                 pop     di
-                pop     bp
-                ret
+		jmp	short ret_AH
                 
