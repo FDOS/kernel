@@ -468,15 +468,8 @@ strncmp_loop:
                 jne  strncmp_done
                 test al,al
                 loopne   strncmp_loop
+                jmp  short strncmp_retzero		
 %endif
-strncmp_retzero:
-                xor  ax, ax
-                jmp  short strncmp_done2
-strncmp_done:
-                lahf
-		ror  ah,1
-strncmp_done2:  jmp  pascal_return
-
 
 ;**********************************************************************
 ; fmemcmp(BYTE FAR *s1 , BYTE FAR *s2, int count);
@@ -516,4 +509,11 @@ domemcmp:
                 jcxz strncmp_retzero
                 repe cmpsb
                 jne  strncmp_done
-                jmp short strncmp_retzero
+strncmp_retzero:
+                xor  ax, ax
+                jmp  short strncmp_done2
+strncmp_done:
+                lahf
+		ror  ah,1
+strncmp_done2:  jmp  pascal_return
+
