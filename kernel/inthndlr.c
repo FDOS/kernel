@@ -704,9 +704,9 @@ dispatch:
       lr.AL = os_setver_major;
       lr.AH = os_setver_minor;
       lr.BH = OEM_ID;
-      lr.CH = REVISION_MAJOR;   /* JPP */
-      lr.CL = REVISION_MINOR;
       lr.BL = REVISION_SEQ;
+      lr.CX = 0; /* do not set this to a serial number!
+                    32RTM won't like non-zero values   */
 
       if (ReturnAnyDosVersionExpected)
       {
