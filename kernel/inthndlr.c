@@ -664,7 +664,7 @@ dispatch:
 
       /* Write random record(s) using FCB */
     case 0x28:
-      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_WRITE | XFR_FCB_RANDOMXS);
+      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_WRITE | XFR_FCB_RANDOM);
       break;
 
       /* Parse File Name                                              */
