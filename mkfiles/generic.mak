@@ -28,6 +28,10 @@ INCLUDEPATH=$(BASE)\include
 LIBPATH=$(BASE)\lib
 INITPATCH=@rem
 
+!if $(LOADSEG)0 == 0
+LOADSEG=0x60
+!endif
+
 UPXOPT=-U
 !if $(__MAKE__)0 == 0	# NMAKE/WMAKE
 !if "$(XUPX)" == ""	# TC doesn't supports this

@@ -4,7 +4,7 @@
 :- $Id$
 
 :-----------------------------------------------------------------------
-:- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp] [86|186|386] [debug] [lfnapi]
+:- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp] [86|186|386] [debug] [lfnapi] [/L #]
 :- option case is significant !!
 :-----------------------------------------------------------------------
 
@@ -42,6 +42,9 @@ if "%1" == "386"   set XCPU=386
 if "%1" == "debug" set ALLCFLAGS=%ALLCFLAGS% -DDEBUG
 if "%1" == "lfnapi" set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI
 
+if "%1" == "/L"    goto setLoadSeg
+
+:nextOption
 shift
 if not "%1" == "" goto loop_commandline
 
@@ -110,6 +113,13 @@ echo Processing is done.
 goto end
 
 :-----------------------------------------------------------------------
+
+:setLoadSeg
+shift
+if "%1" == "" echo you MUST specify load segment eg 0x60 with /L option
+if "%1" == "" goot abort
+set LOADSEG=%1
+goto nextOption
 
 :noenv
 echo Unable to set necessary environment variables!

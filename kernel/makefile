@@ -36,7 +36,7 @@ all:		..\bin\$(TARGET).sys
 ..\bin\$(TARGET).sys: $(TARGET).lnk $(OBJS) $(LIBS) ..\utils\exeflat.exe
 		$(LINK) @$(TARGET).lnk;
 		$(XUPX) kernel.exe
-		..\utils\exeflat kernel.exe $*.sys 0x60 -S0x10 -S0x8B $(UPXOPT)
+		..\utils\exeflat kernel.exe $*.sys $(LOADSEG) -S0x10 -S0x8B $(UPXOPT)
 		copy $*.sys ..\bin\kernel.sys
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the

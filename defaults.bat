@@ -81,6 +81,7 @@ set XUPX=
 set XCPU=
 set XFAT=
 set ALLCFLAGS=
+set LOADSEG=
 
 if not "%OLDPATH%" == "" set PATH=%OLDPATH%
 set OLDPATH=
