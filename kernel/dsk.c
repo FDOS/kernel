@@ -185,7 +185,7 @@ COUNT ASMCFUNC FAR blk_driver(rqptr rp)
     return ((*dispatch[rp->r_command]) (rp, getddt(rp->r_unit)));
 }
 
-STATIC char template_string[] = "XXXXXX diskette in drive X:\n";
+STATIC char template_string[] = "Remove diskette in drive X:\n";
 #define DRIVE_POS (sizeof(template_string) - 4)
 
 STATIC WORD play_dj(ddt * pddt)
@@ -205,19 +205,20 @@ STATIC WORD play_dj(ddt * pddt)
     if (i == blk_dev.dh_name[0])
     {
       put_string("Error in the DJ mechanism!\n");   /* should not happen! */
-      return M_CHANGED;
     }
-    memcpy(template_string, "Remove", 6);
-    template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
-    put_string(template_string);
-    memcpy(template_string, "Insert", 6);
-    template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
-    put_string(template_string);
-    put_string("Press the any key to continue ... \n");
-    fl_readkey();
-    pddt2->ddt_descflags &= ~DF_CURLOG;
-    pddt->ddt_descflags |= DF_CURLOG;
-    pokeb(0, 0x504, pddt->ddt_logdriveno);
+    else
+    {
+      template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
+      put_string(template_string);
+      put_string("Insert");
+      template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
+      put_string(template_string + 6);
+      put_string("Press the any key to continue ... \n");
+      fl_readkey();
+      pddt2->ddt_descflags &= ~DF_CURLOG;
+      pddt->ddt_descflags |= DF_CURLOG;
+      pokeb(0, 0x504, pddt->ddt_logdriveno);
+    }
     return M_CHANGED;
   }
   return M_NOT_CHANGED;
