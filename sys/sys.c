@@ -27,9 +27,12 @@
 ***************************************************************/
 
 /* $Log$
- * Revision 1.1  2000/05/06 19:35:37  jhall1
- * Initial revision
+ * Revision 1.2  2000/05/15 05:28:09  jimtabor
+ * Cleanup CRs
  *
+/* Revision 1.10  2000/03/31 06:59:10  jprice
+/* Added discription of program.
+/*
 /* Revision 1.9  1999/09/20 18:34:40  jprice
 /* *** empty log message ***
 /*
@@ -261,7 +264,9 @@ COUNT get_part(COUNT drive, COUNT idx)
 
 VOID main(COUNT argc, char **argv)
 {
-  if (argc != 2)
+	printf("FreeDOS System Installer v1.0\n\n");
+
+	if (argc != 2)
   {
     fprintf(stderr, "Usage: %s drive\n drive = A,B,etc.\n", pgm);
     exit(1);

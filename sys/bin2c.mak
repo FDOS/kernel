@@ -5,8 +5,8 @@
 #
 
 # $Log$
-# Revision 1.1  2000/05/06 19:35:36  jhall1
-# Initial revision
+# Revision 1.2  2000/05/15 05:28:09  jimtabor
+# Cleanup CRs
 #
 # Revision 1.6  1999/09/20 18:34:40  jprice
 # *** empty log message ***
