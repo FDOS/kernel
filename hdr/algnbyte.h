@@ -1,6 +1,5 @@
 
 #if defined(_MSC_VER)
-#define asm __asm
 #if _MSC_VER >= 700
 #pragma warning(disable:4103)
 #endif

@@ -1928,7 +1928,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       {
         int rel_idx = idx_to_sft_(r.bx);
 
-        if (rel_idx == (size_t) - 1)
+        if (rel_idx == -1)
         {
           r.flags |= FLG_CARRY;
           break;

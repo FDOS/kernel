@@ -279,7 +279,6 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
 int CDECL printf(CONST BYTE * fmt, ...);
 int CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 #endif
-VOID put_console(COUNT c);
 VOID hexd(char *title, VOID FAR * p, COUNT numBytes);
 void put_unsigned(unsigned n, int base, int width);
 void put_string(const char *s);

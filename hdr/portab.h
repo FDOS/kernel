@@ -69,6 +69,9 @@ void __int__(int);
 #elif defined	(_MSC_VER)
 
 #define I86
+#define asm __asm
+#pragma warning(disable: 4761) /* "integral size mismatch in argument;
+                                   conversion supplied" */
 #define CDECL   _cdecl
 #define PASCAL  pascal
 #define __int__(intno) asm int intno;

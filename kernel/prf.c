@@ -57,7 +57,7 @@ static BYTE *prfRcsId =
 static int buff_offset = 0;
 static char buff[MAX_BUFSIZE];
 
-VOID put_console(COUNT c)
+STATIC VOID put_console(COUNT c)
 {
   if (buff_offset >= MAX_BUFSIZE)
   {
@@ -91,7 +91,7 @@ VOID put_console(COUNT c)
   }
 }
 #else
-VOID put_console(COUNT c)
+STATIC VOID put_console(COUNT c)
 {
   if (c == '\n')
     put_console('\r');
