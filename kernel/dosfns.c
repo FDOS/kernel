@@ -239,23 +239,25 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
       {
         size_t cnt = (size_t)rc;
         const char FAR *p = bp;
+        unsigned char scrpos = scr_pos;
         while (cnt--)
         {
           switch (*p++)
           {
           case CR:
-            scr_pos = 0;
+            scrpos = 0;
             break;
           case LF:
           case BELL:
             break;
           case BS:
-            --scr_pos;
+            --scrpos;
             break;
           default:
-            ++scr_pos;
+            ++scrpos;
           }
         }
+        scr_pos = scrpos;
       }
       return rc;
     }
@@ -398,14 +400,9 @@ ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode)
 STATIC long get_free_hndl(void)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
-  unsigned hndl;
-
-  for (hndl = 0; hndl < p->ps_maxfiles; hndl++)
-  {
-    if (p->ps_filetab[hndl] == 0xff)
-      return hndl;
-  }
-  return DE_TOOMANY;
+  UBYTE FAR *q = p->ps_filetab;
+  UBYTE FAR *r = fmemchr(q, 0xff, p->ps_maxfiles);
+  return FP_OFF(r) == 0 ? DE_TOOMANY : r - q;
 }
 
 STATIC sft FAR *get_free_sft(COUNT * sft_idx)
@@ -442,18 +439,19 @@ STATIC sft FAR *get_free_sft(COUNT * sft_idx)
 const char FAR *get_root(const char FAR * fname)
 {
   /* find the end                                 */
-  register unsigned length = fstrlen(fname) - 1;
+  register unsigned length = fstrlen(fname);
   char c;
 
   /* now back up to first path seperator or start */
-  while (length != (unsigned)-1)
+  fname += length;
+  while (length)
   {
-    c = fname[length];
+    length--;
+    c = *--fname;
     if (c == '/' || c == '\\' || c == ':')
       break;
-    --length;
   }
-  return fname + length + 1;
+  return fname;
 }
 
 /* initialize SFT fields (for open/creat) for character devices */

@@ -218,6 +218,7 @@ STATIC int raw_put_char(int sft_idx, int c)
 STATIC int cooked_put_char(int sft_idx, int c)
 {
   int err = 0;
+  unsigned char scrpos = scr_pos;
   
   /* Test for hold char */
   con_hold(sft_idx);
@@ -225,23 +226,24 @@ STATIC int cooked_put_char(int sft_idx, int c)
   switch (c)
   {
     case CR:
-      scr_pos = 0;
+      scrpos = 0;
       break;
     case LF:
     case BELL:
       break;
     case BS:
-      if (scr_pos > 0)
-        scr_pos--;
+      if (scrpos > 0)
+        scrpos--;
       break;
     case HT:
       do
         err = raw_put_char(sft_idx, ' ');
-      while (err >= 0 && ((++scr_pos) & 7));
+      while (err >= 0 && ((++scrpos) & 7));
       break;
     default:
-      scr_pos++;
+      scrpos++;
   }
+  scr_pos = scrpos;
   if (c != HT)
     err = raw_put_char(sft_idx, c);
   return err;
