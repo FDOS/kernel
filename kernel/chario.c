@@ -241,7 +241,7 @@ STATIC int cooked_write_char(struct dhdr FAR **pdev,
       if (err < 0)
         return err;
     }
-  } while (--count > 0);
+  } while (--count != 0);
   return SUCCESS;
 }
 
@@ -333,7 +333,7 @@ long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
       break;
     *bp++ = c;
     xfer++;
-    if (bp[-1] == CTL_Z)
+    if ((unsigned char)c == CTL_Z)
       break;
   }
   return xfer;
