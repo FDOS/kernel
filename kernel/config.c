@@ -206,11 +206,10 @@ STATIC VOID CfgMenuDefault(BYTE * pLine);
 STATIC BYTE * skipwh(BYTE * s);
 STATIC BYTE * scan(BYTE * s, BYTE * d);
 STATIC BOOL isnum(char ch);
-STATIC char * GetNumber(REG const char *p, int *num);
 #if 0
 STATIC COUNT tolower(COUNT c);
 #endif
-STATIC unsigned char toupper(unsigned char c);
+STATIC char toupper(char c);
 STATIC VOID strupr(char *s);
 STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type);
 STATIC VOID mumcb_init(UCOUNT seg, UWORD size);
@@ -865,16 +864,43 @@ STATIC BOOL SkipLine(char *pLine)
 
 }
 
-STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg)
+/* JPP - changed so will accept hex number. */
+/* ea - changed to accept hex digits in hex numbers */
+STATIC char *GetNumArg(char *p, int *num)
 {
+  static char digits[] = "0123456789ABCDEF";
+  unsigned char base = 10;
+  int sign = 1;
+  int n = 0;
+
   /* look for NUMBER                               */
-  pLine = skipwh(pLine);
-  if (!isnum(*pLine) && *pLine != '-')
+  p = skipwh(p);
+  if (*p == '-')
   {
-    CfgFailure(pLine);
-    return (BYTE *) 0;
+    p++;
+    sign = -1;
   }
-  return (BYTE *)GetNumber(pLine, pnArg);
+  else if (!isnum(*p))
+  {
+    CfgFailure(p);
+    return NULL;
+  }
+
+  for( ; *p; p++)
+  {
+    char ch = toupper(*p);
+    if (ch == 'X')
+      base = 16;
+    else
+    {
+      char *q = strchr(digits, ch);
+      if (q == NULL)
+        break;
+      n = n * base + (q - digits);
+    }
+  }
+  *num = n * sign;
+  return p;
 }
 
 BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
@@ -974,16 +1000,16 @@ STATIC VOID CfgLastdrive(BYTE * pLine)
   BYTE drv;
 
   pLine = skipwh(pLine);
-  drv = *pLine & ~0x20;
+  drv = toupper(*pLine);
 
   if (drv < 'A' || drv > 'Z')
   {
     CfgFailure(pLine);
     return;
   }
-  drv -= 'A';
-  drv++;                        /* Make real number */
-  Config.cfgLastdrive = max(Config.cfgLastdrive, drv);
+  drv -= 'A' - 1;               /* Make real number */
+  if (drv > Config.cfgLastdrive)
+    Config.cfgLastdrive = drv;
   Config.cfgLastdriveHigh = 0;
 }
 
@@ -1569,52 +1595,12 @@ STATIC BOOL isnum(char ch)
   return (ch >= '0' && ch <= '9');
 }
 
-/* JPP - changed so will accept hex number. */
-/* ea - changed to accept hex digits in hex numbers */
-STATIC char * GetNumber(REG const char *p, int *num)
-{
-  unsigned char base = 10;
-  int sign = 1;
-  int n = 0;
-
-  if (*p == '-')
-  {
-    p++;
-    sign = -1;
-  }
-
-  for(;;p++)
-  {
-    unsigned char ch = toupper(*p);
-    if (ch == 'X')
-    {
-      base = 16;
-      continue;
-    }
-    if (isnum(ch))
-    {
-      n = n * base + ch - '0';
-    }
-    else if (base == 16 && (ch<='F') && (ch>='A'))
-    {
-      n = n * base + 10 + ch - 'A';
-    }
-    else
-    {
-      break;
-    }
-  }
-  *num = n * sign;
-  return (char *)p;
-}
-
 /* Yet another change for true portability (PJV) */
-STATIC unsigned char toupper(unsigned char c)
+STATIC char toupper(char c)
 {
   if (c >= 'a' && c <= 'z')
-    return (c - ('a' - 'A'));
-  else
-    return c;
+    c -= 'a' - 'A';
+  return c;
 }
 
 /* Convert string s to uppercase */
