@@ -58,21 +58,9 @@ struct MenuSelector
 };
 
 /** Structure below holds the menu-strings */
-STATIC struct MenuSelector MenuStruct[MENULINESMAX] =
-{
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}},
-  {0,0,0,{""}}
-};
+STATIC struct MenuSelector MenuStruct[MENULINESMAX];
 
-int nMenuLine=0;
+int nMenuLine;
 BOOL MenuColor = -1;
 
 STATIC void WriteMenuLine(int MenuSelected)
@@ -128,14 +116,13 @@ STATIC void SelectLine(int MenuSelected)
   WriteMenuLine(MenuSelected);
 }
 
-UWORD umb_start = 0, UMB_top = 0;
-UWORD ram_top = 0; /* How much ram in Kbytes               */
-size_t ebda_size = 0;
+UWORD umb_start, UMB_top;
+UWORD ram_top; /* How much ram in Kbytes               */
+size_t ebda_size;
 
 static UBYTE ErrorAlreadyPrinted[128];
 
-
-char master_env[128] = {0};
+char master_env[128];
 static char *envp = master_env;
 
 struct config Config = {
@@ -155,34 +142,29 @@ struct config Config = {
       /* COUNTRY= is initialized within DoConfig() */
       , 0                       /* country ID */
       , 0                       /* codepage */
-      , ""                      /* filename */
       , 0                       /* amount required memory */
       , 0                       /* pointer to loaded data */
       , 0                       /* strategy for command.com is low by default */
       , 0xFFFF                  /* default value for switches=/E:nnnn */
 };
-                        /* MSC places uninitialized data into COMDEF records,
-                           that end up in DATA segment. this can't be tolerated
-                           in INIT code.
-                           please make sure, that ALL data in INIT is initialized !!
-                         */
-STATIC seg base_seg = 0;
-STATIC seg umb_base_seg = 0;
-BYTE FAR *lpTop = 0;
-STATIC unsigned nCfgLine = 0;
-COUNT UmbState = 0;
-STATIC BYTE szLine[256] = { 0 };
-STATIC BYTE szBuf[256] = { 0 };
 
-BYTE singleStep = FALSE;        /* F8 processing */
-BYTE SkipAllConfig = FALSE;     /* F5 processing */
-BYTE askThisSingleCommand = FALSE;          /* ?device=  device?= */
-BYTE DontAskThisSingleCommand = FALSE;      /* !files=            */
+STATIC seg base_seg;
+STATIC seg umb_base_seg;
+BYTE FAR *lpTop;
+STATIC unsigned nCfgLine;
+COUNT UmbState;
+STATIC BYTE szLine[256];
+STATIC BYTE szBuf[256];
+
+BYTE singleStep;        /* F8 processing */
+BYTE SkipAllConfig;     /* F5 processing */
+BYTE askThisSingleCommand;      /* ?device=  device?= */
+BYTE DontAskThisSingleCommand;  /* !files=            */
 
 COUNT MenuTimeout = -1;
-BYTE  MenuSelected = 0;
-UCOUNT MenuLine     = 0;
-UCOUNT Menus      = 0;
+BYTE  MenuSelected;
+UCOUNT MenuLine;
+UCOUNT Menus;
 
 STATIC VOID CfgMenuColor(BYTE * pLine);
 
@@ -331,9 +313,9 @@ int  findend(BYTE * s)
   return nLen;
 }
 
-BYTE *pLineStart = 0;
+BYTE *pLineStart;
 
-BYTE HMAState = 0;
+BYTE HMAState;
 #define HMA_NONE 0              /* do nothing */
 #define HMA_REQ 1               /* DOS = HIGH detected */
 #define HMA_DONE 2              /* Moved kernel to HMA */
@@ -343,8 +325,6 @@ BYTE HMAState = 0;
 /* later.                                                               */
 void PreConfig(void)
 {
-  memset(ErrorAlreadyPrinted,0,sizeof(ErrorAlreadyPrinted));
-
   /* Initialize the base memory pointers                          */
 
 #ifdef DEBUG
@@ -1257,6 +1237,12 @@ STATIC VOID InitPgmHigh(BYTE * pLine)
 
 STATIC VOID InitPgm(BYTE * pLine)
 {
+  static char init[NAMEMAX];
+  static char inittail[NAMEMAX];
+
+  Config.cfgInit = init;
+  Config.cfgInitTail = inittail;
+
   /* Get the string argument that represents the new init pgm     */
   pLine = GetStringArg(pLine, Config.cfgInit);
 
@@ -1648,7 +1634,7 @@ STATIC VOID mcb_init_copy(UCOUNT seg, UWORD size, mcb *near_mcb)
 
 STATIC VOID mcb_init(UCOUNT seg, UWORD size, BYTE type)
 {
-  static mcb near_mcb = {0};
+  static mcb near_mcb;
   near_mcb.m_type = type;
   mcb_init_copy(seg, size, &near_mcb);
 }

@@ -34,8 +34,8 @@ struct config {     /* Configuration variables */
   UBYTE cfgFilesHigh;
   UBYTE cfgFcbs;             /* number of available FCBs */
   UBYTE cfgProtFcbs;         /* number of protected FCBs */
-  BYTE cfgInit[NAMEMAX];     /* init of command.com */
-  BYTE cfgInitTail[NAMEMAX]; /* command.com's tail */
+  BYTE *cfgInit;             /* init of command.com */
+  BYTE *cfgInitTail;         /* command.com's tail */
   UBYTE cfgLastdrive;        /* last drive */
   UBYTE cfgLastdriveHigh;
   BYTE cfgStacks;            /* number of stacks */
@@ -47,7 +47,6 @@ struct config {     /* Configuration variables */
    */
   WORD cfgCSYS_cntry;        /* country ID to be loaded */
   UWORD cfgCSYS_cp;          /* requested codepage; NLS_DEFAULT if default */
-  BYTE cfgCSYS_fnam[NAMEMAX];/* filename of COUNTRY= */
   WORD cfgCSYS_memory;       /* # of bytes required for the NLS pkg; 0 if none */
   VOID FAR *cfgCSYS_data;    /* where the loaded data is for PostConfig() */
   UBYTE cfgP_0_startmode;    /* load command.com high or not */

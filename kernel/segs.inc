@@ -32,11 +32,12 @@ group   LGROUP          _LOWTEXT _IO_TEXT _IO_FIXED_DATA _TEXT
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA
 %ifdef WATCOM
 group   TGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END INIT_TEXT_START INIT_TEXT INIT_TEXT_END
+group   I_GROUP         ID_B I_DATA ICONST ICONST2 ID_E IB_B I_BSS IB_E
 %else
 group   TGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END
 group   IGROUP          INIT_TEXT_START INIT_TEXT INIT_TEXT_END
+group   I_GROUP         ID_B ID ID_E IC IDATA IB_B IB IB_E
 %endif
-group   I_GROUP         ID_B ID ID_E IC IDATA ICONST ICONST2 I_DATA IB_B I_BSS IB IB_E
 
 segment PSP             class=PSP
 segment	_LOWTEXT	class=LCODE
@@ -59,18 +60,23 @@ segment HMA_TEXT_END	class=CODE
 segment INIT_TEXT_START class=CODE align=16
 segment	INIT_TEXT	class=CODE
 segment	INIT_TEXT_END   class=CODE
-segment ID_B            class=ID   align=16
-segment ID              class=ID   align=2
-segment ID_E            class=ID   align=2
-segment IDATA           class=ID   align=2
-segment	IC      	class=IC   align=2
 
-;for Watcom
+%ifdef WATCOM
+segment ID_B            class=FAR_DATA align=16
+segment I_DATA          class=FAR_DATA align=2
 segment ICONST          class=FAR_DATA align=2
 segment ICONST2         class=FAR_DATA align=2
-segment I_DATA          class=FAR_DATA align=2
-
-segment	IB_B      	class=IB   align=2
+segment ID_E            class=FAR_DATA align=2
+segment IB_B            class=FAR_DATA align=2
 segment I_BSS           class=FAR_DATA align=2
+segment IB_E            class=FAR_DATA align=2
+%else
+segment ID_B            class=ID   align=16
+segment ID              class=ID   align=2
+segment IDATA           class=ID   align=2
+segment ID_E            class=ID   align=2
+segment	IC      	class=IC   align=2
+segment	IB_B      	class=IB   align=2
 segment	IB      	class=IB   align=2     
 segment	IB_E      	class=IB   align=2
+%endif

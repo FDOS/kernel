@@ -129,13 +129,13 @@ kernel_start:
 		shr	dx,cl
 		sub	ax,dx
 		mov	es,ax
-		mov	dx,__INIT_DATA_START wrt INIT_TEXT
+		mov	dx,__INIT_DATA_START wrt INIT_TEXT ; para aligned
 		shr	dx,cl
 		add	ax,dx
 		mov	ss,ax		; set SS to init data segment
 		sti                     ; now enable them
 		mov	ax,cs
-		mov	dx,__InitTextStart wrt HMA_TEXT
+		mov	dx,__InitTextStart wrt HMA_TEXT    ; para aligned
 %ifdef WATCOM
 		mov	si,dx
 		mov	cl,4
@@ -143,7 +143,7 @@ kernel_start:
 		add	ax,si
 %endif
 		mov	ds,ax
-		mov	cx,-2 + init_end wrt INIT_TEXT
+		mov	cx,-2 + init_end wrt INIT_TEXT     ; word aligned
 		mov	si,cx
 		mov	di,cx
 		shr	cx,1

@@ -43,7 +43,7 @@ static char copyright[] =
     "GNU General Public License as published by the Free Software Foundation;\n"
     "either version 2, or (at your option) any later version.\n";
 
-struct _KernelConfig InitKernelConfig = { "", 0, 0, 0, 0, 0, 0, 0 };
+struct _KernelConfig InitKernelConfig;
 
 STATIC VOID InitIO(void);
 
@@ -445,7 +445,8 @@ STATIC void kernel()
           break;
         }
       }
-      strcpy(Config.cfgInitTail, Cmd.ctBuffer); /* save buffer */
+      /* save buffer -- on the stack it's fine here */
+      Config.cfgInitTail = Cmd.ctBuffer;
     }
   }
   init_call_p_0(&Config); /* go execute process 0 (the shell) */
