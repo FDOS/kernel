@@ -36,7 +36,6 @@
 #ifdef _INIT
 #define handle_char init_handle_char
 #define put_console init_put_console
-#define ltob init_ltob
 #define do_printf init_do_printf
 #define printf init_printf
 #define sprintf init_sprintf
@@ -132,9 +131,8 @@ typedef char *va_list;
 static BYTE *charp = 0;
 
 STATIC VOID handle_char(COUNT);
-STATIC void ltob(LONG, BYTE *, COUNT);
 STATIC void do_printf(const char *, REG va_list);
-int VA_CDECL printf(const char * fmt, ...);
+VOID VA_CDECL printf(const char * fmt, ...);
 
 /* special handler to switch between sprintf and printf */
 STATIC VOID handle_char(COUNT c)
@@ -145,57 +143,21 @@ STATIC VOID handle_char(COUNT c)
     *charp++ = c;
 }
 
-/* ltob -- convert an long integer to a string in any base (2-16) */
-STATIC void ltob(LONG n, BYTE * s, COUNT base)
-{
-  ULONG u;
-  BYTE *p, *q;
-  int c;
-
-  u = n;
-
-  if (base == -10)              /* signals signed conversion */
-  {
-    base = 10;
-    if (n < 0)
-    {
-      u = -n;
-      *s++ = '-';
-    }
-  }
-
-  p = s;
-  do
-  {                             /* generate digits in reverse order */
-    *p++ = "0123456789abcdef"[(UWORD) (u % base)];
-  }
-  while ((u /= base) > 0);
-
-  *p = '\0';                    /* terminate the string */
-  for (q = s; q < --p; q++)
-  {                             /* reverse the digits */
-    c = *q;
-    *q = *p;
-    *p = c;
-  }
-}
-
 #define LEFT    0
 #define RIGHT   1
 #define ZEROSFILL 2
 #define LONGARG 4
 
 /* printf -- short version of printf to conserve space */
-int VA_CDECL printf(const char *fmt, ...)
+VOID VA_CDECL printf(const char *fmt, ...)
 {
   va_list arg;
   va_start(arg, fmt);
   charp = 0;
   do_printf(fmt, arg);
-  return 0;
 }
 
-int VA_CDECL sprintf(char * buff, const char * fmt, ...)
+VOID VA_CDECL sprintf(char * buff, const char * fmt, ...)
 {
   va_list arg;
 
@@ -203,15 +165,13 @@ int VA_CDECL sprintf(char * buff, const char * fmt, ...)
   charp = buff;
   do_printf(fmt, arg);
   handle_char('\0');
-  return 0;
 }
 
 STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 {
-  int base;
-  BYTE s[11], FAR * p;
-  int size;
-  unsigned char flags;
+  int base, size;
+  char s[13]; /* long enough for a 32-bit octal number string with sign */
+  char flags, FAR *p;
 
   for (;*fmt != '\0'; fmt++)
   {
@@ -302,17 +262,33 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 
     lprt:
         {
-          long currentArg;
+          long n;
+          ULONG u;
+          BYTE *t = s + sizeof(s) - 1;
+
           if (flags & LONGARG)
-            currentArg = va_arg(arg, long);
+            n = va_arg(arg, long);
           else
           {
-            currentArg = va_arg(arg, int);
+            n = va_arg(arg, int);
             if (base >= 0)
-              currentArg =  (long)(unsigned)currentArg;
+              n = (long)(unsigned)n;
           }
-          ltob(currentArg, s, base);
-          p = s;
+          /* convert a long integer to a string in any base (2-16) */
+          u = n;
+          if (base < 0)               /* signals signed conversion */
+          {
+            base = -base;
+            if (n < 0)
+              u = -n;
+          }
+          *t = '\0';                /* terminate the number string */
+          do                   /* generate digits in reverse order */
+            *--t = "0123456789ABCDEF"[(UWORD)u % base];
+          while ((u /= base) > 0);
+          if (n < 0)
+            *--t = '-';
+          p = t;
         }
         break;
 
@@ -378,19 +354,15 @@ void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
 /* put_unsigned -- print unsigned int in base 2--16 */
 void put_unsigned(unsigned n, int base, int width)
 {
-  char s[6];
-  int i;
+  char s[6];   /* CAUTION: width must be [0..5] and is not checked! */
 
-  for (i = 0; i < width; i++)
+  s[width] = '\0';                   /* terminate the number string */
+  while (--width >= 0)
   {                             /* generate digits in reverse order */
-    s[i] = "0123456789abcdef"[(UWORD) (n % base)];
+    s[width] = "0123456789ABCDEF"[n % base];
     n /= base;
   }
-
-  while(i != 0)
-  {                             /* print digits in reverse order */
-    put_console(s[--i]);
-  }
+  put_string(s);
 }
 
 void put_string(const char *s)
@@ -408,18 +380,13 @@ void put_string(const char *s)
 	
 	compile like (note -DTEST !)
 
-	c:\tc\tcc -DTEST -DI86 -I..\hdr prf.c
+	c:\tc\tcc -DTEST -DI86 -Ihdr kernel\prf.c
 	
-	and run. if strings are wrong, the program will wait for the ANYKEY
+	and run. If strings are wrong, the program will wait for ENTER
 
 */
 #include <stdio.h>
 #include <string.h>
-
-void cso(char c)
-{
-  putchar(c);
-}
 
 struct {
   char *should;

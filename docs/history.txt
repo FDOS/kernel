@@ -334,6 +334,7 @@
           - revision sequence now initialised along with DOS version in LoL
           - CheckContinueBootFromHardDisk() function code and text cleaned up
         * makefile: object files reordered to gain ~300B packed size
+        * newstuff.c, fatdir.c, blockio.c, chario.c, prf.c: cleanup & optimise
         * portab.h: pragma aux default to gain ~800B unpacked size (Watcom)
           (the last 2 changes proposed by Bart Oldeman)
  + Changes Eduardo

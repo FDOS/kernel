@@ -43,27 +43,20 @@ int SetJFTSize(UWORD nHandles)
   psp FAR *ppsp = MK_FP(cu_psp, 0);
   UBYTE FAR *newtab;
 
-  if (nHandles <= ppsp->ps_maxfiles)
+  if (nHandles > ppsp->ps_maxfiles)
   {
-    ppsp->ps_maxfiles = nHandles;
-    return SUCCESS;
+    if ((DosMemAlloc
+         ((nHandles + 0xf) >> 4, mem_access_mode, &block, &maxBlock)) < 0)
+      return DE_NOMEM;
+    ++block;
+    newtab = MK_FP(block, 0);
+    i = ppsp->ps_maxfiles;
+    /* copy existing part and fill up new part by "no open file" */
+    fmemcpy(newtab, ppsp->ps_filetab, i);
+    fmemset(newtab + i, 0xff, nHandles - i);
+    ppsp->ps_filetab = newtab;
   }
-
-  if ((DosMemAlloc
-       ((nHandles + 0xf) >> 4, mem_access_mode, &block, &maxBlock)) < 0)
-    return DE_NOMEM;
-
-  ++block;
-  newtab = MK_FP(block, 0);
-
-  i = ppsp->ps_maxfiles;
-  /* copy existing part and fill up new part by "no open file" */
-  fmemcpy(newtab, ppsp->ps_filetab, i);
-  fmemset(newtab + i, 0xff, nHandles - i);
-
   ppsp->ps_maxfiles = nHandles;
-  ppsp->ps_filetab = newtab;
-
   return SUCCESS;
 }
 
@@ -88,12 +81,6 @@ long DosMkTmp(BYTE FAR * pathname, UWORD attr)
     int i;
     for(i = 7; i >= 0; tmp >>= 4, i--)
       ptmp[i] = ((char)tmp & 0xf) + 'A';
-
-    /* DOS versions: > 5: characters A - P
-       < 5: hex digits */
-    if (os_major < 5)
-      for (i = 0; i < 8; i++)
-        ptmp[i] -= (ptmp[i] < 'A' + 10) ? '0' - 'A' : 10;
 
     /* only create new file -- 2001/09/22 ska*/
     rc = DosOpen(pathname, O_LEGACY | O_CREAT | O_RDWR, attr);

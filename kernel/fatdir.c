@@ -486,35 +486,25 @@ COUNT dos_findnext(void)
   {
     ++dmp->dm_entry;
     ++fnp->f_diroff;
-    if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
-        && !(fnp->f_dir.dir_attrib & D_VOLID))
-    {
-      if (fcmp_wild(dmp->dm_name_pat, fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
-      {
-        /*
+    if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED &&
+      !(fnp->f_dir.dir_attrib & D_VOLID) &&
+      fcmp_wild(dmp->dm_name_pat, fnp->f_dir.dir_name, FNAME_SIZE+FEXT_SIZE) &&
+      /*
            MSD Command.com uses FCB FN 11 & 12 with attrib set to 0x16.
            Bits 0x21 seem to get set some where in MSD so Rd and Arc
-           files are returned. 
-           RdOnly + Archive bits are ignored
-         */
-
-        /* Test the attribute as the final step */
-        if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
-            !(~dmp->dm_attr_srch & (D_DIR | D_SYSTEM | D_HIDDEN) &
-              fnp->f_dir.dir_attrib))
-        {
-          /* If found, transfer it to the dmatch structure                */
-          dmp->dm_dircluster = fnp->f_dirstart;
-          memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
-          /* return the result                                            */
-          release_f_node(fnp);
-          return SUCCESS;
-        }
-      }
+           files are returned. RdOnly + Archive bits are ignored
+       */
+      /* Test the attribute as the final step */
+      !(~dmp->dm_attr_srch & (D_DIR|D_SYSTEM|D_HIDDEN) & fnp->f_dir.dir_attrib))
+    {
+      /* If found, transfer it to the dmatch structure */
+      dmp->dm_dircluster = fnp->f_dirstart;
+      memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
+      /* return the result */
+      release_f_node(fnp);
+      return SUCCESS;
     }
   }
-
-
 #ifdef DEBUG
   printf("dos_findnext: %11s\n", fnp->f_dir.dir_name);
 #endif
@@ -536,54 +526,22 @@ COUNT dos_findnext(void)
 void ConvertName83ToNameSZ(BYTE FAR * destSZ, BYTE FAR * srcFCBName)
 {
   int loop;
-  int noExtension = FALSE;
-
-  if (*srcFCBName == '.')
-  {
-    noExtension = TRUE;
-  }
 
   fmemcpy(destSZ, srcFCBName, FNAME_SIZE);
-
-  srcFCBName += FNAME_SIZE;
-
-  for (loop = FNAME_SIZE; --loop >= 0;)
+  for (loop = FNAME_SIZE; --loop >= 0 && destSZ[loop] == ' '; )
+    ;
+  destSZ += ++loop;
+  if (*srcFCBName != '.')             /* not for ".", ".." */
   {
-    if (destSZ[loop] != ' ')
-      break;
-  }
-  destSZ += loop + 1;
-
-  if (!noExtension)             /* not for ".", ".." */
-  {
-
-    for (loop = FEXT_SIZE; --loop >= 0;)
-    {
-      if (srcFCBName[loop] != ' ')
-        break;
-    }
-    if (loop >= 0)
+    srcFCBName += FNAME_SIZE;
+    for (loop = FEXT_SIZE; --loop >= 0 && srcFCBName[loop] == ' '; )
+      ;
+    if (++loop > 0)
     {
       *destSZ++ = '.';
-      fmemcpy(destSZ, srcFCBName, loop + 1);
-      destSZ += loop + 1;
+      fmemcpy(destSZ, srcFCBName, loop);
+      destSZ += loop;
     }
   }
   *destSZ = '\0';
 }
-
-#if 0
-/*
-    returns the asciiSZ length of a 8.3 filename
-*/
-
-int FileName83Length(BYTE * filename83)
-{
-  BYTE buff[13];
-
-  ConvertName83ToNameSZ(buff, filename83);
-
-  return strlen(buff);
-}
-#endif
-

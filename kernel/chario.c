@@ -73,7 +73,7 @@ long BinaryCharIO(struct dhdr FAR **pdev, size_t n, void FAR * bp,
     CharReqHdr.r_count = n;
     CharReqHdr.r_trans = bp;
     err = CharRequest(pdev, command);
-  } while (err == 1);
+  } while (err > 0);
   return err == SUCCESS ? (long)CharReqHdr.r_count : err;
 }
 
@@ -89,10 +89,7 @@ STATIC int CharIO(struct dhdr FAR **pdev, unsigned char ch, unsigned command)
 
 /* STATE FUNCTIONS */
 
-STATIC void CharCmd(struct dhdr FAR **pdev, unsigned command)
-{
-  while (CharRequest(pdev, command) == 1);
-}
+#define CharCmd(pdev, command)  while (CharRequest(pdev, command) > 0)
 
 STATIC int Busy(struct dhdr FAR **pdev)
 {
@@ -138,103 +135,56 @@ int ndread(struct dhdr FAR **pdev)
 
 /* OUTPUT FUNCTIONS */
 
-#ifdef __WATCOMC__
-void fast_put_char(char c);
-#pragma aux fast_put_char = "int 29h" parm[al] modify exact [bx]
-#else
-
-/* writes a character in raw mode using int29 for speed */
-STATIC void fast_put_char(unsigned char chr)
-{
-#if defined(__TURBOC__)
-    _AL = chr;
-    __int__(0x29);
-#elif defined(I86)
-    asm
-    {
-      mov al, byte ptr chr;
-      int 0x29;
-    }
-#endif
-}
-#endif
-
 void update_scr_pos(unsigned char c, unsigned char count)
 {
-  unsigned char scrpos = scr_pos;
-
   if (c == CR)
-    scrpos = 0;
+    scr_pos = 0;
   else if (c == BS) {
-    if (scrpos > 0)
-      scrpos--;
-  } else if (c != LF && c != BELL) {
-    scrpos += count;
-  }
-  scr_pos = scrpos;
+    if (scr_pos > 0)
+      scr_pos--;
+  } else if (c != LF && c != BELL)
+    scr_pos += count;
 }
 
 STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break);
 
-/* writes a character in cooked mode; maybe with printer echo;
-   handles TAB expansion */
-STATIC int cooked_write_char(struct dhdr FAR **pdev,
-                      unsigned char c,
-                      unsigned char *fast_counter)
-{
-  unsigned char count = 1;
-
-  if (c == HT) {
-    count = 8 - (scr_pos & 7);
-    c = ' ';
-  }
-  update_scr_pos(c, count);
-
-  do {
-
-    /* if not fast then < 0x80; always check
-       otherwise check every 32 characters */
-    if (*fast_counter <= 0x80 && check_handle_break(pdev) == CTL_S)
-      /* Test for hold char and ctl_c */
-      raw_get_char(pdev, TRUE);
-    *fast_counter += 1;
-    *fast_counter &= 0x9f;
-
-    if (PrinterEcho)
-      DosWrite(STDPRN, 1, &c);
-    if (*fast_counter & 0x80)
-    {
-      fast_put_char(c);
-    }
-    else
-    {
-      int err = CharIO(pdev, c, C_OUTPUT);
-      if (err < 0)
-        return err;
-    }
-  } while (--count != 0);
-  return SUCCESS;
-}
-
 long cooked_write(struct dhdr FAR **pdev, size_t n, char FAR *bp)
 {
-  size_t xfer = 0;
-  unsigned char fast_counter;
+  size_t xfer;
 
   /* bit 7 means fastcon; low 5 bits count number of characters */
-  fast_counter = ((*pdev)->dh_attr & ATTR_FASTCON) << 3;
+  unsigned char fast_counter = ((*pdev)->dh_attr & ATTR_FASTCON) << 3;
 
   for (xfer = 0; xfer < n; xfer++)
   {
     int err;
-    unsigned char c = *bp++;
+    unsigned char count = 1, c = *bp++;
 
     if (c == CTL_Z)
       break;
-
-    err = cooked_write_char(pdev, c, &fast_counter);
-    if (err < 0)
-      return err;
+    if (c == HT) {
+      count = 8 - (scr_pos & 7);
+      c = ' ';
+    }
+    update_scr_pos(c, count);
+    do {
+      /* if not fast then < 0x80; always check
+         otherwise check every 32 characters */
+      if (fast_counter <= 0x80 && check_handle_break(pdev) == CTL_S)
+        raw_get_char(pdev, TRUE); /* Test for hold char and ctl_c */
+      fast_counter++;
+      fast_counter &= 0x9f;
+      if (PrinterEcho)
+        DosWrite(STDPRN, 1, &c);
+      if (fast_counter & 0x80)
+        put_console(c);
+      else
+      {
+        err = CharIO(pdev, c, C_OUTPUT);
+        if (err < 0)
+          return err;
+      }
+    } while (--count != 0);
   }
   return xfer;
 }
@@ -271,16 +221,15 @@ void write_char_stdout(int c)
 #define iscntrl(c) ((unsigned char)(c) < ' ')
 
 /* this is for handling things like ^C, mostly used in echoed input */
-STATIC int echo_char(int c, int sft_idx)
+STATIC VOID echo_char(int c, int sft_idx, unsigned i)
 {
-  int out = c;
   if (iscntrl(c) && c != HT && c != LF && c != CR)
   {
     write_char('^', sft_idx);
-    out += '@';
+    c += '@';
   }
-  write_char(out, sft_idx);
-  return c;
+  write_char(c, sft_idx);
+  local_buffer[i] = c;
 }
 
 STATIC void destr_bs(int sft_idx)
@@ -407,15 +356,13 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
           write_char(CR, sft_out);
           write_char(LF, sft_out);
         }
-        break;
-
       case CTL_F:
         break;
 
       case RIGHT:
       case F1:
         if (stored_pos < stored_size && count < size - 1)
-          local_buffer[count++] = echo_char(kp->kb_buf[stored_pos++], sft_out);
+          echo_char(kp->kb_buf[stored_pos++], sft_out, count++);
         break;
             
       case F2:
@@ -441,7 +388,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
         if (c != F4) /* not delete */
         {
           while (stored_pos < new_pos && count < size - 1)
-              local_buffer[count++] = echo_char(kp->kb_buf[stored_pos++], sft_out);
+            echo_char(kp->kb_buf[stored_pos++], sft_out, count++);
         }
         stored_pos = new_pos;
         break;
@@ -513,12 +460,11 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
 
       default:
         if (count < size - 1 || c == CR)
-          local_buffer[count++] = echo_char(c, sft_out);
+          echo_char(c, sft_out, count++);
         else
           write_char(BELL, sft_out);
         if (stored_pos < stored_size && !insert)
           stored_pos++;
-        break;
     }
     first = FALSE;
   } while (c != CR);
@@ -545,7 +491,8 @@ size_t read_line_handle(int sft_idx, size_t n, char FAR * bp)
       kb_buf.kb_size = LINEBUFSIZECON;
     }
     read_line(sft_idx, sft_idx, &kb_buf);
-    kb_buf.kb_buf[kb_buf.kb_count + 1] = echo_char(LF, sft_idx);
+    write_char(LF, sft_idx);
+    kb_buf.kb_buf[kb_buf.kb_count + 1] = LF;
     inputptr = kb_buf.kb_buf;
     if (*inputptr == CTL_Z)
     {

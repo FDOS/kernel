@@ -47,7 +47,7 @@ static BYTE *blockioRcsId =
 /************************************************************************/
 /* #define DISPLAY_GETBLOCK */
 
-STATIC BOOL flush1(struct buffer FAR * bp);
+STATIC VOID flush1(struct buffer FAR * bp);
 
 /*
     this searches the buffer list for the given disk/block.
@@ -155,7 +155,7 @@ STATIC struct buffer FAR *searchblock(ULONG blkno, COUNT dsk)
   return bp;
 }
 
-BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mode)
+VOID DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mode)
 {
   struct buffer FAR *bp = firstbuf;
         
@@ -176,8 +176,6 @@ BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mo
     bp = b_next(bp);
   }
   while (FP_OFF(bp) != FP_OFF(firstbuf));
-
-  return FALSE;
 }
 
 #if TOM
@@ -226,8 +224,7 @@ struct buffer FAR *getblk(ULONG blkno, COUNT dsk, BOOL overwrite)
   /* available, and fill it with the desired block                */
 
   /* take the buffer that lbp points to and flush it, then read new block. */
-  if (!flush1(bp))
-    return NULL;
+  flush1(bp);
 
   /* Fill the indicated disk buffer with the current track and sector */
 
@@ -262,30 +259,23 @@ VOID setinvld(REG COUNT dsk)
 /*                                                                      */
 /*                      Flush all buffers for a disk                    */
 /*                                                                      */
-/*      returns:                                                        */
-/*              TRUE on success                                         */
-/*                                                                      */
-BOOL flush_buffers(REG COUNT dsk)
+VOID flush_buffers(REG COUNT dsk)
 {
   struct buffer FAR *bp = firstbuf;
-  REG BOOL ok = TRUE;
 
-  bp = firstbuf;
   do
   {
     if (bp->b_unit == dsk)
-      if (!flush1(bp))
-        ok = FALSE;
+      flush1(bp);
     bp = b_next(bp);
   }
   while (FP_OFF(bp) != FP_OFF(firstbuf));
-  return ok;
 }
 
 /*                                                                      */
 /*      Write one disk buffer                                           */
 /*                                                                      */
-STATIC BOOL flush1(struct buffer FAR * bp)
+STATIC VOID flush1(struct buffer FAR * bp)
 {
 /* All lines with changes on 9/4/00 by BER marked below */
 
@@ -320,31 +310,23 @@ STATIC BOOL flush1(struct buffer FAR * bp)
   bp->b_flag &= ~BFR_DIRTY;     /* even if error, mark not dirty */
   if (result != 0)              /* otherwise system has trouble  */
     bp->b_flag &= ~BFR_VALID;   /* continuing.           */
-  return (TRUE);                /* Forced to TRUE...was like this before dskxfer()  */
-  /* returned error codes...BER */
 }
 
 /*                                                                      */
 /*      Write all disk buffers                                          */
 /*                                                                      */
-BOOL flush(void)
+VOID flush(VOID)
 {
   REG struct buffer FAR *bp = firstbuf;
-  REG BOOL ok;
 
-  ok = TRUE;
   do
   {
-    if (!flush1(bp))
-      ok = FALSE;
+    flush1(bp);
     bp->b_flag &= ~BFR_VALID;
     bp = b_next(bp);
   }
   while (FP_OFF(bp) != FP_OFF(firstbuf));
-
   network_redirector(REM_FLUSHALL);
-
-  return (ok);
 }
 
 /************************************************************************/

@@ -12,7 +12,7 @@
 
 db 0FFh,"COUNTRY",0,0,0,0,0,0,0,0,1,0,1 ; reserved and undocumented values
 dd  ent  ; first entry
-ent dw 35; number of entries - don't forget to update when adding a new country
+ent dw 38; number of entries - don't forget to update when adding a new country
 
 ; entries
 ; (size, country, codepage, reserved(2), offset)
@@ -65,12 +65,18 @@ __ar dw 12, 54,850,0,0
      dd _ar
 __br dw 12, 55,850,0,0
      dd _br
+__my dw 12, 60,437,0,0
+     dd _my
 __au dw 12, 61,437,0,0
      dd _au
+__sg dw 12, 65,437,0,0
+     dd _sg
 __jp dw 12, 81,932,0,0
      dd _jp
 __kr dw 12, 82,934,0,0
      dd _kr
+__cn dw 12, 86,936,0,0
+     dd _cn
 __tk dw 12, 90,850,0,0
      dd _tk
 __in dw 12, 91,437,0,0
@@ -140,12 +146,18 @@ _ar dw 1,6,1
  dd ar
 _br dw 1,6,1
  dd br
+_my dw 1,6,1
+ dd my
 _au dw 1,6,1
  dd au
+_sg dw 1,6,1
+ dd sg
 _jp dw 1,6,1
  dd np
 _kr dw 1,6,1
  dd kr
+_cn dw 1,6,1
+ dd cn
 _tk dw 1,6,1
  dd tk
 _in dw 1,6,1
@@ -332,12 +344,24 @@ dw  55,850,DMY
              db "Cr$",0,0
                        dw ".",",", "/",":"
                                         db 2,2,_24; Brazil
+my db 0FFh,"CTYINFO"
+   dw 22
+dw  60,437,DMY
+             db "$",0,0,0,0
+                       dw ",",".", "/",":"
+                                        db 0,2,_12; Malaysia
 au db 0FFh,"CTYINFO"
    dw 22
 dw  61,437,DMY
              db "$",0,0,0,0
                        dw ",",".", "-",":"
                                         db 0,2,_12; Australia
+sg db 0FFh,"CTYINFO"
+   dw 22
+dw  65,437,DMY
+             db "$",0,0,0,0
+                       dw ",",".", "/",":"
+                                        db 0,2,_12; Singapore
 np db 0FFh,"CTYINFO"
    dw 22
 dw  81,932,YMD
@@ -350,6 +374,12 @@ dw  82,934,YMD
              db 5Ch,0,0,0,0
                        dw ",",".", ".",":"
                                         db 0,0,_24; Korea
+cn db 0FFh,"CTYINFO"
+   dw 22
+dw  86,936,YMD
+             db 0A3h,0A4h,0,0,0
+                       dw ",",".", ".",":"
+                                        db 0,2,_12; China
 tk db 0FFh,"CTYINFO"
    dw 22
 dw  90,850,DMY

@@ -38,10 +38,10 @@ struct buffer FAR *getblk(ULONG blkno, COUNT dsk, BOOL overwrite);
 #define getblock(blkno, dsk) getblk(blkno, dsk, FALSE);
 #define getblockOver(blkno, dsk) getblk(blkno, dsk, TRUE);
 VOID setinvld(REG COUNT dsk);
-BOOL flush_buffers(REG COUNT dsk);
-BOOL flush(void);
+VOID flush_buffers(REG COUNT dsk);
+VOID flush(void);
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk);
-BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mode);
+VOID DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mode);
 /* *** Changed on 9/4/00  BER */
 UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
               COUNT mode);
@@ -60,7 +60,6 @@ void handle_break(struct dhdr FAR **pdev, int sft_out);
 struct dhdr FAR *sft_to_dev(sft FAR *sft);
 long BinaryCharIO(struct dhdr FAR **pdev, size_t n, void FAR * bp,
                   unsigned command);
-int echo_char(int c, int sft_idx);
 int ndread(struct dhdr FAR **pdev);
 int StdinBusy(void);
 void con_flush(struct dhdr FAR **pdev);
@@ -295,8 +294,8 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
 
 /* prf.c */
 #ifdef DEBUG
-int VA_CDECL printf(const char * fmt, ...);
-int VA_CDECL sprintf(char * buff, const char * fmt, ...);
+VOID VA_CDECL printf(const char * fmt, ...);
+VOID VA_CDECL sprintf(char * buff, const char * fmt, ...);
 #endif
 VOID hexd(char *title, VOID FAR * p, COUNT numBytes);
 void put_unsigned(unsigned n, int base, int width);
