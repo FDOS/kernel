@@ -203,7 +203,7 @@ STATIC WORD _dsk_init(rqptr rp, ddt * pddt)
 {
   UNREFERENCED_PARAMETER(rp);
   UNREFERENCED_PARAMETER(pddt);
-  fatal("No disk init!");
+  /*fatal("No disk init!");*/
   return S_DONE;                /* to keep the compiler happy */
 }
 
