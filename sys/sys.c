@@ -28,7 +28,6 @@
 
 /* 
     TE thinks, that the boot info storage should be done by FORMAT, noone else
-
     unfortunately, that doesn't work ???
 */
 #define STORE_BOOT_INFO
@@ -64,8 +63,11 @@ extern WORD CDECL sprintf(BYTE * buff, CONST BYTE * fmt, ...);
 #endif
 
 #ifndef __WATCOMC__
+
 #include <io.h>
+
 #else
+
 int unlink(const char *pathname);
 /* some non-conforming functions to make the executable smaller */
 int open(const char *pathname, int flags, ...)
@@ -105,6 +107,26 @@ int stat(const char *file_name, struct stat *buf)
   return _dos_findfirst(file_name, _A_NORMAL | _A_HIDDEN | _A_SYSTEM, &find_tbuf);
 }
 #endif
+char *getenv(const char *name)
+{
+  char **envp, *ep;
+  const char *np;
+  char ec, nc;
+
+  for (envp = environ; (ep = *envp) != NULL; envp++) {
+    np = name;
+    do {
+      ec = *ep++;
+      nc = *np++;
+      if (nc == 0) {
+        if (ec == '=')
+          return ep;
+        break;
+      }
+    } while (ec == nc);
+  }
+  return NULL;
+}
 
 BYTE pgm[] = "SYS";
 
@@ -238,15 +260,17 @@ int main(int argc, char **argv)
 
   if (drivearg == 0)
   {
-    printf("Usage: %s [source] drive: [bootsect [BOTH]]\n", pgm);
+    printf("Usage: %s [source] drive: [bootsect [BOTH|BOOTONLY]]\n", pgm);
     printf
         ("  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n");
     printf("  drive    = A,B,etc.\n");
     printf
         ("  bootsect = name of 512-byte boot sector file image for drive:\n");
-    printf("             to write to instead of real boot sector\n");
+    printf("             to write to *instead* of real boot sector\n");
     printf
-        ("  BOTH     : write to both the real boot sector and the image file\n");
+        ("  BOTH     : write to *both* the real boot sector and the image file\n");
+    printf
+        ("  BOOTONLY : do *not* copy kernel / shell, only update boot sector or image\n");
     printf("%s CONFIG /help\n", pgm);
     exit(1);
   }
@@ -280,43 +304,51 @@ int main(int argc, char **argv)
   else
     sprintf(rootPath, "%c:\\", 'A' + srcDrive);
 
-  if (!check_space(drive, oldboot))
+  if ((argc <= drivearg + 2)
+      || (memicmp(argv[drivearg + 2], "BOOTONLY", 8) != 0))
   {
-    printf("%s: Not enough space to transfer system files\n", pgm);
-    exit(1);
-  }
+    if (!check_space(drive, oldboot))
+    {
+      printf("%s: Not enough space to transfer system files\n", pgm);
+      exit(1);
+    }
 
-  printf("\nCopying KERNEL.SYS...\n");
-  if (!copy(drive, srcPath, rootPath, "kernel.sys"))
-  {
-    printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
-    exit(1);
-  }
+    printf("\nCopying KERNEL.SYS...\n");
+    if (!copy(drive, srcPath, rootPath, "kernel.sys"))
+    {
+      printf("\n%s: cannot copy \"KERNEL.SYS\"\n", pgm);
+      exit(1);
+    }
+  } /* copy kernel */
 
   if (argc > drivearg + 1)
     bsFile = argv[drivearg + 1];
-
+    
   printf("\nWriting boot sector...\n");
   put_boot(drive, bsFile,
            (argc > drivearg + 2)
            && memicmp(argv[drivearg + 2], "BOTH", 4) == 0);
 
-  printf("\nCopying COMMAND.COM...\n");
-  if (!copy(drive, srcPath, rootPath, "COMMAND.COM"))
+  if ((argc <= drivearg + 2)
+      || (memicmp(argv[drivearg + 2], "BOOTONLY", 8) != 0))
   {
-    char *comspec = getenv("COMSPEC");
-    if (comspec != NULL)
+    printf("\nCopying COMMAND.COM...\n");
+    if (!copy(drive, srcPath, rootPath, "COMMAND.COM"))
     {
-      printf("%s: Trying \"%s\"\n", pgm, comspec);
-      if (!copy(drive, comspec, NULL, "COMMAND.COM"))
-        comspec = NULL;
+      char *comspec = getenv("COMSPEC");
+      if (comspec != NULL)
+      {
+        printf("%s: Trying \"%s\"\n", pgm, comspec);
+        if (!copy(drive, comspec, NULL, "COMMAND.COM"))
+          comspec = NULL;
+      }
+      if (comspec == NULL)
+      {
+        printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);      
+        exit(1);
+      }
     }
-    if (comspec == NULL)
-    {
-      printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);      
-      exit(1);
-    }
-  }
+  } /* copy shell */
 
   printf("\nSystem transferred.\n");
   return 0;
@@ -351,37 +383,30 @@ VOID dump_sector(unsigned char far * sec)
 
 #endif
 
-/*
-    TC absRead not functional on MSDOS 6.2, large disks
-    MSDOS requires int25, CX=ffff for drives > 32MB
-*/
-
 #ifdef __WATCOMC__
-unsigned int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
-#pragma aux int2526readwrite =  \
-      "mov cx, 0xffff"    \
-      "cmp si, 0x26"      \
-      "je int26"          \
+
+int absread(int DosDrive, int nsects, int foo, void *diskReadPacket);
+#pragma aux absread =  \
       "int 0x25"          \
-      "jmp short cfltest" \
-      "int26:"            \
+      "sbb ax, ax"        \
+      parm [ax] [cx] [dx] [bx] \
+      modify [si di bp] \
+      value [ax];
+
+int abswrite(int DosDrive, int nsects, int foo, void *diskReadPacket);
+#pragma aux abswrite =  \
       "int 0x26"          \
-      "cfltest:"          \
-      "mov ax, 0"         \
-      "adc ax, ax"        \
-      parm [ax] [bx] [si] \
-      modify [cx]         \
+      "sbb ax, ax"        \
+      parm [ax] [cx] [dx] [bx] \
+      modify [si di bp] \
       value [ax];
 
 fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
 #pragma aux fat32readwrite =  \
       "mov ax, 0x7305"    \
       "mov cx, 0xffff"    \
-      "inc dx"            \
-      "sub si, 0x25"      \
       "int 0x21"          \
-      "mov ax, 0"         \
-      "adc ax, ax"        \
+      "sbb ax, ax"        \
       parm [dx] [bx] [si] \
       modify [cx dx si]   \
       value [ax];
@@ -397,7 +422,11 @@ void reset_drive(int DosDrive);
       "pop ds" \
       parm [dx] \
       modify [ax bx];
+
 #else
+
+#ifndef __TURBOC__
+
 int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
   union REGS regs;
@@ -411,36 +440,43 @@ int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
   return regs.x.cflag;
 }
 
+#define absread(int DosDrive, int foo, int cx, void *diskReadPacket) \
+int2526readwrite(DosDrive, diskReadPacket, 0x25)
+
+#define abswrite(int DosDrive, int foo, int cx, void *diskReadPacket) \
+int2526readwrite(DosDrive, diskReadPacket, 0x26)
+
+#endif
 
 fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
   union REGS regs;
 
   regs.x.ax = 0x7305;
-  regs.h.dl = DosDrive + 1;
+  regs.h.dl = DosDrive;
   regs.x.bx = (short)diskReadPacket;
   regs.x.cx = 0xffff;
-  regs.x.si = intno - 0x25;
-  int86(0x21, &regs, &regs);
+  regs.x.si = intno;
+  intdos(&regs, &regs);
   
   return regs.x.cflag;
-}
+} /* fat32readwrite */
 
 void reset_drive(int DosDrive)
 {
   union REGS regs;
 
   regs.h.ah = 0xd;
-  int86(0x21, &regs, &regs);
+  intdos(&regs, &regs);
   regs.h.ah = 0x32;
   regs.h.dl = DosDrive + 1;
-  int86(0x21, &regs, &regs);
-}
+  intdos(&regs, &regs);
+} /* reset_drive */
 
 #endif
 
 int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
-                   unsigned intno)
+                   int write)
 {
   struct {
     unsigned long sectorNumber;
@@ -452,19 +488,17 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
   diskReadPacket.count = count;
   diskReadPacket.address = buffer;
 
-  if (intno != 0x25 && intno != 0x26)
-    return 0xff;
-
-  if (int2526readwrite(DosDrive, &diskReadPacket, intno))
+  if ((!write && absread(DosDrive, -1, -1, &diskReadPacket) == -1)
+      || (write && abswrite(DosDrive, -1, -1, &diskReadPacket) == -1))
   {
 #ifdef WITHFAT32
-    return fat32readwrite(DosDrive, &diskReadPacket, intno);
+    return fat32readwrite(DosDrive + 1, &diskReadPacket, write);
 #else
     return 0xff;
 #endif
   }
   return 0;
-}
+} /* MyAbsReadWrite */
 
 #ifdef __WATCOMC__
 
@@ -478,17 +512,13 @@ unsigned getdrivespace(COUNT drive, unsigned *total_clusters);
       modify [bx cx dx]   \
       value [ax];
 
-unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size);
+unsigned getextdrivespace(void far *drivename, void *buf, unsigned buf_size);
 #pragma aux getextdrivespace =  \
       "mov ax, 0x7303"    \
-      "push ds"           \
-      "pop es"            \
       "stc"		  \
       "int 0x21"          \
-      "mov ax, 0"         \
-      "adc ax, ax"        \
-      parm [dx] [di] [cx] \
-      modify [es]         \
+      "sbb ax, ax"        \
+      parm [es dx] [di] [cx] \
       value [ax];
 
 #else
@@ -499,10 +529,10 @@ unsigned getdrivespace(COUNT drive, unsigned *total_clusters)
 
   regs.h.ah = 0x36;             /* get drive free space */
   regs.h.dl = drive + 1;        /* 1 = 'A',... */
-  int86(0x21, &regs, &regs);
+  intdos(&regs, &regs);
   *total_clusters = regs.x.dx;
   return regs.x.ax;
-}
+} /* getdrivespace */
 
 unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size)
 {
@@ -518,9 +548,9 @@ unsigned getextdrivespace(void *drivename, void *buf, unsigned buf_size)
 
   regs.x.cx = buf_size;
 
-  int86x(0x21, &regs, &regs, &sregs);
+  intdosx(&regs, &regs, &sregs);
   return regs.x.ax == 0x7300 || regs.x.cflag;
-}
+} /* getextdrivespace */
 
 #endif
 
@@ -532,7 +562,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
   struct bootsectortype32 *bs32;
 #endif
   int fs;
-  char drivename[] = "A:\\";
+  char *drivename = "A:\\";
   static unsigned char x[0x40]; /* we make this static to be 0 by default -
 				   this avoids FAT misdetections */
   unsigned total_clusters;
@@ -542,7 +572,8 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 #endif
 
   reset_drive(drive);
-  if (MyAbsReadWrite(drive, 1, 0, oldboot, 0x25) != 0)
+  /* suggestion: allow reading from a boot sector or image file here */
+  if (MyAbsReadWrite(drive, 1, 0, oldboot, 0) != 0)
   {
     printf("can't read old boot sector for drive %c:\n", drive + 'A');
     exit(1);
@@ -569,6 +600,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     this should work, as the disk was writeable, so GetFreeDiskSpace should work.
 */
 
+  /* would work different when reading from an image */
   if (getdrivespace(drive, &total_clusters) == 0xffff)
   {
     printf("can't get free disk space for %c:\n", drive + 'A');
@@ -593,6 +625,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
      */
 
     drivename[0] = 'A' + drive;
+    /* would also work different when reading from an image */
     if (getextdrivespace(drivename, x, sizeof(x)))
     /* error --> no Win98 --> no FAT32 */
     {
@@ -696,7 +729,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     bs->bsDriveNumber = drive < 2 ? 0 : 0xff;
   }
 
-#ifdef DEBUG
+#ifdef DEBUG /* add an option to display this on user request? */
   printf("Root dir entries = %u\n", bs->bsRootDirEnts);
   printf("Root dir sectors = %u\n", bs->sysRootDirSecs);
 
@@ -721,12 +754,13 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
     printf("writing new bootsector to drive %c:\n", drive + 'A');
 #endif
 
-    if (MyAbsReadWrite(drive, 1, 0, newboot, 0x26) != 0)
+    /* write newboot to a drive */
+    if (MyAbsReadWrite(drive, 1, 0, newboot, 1) != 0)
     {
       printf("Can't write new boot sector to drive %c:\n", drive + 'A');
       exit(1);
     }
-  }
+  } /* if write boot sector */
 
   if (bsFile != NULL)
   {
@@ -737,7 +771,7 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
 #endif
 
     /* write newboot to bsFile */
-    if ((fd =
+    if ((fd = /* suggestion: do not trunc - allows to write to images */
          open(bsFile, O_RDWR | O_TRUNC | O_CREAT | O_BINARY,
               S_IREAD | S_IWRITE)) < 0)
     {
@@ -752,9 +786,10 @@ VOID put_boot(COUNT drive, BYTE * bsFile, BOOL both)
       exit(1);
     }
     close(fd);
-  }
+  } /* if write boot sector file */
   reset_drive(drive);
-}
+} /* put_boot */
+
 
 BOOL check_space(COUNT drive, BYTE * BlkBuffer)
 {
@@ -765,7 +800,8 @@ BOOL check_space(COUNT drive, BYTE * BlkBuffer)
   UNREFERENCED_PARAMETER(BlkBuffer);
 
   return TRUE;
-}
+} /* check_space */
+
 
 BYTE copybuffer[COPY_SIZE];
 
@@ -860,7 +896,8 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
   printf("%lu Bytes transferred", copied);
 
   return TRUE;
-}
+} /* copy */
+
 
 /* version 2.2 jeremyd 2001/9/20
    Changed so if no source given or only source drive (no path)
@@ -869,6 +906,7 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
    uses root (but only if source & destination drive are different).
    Fix printf to include count(ret) if copy can't write all requested bytes
 */
+
 /* version 2.1a jeremyd 2001/8/19
    modified so takes optional 2nd parameter (similar to PC DOS)
    where if only 1 argument is given, assume to be destination drive,
@@ -879,8 +917,6 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
 /* Revision 2.1 tomehlert 2001/4/26
 
     changed the file system detection code.
-    
-
 */
 
 /* Revision 2.0 tomehlert 2001/4/26
@@ -900,5 +936,4 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
    included (slighly modified) PRF.c from kernel
    
    size is no ~7500 byte vs. ~13690 before
-
 */
