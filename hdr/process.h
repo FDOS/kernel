@@ -70,9 +70,9 @@ typedef struct {
   /* CP/M-like entry point                                */
   UBYTE ps_farcall;             /* 05  far call opcode              */
   VOID(FAR ASMCFUNC * ps_reentry) (void);  /* 06  re-entry point          */
-  intvec ps_isv22,	        /* 0a  terminate address */
-         ps_isv23,        	/* 0e break address   */
-         ps_isv24;        	/* 12 critical error address */
+  intvec ps_isv22,              /* 0a terminate address            */
+         ps_isv23,              /* 0e ctrl-break address           */
+         ps_isv24;              /* 12 critical error address       */
   UWORD ps_parent;              /* 16 parent psp segment           */
   UBYTE ps_files[20];           /* 18 file table - 0xff is unused  */
   UWORD ps_environ;             /* 2c environment paragraph        */
@@ -80,7 +80,14 @@ typedef struct {
   UWORD ps_maxfiles;            /* 32 maximum open files           */
   UBYTE FAR *ps_filetab;        /* 34 open file table pointer      */
   VOID FAR *ps_prevpsp;         /* 38 previous psp pointer         */
-  BYTE ps_fill2[20];            /* 3c */
+  UBYTE ps_fill2;               /* 3c unused                       */
+  UBYTE ps_truename;            /* 3d [unused] append truename flag int2f/B711h */
+  UBYTE ps_netx_taskid[2];      /* 3e [Novell only field] task id  */
+  UWORD ps_retdosver;           /* 40 [unused] version to return on int21/30h */
+  UWORD pdb_next;               /* 42 [Win only field] PSP chain   */
+  UBYTE ps_fill2b[4];           /* 44 unused, 4 bytes              */
+  UBYTE ps_olddos;              /* 48 [Win only field] DOS/Win program */
+  UBYTE ps_fill2c[7];           /* 49 unused, 7 bytes              */
   UBYTE ps_unix[3];             /* 50 unix style call - 0xcd 0x21 0xcb */
   BYTE ps_fill3[9];             /* 53 */
   union {
