@@ -48,7 +48,6 @@ STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2);
     /* /// Added - Ron Cemer */
 STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
 BOOL find_free(f_node_ptr);
-CLUSTER find_fat_free(f_node_ptr);
 VOID wipe_out(f_node_ptr);
 CLUSTER extend(f_node_ptr);
 COUNT extend_dir(f_node_ptr);
@@ -1227,9 +1226,6 @@ STATIC CLUSTER extend(f_node_ptr fnp)
 {
   CLUSTER free_fat;
 
-#ifdef DISPLAY_GETBLOCK
-  printf("extend\n");
-#endif
   /* get an empty cluster, so that we use it to extend the file.  */
   free_fat = find_fat_free(fnp);
 
@@ -1240,7 +1236,10 @@ STATIC CLUSTER extend(f_node_ptr fnp)
 
   /* Now that we've found a free FAT entry, mark it as the last   */
   /* entry and save.                                              */
-  link_fat(fnp->f_dpb, fnp->f_cluster, free_fat);
+  if (fnp->f_cluster == FREE)
+    setdstart(fnp->f_dpb, &fnp->f_dir, free_fat);
+  else
+    link_fat(fnp->f_dpb, fnp->f_cluster, free_fat);
   link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
 
   /* Mark the directory so that the entry is updated              */
@@ -1296,31 +1295,6 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 
 }
 
-/* JPP: finds the next free cluster in the FAT */
-STATIC CLUSTER first_fat(f_node_ptr fnp)
-{
-  CLUSTER free_fat;
-
-  /* get an empty cluster, so that we make it into a file.        */
-  free_fat = find_fat_free(fnp);
-
-  /* No empty clusters, disk is FULL! Translate into a useful     */
-  /* error message.                                               */
-  if (free_fat == LONG_LAST_CLUSTER)
-    return free_fat;
-
-  /* Now that we've found a free FAT entry, mark it as the last   */
-  /* entry and save it.                                           */
-  /* BUG!! this caused wrong allocation, if file was created, 
-     then seeked, then written */
-  setdstart(fnp->f_dpb, &fnp->f_dir, free_fat);
-  link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
-
-  /* Mark the directory so that the entry is updated              */
-  fnp->f_flags.f_dmod = TRUE;
-  return free_fat;
-}
-
 /* Description.
  *    Finds the cluster which contains byte at the fnp->f_offset offset and
  *  stores its number to the fnp->f_cluster. The search begins from the start of
@@ -1350,23 +1324,24 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
          fnp->f_offset - fnp->f_cluster_offset);
 #endif
 
-  /* If someone did a seek, but no writes have occured, we will   */
-  /* need to initialize the fnode.                                */
-  if ((mode == XFR_WRITE) && checkdstart(fnp->f_dpb, &fnp->f_dir, FREE))
+  if (fnp->f_cluster == FREE)
   {
+    /* If this is a read but the file still has zero bytes return   */
+    /* immediately....                                              */
+    if (mode == XFR_READ)
+      return DE_SEEK;
+
+    /* If someone did a seek, but no writes have occured, we will   */
+    /* need to initialize the fnode.                                */
+    /*  (mode == XFR_WRITE) */
     /* If there are no more free fat entries, then we are full! */
-    cluster = first_fat(fnp);
+    cluster = extend(fnp);
     if (cluster == LONG_LAST_CLUSTER)
     {
       return DE_HNDLDSKFULL;
     }
     fnp->f_cluster = cluster;
   }
-
-  /* If this is a read but the file still has zero bytes return   */
-  /* immediately....                                              */
-  if ((mode == XFR_READ) && (fnp->f_cluster == FREE))
-    return DE_SEEK;
 
   relcluster = (CLUSTER)((fnp->f_offset / fnp->f_dpb->dpb_secsize) >>
                          fnp->f_dpb->dpb_shftcnt);
@@ -2212,7 +2187,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
 
   next = next_cluster(dpbp, st);
 
-  if (next == 1 || next == LONG_LAST_CLUSTER) /* error last cluster found */
+  if (next == 1) /* error */
     goto done;
 
   /* Loop from start until either a FREE entry is         */
@@ -2222,11 +2197,14 @@ STATIC VOID shrink_file(f_node_ptr fnp)
 
   if (fnp->f_dir.dir_size == 0)
   {
+    fnp->f_cluster = FREE;
     setdstart(dpbp, &fnp->f_dir, FREE);
     link_fat(dpbp, st, FREE);
   }
   else
   {
+    if (next == LONG_LAST_CLUSTER) /* nothing to do */
+      goto done;
     link_fat(dpbp, st, LONG_LAST_CLUSTER);
   }
 
