@@ -125,6 +125,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   struct buffer FAR *bp;
   unsigned idx;
   unsigned secdiv;
+  unsigned char wasfree;
   CLUSTER clussec = Cluster1;
   CLUSTER max_cluster = dpbp->dpb_size;
 
@@ -141,7 +142,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 #endif
     put_unsigned((unsigned)(clussec & 0xffffu), 16, 4);
     put_console('\n');
-    return NULL;
+    return 1;
   }
 
   secdiv = dpbp->dpb_secsize;
@@ -213,8 +214,9 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     }
 
     cluster = *fbp0 | (*fbp1 << 8);
-    if ((unsigned)Cluster2 == READ_CLUSTER)
     {
+      unsigned res = cluster;
+
       /* Now to unpack the contents of the FAT entry. Odd and */
       /* even bytes are packed differently.                   */
 
@@ -222,11 +224,20 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
         cluster >>= 4;
       cluster &= 0x0fff;
 
-      if (cluster >= MASK12)
-        return LONG_LAST_CLUSTER;
-      if (cluster == BAD12)
-        return LONG_BAD;
-      return cluster;
+      if ((unsigned)Cluster2 == READ_CLUSTER)
+      {
+        if (cluster >= MASK12)
+          return LONG_LAST_CLUSTER;
+        if (cluster == BAD12)
+          return LONG_BAD;
+        return cluster;
+      }
+
+      wasfree = 0;
+      if (cluster == FREE)
+        wasfree = 1;
+
+      cluster = res;
     }
 
     /* Cluster2 may be set to LONG_LAST_CLUSTER == 0x0FFFFFFFUL or 0xFFFF */
@@ -251,10 +262,10 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
+    /* and get the cluster number                           */
+    UWORD res = fgetword(&bp->b_buffer[idx * 2]);
     if ((unsigned)Cluster2 == READ_CLUSTER)
     {
-      /* and get the cluster number                           */
-      UWORD res = fgetword(&bp->b_buffer[idx * 2]);
       if (res >= MASK16)
         return LONG_LAST_CLUSTER;
       if (res == BAD16)
@@ -265,15 +276,18 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
     fputword(&bp->b_buffer[idx * 2], (UWORD)Cluster2);
+    wasfree = 0;
+    if (res == FREE)
+      wasfree = 1;
   }
 #ifdef WITHFAT32
   else if (ISFAT32(dpbp))
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
+    UDWORD res = fgetlong(&bp->b_buffer[idx * 4]);
     if (Cluster2 == READ_CLUSTER)
     {
-      UDWORD res = fgetlong(&bp->b_buffer[idx * 4]);
       if (res > LONG_BAD)
         return LONG_LAST_CLUSTER;
 
@@ -282,6 +296,9 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
     fputlong(&bp->b_buffer[idx * 4], Cluster2);
+    wasfree = 0;
+    if (res == FREE)
+      wasfree = 1;
   }
 #endif
   else
@@ -289,38 +306,26 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 
   /* update the free space count                          */
   bp->b_flag |= BFR_DIRTY | BFR_VALID;
-  if (Cluster2 == FREE)
+  if (Cluster2 == FREE || wasfree)
   {
+    int adjust = 0;
+    if (!wasfree)
+      adjust = 1;
+    else if (Cluster2 != FREE)
+      adjust = -1;
 #ifdef WITHFAT32
     if (ISFAT32(dpbp) && dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
     {
       /* update the free space count for returned     */
       /* cluster                                      */
-      ++dpbp->dpb_xnfreeclst;
+      dpbp->dpb_xnfreeclst += adjust;
       write_fsinfo(dpbp);
     }
     else
 #endif
     if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
-      ++dpbp->dpb_nfreeclst;
+      dpbp->dpb_nfreeclst += adjust;
   }
-
-  /*if (Cluster2 == FREE)
-     { */
-  /* update the free space count for returned     */
-  /* cluster                                                                                                                                                                                                                                                                                                                                                                                              */
-  /* ++dpbp->dpb_nfreeclst;
-     } */
-
-  /* update the free space count for removed      */
-  /* cluster                                      */
-  /* BUG: was counted twice for 2nd,.. cluster. moved to find_fat_free() */
-  /* BO: don't completely understand this yet - leave here for now as
-     a comment */
-  /* else
-     {
-     --dpbp->dpb_nfreeclst;
-     }   */
   return SUCCESS;
 }
 

@@ -1021,37 +1021,30 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
       break;
   }
 
-  /* No empty clusters, disk is FULL!                     */
 #ifdef WITHFAT32
   if (ISFAT32(dpbp))
   {
-    if (idx > dpbp->dpb_xsize)
-    {
-      dpbp->dpb_xcluster = UNKNCLUSTER;
-      write_fsinfo(dpbp);
-      return LONG_LAST_CLUSTER;
-    }
-    if (dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
-      dpbp->dpb_xnfreeclst--;   /* TE: moved from link_fat() */
-
-    /* return the free entry                                */
     dpbp->dpb_xcluster = idx;
+    if (idx > size)
+    {
+      /* No empty clusters, disk is FULL!                     */
+      dpbp->dpb_xcluster = UNKNCLUSTER;
+      idx = LONG_LAST_CLUSTER;
+    }
+    /* return the free entry                                */
     write_fsinfo(dpbp);
     return idx;
   }
 #endif
 
-  if ((UWORD)idx > dpbp->dpb_size)
-  {
-    dpbp->dpb_cluster = UNKNCLUSTER;
-    return LONG_LAST_CLUSTER;
-  }
-
-  if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
-    dpbp->dpb_nfreeclst--;      /* TE: moved from link_fat() */
-
-  /* return the free entry                                */
   dpbp->dpb_cluster = (UWORD)idx;
+  if ((UWORD)idx > (UWORD)size)
+  {
+    /* No empty clusters, disk is FULL!                     */
+    dpbp->dpb_cluster = UNKNCLUSTER;
+    idx = LONG_LAST_CLUSTER;
+  }
+  /* return the free entry                                */
   return idx;
 }
 
