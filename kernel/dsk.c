@@ -33,6 +33,9 @@ static BYTE *dskRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.3  2000/05/11 04:26:26  jimtabor
  * Added code for DOS FN 69 & 6C
  *
@@ -40,8 +43,8 @@ static BYTE *dskRcsId = "$Id$";
  * Update CVS to 2020
  *
  * $Log$
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
+ * Revision 1.4  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.6  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -454,7 +457,7 @@ static WORD mediachk(rqptr rp)
   {
     if ((result = fl_readdasd(drive)) == 2)	/* if we can detect a change ... */
     {
-      if ((result = fl_diskchanged(drive)) == 1)	/* check if it has changed... */
+      if ((result = fl_diskchanged(drive)) == 1) /* check if it has changed... */
         rp->r_mcretcode = M_CHANGED;
       else if (result == 0)
         rp->r_mcretcode = M_NOT_CHANGED;
@@ -470,12 +473,12 @@ static WORD mediachk(rqptr rp)
   return S_DONE;
 }
 
-static WORD bldbpb(rqptr rp)
+/*
+ *  Read Write Sector Zero or Hard Drive Dos Bpb
+ */
+static WORD RWzero(rqptr rp, WORD t)
 {
   REG retry = N_RETRY;
-  ULONG count;
-  byteptr trans;
-  WORD local_word;
 
   if (hd(miarray[rp->r_unit].mi_drive))
   {
@@ -493,10 +496,29 @@ static WORD bldbpb(rqptr rp)
 
   do
   {
+    if (!t)   /* 0 == Read */
+        {
     ret = fl_read((WORD) miarray[rp->r_unit].mi_drive,
                   (WORD) head, (WORD) track, (WORD) sector, (WORD) 1, (byteptr) & buffer);
+        }
+    else
+        {
+    ret = fl_write((WORD) miarray[rp->r_unit].mi_drive,
+                  (WORD) head, (WORD) track, (WORD) sector, (WORD) 1, (byteptr) & buffer);
+        }
   }
   while (ret != 0 && --retry > 0);
+  return ret;
+}
+
+static WORD bldbpb(rqptr rp)
+{
+  ULONG count, i;
+  byteptr trans;
+  WORD local_word;
+
+  ret = RWzero( rp, 0);
+
   if (ret != 0)
     return (dskerr(ret));
 
@@ -514,8 +536,15 @@ static WORD bldbpb(rqptr rp)
   getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HIDDEN])), &bpbarray[rp->r_unit].bpb_hidden);
   getlong(&((((BYTE *) & buffer.bytes[BT_BPB])[BPB_HUGE])), &bpbarray[rp->r_unit].bpb_huge);
 
+/* Needs fat32 offset code */
 
   getlong(&((((BYTE *) & buffer.bytes[0x27])[0])), &fsarray[rp->r_unit].fs_serialno);
+  for(i = 0; i < 11 ;i++ )
+    fsarray[rp->r_unit].fs_volume[i] = buffer.bytes[0x2B + i];
+  for(i = 0; i < 8; i++ )
+    fsarray[rp->r_unit].fs_fstype[i] = buffer.bytes[0x36 + i];
+
+
 
 #ifdef DSK_DEBUG
   printf("BPB_NBYTE     = %04x\n", bpbarray[rp->r_unit].bpb_nbyte);
@@ -570,6 +599,7 @@ static COUNT write_and_verify(WORD drive, WORD head, WORD track, WORD sector,
 static WORD IoctlQueblk(rqptr rp)
 {
     switch(rp->r_count){
+        case 0x0846:
         case 0x0860:
         case 0x0866:
             break;
@@ -628,17 +658,29 @@ static WORD Genblkdev(rqptr rp)
         struct FS_info FAR * fs = &fsarray[rp->r_unit];
 
             gioc->ioc_serialno = fs->fs_serialno;
-
-            for(i = 0; i < 12 ;i++ )
+            for(i = 0; i < 11 ;i++ )
                 gioc->ioc_volume[i] = fs->fs_volume[i];
-            for(i = 0; i < 9; i++ )
+            for(i = 0; i < 8; i++ )
                 gioc->ioc_fstype[i] = fs->fs_fstype[i];
+        }
+        break;
 
-            printf("DSK_IOCTL SN %lx \n" , &fs->fs_serialno);
-            printf("DSK_IOCTL SN %lx \n" , &fs->fs_volume);
-            printf("DSK_IOCTL SN %lx \n" , &gioc->ioc_serialno);
-            printf("DSK_IOCTL SN %lx \n" , &gioc->ioc_volume);
 
+        case 0x0846:        /* set volume serial number */
+        {
+        struct Gioc_media FAR * gioc = (struct Gioc_media FAR *) rp->r_trans;
+        struct FS_info FAR * fs = (struct FS_info FAR *) &buffer.bytes[0x27];
+
+            ret = RWzero( rp, 0);
+            if (ret != 0)
+                return (dskerr(ret));
+
+            fs->fs_serialno =  gioc->ioc_serialno;
+            fsarray[rp->r_unit].fs_serialno = fs->fs_serialno;
+
+            ret = RWzero( rp, 1);
+            if (ret != 0)
+                return (dskerr(ret));
         }
         break;
         default:

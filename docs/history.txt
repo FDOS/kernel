@@ -1,3 +1,23 @@
+2000 May 17 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  Delete, Rename, Mkdir, and Rmdir. Comment out isDevice. There is
+         a serious bug in isDevice. 
++ Added  Finished adding function code for disk serial number support.
++ Clean  Cleaned up source and removed duplicate functions.
+
+2000 May 14 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Clean  Cleaned out the remaining CR's.
+
+2000 May 08 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Update Started Update to the New CVS at Sourceforge.net. Seting source
+         from 2018 to 2020.
+
+2000 May 06 
+-------- Jim Hall (jhall1.isd.net)
++ Import Jim Hall imported the CVS from gcfl.net to Sourceforge.net.
+
 2000 Apr 28 - Build 2020
 -------- James Tabor (jimtabor@infohwy.com)
 + Added  Dos Function calls 0x69, and 0x6C. IOCTL support in disk driver.

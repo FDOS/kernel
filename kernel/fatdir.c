@@ -36,8 +36,15 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.12  2000/03/31 05:40:09  jtabor
  * Added Eric W. Biederman Patches
@@ -713,7 +720,17 @@ COUNT dos_findnext(void)
   /* assign our match parameters pointer.                         */
   dmp = (dmatch FAR *) dta;
 
-  nDrive = dmp->dm_drive;
+/*
+ *  The new version of SHSUCDX 1.0 looks at the dm_drive byte to
+ *  test 40h. I used RamView to see location MSD 116:04be and
+ *  FD f61:04be, the byte set with 0xc4 = Remote/Network drive 4.
+ *  Ralf Brown docs for dos 4eh say bit 7 set == remote so what is
+ *  bit 6 for? SHSUCDX Mod info say "test redir not network bit".
+ *
+ *  So, assume bit 6 is redirector and bit 7 is network.
+ *  jt
+ */
+  nDrive = dmp->dm_drive & 0x3f;
 
   if (nDrive > lastdrive) {
     return DE_INVLDDRV;

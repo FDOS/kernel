@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.4  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.3  2000/05/11 04:26:26  jimtabor
  * Added code for DOS FN 69 & 6C
  *
@@ -42,8 +45,8 @@ static BYTE *RcsId = "$Id$";
  * Update CVS to 2020
  *
  * $Log$
- * Revision 1.3  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
+ * Revision 1.4  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.4  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -155,7 +158,6 @@ COUNT DosDevIOctl(iregs FAR * r, COUNT FAR * err)
 
       r->BL = ( r->BL == 0 ? default_drive : r->BL - 1);
 
-    printf("IOCTL bl = %04x\n", r->BL);
 
       if (r->BL > lastdrive)
       {

@@ -36,8 +36,15 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.5  2000/03/31 05:40:09  jtabor
  * Added Eric W. Biederman Patches
@@ -122,12 +129,13 @@ COUNT Remote_find(UWORD func, UWORD attrib, BYTE FAR * name, REG dmatch FAR * dm
     printf("'\n");
 #endif
   }
+
   fsncopy(dta, (BYTE FAR *) &TempBuffer, 21);
   p = dta;
   dta = (BYTE FAR *) &TempBuffer;
   i = int2f_Remote_call(func, 0, 0, 0, 0, 0, 0);
   dta = p;
-  fsncopy((BYTE FAR *) &TempBuffer[1], &dta[1], 20);
+  fsncopy((BYTE FAR *) &TempBuffer[0], &dta[0], 21);
 
   if (i != 0)
     return i;

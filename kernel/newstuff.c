@@ -31,8 +31,15 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.8  2000/04/02 06:11:35  jtabor
  * Fix ChgDir Code
@@ -208,22 +215,22 @@ COUNT get_verify_drive(char FAR *src)
  * Added support for external and internal calls.
  * Clean buffer before use. Make the true path and expand file names.
  * Example: *.* -> ????????.??? as in the currect way.
+ * MSD returns \\D.\A.\????????.??? with SHSUCDX. So, this code is not
+ * compatible MSD Func 60h.
  */
 COUNT truename(char FAR * src, char FAR * dest, COUNT t)
 {
-  static char buf[128] = "A:\\";
+  static char buf[128] = "A:\\\0\0\0\0\0\0\0\0\0";
   char *bufp = buf + 3;
   COUNT i, n, x = 2;
-  BYTE far *test;
-  REG struct cds FAR *cdsp;
+  struct cds FAR *cdsp;
 
-  fbcopy((VOID FAR *) "A:\\\0\0\0\0\0\0\0", (VOID FAR *) buf, 10);
   dest[0] = '\0';
 
-  /* First, adjust the source pointer                             */
+  /* First, adjust the source pointer */
   src = adjust_far(src);
 
-  /* Do we have a drive?                                          */
+  /* Do we have a drive? */
   if (src[1] == ':')
   {
     buf[0] = (src[0] | 0x20) + 'A' - 'a';
@@ -268,24 +275,25 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
   }
   else
     src++;
-
+/*
+ *  The code here is brain dead. It works long as the calling
+ *  function are operating with in normal parms.
+ *  jt
+ */
+    n = 9;
   /* convert all forward slashes to backslashes, and uppercase all characters */
   while (*src)
   {
     char c;
     c = *src++;
+    if(!n)
+        return DE_PATHNOTFND; /* do this for now */
+    n--;
     switch (c)
     {
-/*  added *.*, *., * support.
- */
-/* This doesn't expand cases like: foo*.* corrrectly
- * disable it for now.
- */
-#if 1
       case '*':
         if (*src == '.')
         {
-          n = 8;
           while (n--)
             *bufp++ = '?';
           break;
@@ -294,25 +302,24 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
         {
           if (src[-2] == '.')
           {
-            n = 3;
             while (n--)
               *bufp++ = '?';
             break;
           }
           else
           {
-            n = 8;
             while (n--)
               *bufp++ = '?';
             break;
           }
         }
-#endif
       case '/':                /* convert to backslash */
       case '\\':
 
-        if (bufp[-1] != '\\')
-          *bufp++ = '\\';
+        if (bufp[-1] != '\\'){
+            *bufp++ = '\\';
+            n = 9;
+        }
         break;
 
         /* look for '.' and '..' dir entries */
@@ -333,10 +340,20 @@ COUNT truename(char FAR * src, char FAR * dest, COUNT t)
               bufp++;
           }
           else if (*src == '/' || *src == '\\' || *src == 0)
-            --bufp;
+                break;
+              /*  --bufp;*/
+            else
+                return DE_PATHNOTFND;
         }
-        else
-          *bufp++ = c;
+        else if ( *src == '/' || *src == '\\' || *src == 0)
+            {
+                break;
+            }
+            else
+            {
+                n = 4;
+                *bufp++ = c;
+            }
         break;
 
       default:

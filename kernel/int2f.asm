@@ -30,8 +30,15 @@
 ; $Id$
 ;
 ; $Log$
+; Revision 1.3  2000/05/17 19:15:12  jimtabor
+; Cleanup, add and fix source.
+;
 ; Revision 1.2  2000/05/08 04:30:00  jimtabor
 ; Update CVS to 2020
+;
+; $Log$
+; Revision 1.3  2000/05/17 19:15:12  jimtabor
+; Cleanup, add and fix source.
 ;
 ; Revision 1.4  2000/03/31 05:40:09  jtabor
 ; Added Eric W. Biederman Patches
@@ -144,7 +151,9 @@ _int2f_Remote_call:
                 jne     short int2f_r_2
 int2f_r_1:
                 call    int2f_call
-                jc      int2f_rfner
+                jnc     short int2f_skip1
+                jmp     int2f_rfner
+int2f_skip1:
                 les     di,[bp+18]          ; do return data stuff
                 mov     [es:di],cx
                 jmp     short int2f_rfner
@@ -184,10 +193,20 @@ int2f_r_5:
                 pop     ds
                 call    int2f_call
                 pop     ds
-                jc	short int2f_rfner
-                xor	ax,ax
+                jc      short int2f_rfner
+                xor     ax,ax
                 jmp     short int2f_rfner
 int2f_r_6:
+                cmp     al,021h             ; Lseek from eof
+                jne     short int2f_r_7
+                call    int2f_call
+                jc      short int2f_rfner
+                les     di,[bp+18]
+                mov     [es:di],ax
+                mov     [es:di+2],dx
+                xor     ax,ax
+                jmp     short int2f_rfner
+int2f_r_7:
 ;
 ;   everything else goes through here.
 ;

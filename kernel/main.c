@@ -39,8 +39,15 @@ static BYTE *mainRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.2  2000/05/08 04:30:00  jimtabor
  * Update CVS to 2020
+ *
+ * $Log$
+ * Revision 1.3  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.14  2000/03/31 05:40:09  jtabor
  * Added Eric W. Biederman Patches
@@ -175,6 +182,9 @@ INIT static VOID init_kernel(void)
 
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();
+
+/* Fake int 21h stack frame */
+  user_r = (iregs FAR *) DOS_PSP + 0xD0;
 
 #ifndef KDB
   for (i = 0x20; i <= 0x3f; i++)

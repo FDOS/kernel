@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.6  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
+ *
  * Revision 1.5  2000/05/11 06:14:45  jimtabor
  * Removed #if statement
  *
@@ -49,11 +52,8 @@ BYTE *RcsId = "$Id$";
  * Update CVS to 2020
  *
  * $Log$
- * Revision 1.5  2000/05/11 06:14:45  jimtabor
- * Removed #if statement
- *
- * Revision 1.4  2000/05/11 04:26:26  jimtabor
- * Added code for DOS FN 69 & 6C
+ * Revision 1.6  2000/05/17 19:15:12  jimtabor
+ * Cleanup, add and fix source.
  *
  * Revision 1.24  2000/04/29 05:13:16  jtabor
  *  Added new functions and clean up code
@@ -1230,9 +1230,7 @@ dispatch:
 
       /* Dos Rename                                                   */
     case 0x56:
-      rc = DosRename(
-                       (BYTE FAR *) MK_FP(r->DS, r->DX),	/* OldName      */
-                       (BYTE FAR *) MK_FP(r->ES, r->DI));	/* NewName      */
+      rc = DosRename((BYTE FAR *) MK_FP(r->DS, r->DX), (BYTE FAR *) MK_FP(r->ES, r->DI));
       if (rc < SUCCESS)
         goto error_exit;
       else
@@ -1595,7 +1593,7 @@ dispatch:
         r->AL = 0xFF;
       break;
 
-
+#if 0
     /* Extended Open-Creat, not fully functional.*/
     case 0x6c:
         switch(r->DL) {
@@ -1683,8 +1681,8 @@ dispatch:
 
         default:
             goto error_invalid;
-
-        }
+       }
+#endif
   }
 
 #ifdef DEBUG
