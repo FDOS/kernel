@@ -244,12 +244,16 @@ int int21_fat32(lregs *r)
         {
           ULONG nfreeclst = xdffp->xdff_f.setdpbcounts.nfreeclst;
           ULONG cluster = xdffp->xdff_f.setdpbcounts.cluster;
+
+          if (nfreeclst == 1 || cluster == 1)
+            return DE_INVLDPARM;
+
           if (ISFAT32(dpb))
           {
             if ((dpb->dpb_xfsinfosec == 0xffff
                  && (nfreeclst != 0 || cluster != 0))
-                || nfreeclst == 1 || nfreeclst > dpb->dpb_xsize
-                || cluster == 1 || cluster > dpb->dpb_xsize)
+                 || nfreeclst > dpb->dpb_xsize
+                 || cluster   > dpb->dpb_xsize)
             {
               return DE_INVLDPARM;
             }
@@ -259,8 +263,8 @@ int int21_fat32(lregs *r)
           }
           else
           {
-            if ((unsigned)nfreeclst == 1 || (unsigned)nfreeclst > dpb->dpb_size ||
-                (unsigned)cluster == 1 || (unsigned)cluster > dpb->dpb_size)
+            if ((unsigned)nfreeclst > dpb->dpb_size ||
+                (unsigned)cluster   > dpb->dpb_size)
             {
               return DE_INVLDPARM;
             }
@@ -411,6 +415,9 @@ dispatch:
 
   if ((lr.AH >= 0x38 && lr.AH <= 0x4F) || (lr.AH >= 0x56 && lr.AH <= 0x5c) ||
       (lr.AH >= 0x5e && lr.AH <= 0x60) || (lr.AH >= 0x65 && lr.AH <= 0x6a) ||
+#ifdef WITHFAT32
+      lr.AH == 0x73 ||
+#endif
       lr.AH == 0x6c)
   {
     CLEAR_CARRY_FLAG();
@@ -751,6 +758,7 @@ dispatch:
       return_code = lr.AL | 0x300;
       tsr = TRUE;
       return_user();
+      break;
 
       /* Get default BPB */
     case 0x1f:
@@ -1026,6 +1034,7 @@ dispatch:
       StartTrace();
 #endif
       return_user();
+      break;
 
       /* Get Child-program Return Value                               */
     case 0x4d:
@@ -1442,8 +1451,6 @@ dispatch:
 
       /* DOS 7.0+ FAT32 extended functions */
     case 0x73:
-      CLEAR_CARRY_FLAG();
-      CritErrCode = SUCCESS;
       rc = int21_fat32(&lr);
       goto short_check;
 #endif
@@ -1954,8 +1961,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
          omitting the NUL device TE */
       r.BX = FP_SEG(nul_dev.dh_next);
       r.AX = FP_OFF(nul_dev.dh_next);
-
-      break;
 
     case 0x2e:                 /* GET or SET error table addresse - ignored
                                    called by MS debug with  DS != DOSDS, printf
