@@ -31,21 +31,16 @@ extern struct _KernelConfig InitKernelConfig;
  */
 #define printf      init_printf
 #define sprintf     init_sprintf
-#define execrh      reloc_call_execrh
-#define fmemcpy     reloc_call_fmemcpy
-#define fmemset     reloc_call_fmemset
-#define memset      reloc_call_memset
-#define fstrncpy    reloc_call_fstrncpy
-#define strcpy      reloc_call_strcpy
-#define strlen      reloc_call_strlen
+#define execrh      init_execrh
+#define fmemcpy     init_fmemcpy
+#define fmemset     init_fmemset
+#define memset      init_memset
+#define strcpy      init_strcpy
 WORD ASMCFUNC execrh(request FAR *, struct dhdr FAR *);
-VOID ASMCFUNC fmemcpy(REG VOID FAR * d, REG VOID FAR * s, REG COUNT n);
-void ASMCFUNC fmemset(REG VOID FAR * s, REG int ch, REG COUNT n);
-void ASMCFUNC memset(REG VOID * s, REG int ch, REG COUNT n);
-VOID ASMCFUNC strcpy(REG BYTE * d, REG BYTE * s);
-VOID ASMCFUNC fstrncpy(REG BYTE FAR * d, REG BYTE FAR * s, REG COUNT n);
-COUNT ASMCFUNC fstrlen(REG BYTE FAR * s);
-COUNT ASMCFUNC strlen(REG BYTE * s);
+void fmemcpy(void far *d, const void far *s, unsigned n);
+void fmemset(void far *s, int ch, unsigned n);
+void memset(void *s, int ch, unsigned n);
+void strcpy(char *dest, const char *src);
 
 #undef LINESIZE
 #define LINESIZE KBD_MAXLENGTH
@@ -56,7 +51,6 @@ int fmemcmp(BYTE far * s1, BYTE FAR * s2, unsigned len);
 
 #define setvec(n, isr) (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
 
-#define fbcopy(s, d, n)    fmemcpy(d,s,n)
 #define GLOBAL extern
 #define NAMEMAX         MAX_CDSPATH     /* Maximum path for CDS         */
 #define PARSE_MAX       MAX_CDSPATH     /* maximum # of bytes in path   */

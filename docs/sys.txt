@@ -134,7 +134,7 @@ file (CONFIG.SYS) processing).  A 0 means you must
 have pressed the key precisely for when the kernel
 checks for it - essentially skipping, though a well
 timed finger will still get to use it.  And any value
-greater than 0 I belive is the seconds the kernel will
+greater than 0 is the number of seconds the kernel will
 display the prompt and wait for you to press the key
 before assuming you didn't.
 
@@ -143,7 +143,7 @@ FORCELBA=0 or FORCELBA=1
 If 1 then the kernel will use LBA (extended INT13)
 techniques to address all partitions if possible,
 even if these have a non-LBA partition type and
-are completely below cylinder 1023 (usually the 8MB
+are completely below cylinder 1023 (usually the 8GB
 boundary). This is 0 by default, for compatibility
 reasons. Setting this to 1 may bypass some buggy 
 BIOSes and gives slightly better performance.

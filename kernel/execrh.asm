@@ -42,7 +42,9 @@ segment	HMA_TEXT
 ; The stack is very critical in here.
 ;
         global  _execrh
-_execrh:
+	global  _init_execrh
+
+%macro EXECRH 0
                 push    bp              ; perform c entry
                 mov     bp,sp
                 push    si
@@ -67,6 +69,15 @@ _execrh:
                 pop     si
                 pop     bp
                 ret
+%endmacro
+
+_execrh:
+	EXECRH
+
+segment INIT_TEXT
+
+_init_execrh:
+	EXECRH
 
 ; Log: execrh.asm,v 
 ; Revision 1.3  2000/03/09 06:07:11  kernel

@@ -1,9 +1,24 @@
-2002 Feb xx - Build 2026test
+2002 Feb 9 - Build 2026
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
-    * FCB clean-ups and fixes (CYRUS CHESS, bug #1014)
+    * fixed various typos, #includes
++ Changes Bart
+    * fixed ECHO in config.sys
+    * made passing parameters to command.com more robust:
+      zero commandline before use, fixed buffer overflow for F5+F8
+    * "uppermem_root" in the List of Lists is now FFFF if no UMBs
+      available, as documented in RBIL
+    * removed all direct hooks from init_text to hma_text; duplicated
+      the remaining functions (memset, memcpy and friends).
+    * bumped up default DOS version of FAT32 enabled kernel to 7.10  
+2002 Feb 3 - Build 2026test
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * FCB clean-ups and fixes (bug in FCB Random IO, 
+      CYRUS CHESS, bug #1014)
     * initial config.sys menus (see config.txt)
-    * execrh
+    * execrh.asm: construct 'interrupt' address after strategy to avoid
+      some issues with non-trivial 'strategy' routines.
     * make kernel UPX-able
     * cleaned up midnight flag, dates
     * tmark() and friends are floppy specific and implemented in C
@@ -11,7 +26,7 @@
     * DMA boundary checking gives the right number of sectors if
       the start sector is 512-bytes-aligned.
 + Changes Victor
-    * lfn fixes
+    * lfn fixes (lfn is only a place holder, does not work yet)
     * FAT32 fixes
     * dosemu log nicer
 + Changes Martin

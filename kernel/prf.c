@@ -41,7 +41,7 @@ static char buff[MAX_BUFSIZE];
 #endif
 
 #ifdef _INIT
-#define fstrlen reloc_call_fstrlen
+#define fstrlen init_fstrlen
 #define handle_char init_handle_char
 #define put_console init_put_console
 #define ltob init_ltob
@@ -52,8 +52,6 @@ static char buff[MAX_BUFSIZE];
 #define hexd init_hexd
 #define hexDigits init_hexDigits
 #endif
-
-COUNT ASMCFUNC fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
 
 #ifdef VERSION_STRINGS
 static BYTE *prfRcsId =
@@ -71,7 +69,7 @@ WORD CDECL printf(CONST BYTE * fmt, ...);
 /* The following is user supplied and must match the following prototype */
 VOID cso(COUNT);
 
-#ifdef FORSYS
+#if defined(FORSYS) || defined(_INIT)
 COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
 {
   int i = 0;
@@ -81,6 +79,8 @@ COUNT fstrlen(BYTE FAR * s)     /* don't want globals.h, sorry */
 
   return i;
 }
+#else
+COUNT ASMCFUNC fstrlen(BYTE FAR * s);   /* don't want globals.h, sorry */
 #endif
 
 /* special console output routine */

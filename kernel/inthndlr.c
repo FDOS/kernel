@@ -1119,7 +1119,7 @@ dispatch:
           break;
 
         case 0x03:
-          if (uppermem_root)    /* always error if not exists */
+	  if (uppermem_root != 0xffff)	  /* always error if not exists */
           {
             DosUmbLink(r->BL);
             break;

@@ -27,9 +27,23 @@ ftp://ftp.kernel.org/pub/software/devel/nasm
 or a mirror of ftp.kernel.org.
 
 
-This program will now compile with Turbo C 2.01 (now freely
+This kernel will now compile with Turbo C 2.01 (now freely
 available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
 other Borland compilers, Microsoft C and Watcom C.
+
+The Watcom C 11.0c beta compiler for DOS can now be downloaded at
+www.openwatcom.org: you need at least the following zips from
+ftp://ftp.openwatcom.org/watcom/zips/
+
+core_all        - Core binaries (All hosts)
+clib_hdr        - C runtime library header files
+clib_a16        - C runtime libraries (16-bit all targets)
+clib_d16        - C runtime libraries (16-bit DOS)
+core_binw       - Core binaries (DOS host)
+c_binw          - C compiler (DOS host)
+
+Replace binw by binnt for an NT host or binp for an OS/2 host.
+The host needs to be a 386+ with at least 8MB of memory.
 
 If you feel hardy, read on to understand the directory structure.  A
 more complete description of the build environment is contained in a

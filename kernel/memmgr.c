@@ -152,7 +152,7 @@ searchAgain:
     Hack to the Umb Region direct for now. Save time and program space.
 */
   if ((mode != LARGEST) && (mode & (FIRST_FIT_UO | FIRST_FIT_U)) &&
-      uppermem_link && uppermem_root)
+      uppermem_link && uppermem_root != 0xffff)
     p = para2far(uppermem_root);
 
   /* Search through memory blocks                         */
@@ -217,7 +217,7 @@ searchAgain:
   if (!foundSeg || !foundSeg->m_size)
   {                             /* no block to fullfill the request */
     if ((mode != LARGEST) && (mode & FIRST_FIT_U) &&
-        uppermem_link && uppermem_root)
+	uppermem_link && uppermem_root != 0xffff)
     {
       mode &= ~FIRST_FIT_U;
       goto searchAgain;
@@ -290,7 +290,7 @@ COUNT DosMemLargest(UWORD FAR * size)
 
   /* Initialize                                           */
   p = ((mem_access_mode & (FIRST_FIT_UO | FIRST_FIT_U)) && uppermem_link
-       && uppermem_root) ? para2far(uppermem_root) : para2far(first_mcb);
+       && uppermem_root != 0xffff) ? para2far(uppermem_root) : para2far(first_mcb);
 
   /* Cycle through the whole MCB chain to find the largest unused
      area. Join all unused areas together. */
@@ -569,7 +569,7 @@ VOID DosUmbLink(BYTE n)
   REG mcb FAR *p;
   REG mcb FAR *q;
 
-  if (uppermem_root == 0)
+  if (uppermem_root == 0xffff)
     return;
 
   q = p = para2far(first_mcb);

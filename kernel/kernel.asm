@@ -343,7 +343,7 @@ _uppermem_link  db      0               ; 0063 upper memory link flag
 _min_pars       dw      0               ; 0064 minimum paragraphs of memory 
 					;      required by program being EXECed
                 global  _uppermem_root
-_uppermem_root  dw      0	        ; 0066 dmd_upper_root (usually 9fff)
+_uppermem_root	dw	0ffffh		; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 
@@ -623,8 +623,6 @@ segment IB_E
 __ib_end:
         ;; do not clear the other init BSS variables + STACK: too late.
 
-                retoff    resw 1  ; return offset to jump to from HMA_TEXT
-
 ; kernel startup stack
                 global  init_tos
                 resw 512
@@ -708,10 +706,6 @@ __U4D:
                 LDIVMODU
 %endif
 
-init_ret_np:    push ds
-                push word [retoff]
-                retf            ; return from init_calls.
-                
 ;End of HMA segment                
 segment	HMA_TEXT_END
                 global  __HMATextEnd
@@ -747,70 +741,6 @@ _empty_handler:
 _DGROUP_:
          dw DGROUP    
 
-
-segment INIT_TEXT
-
-                call far initforceEnableA20  ; first enable A20 or not
-manip_stack_A20:
-                pop dx                 ; get last ret address
-                pop word [retoff]      ; get near ret address of init caller
-                mov ax, init_ret_np    ; new init caller ret address 
-                push ax
-                jmp dx                 ; and back to the relocation entry 
-        
-    global __HMAinitRelocationTableStart
-__HMAinitRelocationTableStart:    
-
-    extern _execrh
-    global _reloc_call_execrh
-_reloc_call_execrh: 
-                call manip_stack_A20
-                jmp far _execrh
-    
-    extern _fmemcpy
-    global _reloc_call_fmemcpy
-_reloc_call_fmemcpy:
-                call manip_stack_A20
-                jmp far _fmemcpy    
-    
-    extern _strcpy
-    global _reloc_call_strcpy
-_reloc_call_strcpy:
-                call manip_stack_A20
-                jmp far _strcpy
-    
-    extern _fstrncpy
-    global _reloc_call_fstrncpy
-_reloc_call_fstrncpy:
-                call manip_stack_A20
-                jmp far _fstrncpy
-    
-    extern _strlen
-    global _reloc_call_strlen
-_reloc_call_strlen:
-                call manip_stack_A20
-                jmp far _strlen
-
-    extern _fstrlen
-    global _reloc_call_fstrlen
-_reloc_call_fstrlen:
-                call manip_stack_A20
-                jmp far _fstrlen
-
-    extern  _fmemset
-    global  _reloc_call_fmemset
-_reloc_call_fmemset:
-                call manip_stack_A20
-                jmp far _fmemset
-
-    extern  _memset
-    global  _reloc_call_memset
-_reloc_call_memset:
-                call manip_stack_A20
-                jmp far _memset
-        
-    global __HMAinitRelocationTableEnd
-__HMAinitRelocationTableEnd:
 
 segment _TEXT
 

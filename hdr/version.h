@@ -33,10 +33,14 @@ static BYTE *date_hRcsId =
 #endif
 #endif
 
-/* This Kernel is at a min Dos Ver. 5.00 */
-
+/* This Kernel is at a min Dos Ver. 5.00 or 7.10 with FAT32 support */
+#ifdef WITHFAT32
+#define MAJOR_RELEASE   7
+#define MINOR_RELEASE   10
+#else
 #define MAJOR_RELEASE   5
 #define MINOR_RELEASE   00
+#endif
 
 #define REV_NUMBER      0
 #define OEM_ID          0xfd    /* FreeDos version                      */
@@ -45,6 +49,6 @@ static BYTE *date_hRcsId =
 #define REVISION_MINOR  1
 #define REVISION_SEQ    26
 #define BUILD           "2026"
-#define SUB_BUILD	"test"
-#define KERNEL_VERSION_STRING "1.1.26test" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
-#define KERNEL_BUILD_STRING "2026test"     /*#BUILD SUB_BUILD */
+#define SUB_BUILD	""
+#define KERNEL_VERSION_STRING "1.1.26" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
+#define KERNEL_BUILD_STRING "2026"     /*#BUILD SUB_BUILD */

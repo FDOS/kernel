@@ -43,6 +43,7 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
 
 #else
 #include <io.h>
+#include <stdio.h>
 #endif
 
 #define FAR far

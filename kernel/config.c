@@ -591,7 +591,7 @@ VOID DoConfig(int pass)
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
     
-    if (nPass == 0)					/* pass 0 always executed (rem Menu prompt) */
+    if (nPass == 0)	/* pass 0 always executed (rem Menu prompt) */
     {
       (*(pEntry->func)) (pLine);
       continue;
@@ -602,9 +602,10 @@ VOID DoConfig(int pass)
         continue;
     }      		
 
-    pLine = skipwh(pLine);
+    if (pEntry->func != CfgMenu)
+      pLine = skipwh(pLine);
 
-    if ('=' != *pLine)
+    if ('=' != *pLine && pEntry->func != CfgMenu)
       CfgFailure(pLine);
     else                        /* YES. DO IT */
       (*(pEntry->func)) (skipwh(pLine + 1));
@@ -948,7 +949,7 @@ STATIC VOID Dosmem(BYTE * pLine)
   if (UmbState == 0)
   {
     uppermem_link = 0;
-    uppermem_root = 0;
+    uppermem_root = 0xffff;
     UmbState = UMBwanted ? 2 : 0;
   }
   /* Check if HMA is available straight away */

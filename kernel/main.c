@@ -107,6 +107,33 @@ __segment DosTextSeg = 0;
 
 #endif
 
+/* little functions - could be ASM but does not really matter in this context */
+void memset(void *s, int c, unsigned n)
+{
+  char *t = s;	
+  while(n--) *t++ = c;
+}
+
+void fmemset(void far *s, int c, unsigned n)
+{
+  char far *t = s;
+  while(n--) *t++ = c;
+}
+
+void strcpy(char *dest, const char *src)
+{
+  while(*src)
+    *dest++ = *src++;
+  *dest = '\0';
+}
+
+void fmemcpy(void far *dest, const void far *src, unsigned n)
+{
+  char far *d = dest;
+  const char far *s = src;
+  while(n--) *d++ = *s++;
+}
+
 VOID ASMCFUNC FreeDOSmain(void)
 {
 #ifdef _MSC_VER
@@ -408,16 +435,16 @@ STATIC void kernel()
 
   /* process 0       */
   /* Execute command.com /P from the drive we just booted from    */
-  fstrncpy(Cmd.ctBuffer, Config.cfgInitTail,
-           sizeof(Config.cfgInitTail) - 1);
+  memset(Cmd.ctBuffer, 0, sizeof(Cmd.ctBuffer));
+  fmemcpy(Cmd.ctBuffer, Config.cfgInitTail, sizeof(Config.cfgInitTail));
 
-  for (Cmd.ctCount = 0; Cmd.ctCount < 127; Cmd.ctCount++)
+  for (Cmd.ctCount = 0; Cmd.ctCount < sizeof(Cmd.ctBuffer); Cmd.ctCount++)
     if (Cmd.ctBuffer[Cmd.ctCount] == '\r')
       break;
 
   /* if stepping CONFIG.SYS (F5/F8), tell COMMAND.COM about it */
 
-  if (Cmd.ctCount < 127 - 3)
+  if (Cmd.ctCount < sizeof(Cmd.ctBuffer) - 3)
   {
     extern int singleStep;
     extern int SkipAllConfig;
@@ -433,14 +460,14 @@ STATIC void kernel()
     {
 
       /* insert /D, /Y as first argument */
-      int cmdEnd, i, slen = strlen(insertString);
+      int cmdEnd, i, slen = 3; /* strlen(insertString); */
 
-      for (cmdEnd = 0; cmdEnd < 127; cmdEnd++)
+      for (cmdEnd = 0; cmdEnd < sizeof(Cmd.ctBuffer); cmdEnd++)
       {
         if (Cmd.ctBuffer[cmdEnd] == ' ' ||
             Cmd.ctBuffer[cmdEnd] == '\t' || Cmd.ctBuffer[cmdEnd] == '\r')
         {
-          for (i = 127 - slen; i >= cmdEnd; i--)
+          for (i = sizeof(Cmd.ctBuffer) - slen - 1; i >= cmdEnd; i--)
             Cmd.ctBuffer[i + slen] = Cmd.ctBuffer[i];
 
           fmemcpy(&Cmd.ctBuffer[cmdEnd], insertString, slen);

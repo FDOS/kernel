@@ -460,42 +460,6 @@ void MoveKernel(unsigned NewKernelSegment)
 
     }
   }
-  {
-    struct initRelocationTable {
-      UBYTE callNear;
-      UWORD callOffset;
-      UBYTE jmpFar;
-      UWORD jmpOffset;
-      UWORD jmpSegment;
-    };
-    extern struct initRelocationTable
-        ASM _HMAinitRelocationTableStart[], ASM _HMAinitRelocationTableEnd[];
-    struct initRelocationTable *rp;
-
-    /* verify, that all entries are valid */
-
-    for (rp = _HMAinitRelocationTableStart;
-         rp < _HMAinitRelocationTableEnd; rp++)
-    {
-      if (rp->callNear != 0xe8 ||       /* call NEAR */
-          rp->jmpFar != 0xea || /* jmp FAR */
-          rp->jmpSegment != CurrentKernelSegment ||     /* will only relocate HMA_TEXT */
-          0)
-      {
-        printf("illegal init relocation entry # %d\n",
-               rp - _HMAinitRelocationTableStart);
-        goto errorReturn;
-      }
-    }
-
-    /* OK, all valid, go to relocate */
-
-    for (rp = _HMAinitRelocationTableStart;
-         rp < _HMAinitRelocationTableEnd; rp++)
-    {
-      rp->jmpSegment = NewKernelSegment;
-    }
-  }
 
   CurrentKernelSegment = NewKernelSegment;
   return;
