@@ -151,26 +151,21 @@ VOID ASMCFUNC FreeDOSmain(void)
                         */    
                         
   if (fmemcmp(MK_FP(0x50,0xe0+2),"CONFIG",6) == 0)      /* UPX */
-        {
-        fmemcpy(&InitKernelConfig, MK_FP(0x50,0xe0+2), sizeof(InitKernelConfig));
+  {
+    fmemcpy(&InitKernelConfig, MK_FP(0x50,0xe0+2), sizeof(InitKernelConfig));
     
-    BootDrive = *(BYTE FAR *)MK_FP(0x50,0xe0);
-
-        BootDrive ++;
+    BootDrive = *(BYTE FAR *)MK_FP(0x50,0xe0) + 1;
         
     if ((unsigned)BootDrive >= 0x80)
-        BootDrive += 3-1-128;
+      BootDrive = 3; /* C: */
     
-    
-    *(DWORD FAR *)MK_FP(0x50,0xe0+2) = 0;
-     
-    } 
+    *(DWORD FAR *)MK_FP(0x50,0xe0+2) = 0; 
+  } 
   else
-    {       
-
-        fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
-    }
-
+  {
+    fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
+  }
+  
   setvec(0, int0_handler);      /* zero divide */
   setvec(1, empty_handler);     /* single step */
   setvec(3, empty_handler);     /* debug breakpoint */

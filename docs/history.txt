@@ -12,6 +12,8 @@
     * allow creating, renaming and deleting volume labels using FCBs
     * fix renaming with wildcards using FCBs
     * some dosfns.c and fcbfns.c clean-ups
+    * booting from hard disk now always sets the default drive to C:,
+      not D: if booting from the second physical hard disk, etc (bug #1062).
 2002 Feb 9 - Build 2026
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom

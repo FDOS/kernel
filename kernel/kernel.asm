@@ -174,7 +174,7 @@ cont:		; inititalize api stacks for high water tests
 
 		inc	bl
 		jns	floppy
-		add	bl,3-1-128
+		mov	bl,3            ; set to C: if hard disk
 floppy:		mov	byte [_BootDrive],bl ; tell where we came from
 
 ;!!		int	11h
