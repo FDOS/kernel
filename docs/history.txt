@@ -18,6 +18,8 @@
     * added BOOTONLY option to SYS (modified by Bart)
 + Changes David Bolen
     * add support for UNC-style paths (that start with "\\")
++ Changes Luchezar Georgiev
+    * add Bulgarian country structure data
 + Changes Bart
     * flip some slashes in drivers/*.asm 
       (enables cross-assembly on Linux)

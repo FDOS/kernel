@@ -2251,6 +2251,20 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
     _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
   }
 
+  /* Bulgaria - by Luchezar Georgiev */ ,{
+    359,                        /*  = W1 W437   # Country ID & Codepage */
+    855,
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "BGL",                      /* '$' ,'EUR'   */
+    " ",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    3,                          /*  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
+  }
+
   /* Ukraine - by Oleg Deribas */ ,{
     380,         /*  = W380 W848   # Country ID & Codepage  */
     848,
@@ -2276,6 +2290,7 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
 	Michael H.Tyc (POL)
 	Oleg Deribas (UKR)
 	Arkady Belousov (RUS)
+        Luchezar Georgiev (BUL)
 	Yuki Mitsui (JAP)
 	Aitor Santamar­a Merino (SP)
 */	
