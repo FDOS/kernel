@@ -142,7 +142,7 @@ VOID FAR * HMAalloc(COUNT bytesToAllocate);
 
 /* initoem.c */
 unsigned init_oem(void);
-void movebda(int bytes, unsigned new_seg);
+void movebda(size_t bytes, unsigned new_seg);
 unsigned ebdasize(void);
 
 /* intr.asm */

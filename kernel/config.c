@@ -307,10 +307,14 @@ void PreConfig2(void)
 
   base_seg = LoL->first_mcb = FP_SEG(AlignParagraph((BYTE FAR *) DynLast() + 0x0f));
 
-  ebda_size = ebdasize();
-  if (ebda_size > Config.ebda2move)
-    ebda_size = Config.ebda2move;
-  ram_top += ebda_size / 1024;
+  ebda_size = 0;
+  if (Config.ebda2move)
+  {
+    ebda_size = ebdasize();
+    ram_top += ebda_size / 1024;
+    if (ebda_size > Config.ebda2move)
+      ebda_size = Config.ebda2move;
+  }
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
   mcb_init(base_seg, ram_top * 64 - LoL->first_mcb - 1, MCB_LAST);
@@ -1013,7 +1017,7 @@ STATIC VOID CfgSwitches(BYTE * pLine)
             break;
           }
           pLine = p - 1;              /* p points past number */
-          /* allowed values: [0..1024] bytes, multiples of 16
+          /* allowed values: [48..1024] bytes, multiples of 16
            * e.g. AwardBIOS: 48, AMIBIOS: 1024
            * (Phoenix, MRBIOS, Unicore = ????)
            */
