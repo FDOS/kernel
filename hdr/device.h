@@ -296,6 +296,11 @@ struct Gioc_media {
   BYTE ioc_fstype[8];
 };
 
+struct Access_info {
+  BYTE AI_spec;
+  BYTE AI_Flag;
+};
+
 /*                                                                      */
 /* Boot Block (Super Block)                                             */
 /*                                                                      */

@@ -81,11 +81,6 @@ UWORD LBA_WRITE_VERIFY = 0x4302;
                  */
 UBYTE DiskTransferBuffer[1 * SEC_SIZE];
 
-struct Access_info {
-  BYTE AI_spec;
-  BYTE AI_Flag;
-};
-
 struct FS_info {
   ULONG serialno;
   BYTE volume[11];

@@ -99,7 +99,7 @@ COUNT DosDevIOctl(lregs * r)
     case 0x0c:
     case 0x10:
     {
-      unsigned attr, flags;
+      unsigned flags;
 
       /* Test that the handle is valid and                    */
       /* get the SFT block that contains the SFT              */
@@ -195,7 +195,7 @@ COUNT DosDevIOctl(lregs * r)
 
             if (r->AL <= 0x03)
               r->AX = CharReqHdr.r_count;
-            else if (r->AL == 0x06 || r->AL == 0x07)
+            else if (r->AL <= 0x07)
               r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
             else /* 0x0c or 0x10 */
               r->AX = CharReqHdr.r_status;
