@@ -36,6 +36,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/03/22 04:26:14  bartoldeman
+ * dos_gettime() fix by Tom Ehlert.
+ *
  * Revision 1.10  2001/03/21 02:56:25  bartoldeman
  * See history.txt for changes. Bug fixes and HMA support are the main ones.
  *
@@ -969,9 +972,7 @@ time dos_gettime()
              (BYTE FAR *) & Minute,
              (BYTE FAR *) & Second,
              (BYTE FAR *) & Hundredth);
-  h = Second * 10 + ((Hundredth + 5) / 10);
-  Time = TM_ENCODE(Hour, Minute, h);
-  return Time;
+  return TM_ENCODE(Hour, Minute, Second/2);
 #else
   return 0;
 #endif
