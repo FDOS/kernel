@@ -146,18 +146,14 @@ irp_hi    equ 26
 		push fs
 		push gs
 	%else
-		ror eax,16
-		push ax
-		ror eax,16
-		ror ebx,16
-		push bx
-		ror ebx,16
-		ror ecx,16
-		push cx
-		ror ecx,16
-		ror edx,16
-		push dx
-		ror edx,16
+		push eax
+		pop ax
+		push ebx
+		pop bx
+		push ecx
+		pop cx
+		push edx
+		pop dx
 	%endif
 
 	%endmacro
@@ -168,18 +164,14 @@ irp_hi    equ 26
 		pop gs
 		pop fs
 	%else
-		ror edx,16
-		pop  dx
-		ror edx,16
-		ror ecx,16
-		pop  cx
-		ror ecx,16
-		ror ebx,16
-		pop  bx
-		ror ebx,16
-		ror eax,16
-		pop  ax
-		ror eax,16
+		push dx
+		pop edx
+		push cx
+		pop ecx
+		push bx
+		pop ebx
+		push ax
+		pop eax
 	%endif
 
 	%endmacro
