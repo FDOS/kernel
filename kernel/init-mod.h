@@ -100,7 +100,7 @@ char * ASMPASCAL  strchr(const char     *s,  int ch);
 extern BYTE DosLoadedInHMA;
 void MoveKernel(unsigned NewKernelSegment);
 
-#define setvec(n, isr) (void)(*(intvec FAR *)MK_FP(0,4 * (n)) = (isr))
+void setvec(unsigned char intno, intvec vector);
 #define getvec(n) (*(intvec FAR *)MK_FP(0,4 * (n)))
 
 #define GLOBAL extern
