@@ -1629,7 +1629,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   secsize = fnp->f_dpb->dpb_secsize;
 
   /* Adjust the far pointer from user space to supervisor space   */
-  buffer = adjust_far((VOID FAR *) buffer);
+  buffer = adjust_far(buffer);
 
   /* Do the data transfer. Use block transfer methods so that we  */
   /* can utilize memory management in future DOS-C versions.      */
@@ -1806,7 +1806,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   update_pointers:
     ret_cnt += xfr_cnt;
     to_xfer -= xfr_cnt;
-    buffer = add_far(buffer, xfr_cnt);
+    buffer = adjust_far((char FAR *)buffer + xfr_cnt);
     if (mode == XFR_WRITE)
     {
       if (fnp->f_offset > fnp->f_dir.dir_size)

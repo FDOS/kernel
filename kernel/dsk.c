@@ -237,8 +237,7 @@ STATIC WORD diskchange(ddt * pddt)
 {
   COUNT result;
 
-  /* if it's a hard drive, media never changes */
-  if (hd(pddt->ddt_descflags))
+  if (hd(pddt->ddt_descflags) && !(pddt->ddt_descflags & DF_CHANGELINE))
     return M_NOT_CHANGED;
 
   if (play_dj(pddt) == M_CHANGED)
@@ -983,6 +982,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
         }
 */
 
+  buffer = adjust_far(buffer);
   for (; totaltodo != 0;)
   {
     /* avoid overflowing 64K DMA boundary */
@@ -1087,7 +1087,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
     LBA_address += count;
     totaltodo -= count;
 
-    buffer = add_far(buffer, count * 512);
+    buffer = adjust_far((char FAR *)buffer + count * 512);
   }
 
   return (error_code);
