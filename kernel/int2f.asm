@@ -282,8 +282,8 @@ remote_lseek:   ; arg is a pointer to the long seek value
 remote_getfattr:        
                 clc                    ; set to succeed
                 int     2fh
-                jc      no_clear_ax
-                jmp     short no_neg_ax
+                jc      ret_neg_ax
+                jmp     short ret_int2f
 
 remote_lock_unlock:
 		mov	dx, cx   	; parameter block (dx) in arg
@@ -291,10 +291,9 @@ remote_lock_unlock:
 		mov	bl, [bx + 8]	; unlock or not
 		mov	cx, 1
 		int	0x2f
+		jnc	ret_set_ax_to_carry
 		mov	ah, 0
-		jc	lock_error
-		mov	al, 0
-lock_error:     jmp     no_clear_ax
+                jmp     short ret_neg_ax
 
 ;long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg)
                 global NETWORK_REDIRECTOR_MX
@@ -312,7 +311,7 @@ call_int2f:
                 cmp     al, 0fh
                 je      remote_getfattr
 
-                mov     di, dx         ; es:di -> s
+                mov     di, dx         ; es:di -> s and dx is used for 1125!
                 cmp     al, 08h
                 je      remote_rw
                 cmp     al, 09h
@@ -338,18 +337,19 @@ int2f_call:
                 xor     cx, cx         ; set to succeed; clear carry and CX
                 int     2fh
                 pop     bx
-                jnc     clear_ax
-no_clear_ax:
+                jnc     ret_set_ax_to_cx
+ret_neg_ax:
                 neg     ax
-                xchg    cx, ax
-clear_ax:       
-                xchg    ax, cx         ; extended open -> status from CX in AX
-                                       ; otherwise CX was set to zero above
-no_neg_ax:
+ret_int2f:
                 pop     di
                 pop     si
                 pop     bp
                 ret
+
+ret_set_ax_to_cx:                      ; ext_open or rw -> status from CX in AX
+                                       ; otherwise CX was set to zero above
+                xchg    ax, cx         ; set ax:=cx (one byte shorter than mov)
+                jmp     short ret_int2f
 
 remote_print_doredir:                  ; di points to an lregs structure
                 mov     es,[di+0xe]
@@ -364,51 +364,45 @@ remote_print_doredir:                  ; di points to an lregs structure
                 pop     bx              ; restore stack and ds=ss
                 push    ss
                 pop     ds
-                jc      no_clear_ax
-                xor     cx, cx
-                jmp     short clear_ax
+                jc      ret_neg_ax
+ret_set_ax_to_carry:                    ; carry => -1 else 0 (SUCCESS)
+                sbb     ax, ax
+                jmp     short ret_int2f
 
 remote_getfree:
                 clc                     ; set to succeed
                 int     2fh
                 pop     di              ; retrieve pushed pointer arg
-                jc      no_clear_ax
+                jc      ret_set_ax_to_carry
                 mov     [di],ax
                 mov     [di+2],bx
                 mov     [di+4],cx
                 mov     [di+6],dx
-                xor     cx, cx
-                jmp     short clear_ax
+                jmp     short ret_set_ax_to_carry
 
 remote_rw:
                 clc                    ; set to succeed
                 int     2fh
-                jc      int2f_carry
-                mov     ax, cx
-                xor     dx, dx         ; dx:ax = bytes read
-                jmp     short no_neg_ax
-int2f_carry:    neg     ax
+                jc      ret_min_dx_ax
+                xor     dx, dx         ; dx:ax := dx:cx = bytes read
+                jmp     short ret_set_ax_to_cx
+ret_min_dx_ax:  neg     ax
                 cwd
-                jmp     short no_neg_ax
+                jmp     short ret_int2f
                 
 qremote_fn:
-                push    ds
                 mov     bx, cx
                 lds     si, [bx]
-                clc
-                int     2fh
-                pop     ds
-                mov     ax,0xffff
-                jc      no_neg_ax
-                xor     cx, cx
-                jmp     short clear_ax
+                jmp     short int2f_restore_ds
 
 remote_process_end:                   ; Terminate process
-                mov     ds, [_cu_psp] 
+                mov     ds, [_cu_psp]
+int2f_restore_ds:
+                clc
                 int     2fh
                 push    ss
                 pop     ds
-                jmp     short no_neg_ax
+                jmp     short ret_set_ax_to_carry
 
 ; extern UWORD ASMCFUNC call_nls(UWORD subfct, struct nlsInfoBlock *nlsinfo,
 ; UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize, UWORD FAR *buf, UWORD *id);
