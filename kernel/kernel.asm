@@ -152,8 +152,9 @@ kernel_start:
 		rep	movsw
 
 					; move HMA_TEXT to higher memory
-		mov	cx,dx		; cx = __InitTextStart wrt HMA_TEXT
-		shr	dx,4
+		mov	si,dx		; si = __InitTextStart wrt HMA_TEXT
+		mov	cl,4
+		shr	dx,cl
 
 		sub	ax,dx
 		mov	ds,ax		; ds = HMA_TEXT
@@ -161,7 +162,7 @@ kernel_start:
 		sub	ax,dx
 		mov	es,ax		; es = new HMA_TEXT
 
-		mov	si,cx
+		mov	cx,si		; cx = __InitTextStart wrt HMA_TEXT
 		dec	si
 		dec	si
 		mov	di,si
