@@ -3,6 +3,8 @@
 + Changes Bart
       * int2f.asm
         - bugfix: call_nls: DI register was not preserved
+      * exeflat.c
+        - new version exploiting better UPX compression for SYS files; calls UPX itself
 + Changes Tom
 	* inthndlr.c
 	  - improve handling of case where eg. FindFirst(I:\*.*) fails, causes Int24,

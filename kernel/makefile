@@ -31,7 +31,6 @@ all:		..\bin\$(TARGET).sys ..\bin\country.sys
 
 ..\bin\$(TARGET).sys: $(TARGET).lnk $(OBJS) $(LIBS) ..\utils\exeflat.exe
 		$(LINK) @$(TARGET).lnk;
-		$(XUPX) kernel.exe
 		..\utils\exeflat kernel.exe $*.sys $(LOADSEG) -S0x10 -S0x8B $(UPXOPT)
 		copy $*.sys ..\bin\kernel.sys
 

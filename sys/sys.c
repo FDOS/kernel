@@ -279,7 +279,7 @@ int FDKrnConfigMain(int argc, char **argv);
 #define OEMKERNEL  "IBMBIO.COM"
 #define OEMDOS     "IBMDOS.COM"
 #define MSKERNEL   "IO.SYS"
-#define MSDOS      "MSDOS.SYS"
+#define MS_DOS      "MSDOS.SYS"
 #define FDLOADSEG  0x60
 #define OEMLOADSEG 0x70
 
@@ -523,7 +523,7 @@ int main(int argc, char **argv)
     {
       char *dosfn = OEMDOS;
       #ifdef WITHOEMCOMPATBS
-      if (altkern == MS_OEMKERN) dosfn = MSDOS;
+      if (altkern == MS_OEMKERN) dosfn = MS_DOS;
       #endif
 
       if ( (!get_full_path(srcPath, rootPath, dosfn, srcFile)) ||
