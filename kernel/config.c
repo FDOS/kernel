@@ -127,8 +127,8 @@ STATIC BYTE szBuf[256] = { 0 };
 
 BYTE singleStep = FALSE;        /* F8 processing */
 BYTE SkipAllConfig = FALSE;     /* F5 processing */
-BYTE askThisSingleCommand = FALSE;      	/* ?device=  device?= */
-BYTE DontAskThisSingleCommand = FALSE;      /* !files=	          */
+BYTE askThisSingleCommand = FALSE;          /* ?device=  device?= */
+BYTE DontAskThisSingleCommand = FALSE;      /* !files=            */
 
 COUNT MenuTimeout = -1;
 BYTE  MenuSelected = 0;
@@ -152,6 +152,10 @@ STATIC VOID Dosmem(BYTE * pLine);
 STATIC VOID Country(BYTE * pLine);
 STATIC VOID InitPgm(BYTE * pLine);
 STATIC VOID InitPgmHigh(BYTE * pLine);
+STATIC VOID CmdInstall(BYTE * pLine);
+STATIC VOID CmdInstallHigh(BYTE * pLine);
+
+
 STATIC VOID CfgSwitchar(BYTE * pLine);
 STATIC VOID CfgFailure(BYTE * pLine);
 STATIC VOID CfgIgnore(BYTE * pLine);
@@ -178,6 +182,7 @@ STATIC int SkipLine(char *pLine);
 STATIC char * stristr(char *s1, char *s2);
 #endif
 STATIC COUNT strcasecmp(REG BYTE * d, REG BYTE * s);
+STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
 
 void HMAconfig(int finalize);
 VOID config_init_buffers(COUNT anzBuffers);     /* from BLOCKIO.C */
@@ -205,9 +210,9 @@ STATIC struct table commands[] = {
   {"REM", 0, CfgIgnore},
   {";", 0,   CfgIgnore},
 
-  {"MENUDEFAULT", 0, CfgMenuDefault},	
-  {"MENU", 0, CfgMenu},			/* lines to print in pass 0 */
-  {"ECHO", 2, CfgMenu},			/* lines to print in pass 2 - when devices are loaded */
+  {"MENUDEFAULT", 0, CfgMenuDefault},   
+  {"MENU", 0, CfgMenu},         /* lines to print in pass 0 */
+  {"ECHO", 2, CfgMenu},         /* lines to print in pass 2 - when devices are loaded */
 
   {"BREAK", 1, CfgBreak},
   {"BUFFERS", 1, Config_Buffers},
@@ -224,11 +229,12 @@ STATIC struct table commands[] = {
   {"SWITCHAR", 1, CfgSwitchar},
   {"SCREEN", 1, sysScreenMode}, /* JPP */
   {"VERSION", 1, sysVersion},   /* JPP */
-  {"ANYDOS", 1, SetAnyDos},     /* JPP */
+  {"ANYDOS", 1, SetAnyDos},     /* tom */
 
   {"DEVICE", 2, Device},
   {"DEVICEHIGH", 2, DeviceHigh},
-  /*   {"INSTALL", 3, install}, would go here */
+  {"INSTALL", 2, CmdInstall},
+  {"INSTALLHIGH", 2, CmdInstallHigh},
   
   /* default action                                               */
   {"", -1, CfgFailure}
@@ -522,7 +528,7 @@ VOID DoConfig(int pass)
 
   /* Set pass number                                              */
   nPass = pass;
-	
+
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
   if ((nFileDesc = open("fdconfig.sys", 0)) >= 0)
@@ -600,7 +606,7 @@ VOID DoConfig(int pass)
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
     
-    if (nPass == 0)	/* pass 0 always executed (rem Menu prompt) */
+    if (nPass == 0) /* pass 0 always executed (rem Menu prompt) */
     {
       (*(pEntry->func)) (pLine);
       continue;
@@ -609,7 +615,7 @@ VOID DoConfig(int pass)
     {        
       if (SkipLine(pLineStart))   /* F5/F8 processing */
         continue;
-    }      		
+    }
 
     if (pEntry->func != CfgMenu)
       pLine = skipwh(pLine);
@@ -747,7 +753,7 @@ STATIC BOOL SkipLine(char *pLine)
       (MenuLine & (1 << MenuSelected)) == 0)
     return TRUE;
 
-  if (DontAskThisSingleCommand)		/* !files=30 */
+  if (DontAskThisSingleCommand)     /* !files=30 */
     return FALSE;
 
   if (!askThisSingleCommand && !singleStep)
@@ -1001,9 +1007,9 @@ STATIC VOID Fcbs(BYTE * pLine)
  *      Returns TRUE if successful, FALSE if not.
  */
 
+#if 0
 STATIC BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
 {
-/* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename); */
   printf("Sorry, the COUNTRY= statement has been temporarily disabled\n");
 
   UNREFERENCED_PARAMETER(codePage);
@@ -1011,41 +1017,46 @@ STATIC BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
   UNREFERENCED_PARAMETER(filename);
 
   return FALSE;
-}
+} 
+#endif
 
 STATIC VOID Country(BYTE * pLine)
 {
-  /* Format: COUNTRY = countryCode, [codePage], filename  */
+  /* Format: COUNTRY = countryCode, [codePage], filename   */
   COUNT ctryCode;
-  COUNT codePage;
+  COUNT codePage = NLS_DEFAULT;
+  char  *filename = "";
 
   if ((pLine = GetNumArg(pLine, &ctryCode)) == 0)
-    return;
+    goto error;
 
+
+    /*  currently 'implemented' 
+                 COUNTRY=49     */
+
+#if 0
   pLine = skipwh(pLine);
   if (*pLine == ',')
   {
     pLine = skipwh(pLine + 1);
 
-    if (*pLine == ',')
-    {
-      codePage = NLS_DEFAULT;
-    }
-    else
-    {
+    if (*pLine != ',')
       if ((pLine = GetNumArg(pLine, &codePage)) == 0)
-        return;
-    }
+        goto error;
 
     pLine = skipwh(pLine);
     if (*pLine == ',')
     {
       GetStringArg(++pLine, szBuf);
-
-      if (LoadCountryInfo(szBuf, ctryCode, codePage))
-        return;
+      filename = szBuf;
     }
-  }
+  }  
+#endif
+      
+  if (!LoadCountryInfoHardCoded(filename, ctryCode, codePage))
+    return;
+  
+error:  
   CfgFailure(pLine);
 }
 
@@ -1252,7 +1263,7 @@ void FAR * KernelAlloc(size_t nBytes)
 #endif
 
 #ifdef I86
-/*
+#if 0
 STATIC BYTE FAR * KernelAllocDma(WORD bytes)
 {
   BYTE FAR *allocated;
@@ -1264,7 +1275,7 @@ STATIC BYTE FAR * KernelAllocDma(WORD bytes)
   lpBase += bytes;
   return allocated;
 }
-*/
+#endif
 
 STATIC void FAR * AlignParagraph(VOID FAR * lpPtr)
 {
@@ -1302,14 +1313,14 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
 
   if (isnum(s))
   {
-	unsigned numbers = 0;
-	for ( ; isnum(s); s++)
-	 	numbers |= 1 << (*s -'0');
-	
-	if (*s == '?')
-	{
-	  MenuLine = numbers;
-	  Menus |= numbers;    
+    unsigned numbers = 0;
+    for ( ; isnum(s); s++)
+        numbers |= 1 << (*s -'0');
+    
+    if (*s == '?')
+    {
+      MenuLine = numbers;
+      Menus |= numbers;    
       s = skipwh(s+1);
     }
   }
@@ -1344,7 +1355,7 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
   return s;
 }
 
-/*
+#if 0
 BYTE *scan_seperator(BYTE * s, BYTE * d)
 {
   s = skipwh(s);
@@ -1353,7 +1364,7 @@ BYTE *scan_seperator(BYTE * s, BYTE * d)
   *d = '\0';
   return s;
 }
-*/
+#endif
 
 STATIC BOOL isnum(BYTE * pLine)
 {
@@ -1609,14 +1620,15 @@ STATIC VOID DoMenu(void)
     
   InitKernelConfig.SkipConfigSeconds = -1;  
 
-  Menus |= 1 << 0;			/* '0' Menu always allowed */
+  Menus |= 1 << 0;          /* '0' Menu always allowed */
 
   printf("\n\n");
-  
+
   for (;;)
   {
     int key,i;
-    
+
+RestartInput:    
     printf("\rSinglestepping (F8) is :%s - ", singleStep ? "ON " : "OFF");
     
     printf("please select a Menu[");
@@ -1624,17 +1636,29 @@ STATIC VOID DoMenu(void)
     for (i = 0; i <= 9; i++)
       if (Menus & (1 << i))
         printf("%c", '0' + i);
-    printf("]");			
+    printf("]");            
     
-    key = GetBiosKey(MenuTimeout);
+    printf(" (default=%d)", MenuSelected);
+    
+    if (MenuTimeout >= 0)
+      printf(" - %d \b", MenuTimeout);
+    else	
+      printf("     \b\b\b\b\b");
 
-    MenuTimeout = -1;
-    
-    if (key == -1)				/* timeout, take default */
-	{
-	  break;			
-	}
-    
+    key = GetBiosKey(MenuTimeout >= 0 ? 1 : -1);
+
+    if (key == -1)              /* timeout, take default */
+    {
+      if (MenuTimeout > 0)
+      {
+        MenuTimeout--;
+        goto RestartInput;
+      }
+      break;            
+    }        
+    else 
+      MenuTimeout = -1;
+
     if (key == 0x3f00)          /* F5 */
     {
       SkipAllConfig = TRUE;
@@ -1647,23 +1671,23 @@ STATIC VOID DoMenu(void)
     
     key &= 0xff;
     
-    if (key == '\r') 			/* CR - use default */
-    { 
-      break; 
+    if (key == '\r')            /* CR - use default */
+    {
+      break;
     }
-    if (key == 0x1b) 			/* ESC - use default */
-    { 
-      break; 
+    if (key == 0x1b)            /* ESC - use default */
+    {
+      break;
     }
     
     printf("%c", key);
     
     if (key >= '0' && key <= '9')
       if (Menus & (1 << (key - '0')))
-      { 
-        MenuSelected = key - '0'; break; 
+      {
+        MenuSelected = key - '0'; break;
       }
-  }  
+  }
   printf("\n");
 }
 
@@ -1692,3 +1716,605 @@ STATIC VOID CfgMenuDefault(BYTE * pLine)
 }
 
 
+
+
+
+/*********************************************************************************
+    National specific things.
+    this handles only Date/Time/Currency, and NOT codepage things.
+    Some may consider this a hack, but I like to see 24 Hour support. tom.
+*********************************************************************************/
+
+
+struct CountrySpecificInfo {
+  short CountryID;    /*  = W1 W437   # Country ID & Codepage */
+  short CodePage;
+  short DateFormat;           /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+  char  CurrencyString[5];    /* '$' ,'EUR'   */
+  char  ThousandSeparator[2]; /* ','          # Thousand's separator */
+  char  DecimalPoint[2];      /* '.'        # Decimal point        */
+  char  DateSeparator[2];     /* '-'  */
+  char  TimeSeparator[2];     /* ':'  */
+  char  CurrencyFormat;       /* = 0  # Currency format (bit array) 
+                                 0Fh    BYTE    currency format
+                                 bit 2 = set if currency symbol replaces decimal point
+                                 bit 1 = number of spaces between value and currency symbol
+                                 bit 0 = 0 if currency symbol precedes value
+                                 1 if currency symbol follows value    
+                              */
+  char  CurrencyPrecision;    /* = 2  # Currency precision           */
+  char  TimeFormat;           /* = 0  # time format: 0/1: 12/24 houres */
+};
+
+
+#define _DATE_MDY 0 /* mm/dd/yy */
+#define _DATE_DMY 1  /* dd.mm.yy */
+#define _DATE_YMD 2  /* yy/mm/dd */
+
+#define _TIME_12 0
+#define _TIME_24 1
+
+struct CountrySpecificInfo specificCountriesSupported[] = {
+    
+  /* US */ {
+    1,                          /*  = W1 W437   # Country ID & Codepage */
+    437,      
+    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$",                        /* '$' ,'EUR'   */
+    ",",                        /* ','          # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Canadian French */ ,{
+    2,                          /*  = W1 W437   # Country ID & Codepage */
+    863,      
+    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$",                        /* '$' ,'EUR'   */
+    ",",                        /* ','          # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Latin America */ ,{
+    3,                          /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$",                        /* '$' ,'EUR'   */
+    ",",                        /* ','          # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Russia - by arkady */ ,{
+    7,                          /*  = W1 W437   # Country ID & Codepage */
+    866,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "RUB",                      /* '$' ,'EUR'   */
+                                /* should be "\xE0", but as no codepage
+                                   support exists (yet), better to leave it as 'Rubels'
+                                */       						
+    " ",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    3,                          /*  Currency format : currency follows, after blank */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* DUTCH */ ,{
+    31,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Belgium */ ,{
+    32,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* France */ ,{
+    33,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Spain */ ,{
+    33,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    "'",                        /*      Decimal point - by aitor       */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Hungary */ ,{
+    36,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$HU",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Yugoslavia */ ,{
+    38,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$YU",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Italy */ ,{
+    39,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Switzerland */ ,{
+    41,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "SF",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Czechoslovakia */ ,{
+    42,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$YU",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* UK */ ,{
+    44,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "\x9c",                      /* Pound sign    */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Denmark */ ,{
+    45,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "DKK",                      /*     */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  /* Sweden */ ,{
+    46,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "SEK",                      /*     */
+    ",",                        /* ','          # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Norway */ ,{
+    47,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "NOK",                      /*     */
+    ",",                        /* ','          # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Poland */ ,{
+    48,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "PLN",                      /*  michael tyc: PLN means PoLish New zloty, I think)   */
+    ",",                        /* ','          # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* GERMAN */ ,{
+    49,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    1,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* Argentina */ ,{
+    54,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$ar",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    1,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+
+  /* Brazil */ ,{
+    55,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$ar",                      /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    1,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+  
+  /* International English */ ,{
+    61,                         /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "$",                        /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+
+  /* Japan - Yuki Mitsui */ ,{
+    81,                       /*  = W1 W437   # Country ID & Codepage */
+    932,      
+    _DATE_YMD,                  /*    Date format: 0/1/2:U.S.A./Europe/Japan */
+    "\x81\x8f",                 /* '$' ,'EUR'   */
+    ",",                        /* ','        # Thousand's separator */
+    ".",                        /* '.'        # Decimal point        */
+    "/",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision          */
+    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres 
+                                 */
+  }
+
+  /* Portugal */ ,{
+    351,                        /*  = W1 W437   # Country ID & Codepage */
+    850,      
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                        /* '$' ,'EUR'   */
+    ".",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    "-",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0,                          /* = 0  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
+  }
+
+  /* Finland - by wolf */ ,{
+    358,                        /*  = W1 W437   # Country ID & Codepage */
+    850,
+    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+    "EUR",                      /* '$' ,'EUR'   */
+    " ",                        /* ','          # Thousand's separator */
+    ",",                        /* '.'        # Decimal point        */
+    ".",                        /* '-'  DateSeparator */
+    ":",                        /* ':'  TimeSeparator */
+    0x3,                        /*  # Currency format (bit array) */
+    2,                          /* = 2  # Currency precision           */
+    _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
+  }
+
+  /* Ukraine - by Oleg Deribas */ ,{
+    380,         /*  = W380 W848   # Country ID & Codepage  */
+    848,
+    _DATE_DMY,   /* Date format: 0/1/2: U.S.A./Europe/Japan */
+    "UAH",       /* Currency */
+    " ",         /* ' '  # Thousand's separator */
+    ",",         /* ','  # Decimal point        */
+    ".",         /* '.'  DateSeparator */
+    ":",         /* ':'  TimeSeparator */
+    3,           /* = 3  # Currency format (bit array)    */
+    2,           /* = 2  # Currency precision             */
+    _TIME_24     /* = 1  # time format: 0/1: 12/24 houres */
+  }
+
+};    
+
+
+/* contributors to above table:
+
+	tom ehlert (GER)
+	bart oldeman (NL)
+	wolf (FIN)
+	Michael H.Tyc (POL)
+	Oleg Deribas (UKR)
+	Arkady Belousov (RUS)
+	Yuki Mitsui (JAP)
+	Aitor Santamar­a Merino (SP)
+*/	
+
+
+
+extern struct {
+  char  ThisIsAConstantOne;
+  short TableSize;
+  
+  struct CountrySpecificInfo C;
+  
+} FAR nlsCountryInfoHardcoded;
+
+
+
+STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage)
+{
+  int i;
+  UNREFERENCED_PARAMETER(codePage);
+  UNREFERENCED_PARAMETER(filename);
+
+  /* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename);  */
+
+
+
+  for (i = 0; i < sizeof(specificCountriesSupported)/sizeof(specificCountriesSupported[0]); i++)
+  {
+    if (specificCountriesSupported[i].CountryID == ctryCode)
+    {
+      int codepagesaved = nlsCountryInfoHardcoded.C.CodePage;
+
+      fmemcpy(&nlsCountryInfoHardcoded.C.CountryID, 
+              &specificCountriesSupported[i],
+              min(nlsCountryInfoHardcoded.TableSize, sizeof(struct CountrySpecificInfo)));
+
+      nlsCountryInfoHardcoded.C.CodePage = codepagesaved;
+
+      return 0;
+    }
+  }
+  
+  printf("could not find country info for country ID %u\n", ctryCode);
+  printf("current supported countries are ");
+
+  for (i = 0; i < sizeof(specificCountriesSupported)/sizeof(specificCountriesSupported[0]); i++)
+  {
+    printf("%u ",specificCountriesSupported[i].CountryID);
+  }
+  printf("\n");       
+
+  return 1;
+}
+
+
+/* ****************************************************************
+** implementation of INSTALL=NANSI.COM /P /X /BLA 
+*/
+
+int  numInstallCmds = 0;
+struct {
+  char buffer[128];
+  int mode;
+} InstallCommands[10];
+
+#define InstallPrintf(x)
+/*#define InstallPrintf(x) printf x*/
+                
+
+STATIC VOID _CmdInstall(BYTE * pLine,int mode)
+{
+  InstallPrintf(("Installcmd %d:%s\n",numInstallCmds,pLine));
+  
+  if (numInstallCmds > LENGTH(InstallCommands))
+  {
+    printf("Too many Install commands given (%d max)\n",LENGTH(InstallCommands));
+    CfgFailure(pLine);
+    return;
+  }   
+  fmemcpy(InstallCommands[numInstallCmds].buffer,pLine,127);
+  InstallCommands[numInstallCmds].buffer[127] = 0;
+  InstallCommands[numInstallCmds].mode        = mode;
+  numInstallCmds++;
+}       
+STATIC VOID CmdInstall(BYTE * pLine)
+{
+  _CmdInstall(pLine,0);
+}
+STATIC VOID CmdInstallHigh(BYTE * pLine)
+{
+  _CmdInstall(pLine,0x80);	/* load high, if possible */
+}
+
+void InstallExec(char *cmd)
+{                            
+  BYTE filename[128],*args,*d;
+  exec_blk exb;
+
+  InstallPrintf(("installing %s\n",cmd));
+
+  cmd=skipwh(cmd);     
+
+  for (args = cmd, d = filename; ;args++,d++)
+  {
+    *d = *args;
+    if (*d <= 0x020 || *d == '/')
+      break;
+  }
+  *d = 0;
+
+  args--;
+  *args = 0;
+  while (args[*args+1])
+    ++*args;        
+  args[*args+1] = '\r';	
+  args[*args+2] = 0;
+
+  exb.exec.env_seg  = 0;
+  exb.exec.cmd_line = (CommandTail FAR *) args;
+  exb.exec.fcb_1 = exb.exec.fcb_2 = (fcb FAR *) 0xfffffffful;
+
+
+  InstallPrintf(("cmd[%s] args [%u,%s]\n",filename,*args,args+1));
+
+  if (init_DosExec(0, &exb, filename) != SUCCESS)
+  {
+    CfgFailure(cmd);
+  }
+}		
+
+
+VOID DoInstall(void)
+{
+  int i;
+  iregs r;
+  extern BYTE ASM _init_end[];
+  unsigned short installMemory; 
+
+
+  if (numInstallCmds == 0)
+    return;
+  
+  InstallPrintf(("Installing commands now\n"));
+
+  /* grab memory for this install code 
+     we KNOW, that we are executing somewhere at top of memory
+     we need to protect the INIT_CODE from other programs
+     that will be executing soon
+  */
+  
+  r.a.x = 0x5801;             /* set memory allocation strategy */
+  r.b.b.l = 0x02;			    /*low memory, last fit			*/
+  init_call_intr(0x21, &r);
+
+  r.a.b.h = 0x48;				/* alloc memory	*/
+  r.b.x = ((unsigned)_init_end+15)/16;
+  init_call_intr(0x21, &r);
+  installMemory = r.a.x;
+
+
+  InstallPrintf(("allocated memory at %x\n",installMemory));
+
+  for (i = 0; i < numInstallCmds; i++)
+  {
+    InstallPrintf(("%d:%s\n",i,InstallCommands[i].buffer));
+    
+    r.a.x = 0x5801;             /* set memory allocation strategy */
+    r.b.b.l = InstallCommands[i].mode;
+    init_call_intr(0x21, &r);
+    
+    InstallExec(InstallCommands[i].buffer);
+  }      
+
+  r.a.x = 0x5801;             /* set memory allocation strategy */
+  r.b.b.l = 0x00;			    /*low memory, high			*/
+  init_call_intr(0x21, &r);
+    
+  r.a.b.h = 0x49;				/* alloc memory	*/
+  r.es  = installMemory;
+  init_call_intr(0x21, &r);
+  
+  InstallPrintf(("Done with installing commands\n"));
+  return;
+}

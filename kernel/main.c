@@ -181,6 +181,9 @@ VOID ASMCFUNC FreeDOSmain(void)
   /* Non-portable message kludge alert!   */
   printf("KERNEL: Boot drive = %c\n", 'A' + BootDrive - 1);
 #endif
+
+  DoInstall();
+
   kernel();
 }
 

@@ -115,6 +115,7 @@ char *strcat(char * d, const char * s);
 COUNT ASMCFUNC Umb_Test(void);
 COUNT ASMCFUNC UMB_get_largest(UCOUNT * seg, UCOUNT * size);
 BYTE * GetStringArg(BYTE * pLine, BYTE * pszString);
+void DoInstall(void);
 
 /* diskinit.c */
 COUNT dsk_init(VOID);
