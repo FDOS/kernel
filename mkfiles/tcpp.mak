@@ -1,5 +1,5 @@
 #
-# TCPP.MAK - kernel copiler options for Turbo C++ 1.01
+# TCPP.MAK - kernel compiler options for Turbo C++ 1.01
 #
 
 TARGET=KTP

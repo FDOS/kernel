@@ -414,6 +414,13 @@ dispatch:
   }
   /* Clear carry by default for these functions */
 
+       /* see PATCH TE 5 jul 04 explanation at end */
+  if (ErrorMode && lr.AH > 0x0c && lr.AH != 0x30 && lr.AH != 0x59)
+  {
+    ErrorMode = 0;                      
+    fnode[0].f_count = 0;    /* don't panic - THEY ARE unused !! */
+    fnode[1].f_count = 0;
+  }
 
   /* Check for Ctrl-Break */
   if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))

@@ -111,6 +111,7 @@ goto end
 :abort-cd
 cd ..
 :noenv
+echo Unable to set necessary environment variables!
 :abort
 echo Compilation was aborted!
 

@@ -1,5 +1,5 @@
 #
-# TC.MAK - kernel copiler options for Turbo C 2.01
+# TC.MAK - kernel compiler options for Turbo C 2.01
 #
 
 BINPATH=$(BASE)

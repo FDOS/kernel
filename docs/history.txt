@@ -1,7 +1,12 @@
 2004 July 8 - UNSTABLE branch
 -------- Jeremy Davis (jeremyd@computer.org)
++ Changes Tom
+	* inthndlr.c
+	  - improve handling of case where eg. FindFirst(I:\*.*) fails, causes Int24,
+	    and application chooses to pop stack returning to self and does NOT return
+	    to DOS; so fnode[0] never freed and errormode not set back to 0 until exit()
 + Changes Arkady
-	* UTILS\PROTO.BAT, UTILS\INDENT, KERNEL\NLS_LOAD.C, KERNEL\KERNEL.CFG: removed.
+	* UTILS\PROTO.BAT, KERNEL\NLS_LOAD.C, KERNEL\KERNEL.CFG: removed.
 
 	* all batch files now check if environment is enough; this prevents wrong
 	  actions in case of small environment.
@@ -22,7 +27,7 @@
 	* all MAKEFILEs now look similar.
 	* some makefiles renamed: BC5->BC, TURBOCPP->TCPP, TC3->TCPP3, MSCL8->MSC.
 	* MKFILES\*.MAK: removed space after "=" in macro definitions; this makes
-	  command lines shorter.
+	  command lines shorter.  Typo fix, copiler->compiler
 	* common definitions from makefiles moved to MKFILES\GENERIC.MAK
 	  (directories) and CONFIG.B/DEFAULTS.BAT (LINK, NASM, LIBUTIL, etc).
 	* MKFILES\GENERIC.MAK: XCPU=86 and XFAT=32 are defined here, if environment

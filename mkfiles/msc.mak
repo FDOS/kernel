@@ -1,5 +1,5 @@
 #
-# MSC.MAK - kernel copiler options for MS VC 1.5x (MS CL 8.x)
+# MSC.MAK - kernel compiler options for MS VC 1.5x (MS CL 8.x)
 #
 
 TARGET=KMS

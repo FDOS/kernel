@@ -1,5 +1,5 @@
 #
-# WATCOM.MAK - kernel copiler options for WATCOM C/OpenWatcom
+# WATCOM.MAK - kernel compiler options for WATCOM C/OpenWatcom
 #
 
 TARGET=KWC

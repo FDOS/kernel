@@ -1,5 +1,5 @@
 #
-# BC.MAK - kernel copiler options for Borland C++
+# BC.MAK - kernel compiler options for Borland C++
 #
 
 !include "..\mkfiles\tcpp.mak"

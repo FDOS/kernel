@@ -90,17 +90,32 @@ void ASMCFUNC FreeDOSmain(void)
     UBYTE drv;
     UBYTE FAR *p = MK_PTR(UBYTE, 0, 0x5e2);
     if (fmemcmp(p, "CONFIG", 6) == 0) /* UPXed */
-      drv = p[-2]; /* boot drive was stored there by stub from exeflat.c */
+      drv = p[-2];		/* stored there by stub from exeflat.c */
+
+      /* !!! stub, added by exeflat.c for UPXed kernel, should store
+         boot drive# in the CONFIG-block, not outside (below) it. --avb */
+
     else
     {
       drv = LoL->BootDrive;
-      p[-2] = drv; /* used by initdisk.c:ReadAllPartitionTables() */
+
+      /* !!! kernel.asm should store boot drive# from BL into
+         LowKernelConfig instead LoL->BootDrive. --avb		*/
+
+      p[-2] = drv;		/* used in initdisk.c		*/
+
+      /* !!! initdisk.c:ReadAllPartitionTables() should get boot drive#
+         from InitKernelConfig, not at fixed address 0:5e0. --avb */
+
       p = (UBYTE FAR*)&LowKernelConfig;
     }
 
-    drv++;
+    /* !!! boot drive# should be get from InitKernelConfig after
+       copying there FAR memory (from 0:5e0 or LowKernelConfig). --avb */
+
+    drv++;			/* A:=1, B:=2			*/
     if (drv > 0x80)
-      drv = 3; /* C: */
+      drv = 3;			/* C:				*/
     LoL->BootDrive = drv;
 
     fmemcpy(&InitKernelConfig, p, sizeof InitKernelConfig);
