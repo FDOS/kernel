@@ -241,14 +241,13 @@ seg far2para(VOID FAR * p);
 seg long2para(ULONG size);
 void FAR *add_far(void FAR * fp, unsigned off);
 VOID FAR *adjust_far(const void FAR * fp);
-COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para,
-                  UWORD FAR * asize);
-COUNT DosMemLargest(UWORD FAR * size);
+COUNT DosMemAlloc(UWORD size, COUNT mode, seg * para, UWORD * asize);
+COUNT DosMemLargest(UWORD * size);
 COUNT DosMemFree(UWORD para);
 COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize);
 COUNT DosMemCheck(void);
 COUNT FreeProcessMem(UWORD ps);
-COUNT DosGetLargestBlock(UWORD FAR * block);
+COUNT DosGetLargestBlock(UWORD * block);
 VOID show_chain(void);
 VOID DosUmbLink(BYTE n);
 VOID mcb_print(mcb FAR * mcbp);
@@ -257,7 +256,7 @@ VOID mcb_print(mcb FAR * mcbp);
 COUNT lfn_allocate_inode(VOID);
 COUNT lfn_free_inode(COUNT handle);
 
-COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, ULONG diroff);
+COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, UWORD diroff);
 
 COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip);
 COUNT lfn_remove_entries(COUNT handle);

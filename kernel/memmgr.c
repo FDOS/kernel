@@ -112,8 +112,7 @@ void FAR * adjust_far(const void FAR * fp)
    size is the minimum size of the block to search for,
    even if mode == LARGEST.
  */
-COUNT DosMemAlloc(UWORD size, COUNT mode, seg FAR * para,
-                  UWORD FAR * asize)
+COUNT DosMemAlloc(UWORD size, COUNT mode, seg *para, UWORD *asize)
 {
   REG mcb FAR *p;
   mcb FAR *foundSeg;
@@ -265,7 +264,7 @@ stopIt:                        /* reached from FIRST_FIT on match */
  * Known bug: a memory area with a size of the data area of 0 (zero) is
  * not considered a "largest" block. <<Perhaps this is a feature ;-)>>
  */
-COUNT DosMemLargest(UWORD FAR * size)
+COUNT DosMemLargest(UWORD *size)
 {
   seg dummy;
   *size = 0;
