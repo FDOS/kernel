@@ -1882,7 +1882,7 @@ STATIC VOID CfgMenu(BYTE * pLine)
   pLine = skipwh(pLine);  /* skip more whitespaces... */
 
   /* now I'm expecting a number here if this is a menu-choice line. */
-  if (pLine[0]>='1' && pLine[0]<='9')
+  if (pLine[0]>='0' && pLine[0]<='9')
   {
     int nIndex = pLine[0]-'0';
 
@@ -1989,14 +1989,14 @@ RestartInput:
     }
     else if(key == 0x4800 && MenuColor != -1)      /* arrow up */
     {
-      if(MenuSelected>=0 && (Menus & (1 << (MenuSelected-1))) )
+      if(MenuSelected>=1 && (Menus & (1 << (MenuSelected-1))) )
       {
         MenuSelected--;
       }
     }
     else if(key == 0x5000 && MenuColor != -1)      /* arrow down */
     {
-      if(MenuSelected<MENULINESMAX && (Menus & (1 << (MenuSelected+1))) )
+      if(MenuSelected<MENULINESMAX-1 && (Menus & (1 << (MenuSelected+1))) )
       {
         MenuSelected++;
       }
