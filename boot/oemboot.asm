@@ -73,7 +73,7 @@
 ;	| CLUSTER|
 ;	|  LIST  |
 ;	|--------| 0000:7F00
-;     |LBA PKT |
+;	|LBA PKT |
 ;	|--------| 0000:7E00  (0:BP+200)
 ;	|BOOT SEC| contains BPB
 ;	|ORIGIN  | 
@@ -99,7 +99,6 @@
 ;%define LOOPONERR       1              ; if defined on error simply loop forever
 ;%define SETROOTDIR      1              ; if defined dir entry copied to 0:500
 ;%define RETRYALWAYS     1              ; if defined retries read forever
-;%define FORCEBIOSDRV    1              ; if defined always use boot drive from BIOS
 ;%define MSCOMPAT        1              ; sets default filename to MSDOS IO.SYS
 
 segment	.text
@@ -219,14 +218,11 @@ real_start:
 
                 sti             ; enable interrupts
 ;
-; Some BIOS don't pass drive number in DL, so don't use it if [drive] is known
+; Note: some BIOS implementations may not correctly pass drive number
+; in DL, however we work around this in SYS.COM by NOP'ing out the use of DL
+; (formerly we checked for [drive]==0xff; update sys.c if code moves)
 ;
-%ifndef FORCEBIOSDRV
-                cmp     byte [drive], 0xff ; impossible number written by SYS
-                jne     dont_use_dl        ; was SYS drive: other than A or B?
-%endif
-                mov     [drive], dl        ; yes, rely on BIOS drive number in DL
-dont_use_dl:                               ; no,  rely on [drive] written by SYS
+                mov     [drive], dl        ; rely on BIOS drive number in DL
 
 
 ;       GETDRIVEPARMS:  Calculate start of some disk areas.

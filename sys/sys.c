@@ -30,7 +30,7 @@
 /* #define DDEBUG */
 #define WITHOEMCOMPATBS /* include support for OEM MS/PC DOS 3.??-6.x */
 
-#define SYS_VERSION "v3.4"
+#define SYS_VERSION "v3.5"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -186,11 +186,6 @@ char *getenv(const char *name)
 
 BYTE pgm[] = "SYS";
 
-void put_boot(int, char *, char *, int, int, int, int);
-BOOL check_space(COUNT, ULONG);
-BOOL get_full_path(BYTE * srcPath, BYTE * rootPath, BYTE * filename, BYTE *source);
-BOOL copy(BYTE *source, COUNT drive, BYTE * filename);
-
 #define SEC_SIZE        512
 #define COPY_SIZE	0x7e00
 
@@ -271,42 +266,396 @@ int FDKrnConfigMain(int argc, char **argv);
 /* FreeDOS sys, we default to our kernel and load segment, but
    if not found (or explicitly given) support OEM DOS variants
    (such as DR-DOS or a FreeDOS kernel mimicing other DOSes).
-   PC-DOS requires particular steps from the boot loader, which
-   we do not currently fullfill, so it will not boot and MS-DOS
-   uses different names, so it also will not work.
+   Note: other (especially older) DOS versions expect the boot
+   loader to perform particular steps, which we may not do;
+   older PC/MS DOS variants may work with the OEM compatible
+   boot sector (optionally included).
 */
-#define FDKERNEL   "KERNEL.SYS"
-#define OEMKERNEL  "IBMBIO.COM"
-#define OEMDOS     "IBMDOS.COM"
-#define MSKERNEL   "IO.SYS"
-#define MS_DOS      "MSDOS.SYS"
-#define FDLOADSEG  0x60
-#define OEMLOADSEG 0x70
+typedef struct DOSBootFiles {
+  const char * kernel;   // filename boot sector loads and chains to
+  const char * dos;      // optional secondary file for OS
+  WORD         loadseg;  // segment kernel file expects to start at
+  BOOL         stdbs;    // use FD boot sector (T) or oem compat one (F)
+  LONG         minsize;  // smallest dos file can be and be valid, 0=existance optional
+} DOSBootFiles;
+DOSBootFiles bootFiles[] = {
+  /* Note: This order is the order OEM:AUTO uses to determine DOS flavor. */
+  /* FreeDOS */ { "KERNEL.SYS", NULL, 0x60, 1, 0 },
+  /* DR-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70, 1, 1 },
+#ifdef WITHOEMCOMPATBS
+  /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70, 0, 6138 },  /* pre v7 DR ??? */
+  /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", 0x70, 0, 10240 },
+#endif
+  /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", 0x70, 1, 0},
+};
+#define DOSFLAVORS (sizeof(bootFiles) / sizeof(*bootFiles))
 
-#define NO_OEMKERN 0  /* standard FreeDOS mode */
-#define DR_OEMKERN 1  /* use FreeDOS boot sector, but OEM names */
-#define PC_OEMKERN 2  /* use PC-DOS compatible boot sector and names */
-#define MS_OEMKERN 3  /* use PC-DOS compatible BS with MS names */
+#define OEM_AUTO (-1) /* attempt to guess DOS on source drive */
+#define OEM_FD     0  /* standard FreeDOS mode */
+#define OEM_DR     1  /* use FreeDOS boot sector, but OEM names */
+#define OEM_PC     2  /* use PC-DOS compatible boot sector and names */ 
+#define OEM_MS     3  /* use PC-DOS compatible BS with MS names */
+#define OEM_W9x    4  /* use FreeDOS boot sector but with MS names */
 
+typedef struct SYSOptions {
+  BYTE srcDrive[SYS_MAXPATH];   /* source drive:[path], root assumed if no path */
+  BYTE dstDrive;                /* destination drive [STD SYS option] */
+  int flavor;                   /* DOS variant we want to boot, default is AUTO/FD */
+  DOSBootFiles kernel;          /* file name(s) and relevant data for kernel */
+  BYTE defBootDrive;            /* value stored in boot sector for drive, eg 0x0=A, 0x80=C */
+  BOOL ignoreBIOS;              /* true to NOP out boot sector code to get drive# from BIOS */
+  BOOL copyFiles;               /* true to copy kernel files and command interpreter */
+  BOOL writeBS;                 /* true to write boot sector to drive/partition LBA 0 */
+  BYTE *bsFile;                 /* file name & path to save bs to when saving to file */
+  BYTE *bsFileOrig;             /* file name & path to save original bs when backing up */
+  BYTE *fnKernel;               /* optional override to source kernel filename (src only) */
+  BYTE *fnCmd;                  /* optional override to cmd interpreter filename (src & dest) */
+} SYSOptions;
+
+
+void restoreBS(const char *, int);
+void put_boot(SYSOptions *opts);
+BOOL check_space(COUNT, ULONG);
+BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename);
+
+void showHelpAndExit(void)
+{
+  printf(
+      "Usage: \n"
+      "%s [source] drive: [bootsect] [{option}]\n"
+      "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
+      "  drive    = A,B,etc.\n"
+      "  bootsect = name of 512-byte boot sector file image for drive:\n"
+      "             to write to *instead* of real boot sector\n"
+      "  {option} is one or more of the following:\n"
+      "  /BOTH    : write to *both* the real boot sector and the image file\n"
+      "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
+      "  /OEM     : indicates boot sector, filenames, and load segment to use\n"
+      "             /OEM:FD use FreeDOS compatible settings\n"
+      "             /OEM:DR use DR DOS 7+ compatible settings (same as /OEM)\n"
+#ifdef WITHOEMCOMPATBS
+      "             /OEM:PC use PC-DOS compatible settings\n"
+      "             /OEM:MS use MS-DOS compatible settings\n"
+#endif
+      "             /OEM:W9x use MS Win9x DOS compatible settings\n"
+      "             default is /OEM:AUTO, select DOS based on existing files\n"
+      "  /K name  : name of kernel to use in boot sector instead of KERNEL.SYS\n"
+      "  /L segm  : hex load segment to use in boot sector instead of 60\n"
+      "  /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...\n"
+      "  /FORCEDRV: force use of drive # set in bs instead of BIOS boot value\n"
+      "%s CONFIG /help\n", pgm, pgm
+  );
+  exit(1);
+}
+
+
+/* get and validate arguments */
+void initOptions(int argc, char *argv[], SYSOptions *opts)
+{
+  int argno;
+  int drivearg = 0;           /* drive argument, position of 1st or 2nd non option */
+  int srcarg = 0;             /* nonzero if optional source argument */
+  BYTE srcFile[SYS_MAXPATH];  /* full path+name of [kernel] file [to copy] */
+  struct stat fstatbuf;
+
+  /* initialize to defaults */
+  memset(opts, 0, sizeof(SYSOptions));
+  /* set srcDrive and dstDrive after processing args */
+  opts->flavor = OEM_AUTO;      /* attempt to detect DOS user wants to boot */
+  opts->copyFiles = 1;          /* actually copy the kernel and cmd interpreter to dstDrive */
+
+  /* cycle through processing cmd line arguments */
+  for(argno = 1; argno < argc; argno++)
+  {
+    char *argp = argv[argno];
+
+    if (argp[0] == '/')  /* optional switch */
+    {
+      argp++;  /* skip past the '/' character */
+
+      /* explicit request for base help/usage */
+      if ((*argp == '?') || (memicmp(argp, "HELP", 4) == 0))
+      {
+        showHelpAndExit();
+      }
+      /* write to *both* the real boot sector and the image file */
+      else if (memicmp(argp, "BOTH", 4) == 0)
+      {
+        opts->writeBS = 1;  /* note: if bs file omitted, then same as omitting /BOTH */
+      }
+      /* do *not* copy kernel / shell, only update boot sector or image */
+      else if (memicmp(argp, "BOOTONLY", 8) == 0)
+      {
+        opts->copyFiles = 0;
+      }
+      /* indicates compatibility mode, fs, filenames, and load segment to use */
+      else if (memicmp(argp, "OEM", 3) == 0)
+      {
+        argp += 3;
+        if (!*argp)
+            opts->flavor = OEM_DR;
+        else if (*argp == ':')
+        {
+          argp++;  /* point to DR/PC/MS that follows */
+          if (memicmp(argp, "AUTO", 4) == 0)
+            opts->flavor = OEM_AUTO;
+          else if (memicmp(argp, "DR", 2) == 0)
+            opts->flavor = OEM_DR;
+#ifdef WITHOEMCOMPATBS
+          else if (memicmp(argp, "PC", 2) == 0)
+            opts->flavor = OEM_PC;
+          else if (memicmp(argp, "MS", 2) == 0)
+            opts->flavor = OEM_MS;
+#endif
+          else if (memicmp(argp, "W9", 2) == 0)
+            opts->flavor = OEM_W9x;
+          else /* if (memicmp(argp, "FD", 2) == 0) */
+            opts->flavor = OEM_FD;
+        }
+        else
+        {
+          printf("%s: unknown OEM qualifier %s\n", pgm, argp);
+          showHelpAndExit();
+        }
+      }
+      /* force use of drive # set in bs instead of BIOS boot value */
+      else if (memicmp(argp, "FORCEDRV", 8) == 0)
+      {
+        opts->ignoreBIOS = 1;
+      }
+      else if (argno + 1 < argc)   /* two part options, /SWITCH VALUE */
+      {
+        argno++;
+        if (toupper(*argp) == 'K')      /* set Kernel name */
+        {
+          opts->kernel.kernel = argv[argno];
+        }
+        else if (toupper(*argp) == 'L') /* set Load segment */
+        {
+          opts->kernel.loadseg = (WORD)strtol(argv[argno], NULL, 16);
+        }
+        else if (memicmp(argp, "B", 2) == 0) /* set boot drive # */
+        {
+          opts->defBootDrive = (BYTE)strtol(argv[argno], NULL, 16);
+        }
+        /* options not documented by showHelpAndExit() */
+        else if (memicmp(argp, "SKFN", 4) == 0) /* set KERNEL.SYS input file and /OEM:FD */
+        {
+          opts->flavor = OEM_FD;
+          opts->fnKernel = argv[argno];
+        }
+        else if (memicmp(argp, "SCFN", 4) == 0) /* sets COMMAND.COM input file */
+        {
+          opts->fnCmd = argv[argno];
+        }
+        else if (memicmp(argp, "BACKUPBS", 8) == 0) /* save current bs before overwriting */
+        {
+          opts->bsFileOrig = argv[argno];
+        }
+        else if (memicmp(argp, "RESTORBS", 8) == 0) /* overwrite bs and exit */
+        {
+          if (drivearg)
+            restoreBS(argv[argno], (BYTE)(toupper(*(argv[drivearg])) - 'A'));
+          else
+            printf("%s: unspecified drive, unable to restore boot sector\n", pgm);
+          exit(1);
+        }
+        else
+        {
+          printf("%s: unknown option, %s\n", pgm, argv[argno]);
+          showHelpAndExit();
+        }
+      }
+      else
+      {
+        printf("%s: unknown option or missing parameter, %s\n", pgm, argv[argno]);
+        showHelpAndExit();
+      }
+    }
+    else if (!drivearg)
+    {
+      drivearg = argno;         /* either source or destination drive */
+    }
+    else if (!srcarg /* && drivearg */)
+    {
+      srcarg = drivearg; /* set source path */
+      drivearg = argno;  /* set destination drive */
+    }
+    else if (!opts->bsFile /* && srcarg && drivearg */)
+    {
+      opts->bsFile = argv[argno];
+    }
+    else /* if (opts->bsFile && srcarg && drivearg) */
+    {
+      printf("%s: invalid argument %s\n", pgm, argv[argno]);
+      showHelpAndExit();
+    }
+  }
+
+  /* if neither BOTH nor a boot sector file specified, then write to boot record */
+  if (!opts->bsFile)
+    opts->writeBS = 1;
+
+  /* set dest path */
+  if (!drivearg)
+    showHelpAndExit();
+  opts->dstDrive = (BYTE)(toupper(*(argv[drivearg])) - 'A');
+  if (/* (opts->dstDrive < 0) || */ (opts->dstDrive >= 26))
+  {
+    printf("%s: drive %c must be A:..Z:\n", pgm, *(argv[drivearg]));
+    exit(1);
+  }
+
+  /* set source path, default to current drive */
+  sprintf(opts->srcDrive, "%c:", 'A' + getcurdrive());
+  if (srcarg)
+  {
+	int slen;
+    /* set source path, reserving room to append filename */
+    if ( (argv[drivearg][1] == ':') || (argv[drivearg][1] == '\\') ) 
+      strncpy(opts->srcDrive, argv[drivearg], SYS_MAXPATH-13);
+    else /* only path provided, append to default drive */
+      strncat(opts->srcDrive, argv[srcarg], SYS_MAXPATH-15);
+    slen = strlen(opts->srcDrive);
+    /* if path follows drive, ensure ends in a slash, ie X:-->X: or X:.\mypath-->X:.\mypath\ */
+    if ((slen>2) && (opts->srcDrive[slen-1] != '\\') && (opts->srcDrive[slen-1] != '/'))
+      strcat(opts->srcDrive, "\\");
+  }
+  /* source path is now in form of just a drive, "X:" 
+     or form of drive + path + directory separator, "X:\path\" or "\\path\"
+     If just drive we try current path then root, else just indicated path.
+  */
+
+
+  /* if source and dest are same drive, then source should not be root,
+     so if is same drive and not explicit path, force only current 
+     Note: actual copy routine prevents overwriting self when src=dst
+  */
+  if ( (opts->dstDrive == (toupper(*(opts->srcDrive))-'A')) && (!opts->srcDrive[2]) )
+    strcat(opts->srcDrive, ".\\");
+
+
+  /* attempt to detect compatibility settings user needs */
+  if (opts->flavor == OEM_AUTO)
+  {
+    /* 1st loop checking current just source path provided */
+    for (argno = 0; argno < DOSFLAVORS; argno++)
+    {
+      /* look for existing file matching kernel filename */
+      sprintf(srcFile, "%s%s", opts->srcDrive, bootFiles[argno].kernel);
+      if (stat(srcFile, &fstatbuf)) continue; /* if !exists() try again */
+      if (!fstatbuf.st_size) continue;  /* file must not be empty */
+
+      /* now check if secondary file exists and of minimal size */
+      if (bootFiles[argno].minsize)
+      {
+        sprintf(srcFile, "%s%s", opts->srcDrive, bootFiles[argno].dos);
+        if (stat(srcFile, &fstatbuf)) continue;
+        if (fstatbuf.st_size < bootFiles[argno].minsize) continue;
+      }
+
+      /* above criteria succeeded, so default to corresponding DOS */
+      opts->flavor = argno;
+      break;
+    }
+
+    /* if no match, and source just drive, try root */
+    if ( (opts->flavor == OEM_AUTO) && (!opts->srcDrive[2]) )
+    {
+      for (argno = 0; argno < DOSFLAVORS; argno++)
+      {
+        /* look for existing file matching kernel filename */
+        sprintf(srcFile, "%s\\%s", opts->srcDrive, bootFiles[argno].kernel);
+        if (stat(srcFile, &fstatbuf)) continue; /* if !exists() try again */
+        if (!fstatbuf.st_size) continue;  /* file must not be empty */
+
+        /* now check if secondary file exists and of minimal size */
+        if (bootFiles[argno].minsize)
+        {
+          sprintf(srcFile, "%s\\%s", opts->srcDrive, bootFiles[argno].dos);
+          if (stat(srcFile, &fstatbuf)) continue;
+          if (fstatbuf.st_size < bootFiles[argno].minsize) continue;
+        }
+
+        /* above criteria succeeded, so default to corresponding DOS */
+        opts->flavor = argno;
+        strcat(opts->srcDrive, "\\"); /* indicate to use root from now on */
+        break;
+      }
+    }
+  }
+  /* if unable to determine DOS, assume FreeDOS */
+  if (opts->flavor == OEM_AUTO) opts->flavor = OEM_FD;
+
+  /* set compatibility settings not explicitly set */
+  if (!opts->kernel.kernel) opts->kernel.kernel = bootFiles[opts->flavor].kernel;
+  if (!opts->kernel.dos) opts->kernel.dos = bootFiles[opts->flavor].dos;
+  if (!opts->kernel.loadseg) opts->kernel.loadseg = bootFiles[opts->flavor].loadseg;
+  opts->kernel.stdbs = bootFiles[opts->flavor].stdbs;
+  opts->kernel.minsize = bootFiles[opts->flavor].minsize;
+
+
+  /* if destination is floppy (A: or B:) then use drive # stored in boot sector */
+  if (opts->dstDrive < 2)
+    opts->ignoreBIOS = 1;
+
+  /* if bios drive to store in boot sector not set and not floppy set to 1st hd */
+  if (!opts->defBootDrive && (opts->dstDrive >= 2))
+    opts->defBootDrive = 0x80;
+
+
+  /* unless we are only setting boot sector, verify kernel file exists */
+  if (opts->copyFiles)
+  {
+    /* check kernel (primary file) 1st */
+    sprintf(srcFile, "%s%s", opts->srcDrive, (opts->fnKernel)?opts->fnKernel:opts->kernel.kernel);
+    if (stat(srcFile, &fstatbuf))  /* if !exists() */
+    {
+      /* check root path as well if src is drive only */
+      sprintf(srcFile, "%s\\%s", opts->srcDrive, (opts->fnKernel)?opts->fnKernel:opts->kernel.kernel);
+      if (opts->srcDrive[2] || stat(srcFile, &fstatbuf))
+      {
+        printf("%s: failed to find kernel file %s\n", pgm, (opts->fnKernel)?opts->fnKernel:opts->kernel.kernel);
+        exit(1);
+      }
+      /* else found, but in root, so force to always use root */
+      strcat(opts->srcDrive, "\\");
+    }
+
+    /* now check for secondary file */
+    if (opts->kernel.dos && opts->kernel.minsize)
+    {
+      sprintf(srcFile, "%s%s", opts->srcDrive, opts->kernel.dos);
+      if (stat(srcFile, &fstatbuf))
+      {
+        printf("%s: failed to find source file %s\n", pgm, opts->kernel.dos);
+        exit(1);
+      }
+      if (fstatbuf.st_size < opts->kernel.minsize)
+      {
+        printf("%s: source file %s appears corrupt, invalid size\n", pgm, opts->kernel.dos);
+        exit(1);
+      }
+    }
+
+    /* lastly check for command interpreter */
+    sprintf(srcFile, "%s%s", opts->srcDrive, (opts->fnCmd)?opts->fnCmd:"COMMAND.COM");
+    if (stat(srcFile, &fstatbuf))  /* if !exists() */
+    {
+      char *comspec = getenv("COMSPEC");
+      if (opts->fnCmd || (comspec == NULL) || stat(comspec, &fstatbuf))
+      {
+        printf("%s: failed to find command interpreter (shell) file %s\n", pgm, (opts->fnCmd)?opts->fnCmd:"COMMAND.COM");
+        exit(1);
+      }
+    }
+  }
+}
 
 int main(int argc, char **argv)
 {
-  COUNT drive;                  /* destination drive */
-  COUNT drivearg = 0;           /* drive argument position */
-  COUNT srcarg = 0;             /* source argument position */
-  BYTE *bsFile = NULL;          /* user specified destination boot sector */
-  unsigned srcDrive;            /* source drive */
-  BYTE srcPath[SYS_MAXPATH];    /* user specified source drive and/or path */
-  BYTE rootPath[4];             /* alternate source path to try if not '\0' */
-  BYTE srcFile[SYS_MAXPATH];    /* full path+name of [kernel] file to copy */
-  WORD slen;
-  int argno = 0;
-  int bootonly = 0;
-  int both = 0;
-  int bootdrive = -1;           /* -1 means default processing, else value to use */
-  char *kernel_name = FDKERNEL;
-  int load_segment = FDLOADSEG;
-  int altkern = NO_OEMKERN;     /* use OEM kernel values instead of FD ones */
+  SYSOptions opts;            /* boot options and other flags */
+  BYTE srcFile[SYS_MAXPATH];  /* full path+name of [kernel] file [to copy] */
 
   printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
@@ -315,241 +664,44 @@ int main(int argc, char **argv)
     exit(FDKrnConfigMain(argc, argv));
   }
 
-  for(argno = 1; argno < argc; argno++)
-  {
-    char *argp = argv[argno];
-
-    if (argp[1] == ':' && argp[2] == '\0' && drivearg <= srcarg)
-      drivearg = argno;
-
-    if (srcarg == 0)
-    {
-      srcarg = argno;
-    }
-    else if (memicmp(argp, "BOTH", 4) == 0 && !both)
-    {
-      both = 1;
-    }
-    else if (argp[0] == '/')  /* optional switch */
-    {
-      argp++;  /* skip past the '/' character */
-
-      if (memicmp(argp, "OEM", 3) == 0)
-      {
-        #ifdef WITHOEMCOMPATBS
-        if (*(argp+3) == ':')
-        {
-          argp+=4;  /* point to DR/PC/MS that follows */
-          if (memicmp(argp, "PC", 2) == 0)
-          {
-            altkern = PC_OEMKERN;  /* kernel is split into 2 files and update BS name */
-            load_segment = OEMLOADSEG;
-            kernel_name = OEMKERNEL;
-          }
-          else if (memicmp(argp, "MS", 2) == 0)
-          {
-            altkern = MS_OEMKERN;  /* kernel is split into 2 files and update BS name */
-            load_segment = OEMLOADSEG;
-            kernel_name = MSKERNEL;
-          }
-          else if (memicmp(argp, "DR", 2) == 0)
-          {
-            altkern = DR_OEMKERN;  /* kernel is split into 2 files and update BS name */
-            load_segment = OEMLOADSEG;
-            kernel_name = OEMKERNEL;
-          }
-          else /* if (memicmp(argp, "FD", 2) == 0) */
-          {
-            altkern = NO_OEMKERN;  /* restore defaults */
-            load_segment = FDLOADSEG;
-            kernel_name = FDKERNEL;
-          }
-        }
-        else  /* generic support, just change names and load sector */
-        #endif
-        {
-          altkern = DR_OEMKERN;  /* kernel is split into 2 files and update BS name */
-          load_segment = OEMLOADSEG;
-          if (kernel_name == FDKERNEL)  /* preserve /K name if on cmd line 1st */
-            kernel_name = OEMKERNEL;
-        }
-      }
-      else if (memicmp(argp, "BOOTONLY", 8) == 0)
-      {
-        bootonly = 1;
-      }
-      else if (argno + 1 < argc)   /* two part options, /SWITCH VALUE */
-      {
-        argno++;
-        if (toupper(*argp) == 'K')      /* set Kernel name */
-        {
-          kernel_name = argv[argno];
-        }
-        else if (toupper(*argp) == 'L') /* set Load segment */
-        {
-          load_segment = (int)strtol(argv[argno], NULL, 16);
-        }
-        else if (memicmp(argp, "B", 2) == 0) /* set boot drive # */
-        {
-          /* BIOS drive number to put in boot sector, normally this is
-             0 for A, 80 for 1st hard drive, 81 2nd hd, etc, and 
-             FF for FreeDOS bootsector will force use of value passed
-             in DL by BIOS. */
-          bootdrive = (BYTE)strtol(argv[argno], NULL, 16);
-        }
-        else /* unknown option */
-        {
-          drivearg = 0;
-          break;
-        }
-      }
-      else  /* invalid option or missing value portion */
-      {
-        drivearg = 0;
-        break;
-      }
-    }
-    else if (drivearg != argno)
-    {
-      if (bsFile == NULL)
-      {
-        bsFile = argp;
-      }
-      else  /* invalid usage */
-      {
-        drivearg = 0;
-        break;
-      }
-    }
-  } /* for() */
-
-  if (drivearg == 0)
-  {
-    printf(
-      "Usage: \n"
-      "%s [source] drive: [bootsect [BOTH]] [/BOOTONLY] [/OEM] [/K name] [/L segm]\n"
-      "  source   = A:,B:,C:\\KERNEL\\BIN\\,etc., or current directory if not given\n"
-      "  drive    = A,B,etc.\n"
-      "  bootsect = name of 512-byte boot sector file image for drive:\n"
-      "             to write to *instead* of real boot sector\n"
-      "  BOTH     : write to *both* the real boot sector and the image file\n"
-      "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
-      "  /OEM     : indicates kernel is IBMBIO.COM/IBMDOS.COM loaded at 0x70\n"
-#ifdef WITHOEMCOMPATBS
-      "             /OEM:DR use IBMBIO.COM/IBMDOS.COM and FD boot sector (default)\n"
-      "             /OEM:PC use PC-DOS compatible boot sector\n"
-      "             /OEM:MS use PC-DOS compatible boot sector with IO.SYS/MSDOS.SYS\n"
-#endif
-      "  /K name  : name of kernel to use instead of KERNEL.SYS\n"
-      "  /L segm  : hex load segment to use instead of 60\n"
-      "  /B btdrv : hex BIOS # of boot drive, FF=BIOS provided, 0=A:, 80=1st hd,...\n"
-      "%s CONFIG /help\n", pgm, pgm);
-    exit(1);
-  }
-  drive = toupper(argv[drivearg][0]) - 'A';
-
-  if (drive < 0 || drive >= 26)
-  {
-    printf("%s: drive %c must be A:..Z:\n", pgm,
-           *argv[(argc == 3 ? 2 : 1)]);
-    exit(1);
-  }
-
-  srcPath[0] = '\0';
-  if (drivearg > srcarg && srcarg)
-  {
-    strncpy(srcPath, argv[srcarg], SYS_MAXPATH - 12);
-    /* leave room for COMMAND.COM\0 */
-    srcPath[SYS_MAXPATH - 13] = '\0';
-    /* make sure srcPath + "file" is a valid path */
-    slen = strlen(srcPath);
-    if ((srcPath[slen - 1] != ':') &&
-        ((srcPath[slen - 1] != '\\') || (srcPath[slen - 1] != '/')))
-    {
-      srcPath[slen] = '\\';
-      slen++;
-      srcPath[slen] = '\0';
-    }
-  }
-
-  /* Get source drive */
-  if ((strlen(srcPath) > 1) && (srcPath[1] == ':'))     /* src specifies drive */
-    srcDrive = toupper(*srcPath) - 'A';
-  else                          /* src doesn't specify drive, so assume current drive */
-    srcDrive = getcurdrive();
-
-  /* Don't try root if src==dst drive or source path given */
-  if ((drive == srcDrive)
-      || (*srcPath
-          && ((srcPath[1] != ':') || ((srcPath[1] == ':') && srcPath[2]))))
-    *rootPath = '\0';
-  else
-    sprintf(rootPath, "%c:\\", 'A' + srcDrive);
-
-
-  /* unless we are only setting boot sector, verify kernel file exists */
-  if (!bootonly)
-  {
-    /* if FDKERNEL not found and an explicit kernel name was not specified,
-       then see if OEM kernel available and switch to it instead. */
-    if (!get_full_path(srcPath, rootPath, kernel_name, srcFile) && (kernel_name == FDKERNEL))
-    {
-      if (!get_full_path(srcPath, rootPath, OEMKERNEL, srcFile))
-      {
-        printf("\n%s: failed to find kernel file %s\n", pgm, kernel_name);
-        exit(1);
-      }
-      else /* else OEM kernel found, so switch modes */
-      {
-        altkern = DR_OEMKERN;
-        kernel_name = OEMKERNEL;
-        load_segment = OEMLOADSEG;
-      }
-    }
-  }
+  initOptions(argc, argv, &opts);
 
   printf("Processing boot sector...\n");
-  put_boot(drive, bsFile, kernel_name, load_segment, both, altkern, bootdrive);
+  put_boot(&opts);
 
-  if (!bootonly)
+  if (opts.copyFiles)
   {
-    if (!copy(srcFile, drive, kernel_name))
+    printf("Now copying system files...\n");
+
+    sprintf(srcFile, "%s%s", opts.srcDrive, (opts.fnKernel)?opts.fnKernel:opts.kernel.kernel);
+    if (!copy(srcFile, opts.dstDrive, opts.kernel.kernel))
     {
-      printf("\n%s: cannot copy \"%s\"\n", pgm, kernel_name);
+      printf("%s: cannot copy \"%s\"\n", pgm, srcFile);
       exit(1);
     } /* copy kernel */
 
-    if (altkern)
+    if (opts.kernel.dos)
     {
-      char *dosfn = OEMDOS;
-      #ifdef WITHOEMCOMPATBS
-      if (altkern == MS_OEMKERN) dosfn = MS_DOS;
-      #endif
-
-      if ( (!get_full_path(srcPath, rootPath, dosfn, srcFile)) ||
-           (!copy(srcFile, drive, dosfn)) )
+      sprintf(srcFile, "%s%s", opts.srcDrive, opts.kernel.dos);
+      if (!copy(srcFile, opts.dstDrive, opts.kernel.dos) && opts.kernel.minsize)
       {
-        printf("\n%s: cannot copy \"%s\"\n", pgm, dosfn);
+        printf("%s: cannot copy \"%s\"\n", pgm, srcFile);
         exit(1);
-      }
+      } /* copy secondary file (DOS) */
     }
 
     /* copy command.com, 1st try source path, then try %COMSPEC% */
-    if (!get_full_path(srcPath, rootPath, "COMMAND.COM", srcFile))
+    sprintf(srcFile, "%s%s", opts.srcDrive, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
+    if (!copy(srcFile, opts.dstDrive, "COMMAND.COM"))
     {
       char *comspec = getenv("COMSPEC");
-      if ( (comspec == NULL) ||
-           (!get_full_path(comspec, NULL, "COMMAND.COM", srcFile)) )
+      if (!opts.fnCmd && (comspec != NULL))
+        printf("%s: Trying shell from %COMSPEC%=\"%s\"\n", pgm, comspec);
+      if (opts.fnCmd || (comspec == NULL) || !copy(comspec, opts.dstDrive, "COMMAND.COM"))
       {
-          printf("\n%s: failed to find command interpreter (shell) file %s\n", pgm, "COMMAND.COM");
-          exit(1);
+        printf("\n%s: failed to find command interpreter (shell) file %s\n", pgm, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
+        exit(1);
       }
-      printf("\n%s: Using shell from %COMSPEC%  \"%s\"\n", pgm, comspec);
-    }
-    if (!copy(srcFile, drive, "COMMAND.COM"))
-    {
-      printf("\n%s: cannot copy \"%s\"\n", pgm, "COMMAND.COM");
-      exit(1);
     } /* copy shell */
   }
 
@@ -834,9 +986,99 @@ void correct_bpb(struct bootsectortype *default_bpb,
   oldboot->bsHiddenSecs = default_bpb->bsHiddenSecs;
 }
 
-void put_boot(int drive, char *bsFile, 
-              char *kernel_name, int load_seg, int both, 
-              int altkern, int bootdrive)
+/* reads in boot sector (1st SEC_SIZE bytes) from file */
+void readBS(const char *bsFile, BYTE *bootsector)
+{
+  if (bsFile != NULL)
+  {
+    int fd;
+
+#ifdef DEBUG
+    printf("reading bootsector from file %s\n", bsFile);
+#endif
+
+    /* open boot sector file, it must exists, then overwrite
+       drive with 1st SEC_SIZE bytes from the [image] file
+    */
+    if ((fd = open(bsFile, O_RDONLY | O_BINARY)) < 0)
+    {
+      printf("%s: can't open\"%s\"\nDOS errnum %d", pgm, bsFile, errno);
+      exit(1);
+    }
+    if (read(fd, bootsector, SEC_SIZE) != SEC_SIZE)
+    {
+      printf("%s: failed to read %u bytes from %s\n", pgm, SEC_SIZE, bsFile);
+      close(fd);
+      exit(1);
+    }
+    close(fd);
+  }
+}
+
+/* write bs in bsFile to drive's boot record unmodified */
+void restoreBS(const char *bsFile, int drive)
+{
+  unsigned char bootsector[SEC_SIZE];
+
+  if (bsFile == NULL)
+  {
+    printf("%s: missing filename of boot sector to restore\n", pgm);
+    exit(1);
+  }
+
+  readBS(bsFile, bootsector);
+
+  /* lock drive */
+  generic_block_ioctl(drive + 1, 0x84a, NULL);
+
+  reset_drive(drive);
+
+  /* write bootsector to drive */
+  if (MyAbsReadWrite(drive, 1, 0, bootsector, 1) != 0)
+  {
+    printf("%s: failed to write boot sector to drive %c:\n", pgm, drive + 'A');
+    exit(1);
+  }
+
+  reset_drive(drive);
+
+  /* unlock_drive */
+  generic_block_ioctl(drive + 1, 0x86a, NULL);
+}
+
+/* write bootsector to file bsFile */
+void saveBS(const char *bsFile, BYTE *bootsector)
+{
+  if (bsFile != NULL)
+  {
+    int fd;
+
+#ifdef DEBUG
+    printf("writing bootsector to file %s\n", bsFile);
+#endif
+
+    /* open boot sector file, create it if not exists,
+       but don't truncate if exists so we can replace
+       1st SEC_SIZE bytes of an image file
+    */
+    if ((fd = open(bsFile, O_WRONLY | O_CREAT | O_BINARY,
+              S_IREAD | S_IWRITE)) < 0)
+    {
+      printf("%s: can't create\"%s\"\nDOS errnum %d", pgm, bsFile, errno);
+      exit(1);
+    }
+    if (write(fd, bootsector, SEC_SIZE) != SEC_SIZE)
+    {
+      printf("%s: failed to write %u bytes to %s\n", pgm, SEC_SIZE, bsFile);
+      close(fd);
+      /* unlink(bsFile); don't delete in case was image */
+      exit(1);
+    }
+    close(fd);
+  } /* if write boot sector file */
+}
+
+void put_boot(SYSOptions *opts)
 {
 #ifdef WITHFAT32
   struct bootsectortype32 *bs32;
@@ -844,23 +1086,21 @@ void put_boot(int drive, char *bsFile,
   struct bootsectortype *bs;
   static unsigned char oldboot[SEC_SIZE], newboot[SEC_SIZE];
   static unsigned char default_bpb[0x5c];
-
-#ifndef WITHOEMCOMPATBS
-  UNREFERENCED_PARAMETER(altkern);
-#endif
+  int bsBiosMovOff;  /* offset in bs to mov [drive],dl that we NOP out */
 
 #ifdef DEBUG
-  printf("Reading old bootsector from drive %c:\n", drive + 'A');
+  printf("Reading old bootsector from drive %c:\n", opts->dstDrive + 'A');
 #endif
 
   /* lock drive */
-  generic_block_ioctl(drive + 1, 0x84a, NULL);
+  generic_block_ioctl(opts->dstDrive + 1, 0x84a, NULL);
 
-  reset_drive(drive);
+  reset_drive(opts->dstDrive);
+
   /* suggestion: allow reading from a boot sector or image file here */
-  if (MyAbsReadWrite(drive, 1, 0, oldboot, 0) != 0)
+  if (MyAbsReadWrite(opts->dstDrive, 1, 0, oldboot, 0) != 0)
   {
-    printf("can't read old boot sector for drive %c:\n", drive + 'A');
+    printf("%s: can't read old boot sector for drive %c:\n", pgm, opts->dstDrive + 'A');
     exit(1);
   }
 
@@ -868,6 +1108,13 @@ void put_boot(int drive, char *bsFile,
   printf("Old Boot Sector:\n");
   dump_sector(oldboot);
 #endif
+
+  /* backup original boot sector when requested */
+  if (opts->bsFileOrig)
+  {
+    printf("Backing up original boot sector to %s\n", opts->bsFileOrig);
+    saveBS(opts->bsFileOrig, oldboot);
+  }
 
   bs = (struct bootsectortype *)&oldboot;
 
@@ -913,20 +1160,18 @@ void put_boot(int drive, char *bsFile,
   {
     printf("FAT type: FAT32\n");
     /* get default bpb (but not for floppies) */
-    if (drive >= 2 &&
-        generic_block_ioctl(drive + 1, 0x4860, default_bpb) == 0)
+    if (opts->dstDrive >= 2 &&
+        generic_block_ioctl(opts->dstDrive + 1, 0x4860, default_bpb) == 0)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
 
 #ifdef WITHFAT32                /* copy one of the FAT32 boot sectors */
-    #ifdef WITHOEMCOMPATBS
-    if (altkern >= 2) /* MS or PC compatible BS requested */
+    if (!opts->kernel.stdbs)    /* MS/PC DOS compatible BS requested */
     {
       printf("%s: FAT32 versions of PC/MS DOS compatible boot sectors\n"
-             "are not supported [yet].\n", pgm);
+             "are not supported.\n", pgm);
       exit(1);
     }
-    #endif
-
+ 
     memcpy(newboot, haveLBA() ? fat32lba : fat32chs, SEC_SIZE);
 #else
     printf("SYS hasn't been compiled with FAT32 support.\n"
@@ -937,24 +1182,17 @@ void put_boot(int drive, char *bsFile,
   else
   { /* copy the FAT12/16 CHS+LBA boot sector */
     printf("FAT type: FAT1%c\n", fs + '0' - 10);
-    if (drive >= 2 &&
-        generic_block_ioctl(drive + 1, 0x860, default_bpb) == 0)
+    if (opts->dstDrive >= 2 &&
+        generic_block_ioctl(opts->dstDrive + 1, 0x860, default_bpb) == 0)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs);
-    #ifdef WITHOEMCOMPATBS
+
+    if (opts->kernel.stdbs)
     {
-      unsigned char * bs;
-      if (altkern >= 2)
-      {
-        printf("Using PC-DOS compatible boot sector.\n");
-        bs = (fs == FAT16) ? oemfat16 : oemfat12;
-      }
-      else
-        bs = (fs == FAT16) ? fat16com : fat12com;
-      memcpy(newboot, bs, SEC_SIZE);
+      printf("Using PC-DOS compatible boot sector.\n");
+      memcpy(newboot, (fs == FAT16) ? oemfat16 : oemfat12, SEC_SIZE);
     }
-    #else
-      memcpy(newboot, fs == FAT16 ? fat16com : fat12com, SEC_SIZE);
-    #endif
+    else
+      memcpy(newboot, (fs == FAT16) ? fat16com : fat12com, SEC_SIZE);
   }
 
   /* Copy disk parameter from old sector to new sector */
@@ -970,24 +1208,32 @@ void put_boot(int drive, char *bsFile,
   /* originally OemName was "FreeDOS", changed for better compatibility */
   memcpy(bs->OemName, "FRDOS4.1", 8);
 
-  /* allow user to override default of use BIOS provided boot drive # */
-  bootdrive = (bootdrive < 0)? (drive < 2 ? 0 : 0xff) : bootdrive;
-
 #ifdef WITHFAT32
   if (fs == FAT32)
   {
     bs32 = (struct bootsectortype32 *)&newboot;
-    /* put 0 for A: or B: (force booting from A:), otherwise use DL */
-    bs32->bsDriveNumber = bootdrive;
+    bs32->bsDriveNumber = opts->defBootDrive;
+
     /* the location of the "0060" segment portion of the far pointer
        in the boot sector is just before cont: in boot*.asm.
-       This happens to be offset 0x78 (=0x3c * 2) for FAT32 and
-       offset 0x5c (=0x2e * 2) for FAT16 */
-    /* i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! */
-    #ifdef WITHOEMCOMPATBS
-    if (altkern < 2)  /* PC-DOS compatible bs has fixed load sector */
-    #endif
-      ((int *)newboot)[0x3C] = load_seg;
+       This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16 
+
+       force use of value stored in bs by NOPping out mov [drive], dl
+       0x82: 88h,56h,40h for fat32 chs & lba boot sectors
+
+       i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! 
+    */
+    if (opts->kernel.stdbs)
+    {
+      ((int *)newboot)[0x78/sizeof(int)] = opts->kernel.loadseg;
+      bsBiosMovOff = 0x82;
+    }
+    else /* compatible bs */
+    {
+      printf("%s: INTERNAL ERROR: how did you get here?\n", pgm);
+      exit(1);
+    }
+
 #ifdef DEBUG
     printf(" FAT starts at sector %lx + %x\n",
            bs32->bsHiddenSecs, bs32->bsResSectors);
@@ -996,12 +1242,47 @@ void put_boot(int drive, char *bsFile,
   else
 #endif
   {
-    /* put 0 for A: or B: (force booting from A:), otherwise use DL */
-    bs->bsDriveNumber = bootdrive;
-    #ifdef WITHOEMCOMPATBS
-    if (altkern < 2)  /* PC-DOS compatible bs has fixed load sector */
-    #endif
-      ((int *)newboot)[0x2E] = load_seg;
+
+    /* establish default BIOS drive # set in boot sector */
+    bs->bsDriveNumber = opts->defBootDrive;
+
+    /* the location of the "0060" segment portion of the far pointer
+       in the boot sector is just before cont: in boot*.asm.
+       This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16 
+
+       force use of value stored in bs by NOPping out mov [drive], dl
+       0x66: 88h,56h,24h for fat16 and fat12 boot sectors
+       0x4F: 88h,56h,24h for oem compatible fat16 and fat12 boot sectors
+
+       i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! 
+    */
+    if (opts->kernel.stdbs)
+    {
+      ((int *)newboot)[0x5c/sizeof(int)] = opts->kernel.loadseg;
+      bsBiosMovOff = 0x66;
+    }
+    else
+    {
+      /* load segment hard coded to 0x70 in oem compatible boot sector */
+      if (opts->kernel.loadseg != 0x70)
+        printf("%s: Warning: ignoring load segment, compat bs always uses 0x70!\n");
+      bsBiosMovOff = 0x4F;
+    }
+  }
+
+  if (opts->ignoreBIOS)
+  {
+    if ( ((int *)newboot)[bsBiosMovOff/sizeof(int)] == 0x5688 )
+    {
+      newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
+      newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
+      newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
+    }
+    else
+    {
+      printf("%s : fat boot sector does not match expected layout\n", pgm);
+      exit(1);
+    }
   }
 
 #ifdef DEBUG /* add an option to display this on user request? */
@@ -1015,20 +1296,20 @@ void put_boot(int drive, char *bsFile,
   {
     int i = 0;
     memset(&newboot[0x1f1], ' ', 11);
-    while (kernel_name[i] && kernel_name[i] != '.')
+    while (opts->kernel.kernel[i] && opts->kernel.kernel[i] != '.')
     {
       if (i < 8)
-        newboot[0x1f1+i] = toupper(kernel_name[i]);
+        newboot[0x1f1+i] = toupper(opts->kernel.kernel[i]);
       i++;
     }
-    if (kernel_name[i] == '.')
+    if (opts->kernel.kernel[i] == '.')
     {
       /* copy extension */
       int j = 0;
       i++;
-      while (kernel_name[i+j] && j < 3)
+      while (opts->kernel.kernel[i+j] && j < 3)
       {
-        newboot[0x1f9+j] = toupper(kernel_name[i+j]);
+        newboot[0x1f9+j] = toupper(opts->kernel.kernel[i+j]);
         j++;
       }
     }
@@ -1037,7 +1318,7 @@ void put_boot(int drive, char *bsFile,
 #ifdef DEBUG
   /* there's a zero past the kernel name in all boot sectors */
   printf("Boot sector kernel name set to %s\n", &newboot[0x1f1]);
-  printf("Boot sector load segment set to %Xh\n", load_seg);
+  printf("Boot sector load segment set to %Xh\n", opts->kernel.loadseg);
 #endif
 
 #ifdef DDEBUG
@@ -1045,50 +1326,33 @@ void put_boot(int drive, char *bsFile,
   dump_sector(newboot);
 #endif
 
-  if ((bsFile == NULL) || both)
+  if (opts->writeBS)
   {
-
 #ifdef DEBUG
-    printf("writing new bootsector to drive %c:\n", drive + 'A');
+    printf("writing new bootsector to drive %c:\n", opts->dstDrive + 'A');
 #endif
 
     /* write newboot to a drive */
-    if (MyAbsReadWrite(drive, 1, 0, newboot, 1) != 0)
+    if (MyAbsReadWrite(opts->dstDrive, 1, 0, newboot, 1) != 0)
     {
-      printf("Can't write new boot sector to drive %c:\n", drive + 'A');
+      printf("Can't write new boot sector to drive %c:\n", opts->dstDrive + 'A');
       exit(1);
     }
-  } /* if write boot sector */
+  } /* if write boot sector to boot record*/
 
-  if (bsFile != NULL)
+  if (opts->bsFile != NULL)
   {
-    int fd;
-
 #ifdef DEBUG
-    printf("writing new bootsector to file %s\n", bsFile);
+    printf("writing new bootsector to file %s\n", opts->bsFile);
 #endif
 
-    /* write newboot to bsFile */
-    if ((fd = /* suggestion: do not trunc - allows to write to images */
-         open(bsFile, O_RDWR | O_TRUNC | O_CREAT | O_BINARY,
-              S_IREAD | S_IWRITE)) < 0)
-    {
-      printf(" %s: can't create\"%s\"\nDOS errnum %d", pgm, bsFile, errno);
-      exit(1);
-    }
-    if (write(fd, newboot, SEC_SIZE) != SEC_SIZE)
-    {
-      printf("Can't write %u bytes to %s\n", SEC_SIZE, bsFile);
-      close(fd);
-      unlink(bsFile);
-      exit(1);
-    }
-    close(fd);
-  } /* if write boot sector file */
-  reset_drive(drive);
+    saveBS(opts->bsFile, newboot);
+  } /* if write boot sector to file*/
+
+  reset_drive(opts->dstDrive);
 
   /* unlock_drive */
-  generic_block_ioctl(drive + 1, 0x86a, NULL);
+  generic_block_ioctl(opts->dstDrive + 1, 0x86a, NULL);
 } /* put_boot */
 
 
@@ -1123,51 +1387,22 @@ BOOL check_space(COUNT drive, ULONG bytes)
 } /* check_space */
 
 
-/* returns TRUE if file exists, FALSE otherwise
-   1st checks for srcPath + filename, if that does not exist then
-   will check for rootPath + filename
-   On failure, source is undefined. source must be >= SYS_MAXPATH bytes
- */
-BOOL get_full_path(BYTE * srcPath, BYTE * rootPath, BYTE * filename, BYTE *source)
-{
-  struct stat fstatbuf;
-
-  strcpy(source, srcPath);
-  if (rootPath != NULL) /* trick for comspec, append filename if srcPath doesn't include it */
-    strcat(source, filename);
-
-  /* check if file exists in source directory */
-  if (stat(source, &fstatbuf))
-  {
-    /* not found in source path, so try root of source drive */
-    if ((rootPath != NULL) && (*rootPath) /* && (errno == ENOENT) */ )
-    {
-      sprintf(source, "%s%s", rootPath, filename);
-      if (stat(source, &fstatbuf))
-        return FALSE;
-    }
-    else
-      return FALSE;
-  }
-  return TRUE;
-} /* get_full_path */
-
 BYTE copybuffer[COPY_SIZE];
 
 /* copies file (path+filename specified by srcFile) to drive:\filename */
-BOOL copy(BYTE *source, COUNT drive, BYTE * filename)
+BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
 {
+  static BYTE src[SYS_MAXPATH];
   static BYTE dest[SYS_MAXPATH];
   unsigned ret;
   int fdin, fdout;
   ULONG copied = 0;
 
-  printf("\nCopying %s...\n", source);
+  printf("Copying %s...\n", source);
 
-  truename(dest, source);
-  strcpy(source, dest);
+  truename(src, source);
   sprintf(dest, "%c:\\%s", 'A' + drive, filename);
-  if (stricmp(source, dest) == 0)
+  if (stricmp(src, dest) == 0)
   {
     printf("%s: source and destination are identical: skipping \"%s\"\n",
            pgm, source);

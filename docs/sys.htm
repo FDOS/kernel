@@ -1,0 +1,100 @@
+<html>
+<title>sys</title>
+<body>
+<h1>sys</h1>
+Copy system files and make a floppy disk or hard disk bootable.
+<pre>
+  <b>sys [[d:]path] d: [bootsect] [switches]</b>
+</pre>
+<h2>Options</h2>
+<pre>
+  <b>[[d:]path]</b>
+  The (optional) location of the system files.
+  If not given, the current directory is assumed.
+
+  <b>d:</b>
+  The drive to make bootable.
+
+  <b>bootsect</b>
+  The name of file, to which the 512-byte boot sector image
+  will be written.
+  (the drive's real boot sector won't be
+   written to unless BOTH is used.)
+
+Switches (FreeDOS specific):
+
+  <b>/BOTH</b>
+  The new boot sector will be written to the image file
+  and to the actual drive boot sector.
+
+  <b>/BOOTONLY</b>
+  With this option the boot sector (or image) will be updated,
+  but the kernel and <a href="command.htm">command.com</a> will
+  not be copied to the destination.
+
+  <b>/K <i>filename</i></b>
+  Gives the <i>filename</i> of the kernel file to be copied. This option
+  is only required when the kernel is not called "kernel.sys"
+  Note: when combined with the /L option, allows one to use FreeDOS
+  <i>sys</i> to create a system to boot custom kernels (ie custom OS)
+
+  <b>/L <i>segment</i></b>
+  The load <i>segent</i>, in hexadecimal, to use. The default is 0x60.
+
+  <b>/B <i>btdrv</i></b>
+  Sets the BIOS boot drive # (in hex) stored within the boot sector.
+
+  <b>/FORCEDRV</b>
+  Causes the boot sector to only use the <i>btdrv</i> indicated in
+  boot sector.  NOPs the code that normally uses BIOS provided
+  drive # passed at boot time in the DL register.
+
+  <b>/BACKUPBS <i>[path]filename</i></b>
+  The original boot sector is written to <i>[path]filename</i> prior
+  to overwriting with FreeDOS one.  The filename may refer to any
+  [image or bs] file, if exists only the 1st 512 bytes will be
+  overwritten.
+
+  <b>/RESTORBS <i>[path]filename</i></b>
+  Restores original boot sector (<i>[path]filename</i>) and exits.
+  The boot sector specified is written with no modifications.
+  The filename may refer to any [image or bs] file, only the 1st
+  512 bytes are used.
+
+  <b>/OEM:<i>DOS</i></b>
+  Where <i>DOS</i> is one of
+    <b>AUTO</b> - the default, attempts to determine automatically,
+                  checking for FreeDOS, DR-DOS, PC-DOS, then MS-DOS;
+    <b>FD</b>   - FreeDOS mode, setup destination drive to boot
+                  the FreeDOS kernel and copy FreeDOS system files
+                  (default to KERNEL.SYS and load segment of 0x60)
+    <b>DR</b>   - use DR DOS 7+ (including Udo Kuhnt's DR-DOS
+                  Enhanement Project) compatible settings
+                  (use IBMBIO.COM & IBMDOS.COM, and loadseg=0x70)
+    <b>PC</b>   - use PC-DOS (any) compatible settings, including
+                  alternate boot sector (supports FAT12/16 only)
+                  Must be explicitly choosen, AUTO selects DR mode.
+                  (use IBMBIO.COM & IBMDOS.COM, and loadseg=0x70)
+    <b>MS</b>   - use MS-DOS (pre 7) compatible settings, including
+                  alternate boot sector (supports FAT12/16 only)
+                  (use IO.SYS & MSDOS.SYS, and loadseg=0x70)
+    <b>W9x</b>  - use MS-DOS 7+, aka Windows 9x DOS compatible
+                  settings, Win ME unsupported ...
+
+  Note: when attempting to boot older PC/MS DOS versions, even when
+  using the alternate boot sector, one may need to ensure the
+  system files are the 1st two filesystem entries and in consecutive
+  sectors at the beginning of the drive; so for best results when
+  creating a PC/MS DOS boot disk, format the drive first, do NOT
+  create a label, and then run sys on it.  You can then add a label.
+  Newer releases, such as PC-DOS 7.x do not have these limitations.
+
+</pre>
+<hr>
+<address>
+<b>Copyright &copy; 1998 Jim Hall</b><br>
+This file is derived from the FreeDOS Spec Command HOWTO.
+See the file <a href="H2Cpying.txt">H2Cpying.txt</a> for copying conditions.
+</address>
+</body>
+</html>

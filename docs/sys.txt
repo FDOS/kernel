@@ -1,17 +1,44 @@
-SYS documentation by Jeremy Davis
-Updated by Bart Oldeman
+FreeDOS SYS 3.5
+documentation by:
+  Jeremy Davis
+  Bart Oldeman
 
 SYS's standard behavior is very similar (though in
 my opinion improved) to that of other DOSes.
-SYS (no options) should provide a general usage,
+SYS /? (or no options) should provide a general usage,
 and SYS CONFIG /help (or SYS CONFIG /?) should
 provide usage for the new configuration options.
 
-Admittedly its brief, but it is there.
-Below is a more detailed documentation on its
-usage (from memory, but I believe it is close to right).
-The best documentation (and maybe only) is the
-source itself.
+The best documentation is the source itself, but
+we try to keep this document updated.
+
+
+Usage:
+SYS [source] dest: [bootsect] [{option}]
+  source   = A:,B:,C:\KERNEL\BIN\,etc., or current directory if not given
+  dest     = A,B,etc.
+  bootsect = name of 512-byte boot sector file image for drive:
+             to write to *instead* of real boot sector
+  {option} is one or more of the following:
+  /BOTH    : write to *both* the real boot sector and the image file
+  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image
+  /OEM     : indicates boot sector, filenames, and load segment to use
+             /OEM:FD use FreeDOS compatible settings
+             /OEM:DR use DR DOS 7+ compatible settings (same as /OEM)
+             /OEM:PC use PC-DOS compatible settings
+             /OEM:MS use MS-DOS compatible settings
+             /OEM:W9x use MS Win9x DOS compatible settings
+             default is /OEM:AUTO, select DOS based on existing files
+  /K name  : name of kernel to use in boot sector instead of KERNEL.SYS
+  /L segm  : hex load segment to use in boot sector instead of 0x60
+  /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...
+  /FORCEDRV: force use of drive # set in bs instead of BIOS boot value
+  /SKFN filename : set KERNEL.SYS input file and /OEM:FD
+  /SCFN filename : sets COMMAND.COM input file
+  /BACKUPBS [path]filename : save current bs before overwriting
+  /RESTORBS [path]filename : overwrite bs and exit
+
+SYS CONFIG /help
 
 
 The simplest usage:
@@ -27,7 +54,7 @@ be in the root directory of the current drive.
 
 Complete form:
 
-SYS [source] dest: [bootsect [BOTH]]
+SYS [source] dest: [bootsect [/BOTH]]
 
 Here dest is the same as before, but this time
 you specify where KERNEL.SYS and COMMAND.COM are.

@@ -376,8 +376,14 @@
           - DosYesNo(): Argument is now UWORD (dual byte)
           - Add prototype for DosGetDBCS()
  + Changes Jeremy
-	* config.txt
-	  - update to include all CONFIG.SYS options (except ANYDOS)
+        * config.txt
+          - update to include all CONFIG.SYS options (except ANYDOS)
+        * boot.asm
+          - use static read buffer to avoid crossing 64KB boundary
+        * oemboot.asm - add [optional] PC/MS DOS compatible boot sector
+        * sys.c
+          - incorporate changes from/for DR-DOS enhancement project
+          - rework option handling, add backup & restore boot sector
         * exeflat.c
           - show usage also when number of arguments incorrect
         < many other changes to be added by Jeremy himself :->

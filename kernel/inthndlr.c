@@ -1229,8 +1229,7 @@ dispatch:
             lregs er;
             fmemcpy(&er, FP_DS_DX, sizeof(er));
             CritErrCode        = er.AX;
-            FP_SEG(CritErrDev) = er.ES;
-            FP_OFF(CritErrDev) = er.DI;
+            CritErrDev         = MK_FP(er.ES, er.DI);
             CritErrLocus       = er.CH;
             CritErrClass       = er.BH;
             CritErrAction      = er.BL;

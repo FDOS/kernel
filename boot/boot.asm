@@ -169,12 +169,11 @@ cont:
 		lea     sp, [bp-0x60]
 		sti
 ;
-; Some BIOS don't pass drive number in DL, so don't use it if [drive] is known
+; Note: some BIOS implementations may not correctly pass drive number
+; in DL, however we work around this in SYS.COM by NOP'ing out the use of DL
+; (formerly we checked for [drive]==0xff; update sys.c if code moves)
 ;
-		cmp     byte [drive], 0xff ; impossible number written by SYS
-		jne     dont_use_dl     ; was SYS drive: other than A or B?
-		mov     [drive], dl     ; yes, rely on BIOS drive number in DL
-dont_use_dl:				; no,  rely on [drive] written by SYS
+		mov     [drive], dl     ; rely on BIOS drive number in DL
 
 		mov     LBA_SIZE, 10h
 		mov     LBA_SECNUM,1    ; initialise LBA packet constants

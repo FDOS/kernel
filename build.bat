@@ -132,4 +132,4 @@ cd ..
 echo Compilation was aborted!
 
 :end
-defaults.bat clearset
+call defaults.bat clearset

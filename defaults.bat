@@ -21,7 +21,7 @@ if not "%LINK%" == "" goto skip_link
 
 set LINK=%BASE%\bin\tlink /c/m
 if "%COMPILER%" == "TC"     set LINK=%BASE%\tlink /c/m
-if "%COMPILER%" == "WATCOM" set LINK=..\utils\wlinker /nologo
+if "%COMPILER%" == "WATCOM" set LINK=call ..\utils\wlinker /nologo
 if "%COMPILER%" == "MSC"    set LINK=%BASE%\bin\link /ONERROR:NOEXE /batch
 
 echo Linker is %LINK%
