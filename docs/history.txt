@@ -1,4 +1,4 @@
-2003 Jun xx - Build 2030
+2003 Jun 18 - Build 2030
 -------- Bart Oldeman (bart@dosemu.org)
 + Changes Tom
     * if user left accidentally floppy or CD in drive,
@@ -14,7 +14,8 @@
     * add EECHO (echo with $=ESC) support to the config.sys parser.
     * distinguish between the builtin DOS version and the settable
       DOS version.
-    * console.asm now accepts extended scancodes (modified by Bart)
+    * console.asm now accepts extended scancodes (modified by Bart, fixes
+      bug #1657)
     * added BOOTONLY option to SYS (modified by Bart)
 + Changes David Bolen
     * add support for UNC-style paths (that start with "\\")
@@ -47,9 +48,9 @@
       [cs:_DGROUP_]
     * Fix problem with attributes with the volume label bit + findnext
     * SYS: avoid copying kernel.sys and command.com if the destination
-      is identical to the source.
+      is identical to the source (fixes bug #1656).
     * Fix bug in DeleteBlockInBufferCache: needs to make the block
-      invalid, not flush it, if we're writing.
+      invalid, not flush it, if we're writing (bug #1635).
     * added switches=/k/n/f support to the config.sys parser.
 2003 Mar 14 - Build 2029
 -------- Bart Oldeman (bart@dosemu.org)
