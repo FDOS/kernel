@@ -100,7 +100,7 @@ struct dpb FAR *get_dpb(COUNT dsk)
   return cdsp->cdsDpb;
 }
 
-/* initialize directory entry (creation/access stamps 0 as per MS-DOS 7.10) */
+/* initialize directory entry */
 STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
                           CLUSTER cluster, char *name)
 {
@@ -111,8 +111,8 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 #endif
   dentry->dir_start = (UWORD)cluster;
   dentry->dir_attrib = (UBYTE)attrib;
-  dentry->dir_time = dos_gettime();
-  dentry->dir_date = dos_getdate();
+  dentry->dir_crtime = dos_gettime();
+  dentry->dir_crdate = dos_getdate();
 }
 
 /************************************************************************/
