@@ -34,10 +34,6 @@ static BYTE *RcsId =
     "$Id$";
 #endif
 
-STATIC unsigned link_fat12(struct dpb FAR *, unsigned, unsigned);
-STATIC unsigned link_fat16(struct dpb FAR *, unsigned, unsigned);
-STATIC unsigned link_fat32(struct dpb FAR *, CLUSTER, CLUSTER);
-
 /************************************************************************/
 /*                                                                      */
 /*                      cluster/sector routines                         */
@@ -51,51 +47,41 @@ int ISFAT32(struct dpb FAR * dpbp)
 }
 #endif
 
-struct buffer FAR *getFATblock(CLUSTER cluster, struct dpb FAR * dpbp)
+struct buffer FAR *getFATblock(ULONG clussec, struct dpb FAR * dpbp)
 {
-  ULONG sector;
   struct buffer FAR *bp;
 
   if (ISFAT12(dpbp))
   {
-    sector = ((cluster << 1) + cluster) >> 1;
+    clussec = (((unsigned)clussec << 1) + (unsigned)clussec) >> 1;
   }
 #ifdef WITHFAT32
   else if (ISFAT32(dpbp))
   {
-    sector = (ULONG) cluster *SIZEOF_CLST32;
+    clussec = clussec * SIZEOF_CLST32;
   }
 #endif
   else
   {
-    sector = (ULONG) cluster *SIZEOF_CLST16;
+    clussec = clussec * SIZEOF_CLST16;
   }
-  sector = sector / dpbp->dpb_secsize + dpbp->dpb_fatstrt;
+  clussec = clussec / dpbp->dpb_secsize + dpbp->dpb_fatstrt;
 #ifdef WITHFAT32
   if (ISFAT32(dpbp) && (dpbp->dpb_xflags & FAT_NO_MIRRORING))
   {
     /* we must modify the active fat,
        it's number is in the 0-3 bits of dpb_xflags */
-    sector += (dpbp->dpb_xflags & 0xf) * dpbp->dpb_xfatsize;
+    clussec += (dpbp->dpb_xflags & 0xf) * dpbp->dpb_xfatsize;
   }
 #endif
 
-  bp = getblock(sector, dpbp->dpb_unit);
+  bp = getblock(clussec, dpbp->dpb_unit);
 
   if (bp)
   {
     bp->b_flag &= ~(BFR_DATA | BFR_DIR);
     bp->b_flag |= BFR_FAT | BFR_VALID;
-    bp->b_copies = dpbp->dpb_fats;
-    bp->b_offset = dpbp->dpb_fatsize;
-#ifdef WITHFAT32
-    if (ISFAT32(dpbp))
-    {
-      if (dpbp->dpb_xflags & FAT_NO_MIRRORING)
-        bp->b_copies = 1;
-      bp->b_offset = dpbp->dpb_xfatsize;
-    }
-#endif
+    bp->b_dpbp = dpbp;
   }
   return bp;
 }
@@ -149,28 +135,88 @@ void write_fsinfo(struct dpb FAR * dpbp)
 unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
                 REG CLUSTER Cluster2)
 {
-  unsigned res;
+  struct buffer FAR *bp;
+
+  /* Get the block that this cluster is in                */
+  bp = getFATblock(Cluster1, dpbp);
+
+  if (bp == NULL)
+    return DE_BLKINVLD;
 
   if (ISFAT12(dpbp))
-    res = link_fat12(dpbp, (unsigned)Cluster1, (unsigned)Cluster2);
+  {
+    unsigned idx;
+    REG UBYTE FAR *fbp0, FAR * fbp1;
+    struct buffer FAR * bp1;
+
+    /* form an index so that we can read the block as a     */
+    /* byte array                                           */
+    idx = (unsigned) (((Cluster1 << 1) + Cluster1) >> 1) % dpbp->dpb_secsize;
+    
+    /* Test to see if the cluster straddles the block. If   */
+    /* it does, get the next block and use both to form the */
+    /* the FAT word. Otherwise, just point to the next      */
+    /* block.                                               */
+    fbp0 = &bp->b_buffer[idx];
+    fbp1 = fbp0 + 1;
+  
+    if (idx >= (unsigned)dpbp->dpb_secsize - 1)
+    {
+      bp1 = getFATblock(Cluster1 + 1, dpbp);
+      if (bp1 == 0)
+        return DE_BLKINVLD;
+      
+      bp1->b_flag |= BFR_DIRTY | BFR_VALID;
+      
+      fbp1 = &bp1->b_buffer[0];
+    }
+
+    /* Now pack the value in                                */
+    if (Cluster1 & 0x01)
+    {
+      *fbp0 = (*fbp0 & 0x0f) | ((Cluster2 & 0x0f) << 4);
+      *fbp1 = (Cluster2 >> 4) & 0xff;
+    }
+    else
+    {
+      *fbp0 = Cluster2 & 0xff;
+      *fbp1 = (*fbp1 & 0xf0) | ((Cluster2 >> 8) & 0x0f);
+    }
+  }
   else if (ISFAT16(dpbp))
-    res = link_fat16(dpbp, (unsigned)Cluster1, (unsigned)Cluster2);
+  {
+    /* form an index so that we can read the block as a     */
+    /* byte array                                           */
+    /* Finally, put the word into the buffer and mark the   */
+    /* buffer as dirty.                                     */
+    fputword(
+      &bp->b_buffer[((unsigned)Cluster1 * SIZEOF_CLST16) % dpbp->dpb_secsize],
+      (UWORD)Cluster2);
+  }
 #ifdef WITHFAT32
   else if (ISFAT32(dpbp))
-    res = link_fat32(dpbp, Cluster1, Cluster2);
+  {
+    /* form an index so that we can read the block as a     */
+    /* byte array                                           */
+    /* Finally, put the word into the buffer and mark the   */
+    /* buffer as dirty.                                     */
+    fputlong(
+      &bp->b_buffer[(UWORD) ((Cluster1 * SIZEOF_CLST32) % dpbp->dpb_secsize)],
+      Cluster2);
+  }
 #endif
   else
     return DE_BLKINVLD;
 
   /* update the free space count                          */
-
-  if (res == SUCCESS && Cluster2 == FREE)
+  bp->b_flag |= BFR_DIRTY | BFR_VALID;
+  if (Cluster2 == FREE)
   {
 #ifdef WITHFAT32
     if (ISFAT32(dpbp) && dpbp->dpb_xnfreeclst != XUNKNCLSTFREE)
     {
       /* update the free space count for returned     */
-      /* cluster                                                                                                                                                                                                                                                                                                                                                                                                    */
+      /* cluster                                      */
       ++dpbp->dpb_xnfreeclst;
       write_fsinfo(dpbp);
     }
@@ -196,111 +242,6 @@ unsigned link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
      {
      --dpbp->dpb_nfreeclst;
      }   */
-  return res;
-}
-
-#ifdef WITHFAT32
-STATIC unsigned link_fat32(struct dpb FAR * dpbp, CLUSTER Cluster1,
-                  CLUSTER Cluster2)
-{
-  unsigned idx;
-  struct buffer FAR *bp;
-
-  /* Get the block that this cluster is in                */
-  bp = getFATblock(Cluster1, dpbp);
-
-  if (bp == NULL)
-    return DE_BLKINVLD;
-
-  /* form an index so that we can read the block as a     */
-  /* byte array                                           */
-  idx = (UWORD) ((Cluster1 * SIZEOF_CLST32) % dpbp->dpb_secsize);
-
-  /* Finally, put the word into the buffer and mark the   */
-  /* buffer as dirty.                                     */
-  fputlong(&bp->b_buffer[idx], Cluster2);
-  bp->b_flag |= BFR_DIRTY | BFR_VALID;
-
-  /* Return successful.                                   */
-
-  return SUCCESS;
-}
-
-#endif
-
-STATIC unsigned link_fat16(struct dpb FAR * dpbp, unsigned Cluster1,
-                  unsigned Cluster2)
-{
-  unsigned idx;
-  struct buffer FAR *bp;
-
-  /* Get the block that this cluster is in                */
-  bp = getFATblock(Cluster1, dpbp);
-
-  if (bp == NULL)
-    return DE_BLKINVLD;
-
-  /* form an index so that we can read the block as a     */
-  /* byte array                                           */
-  idx = (Cluster1 * SIZEOF_CLST16) % dpbp->dpb_secsize;
-
-  /* Finally, put the word into the buffer and mark the   */
-  /* buffer as dirty.                                     */
-  fputword(&bp->b_buffer[idx], Cluster2);
-  bp->b_flag |= BFR_DIRTY | BFR_VALID;
-
-  /* Return successful.                                   */
-
-  return SUCCESS;
-}
-
-STATIC unsigned link_fat12(struct dpb FAR * dpbp, unsigned Cluster1,
-                  unsigned Cluster2)
-{
-  REG UBYTE FAR *fbp0, FAR * fbp1;
-  unsigned idx;
-  struct buffer FAR *bp, FAR * bp1;
-
-  /* Get the block that this cluster is in                */
-  bp = getFATblock(Cluster1, dpbp);
-  if (bp == NULL)
-    return DE_BLKINVLD;
-
-  /* form an index so that we can read the block as a     */
-  /* byte array                                           */
-  idx = (unsigned) (((Cluster1 << 1) + Cluster1) >> 1) % dpbp->dpb_secsize;
-
-  /* Test to see if the cluster straddles the block. If   */
-  /* it does, get the next block and use both to form the */
-  /* the FAT word. Otherwise, just point to the next      */
-  /* block.                                               */
-  fbp0 = &bp->b_buffer[idx];
-  fbp1 = fbp0 + 1;
-
-  if (idx >= dpbp->dpb_secsize - 1)
-  {
-    bp1 = getFATblock(Cluster1 + 1, dpbp);
-    if (bp1 == 0)
-      return DE_BLKINVLD;
-
-    bp1->b_flag |= BFR_DIRTY | BFR_VALID;
-
-    fbp1 = &bp1->b_buffer[0];
-  }
-  bp->b_flag |= BFR_DIRTY | BFR_VALID;
-
-  /* Now pack the value in                                */
-  if (Cluster1 & 0x01)
-  {
-    *fbp0 = (*fbp0 & 0x0f) | ((Cluster2 & 0x0f) << 4);
-    *fbp1 = (Cluster2 >> 4) & 0xff;
-  }
-  else
-  {
-    *fbp0 = Cluster2 & 0xff;
-    *fbp1 = (*fbp1 & 0xf0) | ((Cluster2 >> 8) & 0x0f);
-  }
-
   return SUCCESS;
 }
 
@@ -345,7 +286,7 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
     /* does, get the next block and use both to form the    */
     /* the FAT word. Otherwise, just point to the next      */
     /* block.                                               */
-    if (idx >= dpbp->dpb_secsize - 1)
+    if (idx >= (unsigned)dpbp->dpb_secsize - 1)
     {
       bp = getFATblock(ClusterNum + 1, dpbp);
 
@@ -361,9 +302,9 @@ CLUSTER next_cluster(struct dpb FAR * dpbp, CLUSTER ClusterNum)
 #ifndef I86                     /* the latter assumes byte ordering */
     if (ClusterNum & 0x01)
       idx =
-          ((clusterbuff.byte[0] & 0xf0) >> 4) | (clusterbuff.byte[1] << 4);
+          ((clusterbuff.bytes[0] & 0xf0) >> 4) | (clusterbuff.bytes[1] << 4);
     else
-      idx = clusterbuff.byte[0] | ((clusterbuff.byte[0] & 0x0f) << 8);
+      idx = clusterbuff.bytes[0] | ((clusterbuff.bytes[1] & 0x0f) << 8);
 #else
 
     if (ClusterNum & 0x01)
