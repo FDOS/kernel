@@ -158,6 +158,11 @@ cont:		mov     ax,cs
                 int 010h
                 popf
                 pop bx
+
+		xor	ax,ax
+		mov	es,ax
+		mov	[es:0x5e0], bl  ; store orig bootdrive:used by initdisk
+
                 pop ax
 
 		inc	bl

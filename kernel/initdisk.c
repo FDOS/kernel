@@ -1333,12 +1333,32 @@ void ReadAllPartitionTables(void)
   }
   else
   {
-    printf("Drive Letter Assignment - sorted by drive\n");
+    UBYTE bootdrv;
+    struct DriveParamS driveParam;
+
+    /* printf("Drive Letter Assignment - sorted by drive\n"); */
 
     /* Process primary partition table   1 partition only      */
+    bootdrv = *(UBYTE FAR *)MK_FP(0,0x5e0);
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
     {
-      foundPartitions[HardDrive] =
+      memset(&driveParam, 0, sizeof(driveParam));
+      ExtLBAForce = FALSE;
+      if (LBA_Get_Drive_Parameters(HardDrive, &driveParam))
+      {
+        if (driveParam.driveno == bootdrv)
+        {
+          foundPartitions[HardDrive] =
+            ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
+          break;
+        }
+      }
+    }
+
+    for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
+    {
+      if (foundPartitions[HardDrive] == 0)
+        foundPartitions[HardDrive] =
           ProcessDisk(SCAN_PRIMARYBOOT, HardDrive, 0);
 
       if (foundPartitions[HardDrive] == 0)
