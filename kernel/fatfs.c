@@ -2064,7 +2064,7 @@ ckok:;
 #endif
 }
 
-STATIC int blockio(unsigned char command, struct dpb FAR * dpbp)
+STATIC int rqblockio(unsigned char command, struct dpb FAR * dpbp)
 {
  retry:
   MediaReqHdr.r_length = sizeof(request);
@@ -2101,7 +2101,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     return DE_INVLDDRV;
 
   /* First test if anyone has changed the removable media         */
-  ret = blockio(C_MEDIACHK, dpbp);
+  ret = rqblockio(C_MEDIACHK, dpbp);
   if (ret < SUCCESS)
     return ret;
 
@@ -2122,7 +2122,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     case M_CHANGED:
     default:
       setinvld(dpbp->dpb_unit);
-      ret = blockio(C_BLDBPB, dpbp);
+      ret = rqblockio(C_BLDBPB, dpbp);
       if (ret < SUCCESS)
         return ret;
 #ifdef WITHFAT32
