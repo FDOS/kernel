@@ -556,12 +556,12 @@ dispatch:
 
     case 0x14:
       /* FCB read */
-      lr.AL = FcbReadWrite(FP_DS_DX, 0, XFR_READ);
+      lr.AL = FcbReadWrite(FP_DS_DX, 1, XFR_READ);
       break;
 
     case 0x15:
       /* FCB write */
-      lr.AL = FcbReadWrite(FP_DS_DX, 0, XFR_WRITE);
+      lr.AL = FcbReadWrite(FP_DS_DX, 1, XFR_WRITE);
       break;
 
     case 0x16:
@@ -622,7 +622,8 @@ dispatch:
       /* Get default DPB                                              */
       /* case 0x1f: see case 0x32 */
 
-      /* Random read using FCB */
+      /* Random read using FCB: fields not updated
+         (XFR_RANDOM should not be used here) */
     case 0x21:
       lr.AL = FcbRandomIO(FP_DS_DX, XFR_READ);
       break;
@@ -658,12 +659,12 @@ dispatch:
 
       /* Read random record(s) using FCB */
     case 0x27:
-      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_READ);
+      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_READ | XFR_FCB_RANDOM);
       break;
 
       /* Write random record(s) using FCB */
     case 0x28:
-      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_WRITE);
+      lr.AL = FcbRandomBlockIO(FP_DS_DX, &lr.CX, XFR_WRITE | XFR_FCB_RANDOMXS);
       break;
 
       /* Parse File Name                                              */

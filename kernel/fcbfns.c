@@ -244,39 +244,50 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
 {
   ULONG lPosit;
   long nTransfer;
-  BYTE FAR * FcbIoPtr = dta;
   fcb FAR *lpFcb;
-
-  FcbIoPtr += recno * lpFcb->fcb_recsiz;
-
-  if ((ULONG)recno * lpFcb->fcb_recsiz >= 0x10000ul ||
-      FP_OFF(FcbIoPtr) < FP_OFF(dta))
-    return FCB_ERR_SEGMENT_WRAP;
+  unsigned size;
+  unsigned long bigsize;
+  unsigned recsiz;
 
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
+  recsiz = lpFcb->fcb_recsiz;
+  bigsize = (ULONG)recsiz * recno;
+  if (bigsize > 0xffff)
+    return FCB_ERR_SEGMENT_WRAP;
+  size = (unsigned)bigsize;
+
+  if (FP_OFF(dta) + size < FP_OFF(dta))
+    return FCB_ERR_SEGMENT_WRAP;
 
   /* Now update the fcb and compute where we need to position     */
   /* to.                                                          */
-  lPosit = FcbRec(lpFcb) * lpFcb->fcb_recsiz;
+  lPosit = FcbRec(lpFcb) * recsiz;
   if ((CritErrCode = -SftSeek(lpFcb->fcb_sftno, lPosit, 0)) != SUCCESS)
     return FCB_ERR_NODATA;
 
   /* Do the read                                                  */
-  nTransfer = DosRWSft(lpFcb->fcb_sftno, lpFcb->fcb_recsiz, FcbIoPtr, mode);
+  nTransfer = DosRWSft(lpFcb->fcb_sftno, size, dta, mode & ~XFR_FCB_RANDOM);
   if (nTransfer < 0)
     CritErrCode = -(int)nTransfer;
 
   /* Now find out how we will return and do it.                   */
-  if (nTransfer == lpFcb->fcb_recsiz)
+  if (mode & XFR_WRITE)
+    lpFcb->fcb_fsize = SftGetFsize(lpFcb->fcb_sftno);
+
+  /* if end-of-file, then partial read should count last record */
+  if (mode & XFR_FCB_RANDOM && recsiz > 0)
+    lpFcb->fcb_rndm += ((unsigned)nTransfer + recsiz - 1) / recsiz;
+  size -= (unsigned)nTransfer;
+  if (size == 0)
   {
-    if (mode == XFR_WRITE) lpFcb->fcb_fsize = SftGetFsize(lpFcb->fcb_sftno);
     FcbNextRecord(lpFcb);
     return FCB_SUCCESS;
   }
-  if (mode == XFR_READ && nTransfer > 0)
+  size %= lpFcb->fcb_recsiz;
+  if (mode & XFR_READ && size > 0)
   {
-    fmemset(FcbIoPtr + (unsigned)nTransfer, 0, lpFcb->fcb_recsiz - (unsigned)nTransfer);
+    fmemset((char FAR *)dta + (unsigned)nTransfer, 0, size);
     FcbNextRecord(lpFcb);
     return FCB_ERR_EOF;
   }
@@ -340,28 +351,21 @@ void FcbCalcRec(xfcb FAR * lpXfcb)
 
 UBYTE FcbRandomBlockIO(xfcb FAR * lpXfcb, UWORD *nRecords, int mode)
 {
-  unsigned recno;
-  UBYTE nErrorCode = FCB_SUCCESS;
+  UBYTE nErrorCode;
   fcb FAR *lpFcb;
+  unsigned long old;
 
   FcbCalcRec(lpXfcb);
 
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
 
-  for (recno = 0; recno < *nRecords; recno++)
-  {
-    nErrorCode = FcbReadWrite(lpXfcb, recno, mode);
-    /* end-of-file, partial read should count last record */
-    if (nErrorCode == FCB_ERR_EOF)
-      recno++;
-    if (nErrorCode != FCB_SUCCESS)
-      break;
-  }
-  *nRecords = recno;
+  old = lpFcb->fcb_rndm;
+  nErrorCode = FcbReadWrite(lpXfcb, *nRecords, mode);
+  *nRecords = lpFcb->fcb_rndm - old;
 
   /* Now update the fcb                                           */
-  lpFcb->fcb_rndm = FcbRec(lpFcb);
+  FcbCalcRec(lpXfcb);
 
   return nErrorCode;
 }
@@ -381,7 +385,7 @@ UBYTE FcbRandomIO(xfcb FAR * lpXfcb, int mode)
   uwCurrentBlock = lpFcb->fcb_cublock;
   ucCurrentRecord = lpFcb->fcb_curec;
 
-  nErrorCode = FcbReadWrite(lpXfcb, 0, mode);
+  nErrorCode = FcbReadWrite(lpXfcb, 1, mode);
 
   lpFcb->fcb_cublock = uwCurrentBlock;
   lpFcb->fcb_curec = ucCurrentRecord;

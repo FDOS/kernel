@@ -111,6 +111,8 @@ FAR * ASM DPBp;                      /* First drive Parameter Block          */
 #define XFR_READ        1
 #define XFR_WRITE       2
 #define XFR_FORCE_WRITE 3
+/* flag to update fcb_rndm field */
+#define XFR_FCB_RANDOM  4
 
 #define RDONLY          0
 #define WRONLY          1
