@@ -131,6 +131,7 @@ struct dhdr {
   BYTE dh_name[8];
 };
 
+#define ATTR_SUBST      0x8000
 #define ATTR_CHAR       0x8000
 #define ATTR_IOCTL      0x4000
 #define ATTR_BLDFAT     0x2000

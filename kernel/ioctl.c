@@ -199,7 +199,14 @@ COUNT DosDevIOctl(lregs * r)
 /* JPP - changed to use default drive if drive=0 */
 /* JT Fixed it */
 
+#define NDN_HACK
+/* NDN feeds the actual ASCII drive letter to this function */
+#ifdef NDN_HACK
+      CharReqHdr.r_unit = ((r->BL & 0x1f) == 0 ? default_drive :
+                           (r->BL & 0x1f) - 1);
+#else
       CharReqHdr.r_unit = (r->BL == 0 ? default_drive : r->BL - 1);
+#endif
 
       dpbp = get_dpb(CharReqHdr.r_unit);
 
@@ -223,10 +230,12 @@ COUNT DosDevIOctl(lregs * r)
           }
           return DE_INVLDFUNC;
         case 0x09:
-          if (get_cds(CharReqHdr.r_unit) != NULL && dpbp == NULL)
+        {
+          struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
+          r->AX = S_DONE | S_BUSY;
+          if (cdsp != NULL && dpbp == NULL)
           {
             r->DX = ATTR_REMOTE;
-            r->AX = S_DONE | S_BUSY;
           }
           else
           {
@@ -234,11 +243,14 @@ COUNT DosDevIOctl(lregs * r)
             {
               return DE_INVLDDRV;
             }
-/* Need to add subst bit 15  */
             r->DX = dpbp->dpb_device->dh_attr;
-            r->AX = S_DONE | S_BUSY;
+          }
+          if (cdsp->cdsFlags & CDSSUBST)
+          {
+            r->DX |= ATTR_SUBST;
           }
           break;
+        }
         case 0x0d:
           nMode = C_GENIOCTL;
           goto IoBlockCommon;
