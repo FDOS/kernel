@@ -355,9 +355,8 @@ void init_LBA_to_CHS(struct CHS *chs, ULONG LBA_address,
 
 void printCHS(char *title, struct CHS *chs)
 {
-  printf("%s", title);
   /* has no fixed size for head/sect: is often 1/1 in our context */
-  printf("%4u-%u-%u", chs->Cylinder, chs->Head, chs->Sector);
+  printf("%s%4u-%u-%u", title, chs->Cylinder, chs->Head, chs->Sector);
 }
 
 /*
@@ -626,21 +625,25 @@ void DosDefinePartition(struct DriveParamS *driveParam,
 
   if (InitKernelConfig.InitDiskShowDriveAssignment)
   {
+    char *ExtPri;
+    int num;
+
     LBA_to_CHS(&chs, StartSector, driveParam);
 
-    printf("\r%c: HD%d", 'A' + nUnits, (driveParam->driveno & 0x7f) + 1);
-
+    ExtPri = "Pri";
+    num = PrimaryNum + 1;
     if (extendedPartNo)
-      printf(", Ext[%2d]", extendedPartNo);
-    else
-      printf(", Pri[%2d]", PrimaryNum + 1);
+    {
+      ExtPri = "Ext";
+      num = extendedPartNo;
+    }
+    printf("\r%c: HD%d, %s[%2d]", 'A' + nUnits,
+           (driveParam->driveno & 0x7f) + 1, ExtPri, num);
 
     printCHS(", CHS= ", &chs);
 
-    printf(", start=%6lu MB, size=%6lu MB",
+    printf(", start=%6lu MB, size=%6lu MB\n",
            StartSector / 2048, pEntry->NumSect / 2048);
-
-    printf("\n");
   }
 
   nUnits++;
