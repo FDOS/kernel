@@ -52,17 +52,3 @@ clean:
 sys.obj: sys.c ..\hdr\portab.h ..\hdr\device.h b_fat12.h b_fat16.h b_fat32.h
 		$(CC) $(CFLAGS) $*.c
 
-# Log: makefile,v 
-#
-# Revision 1.6  1999/09/20 18:34:40  jprice
-# *** empty log message ***
-#
-# Revision 1.5  1999/08/25 03:19:51  jprice
-# ror4 patches to allow TC 2.01 compile.
-#
-# Revision 1.4  1999/05/03 05:01:38  jprice
-# no message
-#
-# Revision 1.3  1999/04/23 03:45:33  jprice
-# Improved by jprice
-#

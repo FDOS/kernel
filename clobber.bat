@@ -44,16 +44,3 @@ del status.me
 :end
 set MAKE=
 set COMPILER=
-
-rem Log: clobber.bat,v 
-rem
-rem Revision 1.3  1999/08/25 03:59:14  jprice
-rem New build batch files.
-rem
-rem Revision 1.2  1999/08/10 18:34:06  jprice
-rem case
-rem
-rem Revision 1.1  1999/04/23 03:47:19  jprice
-rem Initial include
-rem
-

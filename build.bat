@@ -148,31 +148,3 @@ set XERROR=1
 @set XERROR=
 @set XUPX=
 @set UPXOPT=
-
-:-  Log: build.bat,v 
-:- 
-:-  Revision 1.5  1999/08/25 03:59:14  jprice
-:-  New build batch files.
-:- 
-:-  Revision 1.4  1999/08/25 03:38:16  jprice
-:-  New build config
-:- 
-:-  Revision 1.3  1999/04/23 03:46:02  jprice
-:-  Improved by jprice
-:- 
-:-  Revision 1.2  1999/04/17 19:13:29  jprice
-:-  ror4 patches
-:- 
-:-  Revision 1.1.1.1  1999/03/29 15:39:13  jprice
-:-  New version without IPL.SYS
-:- 
-:-  Revision 1.5  1999/02/09 04:47:54  jprice
-:-  Make makefile use common config.mak file
-:- 
-:-  Revision 1.4  1999/01/30 08:29:10  jprice
-:-  Clean up
-:- 
-:-  Revision 1.3  1999/01/30 07:49:16  jprice
-:-  Clean up
-:- 
-

@@ -118,13 +118,3 @@ set XFAT=16
 :-
 :- $Id$
 :-
-:- Log: config.b,v 
-:-
-:- Revision 1.3  1999/09/13 20:40:17  jprice
-:- Added COMPILER variable
-:-
-:- Revision 1.2  1999/08/25 03:59:14  jprice
-:- New build batch files.
-:-
-:- Revision 1.1  1999/08/25 03:20:39  jprice
-:- ror4 patches to allow TC 2.01 compile.
