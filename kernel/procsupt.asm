@@ -34,7 +34,7 @@
                 extern  _user_r:wrt DGROUP
 
                 extern  _break_flg:wrt DGROUP   ; break detected flag
-                extern  _int21_handler:wrt LGROUP ; far call system services
+                extern  _int21_handler:wrt DGROUP ; far call system services
 
                 %include "stacks.inc"
 
