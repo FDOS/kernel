@@ -35,7 +35,7 @@ segment	_IO_FIXED_DATA
 
                 global  ConTable
 ConTable        db      0Ah
-                dw      _IOExit
+                dw      ConInit
                 dw      _IOExit
                 dw      _IOExit
                 dw      _IOCommandError
@@ -47,12 +47,40 @@ ConTable        db      0Ah
                 dw      ConWrite
                 dw      _IOExit
 
-PRT_SCREEN      equ     7200h
+CTL_PRT_SCREEN  equ     7200h
 CTL_P           equ     10h
 
 segment	_LOWTEXT
 
 uScanCode	db	0		; Scan code for con: device
+
+kbdType         db      0		; 00 for 84key, 10h for 102key        
+
+;
+; (taken from nansi.sys)
+;
+                global  ConInit
+ConInit:
+	        ; Jam special test code into keyboard buffer
+	        mov	ah,5
+	        mov	cx,0ffffh
+	        int	16h
+		; Try to read special test code from keyboard buffer
+		mov	cx, 10h
+kbdLoop:
+		; Get keystroke using extended keyboard read
+		mov	ah, 10h
+		int	16h
+		; Is it our special test code? 
+		cmp	ax, 0ffffh
+		; Yes; Set flag saying that the extended keyboard BIOS is supported
+		je	kbdExtended
+		loop	kbdLoop
+		jmp	short kbdSimple
+kbdExtended:
+		mov	byte[cs:kbdType],10h
+kbdSimple:
+                jmp     _IOExit
 
 ;
 ; Name:
@@ -86,9 +114,10 @@ ConRead2:
 ;       Read a character from the keyboard.
 ;
 ; Description:
-;       This subroutine reads a character fromthe keyboard.  It also handles
-;       a couple of special functions.  It converts the print screen key to
-;       a control-P.  It also accounts for extended scan codes by saving off
+;       This subroutine reads a character from the keyboard. It also handles
+;       a couple of special functions. 
+;       It converts ctrl-printscreen to a control-P.
+;       It also accounts for extended scan codes by saving off
 ;       the high byte of the return and returning it if it was non-zero on
 ;       the previous read.
 ;
@@ -96,12 +125,15 @@ ConRead2:
 KbdRdChar:
                 xor     ax,ax                   ; Zero the scratch register
                 xchg    [cs:uScanCode],al	; and swap with scan code
+		; now AL is set if previous key was extended,
+		; and previous is erased in any case
                 or      al,al                   ; Test to see if it was set
                 jnz     KbdRdRtn                ; Exit if it was, returning it
+		mov	ah, [cs:kbdType]
                 int     16h                     ; get keybd char in al, ah=scan
                 or      ax,ax                   ; Zero ?
                 jz      KbdRdChar               ; Loop if it is
-                cmp     ax,PRT_SCREEN           ; Print screen?
+                cmp     ax,CTL_PRT_SCREEN       ; Ctrl-Print screen?
                 jne     KbdRd1                  ; Nope, keep going
                 mov     al,CTL_P                        ; Yep, make it ^P
 KbdRd1:
@@ -114,26 +146,31 @@ KbdRdRtn:
 
 
                 global  CommonNdRdExit
-CommonNdRdExit:
+CommonNdRdExit:		; *** tell if key waiting and return its ASCII if yes
                 mov     al,[cs:uScanCode]       ; Test for last scan code
+			; now AL is set if previous key was extended,
                 or      al,al                   ; Was it zero ?
                 jnz     ConNdRd2                ; Jump if there's a char waiting
                 mov     ah,1
+		add     ah,[cs:kbdType]
                 int     16h                     ; Get status, if zf=0  al=char
                 jz      ConNdRd4                ; Jump if no char available
                 or      ax,ax                   ; Zero ?
                 jnz     ConNdRd1                ; Jump if not zero
+		mov     ah,[cs:kbdType]
                 int     16h                     ; get status, if zf=0  al=char
                 jmp     short CommonNdRdExit
+		; if char was there but 0, fetch and retry...
+		; (why do we check uScanCode here?)
 
 ConNdRd1:
-                cmp     ax,PRT_SCREEN           ; Was print screen key pressed?
+                cmp     ax,CTL_PRT_SCREEN       ; Was ctl+prntscrn key pressed?
                 jne     ConNdRd2                ; Jump if not
                 mov     al,CTL_P
 
 ConNdRd2:
                 lds     bx,[cs:_ReqPktPtr]         ; Set the status
-                mov     [bx+0Dh],al
+                mov     [bx+0Dh],al             ; return the ASCII of that key
 
 ConNdRd3:
                 jmp     _IOExit
@@ -144,21 +181,28 @@ ConNdRd4:
 
 
                 global  ConInpFlush
-ConInpFlush:
-                call    KbdInpChar
-                jmp     _IOExit
+ConInpFlush:    ; *** flush that keyboard queue
+                call    KbdInpChar		; get all available keys
+                jmp     _IOExit			; do not even remember the last one
 
 
 
-KbdInpChar:
-                mov     byte [cs:uScanCode],0
-KbdInpCh1:
+KbdInpChar:	; *** get ??00 or the last waiting key after flushing the queue
+		xor	ax,ax
+                mov     byte [cs:uScanCode],al
+KbdInpCh1:	
                 mov     ah,1
+		add	ah,[cs:kbdType]
                 int     16h                     ; get status, if zf=0  al=char
-                jz      KbdInpRtn               ; Jump if zero
-                xor     ah,ah                   ; Zero register
+                jz      KbdInpRtnZero           ; Jump if zero
+		; returns 0 or the last key that was waiting in AL
+		mov     ah,[cs:kbdType]
                 int     16h                     ; get keybd char in al, ah=scan
                 jmp     short KbdInpCh1
+                ; just read any key that is waiting, then check if
+                ; more keys are waiting. if not, return AL of this
+                ; key (which is its ASCII). AH (scan) discarded!
+KbdInpRtnZero:  mov ah,1        ; if anybody wants "1 if no key was waiting"!
 KbdInpRtn:
                 retn
 
@@ -221,26 +265,32 @@ _int29_handler:
 ;
       	  	global  ConInStat
 ConInStat:
+		mov	ah,0			; just in case ...
                 mov     al,[cs:uScanCode]       ; Test for last scan code
                 or      al,al                   ; Was it zero ?
                 jnz     ConCharReady            ; Jump if there's a char waiting
+		; return previously cached ext char if any
 		mov     ah,1
+		add     ah,[cs:kbdType]
 		int     16h                     ; get status, if zf=0  al=char
                 jz      ConNoChar               ; Jump if zero
+		; if no key waiting, return AL=0 / "none waiting"
 
                 or      ax,ax                   ; Zero ?
                 jnz     ConIS1                  ; Jump if not zero
+                ; if non-zero key waiting, take it
+		mov     ah,[cs:kbdType]
                 int     16h                     ; get status, if zf=0  al=char
                 jmp     short ConInStat
+		; if zero key was waiting, fetch 2nd part etc. (???)
 
 ConIS1:
-                cmp     ax,PRT_SCREEN           ; Was print screen key pressed?
+                cmp     ax,CTL_PRT_SCREEN       ; Was ctl+prntscrn key pressed?
                 jne     ConIS2                  ; Jump if not
                 mov     al,CTL_P
-
 ConIS2:
                 lds     bx,[cs:_ReqPktPtr]         ; Set the status
-                mov     [bx+0Dh],al
+                mov     [bx+0Dh],al		; return the ASCII of the key
 ConCharReady:
                 jmp     _IOExit                 ; key ready (busy=0)
 ConNoChar:

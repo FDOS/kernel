@@ -15,6 +15,7 @@
       config.sys parser.
     * distinguish between the builtin DOS version and the settable
       DOS version.
+    * console.asm now accepts extended scancodes (modified by Bart)
 + Changes Bart
     * flip some slashes in drivers/*.asm 
       (enables cross-assembly on Linux)
