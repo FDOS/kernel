@@ -69,6 +69,11 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
   switch (irp->AH)
   {
+    /* Set Interrupt Vector                                         */
+    case 0x25:
+      setvec(irp->AL, MK_FP(irp->DS, irp->DX));
+      break;
+
       /* DosVars - get/set dos variables                              */
     case 0x33:
       switch (irp->AL)
@@ -138,6 +143,15 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
           break;
       }
       break;
+
+    /* Get Interrupt Vector                                           */
+    case 0x35:
+    {
+      intvec p = getvec(irp->AL);
+      irp->ES = FP_SEG(p);
+      irp->BX = FP_OFF(p);
+      break;
+    }
 
       /* Set PSP                                                      */
     case 0x50:
@@ -638,9 +652,7 @@ dispatch:
       break;
 
       /* Set Interrupt Vector                                         */
-    case 0x25:
-      setvec(lr.AL, FP_DS_DX);
-      break;
+      /* case 0x25: handled above (re-entrant)                        */
 
       /* Dos Create New Psp                                           */
     case 0x26:
@@ -788,13 +800,7 @@ dispatch:
       break;
 
       /* Get Interrupt Vector                                         */
-  case 0x35:
-     {
-        intvec p = getvec((COUNT) lr.AL);
-        lr.ES = FP_SEG(p);
-        lr.BX = FP_OFF(p);
-      }
-      break;
+      /* case 0x35: handled above (reentrant)                         */
 
       /* Dos Get Disk Free Space                                      */
     case 0x36:

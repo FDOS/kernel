@@ -232,7 +232,11 @@ int21_reentry:
                 mov     dx,[cs:_DGROUP_]
                 mov     ds,dx
 
+                cmp     ah,25h
+                je      int21_user
                 cmp     ah,33h
+                je      int21_user
+                cmp     ah,35h
                 je      int21_user
                 cmp     ah,50h
                 je      int21_user
