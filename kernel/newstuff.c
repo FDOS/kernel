@@ -532,6 +532,8 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         break;
     }
   }
+  if (gotAnyWildcards && !(mode & CDS_MODE_ALLOW_WILDCARDS))
+    return DE_PATHNOTFND;
   if (addSep == ADD || p == dest + 2)
   {
     /* MS DOS preserves a trailing '\\', so an access to "C:\\DOS\\"

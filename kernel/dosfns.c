@@ -1009,7 +1009,8 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
   int rc;
   register dmatch FAR *dmp = dta;
 
-  rc = truename(name, PriPathName, CDS_MODE_CHECK_DEV_PATH);
+  rc = truename(name, PriPathName,
+                CDS_MODE_CHECK_DEV_PATH | CDS_MODE_ALLOW_WILDCARDS);
   if (rc < SUCCESS)
     return rc;
 
@@ -1546,7 +1547,7 @@ COUNT DosTruename(const char FAR *src, char FAR *dest)
      Therefore, the name is created in an internal buffer
      and copied into the user buffer only on success.
   */  
-  COUNT rc = truename(src, PriPathName, 0);
+  COUNT rc = truename(src, PriPathName, CDS_MODE_ALLOW_WILDCARDS);
   if (rc >= SUCCESS)
     fstrcpy(dest, PriPathName);
   return rc;

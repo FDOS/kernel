@@ -94,3 +94,4 @@ struct cds {
 
 #define CDS_MODE_SKIP_PHYSICAL 0x01    /* don't resolve SUBST, JOIN, NETW */
 #define CDS_MODE_CHECK_DEV_PATH 0x02  /* check for existence of device path */
+#define CDS_MODE_ALLOW_WILDCARDS 0x04  /* allow wildcards in "truename" */
