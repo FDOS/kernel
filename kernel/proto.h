@@ -206,7 +206,7 @@ VOID DosCharOutput(COUNT c);
 VOID DosDisplayOutput(COUNT c);
 BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps,
                    UWORD * nc);
-UWORD FcbParseFname(int *wTestMode, const BYTE FAR *lpFileName, fcb FAR * lpFcb);
+UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR *lpFileName, fcb FAR * lpFcb);
 const BYTE FAR *ParseSkipWh(const BYTE FAR * lpFileName);
 BOOL TestCmnSeps(BYTE FAR * lpFileName);
 BOOL TestFieldSeps(BYTE FAR * lpFileName);

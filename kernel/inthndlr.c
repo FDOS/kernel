@@ -665,9 +665,7 @@ dispatch:
 
       /* Parse File Name                                              */
     case 0x29:
-      rc = 0;
-      lr.SI = FcbParseFname(&rc, MK_FP(lr.DS, lr.SI), FP_ES_DI);
-      lr.AL = rc;
+      lr.SI = FcbParseFname(&lr.AL, MK_FP(lr.DS, lr.SI), FP_ES_DI);
       break;
 
       /* Get Date                                                     */

@@ -85,7 +85,7 @@ BYTE FAR *FatGetDrvData(UBYTE drive, UWORD * spc, UWORD * bps, UWORD * nc)
 #define PARSE_RET_BADDRIVE      0xff
 
 #ifndef IPL
-UWORD FcbParseFname(int *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb)
+UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb)
 {
   WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
 
