@@ -1706,7 +1706,7 @@ UCOUNT rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
       DeleteBlockInBufferCache(currentblock,
                                currentblock + sectors_to_xfer - 1,
-                               fnp->f_dpb->dpb_unit);
+                               fnp->f_dpb->dpb_unit, mode);
 
       if (dskxfer(fnp->f_dpb->dpb_unit,
                   currentblock,

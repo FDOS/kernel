@@ -41,7 +41,7 @@ VOID setinvld(REG COUNT dsk);
 BOOL flush_buffers(REG COUNT dsk);
 BOOL flush(void);
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk);
-BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk);
+BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mode);
 /* *** Changed on 9/4/00  BER */
 UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
               COUNT mode);

@@ -155,7 +155,7 @@ STATIC struct buffer FAR *searchblock(ULONG blkno, COUNT dsk)
   return bp;
 }
 
-BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk)
+BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk, int mode)
 {
   struct buffer FAR *bp = firstbuf;
         
@@ -168,7 +168,10 @@ BOOL DeleteBlockInBufferCache(ULONG blknolow, ULONG blknohigh, COUNT dsk)
         bp->b_blkno <= blknohigh &&
         (bp->b_flag & BFR_VALID) && (bp->b_unit == dsk))
     {
-      flush1(bp);
+      if (mode == XFR_READ)
+        flush1(bp);
+      else
+        bp->b_flag = 0;
     }
     bp = b_next(bp);
   }
