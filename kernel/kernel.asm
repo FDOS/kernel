@@ -57,15 +57,16 @@ _LowKernelConfig:
                 dw configend-configstart; size of config area
                                         ; to be checked !!!
 
-configstart:                
+configstart:
 
 DLASortByDriveNo            db 0        ; sort disks by drive order
-InitDiskShowDriveAssignment db 1        ;  
-SkipConfigSeconds           db 2        ;                 
-ForceLBA                    db 0        ;                 
-GlobalEnableLBAsupport      db 1        ;                 
+InitDiskShowDriveAssignment db 1        ;
+SkipConfigSeconds           db 2        ;
+ForceLBA                    db 0        ;
+GlobalEnableLBAsupport      db 1        ;
+BootHarddiskSeconds         db 0        ;
 
-configend:                
+configend:
 
 ;************************************************************	    
 ; KERNEL CONFIGURATION AREA END
