@@ -34,6 +34,9 @@ static BYTE *Proto_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.20  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.19  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -357,7 +360,6 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 BOOL FcbOpen(xfcb FAR * lpXfcb);
 BOOL FcbDelete(xfcb FAR * lpXfcb);
 BOOL FcbRename(xfcb FAR * lpXfcb);
-VOID MoveDirInfo(dmatch * lpDmatch, fcb FAR * lpDir);
 BOOL FcbClose(xfcb FAR * lpXfcb);
 VOID FcbCloseAll(VOID);
 BOOL FcbFindFirst(xfcb FAR * lpXfcb);

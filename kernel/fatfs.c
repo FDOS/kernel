@@ -47,6 +47,9 @@ BYTE *RcsId = "$Id$";
  * performance killer on large drives. (~0.5 sec /dos_mkdir) TE 
  *
  * $Log$
+ * Revision 1.21  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.20  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -2445,7 +2448,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
         
     st = fnp->f_cluster;    
     
-    if (st == FREE)                         /* first cluster is free, done */
+    if (st == FREE || st == LONG_LAST_CLUSTER) /* first cluster is free or EOC, done */
         goto done;
     
     next = next_cluster(dpbp, st);

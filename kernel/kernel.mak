@@ -5,6 +5,9 @@
 #
 
 # $Log$
+# Revision 1.13  2001/07/24 16:56:29  bartoldeman
+# fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+#
 # Revision 1.12  2001/07/22 01:58:58  bartoldeman
 # Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
 #
@@ -169,8 +172,9 @@ HDR=../hdr/
 .c.obj:
 	$(CC) $(CFLAGS) -c $<
 
-.c.asm:
-	$(CC) $(CFLAGS) -S $<
+# Borland make 3.6 does not like this rule.
+#.c.asm:
+#	$(CC) $(CFLAGS) -S $<
 
 .cpp.obj:
 	$(CC) $(CFLAGS) -c $<

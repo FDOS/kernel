@@ -36,6 +36,9 @@ static BYTE *fatdirRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.20  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.19  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -180,8 +183,6 @@ static BYTE *fatdirRcsId = "$Id$";
  *    Rev 1.0   02 Jul 1995  8:04:34   patv
  * Initial revision.
  */
-
-VOID pop_dmp(dmatch FAR *, f_node_ptr);
 
 f_node_ptr dir_open(BYTE * dirname)
 {
@@ -591,8 +592,9 @@ VOID dir_close(REG f_node_ptr fnp)
 COUNT dos_findfirst(UCOUNT attr, BYTE *name)
 {
   REG f_node_ptr fnp;
-  REG dmatch FAR *dmp = (dmatch FAR *) dta;
+  REG dmatch *dmp = (dmatch *) TempBuffer;
   REG COUNT i;
+  COUNT nDrive;
   BYTE *p;
 
   BYTE local_name[FNAME_SIZE + 1],
@@ -607,12 +609,8 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   /* dirmatch structure and then for every find, we will open the */
   /* current directory, do a seek and read, then close the fnode. */
 
-  /* Start out by initializing the dirmatch structure.            */
-  
-  dmp->dm_attr_srch = attr;
-
   /* Parse out the drive, file name and file extension.           */
-  i = ParseDosName(name, NULL, &szDirName[2], local_name, local_ext, TRUE);
+  i = ParseDosName(name, &nDrive, &szDirName[2], local_name, local_ext, TRUE);
   if (i != SUCCESS)
     return i;
 /*
@@ -643,15 +641,11 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   /* Convert everything to uppercase. */
   DosUpFMem(SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
-  /* Copy the raw pattern from our data segment to the DTA. */
-  fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
-         FNAME_SIZE + FEXT_SIZE);
-
   /* Now search through the directory to find the entry...        */
 
   /* Complete building the directory from the passed in   */
   /* name                                                 */
-  szDirName[0] = 'A' + dmp->dm_drive;
+  szDirName[0] = 'A' + nDrive;
   szDirName[1] = ':';
     
   /* Special handling - the volume id is only in the root         */
@@ -670,6 +664,18 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   if ((fnp = dir_open(szDirName)) == NULL)
     return DE_PATHNOTFND;
 
+  /* Now initialize the dirmatch structure.            */
+  
+  nDrive=get_verify_drive(name);
+  if (nDrive < 0)
+      return nDrive;
+  dmp->dm_drive = nDrive;
+  dmp->dm_attr_srch = attr;
+
+  /* Copy the raw pattern from our data segment to the DTA. */
+  fbcopy((BYTE FAR *) SearchDir.dir_name, dmp->dm_name_pat,
+         FNAME_SIZE + FEXT_SIZE);
+
   if ((attr & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
   {
     /* Now do the search                                    */
@@ -678,7 +684,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
       /* Test the attribute and return first found    */
       if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID)
       {
-        pop_dmp(dmp, fnp);
+        dmp->dm_dirstart= fnp->f_dirstart;
+        dmp->dm_cluster = fnp->f_dir.dir_start;        /* TE */
+        memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
         dir_close(fnp);
         return SUCCESS;
       }
@@ -692,7 +700,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
   /* Otherwise just do a normal find next                         */
   else
   {
-    pop_dmp(dmp, fnp);
     dmp->dm_entry = 0;
     if (!fnp->f_flags.f_droot)
     {
@@ -719,7 +726,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE *name)
 
 COUNT dos_findnext(void)
 {
-  REG dmatch FAR *dmp = (dmatch FAR *) dta;
+  REG dmatch *dmp = (dmatch *) TempBuffer;
   REG f_node_ptr fnp;
   BOOL found = FALSE;
 
@@ -803,46 +810,15 @@ COUNT dos_findnext(void)
   /* If found, transfer it to the dmatch structure                */
   if (found)
     {
-#if 0
-    extern VOID FAR *FcbFindFirstDirPtr;
-    if (FcbFindFirstDirPtr)
-        {
-                                    /* this works MUCH better, then converting
-                                       83 -> ASCIIZ ->83;
-                                       specifically ".", ".."
-
-                                       But completely bypasses the network case!
-                                    */   
-        fmemcpy(FcbFindFirstDirPtr, &fnp->f_dir, 32);    
-        }
-#endif    
-    
-    pop_dmp(dmp, fnp);
+    dmp->dm_dirstart= fnp->f_dirstart;
+    dmp->dm_cluster = fnp->f_dir.dir_start;        /* TE */
+    memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
     }
 
   /* return the result                                            */
   release_f_node(fnp);
 
   return found ? SUCCESS : DE_NFILES;
-}
-
-STATIC VOID pop_dmp(dmatch FAR * dmp, f_node_ptr fnp)
-{
-
-  dmp->dm_attr_fnd = fnp->f_dir.dir_attrib;
-  dmp->dm_time = fnp->f_dir.dir_time;
-  dmp->dm_date = fnp->f_dir.dir_date;
-  dmp->dm_size = fnp->f_dir.dir_size;
-  dmp->dm_cluster = fnp->f_dir.dir_start;        /* TE */
-  dmp->dm_dirstart= fnp->f_dirstart;
-/*
-  dmp->dm_flags.f_droot = fnp->f_flags.f_droot;
-  dmp->dm_flags.f_ddir = fnp->f_flags.f_ddir;
-  dmp->dm_flags.f_dmod = fnp->f_flags.f_dmod;
-  dmp->dm_flags.f_dnew = fnp->f_flags.f_dnew;
-*/  
-  ConvertName83ToNameSZ((BYTE FAR *)dmp->dm_name, (BYTE FAR *) fnp->f_dir.dir_name);
-
 }
 #endif
 /*
@@ -909,11 +885,4 @@ int FileName83Length(BYTE *filename83)
     
     return strlen(buff);
  
-}        
-            
-                
-    
-    
-
-
-
+}

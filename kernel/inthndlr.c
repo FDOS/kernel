@@ -37,6 +37,9 @@ BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.28  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.27  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -369,7 +372,7 @@ VOID int21_service(iregs FAR * r)
 
   p->ps_stack = (BYTE FAR *) r;
 
-#ifdef DEBUG
+#ifdef DEBUG 
   if (bDumpRegs)
   {
     fbcopy((VOID FAR *) user_r, (VOID FAR *) & error_regs, sizeof(iregs));
@@ -1534,6 +1537,7 @@ dispatch:
       /* UNDOCUMENTED: Double byte and korean tables                  */
     case 0x63:
       {
+#define DBLBYTE
 #ifdef DBLBYTE
         static char dbcsTable[2] =
         {
@@ -1546,7 +1550,8 @@ dispatch:
         r->AL = 0;
 #else
         /* not really supported, but will pass.                 */
-        r->AL = 0x00;           /*jpp: according to interrupt list */
+        r->AL = 0x00;           /*jpp: according to interrupt list */	
+				/*Bart: fails for PQDI: use the above again */
 #endif
         break;
       }

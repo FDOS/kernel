@@ -37,6 +37,9 @@ static BYTE *dosfnsRcsId = "$Id$";
  * /// Added SHARE support.  2000/09/04 Ron Cemer
  *
  * $Log$
+ * Revision 1.22  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.21  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -1250,10 +1253,20 @@ COUNT DosChangeDir(BYTE FAR * s)
 	return result;
 }
 
+STATIC VOID pop_dmp(dmatch FAR * dmp)
+{
+  dmp->dm_attr_fnd = (BYTE) SearchDir.dir_attrib;
+  dmp->dm_time = SearchDir.dir_time;
+  dmp->dm_date = SearchDir.dir_date;
+  dmp->dm_size = (LONG) SearchDir.dir_size;
+  ConvertName83ToNameSZ(dmp->dm_name, (BYTE FAR *)SearchDir.dir_name);
+}
+
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 {
   COUNT nDrive, rc;
   REG dmatch FAR *dmp = (dmatch FAR *) dta;
+  BYTE FAR *p;
 
       /* /// Added code here to do matching against device names.
            DOS findfirst will match exact device names if the
@@ -1262,15 +1275,30 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
            Credits: some of this code was ripped off from truename()
            in newstuff.c.
            - Ron Cemer */
-  fmemset(dmp, 0, sizeof(dmatch));
 
-  if (IsDevice(name))
+  fmemset(dta, 0, sizeof(dmatch));
+  memset(&SearchDir, 0, sizeof(struct dirent));
+  
+  rc = truename(name, PriPathName, FALSE);
+  if (rc != SUCCESS)
+      return rc;
+  
+  if (IsDevice(PriPathName))
   {
+    COUNT i;
+      
     /* Found a matching device. Hence there cannot be wildcards. */
-    dmp->dm_attr_fnd = D_DEVICE;
-    dmp->dm_time = dos_gettime();
-    dmp->dm_date = dos_getdate();
-    fstrncpy(dmp->dm_name, get_root(name), FNAME_SIZE+FEXT_SIZE+1);
+    SearchDir.dir_attrib = D_DEVICE;
+    SearchDir.dir_time = dos_gettime();
+    SearchDir.dir_date = dos_getdate();
+    p = get_root(PriPathName);
+    memset(SearchDir.dir_name, ' ', FNAME_SIZE+FEXT_SIZE);
+    for (i = 0; i < FNAME_SIZE && *p && *p != '.'; i++)
+        SearchDir.dir_name[i] = *p++;
+    if (*p == '.') p++;
+    for (i = 0; i < FEXT_SIZE && *p && *p != '.'; i++)
+        SearchDir.dir_ext[i] = *p++;
+    pop_dmp(dmp);
     return SUCCESS;
   }
   /* /// End of additions.  - Ron Cemer ; heavily edited - Bart Oldeman */
@@ -1282,23 +1310,32 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 
   current_ldt = &CDSp->cds_table[nDrive];
   
-  rc = truename(name, PriPathName, FALSE);
+#if defined(FIND_DEBUG)
+  printf("Remote Find: n='%Fs\n", PriPathName);
+#endif
+
+  fmemcpy(TempBuffer, dta, 21);
+  p = dta;
+  dta = (BYTE FAR *)TempBuffer;
+  
+  rc = current_ldt->cdsFlags & CDSNETWDRV ?
+        -int2f_Remote_call(REM_FINDFIRST, 0, 0, 0, (VOID FAR *)current_ldt, 0, 0) :
+        dos_findfirst(attr, PriPathName);
+
+  dta = p;
+
   if (rc != SUCCESS)
       return rc;
   
-  if (current_ldt->cdsFlags & CDSNETWDRV)
-  {
-    return -Remote_find(REM_FINDFIRST);
-  }
-  else
-  {
-    dmp->dm_drive = nDrive;
-    return dos_findfirst(attr, PriPathName);
-  }
+  fmemcpy(dta, TempBuffer, 21);
+  pop_dmp((dmatch FAR *)dta);
+  return SUCCESS;
 }
 
 COUNT DosFindNext(void)
 {
+  COUNT rc;
+  BYTE FAR *p;
 
   /* /// findnext will always fail on a device name.  - Ron Cemer */
   if (((dmatch FAR *)dta)->dm_attr_fnd == D_DEVICE)
@@ -1325,9 +1362,21 @@ COUNT DosFindNext(void)
   printf("findnext: %d\n", 
 	  ((dmatch FAR *)dta)->dm_drive);
 #endif
-  return (((dmatch FAR *)dta)->dm_drive & 0x80) ?
-      -Remote_find(REM_FINDNEXT) :
+  fmemcpy(TempBuffer, dta, 21);
+  fmemset(dta, 0, sizeof(dmatch));
+  p = dta;
+  dta = (BYTE FAR *)TempBuffer;
+  rc = (((dmatch *)TempBuffer)->dm_drive & 0x80) ?
+      -int2f_Remote_call(REM_FINDNEXT, 0, 0, 0, (VOID FAR *)current_ldt, 0, 0) :
       dos_findnext();
+  
+  dta = p;
+  if (rc != SUCCESS)
+    return rc;
+
+  fmemcpy(dta, TempBuffer, 21);
+  pop_dmp((dmatch FAR *)dta);
+  return SUCCESS;
 }
 
 COUNT DosGetFtime(COUNT hndl, date FAR * dp, time FAR * tp)

@@ -5,6 +5,10 @@
 /* Sector buffer structure                                      */
 /*                                                              */
 /*                      Copyright (c) 2001                      */
+/*			Bart Oldeman				*/
+/*								*/
+/*			Largely taken from globals.h:		*/
+/*			Copyright (c) 1995, 1996                */
 /*                      Pasquale J. Villani                     */
 /*                      All Rights Reserved                     */
 /*                                                              */
@@ -34,6 +38,9 @@ static BYTE *buffer_hRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.3  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.2  2001/06/03 14:16:17  bartoldeman
  * BUFFERS tuning and misc bug fixes/cleanups (2024c).
  *

@@ -78,7 +78,7 @@ void DynFree(unsigned memory_needed)
     if (memory_needed == 0)     /* this is pass  0 */
         {
 
-        Dyn.Allocated = 1000;    /* this reserves space for initDisk */
+        Dyn.Allocated = NDEV*sizeof(ddt);    /* this reserves space for initDisk */
         Dyn.AllocMax  = sizeof(Dyn.Buffer);
         }                        
     else {

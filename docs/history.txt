@@ -1,8 +1,26 @@
+2001 Jul 9 - Build 2024/e
+-------- Bart Oldeman (bart.oldeman@bristol.ac.uk)
++ fixes Tom
+    * dyninit allocation fix
+    * various clean ups
 + fixes Bart
+    * #define DBLBYTE in inhndlr.c. Necessary for PQDI
+    * FCB corrections and cleanups (with a little help from Tom)
+    * cleaned up (FCB)FindFirst/FindNext a little more.
+    * task.c: copies default FCBs, initializes AX properly and
+      an int21/ax=4b01 fix. Also closes all FCB opened files upon
+      termination of a program.
+    * dosnames.c: fixed DJGPP "ls c:/" problem reported by Martin
++ fixes Victor Vlasenko
+    * Makefile fix for dealing with Borland make 3.6
+    * fix for fatfs.c shrink_file()
++ fixes Bart
+    * handle B: just like A: on a single floppy system. There still needs to be
+      user interaction like "Please put a floppy in drive B:".
     * ioctl.c fix for INT21/AX=4400 + sft driveno field
     * various small fcb fixes
     * put file position number and pointers to Pri/SecPathName into
-      SDA. Now MSCDEX works as redirector 
+      SDA. Now MSCDEX works as redirector (but still not always :-() 
     * redirector set attribute fixes + various cleanups
     * truename+attr+ioctl fix => DJGPP libc compiles cleanly!
 + changes Bart

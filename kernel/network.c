@@ -36,6 +36,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.14  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.13  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -126,41 +129,6 @@ UCOUNT Remote_RW(UWORD func, UCOUNT n, BYTE FAR * bp, sft FAR * s, COUNT FAR * e
   dta = save_dta;
   *err = -rx;
   return ((UCOUNT) rc);
-}
-
-#undef FIND_DEBUG
-/*
-
- */
-COUNT Remote_find(UWORD func)
-{
-  COUNT i;
-  char FAR *p;
-
-#if defined(FIND_DEBUG)
-  if (func == REM_FINDFIRST)
-  {
-    printf("Remote Find: n='%Fs\n", PriPathName);
-  }
-#endif
-
-  fmemcpy(TempBuffer, dta, 21);
-  p = dta;
-  dta = (BYTE FAR *)TempBuffer;
-  i = int2f_Remote_call(func, 0, 0, 0, (VOID FAR *)current_ldt, 0, 0);
-  dta = p;
-  fmemcpy(dta, TempBuffer, 21);
-
-  if (i != 0)
-    return i;
-
-  ((dmatch FAR *)dta)->dm_attr_fnd = (BYTE) SearchDir.dir_attrib;
-  ((dmatch FAR *)dta)->dm_time = SearchDir.dir_time;
-  ((dmatch FAR *)dta)->dm_date = SearchDir.dir_date;
-  ((dmatch FAR *)dta)->dm_size = (LONG) SearchDir.dir_size;
-
-  ConvertName83ToNameSZ(((dmatch FAR *)dta)->dm_name, (BYTE *)SearchDir.dir_name);
-  return i;
 }
 
 

@@ -36,6 +36,9 @@ static BYTE *dosnamesRcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.11  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.10  2001/07/22 01:58:58  bartoldeman
  * Support for Brian's FORMAT, DJGPP libc compilation, cleanups, MSCDEX
  *
@@ -234,6 +237,8 @@ COUNT ParseDosName(BYTE * lpszFileName,
          lpszFileName++;
        if (*lpszFileName != '\0')
          return DE_FILENOTFND;
+       if (nDirCnt == 1) /* for d:\ */
+         return DE_NFILES;
        if (pszDir)
        {
          if ((lpszFileName - lpszLclFile) == 2) /* for tail DotDot */

@@ -1,6 +1,6 @@
 INTRODUCTION
 ------------
-This archive contains FreeDOS Kernel version 1.1.18, build 2018, also
+This archive contains the current FreeDOS Kernel, also
 known as DOS-C, originally written by Pasquale J. Villani.
 
 The FreeDOS Kernel is available from http://freedos.sourceforge.net.

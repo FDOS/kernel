@@ -35,6 +35,9 @@ static BYTE *RcsId = "$Id$";
 
 /*
  * $Log$
+ * Revision 1.15  2001/07/24 16:56:29  bartoldeman
+ * fixes for FCBs, DJGPP ls, DBLBYTE, dyninit allocation (2024e).
+ *
  * Revision 1.14  2001/07/23 12:47:42  bartoldeman
  * FCB fixes and clean-ups, exec int21/ax=4b01, initdisk.c printf
  *
@@ -149,14 +152,12 @@ fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer, COUNT * pCurDrive)
 void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 VOID FcbNextRecord(fcb FAR * lpFcb);
 BOOL FcbCalcRec(xfcb FAR * lpXfcb);
-VOID MoveDirInfo(dmatch * lpDmatch, fcb FAR * lpDir);
 #else
 fcb FAR *ExtFcbToFcb();
 fcb FAR *CommonFcbInit();
 void FcbNameInit();
 VOID FcbNextRecord();
 BOOL FcbCalcRec();
-VOID MoveDirInfo();
 #endif
 
 #define TestCmnSeps(lpFileName) (strchr(":<|>+=,", *lpFileName) != NULL) 
@@ -164,9 +165,6 @@ VOID MoveDirInfo();
 
 
 static dmatch Dmatch;
-
-/* VOID FAR *FcbFindFirstDirPtr = NULL; */
-
 
 VOID FatGetDrvData(UCOUNT drive, COUNT FAR * spc, COUNT FAR * bps,
                    COUNT FAR * nc, BYTE FAR ** mdp)
@@ -676,7 +674,7 @@ STATIC fcb FAR *CommonFcbInit(xfcb FAR * lpExtFcb, BYTE * pszBuffer,
 
 void FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
 {
-  BYTE loc_szBuffer[FNAME_SIZE+1+FEXT_SIZE+1];
+  BYTE loc_szBuffer[2+FNAME_SIZE+1+FEXT_SIZE+1];    /* 'A:' + '.' + '\0' */
   BYTE *pszBuffer = loc_szBuffer;
     
   /* Build a traditional DOS file name                            */
@@ -691,7 +689,7 @@ void FcbNameInit(fcb FAR * lpFcb, BYTE * szBuffer, COUNT * pCurDrive)
   {
     *pCurDrive = default_drive + 1;
   }
-  ConvertName83ToNameSZ((BYTE FAR *)pszBuffer, (BYTE FAR *) lpFcb->fcb_fname);
+  ConvertName83ToNameSZ(pszBuffer, (BYTE FAR *) lpFcb->fcb_fname);
   truename(loc_szBuffer, szBuffer, FALSE);
   /* XXX fix truename error handling */
 }
@@ -876,20 +874,8 @@ BOOL FcbRename(xfcb FAR * lpXfcb)
 
 /* TE:the MoveDirInfo() is now done by simply copying the dirEntry into the FCB
    this prevents problems with ".", ".." and saves code
-   BO:use FcbParseFname: avoid redirector problems and is there anyway
+   BO:use global SearchDir, as produced by FindFirst/Next
 */
-
-VOID MoveDirInfo(dmatch * lpDmatch, fcb FAR * lpDir)
-{
-  BYTE FAR *lpszFrom = lpDmatch->dm_name;
-  /* First, expand the find match into dir style  */
-  FcbParseFname(PARSE_DFLT_DRIVE | PARSE_SEP_STOP, &lpszFrom, lpDir);
-  /* lpDir->dir_attrib = lpDmatch->dm_attr_fnd;  XXX for extended fcb! */
-  lpDir->fcb_time = lpDmatch->dm_time;
-  lpDir->fcb_date = lpDmatch->dm_date;
-  lpDir->fcb_dirclst = lpDmatch->dm_cluster;
-  lpDir->fcb_fsize = lpDmatch->dm_size;
-}
 
 BOOL FcbClose(xfcb FAR * lpXfcb)
 {
@@ -923,13 +909,13 @@ VOID FcbCloseAll()
 
 BOOL FcbFindFirst(xfcb FAR * lpXfcb)
 {
-  fcb FAR *lpDir;
+  BYTE FAR *lpDir;
   COUNT FcbDrive;
   psp FAR *lpPsp = MK_FP(cu_psp, 0);
 
   /* First, move the dta to a local and change it around to match */
   /* our functions.                                               */
-  lpDir = (fcb FAR *) dta;
+  lpDir = (BYTE FAR *) dta;
   dta = (BYTE FAR *) & Dmatch;
 
   /* Next initialze local variables by moving them from the fcb   */
@@ -937,28 +923,21 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
   if (lpXfcb->xfcb_flag == 0xff)
   {
     wAttr = lpXfcb->xfcb_attrib;
-    /* fbcopy(lpXfcb, lpDir, 7); 
-    lpDir += 7;
-    BO:WHY???
-    */
+    fbcopy(lpXfcb, lpDir, 7); 
+    lpDir += 7;  
   }
   else
     wAttr = D_ALL;
 
-  /* *lpDir++ = FcbDrive; */
-
-  /* FcbFindFirstDirPtr = lpDir; */
-
   if (DosFindFirst(wAttr, SecPathName) != SUCCESS)
   {
-    /* FcbFindFirstDirPtr = NULL;*/
     dta = lpPsp->ps_dta;
     return FALSE;
   }
 
-  /* FcbFindFirstDirPtr = NULL; */
+  *lpDir++ = FcbDrive; 
+  fmemcpy(lpDir, &SearchDir, sizeof(struct dirent));
 
-  MoveDirInfo(&Dmatch, lpDir);
   lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
@@ -980,31 +959,19 @@ BOOL FcbFindFirst(xfcb FAR * lpXfcb)
 
 BOOL FcbFindNext(xfcb FAR * lpXfcb)
 {
-  fcb FAR *lpDir;
+  BYTE FAR *lpDir;
   COUNT FcbDrive;
   psp FAR *lpPsp = MK_FP(cu_psp, 0);
 
   /* First, move the dta to a local and change it around to match */
   /* our functions.                                               */
-  lpDir = (fcb FAR *) dta;
+  lpDir = (BYTE FAR *) dta;
   dta = (BYTE FAR *) & Dmatch;
 
   /* Next initialze local variables by moving them from the fcb   */
   lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
-  if ((xfcb FAR *) lpFcb != lpXfcb)
-  {
-    wAttr = lpXfcb->xfcb_attrib;
-    /*
-    fbcopy(lpXfcb, lpDir, 7);
-    lpDir += 7;
-    BO:WHY???
-    */
-  }
-  else
-    wAttr = D_ALL;
 
   /* Reconstrct the dirmatch structure from the fcb               */
-  /* *lpDir++ = FcbDrive; */
   Dmatch.dm_drive = lpFcb->fcb_sftno;
 
   fbcopy(lpFcb->fcb_fname, (BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
@@ -1015,18 +982,25 @@ BOOL FcbFindNext(xfcb FAR * lpXfcb)
   Dmatch.dm_cluster = lpFcb->fcb_dirclst;
   Dmatch.dm_dirstart= lpFcb->fcb_dirclst;
 
-  /* FcbFindFirstDirPtr = lpDir; */
+  if ((xfcb FAR *) lpFcb != lpXfcb)
+  {
+    wAttr = lpXfcb->xfcb_attrib;
+    fbcopy(lpXfcb, lpDir, 7);
+    lpDir += 7;
+  }
+  else
+    wAttr = D_ALL;
 
   if (DosFindNext() != SUCCESS)
   {
-      /*  FcbFindFirstDirPtr = NULL; */
     dta = lpPsp->ps_dta;
     CritErrCode = 0x12;
     return FALSE;
   }
-  /*FcbFindFirstDirPtr = NULL;*/
 
-  MoveDirInfo(&Dmatch, lpDir);
+  *lpDir++ = FcbDrive; 
+  fmemcpy((struct dirent FAR *)lpDir, &SearchDir, sizeof(struct dirent));
+
   lpFcb->fcb_dirclst = Dmatch.dm_dirstart;
   lpFcb->fcb_strtclst = Dmatch.dm_entry;
 
