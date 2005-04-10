@@ -1973,8 +1973,11 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);   /* JPP */
 
   /* if caller tries to set DIR on non-directory, return error */
-  if (!(fnp->f_dir.dir_attrib & D_DIR) && (attrp & D_DIR))
+  if ((attrp & D_DIR) && !(fnp->f_dir.dir_attrib & D_DIR))
+  {
+    dos_close(fd);
     return DE_ACCESS;
+  }
     
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
