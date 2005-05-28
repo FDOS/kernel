@@ -1,4 +1,4 @@
-FreeDOS SYS 3.5
+FreeDOS SYS 3.6
 documentation by:
   Jeremy Davis
   Bart Oldeman
@@ -22,6 +22,7 @@ SYS [source] dest: [bootsect] [{option}]
   {option} is one or more of the following:
   /BOTH    : write to *both* the real boot sector and the image file
   /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image
+  /UPDATE  : copy kernel and update boot sector (do *not* copy shell)
   /OEM     : indicates boot sector, filenames, and load segment to use
              /OEM:FD use FreeDOS compatible settings
              /OEM:DR use DR DOS 7+ compatible settings (same as /OEM)

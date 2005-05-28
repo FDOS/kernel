@@ -32,7 +32,7 @@
 #define FDCONFIG        /* include support to configure FD kernel */
 /* #define DRSYS */     /* SYS for Enhanced DR-DOS (OpenDOS enhancement Project) */
 
-#define SYS_VERSION "v3.5b"
+#define SYS_VERSION "v3.6"
 #define SYS_NAME "FreeDOS System Installer "
 
 
@@ -293,25 +293,26 @@ int FDKrnConfigMain(int argc, char **argv);
 typedef struct DOSBootFiles {
   const char * kernel;   /* filename boot sector loads and chains to */
   const char * dos;      /* optional secondary file for OS */
-  WORD         loadseg;  /* segment kernel file expects to start at */
+  WORD         loadaddr; /* segment kernel file expects to start at for stdbs */
+                         /* or offset to jump into kernel for oem compat bs */
   BOOL         stdbs;    /* use FD boot sector (T) or oem compat one (F) */
   LONG         minsize;  /* smallest dos file can be and be valid, 0=existance optional */
 } DOSBootFiles;
-#define FREEDOS_FILES      { "KERNEL.SYS", NULL, 0x60, 1, 0 },
+#define FREEDOS_FILES      { "KERNEL.SYS", NULL, 0x60/*:0*/, 1, 0 },
 DOSBootFiles bootFiles[] = {
   /* Note: This order is the order OEM:AUTO uses to determine DOS flavor. */
 #ifndef DRSYS
   /* FreeDOS */   FREEDOS_FILES
 #endif
-  /* DR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70, 1, 1 },
-  /* DR-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70, 1, 1 },
+  /* DR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70/*:0*/, 1, 1 },
+  /* DR-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70/*:0*/, 1, 1 },
 #ifdef DRSYS
   /* FreeDOS */   FREEDOS_FILES
 #endif
 #ifdef WITHOEMCOMPATBS
-  /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70, 0, 6138 },  /* pre v7 DR ??? */
-  /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", 0x70, 0, 10240 },
-  /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", 0x70, 0, 0},
+  /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 6138 },  /* pre v7 DR ??? */
+  /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0, 0, 10240 },
+  /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0200, 0, 0 },
 #endif
 };
 #define DOSFLAVORS (sizeof(bootFiles) / sizeof(*bootFiles))
@@ -356,7 +357,8 @@ typedef struct SYSOptions {
   DOSBootFiles kernel;          /* file name(s) and relevant data for kernel */
   BYTE defBootDrive;            /* value stored in boot sector for drive, eg 0x0=A, 0x80=C */
   BOOL ignoreBIOS;              /* true to NOP out boot sector code to get drive# from BIOS */
-  BOOL copyFiles;               /* true to copy kernel files and command interpreter */
+  BOOL copyKernel;              /* true to copy kernel files */
+  BOOL copyShell;               /* true to copy command interpreter */
   BOOL writeBS;                 /* true to write boot sector to drive/partition LBA 0 */
   BYTE *bsFile;                 /* file name & path to save bs to when saving to file */
   BYTE *bsFileOrig;             /* file name & path to save original bs when backing up */
@@ -382,6 +384,7 @@ void showHelpAndExit(void)
       "  {option} is one or more of the following:\n"
       "  /BOTH    : write to *both* the real boot sector and the image file\n"
       "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
+      "  /UPDATE  : copy kernel and update boot sector (do *not* copy shell)\n"
       "  /OEM     : indicates boot sector, filenames, and load segment to use\n"
       "             /OEM:FD use FreeDOS compatible settings\n"
       "             /OEM:EDR use Enhanced DR DOS 7+ compatible settings\n"
@@ -400,7 +403,7 @@ void showHelpAndExit(void)
       "%s CONFIG /help\n"
 #endif
       /*SYS, KERNEL.SYS/DRBIO.SYS 0x60/0x70*/
-      , pgm, bootFiles[0].kernel, bootFiles[0].loadseg
+      , pgm, bootFiles[0].kernel, bootFiles[0].loadaddr
 #ifdef FDCONFIG
       , pgm
 #endif
@@ -422,7 +425,8 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   memset(opts, 0, sizeof(SYSOptions));
   /* set srcDrive and dstDrive after processing args */
   opts->flavor = OEM_AUTO;      /* attempt to detect DOS user wants to boot */
-  opts->copyFiles = 1;          /* actually copy the kernel and cmd interpreter to dstDrive */
+  opts->copyKernel = 1;         /* actually copy the kernel and cmd interpreter to dstDrive */
+  opts->copyShell = 1;
 
   /* cycle through processing cmd line arguments */
   for(argno = 1; argno < argc; argno++)
@@ -446,7 +450,14 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
       /* do *not* copy kernel / shell, only update boot sector or image */
       else if (memicmp(argp, "BOOTONLY", 8) == 0)
       {
-        opts->copyFiles = 0;
+        opts->copyKernel = 0;
+        opts->copyShell = 0;
+      }
+      /* copy kernel and update boot sector (do *not* copy shell) */
+      else if (memicmp(argp, "UPDATE", 8) == 0)
+      {
+        opts->copyKernel = 1;
+        opts->copyShell = 0;
       }
       /* indicates compatibility mode, fs, filenames, and load segment to use */
       else if (memicmp(argp, "OEM", 3) == 0)
@@ -499,7 +510,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
         }
         else if (toupper(*argp) == 'L') /* set Load segment */
         {
-          opts->kernel.loadseg = (WORD)strtol(argv[argno], NULL, 16);
+          opts->kernel.loadaddr = (WORD)strtol(argv[argno], NULL, 16);
         }
         else if (memicmp(argp, "B", 2) == 0) /* set boot drive # */
         {
@@ -673,7 +684,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   /* set compatibility settings not explicitly set */
   if (!opts->kernel.kernel) opts->kernel.kernel = bootFiles[opts->flavor].kernel;
   if (!opts->kernel.dos) opts->kernel.dos = bootFiles[opts->flavor].dos;
-  if (!opts->kernel.loadseg) opts->kernel.loadseg = bootFiles[opts->flavor].loadseg;
+  if (!opts->kernel.loadaddr) opts->kernel.loadaddr = bootFiles[opts->flavor].loadaddr;
   opts->kernel.stdbs = bootFiles[opts->flavor].stdbs;
   opts->kernel.minsize = bootFiles[opts->flavor].minsize;
 
@@ -688,7 +699,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
 
 
   /* unless we are only setting boot sector, verify kernel file exists */
-  if (opts->copyFiles)
+  if (opts->copyKernel)
   {
     /* check kernel (primary file) 1st */
     sprintf(srcFile, "%s%s", opts->srcDrive, (opts->fnKernel)?opts->fnKernel:opts->kernel.kernel);
@@ -720,7 +731,11 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
         exit(1);
       }
     }
+  }
 
+  /* if updating or only setting bootsector then skip this check */
+  if (opts->copyShell)
+  {
     /* lastly check for command interpreter */
     sprintf(srcFile, "%s%s", opts->srcDrive, (opts->fnCmd)?opts->fnCmd:"COMMAND.COM");
     if (stat(srcFile, &fstatbuf))  /* if !exists() */
@@ -754,7 +769,7 @@ int main(int argc, char **argv)
   printf("Processing boot sector...\n");
   put_boot(&opts);
 
-  if (opts.copyFiles)
+  if (opts.copyKernel)
   {
     printf("Now copying system files...\n");
 
@@ -774,7 +789,12 @@ int main(int argc, char **argv)
         exit(1);
       } /* copy secondary file (DOS) */
     }
+  }
 
+  if (opts.copyShell)
+  {
+    printf("Copying shell (command interpreter)...\n");
+  
     /* copy command.com, 1st try source path, then try %COMSPEC% */
     sprintf(srcFile, "%s%s", opts.srcDrive, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
     if (!copy(srcFile, opts.dstDrive, "COMMAND.COM"))
@@ -1337,6 +1357,7 @@ void put_boot(SYSOptions *opts)
   if (fs == FAT32)
   {
     bs32 = (struct bootsectortype32 *)&newboot;
+    if (!bs32->bsBackupBoot) bs32->bsBackupBoot = 0x6; /* ensure set, 6 is MS defined bs size */
     bs32->bsDriveNumber = opts->defBootDrive;
 
     /* the location of the "0060" segment portion of the far pointer
@@ -1350,7 +1371,7 @@ void put_boot(SYSOptions *opts)
     */
     if (opts->kernel.stdbs)
     {
-      ((int *)newboot)[0x78/sizeof(int)] = opts->kernel.loadseg;
+      ((int *)newboot)[0x78/sizeof(int)] = opts->kernel.loadaddr;
       bsBiosMovOff = 0x82;
     }
     else /* compatible bs */
@@ -1374,23 +1395,34 @@ void put_boot(SYSOptions *opts)
     /* the location of the "0060" segment portion of the far pointer
        in the boot sector is just before cont: in boot*.asm.
        This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16 
+       The oem boot sectors do not have/need this value for patching.
+
+       the location of the jmp address (patching from
+       EA00007000 [jmp 0x0070:0000] to EA00207000 [jmp 0x0070:0200])
+       0x11b: for fat12 oem boot sector
+       0x118: for fat16 oem boot sector
+       The standard boot sectors do not have/need this value patched.
 
        force use of value stored in bs by NOPping out mov [drive], dl
        0x66: 88h,56h,24h for fat16 and fat12 boot sectors
        0x4F: 88h,56h,24h for oem compatible fat16 and fat12 boot sectors
-
+       
        i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! 
     */
     if (opts->kernel.stdbs)
     {
-      ((int *)newboot)[0x5c/sizeof(int)] = opts->kernel.loadseg;
+      /* this sets the segment we load the kernel to, default is 0x60:0 */
+      ((int *)newboot)[0x5c/sizeof(int)] = opts->kernel.loadaddr;
       bsBiosMovOff = 0x66;
     }
     else
     {
-      /* load segment hard coded to 0x70 in oem compatible boot sector */
-      if (opts->kernel.loadseg != 0x70)
-        printf("%s: Warning! ignoring load segment, compat bs always uses 0x70!\n", pgm);
+      /* load segment hard coded to 0x70 in oem compatible boot sector, */
+      /* this however changes the offset jumped to default 0x70:0       */
+      if (fs == FAT12)
+        ((int *)newboot)[0x11c/sizeof(int)] = opts->kernel.loadaddr;
+      else
+        ((int *)newboot)[0x119/sizeof(int)] = opts->kernel.loadaddr;
       bsBiosMovOff = 0x4F;
     }
   }
@@ -1443,7 +1475,10 @@ void put_boot(SYSOptions *opts)
 #ifdef DEBUG
   /* there's a zero past the kernel name in all boot sectors */
   printf("Boot sector kernel name set to %s\n", &newboot[0x1f1]);
-  printf("Boot sector load segment set to %Xh\n", opts->kernel.loadseg);
+  if (opts->kernel.stdbs)
+    printf("Boot sector kernel load segment set to %X:0h\n", opts->kernel.loadaddr);
+  else
+    printf("Boot sector kernel jmp address set to 70:%Xh\n", opts->kernel.loadaddr);
 #endif
 
 #ifdef DDEBUG
@@ -1463,6 +1498,25 @@ void put_boot(SYSOptions *opts)
       printf("Can't write new boot sector to drive %c:\n", opts->dstDrive + 'A');
       exit(1);
     }
+    
+    /* for FAT32, we need to update the backup copy as well */
+    /* Note: assuming sectors 1-5 & 7-11 (FSINFO+additional boot code)
+       are properly setup by prior format and need no modification
+       [technically freespace, etc. should be updated]
+    */
+    if (fs == FAT32)
+    {
+      bs32 = (struct bootsectortype32 *)&newboot;
+#ifdef DEBUG
+      printf("writing backup bootsector to sector %d\n", bs32->bsBackupBoot);
+#endif
+      if (MyAbsReadWrite(opts->dstDrive, 1, bs32->bsBackupBoot, newboot, 1) != 0)
+      {
+        printf("Can't write backup boot sector to drive %c:\n", opts->dstDrive + 'A');
+        exit(1);
+      }
+    }
+
   } /* if write boot sector to boot record*/
 
   if (opts->bsFile != NULL)

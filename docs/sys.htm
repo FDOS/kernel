@@ -1,5 +1,5 @@
 <html>
-<title>sys</title>
+<title>sys - FreeDOS system file installer</title>
 <body>
 <h1>sys</h1>
 Copy system files and make a floppy disk or hard disk bootable.
@@ -31,6 +31,16 @@ Switches (FreeDOS specific):
   With this option the boot sector (or image) will be updated,
   but the kernel and <a href="command.htm">command.com</a> will
   not be copied to the destination.
+
+  <b>/UPDATE</b>
+  This option is for updating (or changing) your kernel while
+  leaving your shell alone.  Updates the boot sector and copies
+  the kernel file(s) to the destination.  [Allows installing
+  latest kernel and boot sector without making a copy of your
+  current COMMAND.COM or other shell first.]  Note: for FreeDOS
+  kernel, an upgrade can also be performed by simply copying
+  KERNEL.SYS over an existing bootable one (though making a 
+  backup of your current kernel is encouraged).
 
   <b>/K <i>filename</i></b>
   Gives the <i>filename</i> of the kernel file to be copied. This option
