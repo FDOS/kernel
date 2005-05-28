@@ -34,6 +34,7 @@ SYS [source] dest: [bootsect] [{option}]
   /L segm  : hex load segment to use in boot sector instead of 0x60
   /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...
   /FORCEDRV: force use of drive # set in bs instead of BIOS boot value
+  /NOBAKBS : skips copying boot sector to backup bs, FAT32 only else ignored
   /SKFN filename : set KERNEL.SYS input file and /OEM:FD
   /SCFN filename : sets COMMAND.COM input file
   /BACKUPBS [path]filename : save current bs before overwriting

@@ -357,6 +357,7 @@ typedef struct SYSOptions {
   DOSBootFiles kernel;          /* file name(s) and relevant data for kernel */
   BYTE defBootDrive;            /* value stored in boot sector for drive, eg 0x0=A, 0x80=C */
   BOOL ignoreBIOS;              /* true to NOP out boot sector code to get drive# from BIOS */
+  BOOL skipBakBSCopy;           /* true to not copy boot sector to backup boot sector */
   BOOL copyKernel;              /* true to copy kernel files */
   BOOL copyShell;               /* true to copy command interpreter */
   BOOL writeBS;                 /* true to write boot sector to drive/partition LBA 0 */
@@ -399,6 +400,7 @@ void showHelpAndExit(void)
       "  /L segm  : hex load segment to use in boot sector instead of %02x\n"
       "  /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...\n"
       "  /FORCEDRV: force use of drive # set in bs instead of BIOS boot value\n"
+      "  /NOBAKBS : skips copying boot sector to backup bs, FAT32 only else ignored\n"
 #ifdef FDCONFIG
       "%s CONFIG /help\n"
 #endif
@@ -500,6 +502,11 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
       else if (memicmp(argp, "FORCEDRV", 8) == 0)
       {
         opts->ignoreBIOS = 1;
+      }
+      /* skips copying boot sector to backup bs, FAT32 only else ignored */
+      else if (memicmp(argp, "NOBAKBS", 7) == 0)
+      {
+        opts->skipBakBSCopy = 1;
       }
       else if (argno + 1 < argc)   /* two part options, /SWITCH VALUE */
       {
@@ -1357,7 +1364,14 @@ void put_boot(SYSOptions *opts)
   if (fs == FAT32)
   {
     bs32 = (struct bootsectortype32 *)&newboot;
-    if (!bs32->bsBackupBoot) bs32->bsBackupBoot = 0x6; /* ensure set, 6 is MS defined bs size */
+    /* ensure appears valid, if not then force valid */
+    if ((bs32->bsBackupBoot < 1) || (bs32->bsBackupBoot > bs32->bsResSectors))
+    {
+      #ifdef DEBUG
+        printf("BPB appears to have invalid backup boot sector #, forcing to default.\n");
+      #endif
+      bs32->bsBackupBoot = 0x6; /* ensure set, 6 is MS defined bs size */
+    }
     bs32->bsDriveNumber = opts->defBootDrive;
 
     /* the location of the "0060" segment portion of the far pointer
@@ -1500,11 +1514,12 @@ void put_boot(SYSOptions *opts)
     }
     
     /* for FAT32, we need to update the backup copy as well */
+    /* unless user has asked us not to, eg for better dual boot support */
     /* Note: assuming sectors 1-5 & 7-11 (FSINFO+additional boot code)
        are properly setup by prior format and need no modification
        [technically freespace, etc. should be updated]
     */
-    if (fs == FAT32)
+    if ((fs == FAT32) && !opts->skipBakBSCopy)
     {
       bs32 = (struct bootsectortype32 *)&newboot;
 #ifdef DEBUG
