@@ -1354,7 +1354,10 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
  * This seems to work well.
  */
 
-/* check for a device  */
+/* check for a device
+   returns device header if match, else returns NULL
+   can only match character devices (as only they have names)
+ */
 struct dhdr FAR *IsDevice(const char FAR * fname)
 {
   struct dhdr FAR *dhp;
@@ -1371,15 +1374,35 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
   {
 */
 
+/*  BUGFIX: MSCD000<00> should be handled like MSCD000<20> TE 
+    ie the 8 character device name may be padded with spaces ' ' or NULs '\0'
+
+    Note: fname is assumed an ASCIIZ string (ie not padded, unknown length)
+    but the name in the device header is assumed FNAME_SIZE and padded.  KJD
+*/
+
+
+  /* check for names that will never be devices to avoid checking all device headers.
+     only the file name (not path nor extension) need be checked, "" == root or empty name
+   */
+  if ( (*froot == '\0') ||
+       ((*froot=='.') && ((*(froot+1)=='\0') || (*(froot+2)=='\0' && *(froot+1)=='.')))
+     )
+  {
+    return NULL;
+  }
+
+  /* cycle through all device headers checking for match */
   for (dhp = (struct dhdr FAR *)&nul_dev; dhp != (struct dhdr FAR *)-1;
        dhp = dhp->dh_next)
   {
-
-    /*  BUGFIX: MSCD000<00> should be handled like MSCD000<20> TE */
+    if (!(dhp->dh_attr & ATTR_CHAR))  /* if this is block device, skip */
+      continue;
 
     for (i = 0; i < FNAME_SIZE; i++)
     {
       unsigned char c1 = (unsigned char)froot[i];
+      /* ignore extensions and handle filenames shorter than FNAME_SIZE */
       if (c1 == '.' || c1 == '\0')
       {
         /* check if remainder of device name consists of spaces or nulls */
@@ -1394,6 +1417,8 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
       if (DosUpFChar(c1) != DosUpFChar(dhp->dh_name[i]))
         break;
     }
+
+    /* if found a match then return device header */
     if (i == FNAME_SIZE)
       return dhp;
   }
