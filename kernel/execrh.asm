@@ -29,6 +29,7 @@
 ;
 
                 %include "segs.inc"
+                %include "stacks.inc"
 
 segment	HMA_TEXT
                 ; EXECRH
@@ -65,10 +66,13 @@ segment	HMA_TEXT
                 pop di 
                 pop si
                                 
+                Protect386Registers     ; protect from drivers that destroy eg emm386
 
-		mov     ax,[si+8]       ; construct 'interrupt' address
+                mov     ax,[si+8]       ; construct 'interrupt' address
                 mov     [bp+4],ax       ; construct interrupt address 
                 call    far[bp+4]       ; call far the interrupt
+
+                Restore386Registers
 
                 sti                     ; damm driver turn off ints
                 cld                     ; has gone backwards
