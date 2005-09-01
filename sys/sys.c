@@ -32,7 +32,7 @@
 #define FDCONFIG        /* include support to configure FD kernel */
 /* #define DRSYS */     /* SYS for Enhanced DR-DOS (OpenDOS enhancement Project) */
 
-#define SYS_VERSION "v3.6"
+#define SYS_VERSION "v3.6a"
 #define SYS_NAME "FreeDOS System Installer "
 
 
@@ -313,6 +313,7 @@ DOSBootFiles bootFiles[] = {
   /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 6138 },  /* pre v7 DR ??? */
   /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0, 0, 10240 },
   /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0200, 0, 0 },
+  /* Rx-DOS  */ { "RXDOSBIO.SYS", "RXDOS.SYS", /*0x70:*/0x0, 0, 1 },
 #endif
 };
 #define DOSFLAVORS (sizeof(bootFiles) / sizeof(*bootFiles))
@@ -456,7 +457,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
         opts->copyShell = 0;
       }
       /* copy kernel and update boot sector (do *not* copy shell) */
-      else if (memicmp(argp, "UPDATE", 8) == 0)
+      else if (memicmp(argp, "UPDATE", 6) == 0)
       {
         opts->copyKernel = 1;
         opts->copyShell = 0;
