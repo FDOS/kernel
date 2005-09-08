@@ -2120,7 +2120,7 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
   }
   
   /* Spain */ ,{
-    33,                         /*  = W1 W437   # Country ID & Codepage */
+    34,                         /*  = W1 W437   # Country ID & Codepage */
     850,      
     _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
     "EUR",                      /* '$' ,'EUR'   */
