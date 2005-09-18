@@ -38,9 +38,9 @@ static BYTE *mainRcsId =
 
 /* The Holy Copyright Message. Do NOT remove it or you'll be cursed forever! */
 
-static char copyright[] =
-"Copyright 1995-2005 Pasquale J. Villani and The FreeDOS Project.\n"
-"NO WARRANTY. Licensed under the GNU General Public License version 2.\n\n";
+#define COPYRIGHT \
+"Copyright 1995-2005 Pasquale Villani and The FreeDOS Project.\n" \
+"NO WARRANTY. Licensed under the GNU General Public License version 2.\n\n"
 
 struct _KernelConfig InitKernelConfig BSS_INIT({0});
 
@@ -289,7 +289,9 @@ STATIC void init_kernel(void)
 
   /* Do first initialization of system variable buffers so that   */
   /* we can read config.sys later.  */
-  LoL->lastdrive = Config.cfgLastdrive;
+
+  /* use largest possible value for the initial CDS */
+  LoL->lastdrive = 26;
 
   blk_dev.dh_name[0] = dsk_init();
 
@@ -399,7 +401,7 @@ STATIC VOID signon()
   generate some bullshit error here, as the compiler should be known
 #endif
 #if defined (I386)
-    " - 80386 CPU required"
+    " - i386 CPU required"
 #elif defined (I186)
     " - 80186 CPU required"
 #endif
@@ -407,9 +409,9 @@ STATIC VOID signon()
 #ifdef WITHFAT32
   " - FAT32 support"
 #endif
-  "\n\n%s",
+  "\n\n" COPYRIGHT,
          MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)),
-         MAJOR_RELEASE, MINOR_RELEASE, copyright);
+         MAJOR_RELEASE, MINOR_RELEASE);
 }
 
 STATIC void init_shell()
