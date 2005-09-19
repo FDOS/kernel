@@ -204,7 +204,7 @@ char *getenv(const char *name)
 BYTE pgm[] = "SYS";
 
 #define SEC_SIZE        512
-#define COPY_SIZE	0x7e00
+#define COPY_SIZE	0x4000
 
 struct bootsectortype {
   UBYTE bsJump[3];

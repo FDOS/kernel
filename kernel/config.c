@@ -166,7 +166,7 @@ STATIC BOOL GetNumArg2(PCStr, int default2);
 static void hintSkipAll(void);
 static BOOL askSkipLine(void);
 STATIC char strcasediff(PCStr, PCStr);
-STATIC void LoadCountryInfoHardCoded(CStr filename, int ccode, int cpage);
+STATIC void LoadCountryInfoHardCoded(PCStr filename, int ccode, int cpage);
 STATIC void umb_init(void);
 
 STATIC void config_init_buffers(int anzBuffers);     /* from BLOCKIO.C */
@@ -1139,7 +1139,7 @@ STATIC void Fcbs(PCStr p)
  *      the default code page for the country will be used.
  */
 
-STATIC void LoadCountryInfo(CStr filename, int ccode, int cpage)
+STATIC void LoadCountryInfo(PCStr filename, int ccode, int cpage)
 {
   /* COUNTRY.SYS file data structures - see RBIL tables 2619-2622 */
 
