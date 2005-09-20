@@ -7,6 +7,8 @@
         - bugfix: call_nls: DI register was not preserved
       * inthndlr.c
         - int21/ah=6/dl=ff now calls int28
+      * main.c
+        - use largest possible value for the initial CDS (make device=f:\foo.sys work)
       * sys.c
         - correct fat32readwrite's prototype to explicitly return int
 + Changes Tom
@@ -307,6 +309,7 @@
       * sys.c
         - change OEM Name field to FRDOS4.1 per Eric Auer for better compatibility.
         - added fat32readwrite int return type, now required by OpenWatcom 1.3
+        - shrank copy buffer to avoid "Abnormal Program Termination" for Borland C.
       * ludivmul.inc
         - 32-bit division code for 386-enabled Watcom kernel.
       * inthndlr.c
@@ -320,6 +323,7 @@
         - optimised Int 21h/AH=38h Get Country Information, removed cntry hack
         * autoexec.bat: now single-line for FreeCOM compatibility when EOL=LF
         * break.c: check_handle_break() return was undefined if no Ctrl-break
+        * config.c: fix "Suspicious pointer conversion" warning by Borland C 3.1
         * config.sys: all commands removed as they were close to defaults
         * contrib.txt: added Aitor Santamaria, Bernd Blaauw and Eduardo Casino
         * country.asm / config.c: COUNTRY.SYS now replaces hard-coded data
