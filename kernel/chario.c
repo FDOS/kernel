@@ -89,7 +89,10 @@ STATIC int CharIO(struct dhdr FAR **pdev, unsigned char ch, unsigned command)
 
 /* STATE FUNCTIONS */
 
-#define CharCmd(pdev, command)  while (CharRequest(pdev, command) > 0)
+STATIC void CharCmd(struct dhdr FAR **pdev, unsigned command)
+{
+  while (CharRequest(pdev, command) == 1);
+}
 
 STATIC int Busy(struct dhdr FAR **pdev)
 {
@@ -223,13 +226,13 @@ void write_char_stdout(int c)
 /* this is for handling things like ^C, mostly used in echoed input */
 STATIC VOID echo_char(int c, int sft_idx, unsigned i)
 {
+  local_buffer[i] = c;
   if (iscntrl(c) && c != HT && c != LF && c != CR)
   {
     write_char('^', sft_idx);
     c += '@';
   }
   write_char(c, sft_idx);
-  local_buffer[i] = c;
 }
 
 STATIC void destr_bs(int sft_idx)
