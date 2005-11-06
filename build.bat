@@ -6,7 +6,7 @@
 if NOT "%1" == "/?" goto start
 echo ":-----------------------------------------------------------------------"
 echo ":- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp|bc] [86|186|386]    "
-echo ":-               [debug] [lfnapi] [/L #] [/D value] [list]              "
+echo ":-               [debug] [lfnapi] [/L #] [/D value] [list] [upx]        "
 echo ":- option case is significant !!                                        "
 echo ":- Note: Open Watcom (wc) is the preferred compiler                     "
 echo ":-----------------------------------------------------------------------"
@@ -46,6 +46,8 @@ if "%1" == "86"    set XCPU=86
 if "%1" == "186"   set XCPU=186
 if "%1" == "386"   set XCPU=386
 if "%1" == "x86"   goto setCPU
+
+if "%1" == "upx"   set XUPX=upx --8086 --best
 
 if "%1" == "debug" set ALLCFLAGS=%ALLCFLAGS% -DDEBUG
 if "%1" == "lfnapi" set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI

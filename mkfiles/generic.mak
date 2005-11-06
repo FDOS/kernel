@@ -48,7 +48,7 @@ DEPENDS=makefile ..\*.bat ..\mkfiles\*.*
 # Implicit Rules #######################################################
 
 .asm.obj:
-	$(NASM) $(NASMFLAGS) $<
+	$(NASM) $(NASMFLAGS) -l$*.lst $<
 
 .c.obj:
 	$(CC) $(CFLAGS) $<

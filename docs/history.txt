@@ -395,12 +395,24 @@
             time failure finding/loading CONFIG.SYS)
         * config.txt
           - update to include all CONFIG.SYS options (except ANYDOS)
+        * debug.h
+          - add additional debug style printfs to enable selective debug output
+        * entry.asm
+          - add [conditional compiled] support for OEM handler (int 21h ah>0xf8)
+          - work towards critical section entry/exit calls for Win3 support
         * exeflat.c
           - show usage also when number of arguments incorrect
         * fatdir.c
           - be more restrictive in what considered a volume search
         * initdisk.c
           - set hidden & huge fields in floppy bpb (bugfix 1789)
+        * inthndlr.c
+          - add [conditional compiled] support for Win3 API calls (entry/exit/...)
+        * int2f.asm
+          - switch to local stack when Win3 support compiled in, ?unneeded/to be removed?
+        * kernel.asm
+          - comment some additional variables
+          - use some unused spaces for OEMHandler variable and Win3 instancing information
         * main.c
           - treat block devices returning 0 units as load failure
         * oemboot.asm - add [optional] PC/MS DOS compatible boot sector

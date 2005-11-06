@@ -87,10 +87,15 @@ set WATCOM=c:\watcom
 ::set MAKE=nmaker /nologo
 
 :-----------------------------------------------------------------------
+:- This section can still be used if you need special consideration
+:- for UPX, such as it is not in your PATH or you do not want
+:- 8086 compatible settings, otherwise the recommended use is now
+:- to add 'upx' option to the build.bat command line
+
 :- where is UPX and which options to use
 :- (comment this out if you don't want to use it)
 
-set XUPX=upx --8086 --best
+::set XUPX=upx --8086 --best
 
 :-----------------------------------------------------------------------
 :- select default target: CPU type (default is 86) and
@@ -107,6 +112,7 @@ set XUPX=upx --8086 --best
 :- Give extra compiler DEFINE flags here
 :- such as -DDEBUG : extra DEBUG output
 :-         -DDOSEMU : printf output goes to dosemu log
+:-         -DWIN31SUPPORT : extra Win3.x API support
 ::set ALLCFLAGS=-DDEBUG
 
 :-----------------------------------------------------------------------

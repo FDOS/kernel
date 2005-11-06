@@ -256,11 +256,14 @@ dos_data        db      0
                 global  _NetBios
 _NetBios        dw      0               ; NetBios Number
 
-                times (26h - 0ch - ($ - DATASTART)) db 0
+                times (26h - 12h - ($ - DATASTART)) db 0
 
 ; Globally referenced variables - WARNING: DO NOT CHANGE ORDER
 ; BECAUSE THEY ARE DOCUMENTED AS UNDOCUMENTED (?) AND HAVE
 ; MANY MULTIPLEX PROGRAMS AND TSR'S ACCESSING THEM
+                global _OemHook21
+_OemHook21      dd      -1              ;-0012 OEM fn handler (int21/f8h)
+                dw      0               ;-000e offset from DOS CS of int21 ret
                 global  _NetRetry
 _NetRetry       dw      3               ;-000c network retry count
                 global  _NetDelay
@@ -284,7 +287,8 @@ _clock          dd      0               ; 0008 CLOCK$ device
 _syscon         dw      _con_dev,seg _con_dev   ; 000c console device
                 global  _maxbksize
 _maxbksize      dw      512             ; 0010 maximum bytes/sector of any block device
-		dd	0               ; 0012 pointer to buffers info structure
+                global  _inforecptr
+_inforecptr     dd      0               ; 0012 pointer to buffers info structure
                 global  _CDSp
 _CDSp           dd      0               ; 0016 Current Directory Structure
                 global  _FCBp
@@ -338,7 +342,7 @@ _bufloc         db      0               ; 0053 00=conv 01=HMA
 _deblock_buf    dd      0               ; 0054 deblock buffer
                 times 3 db 0            ; 0058 unknown
                 dw      0               ; 005B unknown
-                db      0, 0FFh, 0      ; 005D unknown
+                db      0, 0FFh, 0      ; 005D int24fail,memstrat,a20count
                 global _VgaSet
 _VgaSet         db      0               ; 0060 unknown
                 dw      0               ; 0061 unknown
@@ -385,7 +389,8 @@ _winStartupInfo:
                 dw instance_table,seg instance_table ; array of instance data
 instance_table: ; should include stacks, Win may auto determine SDA region
                 ; we simply include whole DOS data segment
-                dw 0, seg _DATASTART  ; [?linear?] address of region's base
+                dw seg _DATASTART, 0  ; [?linear?] address of region's base
+;                dw 0, 0;seg _DATASTART  ; [?linear?] address of region's base
                 dw markEndInstanceData wrt seg _DATASTART ; size in bytes
                 dd 0 ; 0 marks end of table
 patch_bytes:         ; mark end of array of offsets of critical section bytes to patch
@@ -414,6 +419,8 @@ _winPatchTable: ; returns offsets to various internal variables
 _firstsftt:             
                 dd -1                   ; link to next
                 dw 5                    ; count 
+                times 5*59 db 0         ; reserve space for the 5 sft entries
+                db 0                    ; pad byte so next value on even boundary
         
 ; Some references seem to indicate that this data should start at 01fbh in
 ; order to maintain 100% MS-DOS compatibility.
@@ -716,6 +723,13 @@ blk_stk_top:
                 global  clk_stk_top
                 times 64 dw 0
 clk_stk_top:
+
+%IFDEF WIN31SUPPORT
+; mux2F private stack
+                global  mux2F_stk_top
+                times 128 dw 0
+mux2F_stk_top:
+%ENDIF ; WIN31SUPPORT
 
 ; Dynamic data:
 ; member of the DOS DATA GROUP

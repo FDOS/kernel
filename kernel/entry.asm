@@ -206,6 +206,35 @@ reloc_call_int20_handler:
 ;       int21_handler(iregs UserRegs)
 ;
 reloc_call_int21_handler:
+;%define OEMHANDLER  ; enable OEM hook, mostly OEM DOS 2.x, maybe through OEM 6.x
+%ifdef OEMHANDLER
+                extern _OemHook21
+                ; When defined and set (!= ffff:ffffh) invoke installed
+                ; int 21h handler for ah=f9h through ffh
+                ; with all registers preserved, callee must perform the iret
+                cmp ah, 0f9h        ; if a normal int21 call, proceed
+                jb skip_oemhndlr    ; as quickly as possible
+                ; we need all registers preserved but also
+                ; access to the hook address, so we copy locally
+                ; 1st (while performing check for valid address)
+                ; then do the jmp
+                push ds
+                push dx
+                mov  dx,[cs:_DGROUP_]
+                mov  ds,dx
+                cmp  word [_OemHook21], -1
+                je   no_oemhndlr
+                cmp  word [_OemHook21+2], -1
+                je   no_oemhndlr
+                pop  dx
+                pop  ds
+                jmp  far [ds:_OemHook21]  ; invoke OEM handler (no return)
+;local_hookaddr  dd   0
+no_oemhndlr:
+                pop  dx
+                pop  ds
+skip_oemhndlr:
+%endif ;OEMHANDLER
                 ;
                 ; Create the stack frame for C call.  This is done to
                 ; preserve machine state and provide a C structure for
@@ -246,7 +275,9 @@ int21_reentry:
                 jne     int21_1
 
 int21_user:     
+%IFNDEF WIN31SUPPORT     ; begin critical section
                 call    dos_crit_sect
+%ENDIF ; NOT WIN31SUPPORT
 
                 push    ss
                 push    bp
@@ -309,15 +340,30 @@ int21_onerrorstack:
                 jmp     short int21_exit_nodec
 
                 
-int21_2:        inc     byte [_InDOS]
+int21_2:
+%IFDEF WIN31SUPPORT     ; begin critical section
+                        ; should be called as needed, but we just
+                        ; mark the whole int21 api as critical
+                push    ax
+                mov     ax, 8001h   ; Enter Critical Section
+                int     2ah
+                pop     ax
+%ENDIF ; WIN31SUPPORT
+                inc     byte [_InDOS]
                 mov     cx,_char_api_tos
                 or      ah,ah   
                 jz      int21_3
+%IFDEF WIN31SUPPORT     ; testing, this function call crashes
+                cmp     ah,06h
+                je      int21_3
+%ENDIF ; WIN31SUPPORT
                 cmp     ah,0ch
                 jbe     int21_normalentry
 
 int21_3:
+%IFNDEF WIN31SUPPORT     ; begin critical section
                 call    dos_crit_sect
+%ENDIF ; NOT WIN31SUPPORT
                 mov     cx,_disk_api_tos
 
 int21_normalentry:
@@ -337,6 +383,17 @@ int21_normalentry:
                 call    _int21_service
 
 int21_exit:     dec     byte [_InDOS]
+%IFDEF WIN31SUPPORT     ; end critical section
+                call    dos_crit_sect  ; release all critical sections
+%if 0
+                        ; should be called as needed, but we just
+                        ; mark the whole int21 api as critical
+                push    ax
+                mov     ax, 8101h   ; Leave Critical Section
+                int     2ah
+                pop     ax
+%endif
+%ENDIF ; WIN31SUPPORT
 
                 ;
                 ; Recover registers from system call.  Registers and flags

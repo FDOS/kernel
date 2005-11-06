@@ -69,6 +69,9 @@ Int2f3:
                 cmp     ax,4a33h                ; Check DOS version 7
                 jne     Check4Share
                 xor     ax,ax                   ; no undocumented shell strings
+                xor     bx,bx                   ; RBIL undoc BX = ?? (0h)
+                                                ;  " DS:DX ASCIIZ shell exe name
+                                                ;  " DS:SI SHELL= line
                 iret
 Check4Share:
 %endif
@@ -134,6 +137,28 @@ IntDosCal:
 
     cld
 
+%IFDEF WIN31SUPPORT     ; switch to local stack, no reentrancy support
+                extern  mux2F_stk_top:wrt DGROUP
+                cli
+                ; setup, initialize copy
+                mov  si, sp                ; ds:si = ss:sp (user stack)
+                mov  ax, ss
+                mov  ds, ax
+                mov  di, mux2F_stk_top-30  ; es:di = local stack-copied chunk
+                mov  es, [cs:_DGROUP_]     ; [-X == -(2*cx below+4) ]
+                mov  cx, 13                ; how many words to copy over
+                ; setup, store original stack pointer
+                mov  [es:di+28], si        ; store ss:sp
+                mov  [es:di+26], ds
+                ; actually switch to local stack
+                mov  ax, es
+                mov  ss, ax
+                mov  sp, di
+                ; copy over stack data to local stack
+                rep movsw
+                sti
+%ENDIF ; WIN31SUPPORT
+
 %if XCPU >= 386
   %ifdef WATCOM
     mov si,fs
@@ -155,6 +180,24 @@ IntDosCal:
     Restore386Registers    
   %endif
 %endif      
+    
+%IFDEF WIN31SUPPORT     ; switch back to user stack
+                cli
+                ; setup, initialize copy
+                mov  si, sp                ; ds:si = ss:sp (local stack)
+                mov  ax, ss
+                mov  ds, ax
+                mov  di, [ds:si+28]        ; restore original ss:sp
+                mov  es, [ds:si+26]
+                mov  cx, 13                ; how many words to copy over
+                ; actually switch to user stack
+                mov  ax, es
+                mov  ss, ax
+                mov  sp, di
+                ; copy over stack data to user stack
+                rep movsw
+                sti
+%ENDIF ; WIN31SUPPORT
     
     pop es
     pop ds

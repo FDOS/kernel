@@ -1833,11 +1833,11 @@ int dos_cd(char * PathName)
 f_node_ptr get_near_f_node(void)
 {
   f_node_ptr fnp = fnode;
-  DebugPrintf(("get_near_f_node: fnp is %p\n", fnp));
+  DDebugPrintf(("get_near_f_node: fnp is %p\n", fnp));
   if (fnp->f_count && (++fnp)->f_count)
     panic("more than two near fnodes requested at the same time!\n");
   fnp->f_count++;
-  DebugPrintf(("got near fnode, fnp->f_count=%i\n", fnp->f_count));
+  DDebugPrintf(("got near fnode, fnp->f_count=%i\n", fnp->f_count));
   return fnp;
 }
 

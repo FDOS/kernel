@@ -36,8 +36,14 @@
    NOTE: this file included by INIT time code and normal
          resident code, so use care for all memory references
  */
- 
- 
+
+/* allow output even in non-debug builds */
+#if 0
+#ifndef DEBUG_NEED_PRINTF
+#define DEBUG_NEED_PRINTF
+#endif
+#endif
+
 /* use to limit output to debug builds */
 #ifdef DEBUG
 #define DebugPrintf(x) printf x
@@ -92,8 +98,11 @@
 #define FDirDbgPrintf(x)
 #endif
 
-/* extra debug output marking sections */
+/* extra debug output when transferring I/O chunks of data */
 /* #define DISPLAY_GETBLOCK */
+
+/* extra output during read/write operations */
+/* #define DSK_DEBUG */
 
 /* display info on various FAT handling functions (fatfs.c) */
 /* #define DEBUGFATFS */
@@ -103,6 +112,14 @@
 #define FatFSDbgPrintf(x)
 #endif
 
+/* debug truename */
+/* #define DEBUG_TRUENAME */
+#ifdef DEBUG_TRUENAME
+#define tn_printf(x) printf x
+#else
+#define tn_printf(x)
+#endif
+
 
 /* just to be sure printf is declared */
 #if defined(DEBUG) || defined(DEBUGIRQ) || defined(DEBUGCFG) || \
@@ -110,8 +127,11 @@
     defined(DEBUGFATDIR) || defined(DEBUGFATFS)
 #ifndef DEBUG_NEED_PRINTF
 #define DEBUG_NEED_PRINTF
-VOID VA_CDECL printf(const char * fmt, ...);
 #endif
+#endif
+
+#ifdef DEBUG_NEED_PRINTF
+VOID VA_CDECL printf(const char * fmt, ...);
 #endif
 
 #endif /* __DEBUG_H */

@@ -96,10 +96,12 @@ STATIC int remote_lock_unlock(sft FAR *sftp,    /* SFT for file */
 
 /* get current directory structure for drive
    return NULL if the CDS is not valid or the
-   drive is not within range */
+   drive is not within range, on input drv is 
+   0 for default or 1=A,2=B,...
+*/
 struct cds FAR *get_cds1(unsigned drv)
 {
-  if (drv-- == 0) /* 0 = A:, 1 = B:, ... */
+  if (drv-- == 0) /* get default drive or convert to 0 = A:, 1 = B:, ... */
     drv = default_drive;
   return get_cds(drv);
 }
@@ -781,6 +783,16 @@ COUNT DosClose(COUNT hndl)
   return ret;
 }
 
+/* get disk free space (in terms of free clusters and cluster size)
+   input: drive specifies which disk to obtain information about, 
+          where 0=default, 1=A,2=B,...
+          navc, bps, and nc are pointers to uninitialized variables
+          used to hold the result, where
+          navc is count of available [free] clusters
+          bps is bytes per sector
+          nc is total number of clusters
+   returns the number of sectors per cluster or on error -1
+ */
 UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
 {
   /* navc==NULL means: called from FatGetDrvData, fcbfns.c */

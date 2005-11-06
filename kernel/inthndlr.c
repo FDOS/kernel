@@ -31,6 +31,8 @@
 #include "portab.h"
 #include "globals.h"
 #include "nls.h"
+#include "debug.h"
+
 
 #ifdef VERSION_STRINGS
 BYTE *RcsId =
@@ -413,7 +415,7 @@ dispatch:
   if (bDumpRegs)
   {
     fmemcpy(&error_regs, user_r, sizeof(iregs));
-    printf("System call (21h): %02x\n", user_r->AX);
+    printf("System call (21h): %04x\n", user_r->AX);
     dump_regs = TRUE;
     dump();
   }
@@ -762,6 +764,7 @@ dispatch:
     case 0x31:
       DosMemChange(cu_psp, lr.DX < 6 ? 6 : lr.DX, 0);
       return_code = lr.AL | 0x300;
+      DDebugPrintf(("ErrorLevel kernel returns is %x(==%x|0x300)\n", (unsigned)return_code, (unsigned)lr.AL));
       tsr = TRUE;
       return_user();
       break;
@@ -1034,6 +1037,7 @@ dispatch:
         rc = 0x100;
       }
       return_code = lr.AL | rc;
+      DDebugPrintf(("ErrorLevel kernel returns is %x\n", (unsigned)return_code));
       if (DosMemCheck() != SUCCESS)
         panic("MCB chain corrupted");
 #ifdef TSC
@@ -1045,6 +1049,7 @@ dispatch:
       /* Get Child-program Return Value                               */
     case 0x4d:
       lr.AX = return_code;
+      DDebugPrintf(("Child ErrorLevel kernel returns is %x(==%x)\n", (unsigned)return_code, (unsigned)lr.AX));
       /* needs to be cleared (RBIL) */
       return_code = 0;
       break;
@@ -1734,7 +1739,12 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
     switch (r.AL)
     {
       /* default: unhandled requests pass through unchanged */
-      #if 0
+      case 0x0:          /* is Windows active */
+      case 0x0A:         /* identify Windows version */
+      {
+        /* return AX unchanged if Windows not active */
+        break;
+      } /* 0x0, 0x0A */
       case 0x03:          /* Windows Get Instance Data */
       {
         /* This should only be called if AX=1607h/BX=15h is not supported. */
@@ -1742,12 +1752,12 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
            can also be in INSTANCE.386 [which in theory means Windows could
            be updated to support FD kernel without responding to these?].
          */
+        DebugPrintf(("get instance data\n"));
         break;
       } /* 0x03 */
-      #endif
       case 0x05:          /* Windows Startup Broadcast */
       {
-        /* After receiving this call we activiate compatibility changes
+        /* After receiving this call we activate compatibility changes
            as DOS 5 does, though can wait until 0x07 subfunc 0x01
          */
         /* on entry:
@@ -1763,6 +1773,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
         r.BX = FP_OFF(&winStartupInfo);
         winStartupInfo.winver = r.di;  /* match what caller says it is */
         winInstanced = 1; /* internal flag marking Windows is active */
+        DebugPrintf(("Win startup\n"));
         break;
       } /* 0x05 */
       case 0x06:          /* Windows Exit Broadcast */
@@ -1772,10 +1783,12 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
            Note: If Windows fatally exits then may not be called.
          */
         winInstanced = 0; /* internal flag marking Windows is NOT active */
+        DebugPrintf(("Win exit\n"));
         break;
       } /* 0x06 */
       case 0x07:          /* DOSMGR Virtual Device API */
       {
+        DebugPrintf(("Vxd:DOSMGR:%x:%x:%x:%x\n",r.AX,r.BX,r.CX,r.DX));
         if (r.BX == 0x15) /* VxD id of "DOSMGR" */
         {
           switch (r.CX)
@@ -1791,7 +1804,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
             }
             case 0x01:    /* enable Win support, ie patch DOS */
             {
-              /* DOS 5+ return with flags unchanged, Windows critical section
+              /* DOS 5+ return with bitflags unchanged, Windows critical section
                  needs are handled without need to patch.  If this
                  function does not return successfully windows will
                  attempt to do the patching itself (very bad idea).
@@ -1810,12 +1823,19 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                    0010h: notify Windows of logical drive map change ("Insert disk X:")
                */
               r.BX = r.DX;    /* sure we support everything asked for, ;-) */
-              r.DX = 0xA2AB;  /* on succes DS:AX set to A2AB:B97Ch */
+              r.DX = 0xA2AB;  /* on succes DX:AX set to A2AB:B97Ch */
               r.AX = 0xB97C;
               /* FIXME: do we need to do anything special for FD kernel? */
               break;
             }
-            /* case 0x02 is below so we can reuse it for 0x05 */
+            case 0x02:    /* disable Win support, ie remove patches */
+            {
+              /* Note: if we do anything special in 'patch DOS', undo it here.
+                 This is only called when Windows exits, can be ignored.
+               */
+              r.CX = 0;   /* for compatibility with MS-DOS 5/6 */
+              break;
+            }
             case 0x03:    /* get internal structure sizes */
             {
               if (r.CX & 0x01) /* size of Current Directory Structure in bytes */
@@ -1839,29 +1859,89 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                */
               r.DX = 0xA2AB;   /* on succes DS:AX set to A2AB:B97Ch */
               r.AX = 0xB97C;
-              r.BX = 0x0008;   /* our whole data seg is instanced, so 
-                                  anything within it we assume instanced. */
+              r.BX = 0; /* a zero here tells Windows to instance everything */
               break;
             }
             case 0x05:    /* get device driver size */
             {
+              /* On entry ES:DI points to possible device driver
+                 if is not one return with AX=BX=CX=DX=0
+                 else return BX:CX size in bytes allocated to driver
+                             and DX:AX set to A2AB:B97Ch */
+              mcb FAR *smcb = MK_PTR(mcb, (r.ES-1), 0); /* para before is possibly submcb segment */
+              /* drivers always start a seg:0 (DI==0), so if not then either 
+                 not device driver or duplicate (ie device driver file loaded
+                 is of multi-driver variety; multiple device drivers in same file,
+                 whose memory was allocated as a single chunk)
+                 Drivers don't really have a MCB, instead the DOS MCB is broken
+                 up into submcbs, which will have a type of 'D' (or 'E')
+                 So we check that this is primary segment, a device driver, and owner.
+              */
+              if (!r.DI && (smcb->m_type == 'D') && (smcb->m_psp == r.ES))
+              {
+                ULONG size = smcb->m_size * 16ul;
+                r.BX = hiword(size);
+                r.CX = loword(size);
+                r.DX = 0xA2AB;   /* on succes DX:AX set to A2AB:B97Ch */
+                r.AX = 0xB97C;
+                break;
+              }
               r.DX = 0;   /* we aren't one so return unsupported */
               r.AX = 0;
               r.BX = 0;
-              /* fall through to set CX=0 and exit */
-            }
-            case 0x02:    /* disable Win support, ie remove patches */
-            {
-              /* Note: if we do anything special in 'patch DOS', undo it here.
-                 This is only called when Windows exits, can be ignored.
-               */
-              r.CX = 0;   /* for compatibility with MS-DOS 5/6 */
+              r.CX = 0;
               break;
             }
           }
         }
+        DebugPrintf(("Vxd:DOSMGR:%x:%x:%x:%x\n",r.AX,r.BX,r.CX,r.DX));
         break;
       } /* 0x07 */
+      case 0x08:          /* Windows Init Complete Broadcast */
+      {
+        DebugPrintf(("Init complete\n"));
+        break;
+      } /* 0x08 */
+      case 0x09:          /* Windows Begin Exit Broadcast */
+      {
+        DebugPrintf(("Exit initiated\n"));
+        break;
+      } /* 0x09 */
+      case 0x0B:          /* Win TSR Identify */
+      {
+        DebugPrintf(("TSR identify request.\n"));
+        break;
+      } /* 0x0B */
+      case 0x80:          /* Win Release Time-slice */
+      {
+        /* This function is generally only called in idle loops */
+        enable;          /* enable interrupts */
+        // __emit__(0xf4);  /* halt              */
+        asm hlt;
+        r.AX = 0;
+        /* DebugPrintf(("Release Time Slice\n")); */
+        break;
+      } /* 0x80 */
+      case 0x81:          /* Win3 Begin Critical Section */
+      {
+        DebugPrintf(("Begin CritSect\n"));
+        break;
+      } /* 0x81 */
+      case 0x82:          /* Win3 End Critical Section */
+      {
+        DebugPrintf(("End CritSect\n"));
+        break;
+      } /* 0x82 */
+      case 0x8F:          /* Win4 Close Awareness */
+      {
+        if (r.DH != 0x01) /* query close */
+          r.AX = 0x0;
+        /* else r.AX = 0x168F;  don't close -- continue execution */
+        break;
+      } /* 0x8F */
+      default:
+        DebugPrintf(("Win call (int 2Fh/16h): %04x %04x %04x %04x\n", r.AX, r.BX, r.CX, r.DX));
+        break;
     }
 #endif
     return;
@@ -1874,7 +1954,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       /* To prevent corruption when dos=umb where Windows 3.0 standard
          writes a sentinel at 9FFEh, DOS 5 will save the MCB marking
          end of conventional memory (ie MCB following caller's PSP memory
-         block [which I assume occupies all of convential memory] into
+         block [which I assume occupies all of conventional memory] into
          the DOS data segment.
          Note: presumably Win3.1 uses the WinPatchTable.OffLastMCBSeg
          when DOS ver > 5 to do this itself.
