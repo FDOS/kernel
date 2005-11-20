@@ -867,12 +867,12 @@ __HMARelocationTableStart:
 _int13_handler: jmp 0:reloc_call_int13_handler
                 call near forceEnableA20
 
-#if 0
+%IF 0
                 global  _int19_handler
                 extern  reloc_call_int19_handler
 _int19_handler: jmp 0:reloc_call_int19_handler
                 call near forceEnableA20
-#endif
+%ENDIF
 
                 global  _int2f_handler
                 extern  reloc_call_int2f_handler

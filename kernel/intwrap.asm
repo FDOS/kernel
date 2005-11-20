@@ -50,6 +50,7 @@ reloc_call_int13_handler:
     stc             ; force error unless BIOS clears
     push dx         ; store BIOS drive # for error handling usage
 
+;TODO FIX this alters DS which is used by some subfunctions!!!
     push ds         ; get segment of kernel DATA
     mov  ds, [cs:_DGROUP_]
     pushf           ; simulate int call so returns back here (flags+cs:ip on stack)
@@ -61,7 +62,6 @@ reloc_call_int13_handler:
 int13iret:
     inc sp          ; clean up stack
     inc sp
-    sti             ; ensure int's are renabled
     retf 2          ; return to caller leaving flags asis
 
 int13err:
@@ -78,11 +78,10 @@ int13err:
 
 int13wrap:
 %IF XCPU < 186
-    push ax         ; preserve registers, setup stack frame
+    push bp
     push bp
     mov  bp, sp
-    mov  ax, 13h    ; want to push 0x13 onto stack
-    xchg ax, [bp+2] ; so restore pushed ax value and put 0x13 on stack
+    mov  [bp+2], word 13h ; do the push 0x13 onto stack
     pop  bp         ; clean up stack frame (leaving just 0x13 pushed on stack)
 %ELSE                
     push 13h        ; the 186+ way to push a constant on the stack
@@ -141,7 +140,7 @@ intWrapCall:
 
 
 
-#if 0
+%IF 0
 ; receives int 19h request, resets various int values,
 ; clears hma if in use, and finally invokes original handler,
 
@@ -158,4 +157,4 @@ reloc_call_int19_handler:
     mov  ax, 19h           ; handler for int 19h
     push ax
     jmp  intWrapCall
-#endif
+%ENDIF
