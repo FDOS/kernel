@@ -1787,7 +1787,8 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
   }
   else
 #endif
-  if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
+  /* only for testing, limit returning cached entry to FAT32, ie always recalc */
+  if (/* ISFAT32(dpbp) && */(dpbp->dpb_nfreeclst != UNKNCLSTFREE))
     return dpbp->dpb_nfreeclst;
 
   for (i = 2; i <= max_cluster; i++)
@@ -2066,6 +2067,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     return DE_INVLDDRV;
 
   /* First test if anyone has changed the removable media         */
+  DDebugPrintf(("do media check...\n"));
   ret = rqblockio(C_MEDIACHK, dpbp);
   if (ret < SUCCESS)
   {
@@ -2073,25 +2075,26 @@ COUNT media_check(REG struct dpb FAR * dpbp)
     return ret;
   }
 
+  DDebugPrintf(("mcr=%s, dpb_flags=%04xh\n", (MediaReqHdr.r_mcretcode==1)?"none":"possible", dpbp->dpb_flags));
   switch (MediaReqHdr.r_mcretcode | dpbp->dpb_flags)
   {
     case M_NOT_CHANGED:
       /* It was definitely not changed, so ignore it          */
-      DebugPrintf(("media_check: no change\n"));
+      DDebugPrintf(("media_check: no change\n"));
       return SUCCESS;
 
       /* If it is forced or the media may have changed,       */
       /* rebuild the bpb                                      */
     case M_DONT_KNOW:
         /* hazard: no error checking! */
-      DebugPrintf(("media_check: unknown\n"));
+      DDebugPrintf(("media_check: unknown\n"));
       flush_buffers(dpbp->dpb_unit);
 
       /* If it definitely changed, don't know (falls through) */
       /* or has been changed, rebuild the bpb.                */
  /* case M_CHANGED: */
     default:
-      DebugPrintf(("media_check: assumming changed\n"));
+      DDebugPrintf(("media_check: assumming changed\n"));
       setinvld(dpbp->dpb_unit);
       ret = rqblockio(C_BLDBPB, dpbp);
       if (ret < SUCCESS)
@@ -2106,7 +2109,7 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 #else
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp);
 #endif
-      DebugPrintf(("media_check: returning ok\n"));
+      DDebugPrintf(("media_check: returning ok\n"));
       return SUCCESS;
   }
 }
