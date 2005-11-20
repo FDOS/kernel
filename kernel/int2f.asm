@@ -56,6 +56,8 @@ FarTabRetn:
 Int2f3:
                 cmp     ah,12h
                 je      IntDosCal               ; Dos Internal calls
+                cmp     ah,13h
+                je      IntDosCal               ; Install Int13h Hook
                 cmp     ah,16h
                 je      IntDosCal               ; Win (Multitasking) Hook
                 cmp     ah,46h

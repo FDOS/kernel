@@ -30,6 +30,7 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId =
@@ -48,6 +49,7 @@ STATIC VOID init_internal_devices(void);
 
 STATIC VOID update_dcb(struct dhdr FAR *);
 STATIC VOID init_kernel(VOID);
+STATIC VOID do_fixup(VOID);
 STATIC VOID signon(VOID);
 STATIC VOID init_shell(VOID);
 STATIC VOID FsConfig(VOID);
@@ -55,6 +57,11 @@ STATIC VOID InitPrinters(VOID);
 STATIC VOID InitSerialPorts(VOID);
 STATIC void CheckContinueBootFromHarddisk(void);
 STATIC void setup_int_vectors(void);
+#define setup_fastprint_hook() setvec(0x29, int29_handler)  /* required for printf! */
+
+
+void setvec(unsigned char intno, intvec vector);
+
 
 #ifdef _MSC_VER
 BYTE _acrtused = 0;
@@ -67,6 +74,7 @@ __segment DosTextSeg = 0;
 #endif
 
 struct lol FAR * const LoL = &DATASTART;
+intvec FAR * const savedIVs = &SAVEDIVLST;
 
 void ASMCFUNC FreeDOSmain(void)
 {
@@ -120,14 +128,25 @@ void ASMCFUNC FreeDOSmain(void)
     fmemcpy(&InitKernelConfig, p, sizeof InitKernelConfig);
   }
 
-  setup_int_vectors();
+  /* printfs won't work until int29, fast console output hook is installed */
+  setup_fastprint_hook();
 
+  /* check if booting from CD before we hook too many interrupts */
   CheckContinueBootFromHarddisk();
 
+  /* display copyright info and kernel emulation status */
   signon();
-  init_kernel();
-  init_shell();
 
+  /* finish initial HMA segment relocation (move up until DOS=HIGH known) */
+  do_fixup();
+
+  /* install DOS API and other interrupt service routines, basic kernel functionality works */
+  setup_int_vectors();
+
+  /* initialize all internal variables, process CONFIG.SYS, load drivers, etc */
+  init_kernel();
+
+  init_shell();
   init_call_p_0(&Config); /* execute process 0 (the shell) */
 }
 
@@ -195,6 +214,30 @@ void setvec(unsigned char intno, intvec vector)
 }
 #endif
 
+
+/* ensures int vectors we may need to restore are saved */
+STATIC VOID save_int_vectors(VOID)
+{
+  /* we create far pointers otherwise compiler sets value
+     in initial data segment (IDATA) which does us no good.
+   */
+  extern intvec BIOSInt13, UserInt13, BIOSInt19;  /* in kernel.asm */
+  intvec FAR *pBIOSInt13, FAR *pUserInt13, FAR *pBIOSInt19;
+
+  pBIOSInt13 = MK_FP(FP_SEG(savedIVs), FP_OFF(savedIVs));
+  pUserInt13 = pBIOSInt13 + 1;
+  pBIOSInt19 = pBIOSInt13 + 2;
+
+  /* store for later use by our replacement int13handler */
+  *pBIOSInt13 = getvec(0x13);  /* save original BIOS int 0x13 handler */
+  *pUserInt13 = *pBIOSInt13;   /* default to it for user int 0x13 handler */
+  *pBIOSInt19 = getvec(0x19);  /* save reboot handler so we can clean up a little */
+
+  DDebugPrintf(("\n"));  /* force anything printed to start on next line after BS */
+  DDebugPrintf(("BIOSInt13(at %p) is %p\n", pBIOSInt13, *pBIOSInt13));
+  DDebugPrintf(("BIOSInt19(at %p) is %p\n", pBIOSInt19, *pBIOSInt19));
+}
+
 STATIC void setup_int_vectors(void)
 {
   static struct vec
@@ -208,20 +251,27 @@ STATIC void setup_int_vectors(void)
       { 0x1, FP_OFF(empty_handler) },  /* single step */
       { 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
       { 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
+      { 0x13, FP_OFF(int13_handler) }, /* BIOS disk filter */
+#if 0
+      { 0x19, FP_OFF(int19_handler) }, /* BIOS bootstrap loader, vdisk */
+#endif
       { 0x20, FP_OFF(int20_handler) },
-      { 0x21, FP_OFF(int21_handler) },
+      { 0x21, FP_OFF(int21_handler) }, /* primary DOS API */
       { 0x22, FP_OFF(int22_handler) },
       { 0x24, FP_OFF(int24_handler) },
-      { 0x25, FP_OFF(low_int25_handler) },
+      { 0x25, FP_OFF(low_int25_handler) }, /* DOS abs read/write calls */
       { 0x26, FP_OFF(low_int26_handler) },
       { 0x27, FP_OFF(int27_handler) },
       { 0x28, FP_OFF(int28_handler) },
       { 0x2a, FP_OFF(int2a_handler) },
-      { 0x2f, FP_OFF(int2f_handler) }
+      { 0x2f, FP_OFF(int2f_handler) }  /* multiplex int */
     };
   struct vec *pvec;
   int i;
 
+  save_int_vectors();
+
+  /* install default handlers */
   for (i = 0x23; i <= 0x3f; i++)
     setvec(i, empty_handler);
   for (pvec = vectors; pvec < ENDOF(vectors); pvec++)
@@ -229,7 +279,7 @@ STATIC void setup_int_vectors(void)
   pokeb(0, 0x30 * 4, 0xea);
   pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
 
-  /* these two are in the device driver area LOWTEXT (0x70) */
+  /* handlers for int 0x1b and 0x29 are in the device driver area LOWTEXT (0x70) */
   setvec(0x1b, got_cbreak);
   setvec(0x29, int29_handler);  /* required for printf! */
 }
@@ -251,14 +301,8 @@ STATIC void printIRQvectors(void)
 }
 #endif
 
-STATIC void init_kernel(void)
+STATIC void do_fixup(void)
 {
-  COUNT i;
-
-  LoL->os_setver_major = LoL->os_major = MAJOR_RELEASE;
-  LoL->os_setver_minor = LoL->os_minor = MINOR_RELEASE;
-  LoL->rev_number = REVISION_SEQ;
-
   /* move kernel to high conventional RAM, just below the init code */
   /* Note: kernel.asm actually moves and jumps here, but MoveKernel
            must still be called to do the necessary segment fixups */
@@ -275,6 +319,15 @@ STATIC void init_kernel(void)
      chunk allocated, lpTop. I.e. lpTop is top of free conv memory
    */
   lpTop = MK_FP(FP_SEG(lpTop) - 0xfff, 0xfff0);
+}
+
+STATIC void init_kernel(void)
+{
+  COUNT i;
+
+  LoL->os_setver_major = LoL->os_major = MAJOR_RELEASE;
+  LoL->os_setver_minor = LoL->os_minor = MINOR_RELEASE;
+  LoL->rev_number = REVISION_SEQ;
 
   /* Initialize IO subsystem                                      */
   init_internal_devices();

@@ -652,6 +652,22 @@ _ext_open_action dw 0                   ;2DD - extended open action
 _ext_open_attrib dw 0                   ;2DF - extended open attrib
 _ext_open_mode   dw 0                   ;2E1 - extended open mode
 
+
+
+; these 3 placed here so init code and int wrapper can easily access
+; holds pointers to actual disk handler routines and interrupt
+; vectors that we try to restore before a warm reboot
+                global _SAVEDIVLST
+_SAVEDIVLST:
+                ; used by int13 handler and get/set via int 2f/13h
+                global  _BIOSInt13
+                global  _UserInt13
+_BIOSInt13 dd 0 ; used to restore int13 on reboot (see int19 wrapper)
+_UserInt13 dd 0 ; actual disk handler used by kernel
+                global  _BIOSInt19
+_BIOSInt19 dd 0 ; original int19
+
+
                 ; Pad to 0620h
                 times (300h - ($ - _internal_data)) db 0
                 global _szNames
@@ -845,6 +861,18 @@ initforceEnableA20:
 
     global __HMARelocationTableStart
 __HMARelocationTableStart:   
+
+                global  _int13_handler
+                extern  reloc_call_int13_handler
+_int13_handler: jmp 0:reloc_call_int13_handler
+                call near forceEnableA20
+
+#if 0
+                global  _int19_handler
+                extern  reloc_call_int19_handler
+_int19_handler: jmp 0:reloc_call_int19_handler
+                call near forceEnableA20
+#endif
 
                 global  _int2f_handler
                 extern  reloc_call_int2f_handler

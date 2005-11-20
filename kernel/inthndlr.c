@@ -41,7 +41,7 @@ BYTE *RcsId =
 
 #ifdef TSC
 STATIC VOID StartTrace(VOID);
-static bTraceNext = FALSE;
+STATIC bTraceNext = FALSE;
 #endif
 
 #if 0                           /* Very suspicious, passing structure by value??
@@ -1703,6 +1703,9 @@ struct int2f12regs {
   xreg callerARG1;		/* used if called from INT2F/12	*/
 };
 
+extern intvec BIOSInt13, UserInt13, BIOSInt19;
+
+
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
  * On input r.AX==0x12xx, 0x4A01 or 0x4A02
  * also handle Windows' DOS notification hooks, r.AH==0x16
@@ -1731,6 +1734,17 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
     }
     r.DI = offs;
     r.BX = size;
+    return;
+  }
+  else if (r.AH == 0x13) /* set disk interrupt (13h) handler */
+  {
+    /* set new values for int13h calls, and must return old values */
+    register intvec tmp = UserInt13;
+    UserInt13 = MK_FP(r.ds, r.DX);            /* int13h handler to use */
+    r.ds = FP_SEG(tmp);  r.DX = FP_OFF(tmp);
+    tmp = BIOSInt13;
+    BIOSInt13 = MK_FP(r.es, r.BX);            /* int13h handler to restore on reboot */
+    r.es = FP_SEG(tmp);  r.BX = FP_OFF(tmp);
     return;
   }
   else if (r.AH == 0x16) /* Window/Multitasking hooks */
@@ -1915,9 +1929,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       case 0x80:          /* Win Release Time-slice */
       {
         /* This function is generally only called in idle loops */
-        enable;          /* enable interrupts */
-        // __emit__(0xf4);  /* halt              */
-        asm hlt;
+        __emit__(0xfb);  /* sti; enable interrupts */
+        __emit__(0xf4);  /* hlt; halt until interrupt */
         r.AX = 0;
         /* DebugPrintf(("Release Time Slice\n")); */
         break;
@@ -2258,6 +2271,91 @@ error_exit:
     CritErrCode = r.AX;      /* Maybe set */
   r.FLAGS |= FLG_CARRY;
 }
+
+
+/* how registers pushed on stack prior to calling int wrapper function,
+   when returns these are then popped off, so any changes to these
+   will effectively set the returned value in these registers
+ */
+struct intXXregs {
+#ifdef I386
+  /* preserved 386+ only registers, compiler specific */
+#endif
+  UWORD es, ds;
+  UWORD di, si, bp;
+  xreg b, d, c, a;
+  UWORD intreq;  /* which interrupt filter request for */
+  UWORD flags;   /* flags duplicated, one pushed by int call ignored */
+  xreg  param;
+  UWORD ip, cs , oflags;
+  /* top item of int caller's stack, possibly additional params */
+};
+
+
+/* additional processing for various wrapped/filtered interrupts
+   WARNING: this function also called during kernel init phase
+   -- int 13h
+   filter for BIOS int13h support, only called on int13h error
+   for ms-dos compatibility this should at minimal 
+   watch for disk-change notification and set internal status
+   (may be called multiple times in row when BIOS reports same
+   change multiple times, ie delays clearing disk change status)
+   TODO: move DMA bounday check from int25/26 to here
+   Note: use stored user (usually BIOS) hooked int13 handler
+   -- int 19h
+   clean up prior to a warm reboot 
+   for ms compatibility this should at a minimal
+   restore original (or indicated as original) BIOS int13h handler
+   and any others that may be hooked (including this one)
+   if himem loaded clear high memory area (clear vdisk signature so himem loads)
+ */
+VOID ASMCFUNC intXX_filter(struct intXXregs r)
+{
+  DebugPrintf(("int %02xh filter\n", r.intreq));
+  switch(r.intreq)
+  {
+    case 0x19:  /* reboot via bootstrap */
+    {
+      setvec(0x13, BIOSInt13);
+      setvec(0x19, BIOSInt19);
+
+      /* clear vdisk signature if kernel loaded in hma */
+      if (version_flags & 0x10)
+        fmemset(MK_FP(0xffff, 0x0010),0,512);
+      break;
+    }
+    case 0x13:  /* error with disk handler */
+    {
+      DebugPrintf(("disk error %i [ah=%x] (drive %x)\n", r.a.b.h, r.param.b.h, r.param.b.l));
+      DebugPrintf(("bx==(%x) cx==(%x) dx==(%x)\n", r.BX, r.CX, r.DX));
+      /* currently just marks floppy as changed on disk change error */
+      if ((r.a.b.h == 0x06) && (r.param.b.l < 0x80))  /* diskchange and is it a floppy? */
+      {
+        register int i;
+
+        /* mark floppy as changed */
+        for(i=0; i < blk_dev.dh_name[0]; i++)
+        {
+          ddt *pddt = getddt(i);
+          if (pddt->ddt_driveno == r.param.b.l)
+          {
+            DebugPrintf(("ddt[%i] match, flags=%04x\n", i, pddt->ddt_descflags));
+            if ((pddt->ddt_descflags & DF_CHANGELINE) && /* drive must have changeline support */
+                (pddt->ddt_descflags & DF_CURBPBLOCK)) /* and BPB not currently locked (in-use) */
+              pddt->ddt_descflags |= DF_DISKCHANGE;
+            /* or get dpb pointer from ddt and set dpbp->dpb_flags = M_CHANGED; */
+          }
+        }
+      }
+      break;
+    }
+    default:
+      DebugPrintf(("INT_ERROR!\n"));
+      break;
+  }
+}
+
+
 
 /*
  * 2000/09/04  Brian Reifsnyder
