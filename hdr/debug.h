@@ -131,7 +131,7 @@
 #endif
 
 #ifdef DEBUG_NEED_PRINTF
-VOID VA_CDECL printf(const char * fmt, ...);
+VOID VA_CDECL printf(const char FAR * fmt, ...);
 #endif
 
 #endif /* __DEBUG_H */

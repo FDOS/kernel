@@ -191,6 +191,8 @@ VOID ASMCFUNC int21_service(iregs far * r);
 VOID ASMCFUNC FAR int0_handler(void);
 VOID ASMCFUNC FAR int6_handler(void);
 VOID ASMCFUNC FAR empty_handler(void);
+VOID ASMCFUNC FAR int13_handler(void);
+/* VOID ASMCFUNC FAR int19_handler(void); */
 VOID ASMCFUNC FAR int20_handler(void);
 VOID ASMCFUNC FAR int21_handler(void);
 VOID ASMCFUNC FAR int22_handler(void);
@@ -221,8 +223,8 @@ BOOL init_device(struct dhdr FAR *, PCStr cmdLine, int mode, VFP *top);
 
 /* prf.c */
 
-VOID VA_CDECL init_printf(const char * fmt, ...);
-VOID VA_CDECL init_sprintf(char * buff, const char * fmt, ...);
+VOID VA_CDECL init_printf(const char FAR * fmt, ...);
+VOID VA_CDECL init_sprintf(char FAR * buff, const char FAR * fmt, ...);
 
 /* procsupt.asm */
 VOID ASMCFUNC FAR got_cbreak(void);
@@ -253,6 +255,7 @@ extern struct dhdr DOSTEXTFAR ASM blk_dev; /* Block device (Disk) driver        
 
 extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
 extern struct lol ASM FAR DATASTART;
+extern intvec ASM FAR SAVEDIVLST;
 
 extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE area    */
   FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */

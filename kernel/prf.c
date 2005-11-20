@@ -123,17 +123,17 @@ void put_console(int c)
 
 #ifndef FORSYS
 /* copied from bcc (Bruce's C compiler) stdarg.h */
-typedef char *va_list;
-#define va_start(arg, last) ((arg) = (char *) (&(last)+1))
-#define va_arg(arg, type) (((type *)(arg+=sizeof(type)))[-1])
+typedef char FAR *va_list;
+#define va_start(arg, last) ((arg) = (va_list) (&(last)+1))
+#define va_arg(arg, type) (((type FAR *)(arg+=sizeof(type)))[-1])
 #define va_end(arg)
 #endif
 
-static BYTE *charp = 0;
+static BYTE FAR *charp = 0;
 
 STATIC VOID handle_char(COUNT);
-STATIC void do_printf(const char *, REG va_list);
-VOID VA_CDECL printf(const char * fmt, ...);
+STATIC void do_printf(const char FAR *, va_list);
+VOID VA_CDECL printf(const char FAR * fmt, ...);
 
 /* special handler to switch between sprintf and printf */
 STATIC VOID handle_char(COUNT c)
@@ -150,7 +150,7 @@ STATIC VOID handle_char(COUNT c)
 #define LONGARG 4
 
 /* printf -- short version of printf to conserve space */
-VOID VA_CDECL printf(const char *fmt, ...)
+VOID VA_CDECL printf(CONST BYTE FAR *fmt, ...)
 {
   va_list arg;
   va_start(arg, fmt);
@@ -158,7 +158,7 @@ VOID VA_CDECL printf(const char *fmt, ...)
   do_printf(fmt, arg);
 }
 
-VOID VA_CDECL sprintf(char * buff, const char * fmt, ...)
+VOID VA_CDECL sprintf(char FAR * buff, CONST BYTE FAR * fmt, ...)
 {
   va_list arg;
 
@@ -168,7 +168,7 @@ VOID VA_CDECL sprintf(char * buff, const char * fmt, ...)
   handle_char('\0');
 }
 
-STATIC void do_printf(CONST BYTE * fmt, va_list arg)
+STATIC void do_printf(CONST BYTE FAR * fmt, va_list arg)
 {
   int base, size;
   char s[13]; /* long enough for a 32-bit octal number string with sign */
@@ -226,7 +226,7 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
       case 'p':
         {
           UWORD w0 = va_arg(arg, unsigned);
-          char *tmp = charp;
+          char FAR *tmp = charp;
           sprintf(s, "%04x:%04x", va_arg(arg, unsigned), w0);
           p = s;
           charp = tmp;
@@ -266,7 +266,7 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
           long n;
           ULONG u;
           BOOL minus = FALSE;
-          BYTE *t = s + sizeof(s) - 1;
+          BYTE FAR *t = s + sizeof(s) - 1;
 
           if (flags & LONGARG)
             n = va_arg(arg, long);
@@ -329,7 +329,7 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 #endif
 #if !defined(FORSYS) && !defined(_INIT)
 
-extern void put_string(const char *);
+extern void put_string(const char FAR *);
 extern void put_unsigned(unsigned, int, int);
 
 void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
@@ -370,7 +370,7 @@ void put_unsigned(unsigned n, int base, int width)
   put_string(s);
 }
 
-void put_string(const char *s)
+void put_string(const char FAR *s)
 {
   while(*s != '\0')
     put_console(*s++);

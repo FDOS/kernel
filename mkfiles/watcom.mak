@@ -32,6 +32,7 @@ MATH_INSERT =+i4m
 # -ze           enable extensions (i.e., near, far, export, etc.)
 # -zl           remove default library information
 # -zp=<num>     pack structure members with alignment {1,2,4,8,16}
+# -zu           SS!=DGROUP
 #
 # -3		optimization for 386 - given in $(CPUOPT)
 # -g=<id>       set code group name
