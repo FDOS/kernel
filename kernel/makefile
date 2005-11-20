@@ -16,7 +16,7 @@ HDR=../hdr/
 # Order of linking is important: first kernel.asm, last INIT code.
 OBJS1=kernel.obj entry.obj intr.obj irqstack.obj apisupt.obj io.obj console.obj
 OBJS2=printer.obj serial.obj dosidle.obj execrh.obj asmsupt.obj int2f.obj \
-nlssupt.obj
+nlssupt.obj intwrap.obj
 OBJS3=nls_hc.obj procsupt.obj dsk.obj error.obj blockio.obj chario.obj break.obj
 OBJS4=fatfs.obj fatdir.obj fattab.obj dosfns.obj fcbfns.obj inthndlr.obj
 OBJS5=ioctl.obj memmgr.obj task.obj newstuff.obj dosnames.obj nls.obj
@@ -64,6 +64,7 @@ dosidle.obj:	dosidle.asm  segs.inc
 entry.obj:	entry.asm    segs.inc $(HDR)stacks.inc
 execrh.obj:	execrh.asm   segs.inc
 int2f.obj:	int2f.asm    segs.inc $(HDR)stacks.inc
+intwrap.obj:	intwrap.asm    segs.inc $(HDR)stacks.inc
 intr.obj:	intr.asm     segs.inc
 io.obj:		io.asm       segs.inc $(HDR)stacks.inc
 irqstack.obj:	irqstack.asm segs.inc
