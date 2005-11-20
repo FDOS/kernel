@@ -245,16 +245,16 @@ typedef struct ddtstruct {
 } ddt;
 
 /* description flag bits */
-#define DF_FIXED      0x001
-#define DF_CHANGELINE 0x002
-#define DF_CURBPBLOCK 0x004
-#define DF_SAMESIZE   0x008
-#define DF_MULTLOG    0x010
-#define DF_CURLOG     0x020
-#define DF_DISKCHANGE 0x040
-#define DF_DPCHANGED  0x080
-#define DF_REFORMAT   0x100
-#define DF_NOACCESS   0x200
+#define DF_FIXED      0x001     /* fixed media, ie hard drive */
+#define DF_CHANGELINE 0x002     /* door lock or disk change detection reported as supported */
+#define DF_CURBPBLOCK 0x004     /* current BPB locked ??? */
+#define DF_SAMESIZE   0x008     /* all sectors in a track are the same size */
+#define DF_MULTLOG    0x010     /* physical drive represents multiple logical ones, eg A: & B: */
+#define DF_CURLOG     0x020     /* active (current) logical drive for this physical drive */
+#define DF_DISKCHANGE 0x040     /* disk change was detected */
+#define DF_DPCHANGED  0x080     /* device parameters changed */
+#define DF_REFORMAT   0x100     /* disk formatted so BPB has changed */
+#define DF_NOACCESS   0x200     /* don't allow access (read or write) to fixed media */
 /* freedos specific flag bits */
 #define DF_LBA        0x400
 #define DF_WRTVERIFY  0x800
