@@ -27,17 +27,13 @@
 #include "portab.h"
 #include "globals.h"
 #include "dyndata.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *dskRcsId =
     "$Id$";
 #endif
 
-#if defined(DEBUG)
-#define DebugPrintf(x) printf x
-#else
-#define DebugPrintf(x)
-#endif
 
 void ASMPASCAL fl_readkey(void);
 int ASMPASCAL fl_reset(UBYTE drive);
@@ -64,7 +60,7 @@ int ASMPASCAL fl_lba_ReadWrite(UBYTE drive, WORD mode,
 #endif
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
-                 ULONG LBA_address, unsigned total, UWORD * transferred);
+                 ULONG LBA_address, unsigned total, UWORD FAR * transferred);
 
 #define LBA_READ         0x4200
 #define LBA_WRITE        0x4300
@@ -223,10 +219,14 @@ STATIC WORD diskchange(ddt * pddt)
   {
     int ret = fl_diskchanged(pddt->ddt_driveno);
     if (ret == 1)
+    {
       /* check if it has changed... */
       return M_CHANGED;
+    }
     if (ret == 0)
+    {
       return M_NOT_CHANGED;
+    }
   }
 
   /* can not detect or error... */
@@ -246,7 +246,7 @@ STATIC WORD mediachk(rqptr rp, ddt * pddt)
   else if (pddt->ddt_descflags & DF_DISKCHANGE)
   {
     pddt->ddt_descflags &= ~DF_DISKCHANGE;
-    rp->r_mcretcode = M_DONT_KNOW;
+    rp->r_mcretcode = M_DONT_KNOW;  /* media_check() treats as M_CHANGED but tries flushing buffers 1st */
   }
   else if ((rp->r_mcretcode = diskchange(pddt)) == M_DONT_KNOW)
   {
@@ -813,7 +813,7 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-STATIC void LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
+STATIC void LBA_to_CHS(ULONG LBA_address, struct CHS FAR *chs, const ddt * pddt)
 {
   /* we need the defbpb values since those are taken from the
      BIOS, not from some random boot sector, except when
@@ -866,7 +866,7 @@ STATIC unsigned DMA_max_transfer(void FAR * buffer, unsigned count)
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
                  ULONG LBA_address, unsigned totaltodo,
-                 UWORD * transferred)
+                 UWORD FAR * transferred)
 {
   *transferred = 0;
 
