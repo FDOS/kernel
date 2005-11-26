@@ -301,7 +301,7 @@ VOID VA_CDECL sprintf(char FAR * buff, const char FAR* fmt, ...);
 #endif
 VOID hexd(char *title, VOID FAR * p, COUNT numBytes);
 void put_unsigned(unsigned n, int base, int width);
-void put_string(const char *s);
+void put_string(const char FAR *s);
 void put_console(int);
 
 /* strings.c */
