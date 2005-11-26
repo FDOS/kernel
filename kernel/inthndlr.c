@@ -1929,8 +1929,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       case 0x80:          /* Win Release Time-slice */
       {
         /* This function is generally only called in idle loops */
-        __emit__(0xfb);  /* sti; enable interrupts */
-        __emit__(0xf4);  /* hlt; halt until interrupt */
+        enable();  /* sti; enable interrupts */
+        halt();    /* hlt; halt until interrupt */
         r.AX = 0;
         /* DebugPrintf(("Release Time Slice\n")); */
         break;

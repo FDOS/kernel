@@ -83,8 +83,9 @@ static char *portab_hRcsId =
 void __int__(int);
 #ifndef FORSYS
 void __emit__(char, ...);
-#define disable() __emit__(0xfa)
-#define enable() __emit__(0xfb)
+#define disable() __emit__(0xfa)  /* cli; disable interrupts   */
+#define enable()  __emit__(0xfb)  /* sti; enable interrupts    */
+#define halt()    __emit__(0xf4)  /* hlt; halt until interrupt */
 #endif
 
 #elif defined	(_MSC_VER)
@@ -99,6 +100,7 @@ void __emit__(char, ...);
 #define __int__(intno) asm int intno;
 #define disable() asm cli
 #define enable() asm sti
+#define halt() asm hlt
 #define _CS getCS()
 static unsigned short __inline getCS(void)
 {
@@ -118,6 +120,8 @@ void disable(void);
 #pragma aux disable = "cli" modify exact [];
 void enable(void);
 #pragma aux enable = "sti" modify exact [];
+void halt(void);
+#pragma aux halt = "hlt" modify exact [];
 #define asm __asm
 #define far __far
 #define CDECL   __cdecl
