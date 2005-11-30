@@ -251,7 +251,7 @@ STATIC void setup_int_vectors(void)
       { 0x1, FP_OFF(empty_handler) },  /* single step */
       { 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
       { 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
-      { 0x13, FP_OFF(int13_handler) }, /* BIOS disk filter */
+/*      { 0x13, FP_OFF(int13_handler) }, *//* BIOS disk filter */
 #if 0
       { 0x19, FP_OFF(int19_handler) }, /* BIOS bootstrap loader, vdisk */
 #endif
