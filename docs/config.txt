@@ -1,3 +1,5 @@
+Title: Config.sys Options
+
 Configuring your DOS system for use:
 ------------------------------------
 When booting DOS, you will find it only supports a subset of
@@ -188,6 +190,21 @@ The default is a forward slash (/).  Note: This simply sets the value
 returned by a get switchar query, it will not effect programs that use
 hardcoded switch characters.
 e.g.  switchar=-
+
+SWITCHES
+Usage: switches=/E[:xxx] /F /K /N /W
+Adjusts boot time processing behaviour.
+/F skips the delay checking for F5/F8 keystroke before processing config.sys
+   [equivalent to setting kernel config option skipconfigseconds = 0]
+/N disables F5/F8 support [equivalent to kernel config skipconfigseconds = -1]
+(note: with /F a well timed F5/F8 still works, whereas /N completely disables)
+/K forces treating of keyboard as 86 key keyboard
+/E enables moving of EBDA (Extended BIOS Data Area), optionally a size in KB
+   may be specified [xxx, in range of 48-1024]
+/W disables Windows 3.0 from loading WINA20.386 from the root directory (used
+   when \WINA20.386 is moved into a subdirectory, a device line with proper
+   path must be added to Microsoft (R) Windows' SYSTEM.INI [386Enhanced]
+   section.)  ---  Unsupported, though may be ignored for compatibility.
 
 VERSION
 Usage:  version=x.y
