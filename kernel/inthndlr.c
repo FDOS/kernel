@@ -2233,12 +2233,40 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       r.FLAGS &= ~FLG_CARRY;
       break;
 
+    case 0x2b:                 /* Device I/O Control */
+      if (r.BP < 0x4400 || r.BP > 0x44ff)
+        goto error_invalid;
+      {
+        lregs lr;
+        lr.AX = r.BP;
+        lr.BX = r.BX;
+        lr.CX = r.CX;
+        lr.DX = r.DX;
+        lr.DI = r.DI;
+        lr.SI = r.SI;
+        lr.DS = r.DS;
+        rc = DosDevIOctl(&lr);      /* can set critical error code! */
+      }
+
+      if (rc < SUCCESS)
+      {
+        r.AX = -rc;
+        if (rc != DE_DEVICE && rc != DE_ACCESS)
+          CritErrCode = r.AX;
+        goto error_carry;
+      }
+      break;
+    
     case 0x2c:                 /* added by James Tabor For Zip Drives
                                    Return Null Device Pointer          */
       /* by UDOS+RBIL: get header of SECOND device driver in device chain, 
          omitting the NUL device TE */
       r.BX = FP_SEG(nul_dev.dh_next);
       r.AX = FP_OFF(nul_dev.dh_next);
+      break;
+
+    case 0x2d:                 /* Get Extended Error Code */
+      r.AX = CritErrCode;
       /* fall through only to re-use break */
     case 0x2e:                 /* GET or SET error table addresse - ignored
                                    called by MS debug with  DS != DOSDS, printf
@@ -2285,6 +2313,7 @@ error_exit:
   r.AX = -rc;
   if (CritErrCode == SUCCESS)
     CritErrCode = r.AX;      /* Maybe set */
+error_carry:
   r.FLAGS |= FLG_CARRY;
 }
 
