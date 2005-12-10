@@ -364,6 +364,7 @@
           - DOS-63-00 returns DBCS table from the active NLS package, not the
             harcoded one.
           - DOS-65-23: DosYesNo() arg is now DX, not DL.
+          - added Int 2Fh/122Bh&122Dh processing for NLSFUNC to work with DISPLAY 1.0
         * nls.c: MuxLoadPkg(), MuxGo() functions modified for NLSFUNC
           - New macro getTable7()
           - New functions nlsIsDBCS() (check if a byte is a dual byte char
