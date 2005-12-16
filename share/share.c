@@ -255,11 +255,16 @@ static void interrupt far handler2f(intregs_t iregs) {
 		if ((iregs.ax & 0xfe) == 0xa2) {
 			iregs.ax = access_check
 				(iregs.bx,
-				 iregs.cx,
+                 iregs.cx,
+#if 0
 				 (   ((((unsigned long)iregs.si)<<16) & 0xffff0000L) |
 					 (((unsigned long)iregs.di) & 0xffffL)   ),
 				 (   ((((unsigned long)iregs.es)<<16) & 0xffff0000L) |
-					 (((unsigned long)iregs.dx) & 0xffffL)   ),
+                     (((unsigned long)iregs.dx) & 0xffffL)   ),
+#else
+				 (   (((unsigned long)iregs.si)<<16) + iregs.di   ),
+				 (   (((unsigned long)iregs.es)<<16) + iregs.dx   ),
+#endif
 				 (iregs.ax & 0x01));
 			return;
 		}
@@ -268,11 +273,16 @@ static void interrupt far handler2f(intregs_t iregs) {
 		if ((iregs.ax & 0xfe) == 0xa4) {
 			iregs.ax = lock_unlock
 				(iregs.bx,
-				 iregs.cx,
+                 iregs.cx,
+#if 0
 				 (   ((((unsigned long)iregs.si)<<16) & 0xffff0000L) |
-					 (((unsigned long)iregs.di) & 0xffffL)   ),
+  				 (((unsigned long)iregs.di) & 0xffffL)   ),
 				 (   ((((unsigned long)iregs.es)<<16) & 0xffff0000L) |
-					 (((unsigned long)iregs.dx) & 0xffffL)   ),
+                     (((unsigned long)iregs.dx) & 0xffffL)   ),
+#else
+				 (   (((unsigned long)iregs.si)<<16) | ((unsigned long)iregs.di)   ),
+				 (   (((unsigned long)iregs.es)<<16) | ((unsigned long)iregs.dx)   ),
+#endif
 				 (iregs.ax & 0x01));
 			return;
 		}
@@ -522,12 +532,15 @@ static int lock_unlock
 	lock_t *lptr;
 	unsigned long endofs = ofs + len;
 
-	if (endofs < ofs) {
+    if (endofs < ofs) {
 		endofs = 0xffffffffL;
 		len = endofs-ofs;
 	}
 
 	if (len < 1L) return 0;
+
+    /* there was a error in the code below preventing any other
+     than the first locked region to be unlocked (japheth, 09/2005) */
 
 	if (unlock) {
 		for (i = 0; i < lock_table_size; i++) {
@@ -540,10 +553,9 @@ static int lock_unlock
 				lptr->used = 0;
 				return 0;
 			}
-				/* Not already locked by us; can't unlock. */
-			return -(0x21);		/* lock violation */
 		}
-		return -(0x24);		/* sharing buffer overflow */
+			/* Not already locked by us; can't unlock. */
+		return -(0x21);		/* lock violation */
 	} else {
 		if (access_check(0, fileno, ofs, len, 0)) {
 				/* Already locked; can't lock. */
