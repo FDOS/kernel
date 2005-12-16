@@ -5,22 +5,28 @@
 	If not, see www.gnu.org for details.  Read it, learn it, BE IT.  :-)
 */
 
-#include <stdio.h>
-#include <fcntl.h>
-#include <io.h>
-#include <stdlib.h>
-#include <dos.h>
-#include <string.h>
+/* #include <stdio.h> */ /* (fprintf removed...) */
+/* #include <fcntl.h> */ /* Not used, using defines below... */
+#include <io.h>		/* write (what else?) */
+#include <stdlib.h>	/* _psp, NULL, malloc, free, atol, atoi */
+#include <dos.h>	/* MK_FP, FP_OFF, FP_SEG, int86, intdosx, */
+			/* freemem, keep */
+#include <string.h>	/* strchr, strlen, memset */
 
 #ifndef __TURBOC__
 #error "This software must be compiled with TurboC or TurboC++."
 #endif
 
+/* Changed by Eric Auer 5/2004: Squeezing executable size a bit -> */
+/* Replaced fprint(stderr or stdout,...) by write(hand, buf, size) */
+/* Keeps stream stuff and printf stuff outside the file and TSR... */
+
+		/* ------------- DEFINES ------------- */
 #define MUX_INT_NO 0x2f
 #define MULTIPLEX_ID 0x10
 
 #define FILE_TABLE_MIN 128
-#define FILE_TABLE_MAX 62000
+#define FILE_TABLE_MAX 62000U
 
 #define LOCK_TABLE_MIN 1
 #define LOCK_TABLE_MAX 3800
@@ -37,6 +43,7 @@
 #define SHARE_DENY_READ  3
 #define SHARE_DENY_NONE  4
 
+		/* ------------- TYPEDEFS ------------- */
 	/* Register structure for an interrupt function. */
 typedef struct {
 	unsigned bp;
@@ -86,6 +93,7 @@ typedef struct {
 
 static open_action_exception_t open_exceptions[] = {
 	{ 0, 0, 2, 0, 3 },
+	{ 0, 0, 4, 0, 3 },	/* compatibility-read/deny none-read, MED 08/2004 */
 	{ 2, 0, 0, 0, 4 },
 	{ 2, 0, 2, 0, 0 },
 	{ 2, 0, 4, 0, 0 },
@@ -94,6 +102,8 @@ static open_action_exception_t open_exceptions[] = {
 	{ 3, 1, 4, 1, 0 },
 	{ 3, 2, 4, 1, 0 },
 	{ 4, 0, 0, 0, 4 },
+	{ 4, 0, 0, 1, 0 },	/* deny none-read/compatibility-write */
+	{ 4, 0, 0, 2, 0 },	/* deny none-read/compatibility-read+write */
 	{ 4, 0, 2, 0, 0 },
 	{ 4, 0, 2, 1, 0 },
 	{ 4, 0, 2, 2, 0 },
@@ -121,12 +131,26 @@ typedef struct {
 	unsigned short psp;		/* PSP of process which owns the lock */
 } lock_t;
 
+
+		/* ------------- GLOBALS ------------- */
 static char progname[9];
 static unsigned int file_table_size_bytes = 2048;
 static unsigned int file_table_size = 0;	/* # of file_t we can have */
 static file_t *file_table = NULL;
 static unsigned int lock_table_size = 20;	/* # of lock_t we can have */
 static lock_t *lock_table = NULL;
+
+
+		/* ------------- PROTOTYPES ------------- */
+/* PRINT added by Eric */
+#define ERR 2	/* handle of stderr */
+#define OUT 1	/* handle of stdout */
+static void PRINT(int handle, char * text);
+static void PRINT(int handle, char * text) {
+	(void)write (handle, text, strlen(text));
+	/* return value is -1 error or N bytes_written. Ignored. */
+};
+
 
 	/* DOS calls this to see if it's okay to open the file.
 	   Returns a file_table entry number to use (>= 0) if okay
@@ -179,6 +203,8 @@ static int lock_unlock
 
 static void interrupt far (*old_handler2f)() = NULL;
 
+
+		/* ------------- HOOK ------------- */
 static void interrupt far handler2f(intregs_t iregs) {
 
 #define chain_old_handler2f { \
@@ -195,7 +221,9 @@ static void interrupt far handler2f(intregs_t iregs) {
 	__emit__(0x5A);			/* POP DX */ \
 	__emit__(0x59);			/* POP CX */ \
 	__emit__(0xCB);			/* RETF */ \
-}
+}	/* This evil trick probably only works with Turbo C!?! */
+	/* would have been better to link a NASM handler core: */
+	/* nasm -fobj -o foo.obj foo.asm ... */
 
 	if (((iregs.ax >> 8) & 0xff) == MULTIPLEX_ID) {
 		if ((iregs.ax & 0xff) == 0) {
@@ -267,6 +295,8 @@ static void free_file_table_entry(int fileno) {
 	file_table[fileno].filename[0] = '\0';
 }
 
+/* DOS 7 does not have read-only restrictions, MED 08/2004 */
+/*
 static int file_is_read_only(char far *filename) {
 	union REGS regs;
 	struct SREGS sregs;
@@ -278,6 +308,7 @@ static int file_is_read_only(char far *filename) {
 	if (regs.x.cflag) return 0;
 	return ((regs.h.cl & 0x19) == 0x01);
 }
+*/
 
 static int fnmatches(char far *fn1, char far *fn2) {
 	while (*fn1) {
@@ -325,15 +356,20 @@ static int do_open_check
 			action = open_actions[fptr->first_sharemode][current_sharemode];
 			/* Fail appropriately based on action. */
 		switch (action) {
+
+/* DOS 7 does not have read-only restrictions, fall through to proceed, MED 08/2004 */
+		case 3:
+		case 4:
+
 		case 0:		/* proceed with open */
 			break;
-		case 3:		/* succeed if file read-only, else fail with error 05h */
-			if (file_is_read_only(fptr->filename)) break;
+/*		case 3:	*/		/* succeed if file read-only, else fail with error 05h */
+/*			if (file_is_read_only(fptr->filename)) break;	*/
 		case 1:		/* fail with error code 05h */
 			free_file_table_entry(fileno);
 			return -5;
-		case 4:		/* succeed if file read-only, else fail with int 24h */
-			if (file_is_read_only(fptr->filename)) break;
+/*		case 4:	*/		/* succeed if file read-only, else fail with int 24h */
+/*			if (file_is_read_only(fptr->filename)) break;	*/
 		case 2:		/* fail with int 24h */
 			{
 				union REGS regs;
@@ -528,40 +564,45 @@ static int lock_unlock
 	}
 }
 
+		/* ------------- INIT ------------- */
 	/* Allocate tables and install hooks into the kernel.
 	   If we run out of memory, return non-zero. */
 static int init(void) {
-	int i;
+	/* int i; */
 
 	file_table_size = file_table_size_bytes/sizeof(file_t);
-	if ((file_table=malloc(file_table_size_bytes)) == NULL) return 1;
+	if ((file_table=malloc(file_table_size_bytes)) == NULL)
+		return 1;
 	memset(file_table, 0, file_table_size_bytes);
-	if ((lock_table=malloc(lock_table_size*sizeof(lock_t))) == NULL) return 1;
+	if ((lock_table=malloc(lock_table_size*sizeof(lock_t))) == NULL)
+		return 1;
 	memset(lock_table, 0, lock_table_size*sizeof(lock_t));
 	return 0;
 }
 
 static void usage(void) {
-	fprintf
-		(stderr,
+	PRINT(ERR,
 		 "Installs file-sharing and locking "
-			"capabilities on your hard disk.\n\n"
-		 "%s [/F:space] [/L:locks]\n\n"
+			"capabilities on your hard disk.\r\n\r\n");
+	PRINT(ERR, progname);
+	PRINT(ERR, " [/F:space] [/L:locks]\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
-			"for file-sharing information.\n"
+			"for file-sharing information.\r\n"
 		 "  /L:locks   Sets the number of files that can "
-			"be locked at one time.\n",
-		 progname);
+			"be locked at one time.\r\n");
 }
 
 static void bad_params(void) {
-	fprintf(stderr,"%s: parameter out of range!\n",progname);
+	PRINT(ERR, progname);
+	PRINT(ERR, ": parameter out of range!\r\n");
 }
 
 static void out_of_memory(void) {
-	fprintf(stderr,"%s: out of memory!\n",progname);
+	PRINT(ERR, progname);
+	PRINT(ERR,": out of memory!\r\n");
 }
 
+		/* ------------- MAIN ------------- */
 int main(int argc, char **argv) {
 	unsigned short far *usfptr;
 	unsigned char far *uscptr;
@@ -573,30 +614,31 @@ int main(int argc, char **argv) {
 	if (argv[0] != NULL) {
 		char *p = argv[0], *p2, c;
 		int i;
-		if ( (p[0] != '\0') && (p[1] == ':') ) p += 2;
-		while ((p2 = strchr(p, '\\')) != NULL) p = p2+1;
+		if ( (p[0] != '\0') && (p[1] == ':') )
+			p += 2;
+		while ((p2 = strchr(p, '\\')) != NULL)
+			p = p2+1;
 		p2 = progname;
 		for (i = 0; i < 8; i++) {
 			c = p[i];
-			if ( (c == '.') || (c == '\0') ) break;
+			if ( (c == '.') || (c == '\0') )
+				break;
 			*(p2++) = c;
 		}
 		*p2 = '\0';
 	}
 
 		/* See if the TSR is already installed. */
-	disable();
+	/* disable(); */	/* no multitasking, so don't worry */
 	if (getvect(MUX_INT_NO) != NULL) {
 		union REGS regs;
-		enable();
+		/* enable(); */
 		regs.h.ah = MULTIPLEX_ID;
 		regs.h.al = 0;
 		int86(MUX_INT_NO,&regs,&regs);
 		installed = ((regs.x.ax & 0xff) == 0xff);
 
-	} else {
-		enable();
-	}
+	} /* else { enable(); } */
 
 		/* Process command line arguments.  Bail if errors. */
 	for (i = 1; i < argc; i++) {
@@ -650,7 +692,8 @@ int main(int argc, char **argv) {
 		/* Now try to install. */
 
 	if (installed) {
-		fprintf(stderr,"%s is already installed!\n",progname);
+		PRINT(ERR, progname);
+		PRINT(ERR, " is already installed!\r\n");
 		return 1;
 	}
 
@@ -667,17 +710,19 @@ int main(int argc, char **argv) {
 		return 2;
 	}
 	top_of_tsr = (FP_SEG(uscptr)+((FP_OFF(uscptr)+15) >> 4)) - _psp;
+				/* resident paras, counting from PSP:0 */
 	free((void *)uscptr);
 
 
 		/* Hook the interrupt for the handler routine. */
-	disable();
+	/* disable(); */
 	old_handler2f = getvect(MUX_INT_NO);
 	setvect(MUX_INT_NO,handler2f);
-	enable();
+	/* enable(); */
 
 		/* Let them know we're installed. */
-	fprintf(stdout,"%s installed.\n",progname);
+	PRINT(OUT, progname);
+	PRINT(OUT, " installed.\r\n");
 
 		/* Any access to environment variables must */
 		/* be done prior to this point.  Here we    */
@@ -687,15 +732,18 @@ int main(int argc, char **argv) {
 		/* not do this, we would not be able to     */
 		/* recover this memory.                     */
 
-	FP_SEG(usfptr) = _psp;
-	FP_OFF(usfptr) = 0x2c;
-	freemem(*usfptr);
+	usfptr = MK_FP(_psp, 0x2c);	/* MK_FP is the counterpart */
+					/* of FP_OFF and FP_SEG ... */
+	freemem(*usfptr);	/* deallocate MCB of ENV segment */
 
+#if 0
 		/* Free the remainder of memory for use by applications. */
 	setblock(_psp,top_of_tsr);
+				/*  resize self: already done by keep()  */
+#endif
 
 		/* Terminate and stay resident. */
-	keep(0,top_of_tsr);
+	keep(0,top_of_tsr);	/* size is set to top_of_tsr paragraphs */
 	return 0;
 }
 
