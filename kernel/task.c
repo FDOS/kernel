@@ -28,6 +28,7 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -157,7 +158,7 @@ STATIC int ChildEnv(seg_t env_seg, seg_t *penv_seg, const char far *path)
     seg_t dst_seg = *penv_seg + 1;
     int i;
 
-    printf("ChildEnv. env seg=0x%02x\n", dst_seg);
+    DebugPrintf(("ChildEnv. env seg=0x%02x\n", dst_seg));
     if (dst_seg)
     {
       const char FAR*p = MK_PTR(const char, dst_seg, 0);
@@ -165,27 +166,27 @@ STATIC int ChildEnv(seg_t env_seg, seg_t *penv_seg, const char far *path)
       if (*p)
         while (*p)
         {
-          printf("[");
+          DebugPrintf(("["));
           for (; *p; p++)
-            if (*p == ' ') printf("<space>");
-            else printf("%c", *p);
-          printf("]\n");
+            if (*p == ' ') DebugPrintf(("<space>"));
+            else DebugPrintf(("%c", *p));
+          DebugPrintf(("]\n"));
           p++;
         }
       else
         p++; /* even empty env must have 1 ("") ASCIIZ string */
       /* may be followed by empty string (just \0), 16bit count, ASCIIZ argv[0] */
-      printf("End of Env marker = 0x%02x (should be 0)\n", *p);
-      printf("argv[0] present = %u\n", *MK_PTR(UWORD, dst_seg, env_sz + 2));
+      DebugPrintf(("End of Env marker = 0x%02x (should be 0)\n", *p));
+      DebugPrintf(("argv[0] present = %u\n", *MK_PTR(UWORD, dst_seg, env_sz + 2)));
       p+=3;  /* skip 16bit count and point to argv[0] */
       if (*p)
       {
         for (i = 0; p[i] && (i < 127); i++)
-          printf("%c", p[i]);
-        printf("\n");
+          DebugPrintf(("%c", p[i]));
+        DebugPrintf(("\n"));
       }
       else
-        printf("No program name (argv[0]) supplied\n");
+        DebugPrintf(("No program name (argv[0]) supplied\n"));
     }
   }
 #endif
@@ -337,22 +338,22 @@ static void load_transfer(seg_t ds, exec_blk *ep, int mode)
     /* display full command line */
     if (ctCount > 127)
     {
-      printf("load_transfer. CommantTail=%d count exceeds 127\n", ctCount);
+      DebugPrintf(("load_transfer. CommantTail=%d count exceeds 127\n", ctCount));
       ctCount = 127;
     }
-    printf("load_transfer. CommandTail is:\n");
+    DebugPrintf(("load_transfer. CommandTail is:\n"));
     /* use loop in case tail not '\0' terminated */
     if (ctCount)
     {
       for (i=0; i < ctCount; i++)
         if (ep->exec.cmd_line->ctBuffer[i] == ' ')
-          printf("<space>");
+          DebugPrintf(("<space>"));
         else
-          printf("%c", ep->exec.cmd_line->ctBuffer[i]);
-      printf("\n");
+          DebugPrintf(("%c", ep->exec.cmd_line->ctBuffer[i]));
+      DebugPrintf(("\n"));
     }
     else
-      printf("<empty>\n");
+      DebugPrintf(("<empty>\n"));
   }
 #endif
 
@@ -494,7 +495,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
         return rc;
 
 #ifdef DEBUG
-  printf("DosComLoader. Loading '%S' at %04x\n", namep, mem);
+  DebugPrintf(("DosComLoader. Loading '%S' at %04x\n", namep, mem));
 #endif
       ++mem;
     }
@@ -639,7 +640,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       mode &= 0x7f; /* forget about high loading from now on */
       
 #ifdef DEBUG
-      printf("DosExeLoader. Loading '%S' at %04x\n", namep, mem);
+      DebugPrintf(("DosExeLoader. Loading '%S' at %04x\n", namep, mem));
 #endif
       /* memory found large enough - continue processing      */
     }
@@ -817,7 +818,7 @@ void ASMCFUNC P_0(const struct config FAR *Config)
       /*exb.exec.fcb_1 = exb.exec.fcb_2 = NULL;*/ /* unimportant */
 
 #ifdef DEBUG
-      printf("Process 0 starting: %s%s\n\n", Shell, tailp + 1);
+      DebugPrintf(("Process 0 starting: %s%s\n\n", Shell, tailp + 1));
 #endif
       res_DosExec(mode, &exb, Shell);
     }

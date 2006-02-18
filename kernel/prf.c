@@ -93,6 +93,13 @@ void put_console(int c)
 #ifdef __WATCOMC__
 void int29(char c);
 #pragma aux int29 = "int 0x29" parm [al] modify exact [bx];
+
+#ifdef DEBUG_PRINT_COMPORT
+void fastComPrint(char c);
+#pragma aux fastComPrint = \
+      "mov bx, 0xFD05" \
+      "int 0x29" parm [al] modify exact [bx];
+#endif
 #endif
 
 void put_console(int c)
@@ -108,6 +115,9 @@ void put_console(int c)
   __int__(0x29);
 #elif defined(__WATCOMC__)
   int29(c);
+#if defined DEBUG_PRINT_COMPORT
+  fastComPrint(c);
+#endif
 #elif defined(I86)
   __asm
   {
@@ -141,6 +151,11 @@ STATIC VOID handle_char(COUNT c)
   if (charp == 0)
     put_console(c);
   else
+#ifdef DEBUG_PRINT_COMPORT
+  if (charp == (BYTE FAR *)-1)
+    fastComPrint(c);
+  else
+#endif
     *charp++ = c;
 }
 
@@ -167,6 +182,16 @@ VOID VA_CDECL sprintf(char FAR * buff, CONST BYTE FAR * fmt, ...)
   do_printf(fmt, arg);
   handle_char('\0');
 }
+
+#ifdef DEBUG_PRINT_COMPORT
+VOID dbgc_printf(CONST BYTE FAR * fmt, ...)
+{
+  va_list arg;
+  va_start(arg, fmt);
+  charp = (BYTE FAR *)-1;
+  do_printf(fmt, arg);
+}
+#endif
 
 STATIC void do_printf(CONST BYTE FAR * fmt, va_list arg)
 {
@@ -325,7 +350,6 @@ STATIC void do_printf(CONST BYTE FAR * fmt, va_list arg)
   }
   va_end(arg);
 }
-
 #endif
 #if !defined(FORSYS) && !defined(_INIT)
 
