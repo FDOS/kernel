@@ -618,7 +618,8 @@ static void DoConfig_(void)
     nCfgLine++;
     for (q = szLine;;)
     {
-      if (read(nFileDesc, q, 1) <= 0 || *q == EOF)
+      /* if EOF already found, error reading, or EOF char read then we're done */
+      if (read(nFileDesc, q, 1) != 1 || *q == EOF)
       {
         done++;
         break;
@@ -1187,9 +1188,9 @@ STATIC void LoadCountryInfo(PCStr filename, int ccode, int cpage)
     printf("%s not found\n", filename);
     return;
   }
-  if (read(fd, &header, sizeof(header)) < sizeof(header))
+  if (read(fd, &header, sizeof(header)) != sizeof(header))
   {
-    printf("Can't read %s\n", filename);
+    printf("Error reading %s\n", filename);
     goto ret;
   }
   if (memcmp(header.name, "\377COUNTRY", sizeof(header.name)))
@@ -1198,19 +1199,19 @@ err:printf("%s has invalid format\n", filename);
     goto ret;
   }
   if (lseek(fd, header.offset) == 0xffffffffL
-    || read(fd, &entries, sizeof(entries)) < sizeof(entries))
+    || read(fd, &entries, sizeof(entries)) != sizeof(entries))
     goto err;
   for (i = 0; i < entries; i++)
   {
-    if (read(fd, &entry, sizeof(entry)) < sizeof(entry) || entry.length != 12)
+    if (read(fd, &entry, sizeof(entry)) != sizeof(entry) || entry.length != 12)
       goto err;
     if (entry.country != ccode || entry.codepage != cpage && cpage)
       continue;
     if (lseek(fd, entry.offset) == 0xffffffffL
-      || read(fd, &count, sizeof(count)) < sizeof(count)
+      || read(fd, &count, sizeof(count)) != sizeof(count)
       || count > LENGTH(hdr)
       || read(fd, &hdr, sizeof(struct subf_hdr) * count)
-                      < sizeof(struct subf_hdr) * count)
+                      != sizeof(struct subf_hdr) * count)
       goto err;
     for (i = 0; i < count; i++)
     {
@@ -1219,10 +1220,10 @@ err:printf("%s has invalid format\n", filename);
       if (hdr[i].id < 1 || hdr[i].id > 6 || hdr[i].id == 3)
         continue;
       if (lseek(fd, hdr[i].offset) == 0xffffffffL
-       || read(fd, &subf_data, 10) < 10
+       || read(fd, &subf_data, 10) != 10
        || memcmp(subf_data.signature, table[hdr[i].id].sig, 8) && (hdr[i].id !=4
        || memcmp(subf_data.signature, table[2].sig, 8))  /* UCASE for FUCASE ^*/
-       || read(fd, subf_data.buffer, subf_data.length) < subf_data.length)
+       || read(fd, subf_data.buffer, subf_data.length) != subf_data.length)
         goto err;
       if (hdr[i].id == 1)
       {
