@@ -46,7 +46,11 @@
 
 /* use to limit output to debug builds */
 #ifdef DEBUG
+#ifdef DEBUG_PRINT_COMPORT
+#define DebugPrintf(x) dbgc_printf x
+#else
 #define DebugPrintf(x) printf x
+#endif
 #else
 #define DebugPrintf(x)
 #endif
@@ -63,7 +67,7 @@
 
 /* show output related to moving kernel into HMA */
 #ifdef DEBUG
-#define HMAInitPrintf(x) printf x
+#define HMAInitPrintf(x) DebugPrintf(x)
 #else
 #define HMAInitPrintf(x)
 #endif
@@ -71,7 +75,7 @@
 /* display output during kernel config processing phase */
 /* #define DEBUGCFG */
 #ifdef DEBUGCFG
-#define CfgDbgPrintf(x) printf x
+#define CfgDbgPrintf(x) DebugPrintf(x)
 #else
 #define CfgDbgPrintf(x)
 #endif
@@ -79,7 +83,7 @@
 /* display info on various DOS functions (dosfns.c) */
 /* #define DEBUGDOSFNS */
 #ifdef DEBUGDOSFNS
-#define DFnsDbgPrintf(x) printf x
+#define DFnsDbgPrintf(x) DebugPrintf(x)
 #else
 #define DFnsDbgPrintf(x)
 #endif
@@ -93,7 +97,7 @@
 /* display info on various DOS directory functions (fatdir.c) */
 /* #define DEBUGFATDIR */
 #ifdef DEBUGFATDIR
-#define FDirDbgPrintf(x) printf x
+#define FDirDbgPrintf(x) DebugPrintf(x)
 #else
 #define FDirDbgPrintf(x)
 #endif
@@ -107,7 +111,7 @@
 /* display info on various FAT handling functions (fatfs.c) */
 /* #define DEBUGFATFS */
 #ifdef DEBUGFATFS
-#define FatFSDbgPrintf(x) printf x
+#define FatFSDbgPrintf(x) DebugPrintf(x)
 #else
 #define FatFSDbgPrintf(x)
 #endif
@@ -115,7 +119,7 @@
 /* debug truename */
 /* #define DEBUG_TRUENAME */
 #ifdef DEBUG_TRUENAME
-#define tn_printf(x) printf x
+#define tn_printf(x) DebugPrintf(x)
 #else
 #define tn_printf(x)
 #endif
@@ -131,7 +135,10 @@
 #endif
 
 #ifdef DEBUG_NEED_PRINTF
-VOID VA_CDECL printf(const char FAR * fmt, ...);
+VOID VA_CDECL printf(CONST char FAR * fmt, ...);
+#ifdef DEBUG_PRINT_COMPORT
+VOID VA_CDECL dbgc_printf(CONST char FAR * fmt, ...);
+#endif
 #endif
 
 #endif /* __DEBUG_H */
