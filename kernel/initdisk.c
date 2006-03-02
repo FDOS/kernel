@@ -583,7 +583,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_driveno = driveParam->driveno;
   pddt->ddt_logdriveno = nUnits;
   pddt->ddt_descflags = driveParam->descflags;
-  /* Turn of LBA if not forced and the partition is within 1023 cyls and of the right type */
+  /* Turn off LBA if not forced and the partition is within 1023 cyls and of the right type */
   /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
      above cylinder 1023 was found */
   if (!InitKernelConfig.ForceLBA && !ExtLBAForce && !IsLBAPartition(pEntry->FileSystem))
@@ -1101,6 +1101,9 @@ strange_restart:
   return PartitionsToIgnore;
 }
 
+
+/* query BIOS for number of hard disks 
+ */
 int BIOS_nrdrives(void)
 {
   iregs regs;
@@ -1210,19 +1213,41 @@ I don't know, if I did it right, but I tried to do it that way. TE
 
 ***********************************************************************/
 
-STATIC void make_ddt (ddt *pddt, int Unit, int driveno, int flags)
+/* initializes a ddt and stores for later retrieval */
+STATIC void create_ddt(ddt *pddt, int Unit, int driveno, int type, int ncyl, int flags, void *defbpb, int bpbsize)
 {
   pddt->ddt_next = MK_FP(0, 0xffff);
   pddt->ddt_logdriveno = Unit;
   pddt->ddt_driveno = driveno;
-  pddt->ddt_type = init_getdriveparm(driveno, &pddt->ddt_defbpb);
-  pddt->ddt_ncyl = (pddt->ddt_type & 7) ? 80 : 40;
-  pddt->ddt_descflags = init_readdasd(driveno) | flags;
+  pddt->ddt_type = type;
+  pddt->ddt_ncyl = ncyl;
+  pddt->ddt_descflags = flags;
 
   pddt->ddt_offset = 0;
-  memcpy(&pddt->ddt_bpb, &pddt->ddt_defbpb, sizeof(bpb));
+  memcpy(&pddt->ddt_bpb, defbpb, bpbsize);
   push_ddt(pddt);
 }
+
+/* initializes a ddt for a drive that is assumed to not exist,
+   e.g. the fake ddt for floppies (A: & B:) on floppyless systems
+ */
+#define fake_ddt(pddt, Unit) create_ddt(pddt, Unit, \
+  0xFF, /* usually invalid BIOS drive # */ \
+  0x04, /* 2.88MB floppy, since usually for non-existant floppy */ \
+  80, \
+  DF_NOACCESS, \
+  &floppy_bpbs[4], sizeof(floppy_bpb) \
+)
+
+/* initializes ddt for a drive (logical or physical) assumed to exist */
+#define make_ddt(pddt, Unit, driveno, flags) create_ddt(pddt, Unit, \
+  driveno, \
+  init_getdriveparm(driveno, &(pddt)->ddt_defbpb), \
+  ( ((pddt)->ddt_type & 7) ? 80 : 40 ), \
+  ( init_readdasd(driveno) | flags ), \
+  &(pddt)->ddt_defbpb, sizeof(bpb) \
+)
+
 
 /* disk initialization: returns number of units */
 COUNT dsk_init()
@@ -1235,7 +1260,7 @@ COUNT dsk_init()
 
   printf(" - InitDisk\r");
 
-#ifdef DEBUG
+#if defined DEBUG && !defined DEBUG_PRINT_COMPORT
   {
     regs.a.x = 0x1112;          /* select 43 line mode - more space for partinfo */
     regs.b.x = 0;
@@ -1261,6 +1286,11 @@ COUNT dsk_init()
       make_ddt(&nddt, 1, 1, 0);             /* real B: drive */
     else
       make_ddt(&nddt, 1, 0, DF_MULTLOG); /* phantom B: drive */
+  }
+  else
+  {
+    fake_ddt(&nddt, 0);
+    fake_ddt(&nddt, 1);
   }
 
   /* Initial number of disk units                                 */
@@ -1341,5 +1371,6 @@ COUNT dsk_init()
       ProcessDisk(SCAN_PRIMARY2, HardDrive, foundPartitions[HardDrive]);
     }
   }
+
   return nUnits;
 }
