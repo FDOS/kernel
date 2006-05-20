@@ -66,13 +66,13 @@ segment	HMA_TEXT
                 pop di 
                 pop si
                                 
-                Protect386Registers     ; protect from drivers that destroy eg emm386
+                ; Protect386Registers	; old free-EMM386 versions destroy regs in their INIT method
 
                 mov     ax,[si+8]       ; construct 'interrupt' address
                 mov     [bp+4],ax       ; construct interrupt address 
                 call    far[bp+4]       ; call far the interrupt
 
-                Restore386Registers
+                ; Restore386Registers	; less stack load and better performance...
 
                 sti                     ; damm driver turn off ints
                 cld                     ; has gone backwards
