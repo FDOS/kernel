@@ -42,13 +42,10 @@ static BYTE *date_hRcsId =
 #define MINOR_RELEASE   00
 #endif
 
-#define REV_NUMBER      0
-#define OEM_ID          0xfd    /* FreeDos version                      */
+#define REVISION_SEQ	36	/* returned in BL by int 21 function 30 */
+#define OEM_ID          0xfd    /* FreeDOS, returned in BH by int 21 30 */
 
-#define REVISION_MAJOR  1
-#define REVISION_MINOR  1
-#define REVISION_SEQ    35
-#define BUILD           "2035"
-#define SUB_BUILD	"b-cvs"
-#define KERNEL_VERSION_STRING "1.1.35" /*#REVISION_MAJOR "." #REVISION_MINOR "." #REVISION_SEQ */
-#define KERNEL_BUILD_STRING "2035b-cvs"   /*#BUILD SUB_BUILD */
+#define SOURCE_DATE_STRING "Sep 09 2005" /* DATE OF THE NEWEST SOURCE FILE */
+/* #define KERNEL_VERSION_STRING "1.1.35" formerly used in os_release text */
+#define KERNEL_BUILD_STRING "2036 cvs"	/* used in os_release string */
+
