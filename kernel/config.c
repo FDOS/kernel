@@ -954,8 +954,8 @@ STATIC VOID sysVersion(BYTE * pLine)
 
   printf("Changing reported version to %d.%d\n", major, minor);
 
-  LoL->os_major = major;
-  LoL->os_minor = minor;
+  LoL->os_setver_major = major; /* not the internal os_major */
+  LoL->os_setver_minor = minor; /* not the internal os_minor */
 }
 
 STATIC VOID Files(BYTE * pLine)
