@@ -274,7 +274,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    UDWORD res = fgetlong(&bp->b_buffer[idx * 4]);
+    UDWORD res = fgetlong(&bp->b_buffer[idx * 4]) & LONG_LAST_CLUSTER;
     if (Cluster2 == READ_CLUSTER)
     {
       if (res > LONG_BAD)
@@ -284,7 +284,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     }
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
-    fputlong(&bp->b_buffer[idx * 4], Cluster2);
+    fputlong(&bp->b_buffer[idx * 4], Cluster2 & LONG_LAST_CLUSTER);
     if (res == FREE)
       wasfree++;
   }
