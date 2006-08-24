@@ -393,7 +393,7 @@ _us_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _us_850 dw 7
 	dw 6,1
@@ -408,7 +408,7 @@ _us_850 dw 7
 	  dd en_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _us_858 dw 7
 	dw 6,1
@@ -423,7 +423,7 @@ _us_858 dw 7
 	  dd en_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _ca_863 dw 7
 	dw 6,1
@@ -438,7 +438,7 @@ _ca_863 dw 7
 	  dd fr_collate_863
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _ca_850 dw 7
 	dw 6,1
@@ -453,7 +453,7 @@ _ca_850 dw 7
 	  dd fr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _ca_858 dw 7
 	dw 6,1
@@ -468,7 +468,7 @@ _ca_858 dw 7
 	  dd fr_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _la_850 dw 7
 	dw 6,1
@@ -483,7 +483,7 @@ _la_850 dw 7
 	  dd es_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _la_858 dw 7
 	dw 6,1
@@ -498,7 +498,7 @@ _la_858 dw 7
 	  dd es_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _la_437 dw 7
 	dw 6,1
@@ -513,7 +513,7 @@ _la_437 dw 7
 	  dd es_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _ru_866 dw 8
 	dw 6,1
@@ -530,7 +530,7 @@ _ru_866 dw 8
 	  dd ru_collate_866
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn_866
 _ru_808 dw 8
 	dw 6,1
@@ -547,7 +547,7 @@ _ru_808 dw 8
 	  dd ru_collate_808
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn_808
 _ru_855 dw 7
 	dw 6,1
@@ -562,7 +562,7 @@ _ru_855 dw 7
 	  dd ru_collate_855
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn_855
 _ru_872 dw 7
 	dw 6,1
@@ -577,7 +577,7 @@ _ru_872 dw 7
 	  dd ru_collate_872
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn_872
 _ru_852 dw 7
 	dw 6,1
@@ -592,7 +592,7 @@ _ru_852 dw 7
 	  dd ru_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn
 _ru_850 dw 7
 	dw 6,1
@@ -607,7 +607,7 @@ _ru_850 dw 7
 	  dd ru_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn
 _ru_858 dw 7
 	dw 6,1
@@ -622,7 +622,7 @@ _ru_858 dw 7
 	  dd ru_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn
 _ru_437 dw 7
 	dw 6,1
@@ -637,7 +637,7 @@ _ru_437 dw 7
 	  dd ru_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ru_yn
 _gr_869	dw 7
 	dw 6,1
@@ -652,7 +652,7 @@ _gr_869	dw 7
 	  dd gr_collate_869
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gr_yn_869
 _gr_737	dw 7
 	dw 6,1
@@ -667,7 +667,7 @@ _gr_737	dw 7
 	  dd gr_collate_737
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gr_yn_737
 _gr_850	dw 7
 	dw 6,1
@@ -682,7 +682,7 @@ _gr_850	dw 7
 	  dd gr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gr_yn
 _gr_858	dw 7
 	dw 6,1
@@ -697,7 +697,7 @@ _gr_858	dw 7
 	  dd gr_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gr_yn
 _nl_850 dw 7
 	dw 6,1
@@ -712,7 +712,7 @@ _nl_850 dw 7
 	  dd nl_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _nl_858 dw 7
 	dw 6,1
@@ -727,7 +727,7 @@ _nl_858 dw 7
 	  dd nl_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _nl_437 dw 7
 	dw 6,1
@@ -742,7 +742,7 @@ _nl_437 dw 7
 	  dd nl_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _be_850 dw 7
 	dw 6,1
@@ -757,7 +757,7 @@ _be_850 dw 7
 	  dd be_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _be_858 dw 7
 	dw 6,1
@@ -772,7 +772,7 @@ _be_858 dw 7
 	  dd be_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _be_437 dw 7
 	dw 6,1
@@ -787,7 +787,7 @@ _be_437 dw 7
 	  dd be_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _fr_850 dw 7
 	dw 6,1
@@ -802,7 +802,7 @@ _fr_850 dw 7
 	  dd fr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _fr_858 dw 7
 	dw 6,1
@@ -817,7 +817,7 @@ _fr_858 dw 7
 	  dd fr_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _fr_437 dw 7
 	dw 6,1
@@ -832,7 +832,7 @@ _fr_437 dw 7
 	  dd fr_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _es_850 dw 7
 	dw 6,1
@@ -847,7 +847,7 @@ _es_850 dw 7
 	  dd es_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _es_858 dw 7
 	dw 6,1
@@ -862,7 +862,7 @@ _es_858 dw 7
 	  dd es_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _es_437 dw 7
 	dw 6,1
@@ -877,7 +877,7 @@ _es_437 dw 7
 	  dd es_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _hu_852 dw 7
 	dw 6,1
@@ -892,7 +892,7 @@ _hu_852 dw 7
 	  dd hu_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd hu_yn
 _hu_850 dw 7
 	dw 6,1
@@ -907,7 +907,7 @@ _hu_850 dw 7
 	  dd hu_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd hu_yn
 _hu_858 dw 7
 	dw 6,1
@@ -922,7 +922,7 @@ _hu_858 dw 7
 	  dd hu_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd hu_yn
 _yu_852 dw 7
 	dw 6,1
@@ -937,7 +937,7 @@ _yu_852 dw 7
 	  dd sh_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _yu_855 dw 7
 	dw 6,1
@@ -952,7 +952,7 @@ _yu_855 dw 7
 	  dd sh_collate_855
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn_855
 _yu_872 dw 7
 	dw 6,1
@@ -967,7 +967,7 @@ _yu_872 dw 7
 	  dd sh_collate_872
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn_872
 _yu_850 dw 7
 	dw 6,1
@@ -982,7 +982,7 @@ _yu_850 dw 7
 	  dd sh_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _yu_858 dw 7
 	dw 6,1
@@ -997,7 +997,7 @@ _yu_858 dw 7
 	  dd sh_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _it_850 dw 7
 	dw 6,1
@@ -1012,7 +1012,7 @@ _it_850 dw 7
 	  dd it_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd it_yn
 _it_858 dw 7
 	dw 6,1
@@ -1027,7 +1027,7 @@ _it_858 dw 7
 	  dd it_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd it_yn
 _it_437 dw 7
 	dw 6,1
@@ -1042,7 +1042,7 @@ _it_437 dw 7
 	  dd it_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd it_yn
 _ro_852 dw 7
 	dw 6,1
@@ -1057,7 +1057,7 @@ _ro_852 dw 7
 	  dd ro_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ro_yn
 _ro_850 dw 7
 	dw 6,1
@@ -1072,7 +1072,7 @@ _ro_850 dw 7
 	  dd ro_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ro_yn
 _ro_858 dw 7
 	dw 6,1
@@ -1087,7 +1087,7 @@ _ro_858 dw 7
 	  dd ro_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ro_yn
 _ch_850 dw 7
 	dw 6,1
@@ -1102,7 +1102,7 @@ _ch_850 dw 7
 	  dd ch_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _ch_858 dw 7
 	dw 6,1
@@ -1117,7 +1117,7 @@ _ch_858 dw 7
 	  dd ch_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _ch_437 dw 7
 	dw 6,1
@@ -1132,7 +1132,7 @@ _ch_437 dw 7
 	  dd ch_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _cz_852 dw 7
 	dw 6,1
@@ -1147,7 +1147,7 @@ _cz_852 dw 7
 	  dd cz_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd cz_yn
 _cz_850 dw 7
 	dw 6,1
@@ -1162,7 +1162,7 @@ _cz_850 dw 7
 	  dd cz_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd cz_yn
 _cz_858 dw 7
 	dw 6,1
@@ -1177,7 +1177,7 @@ _cz_858 dw 7
 	  dd cz_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd cz_yn
 _at_850 dw 7
 	dw 6,1
@@ -1192,7 +1192,7 @@ _at_850 dw 7
 	  dd de_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _at_858 dw 7
 	dw 6,1
@@ -1207,7 +1207,7 @@ _at_858 dw 7
 	  dd de_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _at_437 dw 7
 	dw 6,1
@@ -1222,7 +1222,7 @@ _at_437 dw 7
 	  dd de_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _uk_850 dw 7
 	dw 6,1
@@ -1237,7 +1237,7 @@ _uk_850 dw 7
 	  dd en_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _uk_858 dw 7
 	dw 6,1
@@ -1252,7 +1252,7 @@ _uk_858 dw 7
 	  dd en_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _uk_437 dw 7
 	dw 6,1
@@ -1267,7 +1267,7 @@ _uk_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _dk_865 dw 7
 	dw 6,1
@@ -1282,7 +1282,7 @@ _dk_865 dw 7
 	  dd dk_collate_865
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd dk_yn
 _dk_850 dw 7
 	dw 6,1
@@ -1297,7 +1297,7 @@ _dk_850 dw 7
 	  dd dk_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd dk_yn
 _dk_858 dw 7
 	dw 6,1
@@ -1312,7 +1312,7 @@ _dk_858 dw 7
 	  dd dk_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd dk_yn
 _se_850 dw 7
 	dw 6,1
@@ -1327,7 +1327,7 @@ _se_850 dw 7
 	  dd se_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd se_yn
 _se_858 dw 7
 	dw 6,1
@@ -1342,7 +1342,7 @@ _se_858 dw 7
 	  dd se_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd se_yn
 _se_437 dw 7
 	dw 6,1
@@ -1357,7 +1357,7 @@ _se_437 dw 7
 	  dd se_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd se_yn
 _no_865 dw 7
 	dw 6,1
@@ -1372,7 +1372,7 @@ _no_865 dw 7
 	  dd no_collate_865
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd no_yn
 _no_850 dw 7
 	dw 6,1
@@ -1387,7 +1387,7 @@ _no_850 dw 7
 	  dd no_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd no_yn
 _no_858 dw 7
 	dw 6,1
@@ -1402,7 +1402,7 @@ _no_858 dw 7
 	  dd no_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd no_yn
 _pl_852 dw 7
 	dw 6,1
@@ -1417,7 +1417,7 @@ _pl_852 dw 7
 	  dd pl_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pl_yn
 _pl_850 dw 7
 	dw 6,1
@@ -1432,7 +1432,7 @@ _pl_850 dw 7
 	  dd pl_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pl_yn
 _pl_858 dw 7
 	dw 6,1
@@ -1447,7 +1447,7 @@ _pl_858 dw 7
 	  dd pl_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pl_yn
 _de_850 dw 7
 	dw 6,1
@@ -1462,7 +1462,7 @@ _de_850 dw 7
 	  dd de_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _de_858 dw 7
 	dw 6,1
@@ -1477,7 +1477,7 @@ _de_858 dw 7
 	  dd de_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _de_437 dw 7
 	dw 6,1
@@ -1492,7 +1492,7 @@ _de_437 dw 7
 	  dd de_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _ar_437 dw 7
 	dw 6,1
@@ -1507,7 +1507,7 @@ _ar_437 dw 7
 	  dd es_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _ar_850 dw 7
 	dw 6,1
@@ -1522,7 +1522,7 @@ _ar_850 dw 7
 	  dd es_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _ar_858 dw 7
 	dw 6,1
@@ -1537,7 +1537,7 @@ _ar_858 dw 7
 	  dd es_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _br_850 dw 7
 	dw 6,1
@@ -1552,7 +1552,7 @@ _br_850 dw 7
 	  dd pt_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pt_yn
 _br_858 dw 7
 	dw 6,1
@@ -1567,7 +1567,7 @@ _br_858 dw 7
 	  dd pt_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pt_yn
 _br_437 dw 7
 	dw 6,1
@@ -1582,7 +1582,7 @@ _br_437 dw 7
 	  dd pt_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pt_yn
 _my_437 dw 7
 	dw 6,1
@@ -1597,7 +1597,7 @@ _my_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _au_437 dw 7
 	dw 6,1
@@ -1612,7 +1612,7 @@ _au_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _au_850 dw 7
 	dw 6,1
@@ -1627,7 +1627,7 @@ _au_850 dw 7
 	  dd en_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _au_858 dw 7
 	dw 6,1
@@ -1642,7 +1642,7 @@ _au_858 dw 7
 	  dd en_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _sg_437 dw 7
 	dw 6,1
@@ -1657,7 +1657,7 @@ _sg_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _jp_437 dw 7
 	dw 6,1
@@ -1672,7 +1672,7 @@ _jp_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn	; Japanese MS-DOS uses "Y" and "N" - Yuki
 _jp_932 dw 7
 	dw 6,1
@@ -1687,7 +1687,7 @@ _jp_932 dw 7
 	  dd jp_collate_932
 	dw 6,7
 	  dd jp_dbcs_932
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _kr_437 dw 7
 	dw 6,1
@@ -1702,7 +1702,7 @@ _kr_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd kr_yn
 _kr_934 dw 7
 	dw 6,1
@@ -1717,7 +1717,7 @@ _kr_934 dw 7
 	  dd kr_collate_934
 	dw 6,7
 	  dd kr_dbcs_934
-	dw 6,23
+	dw 6,35
 	  dd kr_yn
 _cn_437 dw 7
 	dw 6,1
@@ -1732,7 +1732,7 @@ _cn_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd cn_yn
 _cn_936 dw 7
 	dw 6,1
@@ -1747,7 +1747,7 @@ _cn_936 dw 7
 	  dd cn_collate_936
 	dw 6,7
 	  dd cn_dbcs_936
-	dw 6,23
+	dw 6,35
 	  dd cn_yn_936
 _tr_857 dw 7
 	dw 6,1
@@ -1762,7 +1762,7 @@ _tr_857 dw 7
 	  dd tr_collate_857
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd tr_yn
 _tr_850 dw 7
 	dw 6,1
@@ -1777,7 +1777,7 @@ _tr_850 dw 7
 	  dd tr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd tr_yn
 _in_437 dw 7
 	dw 6,1
@@ -1792,7 +1792,7 @@ _in_437 dw 7
 	  dd en_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd en_yn
 _pt_860 dw 7
 	dw 6,1
@@ -1807,7 +1807,7 @@ _pt_860 dw 7
 	  dd pt_collate_860
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pt_yn
 _pt_850 dw 7
 	dw 6,1
@@ -1822,7 +1822,7 @@ _pt_850 dw 7
 	  dd pt_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pt_yn
 _pt_858 dw 7
 	dw 6,1
@@ -1837,7 +1837,7 @@ _pt_858 dw 7
 	  dd pt_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd pt_yn
 _fi_850 dw 7
 	dw 6,1
@@ -1852,7 +1852,7 @@ _fi_850 dw 7
 	  dd fi_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fi_yn
 _fi_858 dw 7
 	dw 6,1
@@ -1867,7 +1867,7 @@ _fi_858 dw 7
 	  dd fi_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fi_yn
 _fi_437 dw 7
 	dw 6,1
@@ -1882,7 +1882,7 @@ _fi_437 dw 7
 	  dd fi_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fi_yn
 _bg_855 dw 7
 	dw 6,1
@@ -1897,7 +1897,7 @@ _bg_855 dw 7
 	  dd bg_collate_855
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd bg_yn_855
 _bg_872 dw 7
 	dw 6,1
@@ -1912,7 +1912,7 @@ _bg_872 dw 7
 	  dd bg_collate_872
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd bg_yn_872
 _bg_850 dw 7
 	dw 6,1
@@ -1927,7 +1927,7 @@ _bg_850 dw 7
 	  dd bg_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd bg_yn
 _bg_858 dw 7
 	dw 6,1
@@ -1942,7 +1942,7 @@ _bg_858 dw 7
 	  dd bg_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd bg_yn
 _ua_848 dw 8
 	dw 6,1
@@ -1959,7 +1959,7 @@ _ua_848 dw 8
 	  dd ua_collate_848
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ua_yn_848
 _ua_1125 dw 8
 	dw 6,1
@@ -1976,7 +1976,7 @@ _ua_1125 dw 8
 	  dd ua_collate_1125
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ua_yn_1125
 _sr_852 dw 7
 	dw 6,1
@@ -1991,7 +1991,7 @@ _sr_852 dw 7
 	  dd sh_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _sr_855 dw 7
 	dw 6,1
@@ -2006,7 +2006,7 @@ _sr_855 dw 7
 	  dd sh_collate_855
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn_855
 _sr_872 dw 7
 	dw 6,1
@@ -2021,7 +2021,7 @@ _sr_872 dw 7
 	  dd sh_collate_872
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn_872
 _sr_850 dw 7
 	dw 6,1
@@ -2036,7 +2036,7 @@ _sr_850 dw 7
 	  dd sh_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _sr_858 dw 7
 	dw 6,1
@@ -2051,7 +2051,7 @@ _sr_858 dw 7
 	  dd sh_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _hr_852 dw 7
 	dw 6,1
@@ -2066,7 +2066,7 @@ _hr_852 dw 7
 	  dd hr_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd hr_yn
 _hr_850 dw 7
 	dw 6,1
@@ -2081,7 +2081,7 @@ _hr_850 dw 7
 	  dd hr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd hr_yn
 _hr_858 dw 7
 	dw 6,1
@@ -2096,7 +2096,7 @@ _hr_858 dw 7
 	  dd hr_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd hr_yn
 _si_852 dw 7
 	dw 6,1
@@ -2111,7 +2111,7 @@ _si_852 dw 7
 	  dd si_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd si_yn
 _si_850 dw 7
 	dw 6,1
@@ -2126,7 +2126,7 @@ _si_850 dw 7
 	  dd si_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd si_yn
 _si_858 dw 7
 	dw 6,1
@@ -2141,7 +2141,7 @@ _si_858 dw 7
 	  dd si_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd si_yn
 _ba_852 dw 7
 	dw 6,1
@@ -2156,7 +2156,7 @@ _ba_852 dw 7
 	  dd sh_collate_852
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _ba_850 dw 7
 	dw 6,1
@@ -2171,7 +2171,7 @@ _ba_850 dw 7
 	  dd sh_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _ba_858 dw 7
 	dw 6,1
@@ -2186,7 +2186,7 @@ _ba_858 dw 7
 	  dd sh_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn
 _ba_855 dw 7
 	dw 6,1
@@ -2201,7 +2201,7 @@ _ba_855 dw 7
 	  dd sh_collate_855
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn_855
 _ba_872 dw 7
 	dw 6,1
@@ -2216,7 +2216,7 @@ _ba_872 dw 7
 	  dd sh_collate_872
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd sh_yn_872
 _mk_855 dw 7
 	dw 6,1
@@ -2231,7 +2231,7 @@ _mk_855 dw 7
 	  dd mk_collate_855
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd mk_yn_855
 _mk_872 dw 7
 	dw 6,1
@@ -2246,7 +2246,7 @@ _mk_872 dw 7
 	  dd mk_collate_872
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd mk_yn_872
 _mk_850 dw 7
 	dw 6,1
@@ -2261,7 +2261,7 @@ _mk_850 dw 7
 	  dd mk_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd mk_yn
 _mk_858 dw 7
 	dw 6,1
@@ -2276,7 +2276,7 @@ _mk_858 dw 7
 	  dd mk_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd mk_yn
 _me_850	dw 7
 	dw 6,1
@@ -2291,7 +2291,7 @@ _me_850	dw 7
 	  dd me_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd me_yn
 _me_858	dw 7
 	dw 6,1
@@ -2306,7 +2306,7 @@ _me_858	dw 7
 	  dd me_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd me_yn
 _me_864	dw 7
 	dw 6,1
@@ -2321,7 +2321,7 @@ _me_864	dw 7
 	  dd me_collate_864
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd me_yn_864
 _il_850	dw 7
 	dw 6,1
@@ -2336,7 +2336,7 @@ _il_850	dw 7
 	  dd il_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd il_yn
 _il_858	dw 7
 	dw 6,1
@@ -2351,7 +2351,7 @@ _il_858	dw 7
 	  dd il_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd il_yn
 _il_862	dw 7
 	dw 6,1
@@ -2366,7 +2366,7 @@ _il_862	dw 7
 	  dd il_collate_862
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd il_yn_862
 _nl_BE_850 dw 7
 	dw 6,1
@@ -2381,7 +2381,7 @@ _nl_BE_850 dw 7
 	  dd nl_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _nl_BE_858 dw 7
 	dw 6,1
@@ -2396,7 +2396,7 @@ _nl_BE_858 dw 7
 	  dd nl_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _nl_BE_437 dw 7
 	dw 6,1
@@ -2411,7 +2411,7 @@ _nl_BE_437 dw 7
 	  dd nl_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd nl_yn
 _fr_BE_850 dw 7
 	dw 6,1
@@ -2426,7 +2426,7 @@ _fr_BE_850 dw 7
 	  dd fr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _fr_BE_858 dw 7
 	dw 6,1
@@ -2441,7 +2441,7 @@ _fr_BE_858 dw 7
 	  dd fr_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _fr_BE_437 dw 7
 	dw 6,1
@@ -2456,7 +2456,7 @@ _fr_BE_437 dw 7
 	  dd fr_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _de_BE_850 dw 7
 	dw 6,1
@@ -2471,7 +2471,7 @@ _de_BE_850 dw 7
 	  dd de_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _de_BE_858 dw 7
 	dw 6,1
@@ -2486,7 +2486,7 @@ _de_BE_858 dw 7
 	  dd de_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _de_BE_437 dw 7
 	dw 6,1
@@ -2501,7 +2501,7 @@ _de_BE_437 dw 7
 	  dd de_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _es_ES_850 dw 7
 	dw 6,1
@@ -2516,7 +2516,7 @@ _es_ES_850 dw 7
 	  dd es_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _es_ES_858 dw 7
 	dw 6,1
@@ -2531,7 +2531,7 @@ _es_ES_858 dw 7
 	  dd es_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _es_ES_437 dw 7
 	dw 6,1
@@ -2546,7 +2546,7 @@ _es_ES_437 dw 7
 	  dd es_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd es_yn
 _ca_ES_850 dw 7
 	dw 6,1
@@ -2561,7 +2561,7 @@ _ca_ES_850 dw 7
 	  dd ca_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ca_yn
 _ca_ES_858 dw 7
 	dw 6,1
@@ -2576,7 +2576,7 @@ _ca_ES_858 dw 7
 	  dd ca_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ca_yn
 _ca_ES_437 dw 7
 	dw 6,1
@@ -2591,7 +2591,7 @@ _ca_ES_437 dw 7
 	  dd ca_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd ca_yn
 _gl_ES_850 dw 7
 	dw 6,1
@@ -2606,7 +2606,7 @@ _gl_ES_850 dw 7
 	  dd gl_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gl_yn
 _gl_ES_858 dw 7
 	dw 6,1
@@ -2621,7 +2621,7 @@ _gl_ES_858 dw 7
 	  dd gl_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gl_yn
 _gl_ES_437 dw 7
 	dw 6,1
@@ -2636,7 +2636,7 @@ _gl_ES_437 dw 7
 	  dd gl_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd gl_yn
 _eu_ES_850 dw 7
 	dw 6,1
@@ -2651,7 +2651,7 @@ _eu_ES_850 dw 7
 	  dd eu_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd eu_yn
 _eu_ES_858 dw 7
 	dw 6,1
@@ -2666,7 +2666,7 @@ _eu_ES_858 dw 7
 	  dd eu_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd eu_yn
 _eu_ES_437 dw 7
 	dw 6,1
@@ -2681,7 +2681,7 @@ _eu_ES_437 dw 7
 	  dd eu_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd eu_yn
 _de_CH_850 dw 7
 	dw 6,1
@@ -2696,7 +2696,7 @@ _de_CH_850 dw 7
 	  dd de_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _de_CH_858 dw 7
 	dw 6,1
@@ -2711,7 +2711,7 @@ _de_CH_858 dw 7
 	  dd de_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _de_CH_437 dw 7
 	dw 6,1
@@ -2726,7 +2726,7 @@ _de_CH_437 dw 7
 	  dd de_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd de_yn
 _fr_CH_850 dw 7
 	dw 6,1
@@ -2741,7 +2741,7 @@ _fr_CH_850 dw 7
 	  dd fr_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _fr_CH_858 dw 7
 	dw 6,1
@@ -2756,7 +2756,7 @@ _fr_CH_858 dw 7
 	  dd fr_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _fr_CH_437 dw 7
 	dw 6,1
@@ -2771,7 +2771,7 @@ _fr_CH_437 dw 7
 	  dd fr_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd fr_yn
 _it_CH_850 dw 7
 	dw 6,1
@@ -2786,7 +2786,7 @@ _it_CH_850 dw 7
 	  dd it_collate_850
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd it_yn
 _it_CH_858 dw 7
 	dw 6,1
@@ -2801,7 +2801,7 @@ _it_CH_858 dw 7
 	  dd it_collate_858
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd it_yn
 _it_CH_437 dw 7
 	dw 6,1
@@ -2816,7 +2816,7 @@ _it_CH_437 dw 7
 	  dd it_collate_437
 	dw 6,7
 	  dd dbcs_empty
-	dw 6,23
+	dw 6,35
 	  dd it_yn
 
 %define MDY 0 ; month/day/year
@@ -2991,7 +2991,7 @@ es_ES_437 cnf 40034,437,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24
 ca_ES_850 cnf 41034,850,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24;  Catalan
 ca_ES_858 cnf 41034,858,DMY,0D5h,   0,0,0,0,".",",","/",":",0,2,_24
 ca_ES_437 cnf 41034,437,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24
-gl_ES_850 cnf 42034,850,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24;  Gallegan
+gl_ES_850 cnf 42034,850,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24;  Galician
 gl_ES_858 cnf 42034,858,DMY,0D5h,   0,0,0,0,".",",","/",":",0,2,_24
 gl_ES_437 cnf 42034,437,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24
 eu_ES_850 cnf 43034,850,DMY,"E","U","R",0,0,".",",","/",":",0,2,_24;  Basque
@@ -3056,7 +3056,24 @@ db 232, 233, 234, 235, 237, 237, 238, 239
 db 240, 241, 242, 243, 244, 245, 246, 247
 db 248, 249, 250, 251, 252, 253, 254, 255
 
-ucase_858 equ ucase_850
+ucase_858 db 0FFh,"UCASE  "
+	  dw 128
+db 128, 154, 144, 182, 142, 183, 143, 128
+db 210, 211, 212, 216, 215, 222, 142, 143
+db 144, 146, 146, 226, 153, 227, 234, 235
+db  99, 153, 154, 157, 156, 157, 158, 159
+db 181, 214, 224, 233, 165, 165, 166, 167
+db 168, 169, 170, 171, 172, 173, 174, 175
+db 176, 177, 178, 179, 180, 181, 182, 183
+db 184, 185, 186, 187, 188, 189, 190, 191
+db 192, 193, 194, 195, 196, 197, 199, 199
+db 200, 201, 202, 203, 204, 205, 206, 207
+db 209, 209, 210, 211, 212, 213, 214, 215
+db 216, 217, 218, 219, 220, 221, 222, 223
+db 224, 225, 226, 227, 229, 229, 230, 232
+db 232, 233, 234, 235, 237, 237, 238, 239
+db 240, 241, 242, 243, 244, 245, 246, 247
+db 248, 249, 250, 251, 252, 253, 254, 255
 
 ucase_860 db 0FFh,"UCASE  "
           dw 128		; Derived from ucase_437
