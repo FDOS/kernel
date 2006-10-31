@@ -38,7 +38,9 @@ static BYTE *memmgrRcsId =
 #define nxtMCB(mcb) nxtMCBsize((mcb), (mcb)->m_size)
 
 #define mcbFree(mcb) ((mcb)->m_psp == FREE_PSP)
-#define mcbValid(mcb)			\
+#define mcbValid(mcb)	( ((mcb)->m_size != 0xffff) && \
+        ((mcb)->m_type == MCB_NORMAL || (mcb)->m_type == MCB_LAST) )
+#define mcbFreeable(mcb)			\
 	((mcb)->m_type == MCB_NORMAL || (mcb)->m_type == MCB_LAST)
 
 #define para2far(seg) (mcb FAR *)MK_FP((seg) , 0)
@@ -66,7 +68,11 @@ STATIC COUNT joinMCBs(seg para)
     /* join both MCBs */
     p->m_type = q->m_type;      /* possibly the next MCB is the last one */
     p->m_size += q->m_size + 1; /* one for q's MCB itself */
-    q->m_type = 'K';            /* Invalidate the magic number */
+#if 0				/* this spoils QB4's habit to double-free: */
+    q->m_type = 'K';            /* Invalidate the magic number (whole MCB) */
+#else
+    q->m_size = 0xffff;		/* mark the now unlinked MCB as "fake" */
+#endif
   }
 
   return SUCCESS;
@@ -289,7 +295,7 @@ COUNT DosMemFree(UWORD para)
   p = para2far(para);
 
   /* check for corruption                         */
-  if (!mcbValid(p))
+  if (!mcbFreeable(p))	/* does not have to be valid, freeable is enough */
     return DE_INVLDMCB;
 
   /* Mark the mcb as free so that we can later    */
