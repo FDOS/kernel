@@ -40,7 +40,7 @@ ComTable        db      0Ah
                 dw      _IOCommandError
                 dw      ComRead
                 dw      ComNdRead
-                dw      _IOExit
+                dw      ComInStat
                 dw      ComInpFlush
                 dw      ComWrite
                 dw      ComWrite
@@ -84,6 +84,18 @@ BiosRdRetn:
                 retn
 
 
+ComInStat:	; similar to ComNdRead but returns no char, only flags
+                call    GetComStat
+                mov     al,[bx]
+                or      al,al
+		jnz	ComInAvail
+		call	ComRdStatus
+		test	ah,1	; char waiting
+		jz	ComNdRtn
+;                test    al,20h	; DSR (why do we test this?)
+;                jz      ComNdRtn
+ComInAvail:	jmp	_IOExit	; return "ready"
+		
 
 ComNdRead:
                 call    GetComStat
@@ -91,17 +103,17 @@ ComNdRead:
                 or      al,al
                 jnz     ComNdRd1
                 call    ComRdStatus
-                test    ah,1
+                test    ah,1	; char waiting
                 jz      ComNdRtn
-                test    al,20h
-                jz      ComNdRtn
+;                test    al,20h	; DSR (why do we test this?)
+;                jz      ComNdRtn
                 call    BiosRdCom
                 call    GetComStat
                 mov     [bx],al
 ComNdRd1:
-                jmp     CommonNdRdExit
+                jmp     CommonNdRdExit	; return that char
 ComNdRtn:
-                jmp     _IODone
+                jmp     _IODone	; return "busy"
 
 
 ComOutStat:
@@ -110,7 +122,7 @@ ComOutStat:
                 jz      ComNdRtn
                 test    ah,20h
                 jz      ComNdRtn
-                jmp     _IOExit
+                jmp     _IOExit	; return "ready"
 
 
 ComRdStatus:
