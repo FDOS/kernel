@@ -6,9 +6,6 @@
 */*/filelist
 */*/default.bat
 */*/makefile
-*/*/bin/autoexec.bat
-*/*/bin/config.sys
-*/*/bin/install.bat
 */*/boot/boot.asm
 */*/boot/boot32.asm
 */*/boot/boot32lb.asm

@@ -1,4 +1,5 @@
 @echo off
+rem IF NOTHING COMPILES, CHECK IF YOUR CVS CHECKOUT USES CORRECT DOS LINEBREAKS
 
 :- $Id$
 
@@ -14,6 +15,7 @@ set onerror=if not "%XERROR%" == "" goto daswarwohlnix
 :***** MSCL kernels
 
 call config.bat
+set dos4g=quiet
 
 if "%MS_BASE%" == "" goto no_ms
 call build -r msc 386 fat16

@@ -1,6 +1,8 @@
 @echo off
-
 :- $Id$
+
+:- with option clearset, clears all config.bat-made environment variables
+:- without options, MAKE / LINK / ... are set to defaults based on COMPILER ...
 
 if "%1" == "clearset" goto clearset
 

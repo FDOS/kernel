@@ -1,4 +1,5 @@
 @echo off
+rem IF NOTHING COMPILES, CHECK IF YOUR CVS CHECKOUT USES CORRECT DOS LINEBREAKS
 
 :- batch file to build everything
 :- $Id$
@@ -15,6 +16,7 @@ if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to
 if not exist config.bat goto abort
 
 call config.bat
+set dos4g=quiet
 
 :-----------------------------------------------------------------------
 :- following is command line handling
