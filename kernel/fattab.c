@@ -51,8 +51,19 @@ int ISFAT32(struct dpb FAR * dpbp)
 }
 #endif
 
+void clusterMessage(const char * msg, CLUSTER clussec)
+{
+  put_string(msg);
+#ifdef WITHFAT32
+  put_unsigned((unsigned)(clussec >> 16), 16, 4);
+#endif
+  put_unsigned((unsigned)(clussec & 0xffffu), 16, 4);
+  put_console('\n');
+}
+
 struct buffer FAR *getFATblock(struct dpb FAR * dpbp, CLUSTER clussec)
 {
+  /* *** why dpbp->dpb_unit? only useful to know in context of the dpbp...? *** */
   struct buffer FAR *bp = getblock(clussec, dpbp->dpb_unit);
 
   if (bp)
@@ -61,7 +72,7 @@ struct buffer FAR *getFATblock(struct dpb FAR * dpbp, CLUSTER clussec)
     bp->b_flag |= BFR_FAT | BFR_VALID;
     bp->b_dpbp = dpbp;
     bp->b_copies = dpbp->dpb_fats;
-    bp->b_offset = dpbp->dpb_fatsize;
+    bp->b_offset = dpbp->dpb_fatsize; /* 0 for FAT32 but blockio.c knows that */
 #ifdef WITHFAT32
     if (ISFAT32(dpbp))
     {
@@ -69,6 +80,8 @@ struct buffer FAR *getFATblock(struct dpb FAR * dpbp, CLUSTER clussec)
         bp->b_copies = 1;
     }
 #endif
+  } else {
+    clusterMessage("getFATblock failed: 0x",clussec);
   }
   return bp;
 }
@@ -119,12 +132,16 @@ void write_fsinfo(struct dpb FAR * dpbp)
 /*      12 bytes are compressed to 9 bytes                      */
 /*                                                              */
 
+/* either read the value at Cluster1 (if Cluster2 is READ_CLUSTER) */
+/* or write the Cluster2 value to the FAT entry at Cluster1        */
+/* returns: the cluster number (or 1 on error) for read mode       */
+/* returns: SUCCESS (or 1 on error) for write mode                 */
 CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
                  REG CLUSTER Cluster2)
 {
   struct buffer FAR *bp;
   unsigned idx;
-  unsigned secdiv;
+  unsigned secdiv; /* FAT entries per sector; nibbles for FAT12! */
   unsigned char wasfree;
   CLUSTER clussec = Cluster1;
   CLUSTER max_cluster = dpbp->dpb_size;
@@ -136,12 +153,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
  
   if (clussec <= 1 || clussec > max_cluster)
   {
-    put_string("run CHKDSK: trying to access invalid cluster 0x");
-#ifdef WITHFAT32
-    put_unsigned((unsigned)(clussec >> 16), 16, 4);
-#endif
-    put_unsigned((unsigned)(clussec & 0xffffu), 16, 4);
-    put_console('\n');
+    clusterMessage("run CHKDSK: invalid cluster nr. 0x",clussec);
     return 1;
   }
 
@@ -178,8 +190,9 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   /* Get the block that this cluster is in                */
   bp = getFATblock(dpbp, clussec);
 
-  if (bp == NULL)
+  if (bp == NULL) {
     return 1; /* the only error code possible here */
+  }
 
   if (ISFAT12(dpbp))
   {
@@ -285,7 +298,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
   {
     /* form an index so that we can read the block as a     */
     /* byte array                                           */
-    UDWORD res = fgetlong(&bp->b_buffer[idx * 4]);
+    UDWORD res = fgetlong(&bp->b_buffer[idx * 4]) & LONG_LAST_CLUSTER;
     if (Cluster2 == READ_CLUSTER)
     {
       if (res > LONG_BAD)
@@ -295,14 +308,16 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
     }
     /* Finally, put the word into the buffer and mark the   */
     /* buffer as dirty.                                     */
-    fputlong(&bp->b_buffer[idx * 4], Cluster2);
+    fputlong(&bp->b_buffer[idx * 4], Cluster2 & LONG_LAST_CLUSTER);
     wasfree = 0;
     if (res == FREE)
       wasfree = 1;
   }
 #endif
-  else
+  else {
+    put_string("link_fat: unsupported FAT type");
     return 1;
+  }
 
   /* update the free space count                          */
   bp->b_flag |= BFR_DIRTY | BFR_VALID;
