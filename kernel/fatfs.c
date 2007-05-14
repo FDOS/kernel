@@ -355,7 +355,7 @@ f_node_ptr split_path(char * path, char * fcbname)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit...     */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count <= 0)
+  if (fnp == (f_node_ptr) 0 || fnp->f_count == 0)
   {
     dir_close(fnp);
     return (f_node_ptr) 0;
@@ -2174,7 +2174,7 @@ f_node_ptr xlt_fd(int fd)
     if (fnp != (f_node_ptr)0)
     {
       fmemcpy(fnp, &f_nodes[fd], sizeof(*fnp));
-      if (fnp->f_count <= 0)
+      if (fnp->f_count == 0)
       {
         release_near_f_node(fnp);
         fnp = (f_node_ptr) 0;

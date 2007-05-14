@@ -371,7 +371,7 @@ int int21_fat32(lregs *r)
                 SectorBlock->nblks, mode);
     
       if (mode == DSKWRITEINT26)
-        if (r->AX <= 0)
+        if (r->AX == 0)
           setinvld(r->DL - 1);
       
       if (r->AX > 0)

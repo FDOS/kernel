@@ -649,7 +649,7 @@ VOID DoConfig(int nPass)
 
     for (pLine = szLine;;)
     {
-      if (read(nFileDesc, pLine, 1) <= 0)
+      if (read(nFileDesc, pLine, 1) == 0)
       {
         bEof = TRUE;
         break;
