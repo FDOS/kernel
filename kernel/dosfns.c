@@ -263,7 +263,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
 
       /* Test for eof and exit                */
       /* immediately if it is                 */
-      if (!(s->sft_flags & SFT_FEOF) || (s->sft_flags & SFT_FNUL))
+      if (!(s->sft_flags & SFT_FEOF))
         return 0;
 
       if (s->sft_flags & SFT_FCONIN)

@@ -223,6 +223,10 @@ _nul_intr:
                 push    es
                 push    bx
                 les     bx,[cs:_ReqPktPtr]            ;es:bx--> rqheadr
+                cmp     byte [es:bx+2],4    ;if read, set 0 read
+                jne     no_nul_read
+                mov     word [es:bx+12h],0
+no_nul_read:
                 or      word [es:bx+3],100h ;set "done" flag
                 pop     bx
                 pop     es
