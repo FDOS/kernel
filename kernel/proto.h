@@ -60,7 +60,6 @@ void handle_break(struct dhdr FAR **pdev, int sft_out);
 struct dhdr FAR *sft_to_dev(sft FAR *sft);
 long BinaryCharIO(struct dhdr FAR **pdev, size_t n, void FAR * bp,
                   unsigned command);
-int echo_char(int c, int sft_idx);
 int ndread(struct dhdr FAR **pdev);
 int StdinBusy(void);
 void con_flush(struct dhdr FAR **pdev);
@@ -342,7 +341,6 @@ int /*ASMCFUNC*/ ASMPASCAL fmemcmp(const void FAR *m1, const void FAR *m2, size_
 /* sysclk.c */
 COUNT BcdToByte(COUNT x);
 COUNT BcdToWord(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr);
-COUNT ByteToBcd(COUNT x);
 LONG WordToBcd(BYTE * x, UWORD * mon, UWORD * day, UWORD * yr);
 
 /* syspack.c */

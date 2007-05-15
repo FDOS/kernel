@@ -42,18 +42,18 @@ COUNT xlt_fnp(f_node_ptr);
 STATIC void save_far_f_node(f_node_ptr fnp);
 STATIC f_node_ptr get_near_f_node(void);
 STATIC f_node_ptr split_path(char *, char *);
-BOOL find_fname(f_node_ptr, char *, int);
+STATIC BOOL find_fname(f_node_ptr, char *, int);
     /* /// Added - Ron Cemer */
 STATIC void merge_file_changes(f_node_ptr fnp, int collect);
     /* /// Added - Ron Cemer */
 STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2);
     /* /// Added - Ron Cemer */
 STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst);
-BOOL find_free(f_node_ptr);
+STATIC BOOL find_free(f_node_ptr);
 STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname);
-VOID wipe_out(f_node_ptr);
-CLUSTER extend(f_node_ptr);
-COUNT extend_dir(f_node_ptr);
+STATIC VOID wipe_out(f_node_ptr);
+STATIC CLUSTER extend(f_node_ptr);
+STATIC COUNT extend_dir(f_node_ptr);
 CLUSTER first_fat(f_node_ptr);
 COUNT map_cluster(f_node_ptr, COUNT);
 STATIC VOID shrink_file(f_node_ptr fnp);
