@@ -78,14 +78,14 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
     case 0x33:
       switch (irp->AL)
       {
+          /* Set Ctrl-C flag; returns dl = break_ena              */
+        case 0x01:
+          break_ena = irp->DL & 1;
+          /* fall through */
+
           /* Get Ctrl-C flag                                      */
         case 0x00:
           irp->DL = break_ena;
-          break;
-
-          /* Set Ctrl-C flag                                      */
-        case 0x01:
-          break_ena = irp->DL & 1;
           break;
 
         case 0x02:             /* andrew schulman: get/set extended control break  */

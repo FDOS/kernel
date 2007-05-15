@@ -733,7 +733,7 @@ STATIC void CheckContinueBootFromHarddisk(void)
   printf("\n"
          "\n"
          "\n"
-         "     Hit any key within %d seconds to continue booot from %s\n"
+         "     Hit any key within %d seconds to continue boot from %s\n"
          "     Hit 'H' or    wait %d seconds to boot from Harddisk\n",
          InitKernelConfig.BootHarddiskSeconds,
          bootedFrom,
