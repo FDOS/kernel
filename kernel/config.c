@@ -1477,7 +1477,7 @@ void FAR * KernelAlloc(size_t nBytes, char type, int mode)
   {
     /* prealloc */
     lpTop = MK_FP(FP_SEG(lpTop) - nPara, FP_OFF(lpTop));
-    p=AlignParagraph(lpTop);
+    p = AlignParagraph(lpTop);
   }
   else
   {

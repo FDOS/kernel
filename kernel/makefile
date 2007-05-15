@@ -37,6 +37,7 @@ production:     ..\bin\$(TARGET).sys
 		copy kernel.map ..\bin\$(TARGET).map
 
 kernel.sys:	kernel.exe ..\utils\exeflat.exe
+		dir kernel.exe
 		$(XUPX) kernel.exe
 		..\utils\exeflat kernel.exe kernel.sys 0x60 -S0x10 -S0x8B $(UPXOPT)
 

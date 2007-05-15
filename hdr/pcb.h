@@ -168,13 +168,5 @@ typedef struct {
    /* Allow default alignment from now on */
 #include <algndflt.h>
 
-/*
- * Invoke interrupt "intnr" with all registers from *pr loaded
- * into the processor registers (except: SS, SP,& flags)
- * On return, all processor registers are stored into *pr (including
- * flags).
- */
-void ASMCFUNC intr(int intnr, iregs * const pr);
-
 #endif
 
