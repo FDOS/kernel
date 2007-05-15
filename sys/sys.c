@@ -782,7 +782,9 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
 
   bs = (struct bootsectortype *)&newboot;
 
-  memcpy(bs->OemName, "FreeDOS ", 8);
+  memcpy(bs->OemName, "FRDOS5.1", 8); /* Win9x seems to require
+                                         5 uppercase letters,
+                                         digit(4 or 5) dot digit */
 
 #ifdef WITHFAT32
   if (fs == FAT32)
