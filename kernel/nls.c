@@ -91,17 +91,16 @@ struct nlsInfoBlock nlsInfo = {
  ***** MUX calling functions ****************************************
  ********************************************************************/
 
-extern int ASMCFUNC call_nls(UWORD, struct nlsInfoBlock *, UWORD, UWORD, UWORD,
-                      UWORD, void FAR *, UWORD *);
+extern long ASMPASCAL call_nls(UWORD, VOID FAR *, UWORD, UWORD, UWORD, UWORD);
 /*== DS:SI _always_ points to global NLS info structure <-> no
  * subfct can use these registers for anything different. ==ska*/
-STATIC COUNT muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
-                   void FAR *buf, UWORD *id)
+STATIC long muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
+		  void FAR *buf)
 {
-  int ret;
+  long ret;
   log(("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%p\n",
        subfct, cntry, cp, buf));
-  ret = call_nls(subfct, &nlsInfo, bp, cp, cntry, bufsize, buf, id);
+  ret = call_nls(bp, buf, subfct, cp, cntry, bufsize);
   log(("NLS: muxGo(): return value = %d\n", ret));
   return ret;
 }
@@ -111,8 +110,7 @@ STATIC COUNT muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
  */
 COUNT muxLoadPkg(UWORD cp, UWORD cntry)
 {
-  UWORD id; /* on stack, call_nls in int2f.asm takes care of this
-             * if DS != SS */
+  long ret;
 
   /*          0x1400 == not installed, ok to install              */
   /*          0x1401 == not installed, not ok to install          */
@@ -122,16 +120,16 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /* make sure the NLSFUNC ID is updated */
 #error "NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID"
 #endif
-  if (muxGo(0, 0, NLS_FREEDOS_NLSFUNC_VERSION, 0, NLS_FREEDOS_NLSFUNC_ID, 0,
-            (UWORD *)&id) != 0x14ff)
+  ret = muxGo(0, 0, NLS_FREEDOS_NLSFUNC_VERSION, 0, NLS_FREEDOS_NLSFUNC_ID, 0);
+  if ((int)ret != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
-  if (id != NLS_FREEDOS_NLSFUNC_ID)   /* FreeDOS NLSFUNC will return */
+  if ((int)(ret >> 16) != NLS_FREEDOS_NLSFUNC_ID) /* FreeDOS NLSFUNC will return */
     return DE_INVLDACC;         /* This magic number */
 
   /* OK, the correct NLSFUNC is available --> load pkg */
   /* If cp == -1 on entry, NLSFUNC updates cp to the codepage loaded
      into memory. The system must then change to this one later */
-  return muxGo(NLSFUNC_LOAD_PKG, 0, cp, cntry, 0, 0, 0);
+  return (int)muxGo(NLSFUNC_LOAD_PKG, 0, cp, cntry, 0, 0);
 }
 
 STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry,
@@ -140,7 +138,7 @@ STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry,
   log(("NLS: muxBufGo(): subfct=%x, BP=%u, cp=%u, cntry=%u, len=%u, buf=%p\n",
        subfct, bp, cp, cntry, bufsize, buf));
 
-  return muxGo(subfct, bp, cp, cntry, bufsize, buf, 0);
+  return (int)muxGo(subfct, bp, cp, cntry, bufsize, buf);
 }
 
 #define mux65(s,cp,cc,bs,b)	muxBufGo(2, (s), (cp), (cc), (bs), (b))
