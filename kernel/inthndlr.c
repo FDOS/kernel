@@ -708,8 +708,8 @@ dispatch:
 
       /* Get DTA                                                      */
     case 0x2f:
-      lr.ES = FP_SEG(dta);
       lr.BX = FP_OFF(dta);
+      lr.ES = FP_SEG(dta);
       break;
 
       /* Get (editable) DOS Version                                   */
@@ -799,8 +799,8 @@ dispatch:
 */
       /* Get InDOS flag                                               */
     case 0x34:
-      lr.ES = FP_SEG(&InDOS);
       lr.BX = FP_OFF(&InDOS);
+      lr.ES = FP_SEG(&InDOS);
       break;
 
       /* Get Interrupt Vector                                         */
@@ -1079,8 +1079,8 @@ dispatch:
       /* ************UNDOCUMENTED************************************* */
       /* Get List of Lists                                            */
     case 0x52:
-      lr.ES = FP_SEG(&DPBp);
       lr.BX = FP_OFF(&DPBp);
+      lr.ES = FP_SEG(&DPBp);
       break;
 
     case 0x53:
@@ -1172,11 +1172,11 @@ dispatch:
       /* Get Extended Error */
     case 0x59:
       lr.AX = CritErrCode;
-      lr.ES = FP_SEG(CritErrDev);
-      lr.DI = FP_OFF(CritErrDev);
       lr.CH = CritErrLocus;
       lr.BH = CritErrClass;
       lr.BL = CritErrAction;
+      lr.DI = FP_OFF(CritErrDev);
+      lr.ES = FP_SEG(CritErrDev);
       break;
 
       /* Create Temporary File */
