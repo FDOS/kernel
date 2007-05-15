@@ -56,9 +56,26 @@ static BYTE *RcsId =
 
 COUNT DosDevIOctl(lregs * r)
 {
+  static UBYTE cmd [] = {
+    0, 0,
+    /* 0x02 */ C_IOCTLIN,
+    /* 0x03 */ C_IOCTLOUT,
+    /* 0x04 */ C_IOCTLIN,
+    /* 0x05 */ C_IOCTLOUT,
+    /* 0x06 */ C_ISTAT,
+    /* 0x07 */ C_OSTAT,
+    /* 0x08 */ C_REMMEDIA,
+    0, 0, 0,
+    /* 0x0c */ C_GENIOCTL,
+    /* 0x0d */ C_GENIOCTL,
+    /* 0x0e */ C_GETLDEV,
+    /* 0x0f */ C_SETLDEV,
+    /* 0x10 */ C_IOCTLQRY,
+    /* 0x11 */ C_IOCTLQRY,
+  };
+  
   sft FAR *s;
   struct dpb FAR *dpbp;
-  COUNT nMode;
   unsigned attr;
   unsigned char al = r->AL;
 
@@ -66,6 +83,7 @@ COUNT DosDevIOctl(lregs * r)
     return DE_INVLDFUNC;
 
   /* commonly used, shouldn't harm to do front up */
+  CharReqHdr.r_command = cmd[r->AL];
   if (al == 0x0C || al == 0x0D || al >= 0x10) /* generic or query */
   {
     CharReqHdr.r_cat = r->CH;            /* category (major) code */
@@ -139,44 +157,29 @@ COUNT DosDevIOctl(lregs * r)
           s->sft_flags_lo = SFT_FDEVICE | r->DL;
           break;
 
-        case 0x02:
-          nMode = C_IOCTLIN;
-          goto IoCharCommon;
-          
-        case 0x03:
-          nMode = C_IOCTLOUT;
-          goto IoCharCommon;
-          
-        case 0x06:
-          if (flags & SFT_FDEVICE)
-          {
-            nMode = C_ISTAT;
-            goto IoCharCommon;
-          }
-          r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
-          break;
-          
-        case 0x07:
-          if (flags & SFT_FDEVICE)
-          {
-            nMode = C_OSTAT;
-            goto IoCharCommon;
-          }
-          r->AL = 0;
-          break;
-
         case 0x0a:
           r->DX = flags;
           r->AX = 0;
           break;
 
-        case 0x0c:
-          nMode = C_GENIOCTL;
+        case 0x06:
+          if (!(flags & SFT_FDEVICE))
+          {
+            r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
+            break;
+          }
           goto IoCharCommon;
-          
-        default: /* 0x10 */
-          nMode = C_IOCTLQRY;
-        IoCharCommon:
+
+        case 0x07:
+          if (!(flags & SFT_FDEVICE))
+          {
+            r->AL = 0;
+            break;
+          }
+          /* fall through */
+
+        default: /* 0x02, 0x03, 0x0c, 0x10 */
+        IoCharCommon:  
           if ((flags & SFT_FDEVICE) &&
               (  (r->AL <= 0x03 && (attr & ATTR_IOCTL))
               ||  r->AL == 0x06 || r->AL == 0x07
@@ -184,7 +187,6 @@ COUNT DosDevIOctl(lregs * r)
               || (r->AL == 0x0c && (attr & ATTR_GENIOCTL))))
           {
             CharReqHdr.r_unit = 0;
-            CharReqHdr.r_command = nMode;
             execrh((request FAR *) & CharReqHdr, s->sft_dev);
             
             if (CharReqHdr.r_status & S_ERROR)
@@ -238,19 +240,6 @@ COUNT DosDevIOctl(lregs * r)
 
       switch (r->AL)
       {
-        case 0x04:
-          nMode = C_IOCTLIN;
-          goto IoBlockCommon;
-        case 0x05:
-          nMode = C_IOCTLOUT;
-          goto IoBlockCommon;
-        case 0x08:
-          if (attr & ATTR_EXCALLS)
-          {
-            nMode = C_REMMEDIA;
-            goto IoBlockCommon;
-          }
-          return DE_INVLDFUNC;
         case 0x09:
         {
           struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
@@ -273,12 +262,14 @@ COUNT DosDevIOctl(lregs * r)
           }
           break;
         }
+        case 0x08:
+          if (!(attr & ATTR_EXCALLS))
+	    return DE_INVLDFUNC;
+	  /* else fall through */
+        case 0x04:
+        case 0x05:
         case 0x0d:
-          nMode = C_GENIOCTL;
-          goto IoBlockCommon;
         case 0x11:
-          nMode = C_IOCTLQRY;
-        IoBlockCommon:
           if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
           {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
@@ -291,7 +282,6 @@ COUNT DosDevIOctl(lregs * r)
             return DE_INVLDFUNC;
           }
 
-          CharReqHdr.r_command = nMode;
           execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
 
           if (CharReqHdr.r_status & S_ERROR)
@@ -307,16 +297,10 @@ COUNT DosDevIOctl(lregs * r)
             r->AX = CharReqHdr.r_status;
           break;
 
-        case 0x0e:
-          nMode = C_GETLDEV;
-          goto IoLogCommon;
-        default: /* 0x0f */
-          nMode = C_SETLDEV;
-        IoLogCommon:
+        default: /* 0x0e, 0x0f */
           if (attr & ATTR_GENIOCTL)
           {
             
-            CharReqHdr.r_command = nMode;
             execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
             
             if (CharReqHdr.r_status & S_ERROR)
