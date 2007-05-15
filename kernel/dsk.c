@@ -54,12 +54,14 @@ VOID ASMPASCAL fl_readkey(VOID);
 extern COUNT ASMPASCAL fl_lba_ReadWrite(BYTE drive, WORD mode,
                                        struct _bios_LBA_address_packet FAR
                                        * dap_p);
+UWORD ASMPASCAL floppy_change(UWORD);
 #ifdef __WATCOMC__
 #pragma aux (pascal) fl_reset modify exact [ax dx]
 #pragma aux (pascal) fl_diskchanged modify exact [ax dx]
 #pragma aux (pascal) fl_setdisktype modify exact [ax bx dx]
 #pragma aux (pascal) fl_readkey modify exact [ax]
 #pragma aux (pascal) fl_lba_ReadWrite modify exact [ax dx]
+#pragma aux (pascal) floppy_change modify exact [ax cx dx]
 #endif
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
@@ -203,13 +205,20 @@ STATIC WORD play_dj(ddt * pddt)
     }
     else
     {
-      template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
-      put_string(template_string);
-      put_string("Insert");
-      template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
-      put_string(template_string + 6);
-      put_string("Press the any key to continue ... \n");
-      fl_readkey();
+      xreg dx;
+      dx.b.l = pddt->ddt_logdriveno;
+      dx.b.h = pddt2->ddt_logdriveno;
+      /* call int2f/ax=4a00 */
+      if (floppy_change(dx.x) != 0xffff) {
+	/* if someone else does not make a nice dialog... */
+	template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
+	put_string(template_string);
+	put_string("Insert");
+	template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
+	put_string(template_string + 6);
+	put_string("Press the any key to continue ... \n");
+	fl_readkey();
+      }
       pddt2->ddt_descflags &= ~DF_CURLOG;
       pddt->ddt_descflags |= DF_CURLOG;
       pokeb(0, 0x504, pddt->ddt_logdriveno);

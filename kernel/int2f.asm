@@ -107,9 +107,9 @@ DriverSysCal:
                 jmp     short Int2f?iret
 
 
-;***********************************************************
-; internal doscalls INT2F/11xx - handled through C 
-;***********************************************************
+;**********************************************************************
+; internal dos calls INT2F/12xx and INT2F/4A01,4A02 - handled through C 
+;**********************************************************************
 IntDosCal:                
                         ; set up register frame
 ;struct int2f12regs
@@ -404,34 +404,44 @@ int2f_restore_ds:
                 pop     ds
                 jmp     short ret_set_ax_to_carry
 
-; extern UWORD ASMCFUNC call_nls(UWORD subfct, struct nlsInfoBlock *nlsinfo,
-; UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize, UWORD FAR *buf, UWORD *id);
+; extern UWORD ASMPASCAL call_nls(UWORD bp, UWORD FAR *buf,
+;	UWORD subfct, UWORD cp, UWORD cntry, UWORD bufsize);
 
-		global _call_nls
-_call_nls:
+		extern _nlsInfo:wrt DGROUP
+		global CALL_NLS
+CALL_NLS:
+		pop	es		; ret addr
+		pop	cx		; bufsize
+		pop	dx		; cntry
+		pop	bx		; cp
+		pop	ax		; sub fct
+		mov	ah, 0x14
+		push	es		; ret addr
 		push	bp
 		mov	bp, sp
 		push	si
 		push	di
-		mov	al, [bp + 4]	; subfct
-		mov	ah, 0x14
-		mov	si, [bp + 6]	; nlsinfo
-		mov	bx, [bp + 10]	; cp
-		mov	dx, [bp + 12]	; cntry
-		mov	cx, [bp + 14]	; bufsize
-		les	di, [bp + 16]	; buf
-		push	bp
+		mov	si, _nlsInfo	; nlsinfo
+		les	di, [bp + 4]	; buf
 		mov	bp, [bp + 8]	; bp
 		int	0x2f
-		pop	bp
-		mov	bp, [bp + 20]	; store id (in SS:) unless it's NULL
-		or	bp, bp
-		jz	nostore
-		mov	[bp], bx
-nostore:
+		mov	dx, bx          ; return id in high word
 		pop	di
 		pop	si
 		pop	bp
+		ret	6
+
+; extern UWORD ASMPASCAL floppy_change(UWORD drives)
+
+		global FLOPPY_CHANGE
+FLOPPY_CHANGE:
+		pop	cx		; ret addr
+		pop	dx		; drives
+		push	cx		; ret addr
+		mov	ax, 0x4a00
+		xor	cx, cx
+		int	0x2f
+		mov	ax, cx		; return
 		ret
 
 ;
