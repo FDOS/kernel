@@ -392,7 +392,8 @@ STATIC long get_free_hndl(void)
   psp FAR *p = MK_FP(cu_psp, 0);
   UBYTE FAR *q = p->ps_filetab;
   UBYTE FAR *r = fmemchr(q, 0xff, p->ps_maxfiles);
-  return FP_OFF(r) == 0 ? DE_TOOMANY : r - q;
+  if (FP_SEG(r) == 0) return DE_TOOMANY;
+  return (unsigned)(r - q);
 }
 
 STATIC sft FAR *get_free_sft(COUNT * sft_idx)
