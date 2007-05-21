@@ -995,7 +995,15 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
   for (num_retries = 0; num_retries < N_RETRY; num_retries++)
   {
     regs.d.b.l = drive | 0x80;
-    if (driveParam->descflags & DF_LBA)
+    LBA_to_CHS(&chs, LBA_address, driveParam);
+    /* Some old "security" software (PROT) traps int13 and assumes non
+       LBA accesses. This statement causes partition tables to be read
+       using CHS methods even if LBA is available unless CHS can't reach
+       them. This can be overridden using kernel config parameters and
+       the extended LBA partition type indicator.
+    */
+    if ((driveParam->descflags & DF_LBA) &&
+        (InitKernelConfig.ForceLBA || ExtLBAForce || chs.Cylinder > 1023))
     {
       dap.number_of_blocks = 1;
       dap.buffer_address = buffer;
@@ -1009,7 +1017,6 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
     }
     else
     {                           /* transfer data, using old bios functions */
-      LBA_to_CHS(&chs, LBA_address, driveParam);
       /* avoid overflow at end of track */
 
       if (chs.Cylinder > 1023)
