@@ -1175,7 +1175,7 @@ STATIC VOID Country(BYTE * pLine)
 {
   /* Format: COUNTRY = countryCode, [codePage], filename   */
   COUNT ctryCode;
-  COUNT codePage = NLS_DEFAULT;
+  COUNT codePage = (COUNT)NLS_DEFAULT;
   char  *filename = "";
 
   if ((pLine = GetNumArg(pLine, &ctryCode)) == 0)
