@@ -157,7 +157,14 @@ unsigned ebdasize(void);
 
 /* intr.asm */
 
+/*
+ * Invoke interrupt "nr" with all registers from *rp loaded
+ * into the processor registers (except: SS, SP,& flags)
+ * On return, all processor registers are stored into *rp (including
+ * flags).
+ */
 unsigned ASMPASCAL init_call_intr(int nr, iregs * rp);
+
 unsigned ASMPASCAL read(int fd, void *buf, unsigned count);
 int ASMPASCAL open(const char *pathname, int flags);
 int ASMPASCAL close(int fd);
