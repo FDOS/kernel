@@ -58,8 +58,9 @@ unsigned ebdasize(void)
   unsigned ebdaseg = peek(0, EBDASEG);
   unsigned ramsize = ram_top;
 
-  if (ramsize * 64 == ebdaseg && ramsize < 640 && peek(0, RAMSIZE) == ramsize)
-  {
+  if (ramsize == peek(0, RAMSIZE))
+    if (ramsize * 64 == ebdaseg && ramsize < 640 && peek(0, RAMSIZE) == ramsize)
+    {
     unsigned ebdasz = peekb(ebdaseg, 0);
 
     /* sanity check: is there really no more than 63 KB?
@@ -67,6 +68,6 @@ unsigned ebdasize(void)
      */
     if (ebdasz <= 63 && ramsize + ebdasz == 640)
       return ebdasz * 1024U;
-  }
+    }
   return 0;
 }
