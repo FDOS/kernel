@@ -383,9 +383,15 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* Special handling - the volume id is only in the root         */
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
-  /* volume id bit set.                                           */
-  if ((attr & (D_VOLID|D_DIR))==D_VOLID)
-    i = 3;
+  /* volume id bit set (while ignoring LFN entries).              */
+  /* RBIL: ignore ReaDONLY and ARCHIVE bits                       */
+  /* For compatibility with bad search requests, only treat as    */
+  /*   volume search if only volume bit set, else ignore it.      */
+  if ((attr & ~(D_RDONLY | D_ARCHIVE))==D_VOLID) /* if ONLY label wanted */
+    i = 3; /* redirect search to root dir (?) in volume label case */
+  else
+    attr &= ~D_VOLID;  /* ignore volume mask */
+
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
 
