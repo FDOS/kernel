@@ -92,7 +92,7 @@ int main(int argc, char **argv)
   UBYTE **curbuf;
   FILE *src, *dest;
   short silentSegments[20], silentcount = 0, silentdone = 0;
-  int UPX = FALSE;
+  int UPX = FALSE, flat_exe = FALSE;
 
   /* if no arguments provided, show usage and exit */
   if (argc < 4) usage();
@@ -111,6 +111,9 @@ int main(int argc, char **argv)
     {
       case 'U':
         UPX = TRUE;
+        break;
+      case 'E':
+        flat_exe = TRUE;
         break;
       case 'S':
         if (silentcount >= LENGTH(silentSegments))
@@ -263,6 +266,23 @@ int main(int argc, char **argv)
     /* this assumes <= 0xfe00 code in kernel */
     *(short *)&JumpBehindCode[0x1e] += (short)size;
     fwrite(JumpBehindCode, 1, 0x20, dest);
+  }
+
+  if (flat_exe) {
+    /* write header without relocations to file */
+    exe_header nheader = header;
+    nheader.exRelocItems = 0;
+    nheader.exHeaderSize = 2;
+    size += 32;
+    nheader.exPages = (UWORD)(size >> 9);
+    nheader.exExtraBytes = (UWORD)size & 511;
+    if (nheader.exExtraBytes)
+      nheader.exPages++;
+    if (fwrite(&nheader, sizeof(nheader), 1, dest) != 1) {
+      printf("Destination file write error\n");
+      exit(1);
+    }
+    fseek(dest, 32UL, SEEK_SET);
   }
 
   /* write dest file from memory chunks */
