@@ -239,6 +239,7 @@ STATIC void setup_int_vectors(void)
       { 0x1, FP_OFF(empty_handler) },  /* single step */
       { 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
       { 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
+      { 0x19, FP_OFF(int19_handler) },
       { 0x20, FP_OFF(int20_handler) },
       { 0x21, FP_OFF(int21_handler) },
       { 0x22, FP_OFF(int22_handler) },

@@ -200,6 +200,7 @@ VOID ASMCFUNC FAR int21_entry(iregs UserRegs);
 VOID ASMCFUNC int21_service(iregs far * r);
 VOID ASMCFUNC FAR int0_handler(void);
 VOID ASMCFUNC FAR int6_handler(void);
+VOID ASMCFUNC FAR int19_handler(void);
 VOID ASMCFUNC FAR empty_handler(void);
 VOID ASMCFUNC FAR int20_handler(void);
 VOID ASMCFUNC FAR int21_handler(void);

@@ -189,6 +189,25 @@ reloc_call_int6_handler:
                 mov si,invalid_opcode_message
                 jmp short zero_message_loop        
 
+                global reloc_call_int19_handler
+reloc_call_int19_handler:
+; from Japheth's public domain code (JEMFBHLP.ASM)
+; restores int 10,13,15,19,1b and then calls the original int 19.
+                cld
+                xor ax,ax
+                mov es,ax
+                mov al,70h
+                mov ds,ax
+                mov si,100h
+                mov cx,5
+nextitem:       lodsb
+                mov di,ax
+                shl di,2
+                movsw
+                movsw
+                loop nextitem
+                int 19h
+
 ;
 ; Terminate the current process
 ;
