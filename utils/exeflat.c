@@ -52,8 +52,6 @@ large portions copied from task.c
 
 #define BUFSIZE 32768u
 
-#define LENGTH(x) (sizeof(x)/sizeof(x[0]))
-
 typedef struct {
   UWORD off, seg;
 } farptr;
@@ -95,6 +93,9 @@ int main(int argc, char **argv)
   FILE *src, *dest;
   short silentSegments[20], silentcount = 0, silentdone = 0;
   int UPX = FALSE;
+
+  /* if no arguments provided, show usage and exit */
+  if (argc < 4) usage();
 
   /* do optional argument processing here */
   for (i = 4; i < argc; i++)
@@ -260,7 +261,7 @@ int main(int argc, char **argv)
     }
 
     /* this assumes <= 0xfe00 code in kernel */
-    *(short *)&JumpBehindCode[0x1e] += size;
+    *(short *)&JumpBehindCode[0x1e] += (short)size;
     fwrite(JumpBehindCode, 1, 0x20, dest);
   }
 
@@ -282,31 +283,39 @@ int main(int argc, char **argv)
   if (UPX)
   {
     /* UPX trailer */
-    /* hand assembled - so this remains ANSI C ;-)  */
+    /* hand assembled - so this remains ANSI C ;-)    */
+    /* move kernel down to place CONFIG-block, which added above,
+       at start_seg-2:0 (e.g. 0x5e:0) instead of 
+       start_seg:0 (e.g. 0x60:0) and store there boot drive number
+       from BL; kernel.asm will then check presence of additional
+       CONFIG-block at this address. */
     static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
-      0xE8, 0x00, 0x00,         /* call 103                     */
-      0x59,                     /* pop cx                       */
-      0x0E,                     /* push cs                      */
-      0x1F,                     /* pop ds                       */
-      0x8c, 0xc8,               /* mov ax,cs            */
-      0x48,                     /* dec ax                       */
-      0x48,                     /* dec ax                       */
-      0x8e, 0xc0,               /* mov es,ax            */
-      0x31, 0xFF,               /* xor di,di            */
-      0xBE, 0x00, 0x00,         /* mov si,0x00              */
-      0xFC,                     /* cld                          */
-      0xF3, 0xA4,               /* rep movsb                */
-      0x26, 0x88, 0x1e, 0x00, 0x00,     /* mov es:[0],bl    */
-      0xB8, 0x00, 0x00,         /* mov ax,0000h             */
-      0x8E, 0xD0,               /* mov ss,ax                */
-      0xBC, 0x00, 0x00,         /* mov sp,0000h             */
-      0x31, 0xC0,               /* xor ax,ax                */
-      0x50,                     /* push ax                      */
-      0xC3                      /* ret                          */
+      0xB9, 0x00, 0x00,         /*  0 mov cx,offset trailer     */
+      0x0E,                     /*  3 push cs                   */
+      0x1F,                     /*  4 pop ds (=60)              */
+      0x8C, 0xC8,               /*  5 mov ax,cs                 */
+      0x48,                     /*  7 dec ax                    */
+      0x48,                     /*  8 dec ax                    */
+      0x8E, 0xC0,               /*  9 mov es,ax                 */
+      0x93,                     /* 11 xchg ax,bx (to get al=bl) */
+      0x31, 0xFF,               /* 12 xor di,di                 */
+      0xFC,                     /* 14 cld                       */
+      0xAA,                     /* 15 stosb (store drive number)*/
+      0x8B, 0xF7,               /* 16 mov si,di                 */
+      0xF3, 0xA4,               /* 18 rep movsb                 */
+      0x1E,                     /* 20 push ds                   */
+      0x58,                     /* 21 pop  ax                   */
+      0x05, 0x00, 0x00,         /* 22 add ax,...                */
+      0x8E, 0xD0,               /* 25 mov ss,ax                 */
+      0xBC, 0x00, 0x00,         /* 27 mov sp,...                */
+      0x31, 0xC0,               /* 30 xor ax,ax                 */
+      0xFF, 0xE0                /* 32 jmp ax                    */
     };
-    *(short *)&trailer[26] = start_seg + header.exInitSS;
-    *(short *)&trailer[31] = header.exInitSP;
-    fwrite(trailer, 1, sizeof(trailer), dest);
+
+    *(short *)&trailer[1] = (short)size + 0x20;
+    *(short *)&trailer[23] = header.exInitSS;
+    *(short *)&trailer[28] = header.exInitSP;
+    fwrite(trailer, 1, sizeof trailer, dest);
   }
   fclose(dest);
   printf("\nProcessed %d relocations, %d not shown\n",
