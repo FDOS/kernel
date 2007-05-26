@@ -251,8 +251,11 @@ STATIC void setup_int_vectors(void)
       { 0x2f, FP_OFF(int2f_handler) }
     };
   struct vec *pvec;
+  struct lowvec FAR *plvec;
   int i;
 
+  for (plvec = intvec_table; plvec < intvec_table + 5; plvec++)
+    plvec->isv = getvec(plvec->intno);
   for (i = 0x23; i <= 0x3f; i++)
     setvec(i, empty_handler);
   for (pvec = vectors; pvec < vectors + (sizeof vectors/sizeof *pvec); pvec++)

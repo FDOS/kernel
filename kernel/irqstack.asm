@@ -32,7 +32,7 @@
 
 %include "segs.inc"
 
-segment	_LOWTEXT
+segment	_IRQTEXT
 
 old_vectors     times 16 dd 0
 stack_size      dw      0
@@ -154,6 +154,10 @@ dont_switch:    pushf
                 pop     bx
                 iret
 
+
+                ; align to 100h to align _LOWTEXT for interrupt vectors
+                ; in kernel.asm
+                times (100h - ($ - old_vectors)) db 0
 
 segment	INIT_TEXT
 

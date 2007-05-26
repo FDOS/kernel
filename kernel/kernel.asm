@@ -233,6 +233,21 @@ no_nul_read:
                 retf
 
 segment _LOWTEXT
+
+                ; low interrupt vectors 10h,13h,15h,19h,1Bh
+                ; these need to be at 0070:0100 (see RBIL memory.lst)
+                global _intvec_table
+_intvec_table:  db 10h
+                dd 0
+                db 13h
+                dd 0
+                db 15h
+                dd 0
+                db 19h
+                dd 0
+                db 1Bh
+                dd 0
+
                 ; floppy parameter table
                 global _int1e_table
 _int1e_table:   times 0eh db 0

@@ -275,6 +275,12 @@ extern struct {
 
 extern UWORD DOSFAR LBA_WRITE_VERIFY;
 
+/* original interrupt vectors, at 70:xxxx */
+extern struct lowvec {
+  unsigned char intno;
+  intvec isv;
+} DOSTEXTFAR ASM intvec_table[5];
+
 /* floppy parameter table, at 70:xxxx */
 extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
 
