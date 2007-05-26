@@ -48,9 +48,12 @@ large portions copied from task.c
 #include "exe.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 
 #define BUFSIZE 32768u
+
+#define KERNEL_START 0x10 /* the kernel code really starts here at 60:10 */
 
 typedef struct {
   UWORD off, seg;
@@ -82,7 +85,7 @@ void usage(void)
 
 int main(int argc, char **argv)
 {
-  exe_header header;
+  static exe_header header; /* must be initialized to zero */
   int i, j;
   size_t bufsize;
   farptr *reloc;
@@ -92,7 +95,7 @@ int main(int argc, char **argv)
   UBYTE **curbuf;
   FILE *src, *dest;
   short silentSegments[20], silentcount = 0, silentdone = 0;
-  int UPX = FALSE, flat_exe = FALSE;
+  int UPX = FALSE, flat_exe = FALSE, compress_sys_file = FALSE;
 
   /* if no arguments provided, show usage and exit */
   if (argc < 4) usage();
@@ -136,37 +139,45 @@ int main(int argc, char **argv)
   
   if ((src = fopen(argv[1], "rb")) == NULL)
   {
-    printf("Source file %s could not be opened\n", argv[1]);
-    return 1;
+    if (UPX && strlen(argv[1]) > 3)
+    {
+      strcpy(argv[1] + strlen(argv[1]) - 3, "sys");
+      if ((src = fopen(argv[1], "rb")) == NULL)
+      {
+        printf("Source file %s could not be opened\n", argv[1]);
+        return 1;
+      }
+      compress_sys_file = TRUE;
+    }
   }
-  if (fread(&header, sizeof(header), 1, src) != 1)
-  {
-    printf("Error reading header from %s\n", argv[1]);
-    fclose(src);
-    return 1;
-  }
-  if (header.exSignature != MAGIC)
-  {
-    printf("Source file %s is not a valid .EXE\n", argv[1]);
-    fclose(src);
-    return 1;
-  }
-  if ((dest = fopen(argv[2], "wb+")) == NULL)
-  {
-    printf("Destination file %s could not be created\n", argv[2]);
-    return 1;
-  }
-  start_seg = (UWORD)strtol(argv[3], NULL, 0);
-  if (header.exExtraBytes == 0)
-    header.exExtraBytes = 0x200;
-  printf("header len = %lu = 0x%lx\n", header.exHeaderSize * 16UL,
-         header.exHeaderSize * 16UL);
-  size =
+  if (compress_sys_file) {
+    fseek(src, 0, SEEK_END);
+    size = ftell(src);
+  } else {
+    if (fread(&header, sizeof(header), 1, src) != 1)
+    {
+      printf("Error reading header from %s\n", argv[1]);
+      fclose(src);
+      return 1;
+    }
+    if (header.exSignature != MAGIC)
+    {
+      printf("Source file %s is not a valid .EXE\n", argv[1]);
+      fclose(src);
+      return 1;
+    }
+    start_seg = (UWORD)strtol(argv[3], NULL, 0);
+    if (header.exExtraBytes == 0)
+      header.exExtraBytes = 0x200;
+    printf("header len = %lu = 0x%lx\n", header.exHeaderSize * 16UL,
+           header.exHeaderSize * 16UL);
+    size =
       ((DWORD) (header.exPages - 1) << 9) + header.exExtraBytes -
       header.exHeaderSize * 16UL;
-  printf("image size (less header) = %lu = 0x%lx\n", size, size);
-  printf("first relocation offset = %u = 0x%u\n", header.exOverlay,
-         header.exOverlay);
+    printf("image size (less header) = %lu = 0x%lx\n", size, size);
+    printf("first relocation offset = %u = 0x%u\n", header.exOverlay,
+           header.exOverlay);
+  }
 
   /* first read file into memory chunks */
   fseek(src, header.exHeaderSize * 16UL, SEEK_SET);
@@ -194,18 +205,21 @@ int main(int argc, char **argv)
       return 1;
     }
   }
-  fseek(src, header.exRelocTable, SEEK_SET);
-  reloc = malloc(header.exRelocItems * sizeof(farptr));
-  if (reloc == NULL)
+  if (header.exRelocTable && header.exRelocItems)
   {
-    printf("Allocation error\n");
-    return 1;
-  }
-  if (fread(reloc, sizeof(farptr), header.exRelocItems, src) !=
-      header.exRelocItems)
-  {
-    printf("Source file read error\n");
-    return 1;
+    fseek(src, header.exRelocTable, SEEK_SET);
+    reloc = malloc(header.exRelocItems * sizeof(farptr));
+    if (reloc == NULL)
+    {
+      printf("Allocation error\n");
+      return 1;
+    }
+    if (fread(reloc, sizeof(farptr), header.exRelocItems, src) !=
+        header.exRelocItems)
+    {
+      printf("Source file read error\n");
+      return 1;
+    }
   }
   fclose(src);
   qsort(reloc, header.exRelocItems, sizeof(reloc[0]), compReloc);
@@ -232,7 +246,18 @@ int main(int argc, char **argv)
     *spot0 = segment & 0xff;
     *spot1 = segment >> 8;
   }
-  
+
+  if (flat_exe) {
+    compress_sys_file = size < 0x10000L;
+    if (compress_sys_file && strlen(argv[2]) > 3)
+      strcpy(argv[2] + strlen(argv[2]) - 3, "sys");
+  }
+
+  if ((dest = fopen(argv[2], "wb+")) == NULL)
+  {
+    printf("Destination file %s could not be created\n", argv[2]);
+    return 1;
+  }
   if (UPX)
   {
     /* UPX HEADER jump $+2+size */
@@ -268,7 +293,7 @@ int main(int argc, char **argv)
     fwrite(JumpBehindCode, 1, 0x20, dest);
   }
 
-  if (flat_exe) {
+  if (flat_exe && !compress_sys_file) {
     /* write header without relocations to file */
     exe_header nheader = header;
     nheader.exRelocItems = 0;
@@ -335,7 +360,21 @@ int main(int argc, char **argv)
     *(short *)&trailer[1] = (short)size + 0x20;
     *(short *)&trailer[23] = header.exInitSS;
     *(short *)&trailer[28] = header.exInitSP;
+    if (compress_sys_file)
+      /* replace by jmp word ptr [6]: ff 26 06 00
+         (the .SYS strategy handler which will unpack) */
+      *(long *)&trailer[30] = 0x000626ffL;
     fwrite(trailer, 1, sizeof trailer, dest);
+  }
+  if (flat_exe && compress_sys_file) {
+    /* overwrite first 8 bytes with SYS header */
+    UWORD dhdr[4];
+    fseek(dest, 0, SEEK_SET);
+    for (i = 0; i < 3; i++)
+      dhdr[i] = 0xffff;
+    /* strategy will jump to us, interrupt never called */
+    dhdr[3] = KERNEL_START;
+    fwrite(dhdr, sizeof(dhdr), 1, dest);
   }
   fclose(dest);
   printf("\nProcessed %d relocations, %d not shown\n",

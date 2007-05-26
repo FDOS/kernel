@@ -38,9 +38,10 @@ production:     ..\bin\$(TARGET).sys
 
 kernel.sys:	kernel.exe ..\utils\exeflat.exe
 		..\utils\exeflat kernel.exe kernelf.exe 0x60 -S0x10 -S0x74 -E
-		$(XUPX) kernelf.exe
+		if exist kernelf.exe $(XUPX) kernelf.exe
+		if exist kernelf.sys $(XUPX) kernelf.sys
 		..\utils\exeflat kernelf.exe kernel.sys 0x60 $(UPXOPT)
-		-$(RM) kernelf.exe
+		-$(RM) kernelf.exe kernelf.sys
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
