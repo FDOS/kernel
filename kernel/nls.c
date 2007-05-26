@@ -55,7 +55,7 @@ static BYTE *RcsId =
 #endif
 #endif
 
-struct nlsInfoBlock nlsInfo = {
+struct nlsInfoBlock ASM nlsInfo = {
   (char FAR *)0                 /* filename to COUNTRY.SYS */
       , 437                     /* system code page */
       /* Implementation flags */

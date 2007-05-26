@@ -473,7 +473,7 @@ struct nlsInfoBlock {           /* This block contains all information
                                    hardcoded U.S.A./CP437 */
 };
 
-extern struct nlsInfoBlock nlsInfo;
+extern struct nlsInfoBlock ASM nlsInfo;
 extern struct nlsPackage ASM nlsPackageHardcoded;
         /* These are the "must have" tables within the hard coded NLS pkg */
 extern struct nlsFnamTerm nlsFnameTermHardcoded;
