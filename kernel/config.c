@@ -749,16 +749,20 @@ UWORD GetBiosKey(int timeout)
 
   ULONG startTime = GetBiosTime();
 
-  if (timeout >= 0) do
+  if (timeout >= 0)
   {
-    r.a.x = 0x0100;             /* are there keys available ? */
-    init_call_intr(0x16, &r);
-    if ((unsigned)(GetBiosTime() - startTime) >= timeout * 18u)
-      return 0xffff;
+    do
+    {
+      r.a.x = 0x0100;             /* are there keys available ? */
+      init_call_intr(0x16, &r);
+      if (!(r.flags & FLG_ZERO))
+        return r.a.x;
+    }
+    while ((unsigned)(GetBiosTime() - startTime) < timeout * 18u);
+    return 0xffff;
   }
-  while (r.flags & FLG_ZERO);
 
-  /* key available or blocking wait (timeout < 0): fetch it */
+  /* blocking wait (timeout < 0): fetch it */
   r.a.x = 0x0000;
   init_call_intr(0x16, &r);
   return r.a.x;
