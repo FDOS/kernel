@@ -248,7 +248,8 @@ int main(int argc, char **argv)
   }
 
   if (flat_exe) {
-    compress_sys_file = size < 0x10000L;
+    /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
+    compress_sys_file = size < 65420;
     if (compress_sys_file && strlen(argv[2]) > 3)
       strcpy(argv[2] + strlen(argv[2]) - 3, "sys");
   }
@@ -360,10 +361,14 @@ int main(int argc, char **argv)
     *(short *)&trailer[1] = (short)size + 0x20;
     *(short *)&trailer[23] = header.exInitSS;
     *(short *)&trailer[28] = header.exInitSP;
-    if (compress_sys_file)
+    if (compress_sys_file) {
       /* replace by jmp word ptr [6]: ff 26 06 00
          (the .SYS strategy handler which will unpack) */
       *(long *)&trailer[30] = 0x000626ffL;
+      /* set up a 4K stack for the UPX decompressor to work with */
+      *(short *)&trailer[23] = 0x1000;
+      *(short *)&trailer[28] = 0x1000;
+    }
     fwrite(trailer, 1, sizeof trailer, dest);
   }
   if (flat_exe && compress_sys_file) {
