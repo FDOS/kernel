@@ -93,22 +93,6 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
   WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
 
   /* pjv -- ExtFcbToFcb?                                          */
-  /* Start out with some simple stuff first.  Check if we are     */
-  /* going to use a default drive specificaton.                   */
-  if (!(*wTestMode & PARSE_DFLT_DRIVE))
-    lpFcb->fcb_drive = FDFLT_DRIVE;
-  if (!(*wTestMode & PARSE_BLNK_FNAME))
-  {
-    fmemset(lpFcb->fcb_fname, ' ', FNAME_SIZE);
-  }
-  if (!(*wTestMode & PARSE_BLNK_FEXT))
-  {
-    fmemset(lpFcb->fcb_fext, ' ', FEXT_SIZE);
-  }
-
-  /* Undocumented behavior, set record number & record size to 0  */
-  lpFcb->fcb_cublock = lpFcb->fcb_recsiz = 0;
-
   if (!(*wTestMode & PARSE_SEP_STOP))
   {
     lpFileName = ParseSkipWh(lpFileName);
@@ -125,7 +109,7 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
     /* non-portable construct to be changed                 */
     REG UBYTE Drive = DosUpFChar(*lpFileName) - 'A';
 
-    if (Drive >= lastdrive)
+    if (get_cds(Drive) == NULL)
     {
       *wTestMode = PARSE_RET_BADDRIVE;
       return FP_OFF(lpFileName);
@@ -133,6 +117,20 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
 
     lpFcb->fcb_drive = Drive + 1;
     lpFileName += 2;
+  } else if (!(*wTestMode & PARSE_DFLT_DRIVE)) {
+    lpFcb->fcb_drive = FDFLT_DRIVE;
+  }
+
+  /* Undocumented behavior, set record number & record size to 0  */
+  lpFcb->fcb_cublock = lpFcb->fcb_recsiz = 0;
+
+  if (!(*wTestMode & PARSE_BLNK_FNAME))
+  {
+    fmemset(lpFcb->fcb_fname, ' ', FNAME_SIZE);
+  }
+  if (!(*wTestMode & PARSE_BLNK_FEXT))
+  {
+    fmemset(lpFcb->fcb_fext, ' ', FEXT_SIZE);
   }
 
   /* special cases: '.' and '..' */
