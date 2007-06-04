@@ -302,7 +302,9 @@ STATIC void init_kernel(void)
 
   /* Do first initialization of system variable buffers so that   */
   /* we can read config.sys later.  */
-  LoL->lastdrive = Config.cfgLastdrive;
+
+  /* use largest possible value for the initial CDS */
+  LoL->lastdrive = 26;
 
   /*  init_device((struct dhdr FAR *)&blk_dev, NULL, 0, &ram_top); */
   blk_dev.dh_name[0] = dsk_init();
