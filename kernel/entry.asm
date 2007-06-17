@@ -200,9 +200,15 @@ reloc_call_int19_handler:
                 mov ds,ax
                 mov si,100h
                 mov cx,5
+                cli
 nextitem:       lodsb
                 mov di,ax
+%ifdef I86
+                shl di,1
+                shl di,1
+%else
                 shl di,2
+%endif
                 movsw
                 movsw
                 loop nextitem
