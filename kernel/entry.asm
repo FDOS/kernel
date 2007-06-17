@@ -203,11 +203,11 @@ reloc_call_int19_handler:
                 cli
 nextitem:       lodsb
                 mov di,ax
-%ifdef I86
-                shl di,1
-                shl di,1
-%else
+%if XCPU >= 186
                 shl di,2
+%else
+                shl di,1
+                shl di,1
 %endif
                 movsw
                 movsw
