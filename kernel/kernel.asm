@@ -279,7 +279,7 @@ _NetBios        dw      0               ; NetBios Number
 
 ; Globally referenced variables - WARNING: DO NOT CHANGE ORDER
 ; BECAUSE THEY ARE DOCUMENTED AS UNDOCUMENTED (?) AND HAVE
-; MANY MULTIPLEX PROGRAMS AND TSR'S ACCESSING THEM
+; MANY MULTIPLEX PROGRAMS AND TSRs ACCESSING THEM
                 global  _NetRetry
 _NetRetry       dw      3               ;-000c network retry count
                 global  _NetDelay
@@ -417,7 +417,7 @@ _PrinterEcho    db      0               ;-34 -  0 = no printer echo, ~0 echo
                 global  _verify_ena
 _verify_ena     db      0               ; ~0, write with verify
 
-; this byte is used for TAB's
+; this byte is used for TABs (shared by all char device writes??)
                 global _scr_pos
 _scr_pos        db      0               ; Current Cursor Column
                 global  _switchar

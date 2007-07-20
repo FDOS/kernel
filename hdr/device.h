@@ -156,7 +156,7 @@ typedef struct {
   UWORD bpb_nbyte;              /* Bytes per Sector             */
   UBYTE bpb_nsector;            /* Sectors per Allocation Unit  */
   UWORD bpb_nreserved;          /* # Reserved Sectors           */
-  UBYTE bpb_nfat;               /* # FAT's                      */
+  UBYTE bpb_nfat;               /* # FATs                       */
   UWORD bpb_ndirent;            /* # Root Directory entries     */
   UWORD bpb_nsize;              /* Size in sectors              */
   UBYTE bpb_mdesc;              /* MEDIA Descriptor Byte        */

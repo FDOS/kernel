@@ -299,7 +299,7 @@ COUNT DosMemFree(UWORD para)
     return DE_INVLDMCB;
 
   /* Mark the mcb as free so that we can later    */
-  /* merge with other surrounding free mcb's      */
+  /* merge with other surrounding free MCBs       */
   p->m_psp = FREE_PSP;
   fmemset(p->m_name, '\0', 8);
 
@@ -356,11 +356,11 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     p->m_type = MCB_NORMAL;
 
     /* Mark the mcb as free so that we can later    */
-    /* merge with other surrounding free mcb's      */
+    /* merge with other surrounding free MCBs       */
     q->m_psp = FREE_PSP;
     fmemset(q->m_name, '\0', 8);
 
-    /* try to join q with the free mcb's following it if possible */
+    /* try to join q with the free MCBs following it if possible */
     if (joinMCBs(FP_SEG(q)) != SUCCESS)
       return DE_MCBDESTRY;
   }

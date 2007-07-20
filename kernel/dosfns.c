@@ -592,7 +592,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
 /* /// End of additions for SHARE.  - Ron Cemer */
 
   /* NEVER EVER allow directories to be created */
-  /* ... though FCB's are weird :) */
+  /* ... though FCBs are weird :) */
   if (!(flags & O_FCB) &&
       (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE | D_VOLID)))
     return DE_ACCESS;

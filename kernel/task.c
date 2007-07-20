@@ -433,7 +433,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       if (mode & 0x80)
       {
         mem_access_mode |= 0x80;
-        DosUmbLink(1);            /* link in UMB's */
+        DosUmbLink(1);            /* link in UMBs */
       }
       
       rc = ChildEnv(exp, &env, namep);
@@ -599,7 +599,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       /* Clone the environement and create a memory arena     */
       if (mode & 0x80)
       {
-        DosUmbLink(1);          /* link in UMB's */
+        DosUmbLink(1);          /* link in UMBs */
         mem_access_mode |= 0x80;
       }
       

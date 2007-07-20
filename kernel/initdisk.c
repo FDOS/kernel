@@ -68,7 +68,7 @@ COUNT nUnits BSS_INIT(0);
  *
  * d) using intr(intno, &regs) method.
  *
- * whynot's
+ * why not?
  *
  * a) this is my personal favorite, combining the best aof all worlds.
  *    TURBO-C does support inline assembly, but only by using TASM,
@@ -93,7 +93,7 @@ COUNT nUnits BSS_INIT(0);
  * d) this method is somewhat clumsy and certainly not the
  *    fastest way to do things.
  *    on the other hand, this is INIT code, executed once.
- *    and scince it's the only portable method, I opted for it.
+ *    and since it's the only portable method, I opted for it.
  *
  * e) and all this is my private opinion. tom ehlert.
  *
@@ -287,7 +287,7 @@ typedef struct {
   UWORD bpb_nbyte;              /* Bytes per Sector             */
   UBYTE bpb_nsector;            /* Sectors per Allocation Unit  */
   UWORD bpb_nreserved;          /* # Reserved Sectors           */
-  UBYTE bpb_nfat;               /* # FAT's                      */
+  UBYTE bpb_nfat;               /* # FATs                       */
   UWORD bpb_ndirent;            /* # Root Directory entries     */
   UWORD bpb_nsize;              /* Size in sectors              */
   UBYTE bpb_mdesc;              /* MEDIA Descriptor Byte        */
@@ -885,7 +885,7 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
     LBA_to_CHS(&chs, partitionStart, driveParam);
     LBA_to_CHS(&end, partitionStart + pEntry->NumSect - 1, driveParam);
 
-    /* some FDISK's enter for partitions 
+    /* some FDISKs enter for partitions 
        > 8 GB cyl = 1023, other (cyl&1023)
      */
 

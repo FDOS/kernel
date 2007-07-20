@@ -917,7 +917,7 @@ STATIC unsigned DMA_max_transfer(void FAR * buffer, unsigned count)
         
         translation to CHS addressing if necessary
         
-        crossing track boundaries (necessary for some BIOS's
+        crossing track boundaries (necessary for some BIOSes
     
         High memory doesn't work very well, use internal buffer
         

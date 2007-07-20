@@ -19,7 +19,7 @@ additionally:
  
  02610H 0F40EH 0CDFFH HMA_TEXT           HMA
 
- FCB's, f_nodes, buffers,...
+ FCBs, f_nodes, buffers,...
  drivers 
  
  

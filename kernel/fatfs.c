@@ -1347,7 +1347,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 }
 
 /* extends a file from f_dir.dir_size to f_offset              */
-/* Proper OS's write zeros in between, but DOS just adds       */
+/* Proper OSes write zeros in between, but DOS just adds       */
 /* garbage sectors, and lets the caller do the zero filling    */
 /* if you prefer you can have this enabled using               */
 /* #define WRITEZEROS 1                                        */

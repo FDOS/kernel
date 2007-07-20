@@ -268,7 +268,7 @@ environment variable CONFIG like
 
         if %CONFIG% == 0 echo configuration 0 selected
 
-however, if you have no menu's in config.sys, then %config% has no value,
+however, if you have no MENUs in config.sys, then %config% has no value,
 thus resulting in "IF == 0 echo configuration 0 selected."
 (which causes syntax errors as there's nothing on the left side of == )
 

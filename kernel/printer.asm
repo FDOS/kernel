@@ -220,7 +220,7 @@ PrtGnIoctl3:
 ;
 ; original implementation didn't print at all  - on my machine,LPT2
 ;
-; maybe this one's not much better either,
+; maybe this one is not much better either,
 ; but should print a little bit
 ;
 ; the status bits = AH

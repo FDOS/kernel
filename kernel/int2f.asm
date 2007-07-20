@@ -466,7 +466,7 @@ FLOPPY_CHANGE:
 ;  00h    successful
 ;  80h    function not implemented
 ;  B0h    only a smaller UMB is available
-;  B1h    no UMB's are available
+;  B1h    no UMBs are available
 ;  B2h    UMB segment number is invalid
 ;
 
@@ -480,7 +480,7 @@ UMB_GET_LARGEST:
                 mov     bp,sp
 
                 mov     dx,0xffff       ; go for broke!
-                mov     ax,1000h        ; get the umb's
+                mov     ax,1000h        ; get the UMBs
                 call    far [bp+8]      ; Call the driver
 
 ;

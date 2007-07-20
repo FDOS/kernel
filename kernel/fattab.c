@@ -118,10 +118,10 @@ void write_fsinfo(struct dpb FAR * dpbp)
 
 /*                                                              */
 /* The FAT file system is difficult to trace through FAT table. */
-/* There are two kinds of FAT's, 12 bit and 16 bit. The 16 bit  */
+/* There are two kinds of FATs,  12 bit and 16 bit. The 16 bit  */
 /* FAT is the easiest, since it is nothing more than a series   */
-/* of UWORD's. The 12 bit FAT is difficult, because it packs 3  */
-/* FAT entries into two BYTE's. These are packed as follows:    */
+/* of UWORDs.  The 12 bit FAT is difficult, because it packs 3  */
+/* FAT entries into two BYTEs.  These are packed as follows:    */
 /*                                                              */
 /*      0x0003 0x0004 0x0005 0x0006 0x0007 0x0008 0x0009 ...    */
 /*                                                              */

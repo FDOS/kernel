@@ -42,7 +42,7 @@ READPCCLOCK:
 		extern  _DaysSinceEpoch   ;            ; update days if necessary
 
 		; (ah is still 0, al contains midnight flag)
-                add     word [_DaysSinceEpoch  ],ax    ;   *some* BIOS's accumulate several days
+                add     word [_DaysSinceEpoch  ],ax    ;   *some* BIOSes accumulate several days
                 adc     word [_DaysSinceEpoch+2],0     ;
 
 						; set return value dx:ax

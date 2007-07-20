@@ -230,7 +230,7 @@ Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
 
 /* Globally referenced variables - WARNING: ORDER IS DEFINED IN         */
 /* KERNAL.ASM AND MUST NOT BE CHANGED. DO NOT CHANGE ORDER BECAUSE THEY */
-/* ARE DOCUMENTED AS UNDOCUMENTED (?) AND HAVE MANY  PROGRAMS AND TSR'S */
+/* ARE DOCUMENTED AS UNDOCUMENTED (?) AND HAVE MANY  PROGRAMS AND TSRs  */
 /* ACCESSING THEM                                                       */
 
 extern UWORD ASM NetBios;

@@ -549,7 +549,7 @@ STATIC void umb_init(void)
     umb_base_seg = umb_max = umb_start = umb_seg;
     UMB_top = umb_size;
 
-    /* there can be more UMB's ! 
+    /* there can be more UMBs ! 
        this happens, if memory mapped devces are in between 
        like UMB memory c800..c8ff, d8ff..efff with device at d000..d7ff
        However some of the xxxHIGH commands still only work with
@@ -1301,13 +1301,13 @@ STATIC VOID DeviceHigh(BYTE * pLine)
   {
     if (LoadDevice(pLine, MK_FP(umb_start + UMB_top, 0), TRUE) == DE_NOMEM)
     {
-      printf("Not enough free memory in UMB's: loading low\n");
+      printf("Not enough free memory in UMBs: loading low\n");
       LoadDevice(pLine, lpTop, FALSE);
     }
   }
   else
   {
-    printf("UMB's unavailable!\n");
+    printf("UMBs unavailable!\n");
     LoadDevice(pLine, lpTop, FALSE);
   }
 }
