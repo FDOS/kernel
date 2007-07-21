@@ -34,17 +34,32 @@ PSP_USERSS      equ     30h
 segment HMA_TEXT
 
                 global  _DosIdle_int
-
+                global  _DosIdle_hlt
 
                 extern   _InDOS:wrt DGROUP
                 extern   _cu_psp:wrt DGROUP
                 extern   _MachineId:wrt DGROUP
                 extern   critical_sp:wrt DGROUP
                 extern   _user_r:wrt DGROUP
+		; variables as the following are "part of" module inthndlr.c
+		; because of the define MAIN before include globals.h there!
+                extern   _HaltCpuWhileIdle:wrt DGROUP
                 extern   _DGROUP_:wrt HMA_TEXT
 ;
+_DosIdle_hlt:
+                push    ds
+                mov     ds, [cs:_DGROUP_]
+                cmp     byte [_HaltCpuWhileIdle],1
+                jb      DosId0
+                pushf
+                sti
+                hlt                ; save some energy :-)
+                popf
+DosId0:         pop     ds
+                retn
 ;
 _DosIdle_int:
+                call    _DosIdle_hlt
                 push    ds
                 mov     ds, [cs:_DGROUP_]
                 cmp     byte [_InDOS],1
@@ -75,4 +90,7 @@ Do_DosI:
                 pop     es
                 pop     ax
                 ret
+
+; segment _DATA		; belongs to DGROUP
+; whatever	db whatever
 

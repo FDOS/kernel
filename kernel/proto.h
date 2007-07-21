@@ -120,10 +120,12 @@ int get_sft_idx(UCOUNT hndl);
 struct cds FAR *get_cds(unsigned dsk);
 COUNT DosTruename(const char FAR * src, char FAR * dest);
 
-/*dosidle.asm */
+/* dosidle.asm */
 VOID ASMCFUNC DosIdle_int(void);
+VOID ASMCFUNC DosIdle_hlt(void);
 #ifdef __WATCOMC__
 #pragma aux (cdecl) DosIdle_int modify exact []
+#pragma aux (cdecl) DosIdle_hlt modify exact []
 #endif
 
 /* dosnames.c */

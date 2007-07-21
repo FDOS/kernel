@@ -125,6 +125,23 @@ A good number is 20, though some programs suggest/require
 30, 40, or even 255
 e.g.  files=20
 
+IDLEHALT
+Usage: idlehalt=n
+where n can be -1, 0, 1 or higher (default 0)
+Activates built-in kernel energy saving functionality if n is
+not 0. Value -1 enables all hooks, 1 enables only "safe" hooks,
+CPU halted only if kernel is waiting for CON char device input.
+Further hooks for n=-1 and n>0 depend on the kernel version:
+In addition to the safe hooks, other hooks can get activated,
+for example one for int 0x2f, ax=0x1680 "release time slice".
+Note: In rare cases, entering or leaving HLT mode (which causes
+      big changes in CPU power consumption) can cause crashes if
+      cheap power supplies or mainboards cannot properly filter
+      the transients. Underclocking the whole system may help.
+      Linux always does a few HLT at boot time, to force a hang
+      on buggy systems early (boot with no-hlt to disable HLT).
+P90 may have buggy HLT? www.tavi.co.uk/ps2pages/ohland/halt.html
+
 INSTALL
 INSTALLHIGH
 Usage:  install=[d:][path]file [options]
@@ -134,6 +151,18 @@ environment block.  The options are for the program itself; refer
 to documentation that came with your particular software for
 supported options and usage.
 e.g.  install=nansi.com
+
+KEYBUF
+Usage: keybuf=n[,m]
+where n is in 0xac-0xde or 0x106-0x1de range and m is <= 0x200
+Relocate keyboard buffer from the default location at
+0x40:0x1e-0x3e to 0x40:n-m. The buffer must be more
+than 32 bytes and must not touch offsets 0x100-0x105.
+Default for m is "next multiple of 0x100 after n".
+Note: Some BIOSes store data in the 0xac-0xff area. BASICA will
+      use the 0x106-0x120 area. Other hardware, drivers or apps
+      can collide with KEYBUF, too, so use it at your own risk.
+A reasonably safe choice should be "keybuf=0x140,0x1c0".
 
 LASTDRIVE
 LASTDRIVEHIGH

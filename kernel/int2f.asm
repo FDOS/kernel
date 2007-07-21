@@ -28,11 +28,12 @@
 ; $Id$
 ;
 
-		%include "segs.inc"
+        %include "segs.inc"
         %include "stacks.inc"
 
 segment	HMA_TEXT
-            extern  _cu_psp:wrt DGROUP
+            extern _cu_psp:wrt DGROUP
+            extern _HaltCpuWhileIdle:wrt DGROUP
             extern _syscall_MUX14
 
             extern _DGROUP_
@@ -53,9 +54,29 @@ Int2f2:
                 stc
 FarTabRetn:
                 retf    2                       ; Return far
-Int2f3:
+
+WinIdle:					; only HLT if at haltlevel 2+
+		push	ds
+                mov     ds, [cs:_DGROUP_]
+		cmp	byte [_HaltCpuWhileIdle],2
+		pop	ds
+		jb	FarTabRetn
+		pushf
+		sti
+		hlt				; save some energy :-)
+		popf
+		push	ds
+                mov     ds, [cs:_DGROUP_]
+		cmp	byte [_HaltCpuWhileIdle],3
+		pop	ds
+		jb	FarTabRetn
+		mov	al,0			; even admit we HLTed ;-)
+		jmp	short FarTabRetn
+
+Int2f3:         cmp     ax,1680h                ; Win "release time slice"
+                je      WinIdle
                 cmp     ah,16h
-                je      FarTabRetn              ; Win Hook return fast
+                je      FarTabRetn              ; other Win Hook return fast
                 cmp     ah,12h
                 je      IntDosCal               ; Dos Internal calls
 

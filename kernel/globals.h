@@ -229,7 +229,7 @@ Freeman Publishing, Lawrence KS, USA (ISBN 0-87930-436-7).\n\
  ;
 
 /* Globally referenced variables - WARNING: ORDER IS DEFINED IN         */
-/* KERNAL.ASM AND MUST NOT BE CHANGED. DO NOT CHANGE ORDER BECAUSE THEY */
+/* KERNEL.ASM AND MUST NOT BE CHANGED. DO NOT CHANGE ORDER BECAUSE THEY */
 /* ARE DOCUMENTED AS UNDOCUMENTED (?) AND HAVE MANY  PROGRAMS AND TSRs  */
 /* ACCESSING THEM                                                       */
 
@@ -420,8 +420,10 @@ void setvec(unsigned char intno, intvec vector);
 #pragma aux (cdecl) spawn_int23 aborts;
 #endif
 void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
+void ASMCFUNC DosIdle_hlt(void);        /* dosidle.asm */
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
+GLOBAL BYTE HaltCpuWhileIdle;
 
 GLOBAL struct f_node fnode[2];
 GLOBAL int fnode_fd[2];

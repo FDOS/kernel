@@ -180,6 +180,7 @@ STATIC VOID DeviceHigh(BYTE * pLine);
 STATIC VOID Files(BYTE * pLine);
 STATIC VOID FilesHigh(BYTE * pLine);
 STATIC VOID Fcbs(BYTE * pLine);
+STATIC VOID CfgKeyBuf(BYTE * pLine);
 STATIC VOID CfgLastdrive(BYTE * pLine);
 STATIC VOID CfgLastdriveHigh(BYTE * pLine);
 STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode);
@@ -218,6 +219,7 @@ STATIC VOID Stacks(BYTE * pLine);
 STATIC VOID StacksHigh(BYTE * pLine);
 
 STATIC VOID SetAnyDos(BYTE * pLine);
+STATIC VOID SetIdleHalt(BYTE * pLine);
 STATIC VOID Numlock(BYTE * pLine);
 STATIC BYTE * GetNumArg(BYTE * pLine, COUNT * pnArg);
 BYTE *GetStringArg(BYTE * pLine, BYTE * pszString);
@@ -274,6 +276,7 @@ STATIC struct table commands[] = {
   {"DOS", 1, Dosmem},
   {"DOSDATA", 1, DosData},
   {"FCBS", 1, Fcbs},
+  {"KEYBUF", 1, CfgKeyBuf},	/* ea */
   {"FILES", 1, Files},
   {"FILESHIGH", 1, FilesHigh},
   {"LASTDRIVE", 1, CfgLastdrive},
@@ -287,6 +290,7 @@ STATIC struct table commands[] = {
   {"SCREEN", 1, sysScreenMode},   /* JPP */
   {"VERSION", 1, sysVersion},     /* JPP */
   {"ANYDOS", 1, SetAnyDos},       /* tom */
+  {"IDLEHALT", 1, SetIdleHalt},   /* ea  */
 
   {"DEVICE", 2, Device},
   {"DEVICEHIGH", 2, DeviceHigh},
@@ -740,7 +744,6 @@ STATIC struct table * LookUp(struct table *p, BYTE * token)
             0xHH.. : scancode in upper  half
             0x..LL : asciicode in lower half
 */
-
 #define GetBiosTime() peekl(0, 0x46c)
 
 UWORD GetBiosKey(int timeout)
@@ -757,12 +760,17 @@ UWORD GetBiosKey(int timeout)
       init_call_intr(0x16, &r);
       if (!(r.flags & FLG_ZERO))
         return r.a.x;
-    }
-    while ((unsigned)(GetBiosTime() - startTime) < timeout * 18u);
+      if (HaltCpuWhileIdle!=0) DosIdle_hlt(); /* not _int */
+    } while ((unsigned)(GetBiosTime() - startTime) < timeout * 18u);
     return 0xffff;
   }
 
   /* blocking wait (timeout < 0): fetch it */
+  do {
+      if (HaltCpuWhileIdle!=0) DosIdle_hlt(); /* not _int */
+      r.a.x = 0x0100;
+      init_call_intr(0x16, &r);
+  } while (r.flags & FLG_ZERO);
   r.a.x = 0x0000;
   init_call_intr(0x16, &r);
   return r.a.x;
@@ -1153,6 +1161,48 @@ STATIC VOID Fcbs(BYTE * pLine)
     Config.cfgProtFcbs = Config.cfgFcbs;
 }
 
+/* 
+   Keyboard buffer relocation: KEYBUF=start[,end]
+   Select a new location for the  keyboard buffer  at 0x40:xx,
+   for example 0x40:0xac-0xff, but 0x50:5-0xff ("basica" only?)
+   feels safer? 0x60:0-0xff is scratch, we use it as SHELL PSP.
+   (sys / boot sector load_segment / LOADSEG, exeflat call in
+   makefile, DOS_PSP in mcb.h, main.c P_0, task.c, kernel.asm)
+   (50:e0..ff used as early kernel boot drive / config buffer)
+*/
+STATIC VOID CfgKeyBuf(BYTE * pLine)
+{
+  /*  Format:     KEYBUF = startoffset [,endoffset]    */
+  UWORD FAR *keyfill = (UWORD FAR *) MK_FP(0x40, 0x1a);
+  UWORD FAR *keyrange = (UWORD FAR *) MK_FP(0x40, 0x80);
+  COUNT startbuf, endbuf;
+
+  if ((pLine = GetNumArg(pLine, &startbuf)) == 0)
+    return;
+  pLine = skipwh(pLine);
+  endbuf = (startbuf | 0xff)+1;	/* default end: end of the same "page" */
+  if (*pLine == ',')
+  {
+    if ((pLine = GetNumArg(++pLine, &endbuf)) == 0)
+      return;
+  }
+  startbuf &= 0xfffe;
+  endbuf &= 0xfffe;
+  if (endbuf<startbuf || (endbuf-startbuf)<=0x20 ||
+    ((startbuf & 0xff00) != ((endbuf-1) & 0xff00)) )
+    startbuf = 0;		/* flag as bad: too small or page wrap */
+  if (startbuf<0xac || (startbuf>=0x100 && startbuf<0x105) || startbuf>0x1de)
+  {				/* 50:0 / 50:4 are for prtscr / A:/B: DJ */
+    printf("Must start at 0xac..0x1de, not 0x100..0x104\n");
+    return;
+  }
+  keyfill[0] = startbuf;
+  keyfill[1] = startbuf;
+  keyrange[0] = startbuf;
+  keyrange[1] = endbuf;
+  keycheck();
+}
+
 /*      LoadCountryInfo():
  *      Searches a file in the COUNTRY.SYS format for an entry
  *      matching the specified code page and country code, and loads
@@ -1161,7 +1211,6 @@ STATIC VOID Fcbs(BYTE * pLine)
  *
  *      Returns TRUE if successful, FALSE if not.
  */
-
 #if 0
 STATIC BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
 {
@@ -1744,17 +1793,26 @@ STATIC void config_init_fnodes(int f_nodes_cnt)
 }
 
 /*
-    Undocumented feature: 
-    
-    ANYDOS 
+    Undocumented feature:  ANYDOS 
         will report to MSDOS programs just the version number
         they expect. be careful with it!
 */
-
 STATIC VOID SetAnyDos(BYTE * pLine)
 {
   UNREFERENCED_PARAMETER(pLine);
   ReturnAnyDosVersionExpected = TRUE;
+}
+
+/*
+   Kernel built-in energy saving: IDLEHALT=haltlevel
+   -1 max savings, 0 never HLT, 1 safe kernel only HLT,
+   2 (3) also hooks int2f.1680 (and sets al=0)
+*/
+STATIC VOID SetIdleHalt(BYTE * pLine)
+{
+  COUNT haltlevel;
+  if (GetNumArg(pLine, &haltlevel))
+    HaltCpuWhileIdle = haltlevel; /* 0 for no HLT, 1..n more, -1 max */
 }
 
 STATIC VOID CfgIgnore(BYTE * pLine)
@@ -1763,10 +1821,8 @@ STATIC VOID CfgIgnore(BYTE * pLine)
 }
 
 /*
-   'MENU'ing stuff
-   
-   although it's worse then MSDOS's , its better then nothing 
-   
+   'MENU'ing stuff   
+   although it's worse then MSDOS's , its better then nothing    
 */
 
 STATIC void ClearScreen(unsigned char attr);

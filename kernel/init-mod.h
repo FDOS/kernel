@@ -155,6 +155,9 @@ unsigned init_oem(void);
 void movebda(size_t bytes, unsigned new_seg);
 unsigned ebdasize(void);
 
+/* dosidle.asm */
+extern void ASM DosIdle_hlt(VOID);
+
 /* intr.asm */
 
 /*
@@ -257,7 +260,8 @@ extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE are
   FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
   FAR ASM _HMATextEnd[], DOSFAR ASM break_ena;  /* break enabled flag                   */
 extern BYTE DOSFAR _InitTextStart,       /* first available byte of ram          */
-  DOSFAR ReturnAnyDosVersionExpected;
+  DOSFAR ReturnAnyDosVersionExpected,
+  DOSFAR HaltCpuWhileIdle;
 
 extern BYTE FAR ASM internal_data[];
 extern unsigned char FAR ASM kbdType;
