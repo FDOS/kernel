@@ -32,7 +32,7 @@
 
 %include "segs.inc"
 
-segment	_IRQTEXT
+segment	_LOWTEXT
 
 old_vectors     times 16 dd 0
 stack_size      dw      0

@@ -39,7 +39,7 @@ CPU XCPU
 %endif
 
 group   PGROUP          PSP
-group   LGROUP          _IRQTEXT _LOWTEXT _IO_TEXT _IO_FIXED_DATA _TEXT
+group   LGROUP          _LOWTEXT _IO_TEXT _IO_FIXED_DATA _TEXT
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA
 %ifdef WATCOM
 group   TGROUP          HMA_TEXT_START HMA_TEXT HMA_TEXT_END INIT_TEXT_START INIT_TEXT INIT_TEXT_END
@@ -51,7 +51,6 @@ group   I_GROUP         ID_B ID ID_E IC IDATA IB_B IB IB_E
 %endif
 
 segment PSP             class=PSP
-segment	_IRQTEXT	class=LCODE
 segment	_LOWTEXT	class=LCODE
 segment	_IO_TEXT	class=LCODE
 segment	_IO_FIXED_DATA	class=LCODE align=2
