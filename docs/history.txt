@@ -1,3 +1,12 @@
+2007 Jul 21 - Build 2036 svn, in other words, 2038 pre
+
++ Changes Eric
+	* added IDLEHALT=n and KEYBUF=n[,m] options to let the
+	  kernel use HLT when idle and reloc the keyboard buffer
+	* fixed some "Dutch plurals"
+
+
+
 2006 May 20 - Build 2036 cvs and 2037 test
 -------- Eric Auer (eric@coli.uni-sb.de)
 
@@ -19,6 +28,8 @@ Most recent changes to source code (see version.h) are:
     The head to unstable diff in general is quite large. As a rule
     of thumb, use UNSTABLE if you need NLSFUNC or Win3 386 mode or if
     you need a very new kernel, and use HEAD if you need stability.
+
+
 
 + Changes Jeremy
 	* build.bat, config.b: UPX and WIN3 build options, for BUILDALL

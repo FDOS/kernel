@@ -1,11 +1,11 @@
 Begin3
 Title:          The FreeDOS Kernel
-Version:        2036
-Entered-date:   20 May 2006
-Description:    The FreeDOS Kernel.
+Version:        2038pre/2036svn
+Entered-date:   21 Jul 2007
+Description:    The FreeDOS Kernel (svn snapshot compile)
 Keywords:       kernel freedos dos msdos
 Author:         (developers)
-Maintained-by:  jeremyd@fdos.org
+Maintained-by:  jeremyd@fdos.org, eric#coli.uni-sb.de
 Primary-site:   http://freedos.sourceforge.net
 Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel
 Platforms:      dos dosemu
