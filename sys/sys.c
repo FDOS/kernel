@@ -516,7 +516,7 @@ int2526readwrite(DosDrive, diskReadPacket, 0x26)
 
 #endif
 
-fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
+int fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
   union REGS regs;
 
@@ -643,7 +643,7 @@ BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
       "and cx, 1"      \
       "xchg cx, ax"    \
 "quit:"                \
-      modify [bx cx]   \
+      modify [bx cx dx] \
       value [ax];
 #else
 
