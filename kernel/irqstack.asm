@@ -32,7 +32,7 @@
 
 %include "segs.inc"
 
-segment	_LOWTEXT
+segment	_IRQTEXT
 
 old_vectors     times 16 dd 0
 stack_size      dw      0
@@ -172,7 +172,7 @@ _init_stacks:
                 push    si
 
 
-		mov	ax,_LOWTEXT
+		mov	ax,LGROUP
 		mov	ds,ax
 
                 mov     bx, [bp+4]
@@ -191,7 +191,7 @@ _init_stacks:
                 xor     ax, ax
                 mov     ds, ax
 
-		mov	ax, _LOWTEXT
+		mov	ax, LGROUP
 		mov	es, ax
 
                 mov     di, old_vectors
@@ -225,7 +225,7 @@ set_vect:
 set_next:       mov     ax, dx
                 cli
                 stosw
-                mov     ax, _LOWTEXT
+                mov     ax, LGROUP
                 stosw
                 sti
                 add     dx, irq_1 - irq_0
