@@ -118,11 +118,11 @@ int 21	Description			State		Ver	Status
 5bh     Create New File                 active          3.00    supported
 5ch     Lock/Unlock File                active          3.10    supported
 5d00h   Server Function Call            active          3.10    supported
-5d01h   Commit All Files                active          3.10     PLANNED
-5d02h   Close File by Name              active          3.10     PLANNED
-5d03h   Close All Files for Computer    active          3.10     PLANNED
-5d04h   Close All Files for Process     active          3.10     PLANNED
-5d05h   Get Open File List              active          3.10     PLANNED
+5d01h   Commit All Files                active          3.10     NOTE 3
+5d02h   Close File by Name              active          3.10     NOTE 3
+5d03h   Close All Files for Computer    active          3.10     NOTE 3
+5d04h   Close All Files for Process     active          3.10     NOTE 3
+5d05h   Get Open File List              active          3.10     NOTE 3
 5d06h   Get Multiple SDA                active          4.00    supported
 5d07h   Get Redirected Printer Mode     active          3.10    supported
 5d08h   Set Redirected Printer Mode     active          4.00    supported
@@ -170,14 +170,23 @@ int 29:	Fast Console Output.
 	Supported.
 
 int 2F:	DOS Multiplex.
-	Supported (not ALL functions - MOST functions supported)
+	Supported (not ALL functions, but MOST functions supported)
 
 Notes:
+
 Note 1 - function 63 Returns error code and lead byte table pointer
 	DS:SI (function 0). Functions 1 and 2 return error code -1
-	(Korean Hangul keyboard input method not supported).
+	(Korean Hangul keyboard input method not supported), but our
+	UNSTABLE kernels can contain more NLSFUNC / COUNTRY support.
 
-Note 2 - for LFN support, you can load a separate drive like DOSLFN.
+Note 2 - for LFN support, you can load a separate driver like DOSLFN.
+	It will hook int 21 and provide long file name functionality.
+
+Note 3 - planned, but the implementation will be in SHARE. The DOS
+	kernel only calls hooks (via far call) in a table which is
+	right before the SFT (list of lists [4] points to SFT). As
+	long as our SHARE does not support the hooks, they are not
+	supported either, the unused hook table would waste memory.
 
 License
 -------
