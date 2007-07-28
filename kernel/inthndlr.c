@@ -1311,12 +1311,13 @@ dispatch:
           CritErrCode = -rc;      /* Maybe set */
           SET_CARRY_FLAG();
         }
-        r->AX = -rc;
+        r->AX = -rc;		/* okay because we use real_exit */
         goto real_exit;
       }
 
     case 0x60:                 /* TRUENAME */
       rc = DosTruename(MK_FP(lr.DS, lr.SI), adjust_far(FP_ES_DI));
+      lr.AX = rc;
       goto short_check;
 
 #ifdef TSC
@@ -1562,7 +1563,7 @@ error_exit:
 error_carry:
   SET_CARRY_FLAG();
 exit_dispatch:
-  fmemcpy(r, &lr, sizeof(lregs) - 4);
+  fmemcpy(r, &lr, sizeof(lregs) - 4); /* copy lr -> r but exclude flags */
   r->DS = lr.DS;
   r->ES = lr.ES;
 real_exit:;

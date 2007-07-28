@@ -76,8 +76,10 @@ long DosMkTmp(BYTE FAR * pathname, UWORD attr)
   int loop;
 
   ptmp = pathname + fstrlen(pathname);
-  if (ptmp == pathname || (ptmp[-1] != '\\' && ptmp[-1] != '/'))
-    *ptmp++ = '\\';
+  if (os_major == 5) { /* clone some bad habit of MS DOS 5.0 only */
+    if (ptmp == pathname || (ptmp[-1] != '\\' && ptmp[-1] != '/'))
+      *ptmp++ = '\\';
+  }
   ptmp[8] = '\0';
 
   randvar = ((unsigned long)dos_getdate() << 16) | dos_gettime();
@@ -352,7 +354,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   if (cdsEntry->cdsFlags & CDSNETWDRV)
     result |= IS_NETWORK;
   
-  dhp = IsDevice(src);
+  dhp = IsDevice(src); /* returns header if -char- device */
   if (dhp)
     result |= IS_DEVICE;
 
@@ -605,6 +607,15 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
       dest[2] != '/' && !dir_exists(dest))
     return DE_PATHNOTFND;
 
+  /* Note: Not reached on error or if JOIN or QRemote_Fn (2f.1123) matched */
+  if (mode==CDS_MODE_ALLOW_WILDCARDS) /* DosTruename mode */
+  {
+    /* in other words: result & 0x60 = 0x20...: */
+    if (os_major==6 && (result & (IS_DEVICE|IS_NETWORK)) == IS_DEVICE)
+      result = 0x3a00; /* MS DOS 6.22, according to RBIL: AH=3a if char dev */
+    else
+      result = 0; /* AL is 00, 2f, 5c, or last-of-cdsEntry->cdsCurrentPath? */
+  }
   tn_printf(("Physical path: \"%s\"\n", dest));
   return result;
 }
