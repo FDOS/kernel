@@ -615,7 +615,8 @@ VOID DoConfig(int nPass)
   COUNT nFileDesc;
   BYTE *pLine;
   BOOL bEof;
-
+  if (nPass==0)
+    HaltCpuWhileIdle = 0; /* init to "no HLT while idle" */
 
   /* Check to see if we have a config.sys file.  If not, just     */
   /* exit since we don't force the user to have one.              */
@@ -758,16 +759,17 @@ UWORD GetBiosKey(int timeout)
     {
       r.a.x = 0x0100;             /* are there keys available ? */
       init_call_intr(0x16, &r);
-      if (!(r.flags & FLG_ZERO))
+      if (!(r.flags & FLG_ZERO)) {
+        r.a.x = 0x0000;
+        init_call_intr(0x16, &r); /* there is a key, so better fetch it! */
         return r.a.x;
-      if (HaltCpuWhileIdle!=0) DosIdle_hlt(); /* not _int */
+      }
     } while ((unsigned)(GetBiosTime() - startTime) < timeout * 18u);
     return 0xffff;
   }
 
   /* blocking wait (timeout < 0): fetch it */
   do {
-      if (HaltCpuWhileIdle!=0) DosIdle_hlt(); /* not _int */
       r.a.x = 0x0100;
       init_call_intr(0x16, &r);
   } while (r.flags & FLG_ZERO);
