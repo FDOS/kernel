@@ -576,10 +576,15 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     /* compute image size by removing the offset from the   */
     /* number pages scaled to bytes plus the remainder and  */
     /* the psp                                              */
-    /*  First scale the size and remove the offset          */
+#if 0
     if (ExeHeader.exPages >= 2048)
       return DE_INVLDDATA; /* we're not able to get >=1MB in dos memory */
-    image_size = ExeHeader.exPages * 32 - ExeHeader.exHeaderSize;
+#else
+    /* TurboC++ 3 BOSS NE stub: image > 1 MB but load only "X mod 1 MB" */
+    /* ExeHeader.exPages &= 0x7ff; */ /* just let << 5 do the clipping! */
+#endif
+    /*  First scale the size and remove the offset          */
+    image_size = (ExeHeader.exPages << 5) - ExeHeader.exHeaderSize;
 
     /* We should not attempt to allocate
        memory if we are overlaying the current process, because the new
@@ -593,7 +598,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       COUNT rc;
       
       /* and finally add in the psp size                      */
-      image_size += sizeof(psp) / 16;        /*TE 03/20/01 */
+      image_size += sizeof(psp) / 16;        /* TE 03/20/01 */
       exe_size = image_size + ExeHeader.exMinAlloc;
       
       /* Clone the environement and create a memory arena     */
