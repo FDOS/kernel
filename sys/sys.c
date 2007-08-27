@@ -29,7 +29,7 @@
 #define DEBUG
 /* #define DDEBUG */
 
-#define SYS_VERSION "v3.2"
+#define SYS_VERSION "v3.3"
 
 #include <stdlib.h>
 #include <dos.h>
@@ -40,6 +40,7 @@
 #include <mem.h>
 #else
 #include <memory.h>
+#include <malloc.h> /* fmalloc() in open watcom */
 #endif
 #include <string.h>
 #ifdef __TURBOC__
@@ -161,7 +162,8 @@ BYTE pgm[] = "SYS";
 
 void put_boot(int, char *, char *, int, int);
 BOOL check_space(COUNT, ULONG);
-BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file);
+BYTE far * copy(COUNT drive, BYTE * srcPath, BYTE * rootPath,
+  BYTE * file, BYTE far * buffer, ULONG * filesize);
 
 #define SEC_SIZE        512
 #define COPY_SIZE	0x7e00
@@ -240,12 +242,61 @@ struct VerifyBootSectorSize {
 
 int FDKrnConfigMain(int argc, char **argv);
 
+
+
+#ifndef __TURBOC__
+#ifdef __WATCOMC__
+
+/* int 21.48 takes a paragraph (16 byte units) count as input in bx */
+/* ... int 21.48 returns the segment after the allocated MCB in ax  */
+void far * farmalloc( ULONG __size );
+#pragma aux farmalloc = \
+      "shr cx, 1" \
+      "rcr bx, 1" \
+      "shr cx, 1" \
+      "rcr bx, 1" \
+      "shr cx, 1" \
+      "rcr bx, 1" \
+      "shr cx, 1" \
+      "rcr bx, 1" \
+      "inc bx" \
+      "xor dx, dx" \
+      "or cx, cx" \
+      "jnz nomalloc" \
+      "mov ax, 0x4800" \
+      "int 0x21" \
+      "jc nomalloc" \
+      "mov dx, ax" \
+"nomalloc:" \
+      "xor ax, ax" \
+      parm [cx bx] \
+      modify [bx] \
+      value [dx ax];
+
+void initalloc( void );
+#pragma aux initalloc = \
+      "push es" \
+      "mov ax, cs" \
+      "mov es, ax" \
+      "mov bx, 0x1000" \
+      "mov ax, 0x4a00" \
+      "int 0x21" \
+      "pop es" \
+      modify [ax bx];
+
+#endif
+#endif
+
 int main(int argc, char **argv)
 {
   COUNT drive;                  /* destination drive */
   COUNT drivearg = 0;           /* drive argument position */
   COUNT srcarg = 0;             /* source argument position */
   BYTE *bsFile = NULL;          /* user specified destination boot sector */
+  ULONG kernelsize = 0;		/* size of the kernel to be copied */
+  BYTE far *kernelbuf = NULL;	/* kernel to be copied */
+  ULONG shellsize = 0;		/* size of the shell to be copied */
+  BYTE far *shellbuf = NULL;	/* shell to be copied */
   unsigned srcDrive;            /* source drive */
   BYTE srcPath[SYS_MAXPATH];    /* user specified source drive and/or path */
   BYTE rootPath[4];             /* alternate source path to try if not '\0' */
@@ -255,6 +306,10 @@ int main(int argc, char **argv)
   int both = 0;
   char *kernel_name = "KERNEL.SYS";
   int load_segment = 0x60;
+
+#ifdef __WATCOMC__
+  initalloc(); /* reduce main MCB of .com file to 64 kB */
+#endif
 
   printf("FreeDOS System Installer " SYS_VERSION ", " __DATE__ "\n\n");
 
@@ -368,35 +423,54 @@ int main(int argc, char **argv)
   else
     sprintf(rootPath, "%c:\\", 'A' + srcDrive);
 
-  printf("Processing boot sector...\n");
-  put_boot(drive, bsFile, kernel_name, load_segment, both);
-
   if (!bootonly)
   {
-    printf("\nCopying %s...\n", kernel_name);
-    if (!copy(drive, srcPath, rootPath, kernel_name))
+    printf("Reading %s...\n", kernel_name);
+    kernelbuf = copy(drive, srcPath, rootPath, kernel_name, NULL, &kernelsize);
+    if (kernelbuf == NULL)
     {
-      printf("\n%s: cannot copy \"%s\"\n", pgm, kernel_name);
+      printf("\n%s: cannot read \"%s\"\n", pgm, kernel_name);
       exit(1);
-    } /* copy kernel */
-
-    printf("\nCopying COMMAND.COM...\n");
-    if (!copy(drive, srcPath, rootPath, "COMMAND.COM"))
+    } /* fetch kernel */
+    printf("\nReading COMMAND.COM...\n");
+    shellbuf = copy(drive, srcPath, rootPath, "COMMAND.COM", NULL, &shellsize);
+    if (shellbuf == NULL)
     {
       char *comspec = getenv("COMSPEC");
       if (comspec != NULL)
       {
         printf("%s: Trying \"%s\"\n", pgm, comspec);
-        if (!copy(drive, comspec, NULL, "COMMAND.COM"))
+        shellbuf = copy(drive, comspec, NULL, "COMMAND.COM", NULL, &shellsize);
+        if (shellbuf == NULL)
           comspec = NULL;
       }
       if (comspec == NULL)
       {
-        printf("\n%s: cannot copy \"COMMAND.COM\"\n", pgm);
+        printf("\n%s: cannot read \"COMMAND.COM\"\n", pgm);
         exit(1);
       }
-    } /* copy shell */
-  }
+    } /* fetch shell */
+  } /* file READS */
+
+  printf("\nProcessing boot sector...\n"); /* READ and WRITE */
+  put_boot(drive, bsFile, kernel_name, load_segment, both);
+
+  if (!bootonly)
+  {
+    printf("\nWriting %s...\n", kernel_name);    
+    if (copy(drive, NULL, rootPath, kernel_name, kernelbuf, &kernelsize)==NULL)
+    {
+      printf("\n%s: cannot write \"%s\"\n", pgm, kernel_name);
+      exit(1);
+    } /* write kernel */
+
+    printf("\nWriting COMMAND.COM...\n");
+    if (copy(drive, NULL, rootPath, "COMMAND.COM", shellbuf, &shellsize)==NULL)
+    {
+      printf("\n%s: cannot write \"COMMAND.COM\"\n", pgm);
+      exit(1);
+    } /* write shell */
+  } /* file WRITES */
 
   printf("\nSystem transferred.\n");
   return 0;
@@ -932,19 +1006,30 @@ BOOL check_space(COUNT drive, ULONG bytes)
 
 BYTE copybuffer[COPY_SIZE];
 
-BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
+/* if buffer is NULL, read the file, set filesize, and return a buffer */
+/* if buffer is not NULL, write, according to filesize, from buffer... */
+BYTE far * copy(COUNT drive, BYTE * srcPath, BYTE * rootPath,
+  BYTE * file, BYTE far * buffer, ULONG * filesize)
 {
   static BYTE dest[SYS_MAXPATH], source[SYS_MAXPATH];
-  unsigned ret;
+  UWORD ret;
   int fdin, fdout;
   ULONG copied = 0;
   struct stat fstatbuf;
+  BOOL reading = (buffer==NULL);
 
   strcpy(source, srcPath);
   if (rootPath != NULL) /* trick for comspec */
     strcat(source, file);
 
-  if (stat(source, &fstatbuf))
+  if (!reading && *filesize==0) /* write mode but no writing needed */
+  {
+     printf("%s: source and destination were identical: skipping \"%s\"\n",
+             pgm, source);
+     return buffer;
+  }
+
+  if (reading && stat(source, &fstatbuf)) /* read mode */
   {
     printf("%s: \"%s\" not found\n", pgm, source);
 
@@ -955,57 +1040,128 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
       if (stat(source, &fstatbuf))
       {
         printf("%s: \"%s\" not found\n", pgm, source);
-        return FALSE;
+        return NULL;
       }
     }
     else
-      return FALSE;
+      return NULL;
   }
 
-  truename(dest, source);
-  strcpy(source, dest);
-  sprintf(dest, "%c:\\%s", 'A' + drive, file);
-  if (stricmp(source, dest) == 0)
+  if (reading) /* if reading */
   {
-    printf("%s: source and destination are identical: skipping \"%s\"\n",
-           pgm, source);
-    return TRUE;
-  }
+    truename(dest, source);	/* use dest as buffer for truename(source) */
+    strcpy(source, dest);	/* write updated source string */
+    sprintf(dest, "%c:\\%s", 'A' + drive, file);
+    if (stricmp(source, dest) == 0)
+    {
+      printf("%s: source and destination are identical: skipping \"%s\"\n",
+             pgm, source);
+      *filesize = 0; /* special size */
+      return (BYTE far *) 1;	/* return something non-null */
+    }
 
-  if ((fdin = open(source, O_RDONLY | O_BINARY)) < 0)
+    if ((fdin = open(source, O_RDONLY | O_BINARY)) < 0)
+    {
+      printf("%s: failed to open \"%s\"\n", pgm, source);
+      return NULL;
+    }
+    *filesize = filelength(fdin); /* return size */
+  } /* reading */
+
+  if (!reading) /* writing */
   {
-    printf("%s: failed to open \"%s\"\n", pgm, source);
-    return FALSE;
-  }
+    if (!check_space(drive, *filesize))
+    {
+      printf("%s: Not enough space to transfer %s\n", pgm, file);
+      /* close(fdin); */
+      /* exit(1); too pessimistic? we might overwrite a pre-existing file */
+      return NULL; /* still pessimistic, did not even try to overwrite... */
+    }
 
-  if (!check_space(drive, filelength(fdin)))
-  {
-    printf("%s: Not enough space to transfer %s\n", pgm, file);
-    close(fdin);
-    exit(1);
-  }
-
-  if ((fdout =
+    sprintf(dest, "%c:\\%s", 'A' + drive, file);
+    if ((fdout =
        open(dest, O_RDWR | O_TRUNC | O_CREAT | O_BINARY,
             S_IREAD | S_IWRITE)) < 0)
-  {
-    printf(" %s: can't create\"%s\"\nDOS errnum %d", pgm, dest, errno);
-    close(fdin);
-    return FALSE;
-  }
-
-  while ((ret = read(fdin, copybuffer, COPY_SIZE)) > 0)
-  {
-    if (write(fdout, copybuffer, ret) != ret)
     {
-      printf("Can't write %u bytes to %s\n", ret, dest);
-      close(fdout);
-      unlink(dest);
-      break;
+      printf(" %s: can't create\"%s\"\nDOS errnum %d", pgm, dest, errno);
+      /* close(fdin); */
+      return NULL;
     }
-    copied += ret;
-  }
+  } /* writing */
 
+  if (reading) /* reading */
+  {
+    BYTE far *bufptr;
+#ifdef __TURBOC__ /* workaround: farmalloc is nearmalloc if tiny model in TC2 ?? */
+    UWORD theseg;
+    if (allocmem((*filesize+15)>>4, &theseg)!=-1) /* allocate dos memory */
+#else
+    buffer = (BYTE far *)farmalloc(*filesize);
+    if (buffer==NULL)
+#endif
+    {
+      printf("Not enough memory to buffer %lu bytes for %s\n", *filesize, source);
+      return NULL;
+    }
+#ifdef __TURBOC__
+    buffer = MK_FP(theseg, 0);
+#endif
+    bufptr = buffer;
+    while ((ret = read(fdin, copybuffer, COPY_SIZE)) > 0)
+    {
+      UWORD offs;
+      if ((copied+ret) > *filesize)
+      {
+        ULONG dropped = copied + ret - *filesize;
+        printf("More bytes received than expected, dropping %lu??", dropped);
+        ret = ret - (UWORD) dropped;
+      }
+      for (offs = 0; offs < ret; offs++)
+      {
+        *bufptr = copybuffer[offs];
+        bufptr++;
+        if (FP_OFF(bufptr) > 0x7777) /* watcom needs this in tiny model */
+        {
+          bufptr = MK_FP(FP_SEG(bufptr)+0x700, FP_OFF(bufptr)-0x7000);
+        }
+      }
+      copied += ret;
+    }
+  } /* reading */
+
+  if (!reading) /* writing */
+  {
+    BYTE far * bufptr = buffer;
+    while (TRUE)
+    {
+      UWORD offs;      
+      ULONG tocopy = *filesize - copied;
+      if (tocopy==0)
+        break; /* done */
+      if (tocopy > (ULONG)COPY_SIZE)
+        tocopy = COPY_SIZE; /* cannot do all in one go */
+      for (offs=0; offs < tocopy; offs++)
+      {
+        copybuffer[offs] = *bufptr;
+        bufptr++;
+        if (FP_OFF(bufptr) > 0x7777) /* watcom needs this in tiny model */
+        {
+          bufptr = MK_FP(FP_SEG(bufptr)+0x700, FP_OFF(bufptr)-0x7000);
+        }
+      }
+      ret = (UWORD) tocopy;
+      if (write(fdout, copybuffer, ret) != ret)
+      {
+        printf("Can't write %u bytes to %s\n", ret, dest);
+        close(fdout);
+        unlink(dest);
+        break;
+      }
+      copied += ret;
+    }
+  } /* writing */
+
+#if 0 /* TODO: Clone file timestamps even in 2 pass copy mode... */
   {
 #if defined __WATCOMC__ || defined _MSC_VER /* || defined __BORLANDC__ */
     unsigned short date, time;	  
@@ -1017,10 +1173,14 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
     setftime(fdout, &ftime);
 #endif
   }
+#endif /* timestamps */
 
-  close(fdin);
-  close(fdout);
+  if (reading)
+    close(fdin);
+  if (!reading)
+    close(fdout);
 
+#if 0 /* no way :-p */
 #ifdef __SOME_OTHER_COMPILER__
   {
 #include <utime.h>
@@ -1031,9 +1191,10 @@ BOOL copy(COUNT drive, BYTE * srcPath, BYTE * rootPath, BYTE * file)
     utime(dest, &utimb);
   };
 #endif
+#endif
 
   printf("%lu Bytes transferred", copied);
 
-  return TRUE;
+  return buffer;
 } /* copy */
 
