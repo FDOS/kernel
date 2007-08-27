@@ -423,7 +423,7 @@ void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 void ASMCFUNC DosIdle_hlt(void);        /* dosidle.asm */
 
 GLOBAL BYTE ReturnAnyDosVersionExpected;
-GLOBAL BYTE HaltCpuWhileIdle;
+GLOBAL BYTE ASM HaltCpuWhileIdle;
 
 GLOBAL struct f_node fnode[2];
 GLOBAL int fnode_fd[2];
