@@ -37,11 +37,7 @@ production:     ..\bin\$(TARGET).sys
 		copy kernel.map ..\bin\$(TARGET).map
 
 kernel.sys:	kernel.exe ..\utils\exeflat.exe
-		..\utils\exeflat kernel.exe kernelf.exe 0x60 -S0x10 -S0x74 -E
-		$(COMSPEC) /c if exist kernelf.exe $(XUPX) kernelf.exe
-		$(COMSPEC) /c if exist kernelf.sys $(XUPX) kernelf.sys
-		..\utils\exeflat kernelf.exe kernel.sys 0x60 $(UPXOPT)
-		-$(RM) kernelf.exe kernelf.sys
+		..\utils\exeflat kernel.exe kernel.sys 0x60 -S0x10 -S0x74 $(UPXOPT) $(XUPX)
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;

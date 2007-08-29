@@ -83,7 +83,7 @@ static void usage(void)
   exit(1);
 }
 
-static int exeflat(int UPX, const char *srcfile, const char *dstfile,
+static int exeflat(const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
                    int flat_exe, exe_header *header)
 {
@@ -100,16 +100,8 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
 
   if ((src = fopen(srcfile, "rb")) == NULL)
   {
-    if (UPX && strlen(srcfile) > 3)
-    {
-      strcpy((char *)srcfile + strlen(srcfile) - 3, "sys");
-      if (rename(srcfile, dstfile) == -1)
-      {
-        printf("Source file %s could not be opened\n", srcfile);
-        exit(1);
-      }
-      return TRUE;
-    }
+    printf("Source file %s could not be opened\n", srcfile);
+    exit(1);
   }
   if (fread(header, sizeof(*header), 1, src) != 1)
   {
@@ -208,8 +200,6 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
 
   /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
   compress_sys_file = flat_exe && size < 65420;
-  if (compress_sys_file && strlen(dstfile) > 3)
-    strcpy((char *)dstfile + strlen(dstfile) - 3, "sys");
 
   if ((dest = fopen(dstfile, "wb+")) == NULL)
   {
@@ -348,8 +338,9 @@ int main(int argc, char **argv)
   static exe_header header; /* must be initialized to zero */
   int UPX = FALSE, flat_exe = FALSE;
   int i;
+  size_t sz, len, len2, n;
   int compress_sys_file;
-  char *buffer;
+  char *buffer, *tmpexe, *cmdbuf;
   FILE *dest;
   long size;
 
@@ -357,7 +348,7 @@ int main(int argc, char **argv)
   if (argc < 4) usage();
 
   /* do optional argument processing here */
-  for (i = 4; i < argc; i++)
+  for (i = 4; i < argc && !UPX; i++)
   {
     char *argptr = argv[i];
     
@@ -369,7 +360,7 @@ int main(int argc, char **argv)
     switch (toupper(argptr[0]))
     {
       case 'U':
-        UPX = TRUE;
+        UPX = i;
         break;
       case 'E':
         flat_exe = TRUE;
@@ -393,11 +384,55 @@ int main(int argc, char **argv)
   /* arguments left :
      infile outfile relocation offset */
 
-  compress_sys_file = exeflat(UPX, argv[1], argv[2], argv[3],
+  compress_sys_file = exeflat(argv[1], argv[2], argv[3],
                               silentSegments, silentcount,
-                              flat_exe, &header);
-  if (!UPX)
+                              TRUE, &header);
+  if (!UPX || flat_exe)
     exit(0);
+
+  /* move kernel.sys tmp$$$$$.exe */
+  tmpexe = argv[2];
+  if (!compress_sys_file)
+  {
+    tmpexe = "tmp$$$$$.exe";
+    rename(argv[2], tmpexe);
+  }
+
+  len2 = strlen(tmpexe) + 1;
+  sz = len2;
+  if (sz < 256) sz = 256;
+  cmdbuf = malloc(sz);
+  len = 0;
+  for (i = UPX+1; i < argc; i++)
+  {
+    n = strlen(argv[i]);
+    if (len + len2 + n + 2 >= sz) {
+      sz *= 2;
+      cmdbuf = realloc(cmdbuf, sz);
+    }
+    if (i > UPX+1)
+      cmdbuf[len++] = ' ';
+    memcpy(cmdbuf + len, argv[i], n + 1);
+    len += n;
+  }
+  cmdbuf[len++] = ' ';
+  memcpy(cmdbuf + len, tmpexe, len2);
+  printf("%s\n", cmdbuf);
+  if (system(cmdbuf))
+  {
+    printf("Problems executing %s\n", cmdbuf);
+    remove(tmpexe);
+    exit(1);
+  }
+  free(cmdbuf);
+
+  if (!compress_sys_file)
+  {
+    exeflat(tmpexe, argv[2], argv[3],
+            silentSegments, silentcount,
+            FALSE, &header);
+    remove(tmpexe);
+  }
 
   /* argv[2] now contains the final flattened file: just
      header and trailer need to be added */
