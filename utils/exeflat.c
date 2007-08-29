@@ -83,15 +83,10 @@ static void usage(void)
   exit(1);
 }
 
-static void write_header(FILE *dest, size_t size);
-static void write_trailer(FILE *dest, size_t size, int compress_sys_file,
-  exe_header *header);
-
 static int exeflat(int UPX, const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
-                   int flat_exe)
+                   int flat_exe, exe_header *header)
 {
-  static exe_header header; /* must be initialized to zero */
   int i, j;
   size_t bufsize;
   farptr *reloc;
@@ -101,57 +96,52 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
   UBYTE **curbuf;
   FILE *src, *dest;
   short silentdone = 0;
-  int compress_sys_file = FALSE;
+  int compress_sys_file;
 
   if ((src = fopen(srcfile, "rb")) == NULL)
   {
     if (UPX && strlen(srcfile) > 3)
     {
       strcpy((char *)srcfile + strlen(srcfile) - 3, "sys");
-      if ((src = fopen(srcfile, "rb")) == NULL)
+      if (rename(srcfile, dstfile) == -1)
       {
         printf("Source file %s could not be opened\n", srcfile);
-        return 1;
+        exit(1);
       }
-      compress_sys_file = TRUE;
+      return TRUE;
     }
   }
-  if (compress_sys_file) {
-    fseek(src, 0, SEEK_END);
-    size = ftell(src);
-  } else {
-    if (fread(&header, sizeof(header), 1, src) != 1)
-    {
-      printf("Error reading header from %s\n", srcfile);
-      fclose(src);
-      return 1;
-    }
-    if (header.exSignature != MAGIC)
-    {
-      printf("Source file %s is not a valid .EXE\n", srcfile);
-      fclose(src);
-      return 1;
-    }
-    start_seg = (UWORD)strtol(start, NULL, 0);
-    if (header.exExtraBytes == 0)
-      header.exExtraBytes = 0x200;
-    printf("header len = %lu = 0x%lx\n", header.exHeaderSize * 16UL,
-           header.exHeaderSize * 16UL);
-    size =
-      ((DWORD) (header.exPages - 1) << 9) + header.exExtraBytes -
-      header.exHeaderSize * 16UL;
-    printf("image size (less header) = %lu = 0x%lx\n", size, size);
-    printf("first relocation offset = %u = 0x%u\n", header.exOverlay,
-           header.exOverlay);
+  if (fread(header, sizeof(*header), 1, src) != 1)
+  {
+    printf("Error reading header from %s\n", srcfile);
+    fclose(src);
+    exit(1);
   }
+  if (header->exSignature != MAGIC)
+  {
+    printf("Source file %s is not a valid .EXE\n", srcfile);
+    fclose(src);
+    exit(1);
+  }
+  start_seg = (UWORD)strtol(start, NULL, 0);
+  if (header->exExtraBytes == 0)
+    header->exExtraBytes = 0x200;
+  printf("header len = %lu = 0x%lx\n", header->exHeaderSize * 16UL,
+         header->exHeaderSize * 16UL);
+  size =
+    ((DWORD) (header->exPages - 1) << 9) + header->exExtraBytes -
+    header->exHeaderSize * 16UL;
+  printf("image size (less header) = %lu = 0x%lx\n", size, size);
+  printf("first relocation offset = %u = 0x%u\n", header->exOverlay,
+         header->exOverlay);
 
   /* first read file into memory chunks */
-  fseek(src, header.exHeaderSize * 16UL, SEEK_SET);
+  fseek(src, header->exHeaderSize * 16UL, SEEK_SET);
   buffers = malloc((size_t)((size + BUFSIZE - 1) / BUFSIZE) * sizeof(char *));
   if (buffers == NULL)
   {
     printf("Allocation error\n");
-    return 1;
+    exit(1);
   }
   bufsize = BUFSIZE;
   for (to_xfer = size, curbuf = buffers; to_xfer > 0;
@@ -163,33 +153,33 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
     if (*curbuf == NULL)
     {
       printf("Allocation error\n");
-      return 1;
+      exit(1);
     }
     if (fread(*curbuf, sizeof(char), bufsize, src) != bufsize)
     {
       printf("Source file read error %ld %d\n", to_xfer, bufsize);
-      return 1;
+      exit(1);
     }
   }
-  if (header.exRelocTable && header.exRelocItems)
+  if (header->exRelocTable && header->exRelocItems)
   {
-    fseek(src, header.exRelocTable, SEEK_SET);
-    reloc = malloc(header.exRelocItems * sizeof(farptr));
+    fseek(src, header->exRelocTable, SEEK_SET);
+    reloc = malloc(header->exRelocItems * sizeof(farptr));
     if (reloc == NULL)
     {
       printf("Allocation error\n");
-      return 1;
+      exit(1);
     }
-    if (fread(reloc, sizeof(farptr), header.exRelocItems, src) !=
-        header.exRelocItems)
+    if (fread(reloc, sizeof(farptr), header->exRelocItems, src) !=
+        header->exRelocItems)
     {
       printf("Source file read error\n");
-      return 1;
+      exit(1);
     }
   }
   fclose(src);
-  qsort(reloc, header.exRelocItems, sizeof(reloc[0]), compReloc);
-  for (i = 0; i < header.exRelocItems; i++)
+  qsort(reloc, header->exRelocItems, sizeof(reloc[0]), compReloc);
+  for (i = 0; i < header->exRelocItems; i++)
   {
     ULONG spot = ((ULONG) reloc[i].seg << 4) + reloc[i].off;
     UBYTE *spot0 = &buffers[(size_t)(spot / BUFSIZE)][(size_t)(spot % BUFSIZE)];
@@ -213,26 +203,23 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
     *spot1 = segment >> 8;
   }
 
-  if (flat_exe) {
-    /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
-    compress_sys_file = size < 65420;
-    if (compress_sys_file && strlen(dstfile) > 3)
-      strcpy((char *)dstfile + strlen(dstfile) - 3, "sys");
-  }
+  printf("\nProcessed %d relocations, %d not shown\n",
+         header->exRelocItems, silentdone);
+
+  /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
+  compress_sys_file = flat_exe && size < 65420;
+  if (compress_sys_file && strlen(dstfile) > 3)
+    strcpy((char *)dstfile + strlen(dstfile) - 3, "sys");
 
   if ((dest = fopen(dstfile, "wb+")) == NULL)
   {
     printf("Destination file %s could not be created\n", dstfile);
-    return 1;
-  }
-  if (UPX)
-  {
-    write_header(dest, (size_t)size);
+    exit(1);
   }
 
   if (flat_exe && !compress_sys_file) {
     /* write header without relocations to file */
-    exe_header nheader = header;
+    exe_header nheader = *header;
     nheader.exRelocItems = 0;
     nheader.exHeaderSize = 2;
     size += 32;
@@ -258,14 +245,11 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
 
     {
       printf("Destination file write error\n");
-      return 1;
+      exit(1);
     }
+    free(*curbuf);
   }
- 
-  if (UPX)
-  {
-    write_trailer(dest, (size_t)size, compress_sys_file, &header);
-  }
+
   if (flat_exe && compress_sys_file) {
     /* overwrite first 8 bytes with SYS header */
     UWORD dhdr[4];
@@ -277,9 +261,7 @@ static int exeflat(int UPX, const char *srcfile, const char *dstfile,
     fwrite(dhdr, sizeof(dhdr), 1, dest);
   }
   fclose(dest);
-  printf("\nProcessed %d relocations, %d not shown\n",
-         header.exRelocItems, silentdone);
-  return 0;
+  return compress_sys_file;
 }
 
 static void write_header(FILE *dest, size_t size)
@@ -306,12 +288,7 @@ static void write_header(FILE *dest, size_t size)
     char y[sizeof(JumpBehindCode) == 0x20 ? 1 : -1];
   };
 
-  if (size >= 0xfe00u)
-  {
-    printf("kernel; size too large - must be <= 0xfe00\n");
-    exit(1);
-  }
-
+  fseek(dest, 0, SEEK_SET);
   /* this assumes <= 0xfe00 code in kernel */
   *(short *)&JumpBehindCode[0x1e] += (short)size;
   fwrite(JumpBehindCode, 1, 0x20, dest);
@@ -368,8 +345,13 @@ static void write_trailer(FILE *dest, size_t size, int compress_sys_file,
 int main(int argc, char **argv)
 {
   short silentSegments[20], silentcount = 0;
+  static exe_header header; /* must be initialized to zero */
   int UPX = FALSE, flat_exe = FALSE;
   int i;
+  int compress_sys_file;
+  char *buffer;
+  FILE *dest;
+  long size;
 
   /* if no arguments provided, show usage and exit */
   if (argc < 4) usage();
@@ -411,6 +393,34 @@ int main(int argc, char **argv)
   /* arguments left :
      infile outfile relocation offset */
 
-  return exeflat(UPX, argv[1], argv[2], argv[3], silentSegments, silentcount,
-    flat_exe);
+  compress_sys_file = exeflat(UPX, argv[1], argv[2], argv[3],
+                              silentSegments, silentcount,
+                              flat_exe, &header);
+  if (!UPX)
+    exit(0);
+
+  /* argv[2] now contains the final flattened file: just
+     header and trailer need to be added */
+  /* the compressed file has two chunks max */
+
+  if ((dest = fopen(argv[2], "rb+")) == NULL)
+  {
+    printf("Destination file %s could not be opened\n", argv[2]);
+    exit(1);
+  }
+
+  buffer = malloc(0xfe01);
+
+  fread(buffer, 0xfe01, 1, dest);
+  size = ftell(dest);
+  if (size >= 0xfe00u)
+  {
+    printf("kernel; size too large - must be <= 0xfe00\n");
+    exit(1);
+  }
+  fseek(dest, 0, SEEK_SET);
+  write_header(dest, (size_t)size);
+  fwrite(buffer, (size_t)size, 1, dest);
+  write_trailer(dest, (size_t)size, compress_sys_file, &header);
+  return 0;
 }
