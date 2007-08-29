@@ -59,7 +59,7 @@ typedef struct {
   UWORD off, seg;
 } farptr;
 
-int compReloc(const void *p1, const void *p2)
+static int compReloc(const void *p1, const void *p2)
 {
   farptr *r1 = (farptr *) p1;
   farptr *r2 = (farptr *) p2;
@@ -74,7 +74,7 @@ int compReloc(const void *p1, const void *p2)
   return 0;
 }
 
-void usage(void)
+static void usage(void)
 {
   printf("usage: exeflat (src.exe) (dest.sys) (relocation-factor)\n");
   printf
@@ -83,7 +83,13 @@ void usage(void)
   exit(1);
 }
 
-int main(int argc, char **argv)
+static void write_header(FILE *dest, size_t size);
+static void write_trailer(FILE *dest, size_t size, int compress_sys_file,
+  exe_header *header);
+
+static int exeflat(int UPX, const char *srcfile, const char *dstfile,
+                   const char *start, short *silentSegments, short silentcount,
+                   int flat_exe)
 {
   static exe_header header; /* must be initialized to zero */
   int i, j;
@@ -94,57 +100,17 @@ int main(int argc, char **argv)
   UBYTE **buffers;
   UBYTE **curbuf;
   FILE *src, *dest;
-  short silentSegments[20], silentcount = 0, silentdone = 0;
-  int UPX = FALSE, flat_exe = FALSE, compress_sys_file = FALSE;
+  short silentdone = 0;
+  int compress_sys_file = FALSE;
 
-  /* if no arguments provided, show usage and exit */
-  if (argc < 4) usage();
-
-  /* do optional argument processing here */
-  for (i = 4; i < argc; i++)
+  if ((src = fopen(srcfile, "rb")) == NULL)
   {
-    char *argptr = argv[i];
-    
-    if (argptr[0] != '-' && argptr[0] != '/')
-      usage();
-    
-    argptr++;
-
-    switch (toupper(argptr[0]))
+    if (UPX && strlen(srcfile) > 3)
     {
-      case 'U':
-        UPX = TRUE;
-        break;
-      case 'E':
-        flat_exe = TRUE;
-        break;
-      case 'S':
-        if (silentcount >= LENGTH(silentSegments))
-        {
-          printf("can't handle more then %d silent's\n",
-                 LENGTH(silentSegments));
-          exit(1);
-        }
-	
-        silentSegments[silentcount++] = (short)strtol(argptr + 1, NULL, 0);
-        break;
-	
-      default:
-        usage();
-    }
-  }
-
-  /* arguments left :
-     infile outfile relocation offset */
-  
-  if ((src = fopen(argv[1], "rb")) == NULL)
-  {
-    if (UPX && strlen(argv[1]) > 3)
-    {
-      strcpy(argv[1] + strlen(argv[1]) - 3, "sys");
-      if ((src = fopen(argv[1], "rb")) == NULL)
+      strcpy((char *)srcfile + strlen(srcfile) - 3, "sys");
+      if ((src = fopen(srcfile, "rb")) == NULL)
       {
-        printf("Source file %s could not be opened\n", argv[1]);
+        printf("Source file %s could not be opened\n", srcfile);
         return 1;
       }
       compress_sys_file = TRUE;
@@ -156,17 +122,17 @@ int main(int argc, char **argv)
   } else {
     if (fread(&header, sizeof(header), 1, src) != 1)
     {
-      printf("Error reading header from %s\n", argv[1]);
+      printf("Error reading header from %s\n", srcfile);
       fclose(src);
       return 1;
     }
     if (header.exSignature != MAGIC)
     {
-      printf("Source file %s is not a valid .EXE\n", argv[1]);
+      printf("Source file %s is not a valid .EXE\n", srcfile);
       fclose(src);
       return 1;
     }
-    start_seg = (UWORD)strtol(argv[3], NULL, 0);
+    start_seg = (UWORD)strtol(start, NULL, 0);
     if (header.exExtraBytes == 0)
       header.exExtraBytes = 0x200;
     printf("header len = %lu = 0x%lx\n", header.exHeaderSize * 16UL,
@@ -250,48 +216,18 @@ int main(int argc, char **argv)
   if (flat_exe) {
     /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
     compress_sys_file = size < 65420;
-    if (compress_sys_file && strlen(argv[2]) > 3)
-      strcpy(argv[2] + strlen(argv[2]) - 3, "sys");
+    if (compress_sys_file && strlen(dstfile) > 3)
+      strcpy((char *)dstfile + strlen(dstfile) - 3, "sys");
   }
 
-  if ((dest = fopen(argv[2], "wb+")) == NULL)
+  if ((dest = fopen(dstfile, "wb+")) == NULL)
   {
-    printf("Destination file %s could not be created\n", argv[2]);
+    printf("Destination file %s could not be created\n", dstfile);
     return 1;
   }
   if (UPX)
   {
-    /* UPX HEADER jump $+2+size */
-    static char JumpBehindCode[] = {
-      /* kernel config header - 32 bytes */
-      0xeb, 0x1b,               /*     jmp short realentry */
-      'C', 'O', 'N', 'F', 'I', 'G', 32 - 2 - 6 - 2 - 3, 0,      /* WORD */
-      0,                        /* DLASortByDriveNo            db 0  */
-      1,                        /* InitDiskShowDriveAssignment db 1  */
-      2,                        /* SkipConfigSeconds           db 2  */
-      0,                        /* ForceLBA                    db 0  */
-      1,                        /* GlobalEnableLBAsupport      db 1  */
-      0,                        /* BootHarddiskSeconds               */
-      
-      'n', 'u', 's', 'e', 'd',     /* unused filler bytes                              */
-      8, 7, 6, 5, 4, 3, 2, 1,
-      /* real-entry: jump over the 'real' image do the trailer */
-      0xe9, 0, 0                /* 100: jmp 103 */
-    };
-    
-    struct x {
-      char y[sizeof(JumpBehindCode) == 0x20 ? 1 : -1];
-    };
-    
-    if (size >= 0xfe00u)
-    {
-      printf("kernel; size too large - must be <= 0xfe00\n");
-      exit(1);
-    }
-
-    /* this assumes <= 0xfe00 code in kernel */
-    *(short *)&JumpBehindCode[0x1e] += (short)size;
-    fwrite(JumpBehindCode, 1, 0x20, dest);
+    write_header(dest, (size_t)size);
   }
 
   if (flat_exe && !compress_sys_file) {
@@ -328,48 +264,7 @@ int main(int argc, char **argv)
  
   if (UPX)
   {
-    /* UPX trailer */
-    /* hand assembled - so this remains ANSI C ;-)    */
-    /* move kernel down to place CONFIG-block, which added above,
-       at start_seg-2:0 (e.g. 0x5e:0) instead of 
-       start_seg:0 (e.g. 0x60:0) and store there boot drive number
-       from BL; kernel.asm will then check presence of additional
-       CONFIG-block at this address. */
-    static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
-      0xB9, 0x00, 0x00,         /*  0 mov cx,offset trailer     */
-      0x0E,                     /*  3 push cs                   */
-      0x1F,                     /*  4 pop ds (=60)              */
-      0x8C, 0xC8,               /*  5 mov ax,cs                 */
-      0x48,                     /*  7 dec ax                    */
-      0x48,                     /*  8 dec ax                    */
-      0x8E, 0xC0,               /*  9 mov es,ax                 */
-      0x93,                     /* 11 xchg ax,bx (to get al=bl) */
-      0x31, 0xFF,               /* 12 xor di,di                 */
-      0xFC,                     /* 14 cld                       */
-      0xAA,                     /* 15 stosb (store drive number)*/
-      0x8B, 0xF7,               /* 16 mov si,di                 */
-      0xF3, 0xA4,               /* 18 rep movsb                 */
-      0x1E,                     /* 20 push ds                   */
-      0x58,                     /* 21 pop  ax                   */
-      0x05, 0x00, 0x00,         /* 22 add ax,...                */
-      0x8E, 0xD0,               /* 25 mov ss,ax                 */
-      0xBC, 0x00, 0x00,         /* 27 mov sp,...                */
-      0x31, 0xC0,               /* 30 xor ax,ax                 */
-      0xFF, 0xE0                /* 32 jmp ax                    */
-    };
-
-    *(short *)&trailer[1] = (short)size + 0x20;
-    *(short *)&trailer[23] = header.exInitSS;
-    *(short *)&trailer[28] = header.exInitSP;
-    if (compress_sys_file) {
-      /* replace by jmp word ptr [6]: ff 26 06 00
-         (the .SYS strategy handler which will unpack) */
-      *(long *)&trailer[30] = 0x000626ffL;
-      /* set up a 4K stack for the UPX decompressor to work with */
-      *(short *)&trailer[23] = 0x1000;
-      *(short *)&trailer[28] = 0x1000;
-    }
-    fwrite(trailer, 1, sizeof trailer, dest);
+    write_trailer(dest, (size_t)size, compress_sys_file, &header);
   }
   if (flat_exe && compress_sys_file) {
     /* overwrite first 8 bytes with SYS header */
@@ -385,4 +280,137 @@ int main(int argc, char **argv)
   printf("\nProcessed %d relocations, %d not shown\n",
          header.exRelocItems, silentdone);
   return 0;
+}
+
+static void write_header(FILE *dest, size_t size)
+{
+  /* UPX HEADER jump $+2+size */
+  static char JumpBehindCode[] = {
+    /* kernel config header - 32 bytes */
+    0xeb, 0x1b,               /*     jmp short realentry */
+    'C', 'O', 'N', 'F', 'I', 'G', 32 - 2 - 6 - 2 - 3, 0,      /* WORD */
+    0,                        /* DLASortByDriveNo            db 0  */
+    1,                        /* InitDiskShowDriveAssignment db 1  */
+    2,                        /* SkipConfigSeconds           db 2  */
+    0,                        /* ForceLBA                    db 0  */
+    1,                        /* GlobalEnableLBAsupport      db 1  */
+    0,                        /* BootHarddiskSeconds               */
+
+    'n', 'u', 's', 'e', 'd',     /* unused filler bytes                              */
+    8, 7, 6, 5, 4, 3, 2, 1,
+    /* real-entry: jump over the 'real' image do the trailer */
+    0xe9, 0, 0                /* 100: jmp 103 */
+  };
+
+  struct x {
+    char y[sizeof(JumpBehindCode) == 0x20 ? 1 : -1];
+  };
+
+  if (size >= 0xfe00u)
+  {
+    printf("kernel; size too large - must be <= 0xfe00\n");
+    exit(1);
+  }
+
+  /* this assumes <= 0xfe00 code in kernel */
+  *(short *)&JumpBehindCode[0x1e] += (short)size;
+  fwrite(JumpBehindCode, 1, 0x20, dest);
+}
+
+static void write_trailer(FILE *dest, size_t size, int compress_sys_file,
+  exe_header *header)
+{
+  /* UPX trailer */
+  /* hand assembled - so this remains ANSI C ;-) */
+  /* well almost: we still need packing and assume little endian ... */
+  /* move kernel down to place CONFIG-block, which added above,
+     at start_seg-2:0 (e.g. 0x5e:0) instead of 
+     start_seg:0 (e.g. 0x60:0) and store there boot drive number
+     from BL; kernel.asm will then check presence of additional
+     CONFIG-block at this address. */
+  static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
+    0xB9, 0x00, 0x00,         /*  0 mov cx,offset trailer     */
+    0x0E,                     /*  3 push cs                   */
+    0x1F,                     /*  4 pop ds (=60)              */
+    0x8C, 0xC8,               /*  5 mov ax,cs                 */
+    0x48,                     /*  7 dec ax                    */
+    0x48,                     /*  8 dec ax                    */
+    0x8E, 0xC0,               /*  9 mov es,ax                 */
+    0x93,                     /* 11 xchg ax,bx (to get al=bl) */
+    0x31, 0xFF,               /* 12 xor di,di                 */
+    0xFC,                     /* 14 cld                       */
+    0xAA,                     /* 15 stosb (store drive number)*/
+    0x8B, 0xF7,               /* 16 mov si,di                 */
+    0xF3, 0xA4,               /* 18 rep movsb                 */
+    0x1E,                     /* 20 push ds                   */
+    0x58,                     /* 21 pop  ax                   */
+    0x05, 0x00, 0x00,         /* 22 add ax,...                */
+    0x8E, 0xD0,               /* 25 mov ss,ax                 */
+    0xBC, 0x00, 0x00,         /* 27 mov sp,...                */
+    0x31, 0xC0,               /* 30 xor ax,ax                 */
+    0xFF, 0xE0                /* 32 jmp ax                    */
+  };
+
+  *(short *)&trailer[1] = (short)size + 0x20;
+  *(short *)&trailer[23] = header->exInitSS;
+  *(short *)&trailer[28] = header->exInitSP;
+  if (compress_sys_file) {
+    /* replace by jmp word ptr [6]: ff 26 06 00
+       (the .SYS strategy handler which will unpack) */
+    *(long *)&trailer[30] = 0x000626ffL;
+    /* set up a 4K stack for the UPX decompressor to work with */
+    *(short *)&trailer[23] = 0x1000;
+    *(short *)&trailer[28] = 0x1000;
+  }
+  fwrite(trailer, 1, sizeof trailer, dest);
+}
+
+int main(int argc, char **argv)
+{
+  short silentSegments[20], silentcount = 0;
+  int UPX = FALSE, flat_exe = FALSE;
+  int i;
+
+  /* if no arguments provided, show usage and exit */
+  if (argc < 4) usage();
+
+  /* do optional argument processing here */
+  for (i = 4; i < argc; i++)
+  {
+    char *argptr = argv[i];
+    
+    if (argptr[0] != '-' && argptr[0] != '/')
+      usage();
+    
+    argptr++;
+
+    switch (toupper(argptr[0]))
+    {
+      case 'U':
+        UPX = TRUE;
+        break;
+      case 'E':
+        flat_exe = TRUE;
+        break;
+      case 'S':
+        if (silentcount >= LENGTH(silentSegments))
+        {
+          printf("can't handle more then %d silent's\n",
+                 LENGTH(silentSegments));
+          exit(1);
+        }
+	
+        silentSegments[silentcount++] = (short)strtol(argptr + 1, NULL, 0);
+        break;
+	
+      default:
+        usage();
+    }
+  }
+
+  /* arguments left :
+     infile outfile relocation offset */
+
+  return exeflat(UPX, argv[1], argv[2], argv[3], silentSegments, silentcount,
+    flat_exe);
 }
