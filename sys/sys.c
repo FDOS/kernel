@@ -898,7 +898,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
   {
 
 #ifdef DEBUG
-    printf("writing new bootsector to drive %c:\n", drive + 'A');
+    printf("Writing new bootsector to drive %c:\n", drive + 'A');
 #endif
 
     /* write newboot to a drive */
@@ -907,6 +907,22 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
       printf("Can't write new boot sector to drive %c:\n", drive + 'A');
       exit(1);
     }
+
+    if (fs==FAT32)
+    {
+      bs32 = (struct bootsectortype32 *)&newboot;
+      if ((bs32->bsBackupBoot > 0) && (bs32->bsBackupBoot < bs32->bsResSectors))
+      {
+
+#ifdef DEBUG
+        printf("Writing backup of new bootsector to drive %c:\n", drive + 'A');
+#endif
+
+        /* write backup of newboot to a drive (errors acceptable here) */
+        if (MyAbsReadWrite(drive, 1, bs32->bsBackupBoot, newboot, 1) != 0)
+          printf("Can't write backup of new boot sector to drive %c:\n", drive + 'A');
+      } /* backup*/
+    } /* fat32 */
   } /* if write boot sector */
 
   if (bsFile != NULL)
@@ -914,7 +930,7 @@ void put_boot(int drive, char *bsFile, char *kernel_name, int load_seg, int both
     int fd;
 
 #ifdef DEBUG
-    printf("writing new bootsector to file %s\n", bsFile);
+    printf("Writing new bootsector to file %s\n", bsFile);
 #endif
 
     /* write newboot to bsFile */
