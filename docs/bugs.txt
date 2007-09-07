@@ -1,6 +1,9 @@
+
 The current bug database is available on the web at
 
- http://www.freedos.org/bugs/
+ http://www.freedos.org/freedos/bugs/
 
+Please request an account if you want to report or
+update bugs. Reading the database needs no login.
 
 Thanks!
