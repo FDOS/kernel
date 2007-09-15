@@ -425,6 +425,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   rootPos = p = dest + 2;
   if (*p != '/') /* i.e., it's a backslash! */
   {
+    COUNT prevresult = result;
     if (!(mode & CDS_MODE_SKIP_PHYSICAL))
     {
       tn_printf(("SUBSTing from: %S\n", cdsEntry->cdsCurrentPath));
@@ -441,6 +442,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         {  /* sanity check if this really is a local drive still */
           unsigned i = drLetterToNr(dest[0]);
           
+          /* truename returns the "real", not the "virtual" drive letter! */
           if (i < lastdrive) /* sanity check #2 */
             result = (result & 0xffe0) | i;
         }
@@ -449,7 +451,9 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
       *p = '\\'; /* force backslash! */
     }
     p++;
-    if (DosGetCuDir((UBYTE)((result & 0x1f) + 1), p) < 0)
+    /* truename must use the CuDir of the "virtual" drive letter! */
+    /* tn_printf(("DosGetCuDir drive #%u\n", prevresult & 0x1f)); */
+    if (DosGetCuDir((UBYTE)((prevresult & 0x1f) + 1), p) < 0)
       return DE_PATHNOTFND;
     if (*src != '\\' && *src != '/')
       p += strlen(p);
@@ -591,7 +595,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         {
           strcpy(dest + 2, dest + j);
         }
-        result = (result & 0xffe0) | i;
+        result = (result & 0xffe0) | i; /* tweak drive letter (JOIN) */
         current_ldt = cdsp;
         result &= ~IS_NETWORK;
         if (cdsp->cdsFlags & CDSNETWDRV)
