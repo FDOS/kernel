@@ -751,7 +751,7 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
   /* Loop from start until either a FREE entry is         */
   /* encountered (due to a fractured file system) of the  */
   /* last cluster is encountered.                         */
-  while (st != LONG_LAST_CLUSTER)
+  while (st != LONG_LAST_CLUSTER) /* remove clusters at start until empty */
   {
     /* get the next cluster pointed to              */
     next = next_cluster(dpbp, st);
@@ -761,7 +761,8 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
       return;
 
     /* zap the FAT pointed to                       */
-    link_fat(dpbp, st, FREE);
+    if (link_fat(dpbp, st, FREE) != SUCCESS) /* nonfree->free */
+      return; /* better abort on error */
 
     /* and the start of free space pointer          */
 #ifdef WITHFAT32
@@ -784,14 +785,15 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
 #endif
 }
 
-/*                                                              */
 /* wipe out all FAT entries for create, delete, etc.            */
-/*                                                              */
+/* called by delete_dir_entry and dos_open open in O_TRUNC mode */
 STATIC VOID wipe_out(f_node_ptr fnp)
 {
   /* if not already free and valid file, do it */
   if (fnp && !checkdstart(fnp->f_dpb, &fnp->f_dir, FREE))
   wipe_out_clusters(fnp->f_dpb, getdstart(fnp->f_dpb, &fnp->f_dir));
+  /* no flushing here: could get lost chain or "crosslink seed" but */
+  /* it would be annoying if mass-deletes could not use BUFFERS...  */
 }
 
 STATIC BOOL find_free(f_node_ptr fnp)
@@ -1000,7 +1002,11 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   /* entry.                                               */
   for (; idx <= size; idx++)
   {
+#ifdef CHECK_FAT_DURING_CLUSTER_ALLOC /* slower but nice side effect ;-) */
     if (next_cluster(dpbp, idx) == FREE)
+#else
+    if (is_free_cluster(dpbp, idx))
+#endif
       break;
   }
 
@@ -1103,12 +1109,13 @@ COUNT dos_mkdir(BYTE * dir)
 
   fnp->f_offset = 0l;
 
-  /* Mark the cluster in the FAT as used                  */
+  /* Mark the cluster in the FAT as used and create new dir there */
   dpbp = fnp->f_dpb;
-  link_fat(dpbp, free_fat, LONG_LAST_CLUSTER);
+  if (link_fat(dpbp, free_fat, LONG_LAST_CLUSTER) != SUCCESS) /* free->last */
+    return DE_HNDLDSKFULL; /* should never happen */
 
-  /* Craft the new directory. Note that if we're in a new */
-  /* directory just under the root, ".." pointer is 0.    */
+  /* Craft the new directory. Note that if we're in a new  */
+  /* directory just under the root, ".." pointer is 0.     */
   /* as we are overwriting it completely, don't read first */
   bp = getblockOver(clus2phys(free_fat, dpbp), dpbp->dpb_unit);
 #ifdef DISPLAY_GETBLOCK
@@ -1175,6 +1182,8 @@ COUNT dos_mkdir(BYTE * dir)
   return SUCCESS;
 }
 
+/* extend a directory or file by exactly one cluster */
+/* only map_cluster calls this in a loop (for files) */
 STATIC CLUSTER extend(f_node_ptr fnp)
 {
   CLUSTER free_fat;
@@ -1187,13 +1196,28 @@ STATIC CLUSTER extend(f_node_ptr fnp)
   if (free_fat == LONG_LAST_CLUSTER)
     return free_fat;
 
-  /* Now that we've found a free FAT entry, mark it as the last   */
-  /* entry and save.                                              */
-  if (fnp->f_cluster == FREE)
-    setdstart(fnp->f_dpb, &fnp->f_dir, free_fat);
+  /* if 1a or 1b works but 2 fails, we get a pointer into an wrong FAT entry */
+  /* our new fattab.c checks should be able to trap the bad pointers for now */
+  if (link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER) != SUCCESS) /* 2 */ /* free->last */
+      return LONG_LAST_CLUSTER; /* do not try 1a/1b if 2 did not work out */
+  /* if 2 works but 1a/1b fails, we only get a harmless lost cluster here */
+
+  /* Now that we have found a free FAT entry, mark it as the last entry of */
+  /* the chain and save (note: BUFFERS cause nondeterministic write order) */
+  if (fnp->f_cluster == FREE) /* if the file leaves the empty state */
+    setdstart(fnp->f_dpb, &fnp->f_dir, free_fat); /* 1a */
   else
-    link_fat(fnp->f_dpb, fnp->f_cluster, free_fat);
-  link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER);
+  {
+    /* let previously last chain element chain to newly allocated cluster! */
+    if (next_cluster(fnp->f_dpb, fnp->f_cluster) != LONG_LAST_CLUSTER)
+    {
+      /* we tried to "grow a file in the middle", f_node or FAT messed up? */
+      put_string("FAT chain size bad!\n");
+      return LONG_LAST_CLUSTER;
+    }
+    if (link_fat(fnp->f_dpb, fnp->f_cluster, free_fat) != SUCCESS) /* 1b */ /* last->used */
+      return LONG_LAST_CLUSTER; /* should never happen */
+  }
 
   /* Mark the directory so that the entry is updated              */
   fnp->f_flags |= F_DMOD;
@@ -1300,6 +1324,8 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
                          fnp->f_dpb->dpb_shftcnt);
   if (relcluster < fnp->f_cluster_offset)
   {
+    /* If seek is to earlier in file than current position, */
+    /* we have to follow chain from the beginning again...  */
     /* Set internal index and cluster size.                 */
     fnp->f_cluster = (fnp->f_flags & F_DDIR) ? fnp->f_dirstart :
         getdstart(fnp->f_dpb, &fnp->f_dir);
@@ -1317,7 +1343,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   {
     /* get next cluster in the chain */
     cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
-    if (cluster == 1)
+    if (cluster == 1 || cluster == FREE) /* error or chain into the void */
       return DE_SEEK;
 
     /* If this is a read and the next is a LAST_CLUSTER,               */
@@ -1553,7 +1579,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     if (mode == XFR_WRITE)
     {
       fnp->f_dir.dir_size = fnp->f_offset;
-      shrink_file(fnp);
+      shrink_file(fnp); /* this is the only call to shrink_file... */
+      /* why does empty write -always- truncate to current offset? */
     }
     save_far_f_node(fnp);
     return 0;
@@ -1827,7 +1854,11 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
 
   for (i = 2; i <= max_cluster; i++)
   {
-    if (next_cluster(dpbp, i) == 0)
+#ifdef CHECK_FAT_DURING_SPACE_CHECK /* slower but nice side effect ;-) */
+    if (next_cluster(dpbp, i) == FREE)
+#else
+    if (is_free_cluster(dpbp, i))
+#endif
       ++cnt;
   }
 #ifdef WITHFAT32
@@ -2224,9 +2255,9 @@ STATIC VOID shrink_file(f_node_ptr fnp)
 
   st = fnp->f_cluster;
 
-  next = next_cluster(dpbp, st);
+  next = next_cluster(dpbp, st); /* return nr. of 1st cluster after new end */
 
-  if (next == 1) /* error */
+  if (next == 1 || next == FREE) /* error or chain points into the void */
     goto done;
 
   /* Loop from start until either a FREE entry is         */
@@ -2234,20 +2265,24 @@ STATIC VOID shrink_file(f_node_ptr fnp)
   /* last cluster is encountered.                         */
   /* zap the FAT pointed to                       */
 
-  if (fnp->f_dir.dir_size == 0)
+  if (fnp->f_dir.dir_size == 0) /* file shrinks to size 0 */
   {
     fnp->f_cluster = FREE;
-    setdstart(dpbp, &fnp->f_dir, FREE);
-    link_fat(dpbp, st, FREE);
+    setdstart(dpbp, &fnp->f_dir, FREE); /* file no longer has start cluster */
+    if (link_fat(dpbp, st, FREE) != SUCCESS) /* free first cluster of chain */
+      goto done; /* do not wipe remainder of chain if FAT is broken */
   }
   else
   {
-    if (next == LONG_LAST_CLUSTER) /* nothing to do */
+    if (next == LONG_LAST_CLUSTER) /* nothing to do, file already ends here */
       goto done;
-    link_fat(dpbp, st, LONG_LAST_CLUSTER);
+    if (link_fat(dpbp, st, LONG_LAST_CLUSTER) != SUCCESS) /* make file end */
+      goto done; /* do not wipe remainder of chain if FAT is broken */
   }
 
-  wipe_out_clusters(dpbp, next);
+  wipe_out_clusters(dpbp, next); /* free clusters after the end */
+  /* flush buffers, make sure disk is updated - hazard: no error checking! */
+  flush_buffers(fnp->f_dpb->dpb_unit);
 
 done:
   fnp->f_offset = lastoffset;   /* has to be restored */
