@@ -58,6 +58,8 @@ void Init_clk_driver(void)
   dosregs.a.b.h = 0x2b;
   dosregs.c.x = 100 * InitBcdToByte(regsD.c.b.h) /* century */
                     + InitBcdToByte(regsD.c.b.l);/* year */
+  /* A BIOS with y2k (year 2000) bug will always report year 19nn */
+  if ((dosregs.c.x >= 1900) && (dosregs.c.x < 1980)) dosregs.c.x += 100;
   dosregs.d.b.h = InitBcdToByte(regsD.d.b.h);   /* month */
   dosregs.d.b.l = InitBcdToByte(regsD.d.b.l);   /* day   */
   init_call_intr(0x21, &dosregs);
