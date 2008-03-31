@@ -45,7 +45,6 @@ static BYTE *date_hRcsId =
 #define REVISION_SEQ	38	/* returned in BL by int 21 function 30 */
 #define OEM_ID          0xfd    /* FreeDOS, returned in BH by int 21 30 */
 
-#define SOURCE_DATE_STRING "Jul 28 2007" /* DATE OF THE NEWEST SOURCE FILE */
-/* #define KERNEL_VERSION_STRING "1.1.35" formerly used in os_release text */
-#define KERNEL_BUILD_STRING "2038pre/2036svn"	/* used in os_release string */
+#define SOURCE_DATE_STRING "Mar 9 2008" /* DATE OF THE NEWEST SOURCE FILE */
+#define KERNEL_BUILD_STRING "2038"	/* used in os_release string */
 
