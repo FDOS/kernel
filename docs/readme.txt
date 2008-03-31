@@ -21,7 +21,10 @@ BUG REPORTS
 -----------
 If you have found a bug, think you have found a bug, or would just
 like to make a suggestion, go to the bug tracking web page at
-http://www.freedos.org/bugs/
+http://www.freedos.org/freedos/bugs/
+or to the feature request tracker on our SourceForge project page at
+http://sourceforge.net/tracker/?atid=355109&group_id=5109&func=browse
+
 
 Copyright
 ---------
