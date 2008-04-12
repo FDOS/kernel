@@ -351,9 +351,10 @@ int int21_fat32(lregs *r)
       struct HugeSectorBlock FAR *SectorBlock =
         (struct HugeSectorBlock FAR *)MK_FP(r->DS, r->BX);
       UBYTE mode;
+      /* bit 0 of SI is 0 read / 1 write, bits 13/14 indicate a type:  */
+      /* 0 any, 1 fat, 2 dir, 3 file. Type is mostly for "write hints" */
       
-      if (r->CX != 0xffff || ((r->SI & 1) == 0 && r->SI != 0)
-          || (r->SI & ~0x6001))
+      if (r->CX != 0xffff || (r->SI & ~0x6001))
       {
         return DE_INVLDPARM;
       }
@@ -361,7 +362,7 @@ int int21_fat32(lregs *r)
       if (r->DL > lastdrive || r->DL == 0)
         return -0x207;
     
-      if (r->SI == 0)
+      if ((r->SI & 1) == 0) /* while uncommon, reads CAN have type hints */
         mode = DSKREADINT25;
       else
         mode = DSKWRITEINT26;
