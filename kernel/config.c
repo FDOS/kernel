@@ -172,6 +172,7 @@ UCOUNT Menus BSS_INIT(0);
 STATIC VOID CfgMenuColor(BYTE * pLine);
 
 STATIC VOID Config_Buffers(BYTE * pLine);
+STATIC VOID CfgBuffersHigh(BYTE * pLine);
 STATIC VOID sysScreenMode(BYTE * pLine);
 STATIC VOID sysVersion(BYTE * pLine);
 STATIC VOID CfgBreak(BYTE * pLine);
@@ -271,6 +272,7 @@ STATIC struct table commands[] = {
 
   {"BREAK", 1, CfgBreak},
   {"BUFFERS", 1, Config_Buffers},
+  {"BUFFERSHIGH", 1, CfgBuffersHigh}, /* as BUFFERS - we use HMA anyway */
   {"COMMAND", 1, InitPgm},
   {"COUNTRY", 1, Country},
   {"DOS", 1, Dosmem},
@@ -757,6 +759,7 @@ UWORD GetBiosKey(int timeout)
   {
     do
     {
+      /* optionally HLT here - timer will IRQ even if no keypress */
       r.a.x = 0x0100;             /* are there keys available ? */
       init_call_intr(0x16, &r);
       if (!(r.flags & FLG_ZERO)) {
@@ -769,10 +772,13 @@ UWORD GetBiosKey(int timeout)
   }
 
   /* blocking wait (timeout < 0): fetch it */
+#if 0
   do {
+      /* optionally HLT here */
       r.a.x = 0x0100;
       init_call_intr(0x16, &r);
   } while (r.flags & FLG_ZERO);
+#endif
   r.a.x = 0x0000;
   init_call_intr(0x16, &r);
   return r.a.x;
@@ -916,6 +922,12 @@ STATIC void Config_Buffers(BYTE * pLine)
   /* Get the argument                                             */
   if (GetNumArg(pLine, &nBuffers))
     Config.cfgBuffers = nBuffers;
+}
+
+STATIC void CfgBuffersHigh(BYTE * pLine)
+{
+  Config_Buffers(pLine);
+  printf("Note: BUFFERS will be in HMA or low RAM, not in UMB\n");
 }
 
 /**

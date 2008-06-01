@@ -45,7 +45,9 @@ space will be used for further buffers until something else allocates
 the HMA space for something else. Even then, at least nn buffers will
 always be available.  You can set nn to a negative value to disable
 the use of unused HMA space: BUFFERS=-10 only uses 10 buffers, further
-free space in the HMA will just stay unused.
+free space in the HMA will just stay unused. Because the buffers can
+use the HMA anyway, BUFFERSHIGH does the same as BUFFERS for now, but
+shows a note about that to inform the user that it does not use UMB.
 Example:  buffers=20
 
 COUNTRY
