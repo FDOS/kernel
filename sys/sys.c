@@ -162,7 +162,11 @@ typedef struct ftime ftime;
 #else
 typedef struct
 {
+#if defined(__WATCOMC__) && __WATCOMC__ < 1280
   unsigned short date, time;
+#else
+  unsigned date, time;
+#endif
 } ftime;
 #endif
 
@@ -1001,7 +1005,11 @@ BYTE far * readfile(COUNT drive, BYTE * srcPath, BYTE * rootPath,
   struct stat fstatbuf;
   BYTE far *bufptr;
   BYTE far *buffer;
+#if defined(__WATCOMC__) && __WATCOMC__ < 1280
   UWORD theseg;
+#else
+  unsigned theseg;
+#endif
 
   strcpy(source, srcPath);
   if (rootPath != NULL) /* trick for comspec */
