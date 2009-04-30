@@ -884,7 +884,6 @@ UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
 }
 
 #ifdef WITHFAT32
-/* network names like \\SERVER\C aren't supported yet */
 #define IS_SLASH(ch) (ch == '\\' || ch == '/')
 COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
 {
@@ -892,13 +891,19 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
   struct cds FAR *cdsp;
   UCOUNT rg[4];
 
-  if (IS_SLASH(DriveString[0]) || !IS_SLASH(DriveString[2])
-      || DriveString[1] != ':')
-    return DE_INVLDDRV;
+  /*
+    DriveString should be in form of "C:", "C:\", "\", 
+    where "\" is treated as a request for the current drive,
+    or network name in form "\\SERVER\share" 
+    however, network names like \\SERVER\C aren't supported yet
+  */
+  cdsp = NULL;
+  if (DriveString[1] == ':')
+    cdsp = get_cds(DosUpFChar(*DriveString) - 'A');  /* assume drive specified */
+  else if (IS_SLASH(DriveString[0]) && !IS_SLASH(DriveString[1]))
+      cdsp = get_cds(default_drive);  /* use current drive */
 
-  cdsp = get_cds(DosUpFChar(*DriveString) - 'A');
-
-  if (cdsp == NULL)
+  if (cdsp == NULL) /* either error, really bad string, or network name */
     return DE_INVLDDRV;
 
   if (cdsp->cdsFlags & CDSNETWDRV)
