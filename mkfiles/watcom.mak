@@ -22,8 +22,8 @@ LIBPLUS=
 LIBTERM=
 
 TINY=-mt
-CFLAGST=-zq-zp1-os-s-we-e3-wx
-CFLAGSC=-mc-zq-zp1-os-s-we-e3-wx
+CFLAGST=-zq-zp1-os-s-we-e3-wx-bt=DOS
+CFLAGSC=-mc-zq-zp1-os-s-we-e3-wx-bt=DOS
 
 TARGET=KWC
 
