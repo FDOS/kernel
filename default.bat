@@ -40,7 +40,6 @@ echo Linker is %XLINK%.
 
 if not "%XUPX%" == "" set UPXOPT=-U
 if     "%XUPX%" == "" set UPXOPT=
-if     "%XUPX%" == "" set XUPX=@rem
 
 goto end
 
