@@ -65,14 +65,22 @@ typedef struct {
   UWORD ps_exit;                /* 00 CP/M-like exit point: int 20 */
   UWORD ps_size;                /* 02 segment of first byte beyond */
                                 /*    memory allocated to program  */
-  BYTE ps_fill1;                /* 04 single char fill             */
+  BYTE ps_fill1;                /* 04 single char fill=0           */
 
-  /* CP/M-like entry point                                */
-  UBYTE ps_farcall;             /* 05  far call opcode              */
+  /* CP/M-like entry point                                         */
+  /* offsets 5-9 are a far call to absolute address 0:000Ch
+     coded so that CP/M apps can do a near call to psp:5, does a
+     far call but ensures word at offset 6 is size of COM file
+     e.g. FEF0h by using 1MB wrap around address 0F01D:FEF0
+     (jmp code stored at 0:000C should be duplicated in HMA FFFF:00D0)
+     Note: MS-DOS has value as FEEE which wraps to 0:00BEh         */
+  UBYTE ps_farcall;             /* 05  far call opcode             */
   VOID(FAR ASMCFUNC * ps_reentry) (void);  /* 06  re-entry point          */
-  intvec ps_isv22,	        /* 0a  terminate address */
-         ps_isv23,        	/* 0e break address   */
-         ps_isv24;        	/* 12 critical error address */
+
+  
+  intvec ps_isv22,              /* 0a  terminate address */
+         ps_isv23,              /* 0e break address   */
+         ps_isv24;              /* 12 critical error address */
   UWORD ps_parent;              /* 16 parent psp segment           */
   UBYTE ps_files[20];           /* 18 file table - 0xff is unused  */
   UWORD ps_environ;             /* 2c environment paragraph        */

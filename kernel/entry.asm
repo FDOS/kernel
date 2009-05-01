@@ -28,10 +28,10 @@
 ; $Id$
 ;
 
-		%include "segs.inc"
+                %include "segs.inc"
                 %include "stacks.inc"
 
-segment	HMA_TEXT
+segment HMA_TEXT
                 extern   _int21_syscall
                 extern   _int21_service
                 extern   _int2526_handler
@@ -50,7 +50,7 @@ segment	HMA_TEXT
 
                 extern   _Int21AX:wrt DGROUP
 
-		extern	_DGROUP_
+                extern  _DGROUP_
 
                 global  reloc_call_cpm_entry
                 global  reloc_call_int20_handler
@@ -65,9 +65,14 @@ segment	HMA_TEXT
 ;       VOID FAR
 ;       cpm_entry(iregs UserRegs)
 ;
-; This one is a strange one.  The call is to psp:0005h but it returns to the
-; function after the call.  What we do is convert it to a normal call and
-; fudge the stack to look like an int 21h call.
+; For CP/M compatibility allow a program to invoke any DOS API function
+; between 0 and 24h by doing a near call to psp:0005h which embeds a far call
+; to absolute address 0:00C0h (int vector 30h & 31h) or FFFF:00D0 (hma).
+; Note: int 31h is also used for DPMI
+; Upon entry the stack has a near return offset (desired return address) and
+; far return seg:offset (useless return to data at offset 0ah after far call
+; in psp). We convert it to a normal call and correct the stack to appear same
+; as if invoked via an int 21h call including proper return address.
 ;
 reloc_call_cpm_entry:
                 ; Stack is:
@@ -75,10 +80,7 @@ reloc_call_cpm_entry:
                 ;       psp seg
                 ;       000ah
                 ;
-                push    bp              ; trash old return address
-                mov     bp,sp
-                xchg    bp,[2+bp]
-                pop     bp
+                add     sp, 2           ; remove unneeded far return offset 0ah
                 pushf                   ; start setting up int 21h stack
                 ;
                 ; now stack is
@@ -107,12 +109,12 @@ reloc_call_cpm_entry:
                 ;       psp seg (alias .COM cs)
                 ;       return offset
                 ;
-                cmp     cl,024h
-                jbe     cpm_error
+                cmp     cl,024h         ; restrict calls to functions 0-24h
+                ja      cpm_error
                 mov     ah,cl           ; get the call # from cl to ah
                 jmp     reloc_call_int21_handler    ; do the system call
 cpm_error:      mov     al,0
-                iret
+                iret                    ; cleanup stack and return to caller
 
 ;
 ; interrupt zero divide handler:
@@ -123,20 +125,20 @@ cpm_error:      mov     al,0
 ;       int20_handler(iregs UserRegs)
 ;
 
-print_hex:	mov	cl, 12
+print_hex:      mov     cl, 12
 hex_loop:
-		mov	ax, dx                             
-		shr	ax, cl
-		and	al, 0fh
-		cmp	al, 10
-		sbb	al, 69h
-		das
-                mov 	bx, 0070h
-                mov	ah, 0eh
-                int	10h
-		sub 	cl, 4
-		jae 	hex_loop
-		ret
+                mov     ax, dx                             
+                shr     ax, cl
+                and     al, 0fh
+                cmp     al, 10
+                sbb     al, 69h
+                das
+                mov     bx, 0070h
+                mov     ah, 0eh
+                int     10h
+                sub     cl, 4
+                jae     hex_loop
+                ret
 
 divide_by_zero_message db 0dh,0ah,'Interrupt divide by zero, stack:',0dh,0ah,0
 
@@ -159,27 +161,27 @@ zero_message_loop:
                 jmp short zero_message_loop
                 
 zero_done:
-		mov bp, sp		
-		xor si, si	   ; print 13 words of stack for debugging LUDIV etc.
-stack_loop:		
+                mov bp, sp              
+                xor si, si         ; print 13 words of stack for debugging LUDIV etc.
+stack_loop:             
                 mov dx, [bp+si]
-		call print_hex
-		mov al, ' '
-		int 10h
-		inc si
-		inc si
-		cmp si, 13*2
-		jb stack_loop
-		mov al, 0dh
-		int 10h
-		mov al, 0ah
-		int 10h
-												
+                call print_hex
+                mov al, ' '
+                int 10h
+                inc si
+                inc si
+                cmp si, 13*2
+                jb stack_loop
+                mov al, 0dh
+                int 10h
+                mov al, 0ah
+                int 10h
+                                                                                                
                 mov ax,04c7fh       ; terminate with errorlevel 127                                                
                 int 21h
-		sti
-thats_it:	hlt
-		jmp short thats_it  ; it might be command.com that nukes
+                sti
+thats_it:       hlt
+                jmp short thats_it  ; it might be command.com that nukes
 
 invalid_opcode_message db 0dh,0ah,'Invalid Opcode at ',0
 
@@ -299,7 +301,7 @@ int21_1:
                 ; I don't know who needs that, but ... (TE)
                 ;
                 mov     word [_user_r+2],ss
-                mov     word [_user_r],bp  			  ; store and init
+                mov     word [_user_r],bp                         ; store and init
 
                 ;
                 ; Decide which stack to run on.
@@ -377,9 +379,9 @@ int21_exit_nodec:
 %ifdef WATCOM
                 sub bp, 4   ; for fs and gs only
 %else        
-		sub bp, 6   ; high parts of eax, ebx or ecx, edx
+                sub bp, 6   ; high parts of eax, ebx or ecx, edx
 %endif        
-%endif				
+%endif                          
 
                 cli
                 mov     ss,si
@@ -387,7 +389,7 @@ int21_exit_nodec:
 
 int21_ret:
                 Restore386Registers
-		POP$ALL
+                POP$ALL
 
                 ;
                 ; ... and return.
@@ -466,8 +468,8 @@ int2526:
 
                 Protect386Registers
         
-		push	dx
-		push	cx			; save user stack
+                push    dx
+                push    cx                      ; save user stack
 
                 push    dx                      ; SS:SP -> user stack
                 push    cx
@@ -475,8 +477,8 @@ int2526:
                 call    _int2526_handler
                 add     sp, byte 6
 
-		pop	cx
-		pop	dx			; restore user stack
+                pop     cx
+                pop     dx                      ; restore user stack
 
                 Restore386Registers
 
