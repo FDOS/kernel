@@ -32,25 +32,25 @@
                 %include "ludivmul.inc"
 
 
-segment	PSP
+segment PSP
 
                 extern  _ReqPktPtr:wrt LGROUP
 
 STACK_SIZE      equ     384/2           ; stack allocated in words
 
-;************************************************************	    
+;************************************************************       
 ; KERNEL BEGINS HERE, i.e. this is byte 0 of KERNEL.SYS
-;************************************************************	    
+;************************************************************       
 
 ..start:
-entry:	
+entry:  
                 jmp short realentry
 
-;************************************************************	    
+;************************************************************       
 ; KERNEL CONFIGURATION AREA
 ; this is copied up on the very beginning
 ; it's a good idea to keep this in sync with KConfig.h
-;************************************************************	    
+;************************************************************       
                 global _LowKernelConfig                                        
 _LowKernelConfig:
                 db 'CONFIG'             ; constant
@@ -68,12 +68,12 @@ BootHarddiskSeconds         db 0        ;
 
 configend:
 
-;************************************************************	    
+;************************************************************       
 ; KERNEL CONFIGURATION AREA END
-;************************************************************	    
+;************************************************************       
 
 
-;************************************************************	    
+;************************************************************       
 ; KERNEL real entry (at ~60:20)
 ;                               
 ; moves the INIT part of kernel.sys to high memory (~9000:0)
@@ -81,7 +81,7 @@ configend:
 ; to aid debugging, some '123' messages are output
 ; this area is discardable and used as temporary PSP for the
 ; init sequence
-;************************************************************	    
+;************************************************************       
 
 
 realentry:                              ; execution continues here
@@ -96,13 +96,13 @@ realentry:                              ; execution continues here
                 pop bx
                 pop ax
 
-                jmp	far kernel_start
+                jmp     far kernel_start
 beyond_entry:   resb    256-(beyond_entry-entry)
                                         ; scratch area for data (DOS_PSP)
 
 segment INIT_TEXT
 
-		extern	_FreeDOSmain
+                extern  _FreeDOSmain
 
                 ;
                 ; kernel start-up
@@ -117,60 +117,60 @@ kernel_start:
                 popf
                 pop bx
 
-		mov	ax,seg init_tos
-		cli
-		mov	ss,ax
-		mov	sp,init_tos
-		int	12h		; move init text+data to higher memory
-		mov	cl,6
-		shl	ax,cl           ; convert kb to para
-		mov	dx,15 + init_end wrt INIT_TEXT
-		mov	cl,4
-		shr	dx,cl
-		sub	ax,dx
-		mov	es,ax
-		mov	dx,__INIT_DATA_START wrt INIT_TEXT ; para aligned
-		shr	dx,cl
-		add	ax,dx
-		mov	ss,ax		; set SS to init data segment
-		sti                     ; now enable them
-		mov	ax,cs
-		mov	dx,__InitTextStart wrt HMA_TEXT    ; para aligned
-		shr	dx,cl
+                mov     ax,seg init_tos
+                cli
+                mov     ss,ax
+                mov     sp,init_tos
+                int     12h             ; move init text+data to higher memory
+                mov     cl,6
+                shl     ax,cl           ; convert kb to para
+                mov     dx,15 + init_end wrt INIT_TEXT
+                mov     cl,4
+                shr     dx,cl
+                sub     ax,dx
+                mov     es,ax
+                mov     dx,__INIT_DATA_START wrt INIT_TEXT ; para aligned
+                shr     dx,cl
+                add     ax,dx
+                mov     ss,ax           ; set SS to init data segment
+                sti                     ; now enable them
+                mov     ax,cs
+                mov     dx,__InitTextStart wrt HMA_TEXT    ; para aligned
+                shr     dx,cl
 %ifdef WATCOM
-		add	ax,dx
+                add     ax,dx
 %endif
-		mov	ds,ax
-		mov	si,-2 + init_end wrt INIT_TEXT     ; word aligned
-		lea	cx,[si+2]
-		mov	di,si
-		shr	cx,1
-		std			; if there's overlap only std is safe
-		rep	movsw
+                mov     ds,ax
+                mov     si,-2 + init_end wrt INIT_TEXT     ; word aligned
+                lea     cx,[si+2]
+                mov     di,si
+                shr     cx,1
+                std                     ; if there's overlap only std is safe
+                rep     movsw
 
-					; move HMA_TEXT to higher memory
-		sub	ax,dx
-		mov	ds,ax		; ds = HMA_TEXT
-		mov	ax,es
-		sub	ax,dx
-		mov	es,ax		; es = new HMA_TEXT
+                                        ; move HMA_TEXT to higher memory
+                sub     ax,dx
+                mov     ds,ax           ; ds = HMA_TEXT
+                mov     ax,es
+                sub     ax,dx
+                mov     es,ax           ; es = new HMA_TEXT
 
-		mov	si,-2 + __InitTextStart wrt HMA_TEXT
-		lea	cx,[si+2]
-		mov	di,si
-		shr	cx,1
-		rep	movsw
-		
-		cld
-%ifndef WATCOM				; for WATCOM: CS equal for HMA and INIT
-		add	ax,dx
-		mov	es,ax		; otherwise CS -> init_text
+                mov     si,-2 + __InitTextStart wrt HMA_TEXT
+                lea     cx,[si+2]
+                mov     di,si
+                shr     cx,1
+                rep     movsw
+                
+                cld
+%ifndef WATCOM                          ; for WATCOM: CS equal for HMA and INIT
+                add     ax,dx
+                mov     es,ax           ; otherwise CS -> init_text
 %endif
-		push	es
-		mov	ax,cont
-		push	ax
-		retf
-cont:		; Now set up call frame
+                push    es
+                mov     ax,cont
+                push    ax
+                retf
+cont:           ; Now set up call frame
                 mov     ds,[cs:_INIT_DGROUP]
                 mov     bp,sp           ; and set up stack frame for c
 
@@ -182,34 +182,34 @@ cont:		; Now set up call frame
                 popf
                 pop bx
 
-		mov	byte [_BootDrive],bl ; tell where we came from
+                mov     byte [_BootDrive],bl ; tell where we came from
 
-;!!		int	11h
-;!!		mov	cl,6
-;!!		shr	al,cl
-;!!		inc	al
+;!!             int     11h
+;!!             mov     cl,6
+;!!             shr     al,cl
+;!!             inc     al
 ;!!                mov     byte [_NumFloppies],al ; and how many
                 
                 mov     ax,ss
                 mov     ds,ax
                 mov     es,ax
-		jmp	_FreeDOSmain
+                jmp     _FreeDOSmain
 
 
-segment	INIT_TEXT_END
+segment INIT_TEXT_END
 
 
-;************************************************************	    
+;************************************************************       
 ; KERNEL CODE AREA END
 ; the NUL device
-;************************************************************	    
+;************************************************************       
 
-segment	CONST
+segment CONST
 
                 ;
                 ; NUL device strategy
                 ;
-		global	_nul_strtgy
+                global  _nul_strtgy
 _nul_strtgy:
                 mov     word [cs:_ReqPktPtr],bx     ;save rq headr
                 mov     word [cs:_ReqPktPtr+2],es
@@ -218,7 +218,7 @@ _nul_strtgy:
                 ;
                 ; NUL device interrupt
                 ;
-		global	_nul_intr
+                global  _nul_intr
 _nul_intr:
                 push    es
                 push    bx
@@ -252,12 +252,12 @@ _intvec_table:  db 10h
                 global _int1e_table
 _int1e_table:   times 0eh db 0
 
-;************************************************************	    
+;************************************************************       
 ; KERNEL FIXED DATA AREA 
-;************************************************************	    
+;************************************************************       
 
 
-segment	_FIXED_DATA
+segment _FIXED_DATA
 
 ; Because of the following bytes of data, THIS MODULE MUST BE THE FIRST
 ; IN THE LINK SEQUENCE.  THE BYTE AT DS:0004 determines the SDA format in
@@ -303,7 +303,7 @@ _clock          dd      0               ; 0008 CLOCK$ device
 _syscon         dw      _con_dev,seg _con_dev   ; 000c console device
                 global  _maxbksize
 _maxbksize      dw      512             ; 0010 maximum bytes/sector of any block device
-		dd	0               ; 0012 pointer to buffers info structure
+                dd      0               ; 0012 pointer to buffers info structure
                 global  _CDSp
 _CDSp           dd      0               ; 0016 Current Directory Structure
                 global  _FCBp
@@ -342,15 +342,15 @@ _BootDrive      db      1               ; 0043 drive we booted from
 %ENDIF
 
                 dw      0               ; 0045 Extended memory in KBytes
-buf_info:		
-		global	_firstbuf
+buf_info:               
+                global  _firstbuf
 _firstbuf       dd      0               ; 0047 disk buffer chain
                 dw      0               ; 004B Number of dirty buffers
                 dd      0               ; 004D pre-read buffer
                 dw      0               ; 0051 number of look-ahead buffers
-		global	_bufloc
+                global  _bufloc
 _bufloc         db      0               ; 0053 00=conv 01=HMA
-		global	_deblock_buf
+                global  _deblock_buf
 _deblock_buf    dd      0               ; 0054 deblock buffer
                 times 3 db 0            ; 0058 unknown
                 dw      0               ; 005B unknown
@@ -361,31 +361,31 @@ _VgaSet         db      0               ; 0060 unknown
                 global  _uppermem_link
 _uppermem_link  db      0               ; 0063 upper memory link flag
 _min_pars       dw      0               ; 0064 minimum paragraphs of memory 
-					;      required by program being EXECed
+                                        ;      required by program being EXECed
                 global  _uppermem_root
-_uppermem_root	dw	0ffffh		; 0066 dmd_upper_root (usually 9fff)
+_uppermem_root  dw      0ffffh          ; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
 ;; FreeDOS specific entries
-		global	_os_setver_minor
-_os_setver_minor	db	0
-		global	_os_setver_major
-_os_setver_major	db	5
-		global	_os_minor
-_os_minor	db	0
-		global	_os_major	       
-_os_major	db	5
-		global	_rev_number
-_rev_number	db	0
-		global	_version_flags	       
-_version_flags	db	0
-		global	_f_nodes
-_f_nodes	dd	0
-		global	_f_nodes_cnt
-_f_nodes_cnt	dw	0
-		global	os_release
-		extern	_os_release
-os_release	dw	_os_release
+                global  _os_setver_minor
+_os_setver_minor        db      0
+                global  _os_setver_major
+_os_setver_major        db      5
+                global  _os_minor
+_os_minor       db      0
+                global  _os_major              
+_os_major       db      5
+                global  _rev_number
+_rev_number     db      0
+                global  _version_flags         
+_version_flags  db      0
+                global  _f_nodes
+_f_nodes        dd      0
+                global  _f_nodes_cnt
+_f_nodes_cnt    dw      0
+                global  os_release
+                extern  _os_release
+os_release      dw      _os_release
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
                 times (0cch - ($ - DATASTART)) db 0
@@ -591,7 +591,7 @@ _sda_lpFcb      times 2 dw 0       ;286 - pointer to callers FCB
 _current_sft_idx    dw      0               ;28A - SFT index for next open
                                         ; used by MS NET
 
-		; Pad to 05b2h
+                ; Pad to 05b2h
                 times (292h - ($ - _internal_data)) db 0
                 dw      __PriPathBuffer  ; 292 - "sda_WFP_START" offset in DOS DS of first filename argument
                 dw      __SecPathBuffer  ; 294 - "sda_REN_WFP" offset in DOS DS of second filename argument
@@ -654,11 +654,11 @@ _VirtOpen       db      0               ;782 - virtual open flag
 ; end of controlled variables
 ;
 
-segment	_BSS
+segment _BSS
 ;!!                global  _NumFloppies
-;!!_NumFloppies	resw	1
-;!!intr_dos_stk	resw	1
-;!!intr_dos_seg	resw	1
+;!!_NumFloppies resw    1
+;!!intr_dos_stk resw    1
+;!!intr_dos_seg resw    1
 
 
 ; mark front and end of bss area to clear
@@ -676,11 +676,11 @@ __ib_end:
 init_tos:
 ; the last paragraph of conventional memory might become an MCB
                 resb 16
-		global __init_end
+                global __init_end
 __init_end:
 init_end:        
 
-segment	_DATA
+segment _DATA
 ; blockdev private stack
                 global  blk_stk_top
                 times 192 dw 0
@@ -723,7 +723,7 @@ segment ID_E
 __INIT_DATA_END:
 
 
-segment	INIT_TEXT_START
+segment INIT_TEXT_START
                 global  __InitTextStart
 __InitTextStart:                    ; and c version
 
@@ -731,9 +731,9 @@ __InitTextStart:                    ; and c version
 ;
 ; start end end of HMA area
 
-segment	HMA_TEXT_START
+segment HMA_TEXT_START
                 global __HMATextAvailable
-__HMATextAvailable
+__HMATextAvailable:
                 global  __HMATextStart
 __HMATextStart:   
  
@@ -748,25 +748,25 @@ begin_hma:
                 db 0
 
 ; to minimize relocations
-		global _DGROUP_
-_DGROUP_	dw DGROUP
+                global _DGROUP_
+_DGROUP_        dw DGROUP
 
 %ifdef WATCOM
 ;               32 bit multiplication + division
 global __U4M
 __U4M:
-		LMULU
+                LMULU
 global __U4D
 __U4D:
                 LDIVMODU
 %endif
 
-		resb 0xd0 - ($-begin_hma)
-		; reserve space for far jump to cp/m routine
-		resb 5
+                resb 0xd0 - ($-begin_hma)
+                ; reserve space for far jump to cp/m routine
+                resb 5
 
 ;End of HMA segment                
-segment	HMA_TEXT_END
+segment HMA_TEXT_END
                 global  __HMATextEnd
 __HMATextEnd:                   ; and c version
 
@@ -775,20 +775,20 @@ __HMATextEnd:                   ; and c version
 ; The default stack (_TEXT:0) will overwrite the data area, so I create a dummy
 ; stack here to ease debugging. -- ror4
 
-segment	_STACK	class=STACK stack
+segment _STACK  class=STACK stack
 
 
 
     
 
-segment	CONST
+segment CONST
         ; dummy interrupt return handlers
 
-		global _int22_handler
+                global _int22_handler
                 global _int28_handler
                 global _int2a_handler
                 global _empty_handler
-_int22_handler:		
+_int22_handler:         
 _int28_handler:
 _int2a_handler:
 _empty_handler:
@@ -797,8 +797,8 @@ _empty_handler:
 
 global _initforceEnableA20
 initforceEnableA20:
-		call near forceEnableA20
-		retf   
+                call near forceEnableA20
+                retf   
 
     global __HMARelocationTableStart
 __HMARelocationTableStart:   
@@ -954,7 +954,7 @@ forceEnableA20success:
     pop es
     pop ds
     ret
-		
+                
 ;
 ; global f*cking compatibility issues:
 ;
