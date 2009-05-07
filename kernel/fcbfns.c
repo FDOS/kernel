@@ -251,8 +251,9 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
 
   /* Convert to fcb if necessary                                  */
   lpFcb = ExtFcbToFcb(lpXfcb);
+
   recsiz = lpFcb->fcb_recsiz;
-  bigsize = (ULONG)recsiz * recno;
+  bigsize = (ULONG)recsiz * (recno+1);
   if (bigsize > 0xffff)
     return FCB_ERR_SEGMENT_WRAP;
   size = (unsigned)bigsize;
@@ -557,8 +558,8 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       {
         if (*pFromPattern != '?')
           *pToName = *pFromPattern;
-	pToName++;
-	pFromPattern++;
+        pToName++;
+        pFromPattern++;
       }
 
       SecPathName[0] = 'A' + FcbDrive - 1;
