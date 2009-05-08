@@ -68,9 +68,12 @@ segment HMA_TEXT
 ; For CP/M compatibility allow a program to invoke any DOS API function
 ; between 0 and 24h by doing a near call to psp:0005h which embeds a far call
 ; to absolute address 0:00C0h (int vector 30h & 31h) or FFFF:00D0 (hma).
-; Note: int 31h is also used for DPMI
-; Upon entry the stack has a near return offset (desired return address) and
-; far return seg:offset (useless return to data at offset 0ah after far call
+; 0:00C0h contains the jmp instruction to reloc_call_cpm_entry which should
+; be duplicated in hma to ensure correct operation with either state of A20 line.
+; Note: int 31h is also used for DPMI but only in protected mode.
+; Upon entry the stack has a near return offset (desired return address offset)
+; and far return seg:offset (desired return segment of PSP, and useless offset
+; which if used will return to the data, not code, at offset 0ah after far call
 ; in psp). We convert it to a normal call and correct the stack to appear same
 ; as if invoked via an int 21h call including proper return address.
 ;

@@ -68,12 +68,10 @@ typedef struct {
   BYTE ps_fill1;                /* 04 single char fill=0           */
 
   /* CP/M-like entry point                                         */
-  /* offsets 5-9 are a far call to absolute address 0:000Ch
-     coded so that CP/M apps can do a near call to psp:5, does a
-     far call but ensures word at offset 6 is size of COM file
-     e.g. FEF0h by using 1MB wrap around address 0F01D:FEF0
-     (jmp code stored at 0:000C should be duplicated in HMA FFFF:00D0)
-     Note: MS-DOS has value as FEEE which wraps to 0:00BEh         */
+  /* offsets 5-9 are a far call to absolute address 0:00C0h
+     encoded using 1MB wrap form of address (e.g. 0F01D:FEF0h)
+     for compatiblity with CP/M apps that do a near call to psp:5
+     and expect size (KB) of allocated segment in word at offset 6 */
   UBYTE ps_farcall;             /* 05  far call opcode             */
   VOID(FAR ASMCFUNC * ps_reentry) (void);  /* 06  re-entry point          */
 
