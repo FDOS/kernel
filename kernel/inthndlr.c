@@ -116,11 +116,11 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
           irp->AL = 0xff;
           break;
 
-	  /* set FreeDOS returned version for int 21.30 from BX */
-	case 0xfc:             /* 0xfc ... 0xff are FreeDOS extensions */
-	  os_setver_major = irp->BL;
-	  os_setver_minor = irp->BH;
-	  break;
+          /* set FreeDOS returned version for int 21.30 from BX */
+        case 0xfc:             /* 0xfc ... 0xff are FreeDOS extensions */
+          os_setver_major = irp->BL;
+          os_setver_minor = irp->BH;
+          break;
 
           /* Toggle DOS-C rdwrblock trace dump                    */
 #ifdef DEBUG
@@ -458,7 +458,7 @@ dispatch:
   {
       /* int 21h common error handler                                 */
     case 0x64:
-    	goto error_invalid;
+        goto error_invalid;
 
       /* case 0x00:   --> Simulate a DOS-4C-00 */
 
@@ -651,9 +651,13 @@ dispatch:
       {
         BYTE FAR *p;
 
-        p = FatGetDrvData(lr.DL, &lr.AL, &lr.CX, &lr.DX);
-        lr.DS = FP_SEG(p);
-        lr.BX = FP_OFF(p);
+        if ((p = FatGetDrvData(lr.DL, &lr.AL, &lr.CX, &lr.DX)) != NULL)
+        {
+          lr.DS = FP_SEG(p);
+          lr.BX = FP_OFF(p);
+        }
+        else
+          lr.AL = 0xff;  /* return 0xff on invalid drive */
       }
       break;
 
@@ -1175,7 +1179,7 @@ dispatch:
           break;
 
         case 0x03:
-	  if (uppermem_root != 0xffff)	  /* always error if not exists */
+          if (uppermem_root != 0xffff)    /* always error if not exists */
           {
             DosUmbLink(lr.BX);
             break;
@@ -1291,7 +1295,7 @@ dispatch:
         if (lr.DL < lastdrive)
         {
           struct cds FAR *cdsp = CDSp + lr.DL;
-          if (FP_OFF(cdsp->cdsDpb))	/* letter of physical drive?	*/
+          if (FP_OFF(cdsp->cdsDpb))     /* letter of physical drive?    */
           {
             cdsp->cdsFlags &= ~CDSPHYSDRV;
             if (lr.AL == 7)
@@ -1312,7 +1316,7 @@ dispatch:
           CritErrCode = -rc;      /* Maybe set */
           SET_CARRY_FLAG();
         }
-        r->AX = -rc;		/* okay because we use real_exit */
+        r->AX = -rc;            /* okay because we use real_exit */
         goto real_exit;
       }
 
@@ -1364,12 +1368,12 @@ dispatch:
             lr.SI = FP_OFF(&nlsDBCSHardcoded);
             break;
           case 1: /* set Korean Hangul input method to DL 0/1 */
-            lr.AL = 0xff;	/* flag error (AL would be 0 if okay) */
+            lr.AL = 0xff;       /* flag error (AL would be 0 if okay) */
             break;
           case 2: /* get Korean Hangul input method setting to DL */
-            lr.AL = 0xff;	/* flag error, do not set DL */
+            lr.AL = 0xff;       /* flag error, do not set DL */
             break;
-          default:	/* is this the proper way to handle invalid AL? */
+          default:      /* is this the proper way to handle invalid AL? */
             rc = -1;
             goto error_exit;
         }
