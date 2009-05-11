@@ -289,7 +289,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
 
   /* a block transfer                           */
   /* /// Added for SHARE - Ron Cemer */
-  if (IsShareInstalled() && (s->sft_shroff >= 0))
+  if (IsShareInstalled(FALSE) && (s->sft_shroff >= 0))
   {
     int rc = share_access_check(cu_psp, s->sft_shroff, s->sft_posit,
                                  (unsigned long)n, 1);
@@ -581,7 +581,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   }
 
 /* /// Added for SHARE.  - Ron Cemer */
-  if (IsShareInstalled())
+  if (IsShareInstalled(TRUE))
   {
     if ((sftp->sft_shroff =
          share_open_check(PriPathName, cu_psp,
@@ -625,7 +625,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   else
   {
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
-    if (IsShareInstalled())
+    if (IsShareInstalled(TRUE))
     {
       share_close_file(sftp->sft_shroff);
       sftp->sft_shroff = -1;
@@ -755,7 +755,7 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
     return dos_commit(sftp->sft_status);
 
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
-  if (IsShareInstalled())
+  if (IsShareInstalled(TRUE))
   {
     if (sftp->sft_shroff >= 0)
       share_close_file(sftp->sft_shroff);
@@ -1359,7 +1359,7 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock)
     return remote_lock_unlock(s, pos, len, unlock);
 
   /* Invalid function unless SHARE is installed or remote. */
-  if (!IsShareInstalled())
+  if (!IsShareInstalled(FALSE))
     return DE_INVLDFUNC;
 
   /* Lock violation if this SFT entry does not support locking. */
@@ -1449,10 +1449,13 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
 }
 
 /* /// Added for SHARE.  - Ron Cemer */
+/* Eric 8/2008: only re-check (2f.1000) on open/close, not on each access */
 
-BOOL IsShareInstalled(void)
+BOOL IsShareInstalled(BOOL recheck)
 {
   extern unsigned char ASMPASCAL share_check(void);
+  if (recheck == FALSE)
+    return share_installed;
   if (!share_installed && share_check() == 0xff)
     share_installed = TRUE;
   return share_installed;

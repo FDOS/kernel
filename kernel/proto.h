@@ -112,7 +112,7 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2);
 COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib);
 COUNT DosMkRmdir(const char FAR * dir, int action);
 struct dhdr FAR *IsDevice(const char FAR * FileName);
-BOOL IsShareInstalled(void);
+BOOL IsShareInstalled(BOOL recheck);
 COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
 int idx_to_sft_(int SftIndex);
 sft FAR *idx_to_sft(int SftIndex);

@@ -447,7 +447,7 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
   f_node_ptr fnp2;
   int i, fd;
 
-  if (!IsShareInstalled())
+  if (!IsShareInstalled(FALSE))
     return;
 
   fd = xlt_fnp(fnp);
