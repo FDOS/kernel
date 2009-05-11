@@ -67,7 +67,7 @@ UWORD ASMPASCAL floppy_change(UWORD);
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
                  ULONG LBA_address, unsigned total, UWORD * transferred);
 
-#define NENTRY		26      /* total size of dispatch table */
+#define NENTRY          26      /* total size of dispatch table */
 
 #define LBA_READ         0x4200
 #define LBA_WRITE        0x4300
@@ -210,14 +210,14 @@ STATIC WORD play_dj(ddt * pddt)
       dx.b.h = pddt2->ddt_logdriveno;
       /* call int2f/ax=4a00 */
       if (floppy_change(dx.x) != 0xffff) {
-	/* if someone else does not make a nice dialog... */
-	template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
-	put_string(template_string);
-	put_string("Insert");
-	template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
-	put_string(template_string + 6);
-	put_string("Press the any key to continue ... \n");
-	fl_readkey();
+        /* if someone else does not make a nice dialog... */
+        template_string[DRIVE_POS] = 'A' + pddt2->ddt_logdriveno;
+        put_string(template_string);
+        put_string("Insert");
+        template_string[DRIVE_POS] = 'A' + pddt->ddt_logdriveno;
+        put_string(template_string + 6);
+        put_string("Press any key to continue ... \n");
+        fl_readkey();
       }
       pddt2->ddt_descflags &= ~DF_CURLOG;
       pddt->ddt_descflags |= DF_CURLOG;
