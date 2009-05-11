@@ -190,13 +190,13 @@ COUNT nUnits BSS_INIT(0);
 #define EXTENDED_LBA    0x0f    /* like 0x05, but it is supposed to end past */
 
 /* Let's play it safe and do not allow partitions with clusters above  *
- * or equal to 0xff0/0xfff0/0xffffff0 to be created		       *
+ * or equal to 0xff0/0xfff0/0xffffff0 to be created                    *
  * the problem with fff0-fff6 is that they might be interpreted as BAD *
  * even though the standard BAD value is ...ff7                        */
 
-#define FAT12MAX	(FAT_MAGIC-6)
-#define FAT16MAX	(FAT_MAGIC16-6)
-#define FAT32MAX	(FAT_MAGIC32-6)
+#define FAT12MAX        (FAT_MAGIC-6)
+#define FAT16MAX        (FAT_MAGIC16-6)
+#define FAT32MAX        (FAT_MAGIC32-6)
 
 #define IsExtPartition(parttyp) ((parttyp) == EXTENDED || \
                                  (parttyp) == EXTENDED_LBA )
@@ -339,7 +339,22 @@ COUNT init_getdriveparm(UBYTE drive, bpb * pbpbarray)
 
 /*
     translate LBA sectors into CHS addressing
-    copied and pasted from dsk.c!
+    initially copied and pasted from dsk.c!
+
+    LBA to/from CHS conversion - see http://www.ata-atapi.com/ How It Works section on CHSxlat - CHS Translation
+    LBA (logical block address) simple 0 to N-1 used internally and with extended int 13h (BIOS)
+    L-CHS (logical CHS) is the CHS view when using int 13h (BIOS)
+    P-CHS (physical CHS) is the CHS view when directly accessing disk, should not, but could be used in BS or MBR
+
+    LBA = ( (cylinder * heads_per_cylinder + heads ) * sectors_per_track ) + sector - 1
+
+    cylinder = LBA / (heads_per_cylinder * sectors_per_track)
+        temp = LBA % (heads_per_cylinder * sectors_per_track)
+        head = temp / sectors_per_track
+      sector = temp % sectors_per_track + 1
+
+    where heads_per_cylinder and sectors_per_track are the current translation mode values.
+    cyclinder and heads are 0 to N-1 based, sector is 1 to N based
 */
 
 void init_LBA_to_CHS(struct CHS *chs, ULONG LBA_address,
@@ -747,9 +762,11 @@ StandardBios:                  /* old way to get parameters */
   if (regs.flags & 0x01)
     goto ErrorReturn;
 
-  driveParam->chs.Head = (regs.d.x >> 8) + 1;
-  driveParam->chs.Sector = (regs.c.x & 0x3f);
-  driveParam->chs.Cylinder = (regs.c.x >> 8) | ((regs.c.x & 0xc0) << 2);
+  /* int13h call returns max value, store as count (#) i.e. +1 for 0 based heads & cylinders */
+  driveParam->chs.Head = (regs.d.x >> 8) + 1; /* DH = max head value = # of heads - 1 (0-255) */
+  driveParam->chs.Sector = (regs.c.x & 0x3f); /* CL bits 0-5 = max sector value = # (sectors/track) - 1 (1-63) */
+  /* max cylinder value = # cylinders - 1 (0-1023) = [high two bits]CL7:6=cyls9:8, [low byte]CH=cyls7:0 */
+  driveParam->chs.Cylinder = (regs.c.x >> 8) | ((regs.c.x & 0xc0) << 2) + 1; 
   
   if (driveParam->chs.Sector == 0) {
     /* happens e.g. with Bochs 1.x if no harddisk defined */
@@ -760,13 +777,13 @@ StandardBios:                  /* old way to get parameters */
   if (!(driveParam->descflags & DF_LBA))
   {
     driveParam->total_sectors =
-        min(driveParam->chs.Cylinder, 1023)
+        (ULONG)driveParam->chs.Cylinder
         * driveParam->chs.Head * driveParam->chs.Sector;
   }
 
   driveParam->driveno = drive;
 
-  DebugPrintf(("drive parameters %02x - %04lu-%u-%u",
+  DebugPrintf(("drive %02Xh total: C = %u, H = %u, S = %u,",
                drive,
                driveParam->chs.Cylinder,
                driveParam->chs.Head, driveParam->chs.Sector));
@@ -986,8 +1003,8 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
 #if 0
   if (LBA_address >= driveParam->total_sectors)
   {
-    printf("LBA-Transfer error : address overflow = %lu > %lu max\n",
-           LBA_address + 1, driveParam->total_sectors);
+    printf("LBA-Transfer error : address overflow = %lu, > %lu total sectors\n",
+           LBA_address, driveParam->total_sectors);
     return 1;
   }
 #endif
@@ -1021,7 +1038,7 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
 
       if (chs.Cylinder > 1023)
       {
-        printf("LBA-Transfer error : cylinder %u > 1023\n", chs.Cylinder);
+        printf("LBA-Transfer error : address = %lu, cylinder %u > 1023\n", LBA_address, chs.Cylinder);
         return 1;
       }
 
@@ -1078,7 +1095,7 @@ strange_restart:
   if (Read1LBASector
       (&driveParam, drive, RelSectorOffset, InitDiskTransferBuffer))
   {
-    printf("Error reading partition table drive %02x sector %lu", drive,
+    printf("Error reading partition table drive %02Xh sector %lu", drive,
            RelSectorOffset);
     return PartitionsToIgnore;
   }
@@ -1126,7 +1143,7 @@ strange_restart:
       if (ExtendedPartitionOffset == 0)
       {
         ExtendedPartitionOffset = PTable[iPart].RelSect;
-	/* grand parent LBA -> all children and grandchildren LBA */
+        /* grand parent LBA -> all children and grandchildren LBA */
         ExtLBAForce = (PTable[iPart].FileSystem == EXTENDED_LBA);
       }
 
