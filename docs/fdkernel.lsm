@@ -1,13 +1,14 @@
 Begin3
 Title:          The FreeDOS Kernel
-Version:        2038 stable
-Entered-date:   2008-04-02
-Description:    The FreeDOS Kernel (stable branch)
+Version:        2038
+Entered-date:   2009-05-16
+Description:    The FreeDOS Kernel
 Keywords:       kernel, FreeDOS, DOS, MSDOS
 Author:         (developers: can be reached on the freedos-kernel mailing list)
-Maintained-by:  community / eric(#)coli.uni-sb.de
-Primary-site:   http://freedos.sourceforge.net/
+Maintained-by:  freedos-kernel@lists.sourceforge.net
+Primary-site:   http://freedos.sourceforge.net/kernel/
 Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel
 Platforms:      DOS, FreeDOS, DOSEMU (OpenWatcom C or Turbo C, NASM, optionally UPX)
 Copying-policy: GPL2
 End
+
