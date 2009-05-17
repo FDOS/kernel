@@ -1,7 +1,6 @@
-
 The current bug database is available on the web at
 
- http://www.freedos.org/freedos/bugs/
+ http://sourceforge.net/tracker/?group_id=5109&atid=105109
 
 Please request an account if you want to report or
 update bugs. Reading the database needs no login.
