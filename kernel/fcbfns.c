@@ -253,7 +253,7 @@ UBYTE FcbReadWrite(xfcb FAR * lpXfcb, UCOUNT recno, int mode)
   lpFcb = ExtFcbToFcb(lpXfcb);
 
   recsiz = lpFcb->fcb_recsiz;
-  bigsize = (ULONG)recsiz * (recno+1);
+  bigsize = (ULONG)recsiz * recno;
   if (bigsize > 0xffff)
     return FCB_ERR_SEGMENT_WRAP;
   size = (unsigned)bigsize;
@@ -393,7 +393,20 @@ UBYTE FcbRandomIO(xfcb FAR * lpXfcb, int mode)
   return nErrorCode;
 }
 
-/* merged fcbOpen and FcbCreate - saves ~200 byte */
+/* FcbOpen and FcbCreate
+   Expects lpXfcb to point to a valid, unopened FCB, containing file name to open (create)
+   Create will attempt to find the file name in the current directory, if found truncates
+     setting file size to 0, otherwise if does not exist will create the new file; the
+     FCB is filled in same as the open call.
+   On any error returns FCB_ERROR
+   On success returns FCB_SUCCESS, and sets the following fields (other non-system reserved ones left unchanged)
+     drive identifier (fcb_drive) set to actual drive (1=A, 2=B, ...; always >0 if not device)
+     current block number (fcb_cublock) to 0
+     file size (fcb_fsize) value from directory entry (0 if create)
+     record size (fcb_recsiz) to 128; set to 0 for devices
+     time & date (fcb_time & fcb_date) values from directory entry
+     fcb_sftno, fcb_attrib_hi/_lo, fcb_strtclst, fcb_dirclst/off_unused are for internal use (system reserved)
+*/
 UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
 {
   sft FAR *sftp;
@@ -417,8 +430,11 @@ UBYTE FcbOpen(xfcb FAR * lpXfcb, unsigned flags)
   sftp->sft_mode |= O_FCB;
 
   lpFcb->fcb_sftno = sft_idx;
+  lpFcb->fcb_cublock = 0;
+  /* should not be cleared, programs e.g. GEM depend on these values remaining unchanged
   lpFcb->fcb_curec = 0;
   lpFcb->fcb_rndm = 0;
+  */
   
   lpFcb->fcb_recsiz = 0;      /* true for devices   */
   if (!(sftp->sft_flags & SFT_FDEVICE)) /* check for a device */
