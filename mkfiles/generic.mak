@@ -25,11 +25,20 @@ NASMFLAGS   = $(NASMFLAGS) -i../hdr/ -DXCPU=$(XCPU)
 LINK=$(XLINK)
 
 INITPATCH=@rem
+DIRSEP=\ #a backslash
+RM=..\utils\rmfiles
+CP=copy
+ECHOTO=..\utils\echoto
+CLDEF=0
 
-!include "..\mkfiles\$(COMPILER).mak"
+!include "../mkfiles/$(COMPILER).mak"
+
+!if $(CLDEF) == 0
+CLT=$(CL) $(CFLAGST) $(TINY) -I$(INCLUDEPATH)
+CLC=$(CL) $(CFLAGSC) -I$(INCLUDEPATH)
+!endif
 
 TARGET=$(TARGET)$(XCPU)$(XFAT)
-RM=..\utils\rmfiles
 
 .asm.obj :
 	$(NASM) -D$(COMPILER) $(NASMFLAGS) -f obj $*.asm

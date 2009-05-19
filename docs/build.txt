@@ -1,4 +1,7 @@
-To build the operating system, a batch file (BUILD.BAT) is included
+Building on DOS or Windows:
+===========================
+
+To build the operating system a batch file (BUILD.BAT) is included
 to make life easier.  This file is in the FDKERNEL directory of the
 distribution.  In addition, there is a corresponding batch file
 (CLEAN.BAT) to clean up the source directories.
@@ -12,8 +15,28 @@ kernel come out, you can extract them over your previous source, and
 not have to worry about resetting up your configuration because your
 CONFIG.BAT file will not get replaced!
 
-The recommended compiler and assembler at the time of writing (2004/01/31)
-are OpenWatcom 1.2 and NASM 0.98.38.
+Building on Linux:
+==================
+
+To cross compile on Linux you need to install Open Watcom 1.8 from
+www.openwatcom.org and NASM which is probably included in your
+distribution. You can then copy config.m to config.mak and adjust
+for the same reasons mentioned above.
+
+Use the following commands:
+- to build:
+make all
+- to build, overriding a config.mak setting, e.g.:
+make all XCPU=386
+- to clean:
+make clean
+- to clobber (delete everything that was generated):
+make clobber
+
+Notes:
+======
+The recommended compiler and assembler at the time of writing (2009/05/19)
+are OpenWatcom 1.8 and NASM 2.05.01.
 
 You may need to download the latest version of NASM and a C compiler
 Be sure to edit the CONFIG.BAT file to reflect where you put the tools.

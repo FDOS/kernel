@@ -416,7 +416,10 @@ int main(int argc, char **argv)
     len += n;
   }
   cmdbuf[len++] = ' ';
+  cmdbuf[len++] = '\'';
   memcpy(cmdbuf + len, tmpexe, len2);
+  cmdbuf[len + len2 - 1] = '\'';
+  cmdbuf[len + len2] = '\0';
   printf("%s\n", cmdbuf);
   if (system(cmdbuf))
   {

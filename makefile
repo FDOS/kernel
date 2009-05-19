@@ -1,9 +1,12 @@
-# IF NOTHING COMPILES, CHECK IF YOUR CVS CHECKOUT USES CORRECT DOS LINEBREAKS
+# What you WANT on DOS is: 
+# EDIT CONFIG.B, COPY CONFIG.B to CONFIG.BAT, RUN BUILD.BAT
+# On Linux, use config.mak, and "make all", "make clean", or "make clobber"
 
-# What you WANT is: EDIT CONFIG.B, COPY CONFIG.B to CONFIG.BAT, RUN BUILD.BAT
-# THIS file is provided only for people who have a habit of typing MAKE ALL...
+default:
+	@echo On DOS, please type build, clean, or clobber.
+	@echo On Linux, please type make all, make clean, or make clobber.
 
-all:
+build:
 	build
 
 bin\kwc8616.sys:
@@ -54,3 +57,48 @@ zipfat32: bin\kwc8632.sys
 
 zip: zip_src zipfat16 zipfat32
 
+#Linux part
+#defaults: override using config.mak
+export
+COMPILER=owlinux
+
+XCPU=86
+XFAT=32
+ifndef WATCOM
+  WATCOM=$(HOME)/watcom
+  PATH:=$(WATCOM)/binl:$(PATH)
+endif
+XUPX=upx --8086 --best
+XNASM=nasm
+MAKE=wmake -ms -h
+XLINK=wlink
+#ALLCFLAGS=-DDEBUG
+
+-include config.mak
+ifdef XUPX
+  UPXOPT=-U
+endif
+
+all:
+	cd utils && $(MAKE) production
+	cd lib && touch libm.lib
+	cd drivers && $(MAKE) production
+	cd boot && $(MAKE) production
+	cd sys && $(MAKE) production
+	cd kernel && $(MAKE) production
+
+clean:
+	cd utils && $(MAKE) clean
+	cd lib && $(MAKE) clean
+	cd drivers && $(MAKE) clean
+	cd boot && $(MAKE) clean
+	cd sys && $(MAKE) clean
+	cd kernel && $(MAKE) clean
+
+clobber:
+	cd utils && $(MAKE) clobber
+	cd lib && $(MAKE) clobber
+	cd drivers && $(MAKE) clobber
+	cd boot && $(MAKE) clobber
+	cd sys && $(MAKE) clobber
+	cd kernel && $(MAKE) clobber

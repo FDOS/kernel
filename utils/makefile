@@ -1,14 +1,14 @@
 !include "../mkfiles/generic.mak"
 
-CFLAGS = -I$(INCLUDEPATH) -I..\hdr
+CFLAGS = -I..$(DIRSEP)hdr
 
 production: patchobj.com exeflat.exe
 
 patchobj.com: patchobj.c
-	$(CL) $(CFLAGST) $(TINY) $(CFLAGS) patchobj.c
+	$(CLT) $(CFLAGS) patchobj.c
 
 exeflat.exe: exeflat.c ../hdr/exe.h
-	$(CL) $(CFLAGSC) $(CFLAGS) exeflat.c
+	$(CLC) $(CFLAGS) exeflat.c
 
 
 clobber: clean

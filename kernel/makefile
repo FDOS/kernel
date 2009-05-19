@@ -6,7 +6,7 @@
 
 !include "../mkfiles/generic.mak"
 
-LIBS=..\lib\device.lib ..\lib\libm.lib
+LIBS=..$(DIRSEP)lib$(DIRSEP)device.lib ..$(DIRSEP)lib$(DIRSEP)libm.lib
 HDR=../hdr/
 
 # *List Macros*
@@ -29,15 +29,15 @@ OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
 
 #               *Explicit Rules*
 
-production:     ..\bin\$(TARGET).sys
+production:     ../bin/$(TARGET).sys
 
-..\bin\$(TARGET).sys: kernel.sys
-		copy kernel.sys ..\bin
-		copy kernel.sys ..\bin\$(TARGET).sys
-		copy kernel.map ..\bin\$(TARGET).map
+../bin/$(TARGET).sys: kernel.sys
+		$(CP) kernel.sys ..$(DIRSEP)bin
+		$(CP) kernel.sys ..$(DIRSEP)bin$(DIRSEP)$(TARGET).sys
+		$(CP) kernel.map ..$(DIRSEP)bin$(DIRSEP)$(TARGET).map
 
-kernel.sys:	kernel.exe ..\utils\exeflat.exe
-		..\utils\exeflat kernel.exe kernel.sys 0x60 -S0x10 -S0x74 $(UPXOPT) $(XUPX)
+kernel.sys:	kernel.exe ../utils/exeflat.exe
+		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys 0x60 -S0x10 -S0x74 $(UPXOPT) $(XUPX)
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
@@ -51,9 +51,7 @@ clean:
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 
-ECHOTO=..\utils\echoto
-
-$(TARGET).lnk: turboc.cfg makefile ..\mkfiles\generic.mak ..\mkfiles\$(COMPILER).mak
+$(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
 		-$(RM) *.lnk
 		$(ECHOTO) $(TARGET).lnk $(OBJS1)+
 		$(ECHOTO) $(TARGET).lnk $(OBJS2)+

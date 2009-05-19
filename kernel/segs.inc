@@ -38,6 +38,11 @@ CPU XCPU
 %endif
 %endif
 
+; for OW on Linux:
+%ifdef owlinux
+%define WATCOM
+%endif
+
 group   PGROUP          PSP
 group   LGROUP          _IRQTEXT _LOWTEXT _IO_TEXT _IO_FIXED_DATA _TEXT
 group   DGROUP          _FIXED_DATA _BSS _DATA _DATAEND CONST CONST2 DCONST DYN_DATA

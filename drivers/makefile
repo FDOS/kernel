@@ -24,7 +24,7 @@
 
 OBJS   = floppy.obj rdpcclk.obj wrpcclk.obj wratclk.obj
 
-LIBOBJS= +floppy +rdpcclk +wrpcclk +wratclk
+LIBOBJS= +floppy.obj +rdpcclk.obj +wrpcclk.obj +wratclk.obj
 
 
 
@@ -32,13 +32,13 @@ LIBOBJS= +floppy +rdpcclk +wrpcclk +wratclk
 # -----------------
 all:            production
 
-production:     ..\lib\device.lib
+production:     ../lib/device.lib
 
-..\lib\device.lib: device.lib
-	copy device.lib ..\lib
+../lib/device.lib: device.lib
+	$(CP) device.lib ..$(DIRSEP)lib
 
 clobber:        clean
-	-$(RM) device.lib status.me ..\lib\device.lib
+	-$(RM) device.lib status.me ..$(DIRSEP)lib$(DIRSEP)device.lib
 
 clean:
 	-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err
