@@ -1,1 +1,12 @@
-@echo %2 %3 %4 %5 %6 %7 %8 %9 >> %1
+@echo off
+set FILE=%1
+set STR=%2
+
+:loop
+shift
+if "%2" == "" goto end
+set STR=%STR% %2
+goto loop
+:end
+
+echo %STR%>> %FILE%
