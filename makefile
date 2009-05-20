@@ -81,7 +81,7 @@ endif
 
 all:
 	cd utils && $(MAKE) production
-	cd lib && touch libm.lib
+	cd lib && ( test -f libm.lib || touch libm.lib )
 	cd drivers && $(MAKE) production
 	cd boot && $(MAKE) production
 	cd sys && $(MAKE) production
