@@ -425,5 +425,13 @@ void ASMCFUNC DosIdle_hlt(void);        /* dosidle.asm */
 GLOBAL BYTE ReturnAnyDosVersionExpected;
 GLOBAL BYTE ASM HaltCpuWhileIdle;
 
+/* near fnodes:
+ * fnode[0] is used internally for almost all cases.
+ * fnode[1] is only used for:
+ * 1) rename (target)
+ * 2) rmdir (checks if the directory to remove is empty)
+ * 3) commit (copies, than closes fnode[0])
+ * 3) merge_file_changes (for SHARE)
+ */
 GLOBAL struct f_node fnode[2];
 GLOBAL int fnode_fd[2];

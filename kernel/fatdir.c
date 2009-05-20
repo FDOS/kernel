@@ -56,14 +56,13 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_cluster = fnp->f_dirstart = dirstart;
 }
 
-f_node_ptr dir_open(register const char *dirname)
+f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
 {
-  f_node_ptr fnp;
   int i;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node()) == (f_node_ptr) 0)
+  if ((fnp = get_f_node(fnp)) == (f_node_ptr) 0)
   {
     return (f_node_ptr) 0;
   }
@@ -399,7 +398,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   {
     char tmp = name[i];
     name[i] = '\0';
-    if ((fnp = dir_open(name)) == NULL)
+    if ((fnp = dir_open(name, &fnode[0])) == NULL)
       return DE_PATHNOTFND;
     name[i] = tmp;
   }
@@ -462,7 +461,7 @@ COUNT dos_findnext(void)
   REG dmatch *dmp = &sda_tmp_dm;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node()) == (f_node_ptr) 0)
+  if ((fnp = get_f_node(&fnode[0])) == (f_node_ptr) 0)
   {
     return DE_NFILES;
   }

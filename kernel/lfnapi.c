@@ -50,7 +50,7 @@ VOID unicode_to_lfn(UNICODE FAR **name, struct lfn_entry FAR *lep);
  */
 COUNT lfn_allocate_inode(VOID)
 {
-  f_node_ptr fnp = get_f_node();
+  f_node_ptr fnp = get_f_node(&fnode[0]);
   struct dpb FAR *dpbp;
   COUNT handle;
   if (fnp == 0) return LHE_NOFREEHNDL;

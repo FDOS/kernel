@@ -40,8 +40,7 @@ BYTE *RcsId = "$Id$";
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
 STATIC void save_far_f_node(f_node_ptr fnp);
-STATIC f_node_ptr get_near_f_node(void);
-STATIC f_node_ptr split_path(char *, char *);
+STATIC f_node_ptr split_path(char *, char *, f_node_ptr fnp);
 STATIC BOOL find_fname(f_node_ptr, char *, int);
     /* /// Added - Ron Cemer */
 STATIC void merge_file_changes(f_node_ptr fnp, int collect);
@@ -149,7 +148,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
 
   /* next split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(path, fcbname)) == NULL)
+  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
   /* Check that we don't have a duplicate name, so if we  */
@@ -296,10 +295,9 @@ COUNT dos_commit(COUNT fd)
   /* note: an invalid fd is indicated by a 0 return               */
   if (fnp == (f_node_ptr) 0)
     return DE_INVLDHNDL;
-  fnp2 = get_f_node();
+  fnp2 = get_f_node(&fnode[1]);
   if (fnp2 == (f_node_ptr) 0)
   {
-    release_near_f_node(fnp);
     return DE_INVLDHNDL;
   }
 
@@ -307,17 +305,14 @@ COUNT dos_commit(COUNT fd)
      is updated etc, but we keep our old info */
   memcpy(fnp2, fnp, sizeof(*fnp));
   save_far_f_node(fnp2);
-  release_near_f_node(fnp);
   return dos_close(xlt_fnp(fnp2));
 }
 
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
-f_node_ptr split_path(char * path, char * fcbname)
+f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
 {
-  REG f_node_ptr fnp;
-
   /* Start off by parsing out the components.                     */ 
   int dirlength = ParseDosName(path, fcbname, FALSE);
 
@@ -348,7 +343,7 @@ f_node_ptr split_path(char * path, char * fcbname)
   {
     char tmp = path[dirlength];
     path[dirlength] = '\0';
-    fnp = dir_open(path);
+    fnp = dir_open(path, fnp);
     path[dirlength] = tmp;
   } 
 
@@ -370,7 +365,7 @@ BOOL dir_exists(char * path)
   REG f_node_ptr fnp;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
-  if ((fnp = split_path(path, fcbname)) == NULL)
+  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
     return FALSE;
   
   dir_close(fnp);
@@ -451,7 +446,7 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
     return;
 
   fd = xlt_fnp(fnp);
-  fnp2 = get_near_f_node();
+  fnp2 = &fnode[1];
   for (i = 0; i < f_nodes_cnt; i++)
   {
     fmemcpy(fnp2, &f_nodes[i], sizeof(*fnp2));
@@ -479,7 +474,6 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
       }
     }
   }
-  release_near_f_node(fnp2);
 }
 
     /* /// Added - Ron Cemer */
@@ -538,7 +532,7 @@ COUNT dos_delete(BYTE * path, int attrib)
 
   /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, fcbname)) == NULL)
+  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
   {
     return DE_PATHNOTFND;
   }
@@ -581,7 +575,7 @@ COUNT dos_rmdir(BYTE * path)
 
   /* next, split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, fcbname)) == NULL)
+  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
   {
     return DE_PATHNOTFND;
   }
@@ -611,7 +605,7 @@ COUNT dos_rmdir(BYTE * path)
     /* Check that the directory is empty. Only the  */
     /* "." and ".." are permissable.                */
     fnp->f_flags &= ~F_DMOD;
-    fnp1 = dir_open(path);
+    fnp1 = dir_open(path, &fnode[1]);
     if (fnp1 == NULL)
     {
       dir_close(fnp);
@@ -683,7 +677,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* first split the passed target into compnents (i.e. - path to */
   /* new file name and name of new file name                      */
-  if ((fnp2 = split_path(path2, fcbname)) == NULL)
+  if ((fnp2 = split_path(path2, fcbname, &fnode[1])) == NULL)
   {
     return DE_PATHNOTFND;
   }
@@ -698,7 +692,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* next split the passed source into compnents (i.e. - path to  */
   /* old file name and name of old file name                      */
-  if ((fnp1 = split_path(path1, fcbname)) == NULL)
+  if ((fnp1 = split_path(path1, fcbname, &fnode[0])) == NULL)
   {
     dir_close(fnp2);
     return DE_PATHNOTFND;
@@ -816,7 +810,7 @@ STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
 {
   fnp->f_flags &= ~F_DMOD;
   dir_close(fnp);
-  fnp = split_path(path, fcbname);
+  fnp = split_path(path, fcbname, fnp);
 
   /* Get a free f_node pointer so that we can use */
   /* it in building the new file.                 */
@@ -891,7 +885,6 @@ COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
   *dp = fnp->f_dir.dir_date;
   *tp = fnp->f_dir.dir_time;
 
-  release_near_f_node(fnp);
   return SUCCESS;
 }
 
@@ -940,7 +933,6 @@ ULONG dos_getfsize(COUNT fd)
     return (ULONG)-1l;
 
   /* Return the file size                                         */
-  release_near_f_node(fnp);
   return fnp->f_dir.dir_size;
 }
 
@@ -1053,7 +1045,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(dir, fcbname)) == NULL)
+  if ((fnp = split_path(dir, fcbname, &fnode[0])) == NULL)
   {
     return DE_PATHNOTFND;
   }
@@ -1824,7 +1816,6 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 
       /* default to an invalid function                               */
     default:
-      release_near_f_node(fnp);
       return (LONG) DE_INVLDFUNC;
   }
   save_far_f_node(fnp);
@@ -1883,7 +1874,7 @@ int dos_cd(char * PathName)
     return DE_INVLDDRV;
 
   /* now test for its existance. If it doesn't, return an error.  */
-  if ((fnp = dir_open(PathName)) == NULL)
+  if ((fnp = dir_open(PathName, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
   /* problem: RBIL table 01643 does not give a FAT32 field for the
@@ -1894,48 +1885,21 @@ int dos_cd(char * PathName)
 }
 #endif
 
-/* try to allocate a near f_node                            */
-/* (there are just two of them, in the SDA)                 */
-
-f_node_ptr get_near_f_node(void)
-{
-  f_node_ptr fnp = fnode;
-
-  if (fnp->f_count == 0)
-    fnp->f_count++;
-  else
-  {
-    fnp++;
-    if (fnp->f_count == 0)
-      fnp->f_count++;
-    else
-    {
-      fnp = (f_node_ptr) 0;
-      panic("more than two near fnodes requested at the same time!\n");
-    }
-  }
-  return fnp;
-}
-
 /* Try to allocate an f_node from the available files array */
 
-f_node_ptr get_f_node(void)
+f_node_ptr get_f_node(f_node_ptr fnp)
 {
   REG int i;
-  f_node_ptr fnp = get_near_f_node();
 
-  if (fnp != (f_node_ptr)0)
+  for (i = 0; i < f_nodes_cnt; i++)
   {
-    for (i = 0; i < f_nodes_cnt; i++)
+    if (f_nodes[i].f_count == 0)
     {
-      if (f_nodes[i].f_count == 0)
-      {
-        ++f_nodes[i].f_count;
-        fnode_fd[fnp - fnode] = i;
-        return fnp;
-      }
+      ++f_nodes[i].f_count;
+      fnp->f_count = 1;
+      fnode_fd[fnp - fnode] = i;
+      return fnp;
     }
-    release_near_f_node(fnp);
   }
   return (f_node_ptr) 0;
 }
@@ -1948,7 +1912,6 @@ VOID release_f_node(f_node_ptr fnp)
     --fp->f_count;
   else
     fp->f_count = 0;
-  release_near_f_node(fnp);
 }
 
 #ifndef IPL
@@ -1962,7 +1925,6 @@ COUNT dos_getfattr_fd(COUNT fd)
   if (fnp == (f_node_ptr) 0)
     return DE_TOOMANY;
 
-  release_near_f_node(fnp);
   return fnp->f_dir.dir_attrib;
 }
 
@@ -2191,36 +2153,28 @@ COUNT xlt_fnp(f_node_ptr fnp)
   return fnode_fd[fnp - fnode];
 }
 
-/* allocate a near fnode and copy the far fd fnode to it */
+/* copy the far fnode fd into the first near fnode */
 f_node_ptr xlt_fd(int fd)
 {
-  f_node_ptr fnp = (f_node_ptr) 0;
-
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
   if (fd < f_nodes_cnt)
   {
-    fnp = get_near_f_node();
-    if (fnp != (f_node_ptr)0)
+    fmemcpy(&fnode[0], &f_nodes[fd], sizeof(fnode[0]));
+    if (fnode[0].f_count > 0)
     {
-      fmemcpy(fnp, &f_nodes[fd], sizeof(*fnp));
-      if (fnp->f_count == 0)
-      {
-        release_near_f_node(fnp);
-        fnp = (f_node_ptr) 0;
-      } else
-        fnode_fd[fnp - fnode] = fd;
+      fnode_fd[0] = fd;
+      return &fnode[0];
     }
   }
-  return fnp;
+  return NULL;
 }
 
-/* copy a near fnode to the corresponding far one and release it */
+/* copy a near fnode to the corresponding far one */
 STATIC void save_far_f_node(f_node_ptr fnp)
 {
   fmemcpy(&f_nodes[xlt_fnp(fnp)], fnp, sizeof(*fnp));
-  release_near_f_node(fnp);
 }
 
 /* TE

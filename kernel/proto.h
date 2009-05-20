@@ -138,7 +138,7 @@ VOID fatal(BYTE * err_msg);
 
 /* fatdir.c */
 VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart);
-f_node_ptr dir_open(const char *dirname);
+f_node_ptr dir_open(const char *dirname, f_node_ptr fnp);
 COUNT dir_read(REG f_node_ptr fnp);
 BOOL dir_write(REG f_node_ptr fnp);
 VOID dir_close(REG f_node_ptr fnp);
@@ -180,9 +180,8 @@ VOID trim_path(BYTE FAR * s);
 
 int dos_cd(char * PathName);
 
-f_node_ptr get_f_node(void);
+f_node_ptr get_f_node(f_node_ptr fnp);
 VOID release_f_node(f_node_ptr fnp);
-#define release_near_f_node(fnp) ((fnp)->f_count = 0)
 COUNT dos_getfattr_fd(COUNT fd);
 COUNT dos_getfattr(BYTE * name);
 COUNT dos_setfattr(BYTE * name, UWORD attrp);

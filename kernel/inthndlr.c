@@ -426,28 +426,23 @@ dispatch:
   }
   /* Clear carry by default for these functions */
 
-  /* We force clear the near fnodes,
-     On a normal int21h entry these are unused, so should already
-     be clear, thus this code is effectively redundant.
-     However when re-entering int21h, such as a device driver
-     (e.g. shsufdrv), the fnodes may contain the values of the
-     in progress call; as long as the driver/tsr causing the
-     reentrancey saves and restores the SDA across the call then
-     any changes we do (ie clearing these) should go unnoticed
-     and if the cause of the reentrancy does not save/restore the
-     SDA then the caller should expected the unexpected.
-     Failure to do this will at a minimal result in the extra
-     output indicating fnodes not 0 (and possibly clearing at end
-     of call) when the re-entered int21h call completes, but could
-     result in the re-entered call to fail with no free near fnodes
-     if both are already in use by the original int21h call (?bug 1879?).
-     See also PATCH TE 5 jul 04 explanation at end 
-   */
+  /*
+     what happened:
+     Application does FindFirst("I:\*.*");
+     this fails, and causes Int24
+     this sets ErrorMode, and calls Int24
+     Application decides NOT to return to DOS,
+     but instead pop the stack and return to itself
+     (this is legal; see RBIL/INT 24 description
+
+     *) errormode NEVER gets set back to 0 until exit()
+
+     I have NO idea how real DOS handles this;
+     the appended patch cures the worst symptoms
+  */
   if (/*ErrorMode && */lr.AH > 0x0c && lr.AH != 0x30 && lr.AH != 0x59)
   {
     /*if (ErrorMode)*/ ErrorMode = 0;
-    fnode[0].f_count = 0;    /* don't panic - THEY ARE unused !! */
-    fnode[1].f_count = 0;
   }
   /* Check for Ctrl-Break */
   if (break_ena || (lr.AH >= 1 && lr.AH <= 5) || (lr.AH >= 8 && lr.AH <= 0x0b))
@@ -1572,31 +1567,6 @@ exit_dispatch:
   r->DS = lr.DS;
   r->ES = lr.ES;
 real_exit:;
-
-  /* PATCH !!       TE 5 JUL 04
-     what happened:
-     Application does FindFirst("I:\*.*");
-     this fails, and causes Int24
-     this sets ErrorMode, and calls Int24
-     Application decides NOT to return to DOS,
-     but instead pop the stack and return to itself
-     (this is legal; see RBIL/INT 24 description
-
-     a) now the alloc()'ed fnode[0] never gets free()'ed
-     b) errormode NEVER gets set back to 0 unyil exit()
-
-     I have NO idea how real DOS handles this;
-     the appended patch cures the worst symptoms
-  */
-  if (fnode[0].f_count != 0 ||
-      fnode[1].f_count != 0 )
-  {
-    if (ErrorMode == 0)
-      put_string("near_fnodes not 0"); /* panic ?? */
-    fnode[0].f_count = 0;    /* don't panic - THEY ARE unused !! */
-    fnode[1].f_count = 0;
-  }
-  /* PATCH !! END    TE 5 JUL 04 */
 
 #ifdef DEBUG
   if (bDumpRegs)
