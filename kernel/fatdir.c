@@ -155,19 +155,6 @@ STATIC void swap_deleted(char *name)
     name[0] ^= EXT_DELETED - DELETED; /* 0xe0 */
 }
 
-STATIC struct buffer FAR *getblock_from_off(f_node_ptr fnp, unsigned secsize)
-{
-  /* Compute the block within the cluster and the */
-  /* offset within the block.                     */
-  unsigned sector;
-
-  sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
-
-  /* Get the block we need from cache             */
-  return getblock(clus2phys(fnp->f_cluster, fnp->f_dpb) + sector,
-                  fnp->f_dpb->dpb_unit);
-}
-
 /* Description.
  *  Read next consequitive directory entry, pointed by fnp.
  *  If some error occures the other critical
@@ -184,6 +171,7 @@ COUNT dir_read(REG f_node_ptr fnp)
 {
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
+  unsigned sector;
 
   /* can't have more than 65535 directory entries */
   if (fnp->f_diroff >= 65535U)
@@ -199,11 +187,8 @@ COUNT dir_read(REG f_node_ptr fnp)
     if (fnp->f_diroff >= fnp->f_dpb->dpb_dirents)
       return DE_SEEK;
 
-    bp = getblock(fnp->f_diroff / (secsize / DIRENT_SIZE)
-                           + fnp->f_dpb->dpb_dirstrt, fnp->f_dpb->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-    printf("DIR (dir_read)\n");
-#endif
+    fnp->f_dirsector = fnp->f_diroff / (secsize / DIRENT_SIZE) +
+      fnp->f_dpb->dpb_dirstrt;
   }
   else
   {
@@ -212,17 +197,22 @@ COUNT dir_read(REG f_node_ptr fnp)
 
     /* Search through the FAT to find the block     */
     /* that this entry is in.                       */
-#ifdef DISPLAY_GETBLOCK
-    printf("dir_read: ");
-#endif
     if (map_cluster(fnp, XFR_READ) != SUCCESS)
       return DE_SEEK;
 
-    bp = getblock_from_off(fnp, secsize);
-#ifdef DISPLAY_GETBLOCK
-    printf("DIR (dir_read)\n");
-#endif
+    /* Compute the block within the cluster and the */
+    /* offset within the block.                     */
+    sector = (UBYTE)(fnp->f_offset / secsize) & fnp->f_dpb->dpb_clsmask;
+
+    fnp->f_dirsector = clus2phys(fnp->f_cluster, fnp->f_dpb) + sector;
+    /* Get the block we need from cache             */
   }
+
+  bp = getblock(fnp->f_dirsector, fnp->f_dpb->dpb_unit);
+
+#ifdef DISPLAY_GETBLOCK
+  printf("DIR (dir_read)\n");
+#endif
 
   /* Now that we have the block for our entry, get the    */
   /* directory entry.                                     */
@@ -232,9 +222,8 @@ COUNT dir_read(REG f_node_ptr fnp)
   bp->b_flag &= ~(BFR_DATA | BFR_FAT);
   bp->b_flag |= BFR_DIR | BFR_VALID;
 
-  getdirent((BYTE FAR *) & bp->
-            b_buffer[(fnp->f_diroff * DIRENT_SIZE) % fnp->f_dpb->dpb_secsize],
-            &fnp->f_dir);
+  fnp->f_diridx = fnp->f_diroff % (secsize / DIRENT_SIZE);
+  getdirent(&bp->b_buffer[fnp->f_diridx * DIRENT_SIZE], &fnp->f_dir);
 
   swap_deleted(fnp->f_dir.dir_name);
 
@@ -260,7 +249,6 @@ COUNT dir_read(REG f_node_ptr fnp)
 BOOL dir_write(REG f_node_ptr fnp)
 {
   struct buffer FAR *bp;
-  REG UWORD secsize = fnp->f_dpb->dpb_secsize;
 
   if (!(fnp->f_flags & F_DDIR))
     return FALSE;
@@ -268,48 +256,7 @@ BOOL dir_write(REG f_node_ptr fnp)
   /* Update the entry if it was modified by a write or create...  */
   if (fnp->f_flags & F_DMOD)
   {
-    /* Root is a consecutive set of blocks, so handling is  */
-    /* simple.                                              */
-    if (fnp->f_dirstart == 0)
-    {
-      bp = getblock(fnp->f_diroff / (secsize / DIRENT_SIZE)
-                             + fnp->f_dpb->dpb_dirstrt,
-                    fnp->f_dpb->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-      printf("DIR (dir_write)\n");
-#endif
-    }
-
-    /* All other directories are just files. The only       */
-    /* special handling is resetting the offset so that we  */
-    /* can continually update the same directory entry.     */
-    else
-    {
-
-      /* Do a "seek" to the directory position        */
-      /* and convert the fnode to a directory fnode.  */
-      fnp->f_offset = fnp->f_diroff * (ULONG)DIRENT_SIZE;
-      fnp->f_cluster = fnp->f_dirstart;
-      fnp->f_cluster_offset = 0;
-
-      /* Search through the FAT to find the block     */
-      /* that this entry is in.                       */
-#ifdef DISPLAY_GETBLOCK
-      printf("dir_write: ");
-#endif
-      if (map_cluster(fnp, XFR_READ) != SUCCESS)
-      {
-        release_f_node(fnp);
-        return FALSE;
-      }
-
-      bp = getblock_from_off(fnp, secsize);
-      bp->b_flag &= ~(BFR_DATA | BFR_FAT);
-      bp->b_flag |= BFR_DIR | BFR_VALID;
-#ifdef DISPLAY_GETBLOCK
-      printf("DIR (dir_write)\n");
-#endif
-    }
+    bp = getblock(fnp->f_dirsector, fnp->f_dpb->dpb_unit);
 
     /* Now that we have a block, transfer the directory      */
     /* entry into the block.                                */
@@ -319,10 +266,13 @@ BOOL dir_write(REG f_node_ptr fnp)
       return FALSE;
     }
 
+#ifdef DISPLAY_GETBLOCK
+    printf("DIR (dir_write)\n");
+#endif
+
     swap_deleted(fnp->f_dir.dir_name);
 
-    putdirent(&fnp->f_dir, &bp->b_buffer[(fnp->f_diroff * DIRENT_SIZE) %
-                                         fnp->f_dpb->dpb_secsize]);
+    putdirent(&fnp->f_dir, &bp->b_buffer[fnp->f_diridx * DIRENT_SIZE]);
 
     swap_deleted(fnp->f_dir.dir_name);
 
