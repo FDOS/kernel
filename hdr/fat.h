@@ -145,6 +145,7 @@ BOOL checkdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);
 #define DIR_EXT         FNAME_SIZE
 #define DIR_ATTRIB      (FNAME_SIZE+FEXT_SIZE)
 #define DIR_RESERVED    (FNAME_SIZE+FEXT_SIZE+1)
+#define DIR_START_HIGH  (FNAME_SIZE+FEXT_SIZE+9)
 #define DIR_TIME        (FNAME_SIZE+FEXT_SIZE+11)
 #define DIR_DATE        (FNAME_SIZE+FEXT_SIZE+13)
 #define DIR_START       (FNAME_SIZE+FEXT_SIZE+15)

@@ -279,7 +279,7 @@ COUNT dos_close(COUNT fd)
   }
   fnp->f_flags |= F_DDIR;
 
-  dir_write(fnp);
+  dir_write_update(fnp, TRUE);
   dir_close(fnp);
   return SUCCESS;
 }

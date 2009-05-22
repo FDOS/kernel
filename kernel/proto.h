@@ -140,7 +140,8 @@ VOID fatal(BYTE * err_msg);
 VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart);
 f_node_ptr dir_open(const char *dirname, f_node_ptr fnp);
 COUNT dir_read(REG f_node_ptr fnp);
-BOOL dir_write(REG f_node_ptr fnp);
+BOOL dir_write_update(REG f_node_ptr fnp, BOOL update);
+#define dir_write(fnp) dir_write_update(fnp, FALSE)
 VOID dir_close(REG f_node_ptr fnp);
 COUNT dos_findfirst(UCOUNT attr, BYTE * name);
 COUNT dos_findnext(void);

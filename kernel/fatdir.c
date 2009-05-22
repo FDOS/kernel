@@ -245,10 +245,10 @@ COUNT dir_read(REG f_node_ptr fnp)
  *  TRUE  - all OK.
  *  FALSE - error occured (fnode is released).
  */
-#ifndef IPL
-BOOL dir_write(REG f_node_ptr fnp)
+BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
 {
   struct buffer FAR *bp;
+  UBYTE FAR *vp;
 
   if (!(fnp->f_flags & F_DDIR))
     return FALSE;
@@ -272,7 +272,26 @@ BOOL dir_write(REG f_node_ptr fnp)
 
     swap_deleted(fnp->f_dir.dir_name);
 
-    putdirent(&fnp->f_dir, &bp->b_buffer[fnp->f_diridx * DIRENT_SIZE]);
+    vp = &bp->b_buffer[fnp->f_diridx * DIRENT_SIZE];
+
+    if (update)
+    {
+      /* only update fields that are also in the SFT, for dos_close/commit */
+      fmemcpy(&vp[DIR_NAME], fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE);
+      fputbyte(&vp[DIR_ATTRIB], fnp->f_dir.dir_attrib);
+      fputword(&vp[DIR_TIME], fnp->f_dir.dir_time);
+      fputword(&vp[DIR_DATE], fnp->f_dir.dir_date);
+      fputword(&vp[DIR_START], fnp->f_dir.dir_start);
+#ifdef WITHFAT32
+      if (ISFAT32(fnp->f_dpb))
+        fputword(&vp[DIR_START_HIGH], fnp->f_dir.dir_start_high);
+#endif
+      fputlong(&vp[DIR_SIZE], fnp->f_dir.dir_size);
+    }
+    else
+    {
+      putdirent(&fnp->f_dir, vp);
+    }
 
     swap_deleted(fnp->f_dir.dir_name);
 
@@ -281,7 +300,6 @@ BOOL dir_write(REG f_node_ptr fnp)
   }
   return TRUE;
 }
-#endif
 
 VOID dir_close(REG f_node_ptr fnp)
 {
