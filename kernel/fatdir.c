@@ -289,11 +289,6 @@ VOID dir_close(REG f_node_ptr fnp)
   if (fnp == NULL || !(fnp->f_flags & F_DDIR))
     return;
 
-#ifndef IPL
-  /* Write out the entry                                          */
-  dir_write(fnp);
-
-#endif
   /* Clear buffers after release                                  */
   /* hazard: no error checking! */
   flush_buffers(fnp->f_dpb->dpb_unit);

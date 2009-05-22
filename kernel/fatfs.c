@@ -279,6 +279,7 @@ COUNT dos_close(COUNT fd)
   }
   fnp->f_flags |= F_DDIR;
 
+  dir_write(fnp);
   dir_close(fnp);
   return SUCCESS;
 }
@@ -519,6 +520,7 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   /* bit before closing it, allowing it to be     */
   /* updated                                      */
   fnp->f_flags |= F_DMOD;
+  dir_write(fnp);
   dir_close(fnp);
 
   /* SUCCESSful completion, return it             */
@@ -728,7 +730,9 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   /* Ok, so we can delete this one. Save the file info.           */
   *(fnp1->f_dir.dir_name) = DELETED;
 
+  dir_write(fnp1);
   dir_close(fnp1);
+  dir_write(fnp2);
   dir_close(fnp2);
 
   /* SUCCESSful completion, return it                             */
@@ -1169,6 +1173,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* Close the directory so that the entry is updated     */
   fnp->f_flags |= F_DMOD;
+  dir_write(fnp);
   dir_close(fnp);
 
   return SUCCESS;
