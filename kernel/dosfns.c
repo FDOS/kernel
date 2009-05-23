@@ -1206,34 +1206,6 @@ COUNT DosGetFattr(BYTE FAR * name)
   if (result & IS_DEVICE)
     return DE_FILENOTFND;
 
-/* /// Use truename()'s result, which we already have in PriPathName.
-       I copy it to tmp_name because PriPathName is global and seems
-       to get trashed somewhere in transit.
-       The reason for using truename()'s result is that dos_?etfattr()
-       are very low-level functions and don't handle full path expansion
-       or cleanup, such as converting "c:\a\b\.\c\.." to "C:\A\B".
-       - Ron Cemer
-*/
-/*
-          memcpy(SecPathName,PriPathName,sizeof(SecPathName));
-          return dos_getfattr(SecPathName, attrp);
-*/
-    /* no longer true. dos_getfattr() is 
-       A) intelligent (uses dos_open) anyway
-       B) there are some problems with MAX_PARSE, i.e. if PATH ~= 64
-       and TRUENAME adds a C:, which leeds to trouble. 
-
-       the problem was discovered, when VC did something like
-
-       fd = DosOpen(filename,...)
-       jc can't_copy_dialog;
-
-       attr = DosGetAttrib(filename);
-       jc can't_copy_dialog;
-       and suddenly, the filehandle stays open
-       shit.
-       tom
-     */
   return dos_getfattr(PriPathName);
 }
 
@@ -1254,17 +1226,16 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
   if (result & IS_DEVICE)
     return DE_FILENOTFND;
 
-/* /// Use truename()'s result, which we already have in PriPathName.
-       I copy it to tmp_name because PriPathName is global and seems
-       to get trashed somewhere in transit.
-       - Ron Cemer
-*/
-/*
-          memcpy(SecPathName,PriPathName,sizeof(SecPathName));
-          return dos_setfattr(SecPathName, attrp);
-          
-          see DosGetAttr()
-*/
+  if (IsShareInstalled(TRUE))
+  {
+    /* XXX SHARE should ideally close the file if it is opened in
+     * compatibility mode, else generate a critical error.
+     * Here just generate a critical error by opening in "rw compat"
+     * mode */
+    if ((result = share_open_check(PriPathName, cu_psp, O_RDWR, 0)) < 0)
+      return result;
+    share_close_file(result);
+  }
   return dos_setfattr(PriPathName, attrp);
 }
 

@@ -501,6 +501,7 @@ STATIC void copy_file_changes(f_node_ptr src, f_node_ptr dst)
   dst->f_dir.dir_size = src->f_dir.dir_size;
   dst->f_dir.dir_date = src->f_dir.dir_date;
   dst->f_dir.dir_time = src->f_dir.dir_time;
+  dst->f_dir.dir_attrib = src->f_dir.dir_attrib;
 }
 
 STATIC COUNT delete_dir_entry(f_node_ptr fnp)
@@ -1935,21 +1936,28 @@ COUNT dos_getfattr_fd(COUNT fd)
 
 COUNT dos_getfattr(BYTE * name)
 {
-  COUNT result, fd;
+  f_node_ptr fnp;
+  char fcbname[FNAME_SIZE + FEXT_SIZE];
+  COUNT result;
 
-  fd = (short)dos_open(name, O_RDONLY | O_OPEN, 0);
-  if (fd < SUCCESS)
-    return fd;
+  /* split the passed dir into components (i.e. - path to         */
+  /* new directory and name of new directory.                     */
+  if ((fnp = split_path(name, fcbname, &fnode[0])) == NULL)
+    return DE_PATHNOTFND;
 
-  result = dos_getfattr_fd(fd);
-  dos_close(fd);
+  if (find_fname(fnp, fcbname, D_ALL))
+    result = fnp->f_dir.dir_attrib;
+  else
+    result = DE_FILENOTFND;
+
+  dir_close(fnp);
   return result;
 }
 
 COUNT dos_setfattr(BYTE * name, UWORD attrp)
 {
-  COUNT fd;
   f_node_ptr fnp;
+  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* JPP-If user tries to set VOLID or RESERVED bits, return error.
      We used to also check for D_DIR here, but causes issues with deltree
@@ -1960,29 +1968,35 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   if ((attrp & (D_VOLID | 0xC0)) != 0)
     return DE_ACCESS;
 
-  fd = (short)dos_open(name, O_RDONLY | O_OPEN, 0);
-  if (fd < SUCCESS)
-    return fd;
+  /* split the passed dir into components (i.e. - path to         */
+  /* new directory and name of new directory.                     */
+  if ((fnp = split_path(name, fcbname, &fnode[0])) == NULL)
+    return DE_PATHNOTFND;
 
-  fnp = xlt_fd(fd);
-  
-  /* Set the attribute from the fnode and return          */
-  /* clear all attributes but DIR and VOLID */
-  fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);   /* JPP */
+  if (!find_fname(fnp, fcbname, D_ALL)) {
+    dir_close(fnp);
+    return DE_FILENOTFND;
+  }
 
   /* if caller tries to set DIR on non-directory, return error */
   if ((attrp & D_DIR) && !(fnp->f_dir.dir_attrib & D_DIR))
   {
-    dos_close(fd);
+    dir_close(fnp);
     return DE_ACCESS;
   }
-    
+
+  /* Set the attribute from the fnode and return          */
+  /* clear all attributes but DIR and VOLID */
+  fnp->f_dir.dir_attrib &= (D_VOLID | D_DIR);   /* JPP */
+
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
   fnp->f_flags |= F_DMOD | F_DDATE;
+
+  /* should really close the file instead of merge */
   merge_file_changes(fnp, FALSE);
-  save_far_f_node(fnp);
-  dos_close(fd);
+  dir_write(fnp);
+  dir_close(fnp);
   return SUCCESS;
 }
 #endif
