@@ -597,6 +597,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
       (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE | D_VOLID)))
     return DE_ACCESS;
   
+  sftp->sft_count++;
   result = dos_open(PriPathName, flags, attrib);
   if (result >= 0)
   {
@@ -609,13 +610,13 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
       if (sftp->sft_attrib & (D_DIR | D_VOLID))
       {
         dos_close((COUNT)result);
+        sftp->sft_count--;
         return DE_ACCESS;
       }
       sftp->sft_size = dos_getfsize((COUNT)result);
     }
     sftp->sft_status = (COUNT)result;
     sftp->sft_flags = PriPathName[0] - 'A';
-    sftp->sft_count += 1;
     DosGetFile(PriPathName, sftp->sft_name);
     dos_getftime(sftp->sft_status,
                  (date FAR *) & sftp->sft_date,
@@ -631,6 +632,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
       sftp->sft_shroff = -1;
     }
 /* /// End of additions for SHARE.  - Ron Cemer */
+    sftp->sft_count--;
     return result;
   }    
 }
@@ -719,6 +721,7 @@ COUNT DosForceDup(unsigned OldHandle, unsigned NewHandle)
 COUNT DosCloseSft(int sft_idx, BOOL commitonly)
 {
   sft FAR *sftp = idx_to_sft(sft_idx);
+  int result;
 
   if (FP_OFF(sftp) == (size_t) - 1)
     return DE_INVLDHNDL;
@@ -733,11 +736,6 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
     return network_redirector_fp(commitonly ? REM_FLUSH: REM_CLOSE, sftp);
   }
 
-  /* now just drop the count if a device, else    */
-  /* call file system handler                     */
-  if (!commitonly)
-    sftp->sft_count -= 1;
-
   if (sftp->sft_flags & SFT_FDEVICE)
   {
     if (sftp->sft_dev->dh_attr & SFT_FOCRM)
@@ -749,20 +747,30 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
       if (BinaryCharIO(&dev, 0, MK_FP(0x0000, 0x0000), C_CLOSE) != SUCCESS)
         return DE_ACCESS;
     }
+    /* now just drop the count if a device */
+    if (!commitonly)
+      sftp->sft_count -= 1;
     return SUCCESS;
   }
-  if (commitonly || sftp->sft_count > 0)
-    return dos_commit(sftp->sft_status);
+
+  /* else call file system handler                     */
+  if (commitonly || sftp->sft_count > 1)
+    result = dos_commit(sftp->sft_status);
+  else
+    result = dos_close(sftp->sft_status);
+  if (commitonly || result != SUCCESS)
+    return result;
 
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
-  if (IsShareInstalled(TRUE))
+  if (sftp->sft_count == 1 && IsShareInstalled(TRUE))
   {
     if (sftp->sft_shroff >= 0)
       share_close_file(sftp->sft_shroff);
     sftp->sft_shroff = -1;
   }
 /* /// End of additions for SHARE.  - Ron Cemer */
-  return dos_close(sftp->sft_status);
+  sftp->sft_count -= 1;
+  return SUCCESS;
 }
 
 COUNT DosClose(COUNT hndl)
