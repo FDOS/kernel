@@ -52,6 +52,8 @@ static BYTE *prfRcsId =
 /*#define DOSEMU */
 #ifdef DOSEMU
 
+int VA_CDECL printf(const char * fmt, ...);
+
 #define MAX_BUFSIZE 80                       /* adjust if necessary */
 static int buff_offset = 0;
 static char buff[MAX_BUFSIZE];
