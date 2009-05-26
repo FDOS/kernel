@@ -576,6 +576,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
     return DE_ACCESS;
   
   sftp->sft_count++;
+  sftp->sft_flags = PriPathName[0] - 'A';
   result = dos_open(PriPathName, flags, attrib, sft_idx);
   if (result >= 0)
   {
@@ -590,7 +591,6 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
         return DE_ACCESS;
       }
     }
-    sftp->sft_flags = PriPathName[0] - 'A';
     DosGetFile(PriPathName, sftp->sft_name);
     return sft_idx | ((long)result << 16);
   }
