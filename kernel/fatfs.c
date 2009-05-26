@@ -447,14 +447,12 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
 STATIC int is_same_file(f_node_ptr fnp1, f_node_ptr fnp2)
 {
   return
-      (fnp1->f_dpb->dpb_unit == fnp2->f_dpb->dpb_unit)
-      && (fnp1->f_dpb->dpb_subunit == fnp2->f_dpb->dpb_subunit)
+      (fnp1->f_dpb == fnp2->f_dpb)
       && (fcbmatch(fnp1->f_dir.dir_name, fnp2->f_dir.dir_name))
       && ((fnp1->f_dir.dir_attrib & D_VOLID) == 0)
       && ((fnp2->f_dir.dir_attrib & D_VOLID) == 0)
-      && (fnp1->f_diroff == fnp2->f_diroff)
-      && (fnp1->f_dirstart == fnp2->f_dirstart)
-      && (fnp1->f_dpb == fnp2->f_dpb);
+      && (fnp1->f_diridx == fnp2->f_diridx)
+      && (fnp1->f_dirsector == fnp2->f_dirsector);
 }
 
     /* /// Added - Ron Cemer */
@@ -2030,6 +2028,8 @@ STATIC int sft_to_fnode(f_node_ptr fnp, int fd)
 
   flags = sftp->sft_flags;
   fnp->f_flags = (flags & SFT_FDATE) | ((flags & SFT_FDIRTY) ^ SFT_FDIRTY);
+  fnp->f_mode = sftp->sft_mode & O_ACCMODE;
+
   fnp->f_dir.dir_attrib = sftp->sft_attrib;
   fmemcpy(fnp->f_dir.dir_name, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
   fnp->f_dir.dir_time = sftp->sft_time;
