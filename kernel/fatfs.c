@@ -39,7 +39,6 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 STATIC int sft_to_fnode(f_node_ptr fnp, int fd);
 f_node_ptr xlt_fd(COUNT);
-COUNT xlt_fnp(f_node_ptr);
 STATIC void fnode_to_sft(f_node_ptr fnp, int fd);
 STATIC void save_far_f_node(f_node_ptr fnp);
 STATIC f_node_ptr split_path(char *, char *, f_node_ptr fnp);
@@ -260,12 +259,6 @@ COUNT dos_close(COUNT fd)
   /* Translate the fd into a useful pointer                       */
   fnp = xlt_fd(fd);
 
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return DE_INVLDHNDL;
-
   if (fnp->f_flags & F_DMOD)
   {
     if (!(fnp->f_flags & F_DDATE))
@@ -421,7 +414,7 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
   if (!IsShareInstalled(FALSE))
     return;
 
-  fd = xlt_fnp(fnp);
+  fd = fnp->f_sft_idx;
   fnp2 = &fnode[1];
   f_nodes_cnt = get_f_nodes_cnt();
   for (i = 0; i < f_nodes_cnt; i++)
@@ -853,12 +846,6 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
   /* operations are achieved through fnodes.                      */
   fnp = xlt_fd(fd);
 
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return DE_INVLDHNDL;
-
   /* Set the date and time from the fnode and return              */
   fnp->f_dir.dir_date = dp;
   fnp->f_dir.dir_time = tp;
@@ -879,12 +866,6 @@ BOOL dos_setfsize(COUNT fd, LONG size)
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
   fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return FALSE;
 
   /* Change the file size                                         */
   fnp->f_dir.dir_size = size;
@@ -1466,14 +1447,6 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   /* operations are achieved through fnodes.                      */
   fnp = xlt_fd(fd);
 
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-  {
-    return 0;
-  }
-
   if (mode==XFR_WRITE)
   {
     fnp->f_dir.dir_attrib |= D_ARCHIVE;
@@ -1722,13 +1695,6 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
   /* Translate the fd into a useful pointer                       */
 
   fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit                */
-  /* note: an invalid fd is indicated by a 0 return               */
-
-  if (fnp == (f_node_ptr) 0)
-    return (LONG) DE_INVLDHNDL;
 
   /* now do the actual lseek adjustment to the file poitner       */
   switch (origin)
@@ -2052,12 +2018,6 @@ COUNT media_check(REG struct dpb FAR * dpbp)
   }
 }
 
-/* translate the f_node pointer into an fd                  */
-COUNT xlt_fnp(f_node_ptr fnp)
-{
-  return fnode_fd[fnp - fnode];
-}
-
 STATIC int sft_to_fnode(f_node_ptr fnp, int fd)
 {
   sft FAR *sftp = idx_to_sft(fd);
@@ -2065,6 +2025,9 @@ STATIC int sft_to_fnode(f_node_ptr fnp, int fd)
 
   if (FP_OFF(sftp) == (size_t) - 1)
     return -1;
+
+  fnp->f_sft_idx = fd;
+
   flags = sftp->sft_flags;
   fnp->f_flags = (flags & SFT_FDATE) | ((flags & SFT_FDIRTY) ^ SFT_FDIRTY);
   fnp->f_dir.dir_attrib = sftp->sft_attrib;
@@ -2095,10 +2058,7 @@ f_node_ptr xlt_fd(int fd)
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
   if (sft_to_fnode(&fnode[0], fd) == SUCCESS)
-  {
-    fnode_fd[0] = fd;
     return &fnode[0];
-  }
   return NULL;
 }
 
@@ -2130,7 +2090,7 @@ STATIC void fnode_to_sft(f_node_ptr fnp, int fd)
 /* copy a near fnode to the corresponding SFT */
 STATIC void save_far_f_node(f_node_ptr fnp)
 {
-  fnode_to_sft(fnp, xlt_fnp(fnp));
+  fnode_to_sft(fnp, fnp->f_sft_idx);
 }
 
 /* TE

@@ -431,4 +431,3 @@ GLOBAL BYTE ASM HaltCpuWhileIdle;
  * 3) merge_file_changes (for SHARE)
  */
 GLOBAL struct f_node fnode[2];
-GLOBAL int fnode_fd[2];

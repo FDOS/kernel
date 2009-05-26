@@ -52,6 +52,7 @@ struct f_node {
   ULONG f_offset;               /* byte offset for next op      */
   CLUSTER f_cluster_offset;     /* relative cluster number within file */
   CLUSTER f_cluster;            /* the cluster we are at        */
+  UBYTE f_sft_idx;              /* corresponding SFT index      */
 };
 
 #define F_DMOD  0x40            /* directory has been modified  */
