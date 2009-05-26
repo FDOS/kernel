@@ -1211,12 +1211,12 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
 
   if (IsShareInstalled(TRUE))
   {
-    /* XXX SHARE should ideally close the file if it is opened in
+    /* SHARE closes the file if it is opened in
      * compatibility mode, else generate a critical error.
-     * Here just generate a critical error by opening in "rw compat"
-     * mode */
+     * Here generate a critical error by opening in "rw compat" mode */
     if ((result = share_open_check(PriPathName, cu_psp, O_RDWR, 0)) < 0)
       return result;
+    /* else dos_setfattr will close the file */
     share_close_file(result);
   }
   return dos_setfattr(PriPathName, attrp);
