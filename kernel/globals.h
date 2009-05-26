@@ -351,9 +351,6 @@ GLOBAL WORD dump_regs;          /* dump registers of bad call           */
 
 #endif
 
-extern struct f_node FAR * ASM f_nodes;  /* pointer to the array        */
-extern UWORD ASM f_nodes_cnt;   /* number of allocated f_nodes          */
-
 /*                                                                      */
 /* Function prototypes - automatically generated                        */
 /*                                                                      */

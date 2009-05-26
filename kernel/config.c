@@ -234,7 +234,6 @@ STATIC void umb_init(void);
 
 void HMAconfig(int finalize);
 STATIC void config_init_buffers(int anzBuffers);     /* from BLOCKIO.C */
-STATIC void config_init_fnodes(int f_nodes_cnt);
 
 #ifdef I86
 STATIC VOID FAR * AlignParagraph(VOID FAR * lpPtr);
@@ -348,9 +347,6 @@ void PreConfig(void)
   LoL->DPBp =
       DynAlloc("DPBp", blk_dev.dh_name[0], sizeof(struct dpb));
 
-  /* Initialize the file table                                    */
-  config_init_fnodes(Config.cfgFiles);
-
   LoL->sfthead = MK_FP(FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
   /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
   /* LoL->FCBp = (sfttbl FAR *)
@@ -362,7 +358,6 @@ void PreConfig(void)
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
 
 #ifdef DEBUG
-  printf("Preliminary:\n f_node 0x%p\n", LoL->f_nodes);
 /*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
   printf(" sft table 0x%p\n", LoL->sfthead);
   printf(" CDS table 0x%p\n", LoL->CDSp);
@@ -440,9 +435,6 @@ void PostConfig(void)
 
   DebugPrintf(("starting FAR allocations at %x\n", base_seg));
 
-  /* Initialize the file table                                    */
-  config_init_fnodes(Config.cfgFiles);
-
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
 #ifdef DEBUG
@@ -465,7 +457,6 @@ void PostConfig(void)
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
 #ifdef DEBUG
-  printf("Final: \n f_node 0x%p\n", LoL->f_nodes);
 /*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
   printf(" sft table 0x%p\n", LoL->sfthead->sftt_next);
   printf(" CDS table 0x%p\n", LoL->CDSp);
@@ -1789,21 +1780,6 @@ STATIC void config_init_buffers(int wantedbuffers)
     printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
            buffers, buffers * sizeof(struct buffer));
   }
-}
-
-STATIC void config_init_fnodes(int f_nodes_cnt)
-{
-  struct f_node FAR *p;
-  size_t bytes;
-
-  /* number of allocated files */
-  LoL->f_nodes_cnt = f_nodes_cnt;
-  bytes = f_nodes_cnt * sizeof(struct f_node);
-
-  p = HMAalloc(bytes);
-  if (p == NULL)
-    p = KernelAlloc(bytes, 'F', 0);
-  LoL->f_nodes = p;
 }
 
 /*

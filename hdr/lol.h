@@ -80,7 +80,5 @@ struct lol {
   unsigned char os_major;      /* 6d major DOS version                    */
   unsigned char rev_number;    /* 6e minor DOS version                    */
   unsigned char version_flags; /* 6f DOS version flags                    */
-  struct f_node FAR *f_nodes;  /* 70 pointer to the array                 */
-  unsigned short f_nodes_cnt;  /* 74 number of allocated f_nodes          */
-  char *os_release;            /* 76 near pointer to os_release string    */
+  char *os_release;            /* 70 near pointer to os_release string    */
 };

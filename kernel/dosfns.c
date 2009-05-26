@@ -598,7 +598,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
     return DE_ACCESS;
   
   sftp->sft_count++;
-  result = dos_open(PriPathName, flags, attrib);
+  result = dos_open(PriPathName, flags, attrib, sft_idx);
   if (result >= 0)
   {
     int status = (int)(result >> 16);
@@ -754,10 +754,7 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
   }
 
   /* else call file system handler                     */
-  if (commitonly || sftp->sft_count > 1)
-    result = dos_commit(sftp->sft_status);
-  else
-    result = dos_close(sftp->sft_status);
+  result = dos_close(sftp->sft_status);
   if (commitonly || result != SUCCESS)
     return result;
 

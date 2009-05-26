@@ -379,10 +379,6 @@ _os_major       db      5
 _rev_number     db      0
                 global  _version_flags         
 _version_flags  db      0
-                global  _f_nodes
-_f_nodes        dd      0
-                global  _f_nodes_cnt
-_f_nodes_cnt    dw      0
                 global  os_release
                 extern  _os_release
 os_release      dw      _os_release

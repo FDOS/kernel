@@ -55,9 +55,9 @@ struct f_node {
   CLUSTER f_cluster;            /* the cluster we are at        */
 };
 
-#define F_DMOD  1               /* directory has been modified  */
+#define F_DMOD  0x40            /* directory has been modified  */
 #define F_DDIR  2               /* fnode is assigned to dir     */
-#define F_DDATE 4               /* date set using setdate       */
+#define F_DDATE 0x4000          /* date set using setdate       */
 
 typedef struct f_node *f_node_ptr;
 

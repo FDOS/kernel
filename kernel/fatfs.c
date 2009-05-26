@@ -37,8 +37,10 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 /*      function prototypes                                             */
 /*                                                                      */
+STATIC void sft_to_fnode(f_node_ptr fnp, int fd);
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
+STATIC void fnode_to_sft(f_node_ptr fnp, int fd);
 STATIC void save_far_f_node(f_node_ptr fnp);
 STATIC f_node_ptr split_path(char *, char *, f_node_ptr fnp);
 STATIC BOOL find_fname(f_node_ptr, char *, int);
@@ -135,7 +137,7 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 /* see DosOpenSft(), dosfns.c for an explanation of the flags bits      */
 /* directory opens are allowed here; these are not allowed by DosOpenSft*/
 
-long dos_open(char *path, unsigned flags, unsigned attrib)
+long dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 {
   REG f_node_ptr fnp;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
@@ -148,7 +150,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib)
 
   /* next split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
+  if ((fnp = split_path(path, fcbname, xlt_fd(fd))) == NULL)
     return DE_PATHNOTFND;
 
   /* Check that we don't have a duplicate name, so if we  */
@@ -284,31 +286,6 @@ COUNT dos_close(COUNT fd)
   return SUCCESS;
 }
 
-COUNT dos_commit(COUNT fd)
-{
-  f_node_ptr fnp, fnp2;
-
-  /* Translate the fd into a useful pointer                       */
-  fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return DE_INVLDHNDL;
-  fnp2 = get_f_node(&fnode[1]);
-  if (fnp2 == (f_node_ptr) 0)
-  {
-    return DE_INVLDHNDL;
-  }
-
-  /* a copy of the fnode is closed meaning that the directory info
-     is updated etc, but we keep our old info */
-  memcpy(fnp2, fnp, sizeof(*fnp));
-  save_far_f_node(fnp2);
-  return dos_close(xlt_fnp(fnp2));
-}
-
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
@@ -429,6 +406,16 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
   return SUCCESS;
 }
 
+STATIC unsigned get_f_nodes_cnt(void)
+{
+  sfttbl FAR *sp;
+
+  unsigned f_nodes_cnt = 0;
+  for (sp = sfthead; sp != (sfttbl FAR *) - 1; sp = sp->sftt_next)
+    f_nodes_cnt += sp->sftt_count;
+  return f_nodes_cnt;
+}
+
     /* /// Added - Ron Cemer */
     /* If more than one f_node has a file open, and a write
        occurs, this function must be called to propagate the
@@ -442,15 +429,17 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
 {
   f_node_ptr fnp2;
   int i, fd;
+  unsigned f_nodes_cnt;
 
   if (!IsShareInstalled(FALSE))
     return;
 
   fd = xlt_fnp(fnp);
   fnp2 = &fnode[1];
+  f_nodes_cnt = get_f_nodes_cnt();
   for (i = 0; i < f_nodes_cnt; i++)
   {
-    fmemcpy(fnp2, &f_nodes[i], sizeof(*fnp2));
+    sft_to_fnode(fnp2, i);
     if ((fnp != (f_node_ptr) 0)
         && (i != fd)
         && (fnp->f_count > 0) && (is_same_file(fnp, fnp2)))
@@ -471,7 +460,7 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
            distributing these changes to the other f_nodes
            which refer to this file. */
         copy_file_changes(fnp, fnp2);
-        fmemcpy(&f_nodes[i], fnp2, sizeof(*fnp2));
+        fnode_to_sft(fnp2, i);
       }
     }
   }
@@ -1891,33 +1880,15 @@ int dos_cd(char * PathName)
 }
 #endif
 
-/* Try to allocate an f_node from the available files array */
-
+/* Compat functions for SFT transition */
 f_node_ptr get_f_node(f_node_ptr fnp)
 {
-  REG int i;
-
-  for (i = 0; i < f_nodes_cnt; i++)
-  {
-    if (f_nodes[i].f_count == 0)
-    {
-      ++f_nodes[i].f_count;
-      fnp->f_count = 1;
-      fnode_fd[fnp - fnode] = i;
-      return fnp;
-    }
-  }
-  return (f_node_ptr) 0;
+  fnp->f_count = 1;
+  return fnp;
 }
 
 VOID release_f_node(f_node_ptr fnp)
 {
-  struct f_node FAR *fp = &f_nodes[xlt_fnp(fnp)];
-
-  if (fp->f_count > 0)
-    --fp->f_count;
-  else
-    fp->f_count = 0;
 }
 
 #ifndef IPL
@@ -2172,15 +2143,43 @@ COUNT xlt_fnp(f_node_ptr fnp)
   return fnode_fd[fnp - fnode];
 }
 
-/* copy the far fnode fd into the first near fnode */
+STATIC void sft_to_fnode(f_node_ptr fnp, int fd)
+{
+  sft FAR *sftp = idx_to_sft(fd);
+  UWORD flags;
+
+  fnp->f_count = sftp->sft_count;
+  flags = sftp->sft_flags;
+  fnp->f_flags = (flags & SFT_FDATE) | ((flags & SFT_FDIRTY) ^ SFT_FDIRTY);
+  fnp->f_dir.dir_attrib = sftp->sft_attrib;
+  fmemcpy(fnp->f_dir.dir_name, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
+  fnp->f_dir.dir_time = sftp->sft_time;
+  fnp->f_dir.dir_date = sftp->sft_date;
+  fnp->f_dir.dir_size = sftp->sft_size;
+  setdstart(fnp->f_dpb, &fnp->f_dir, sftp->sft_stclust);
+
+  fnp->f_diridx = sftp->sft_diridx;
+  fnp->f_dirsector = sftp->sft_dirsector;
+  fnp->f_dpb = sftp->sft_dcb;
+  fnp->f_offset = sftp->sft_posit;
+  fnp->f_cluster = sftp->sft_cuclust;
+#ifdef WITHFAT32
+  fnp->f_cluster_offset = sftp->sft_relclust |
+    ((ULONG)sftp->sft_relclust_high << 16);
+#else
+  fnp->f_cluster_offset = sftp->sft_relclust;
+#endif
+}
+
+/* copy the SFT fd into the first near fnode */
 f_node_ptr xlt_fd(int fd)
 {
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fd < f_nodes_cnt)
+  if (fd < get_f_nodes_cnt())
   {
-    fmemcpy(&fnode[0], &f_nodes[fd], sizeof(fnode[0]));
+    sft_to_fnode(&fnode[0], fd);
     if (fnode[0].f_count > 0)
     {
       fnode_fd[0] = fd;
@@ -2190,10 +2189,35 @@ f_node_ptr xlt_fd(int fd)
   return NULL;
 }
 
-/* copy a near fnode to the corresponding far one */
+STATIC void fnode_to_sft(f_node_ptr fnp, int fd)
+{
+  sft FAR *sftp = idx_to_sft(fd);
+
+  sftp->sft_flags = (sftp->sft_flags & ~(SFT_FDATE | SFT_FDIRTY)) |
+    ((fnp->f_flags & (SFT_FDATE | SFT_FDIRTY)) ^ SFT_FDIRTY);
+
+  sftp->sft_attrib = fnp->f_dir.dir_attrib;
+  fmemcpy(sftp->sft_name, fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE);
+  sftp->sft_time = fnp->f_dir.dir_time;
+  sftp->sft_date = fnp->f_dir.dir_date;
+  sftp->sft_size = fnp->f_dir.dir_size;
+  sftp->sft_stclust = getdstart(fnp->f_dpb, &fnp->f_dir);
+
+  sftp->sft_diridx = fnp->f_diridx;
+  sftp->sft_dirsector = fnp->f_dirsector;
+  sftp->sft_dcb = fnp->f_dpb;
+  /* Do not update sftp->sft_posit (fnp->f_offset): dosfns.c takes care of it */
+  sftp->sft_cuclust = fnp->f_cluster;
+  sftp->sft_relclust = (UWORD)fnp->f_cluster_offset;
+#ifdef WITHFAT32
+  sftp->sft_relclust_high = (UWORD)(fnp->f_cluster_offset >> 16);
+#endif
+}
+
+/* copy a near fnode to the corresponding SFT */
 STATIC void save_far_f_node(f_node_ptr fnp)
 {
-  fmemcpy(&f_nodes[xlt_fnp(fnp)], fnp, sizeof(*fnp));
+  fnode_to_sft(fnp, xlt_fnp(fnp));
 }
 
 /* TE
