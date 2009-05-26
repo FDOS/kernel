@@ -138,15 +138,6 @@ struct dpb FAR * GetDriveDPB(UBYTE drive, COUNT * rc)
 }
 #endif
 
-/* Construct dir-style filename for ASCIIZ 8.3 name */
-STATIC VOID DosGetFile(BYTE * lpszPath, BYTE FAR * lpszDosFileName)
-{
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
-
-  ParseDosName(lpszPath, fcbname, FALSE);
-  fmemcpy(lpszDosFileName, fcbname, FNAME_SIZE + FEXT_SIZE);
-}
-
 int idx_to_sft_(int SftIndex)
 {
   /*called from below and int2f/ax=1216*/
@@ -591,7 +582,6 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
         return DE_ACCESS;
       }
     }
-    DosGetFile(PriPathName, sftp->sft_name);
     return sft_idx | ((long)result << 16);
   }
   else
