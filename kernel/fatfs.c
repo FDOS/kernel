@@ -37,7 +37,7 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 /*      function prototypes                                             */
 /*                                                                      */
-STATIC void sft_to_fnode(f_node_ptr fnp, int fd);
+STATIC int sft_to_fnode(f_node_ptr fnp, int fd);
 f_node_ptr xlt_fd(COUNT);
 COUNT xlt_fnp(f_node_ptr);
 STATIC void fnode_to_sft(f_node_ptr fnp, int fd);
@@ -219,10 +219,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib, int fd)
     init_direntry(&fnp->f_dir, attrib, FREE, fcbname);
     fnp->f_flags = F_DMOD | F_DDIR;
     if (!dir_write(fnp))
-    {
-      release_f_node(fnp);
       return DE_ACCESS;
-    }
   }
 
   /* Now change to file                                   */
@@ -324,16 +321,6 @@ f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
     fnp = dir_open(path, fnp);
     path[dirlength] = tmp;
   } 
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit...     */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0 || fnp->f_count == 0)
-  {
-    dir_close(fnp);
-    return (f_node_ptr) 0;
-  }
-
   return fnp;
 }
 
@@ -439,10 +426,7 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
   f_nodes_cnt = get_f_nodes_cnt();
   for (i = 0; i < f_nodes_cnt; i++)
   {
-    sft_to_fnode(fnp2, i);
-    if ((fnp != (f_node_ptr) 0)
-        && (i != fd)
-        && (fnp->f_count > 0) && (is_same_file(fnp, fnp2)))
+    if (i != fd && sft_to_fnode(fnp2, i) == SUCCESS && is_same_file(fnp, fnp2))
     {
       if (collect)
       {
@@ -1880,17 +1864,6 @@ int dos_cd(char * PathName)
 }
 #endif
 
-/* Compat functions for SFT transition */
-f_node_ptr get_f_node(f_node_ptr fnp)
-{
-  fnp->f_count = 1;
-  return fnp;
-}
-
-VOID release_f_node(f_node_ptr fnp)
-{
-}
-
 #ifndef IPL
 COUNT dos_getfattr_fd(COUNT fd)
 {
@@ -2143,12 +2116,13 @@ COUNT xlt_fnp(f_node_ptr fnp)
   return fnode_fd[fnp - fnode];
 }
 
-STATIC void sft_to_fnode(f_node_ptr fnp, int fd)
+STATIC int sft_to_fnode(f_node_ptr fnp, int fd)
 {
   sft FAR *sftp = idx_to_sft(fd);
   UWORD flags;
 
-  fnp->f_count = sftp->sft_count;
+  if (FP_OFF(sftp) == (size_t) - 1)
+    return -1;
   flags = sftp->sft_flags;
   fnp->f_flags = (flags & SFT_FDATE) | ((flags & SFT_FDIRTY) ^ SFT_FDIRTY);
   fnp->f_dir.dir_attrib = sftp->sft_attrib;
@@ -2169,6 +2143,7 @@ STATIC void sft_to_fnode(f_node_ptr fnp, int fd)
 #else
   fnp->f_cluster_offset = sftp->sft_relclust;
 #endif
+  return SUCCESS;
 }
 
 /* copy the SFT fd into the first near fnode */
@@ -2177,14 +2152,10 @@ f_node_ptr xlt_fd(int fd)
   /* If the fd was invalid because it was out of range or the     */
   /* requested file was not open, tell the caller and exit        */
   /* note: an invalid fd is indicated by a 0 return               */
-  if (fd < get_f_nodes_cnt())
+  if (sft_to_fnode(&fnode[0], fd) == SUCCESS)
   {
-    sft_to_fnode(&fnode[0], fd);
-    if (fnode[0].f_count > 0)
-    {
-      fnode_fd[0] = fd;
-      return &fnode[0];
-    }
+    fnode_fd[0] = fd;
+    return &fnode[0];
   }
   return NULL;
 }

@@ -61,12 +61,6 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
   int i;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
-  /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node(fnp)) == (f_node_ptr) 0)
-  {
-    return (f_node_ptr) 0;
-  }
-
   /* Force the fnode into read-write mode                         */
   fnp->f_mode = RDWR;
 
@@ -76,10 +70,7 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
   /* handling has been performed.                                 */
 
   if (media_check(fnp->f_dpb) < 0)
-  {
-    release_f_node(fnp);
     return (f_node_ptr) 0;
-  }
 
   /* Walk the directory tree to find the starting cluster         */
   /*                                                              */
@@ -135,7 +126,6 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
 
     if (!i || !(fnp->f_dir.dir_attrib & D_DIR))
     {
-      release_f_node(fnp);
       return (f_node_ptr) 0;
     }
     else
@@ -261,10 +251,7 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
     /* Now that we have a block, transfer the directory      */
     /* entry into the block.                                */
     if (bp == NULL)
-    {
-      release_f_node(fnp);
       return FALSE;
-    }
 
 #ifdef DISPLAY_GETBLOCK
     printf("DIR (dir_write)\n");
@@ -310,9 +297,6 @@ VOID dir_close(REG f_node_ptr fnp)
   /* Clear buffers after release                                  */
   /* hazard: no error checking! */
   flush_buffers(fnp->f_dpb->dpb_unit);
-
-  /* and release this instance of the fnode                       */
-  release_f_node(fnp);
 }
 
 #ifndef IPL
@@ -424,11 +408,7 @@ COUNT dos_findnext(void)
   REG dmatch *dmp = &sda_tmp_dm;
 
   /* Allocate an fnode if possible - error return (0) if not.     */
-  if ((fnp = get_f_node(&fnode[0])) == (f_node_ptr) 0)
-  {
-    return DE_NFILES;
-  }
-
+  fnp = &fnode[0];
   memset(fnp, 0, sizeof(*fnp));
 
   /* Force the fnode into read-write mode                         */
@@ -438,10 +418,7 @@ COUNT dos_findnext(void)
   /* searches...                                                  */
   fnp->f_dpb = get_dpb(dmp->dm_drive);
   if (media_check(fnp->f_dpb) < 0)
-  {
-    release_f_node(fnp);
     return DE_NFILES;
-  }
 
   dir_init_fnode(fnp, dmp->dm_dircluster);
 
@@ -475,7 +452,6 @@ COUNT dos_findnext(void)
           dmp->dm_dircluster = fnp->f_dirstart;
           memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
           /* return the result                                            */
-          release_f_node(fnp);
           return SUCCESS;
         }
       }
@@ -487,8 +463,6 @@ COUNT dos_findnext(void)
   printf("dos_findnext: %11s\n", fnp->f_dir.dir_name);
 #endif
   /* return the result                                            */
-  release_f_node(fnp);
-
   return DE_NFILES;
 }
 #endif

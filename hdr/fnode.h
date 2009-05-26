@@ -36,7 +36,6 @@ static BYTE *fnode_hRcsId =
 #endif
 
 struct f_node {
-  UWORD f_count;                /* number of uses of this file  */
   COUNT f_mode;                 /* read, write, read-write, etc */
 
   UWORD f_flags;                /* file flags                   */
