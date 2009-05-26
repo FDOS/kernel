@@ -438,6 +438,11 @@ STATIC void merge_file_changes(f_node_ptr fnp, int collect)
   }
 }
 
+void dos_merge_file_changes(int fd)
+{
+  merge_file_changes(sft_to_fnode(fd), FALSE);
+}
+
     /* /// Added - Ron Cemer */
 STATIC int is_same_file(f_node_ptr fnp, sft FAR *sftp)
 {
@@ -811,43 +816,6 @@ time dos_gettime(void)
   /* on start-up or the CMOS clock                        */
   DosGetTime(&dt);
   return time_encode(&dt);
-}
-
-/*                                                              */
-/* dos_setftime for the file time                               */
-/*                                                              */
-COUNT dos_setftime(COUNT fd, date dp, time tp)
-{
-  /* Translate the fd into an fnode pointer, since all internal   */
-  /* operations are achieved through fnodes.                      */
-  f_node_ptr fnp = sft_to_fnode(fd);
-
-  /* Set the date and time from the fnode and return              */
-  fnp->f_dir.dir_date = dp;
-  fnp->f_dir.dir_time = tp;
-  /* mark file as modified and set this date upon closing */
-  fnp->f_flags |= F_DMOD | F_DDATE;
-
-  fnode_to_sft(fnp);
-  return SUCCESS;
-}
-
-/*                                                              */
-/* dos_setfsize for the file time                               */
-/*                                                              */
-BOOL dos_setfsize(COUNT fd, LONG size)
-{
-  /* Translate the fd into an fnode pointer, since all internal   */
-  /* operations are achieved through fnodes.                      */
-  f_node_ptr fnp = sft_to_fnode(fd);
-
-  /* Change the file size                                         */
-  fnp->f_dir.dir_size = size;
-
-  merge_file_changes(fnp, FALSE);       /* /// Added - Ron Cemer */
-  fnode_to_sft(fnp);
-
-  return TRUE;
 }
 
 /*                                                              */
@@ -1654,39 +1622,6 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   }
   fnode_to_sft(fnp);
   return ret_cnt;
-}
-
-/* Position the file pointer to the desired offset                      */
-/* Returns a long current offset or a negative error code               */
-LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
-{
-  /* Translate the fd into a useful pointer                       */
-  REG f_node_ptr fnp = sft_to_fnode(fd);
-
-  /* now do the actual lseek adjustment to the file poitner       */
-  switch (origin)
-  {
-      /* offset from beginning of file                                */
-    case 0:
-      fnp->f_offset = (ULONG) foffset;
-      break;
-
-      /* offset from current location                                 */
-    case 1:
-      fnp->f_offset += foffset;
-      break;
-
-      /* offset from eof                                              */
-    case 2:
-      fnp->f_offset = fnp->f_dir.dir_size + foffset;
-      break;
-
-      /* default to an invalid function                               */
-    default:
-      return (LONG) DE_INVLDFUNC;
-  }
-  fnode_to_sft(fnp);
-  return fnp->f_offset;
 }
 
 /* returns the number of unused clusters */

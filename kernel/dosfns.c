@@ -318,11 +318,16 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
 
   lpCurSft = s;
 
-  if (s->sft_flags & SFT_FSHARED)
+  /* Do special return for character devices      */
+  if (s->sft_flags & SFT_FDEVICE)
   {
-    /* seek from end of file */
-    if (mode == 2)
-    {
+    s->sft_posit = 0l;
+    return SUCCESS;
+  }
+
+  /* seek from end of file */
+  if (mode == 2)
+  {
 /*
  *  RB list has it as Note:
  *  this function is called by the DOS 3.1+ kernel, but only when seeking
@@ -333,42 +338,17 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
  *  Lredir via mfs.c from DosEMU works when writing appended files.
  *  Mfs.c looks for these mode bits set, so here is my best guess.;^)
  */
-      if (s->sft_mode & (O_DENYREAD | O_DENYNONE))
-        s->sft_posit = remote_lseek(s, new_pos);
-      else
-        s->sft_posit = s->sft_size + new_pos;
-      return SUCCESS;
-    }
-    if (mode == 0)
-    {
-      s->sft_posit = new_pos;
-      return SUCCESS;
-    }
-    if (mode == 1)
-    {
-      s->sft_posit += new_pos;
-      return SUCCESS;
-    }
-    return DE_INVLDFUNC;
-  }
-
-  /* Do special return for character devices      */
-  if (s->sft_flags & SFT_FDEVICE)
-  {
-    s->sft_posit = 0l;
-    return SUCCESS;
-  }
-  else
-  {
-    LONG result = dos_lseek(sft_idx, new_pos, mode);
-    if (result < 0l)
-      return (int)result;
+    if ((s->sft_flags & SFT_FSHARED) &&
+        (s->sft_mode & (O_DENYREAD | O_DENYNONE)))
+      s->sft_posit = remote_lseek(s, new_pos);
     else
-    {
-      s->sft_posit = result;
-      return SUCCESS;
-    }
+      s->sft_posit = s->sft_size + new_pos;
   }
+  else if (mode == 0)
+    s->sft_posit = new_pos;
+  else /* mode == 1 */
+    s->sft_posit += new_pos;
+  return SUCCESS;
 }
 
 ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode)
@@ -1156,11 +1136,7 @@ COUNT DosSetFtimeSft(int sft_idx, date dp, time tp)
   s->sft_date = dp;
   s->sft_time = tp;
 
-  if (s->sft_flags & SFT_FSHARED)
-    return SUCCESS;
-
-  /* call file system handler                     */
-  return dos_setftime(sft_idx, dp, tp);
+  return SUCCESS;
 }
 
 COUNT DosGetFattr(BYTE FAR * name)

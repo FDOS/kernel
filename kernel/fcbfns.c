@@ -628,7 +628,7 @@ UBYTE FcbClose(xfcb FAR * lpXfcb)
   /* change time and set file size                */
   s->sft_size = lpFcb->fcb_fsize;
   if (!(s->sft_flags & SFT_FSHARED))
-    dos_setfsize(lpFcb->fcb_sftno, lpFcb->fcb_fsize);
+    dos_merge_file_changes(lpFcb->fcb_sftno);
   DosSetFtimeSft(lpFcb->fcb_sftno, lpFcb->fcb_date, lpFcb->fcb_time);
   if ((CritErrCode = -DosCloseSft(lpFcb->fcb_sftno, FALSE)) == SUCCESS)
   {

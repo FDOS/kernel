@@ -161,15 +161,12 @@ COUNT dos_rmdir(BYTE * path);
 COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib);
 date dos_getdate(void);
 time dos_gettime(void);
-COUNT dos_setftime(COUNT fd, date dp, time tp);
-BOOL dos_setfsize(COUNT fd, LONG size);
 COUNT dos_mkdir(BYTE * dir);
 BOOL last_link(f_node_ptr fnp);
 COUNT map_cluster(REG f_node_ptr fnp, COUNT mode);
 long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode);
 COUNT dos_read(COUNT fd, VOID FAR * buffer, UCOUNT count);
 COUNT dos_write(COUNT fd, const VOID FAR * buffer, UCOUNT count);
-LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin);
 CLUSTER dos_free(struct dpb FAR * dpbp);
 BOOL dir_exists(char * path);
 VOID dpb16to32(struct dpb FAR *dpbp);
@@ -184,6 +181,7 @@ COUNT media_check(REG struct dpb FAR * dpbp);
 f_node_ptr xlt_fd(COUNT fd);
 COUNT xlt_fnp(f_node_ptr fnp);
 struct dhdr FAR * select_unit(COUNT drive);
+void dos_merge_file_changes(int fd);
 
 /* fattab.c */
 void read_fsinfo(struct dpb FAR * dpbp);

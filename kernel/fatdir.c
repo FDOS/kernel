@@ -241,7 +241,7 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
     return FALSE;
 
   /* Update the entry if it was modified by a write or create...  */
-  if (fnp->f_flags & F_DMOD)
+  if (fnp->f_flags & (F_DMOD|F_DDATE))
   {
     bp = getblock(fnp->f_dirsector, fnp->f_dpb->dpb_unit);
 
