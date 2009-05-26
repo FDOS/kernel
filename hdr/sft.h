@@ -56,23 +56,36 @@ typedef struct {
     struct dpb FAR *_sft_dcb;   /* The device control block     */
     struct dhdr FAR *_sft_dev;  /* device driver for char dev   */
   } sft_dcb_or_dev;
-  WORD sft_stclust;             /* 0b - Starting cluster                     */
+#ifdef WITHFAT32
+  UWORD sft_relclust_high;      /* 0b - High part of relative cluster        */
+#else
+  CLUSTER sft_stclust;          /* 0b - Starting cluster                     */
+#endif
   time sft_time;                /* 0d - File time                            */
   date sft_date;                /* 0f - File date                            */
-  LONG sft_size;                /* 11 - File size                            */
-  LONG sft_posit;               /* 15 - Current file position                */
-  WORD sft_relclust;            /* 19 - File relative cluster                */
-  WORD sft_cuclust;             /* 1b - File current cluster                 */
-  WORD sft_dirdlust;            /* 1d - Sector containing cluster            */
-  BYTE sft_diridx;              /* 1f - directory index                      */
+  ULONG sft_size;               /* 11 - File size                            */
+  ULONG sft_posit;              /* 15 - Current file position                */
+  UWORD sft_relclust;           /* 19 - File relative cluster (low part)     */
+  ULONG sft_dirsector;          /* 1b - Sector containing cluster            */
+  UBYTE sft_diridx;             /* 1f - directory index                      */
   BYTE sft_name[11];            /* 20 - dir style file name                  */
+#ifdef WITHFAT32
+  CLUSTER sft_stclust;          /* 2b - Starting cluster                     */
+#else
   BYTE FAR *sft_bshare;         /* 2b - backward link of file sharing sft    */
+#endif
   WORD sft_mach;                /* 2f - machine number - network apps        */
   WORD sft_psp;                 /* 31 - owner psp                            */
   WORD sft_shroff;              /* 33 - Sharing offset                       */
-  WORD sft_status;              /* 35 - this sft status                      */
+  CLUSTER sft_cuclust;          /* 35 - File current cluster                 */
+#ifdef WITHFAT32
+  UWORD sft_pad;
+#else
   BYTE FAR *sft_ifsptr;         /* 37 - pointer to IFS driver for file, 0000000h if native DOS */
+#endif
 } sft;
+
+#define sft_status sft_mach
 
 /* SFT Table header definition                                          */
 typedef struct _sftheader {
