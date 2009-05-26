@@ -298,7 +298,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   }
   /* /// End of additions for SHARE - Ron Cemer */
   {
-    long XferCount = rwblock(s->sft_status, bp, n, mode);
+    long XferCount = rwblock(sft_idx, bp, n, mode);
     if (XferCount < 0)
       return XferCount;
     s->sft_posit += XferCount;
@@ -360,7 +360,7 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
   }
   else
   {
-    LONG result = dos_lseek(s->sft_status, new_pos, mode);
+    LONG result = dos_lseek(sft_idx, new_pos, mode);
     if (result < 0l)
       return (int)result;
     else
@@ -599,22 +599,20 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   result = dos_open(PriPathName, flags, attrib, sft_idx);
   if (result >= 0)
   {
-    int status = (int)(result >> 16);
-    if (status == S_OPENED)
+    if (result == S_OPENED)
     {
       /* Check permissions. -- JPP
          (do not allow to open volume labels/directories) */
       if (sftp->sft_attrib & (D_DIR | D_VOLID))
       {
-        dos_close((COUNT)result);
+        dos_close(sft_idx);
         sftp->sft_count--;
         return DE_ACCESS;
       }
     }
-    sftp->sft_status = (COUNT)result;
     sftp->sft_flags = PriPathName[0] - 'A';
     DosGetFile(PriPathName, sftp->sft_name);
-    return sft_idx | ((long)status << 16);
+    return sft_idx | ((long)result << 16);
   }
   else
   {
@@ -699,16 +697,10 @@ COUNT DosForceDup(unsigned OldHandle, unsigned NewHandle)
   }
 
   /* If everything looks ok, bump it up.                          */
-  if ((Sftp->sft_flags & (SFT_FDEVICE | SFT_FSHARED))
-      || (Sftp->sft_status >= 0))
-  {
-    p->ps_filetab[NewHandle] = p->ps_filetab[OldHandle];
-    /* possible hazard: integer overflow ska*/
-    Sftp->sft_count += 1;
-    return SUCCESS;
-  }
-  else
-    return DE_INVLDHNDL;
+  p->ps_filetab[NewHandle] = p->ps_filetab[OldHandle];
+  /* possible hazard: integer overflow ska*/
+  Sftp->sft_count += 1;
+  return SUCCESS;
 }
 
 COUNT DosCloseSft(int sft_idx, BOOL commitonly)
@@ -747,7 +739,7 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
   }
 
   /* else call file system handler                     */
-  result = dos_close(sftp->sft_status);
+  result = dos_close(sft_idx);
   if (commitonly || result != SUCCESS)
     return result;
 
@@ -1168,7 +1160,7 @@ COUNT DosSetFtimeSft(int sft_idx, date dp, time tp)
     return SUCCESS;
 
   /* call file system handler                     */
-  return dos_setftime(s->sft_status, dp, tp);
+  return dos_setftime(sft_idx, dp, tp);
 }
 
 COUNT DosGetFattr(BYTE FAR * name)

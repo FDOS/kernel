@@ -137,7 +137,7 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 /* see DosOpenSft(), dosfns.c for an explanation of the flags bits      */
 /* directory opens are allowed here; these are not allowed by DosOpenSft*/
 
-long dos_open(char *path, unsigned flags, unsigned attrib, int fd)
+int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 {
   REG f_node_ptr fnp;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
@@ -242,7 +242,7 @@ long dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   fnp->f_cluster_offset = 0;
 
   save_far_f_node(fnp);
-  return xlt_fnp(fnp) | ((long)status << 16);
+  return status;
 }
 
 BOOL fcmp_wild(const char * s1, const char * s2, unsigned n)

@@ -85,8 +85,6 @@ typedef struct {
 #endif
 } sft;
 
-#define sft_status sft_mach
-
 /* SFT Table header definition                                          */
 typedef struct _sftheader {
   struct sfttbl FAR *           /* link to next table in list   */

@@ -151,7 +151,7 @@ int FileName83Length(BYTE * filename83);
 /* fatfs.c */
 struct dpb FAR *get_dpb(COUNT dsk);
 ULONG clus2phys(CLUSTER cl_no, struct dpb FAR * dpbp);
-long dos_open(char * path, unsigned flag, unsigned attrib, int fd);
+int dos_open(char * path, unsigned flag, unsigned attrib, int fd);
 BOOL fcbmatch(const char *fcbname1, const char *fcbname2);
 BOOL fcmp_wild(const char * s1, const char * s2, unsigned n);
 VOID touc(BYTE * s, COUNT n);
