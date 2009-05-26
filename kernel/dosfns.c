@@ -301,8 +301,6 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
     long XferCount = rwblock(s->sft_status, bp, n, mode);
     if (XferCount < 0)
       return XferCount;
-    if (mode == XFR_WRITE)
-      s->sft_size = dos_getfsize(s->sft_status);
     s->sft_posit += XferCount;
     return XferCount;
   }
@@ -604,7 +602,6 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
     int status = (int)(result >> 16);
     if (status == S_OPENED)
     {
-      sftp->sft_attrib = dos_getfattr_fd((COUNT)result);
       /* Check permissions. -- JPP
          (do not allow to open volume labels/directories) */
       if (sftp->sft_attrib & (D_DIR | D_VOLID))
@@ -613,14 +610,10 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
         sftp->sft_count--;
         return DE_ACCESS;
       }
-      sftp->sft_size = dos_getfsize((COUNT)result);
     }
     sftp->sft_status = (COUNT)result;
     sftp->sft_flags = PriPathName[0] - 'A';
     DosGetFile(PriPathName, sftp->sft_name);
-    dos_getftime(sftp->sft_status,
-                 (date FAR *) & sftp->sft_date,
-                 (time FAR *) & sftp->sft_time);
     return sft_idx | ((long)status << 16);
   }
   else
@@ -1150,16 +1143,9 @@ COUNT DosGetFtime(COUNT hndl, date * dp, time * tp)
   if (FP_OFF(s = get_sft(hndl)) == (size_t) - 1)
     return DE_INVLDHNDL;
 
-  /* If SFT entry refers to a device, return the date and time of opening */
-  if (s->sft_flags & (SFT_FDEVICE | SFT_FSHARED))
-  {
-    *dp = s->sft_date;
-    *tp = s->sft_time;
-    return SUCCESS;
-  }
-
-  /* call file system handler                     */
-  return dos_getftime(s->sft_status, dp, tp);
+  *dp = s->sft_date;
+  *tp = s->sft_time;
+  return SUCCESS;
 }
 
 COUNT DosSetFtimeSft(int sft_idx, date dp, time tp)

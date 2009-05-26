@@ -89,14 +89,7 @@ ULONG SftGetFsize(int sft_idx)
   if (FP_OFF(s) == (size_t) -1)
     return DE_INVLDHNDL;
 
-  /* If SFT entry refers to a device, return the date and time of opening */
-  if (s->sft_flags & (SFT_FDEVICE | SFT_FSHARED))
-  {
-    return s->sft_size;
-  }
-
-  /* call file system handler                     */
-  return dos_getfsize(s->sft_status);
+  return s->sft_size;
 }
 
 STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)

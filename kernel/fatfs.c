@@ -843,30 +843,6 @@ time dos_gettime(void)
 }
 
 /*                                                              */
-/* dos_getftime for the file time                               */
-/*                                                              */
-COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp)
-{
-  f_node_ptr fnp;
-
-  /* Translate the fd into an fnode pointer, since all internal   */
-  /* operations are achieved through fnodes.                      */
-  fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return DE_INVLDHNDL;
-
-  /* Get the date and time from the fnode and return              */
-  *dp = fnp->f_dir.dir_date;
-  *tp = fnp->f_dir.dir_time;
-
-  return SUCCESS;
-}
-
-/*                                                              */
 /* dos_setftime for the file time                               */
 /*                                                              */
 COUNT dos_setftime(COUNT fd, date dp, time tp)
@@ -891,27 +867,6 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
 
   save_far_f_node(fnp);
   return SUCCESS;
-}
-
-/*                                                              */
-/* dos_getfsize for the file time                               */
-/*                                                              */
-ULONG dos_getfsize(COUNT fd)
-{
-  f_node_ptr fnp;
-
-  /* Translate the fd into an fnode pointer, since all internal   */
-  /* operations are achieved through fnodes.                      */
-  fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return (ULONG)-1l;
-
-  /* Return the file size                                         */
-  return fnp->f_dir.dir_size;
 }
 
 /*                                                              */
@@ -1865,19 +1820,6 @@ int dos_cd(char * PathName)
 #endif
 
 #ifndef IPL
-COUNT dos_getfattr_fd(COUNT fd)
-{
-  f_node_ptr fnp = xlt_fd(fd);
-
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (fnp == (f_node_ptr) 0)
-    return DE_TOOMANY;
-
-  return fnp->f_dir.dir_attrib;
-}
-
 COUNT dos_getfattr(BYTE * name)
 {
   f_node_ptr fnp;

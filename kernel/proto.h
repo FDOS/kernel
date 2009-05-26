@@ -161,9 +161,7 @@ COUNT dos_rmdir(BYTE * path);
 COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib);
 date dos_getdate(void);
 time dos_gettime(void);
-COUNT dos_getftime(COUNT fd, date FAR * dp, time FAR * tp);
 COUNT dos_setftime(COUNT fd, date dp, time tp);
-ULONG dos_getfsize(COUNT fd);
 BOOL dos_setfsize(COUNT fd, LONG size);
 COUNT dos_mkdir(BYTE * dir);
 BOOL last_link(f_node_ptr fnp);
@@ -180,7 +178,6 @@ VOID trim_path(BYTE FAR * s);
 
 int dos_cd(char * PathName);
 
-COUNT dos_getfattr_fd(COUNT fd);
 COUNT dos_getfattr(BYTE * name);
 COUNT dos_setfattr(BYTE * name, UWORD attrp);
 COUNT media_check(REG struct dpb FAR * dpbp);
