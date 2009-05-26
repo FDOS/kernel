@@ -36,8 +36,6 @@ static BYTE *fnode_hRcsId =
 #endif
 
 struct f_node {
-  COUNT f_mode;                 /* read, write, read-write, etc */
-
   UWORD f_flags;                /* file flags                   */
 
   struct dirent f_dir;          /* this file's dir entry image  */

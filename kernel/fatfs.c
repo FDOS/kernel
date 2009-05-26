@@ -37,10 +37,8 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 /*      function prototypes                                             */
 /*                                                                      */
-STATIC int sft_to_fnode(f_node_ptr fnp, int fd);
-f_node_ptr xlt_fd(COUNT);
-STATIC void fnode_to_sft(f_node_ptr fnp, int fd);
-STATIC void save_far_f_node(f_node_ptr fnp);
+STATIC f_node_ptr sft_to_fnode(int fd);
+STATIC void fnode_to_sft(f_node_ptr fnp);
 STATIC f_node_ptr split_path(char *, char *, f_node_ptr fnp);
 STATIC BOOL find_fname(f_node_ptr, char *, int);
     /* /// Added - Ron Cemer */
@@ -148,7 +146,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 
   /* next split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(path, fcbname, xlt_fd(fd))) == NULL)
+  if ((fnp = split_path(path, fcbname, sft_to_fnode(fd))) == NULL)
     return DE_PATHNOTFND;
 
   /* Check that we don't have a duplicate name, so if we  */
@@ -207,10 +205,6 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
     dir_close(fnp);
     return DE_FILENOTFND;
   }
-  
-  /* Set the fnode to the desired mode                    */
-  /* Updating the directory entry first.                  */
-  fnp->f_mode = flags & O_ACCMODE;
 
   if (status != S_OPENED)
   {
@@ -239,7 +233,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   fnp->f_cluster = getdstart(fnp->f_dpb, &fnp->f_dir);
   fnp->f_cluster_offset = 0;
 
-  save_far_f_node(fnp);
+  fnode_to_sft(fnp);
   return status;
 }
 
@@ -253,10 +247,8 @@ BOOL fcmp_wild(const char * s1, const char * s2, unsigned n)
 
 COUNT dos_close(COUNT fd)
 {
-  f_node_ptr fnp;
-
   /* Translate the fd into a useful pointer                       */
-  fnp = xlt_fd(fd);
+  f_node_ptr fnp = sft_to_fnode(fd);
 
   if (fnp->f_flags & F_DMOD)
   {
@@ -826,11 +818,9 @@ time dos_gettime(void)
 /*                                                              */
 COUNT dos_setftime(COUNT fd, date dp, time tp)
 {
-  f_node_ptr fnp;
-
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
-  fnp = xlt_fd(fd);
+  f_node_ptr fnp = sft_to_fnode(fd);
 
   /* Set the date and time from the fnode and return              */
   fnp->f_dir.dir_date = dp;
@@ -838,7 +828,7 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
   /* mark file as modified and set this date upon closing */
   fnp->f_flags |= F_DMOD | F_DDATE;
 
-  save_far_f_node(fnp);
+  fnode_to_sft(fnp);
   return SUCCESS;
 }
 
@@ -847,17 +837,15 @@ COUNT dos_setftime(COUNT fd, date dp, time tp)
 /*                                                              */
 BOOL dos_setfsize(COUNT fd, LONG size)
 {
-  f_node_ptr fnp;
-
   /* Translate the fd into an fnode pointer, since all internal   */
   /* operations are achieved through fnodes.                      */
-  fnp = xlt_fd(fd);
+  f_node_ptr fnp = sft_to_fnode(fd);
 
   /* Change the file size                                         */
   fnp->f_dir.dir_size = size;
 
   merge_file_changes(fnp, FALSE);       /* /// Added - Ron Cemer */
-  save_far_f_node(fnp);
+  fnode_to_sft(fnp);
 
   return TRUE;
 }
@@ -991,9 +979,6 @@ COUNT dos_mkdir(BYTE * dir)
     dir_close(fnp);
     return DE_HNDLDSKFULL;
   }
-
-  /* Set the fnode to the desired mode                            */
-  fnp->f_mode = WRONLY;
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat, fcbname);
 
@@ -1414,7 +1399,9 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
    dosfns.c */
 long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 {
-  REG f_node_ptr fnp;
+  /* Translate the fd into an fnode pointer, since all internal   */
+  /* operations are achieved through fnodes.                      */
+  REG f_node_ptr fnp = sft_to_fnode(fd);
   REG struct buffer FAR *bp;
   UCOUNT xfr_cnt = 0;
   UCOUNT ret_cnt = 0;
@@ -1429,9 +1416,6 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
            fd, FP_SEG(buffer), FP_OFF(buffer), count);
   }
 #endif
-  /* Translate the fd into an fnode pointer, since all internal   */
-  /* operations are achieved through fnodes.                      */
-  fnp = xlt_fd(fd);
 
   if (mode==XFR_WRITE)
   {
@@ -1441,7 +1425,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     
     if (dos_extend(fnp) != SUCCESS)
     {
-      save_far_f_node(fnp);
+      fnode_to_sft(fnp);
       return 0;
     }
   }
@@ -1467,7 +1451,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
       shrink_file(fnp); /* this is the only call to shrink_file... */
       /* why does empty write -always- truncate to current offset? */
     }
-    save_far_f_node(fnp);
+    fnode_to_sft(fnp);
     return 0;
   }
 
@@ -1487,7 +1471,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* but only for regular files.                          */
     if (mode == XFR_READ && !(fnp->f_flags & F_DDIR) && (fnp->f_offset >= fnp->f_dir.dir_size))
     {
-      save_far_f_node(fnp);
+      fnode_to_sft(fnp);
       return ret_cnt;
     }
 
@@ -1518,7 +1502,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 #endif
     if (map_cluster(fnp, mode) != SUCCESS)
     {
-      save_far_f_node(fnp);
+      fnode_to_sft(fnp);
       return ret_cnt;
     }
     if (mode == XFR_WRITE)
@@ -1590,7 +1574,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
                   mode == XFR_READ ? DSKREAD : DSKWRITE))
       {
         fnp->f_offset = startoffset;
-        save_far_f_node(fnp);
+        fnode_to_sft(fnp);
         return DE_ACCESS;
       }
 
@@ -1615,7 +1599,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 #endif
     if (bp == NULL)             /* (struct buffer *)0 --> DS:0 !! */
     {
-      save_far_f_node(fnp);
+      fnode_to_sft(fnp);
       return ret_cnt;
     }
 
@@ -1668,7 +1652,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
       merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
     }
   }
-  save_far_f_node(fnp);
+  fnode_to_sft(fnp);
   return ret_cnt;
 }
 
@@ -1676,11 +1660,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 /* Returns a long current offset or a negative error code               */
 LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
 {
-  REG f_node_ptr fnp;
-
   /* Translate the fd into a useful pointer                       */
-
-  fnp = xlt_fd(fd);
+  REG f_node_ptr fnp = sft_to_fnode(fd);
 
   /* now do the actual lseek adjustment to the file poitner       */
   switch (origin)
@@ -1704,7 +1685,7 @@ LONG dos_lseek(COUNT fd, LONG foffset, COUNT origin)
     default:
       return (LONG) DE_INVLDFUNC;
   }
-  save_far_f_node(fnp);
+  fnode_to_sft(fnp);
   return fnp->f_offset;
 }
 
@@ -2017,19 +1998,17 @@ COUNT media_check(REG struct dpb FAR * dpbp)
   }
 }
 
-STATIC int sft_to_fnode(f_node_ptr fnp, int fd)
+/* copy the SFT fd into the first near fnode */
+STATIC f_node_ptr sft_to_fnode(int fd)
 {
   sft FAR *sftp = idx_to_sft(fd);
+  f_node_ptr fnp = &fnode[0];
   UWORD flags;
-
-  if (FP_OFF(sftp) == (size_t) - 1)
-    return -1;
 
   fnp->f_sft_idx = fd;
 
   flags = sftp->sft_flags;
   fnp->f_flags = (flags & SFT_FDATE) | ((flags & SFT_FDIRTY) ^ SFT_FDIRTY);
-  fnp->f_mode = sftp->sft_mode & O_ACCMODE;
 
   fnp->f_dir.dir_attrib = sftp->sft_attrib;
   fmemcpy(fnp->f_dir.dir_name, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
@@ -2049,23 +2028,12 @@ STATIC int sft_to_fnode(f_node_ptr fnp, int fd)
 #else
   fnp->f_cluster_offset = sftp->sft_relclust;
 #endif
-  return SUCCESS;
+  return fnp;
 }
 
-/* copy the SFT fd into the first near fnode */
-f_node_ptr xlt_fd(int fd)
+STATIC void fnode_to_sft(f_node_ptr fnp)
 {
-  /* If the fd was invalid because it was out of range or the     */
-  /* requested file was not open, tell the caller and exit        */
-  /* note: an invalid fd is indicated by a 0 return               */
-  if (sft_to_fnode(&fnode[0], fd) == SUCCESS)
-    return &fnode[0];
-  return NULL;
-}
-
-STATIC void fnode_to_sft(f_node_ptr fnp, int fd)
-{
-  sft FAR *sftp = idx_to_sft(fd);
+  sft FAR *sftp = idx_to_sft(fnp->f_sft_idx);
 
   sftp->sft_flags = (sftp->sft_flags & ~(SFT_FDATE | SFT_FDIRTY)) |
     ((fnp->f_flags & (SFT_FDATE | SFT_FDIRTY)) ^ SFT_FDIRTY);
@@ -2086,12 +2054,6 @@ STATIC void fnode_to_sft(f_node_ptr fnp, int fd)
 #ifdef WITHFAT32
   sftp->sft_relclust_high = (UWORD)(fnp->f_cluster_offset >> 16);
 #endif
-}
-
-/* copy a near fnode to the corresponding SFT */
-STATIC void save_far_f_node(f_node_ptr fnp)
-{
-  fnode_to_sft(fnp, fnp->f_sft_idx);
 }
 
 /* TE

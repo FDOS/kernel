@@ -61,9 +61,6 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
   int i;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
-  /* Force the fnode into read-write mode                         */
-  fnp->f_mode = RDWR;
-
   /* determine what drive and dpb we are using...                 */
   fnp->f_dpb = get_dpb(dirname[0]-'A');
   /* Perform all directory common handling after all special      */
@@ -410,9 +407,6 @@ COUNT dos_findnext(void)
   /* Allocate an fnode if possible - error return (0) if not.     */
   fnp = &fnode[0];
   memset(fnp, 0, sizeof(*fnp));
-
-  /* Force the fnode into read-write mode                         */
-  fnp->f_mode = RDWR;
 
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
