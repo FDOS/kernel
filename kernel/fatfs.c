@@ -297,13 +297,9 @@ f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
 /* checks whether directory part of path exists */
 BOOL dir_exists(char * path)
 {
-  REG f_node_ptr fnp;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
-  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
-    return FALSE;
-
-  return TRUE;
+  return split_path(path, fcbname, &fnode[0]) != NULL;
 }
 
 BOOL fcbmatch(const char *fcbname1, const char *fcbname2)
