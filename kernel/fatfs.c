@@ -136,11 +136,6 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   char fcbname[FNAME_SIZE + FEXT_SIZE];
   int status = S_OPENED;
 
-  /* First test the flags to see if the user has passed a valid   */
-  /* file mode...                                                 */
-  if ((flags & O_ACCMODE) > 2)
-    return DE_INVLDACC;
-
   /* next split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
   if ((fnp = split_path(path, fcbname, sft_to_fnode(fd))) == NULL)
@@ -174,9 +169,12 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
       if ((flags & O_FCB) && (fnp->f_dir.dir_attrib & D_RDONLY))
         flags = (flags & ~3) | O_RDONLY;
 
-      /* Check permissions. -- JPP */
-      if ((fnp->f_dir.dir_attrib & D_RDONLY) &&
-          ((flags & O_ACCMODE) != O_RDONLY))
+      /* Check permissions. -- JPP
+         (do not allow to open volume labels/directories,
+          and do not allow writing to r/o files) */
+      if ((fnp->f_dir.dir_attrib & (D_DIR | D_VOLID)) ||
+          ((fnp->f_dir.dir_attrib & D_RDONLY) &&
+           ((flags & O_ACCMODE) != O_RDONLY)))
       {
         dir_close(fnp);
         return DE_ACCESS;

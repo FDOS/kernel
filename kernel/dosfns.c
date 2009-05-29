@@ -549,6 +549,17 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
     return sft_idx;
   }
 
+  /* First test the flags to see if the user has passed a valid   */
+  /* file mode...                                                 */
+  if ((flags & O_ACCMODE) > 2)
+    return DE_INVLDACC;
+
+  /* NEVER EVER allow directories to be created */
+  /* ... though FCBs are weird :) */
+  if (!(flags & O_FCB) &&
+      (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE | D_VOLID)))
+    return DE_ACCESS;
+
 /* /// Added for SHARE.  - Ron Cemer */
   if (IsShareInstalled(TRUE))
   {
@@ -557,34 +568,13 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
                           flags & 0x03, (flags >> 4) & 0x07)) < 0)
       return sftp->sft_shroff;
   }
-  
+
 /* /// End of additions for SHARE.  - Ron Cemer */
 
-  /* NEVER EVER allow directories to be created */
-  /* ... though FCBs are weird :) */
-  if (!(flags & O_FCB) &&
-      (attrib & ~(D_RDONLY | D_HIDDEN | D_SYSTEM | D_ARCHIVE | D_VOLID)))
-    return DE_ACCESS;
-  
   sftp->sft_count++;
   sftp->sft_flags = PriPathName[0] - 'A';
   result = dos_open(PriPathName, flags, attrib, sft_idx);
-  if (result >= 0)
-  {
-    if (result == S_OPENED)
-    {
-      /* Check permissions. -- JPP
-         (do not allow to open volume labels/directories) */
-      if (sftp->sft_attrib & (D_DIR | D_VOLID))
-      {
-        dos_close(sft_idx);
-        sftp->sft_count--;
-        return DE_ACCESS;
-      }
-    }
-    return sft_idx | ((long)result << 16);
-  }
-  else
+  if (result < 0)
   {
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
     if (IsShareInstalled(TRUE))
@@ -595,7 +585,8 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
 /* /// End of additions for SHARE.  - Ron Cemer */
     sftp->sft_count--;
     return result;
-  }    
+  }
+  return sft_idx | ((long)result << 16);
 }
 
 long DosOpen(char FAR * fname, unsigned mode, unsigned attrib)
