@@ -152,11 +152,8 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
       /* an access error.                             */
       if ((fnp->f_dir.dir_attrib & (D_RDONLY | D_DIR | D_VOLID))
           || (fnp->f_dir.dir_attrib & ~D_ARCHIVE & ~attrib))
-      {
-        dir_close(fnp);
         return DE_ACCESS;
-      }
-      
+
       /* Release the existing files FAT and set the   */
       /* length to zero, effectively truncating the   */
       /* file to zero.                                */
@@ -175,14 +172,10 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
       if ((fnp->f_dir.dir_attrib & (D_DIR | D_VOLID)) ||
           ((fnp->f_dir.dir_attrib & D_RDONLY) &&
            ((flags & O_ACCMODE) != O_RDONLY)))
-      {
-        dir_close(fnp);
         return DE_ACCESS;
-      }
     }
     else
     {
-      dir_close(fnp);
       return DE_FILEEXISTS;
     }
   }
@@ -197,7 +190,6 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   {
     /* open: If we can't find the file, just return a not    */
     /* found error.                                          */
-    dir_close(fnp);
     return DE_FILENOTFND;
   }
 
@@ -258,7 +250,6 @@ COUNT dos_close(COUNT fd)
   fnp->f_flags |= F_DDIR;
 
   dir_write_update(fnp, TRUE);
-  dir_close(fnp);
   return SUCCESS;
 }
 
@@ -311,8 +302,7 @@ BOOL dir_exists(char * path)
 
   if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
     return FALSE;
-  
-  dir_close(fnp);
+
   return TRUE;
 }
 
@@ -353,10 +343,8 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     if (fnp->f_diroff == 0)
       break;
     fnp->f_diroff--;
-    if (dir_read(fnp) <= 0) {
-      dir_close(fnp);
+    if (dir_read(fnp) <= 0)
       return DE_BLKINVLD;
-    }
     if (fnp->f_dir.dir_attrib != D_LFN)
       break;
     fnp->f_dir.dir_name[0] = DELETED;
@@ -364,10 +352,8 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
   fnp->f_diroff = original_diroff;
-  if (dir_read(fnp) <= 0) {
-    dir_close(fnp);
+  if (dir_read(fnp) <= 0)
     return DE_BLKINVLD;
-  }
 
   return SUCCESS;
 }
@@ -462,7 +448,6 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   /* updated                                      */
   fnp->f_flags |= F_DMOD;
   dir_write(fnp);
-  dir_close(fnp);
 
   /* SUCCESSful completion, return it             */
   return SUCCESS;
@@ -489,19 +474,13 @@ COUNT dos_delete(BYTE * path, int attrib)
     /* by find_fname() if attrib is set to a        */
     /* special value                                */	  
     if (fnp->f_dir.dir_attrib & (D_RDONLY | D_DIR))
-    {
-      dir_close(fnp);
       return DE_ACCESS;
-    }
 
     return delete_dir_entry(fnp);
   }
   else
-  {
     /* No such file, return the error               */
-    dir_close(fnp);
     return DE_FILENOTFND;
-  }
 }
 
 COUNT dos_rmdir(BYTE * path)
@@ -525,10 +504,7 @@ COUNT dos_rmdir(BYTE * path)
 
   /* Check that we're not trying to remove the root!      */
   if ((path[0] == '\\') && (path[1] == NULL))
-  {
-    dir_close(fnp);
     return DE_ACCESS;
-  }
 
   /* Verify name exists, and if so then ensure it refers  */
   /* to a directory and directory is empty.               */
@@ -540,37 +516,25 @@ COUNT dos_rmdir(BYTE * path)
     */
     if ( !(fnp->f_dir.dir_attrib & D_DIR) ||
           (fnp->f_dir.dir_attrib & ~(D_DIR |D_ARCHIVE)) )
-    {
-      dir_close(fnp);
       return DE_ACCESS;
-    }
 
     /* Check that the directory is empty. Only the  */
     /* "." and ".." are permissable.                */
     fnp->f_flags &= ~F_DMOD;
     fnp1 = dir_open(path, &fnode[1]);
     if (fnp1 == NULL)
-    {
-      dir_close(fnp);
       return DE_ACCESS;
-    }
-    
+
     dir_read(fnp1);
     /* 1st entry should be ".", else directory corrupt or not empty */
     if (fnp1->f_dir.dir_name[0] != '.' || fnp1->f_dir.dir_name[1] != ' ')
-    {
-      dir_close(fnp);
       return DE_ACCESS;
-    }
 
     fnp1->f_diroff++;
     dir_read(fnp1);
     /* secondard entry should be ".." */
     if (fnp1->f_dir.dir_name[0] != '.' || fnp1->f_dir.dir_name[1] != '.')
-    {
-      dir_close(fnp);
       return DE_ACCESS;
-    }
 
     /* Now search through the directory and make certain    */
     /* that there are no entries.                           */
@@ -589,21 +553,14 @@ COUNT dos_rmdir(BYTE * path)
       fnp1->f_diroff++;
     }
 
-    dir_close(fnp1);
     /* If anything was found, exit with an error.   */
     if (found)
-    {
-      dir_close(fnp);
       return DE_ACCESS;
-    }
     return delete_dir_entry(fnp);
   }
   else
-  {
     /* No such file, return the error               */
-    dir_close(fnp);
     return DE_FILENOTFND;
-  }
 }
 
 COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
@@ -628,32 +585,19 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   /* Check that we don't have a duplicate name, so if we find     */
   /* one, it's an error.                                          */
   if (find_fname(fnp2, fcbname, attrib))
-  {
-    dir_close(fnp2);
     return DE_ACCESS;
-  }
 
   /* next split the passed source into compnents (i.e. - path to  */
   /* old file name and name of old file name                      */
   if ((fnp1 = split_path(path1, fcbname, &fnode[0])) == NULL)
-  {
-    dir_close(fnp2);
     return DE_PATHNOTFND;
-  }
 
   if (!find_fname(fnp1, fcbname, attrib))
-  {
-    /* No such file, return the error                       */
-    dir_close(fnp1);
-    dir_close(fnp2);
     return DE_FILENOTFND;
-  }
 
   ret = alloc_find_free(fnp2, path2, fcbname);
-  if (ret != SUCCESS) {
-    dir_close(fnp1);
+  if (ret != SUCCESS)
     return ret;
-  }
 
   if ((ret = remove_lfn_entries(fnp1)) < 0)
     return ret;
@@ -672,9 +616,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   *(fnp1->f_dir.dir_name) = DELETED;
 
   dir_write(fnp1);
-  dir_close(fnp1);
   dir_write(fnp2);
-  dir_close(fnp2);
 
   /* SUCCESSful completion, return it                             */
   return SUCCESS;
@@ -748,13 +690,12 @@ STATIC BOOL find_free(f_node_ptr fnp)
   return rc >= 0;
 }
 
-/* alloc_find_free: resets the directory by a close followed by   */
-/* an open. Then finds a spare directory entry and if not         */
+/* alloc_find_free: resets the directory by an open               */
+/* Then finds a spare directory entry and if not                  */
 /* available, tries to extend the directory.                      */
 STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
 {
   fnp->f_flags &= ~F_DMOD;
-  dir_close(fnp);
   fnp = split_path(path, fcbname, fnp);
 
   /* Get a free f_node pointer so that we can use */
@@ -766,7 +707,6 @@ STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
     if (fnp->f_dirstart == 0)
     {
       fnp->f_flags &= ~F_DMOD;
-      dir_close(fnp);
       return DE_TOOMANY;
     }
     else
@@ -906,18 +846,12 @@ COUNT dos_mkdir(BYTE * dir)
      is lost forever
    */
   if (strlen(dir) >= MAX_CDSPATH)  /* dir is already output of "truename" */
-  {
-    dir_close(fnp);
     return DE_PATHNOTFND;
-  }
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
   if (find_fname(fnp, fcbname, D_ALL))
-  {
-    dir_close(fnp);
     return DE_ACCESS;
-  }
 
   parent = fnp->f_dirstart;
 
@@ -934,10 +868,7 @@ COUNT dos_mkdir(BYTE * dir)
   /* No empty clusters, disk is FULL! Translate into a    */
   /* useful error message.                                */
   if (free_fat == LONG_LAST_CLUSTER)
-  {
-    dir_close(fnp);
     return DE_HNDLDSKFULL;
-  }
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat, fcbname);
 
@@ -958,10 +889,7 @@ COUNT dos_mkdir(BYTE * dir)
   printf("FAT (dos_mkdir)\n");
 #endif
   if (bp == NULL)
-  {
-    dir_close(fnp);
     return DE_BLKINVLD;
-  }
 
   /* Create the "." entry                                 */
   init_direntry(&DirEntBuffer, D_DIR, free_fat, ".          ");
@@ -999,10 +927,7 @@ COUNT dos_mkdir(BYTE * dir)
     printf("DIR (dos_mkdir)\n");
 #endif
     if (bp == NULL)
-    {
-      dir_close(fnp);
       return DE_BLKINVLD;
-    }
     fmemset(bp->b_buffer, 0, BUFFERSIZE);
     bp->b_flag |= BFR_DIRTY | BFR_VALID | BFR_UNCACHE; /* need not be cached */
   }
@@ -1014,7 +939,6 @@ COUNT dos_mkdir(BYTE * dir)
   /* Close the directory so that the entry is updated     */
   fnp->f_flags |= F_DMOD;
   dir_write(fnp);
-  dir_close(fnp);
 
   return SUCCESS;
 }
@@ -1067,10 +991,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 
   CLUSTER cluster = extend(fnp);
   if (cluster == LONG_LAST_CLUSTER)
-  {
-    dir_close(fnp);
     return DE_HNDLDSKFULL;
-  }
 
   /* clear out the blocks in the cluster      */
   for (idx = 0; idx <= fnp->f_dpb->dpb_clsmask; idx++)
@@ -1084,10 +1005,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
     printf("DIR (extend_dir)\n");
 #endif
     if (bp == NULL)
-    {
-      dir_close(fnp);
       return DE_BLKINVLD;
-    }
     fmemset(bp->b_buffer, 0, BUFFERSIZE);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
@@ -1096,10 +1014,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
   }
 
   if (!find_free(fnp))
-  {
-    dir_close(fnp);
     return DE_HNDLDSKFULL;
-  }
 
   /* flush the drive buffers so that all info is written          */
   /* hazard: no error checking! */
@@ -1673,7 +1588,6 @@ int dos_cd(char * PathName)
   /* problem: RBIL table 01643 does not give a FAT32 field for the
      CDS start cluster. But we are not using this field ourselves */
   cdsp->cdsStrtClst = (UWORD)fnp->f_dirstart;
-  dir_close(fnp);
   return SUCCESS;
 }
 #endif
@@ -1683,7 +1597,6 @@ COUNT dos_getfattr(BYTE * name)
 {
   f_node_ptr fnp;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
-  COUNT result;
 
   /* split the passed dir into components (i.e. - path to         */
   /* new directory and name of new directory.                     */
@@ -1691,12 +1604,8 @@ COUNT dos_getfattr(BYTE * name)
     return DE_PATHNOTFND;
 
   if (find_fname(fnp, fcbname, D_ALL))
-    result = fnp->f_dir.dir_attrib;
-  else
-    result = DE_FILENOTFND;
-
-  dir_close(fnp);
-  return result;
+    return fnp->f_dir.dir_attrib;
+  return DE_FILENOTFND;
 }
 
 COUNT dos_setfattr(BYTE * name, UWORD attrp)
@@ -1719,17 +1628,12 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   if ((fnp = split_path(name, fcbname, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
-  if (!find_fname(fnp, fcbname, D_ALL)) {
-    dir_close(fnp);
+  if (!find_fname(fnp, fcbname, D_ALL))
     return DE_FILENOTFND;
-  }
 
   /* if caller tries to set DIR on non-directory, return error */
   if ((attrp & D_DIR) && !(fnp->f_dir.dir_attrib & D_DIR))
-  {
-    dir_close(fnp);
     return DE_ACCESS;
-  }
 
   /* Set the attribute from the fnode and return          */
   /* clear all attributes but DIR and VOLID */
@@ -1744,7 +1648,6 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   rc = merge_file_changes(fnp, -1);
   if (rc == SUCCESS)
     dir_write(fnp);
-  dir_close(fnp);
   return rc;
 }
 #endif

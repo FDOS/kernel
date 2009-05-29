@@ -282,18 +282,10 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
     bp->b_flag &= ~(BFR_DATA | BFR_FAT);
     bp->b_flag |= BFR_DIR | BFR_DIRTY | BFR_VALID;
   }
-  return TRUE;
-}
-
-VOID dir_close(REG f_node_ptr fnp)
-{
-  /* Test for invalid f_nodes                                     */
-  if (fnp == NULL || !(fnp->f_flags & F_DDIR))
-    return;
-
-  /* Clear buffers after release                                  */
-  /* hazard: no error checking! */
+  /* Clear buffers after directory write or DOS close                     */
+  /* hazard: no error checking!                                           */
   flush_buffers(fnp->f_dpb->dpb_unit);
+  return TRUE;
 }
 
 #ifndef IPL
@@ -307,10 +299,10 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 
   /* The findfirst/findnext calls are probably the worst of the   */
   /* DOS calls. They must work somewhat on the fly (i.e. - open   */
-  /* but never close). Since we don't want to lose fnodes every   */
+  /* but never close). The near fnodes now work this way. Every   */
   /* time a directory is searched, we will initialize the DOS     */
   /* dirmatch structure and then for every find, we will open the */
-  /* current directory, do a seek and read, then close the fnode. */
+  /* current directory, do a seek and read.                       */
 
   /* Parse out the file name */
   i = ParseDosName(name, SearchDir.dir_name, TRUE);
@@ -369,15 +361,12 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 #ifdef DEBUG
         printf("dos_findfirst: %11s\n", fnp->f_dir.dir_name);
 #endif
-        dir_close(fnp);
         return SUCCESS;
       }
       fnp->f_diroff++;
     }
 
-    /* Now that we've done our failed search, close it and  */
-    /* return an error.                                     */
-    dir_close(fnp);
+    /* Now that we've done our failed search, return an error.    */
     return DE_NFILES;
   }
   /* Otherwise just do a normal find next                         */
@@ -385,7 +374,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   {
     dmp->dm_entry = 0;
     dmp->dm_dircluster = fnp->f_dirstart;
-    dir_close(fnp);
     return dos_findnext();
   }
 }
