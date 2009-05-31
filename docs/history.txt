@@ -1,22 +1,54 @@
 
 
-General 2036+ notes: You can read details about bugzilla bug NUMBER on
+General web notes: You can read details about bugzilla bug NUMBER on
 http://bugzilla.freedos.org/cgi-bin/bugzilla/show_bug.cgi?id=NUMBER
+and details about newer bugs managed in our sourceforge bug tracker on
+http://sf.net/tracker/?func=detail&aid=NUMBER&group_id=5109&atid=105109
+
 You can read more details (diff, changelog) about SVN revision NUMBER on
 http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
-2008 Apr 2 - Build 2038
--------- Eric Auer (eric@coli.uni-sb.de)
+2009 May 16 - Build 2038
+-------- Pat Villani, Bart Oldeman, Eric Auer
 
-Thanks to Geraldo Netto for summarizing the SVN changelog - See also:
+Thanks to Geraldo Netto for summarizing the 2008 SVN changelog. See also:
 http://freedos.svn.sourceforge.net/viewvc/freedos/kernel/trunk/?view=log
 Patches are mostly from Bart and Eric, some from Jeremy and Tom.
 
++ Changes Jeremy 2009
+
+	* r1412 from Eric: update this history.txt (and bugs.txt, contrib.txt)
+	* r1381-r1384 update bugs.txt version.h LSM, tag SVN for 2038 release
+	* r1374, r1380 fcbfns FCB open old GEM compat (bigsize/recsiz/recno)
+	  http://sf.net/tracker/?func=detail&aid=2253450&group_id=5109&atid=355109
+	* r1379 dosfns.c fatfs.c proto.h from Eric: only check for SHARE on
+	  open/close, avoid extra 2f.1000 calls.
+	* r1378 dsk.c from Lucho: Press any key, not Press the any key  ;-) 
+	* r1377 initdisk.c from RayeR: Use total cyl count, not max cylinder
+	  (fixes off by one bug on non-LBA PC) & fix overflow by ULONG cast.
+	  Improve DebugPrintf calls, fix format string (only in debug kernels)
+	* r1376 inthndlr.c from Tom: 21.1c return AL=0xff for invalid drives
+	  (fixes bug for apps which use int 21.1c to find FAT drive letters)
+	* r1372, r1375 from Bart: process.h/entry.asm make CP/M call PSP[5]
+	  work (1 line jbe versus ja fix and detailed comments about stack)
+	  This fixes SF tracked bug 2421577.
+	* r1373 kernel.asm add : after _HMATextAvailable avoid nasm warning
+	* r1371 watcom.mak make sure even Windows Watcom C builds a DOS SYS
+	  (would otherwise make a SYS meant for use in Windows by default)
+	* r1370 default bat make compiling without UPX possible again
+	* r1369 let DosGetExtFree 21.7303 accept drive with and w/o slash
+	  This fixes SF tracked bug 2380828 (GetDiskFreeSpaceEx if no slash)
+	* r1368 tag for ke2038test
+
 + Changes Bart + Eric (mostly)
+	* r1367 sys.c from Bart: 32bit date/time if WATCOMC 1279+ (OW 1.8)
+	* r1366 config.c, config.txt allow BUFFERSHIGH as alias to BUFFERS,
+	  buffers are in UMB, we use HMA anyway. Drop unused int 16.1 call.
+	* r1365 inthndlr.c allow/ignore type hints in int 21.7305 disk read
 	* r1364 fdkernel.lsm and version.h updated to 2038 / Apr 2008
-	  Updated this history.txt changelog: 2038pre and 2038 entries
+	  Updated this history.txt changelog to state of April 2008
 	* r1363 add Geraldo (changelog) and Fritz (docs) to contrib.txt
 	  New version of config.txt - verbose, readable, up to date
 	* r1362 update readme.cvs - add info about SVN / subversion
@@ -81,6 +113,7 @@ All main features of Tom's fork are available in kernel 2038 now.
 	* r1335 use lastdrive Z for initial CDS, so device=f:... etc works
 	* r1334 fix bug 1953: int 21.29 now returns valid only for existing
 	  drives, not for all, and leave FCB empty/unset if no valid drive
+	  http://sf.net/tracker/?func=detail&aid=2362450&group_id=5109&atid=105109
 	* r1333 fix stack for UPX compression as .sys, fix size limit 65420
 	* r1332 fix F5/F8 zero timeout handling in GetBiosKey
 	* r1331 some config.txt / contrib.txt updates merged from UNSTABLE
