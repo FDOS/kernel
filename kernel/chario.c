@@ -176,65 +176,46 @@ void update_scr_pos(unsigned char c, unsigned char count)
 
 STATIC int raw_get_char(struct dhdr FAR **pdev, BOOL check_break);
 
-/* writes a character in cooked mode; maybe with printer echo;
-   handles TAB expansion */
-STATIC int cooked_write_char(struct dhdr FAR **pdev,
-                      unsigned char c,
-                      unsigned char *fast_counter)
-{
-  unsigned char count = 1;
-
-  if (c == HT) {
-    count = 8 - (scr_pos & 7);
-    c = ' ';
-  }
-  update_scr_pos(c, count);
-
-  do {
-
-    /* if not fast then < 0x80; always check
-       otherwise check every 32 characters */
-    if (*fast_counter <= 0x80 && check_handle_break(pdev) == CTL_S)
-      /* Test for hold char and ctl_c */
-      raw_get_char(pdev, TRUE);
-    *fast_counter += 1;
-    *fast_counter &= 0x9f;
-
-    if (PrinterEcho)
-      DosWrite(STDPRN, 1, &c);
-    if (*fast_counter & 0x80)
-    {
-      fast_put_char(c);
-    }
-    else
-    {
-      int err = CharIO(pdev, c, C_OUTPUT);
-      if (err < 0)
-        return err;
-    }
-  } while (--count != 0);
-  return SUCCESS;
-}
-
 long cooked_write(struct dhdr FAR **pdev, size_t n, char FAR *bp)
 {
-  size_t xfer = 0;
-  unsigned char fast_counter;
+  size_t xfer;
 
   /* bit 7 means fastcon; low 5 bits count number of characters */
-  fast_counter = ((*pdev)->dh_attr & ATTR_FASTCON) << 3;
+  unsigned char fast_counter = ((*pdev)->dh_attr & ATTR_FASTCON) << 3;
 
   for (xfer = 0; xfer < n; xfer++)
   {
     int err;
-    unsigned char c = *bp++;
+    unsigned char count = 1, c = *bp++;
 
     if (c == CTL_Z)
       break;
 
-    err = cooked_write_char(pdev, c, &fast_counter);
-    if (err < 0)
-      return err;
+    /* write a character in cooked mode; maybe with printer echo;
+       handles TAB expansion */
+    if (c == HT) {
+      count = 8 - (scr_pos & 7);
+      c = ' ';
+    }
+    update_scr_pos(c, count);
+    do {
+      /* if not fast then < 0x80; always check
+         otherwise check every 32 characters */
+      if (fast_counter <= 0x80 && check_handle_break(pdev) == CTL_S)
+        raw_get_char(pdev, TRUE); /* Test for hold char and ctl_c */
+      fast_counter++;
+      fast_counter &= 0x9f;
+      if (PrinterEcho)
+        DosWrite(STDPRN, 1, &c);
+      if (fast_counter & 0x80)
+        fast_put_char(c);
+      else
+      {
+        err = CharIO(pdev, c, C_OUTPUT);
+        if (err < 0)
+          return err;
+      }
+    } while (--count != 0);
   }
   return xfer;
 }
