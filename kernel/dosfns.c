@@ -113,13 +113,21 @@ struct cds FAR *get_cds(unsigned drive)
   return cdsp;
 }
 
+/* same, but on input drv is 0 for default or 1=A, 2=B, etc. */
+struct cds FAR *get_cds1(unsigned drv)
+{
+  if (drv-- == 0) /* get default drive or convert to 0 = A:, 1 = B:, ... */
+    drv = default_drive;
+  return get_cds(drv);
+}
+
 #ifdef WITHFAT32
 struct dpb FAR * GetDriveDPB(UBYTE drive, COUNT * rc)
 {
   struct dpb FAR *dpb;
   struct cds FAR *cdsp;
   
-  cdsp = get_cds(drive == 0 ? default_drive : drive - 1);
+  cdsp = get_cds1(drive);
   
   if (cdsp == NULL)
   {
@@ -736,12 +744,9 @@ UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
   COUNT rg[4];
   UWORD spc;
 
-  /* next - "log" in the drive            */
-  drive = (drive == 0 ? default_drive : drive - 1);
-
   /* first check for valid drive          */
   spc = -1;
-  cdsp = get_cds(drive);
+  cdsp = get_cds1(drive);
 
   if (cdsp == NULL)
     return spc;
@@ -897,7 +902,7 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 
   /* next - "log" in the drive            */
   /* first check for valid drive          */
-  cdsp = get_cds(drive == 0 ? default_drive : drive - 1);
+  cdsp = get_cds1(drive);
   if (cdsp == NULL)
     return DE_INVLDDRV;
 
