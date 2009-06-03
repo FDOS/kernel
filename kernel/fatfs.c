@@ -548,19 +548,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (!fstrcmp(path1, cdsp->cdsCurrentPath))
     return DE_RMVCUDIR;
 
-  /* first split the passed target into components (i.e. - path to*/
-  /* new file name and name of new file name                      */
-  if ((fnp2 = split_path(path2, fcbname, &fnode[1])) == NULL)
-  {
-    return DE_PATHNOTFND;
-  }
-
-  /* Check that we don't have a duplicate name, so if we find     */
-  /* one, it's an error.                                          */
-  if (find_fname(fnp2, fcbname, attrib))
-    return DE_ACCESS;
-
-  /* next split the passed source into components (i.e. - path to */
+  /* first split the passed source into components (i.e. - path to*/
   /* old file name and name of old file name                      */
   if ((fnp1 = split_path(path1, fcbname, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
@@ -568,18 +556,29 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (!find_fname(fnp1, fcbname, attrib))
     return DE_FILENOTFND;
 
+  /* next split the passed target into components (i.e. - path to */
+  /* new file name and name of new file name                      */
+  if ((fnp2 = split_path(path2, fcbname, &fnode[1])) == NULL)
+    return DE_PATHNOTFND;
+
+  /* Check that we don't have a duplicate name, so if we find     */
+  /* one, it's an error.                                          */
+  if (find_fname(fnp2, fcbname, attrib))
+    return DE_ACCESS;
+
   if (fnp1->f_dirstart == fnp2->f_dirstart)
   {
     /* rename in the same directory: change the directory entry in-place */
     fnp2 = fnp1;
-    ParseDosName(path2, fcbname, FALSE);
-    /* ParseDosName succeeds because split_path above succeeds */
-
     if ((ret = remove_lfn_entries(fnp1)) < 0)
       return ret;
   }
   else
   {
+    /* do not allow to rename directories between different directories  */
+    if (fnp1->f_dir.dir_attrib & D_DIR)
+      return DE_ACCESS;
+
     /* create new entry in other directory */
     ret = alloc_find_free(fnp2, path2, fcbname);
     if (ret != SUCCESS)
