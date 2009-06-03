@@ -482,8 +482,6 @@ COUNT dos_delete(BYTE * path, int attrib)
 COUNT dos_rmdir(BYTE * path)
 {
   REG f_node_ptr fnp;
-  REG f_node_ptr fnp1;
-  BOOL found;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* prevent removal of the current directory of that drive */
@@ -491,72 +489,51 @@ COUNT dos_rmdir(BYTE * path)
   if (!fstrcmp(path, cdsp->cdsCurrentPath))
     return DE_RMVCUDIR;
 
-  /* next, split the passed dir into components (i.e. -   */
-  /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
-  {
-    return DE_PATHNOTFND;
-  }
-
   /* Check that we're not trying to remove the root!      */
-  if ((path[0] == '\\') && (path[1] == NULL))
+  if (path[2] == '\\' && path[3] == '\0')
     return DE_ACCESS;
 
-  /* Verify name exists, and if so then ensure it refers  */
-  /* to a directory and directory is empty.               */
-  if (find_fname(fnp, fcbname, D_ALL))
+  /* Check that the directory is empty. Only the  */
+  /* "." and ".." are permissable.                */
+  fnp = dir_open(path, &fnode[0]);
+  if (fnp == NULL)
+    return DE_PATHNOTFND;
+
+  /* Directories may have attributes, but if other than 'archive'      */
+  /* then do not allow (RDONLY|SYSTEM|HIDDEN) directory to be deleted. */
+  if (fnp->f_dir.dir_attrib & ~(D_DIR |D_ARCHIVE))
+    return DE_ACCESS;
+
+  dir_read(fnp);
+  /* 1st entry should be ".", else directory corrupt or not empty */
+  if (fnp->f_dir.dir_name[0] != '.' || fnp->f_dir.dir_name[1] != ' ')
+    return DE_ACCESS;
+
+  fnp->f_diroff++;
+  dir_read(fnp);
+  /* secondard entry should be ".." */
+  if (fnp->f_dir.dir_name[0] != '.' || fnp->f_dir.dir_name[1] != '.')
+    return DE_ACCESS;
+
+  /* Now search through the directory and make certain */
+  /* that there are no entries                         */
+  fnp->f_diroff++;
+  while (dir_read(fnp) == 1)
   {
-    /* Check if it's really a directory, directories may
-       have attributes, but if other than 'archive' then do not
-       allow (RDONLY|SYSTEM|HIDDEN) directory to be deleted.
-    */
-    if ( !(fnp->f_dir.dir_attrib & D_DIR) ||
-          (fnp->f_dir.dir_attrib & ~(D_DIR |D_ARCHIVE)) )
-      return DE_ACCESS;
-
-    /* Check that the directory is empty. Only the  */
-    /* "." and ".." are permissable.                */
-    fnp->f_flags &= ~F_DMOD;
-    fnp1 = dir_open(path, &fnode[1]);
-    if (fnp1 == NULL)
-      return DE_ACCESS;
-
-    dir_read(fnp1);
-    /* 1st entry should be ".", else directory corrupt or not empty */
-    if (fnp1->f_dir.dir_name[0] != '.' || fnp1->f_dir.dir_name[1] != ' ')
-      return DE_ACCESS;
-
-    fnp1->f_diroff++;
-    dir_read(fnp1);
-    /* secondard entry should be ".." */
-    if (fnp1->f_dir.dir_name[0] != '.' || fnp1->f_dir.dir_name[1] != '.')
-      return DE_ACCESS;
-
-    /* Now search through the directory and make certain    */
-    /* that there are no entries.                           */
-    found = FALSE;
-    fnp1->f_diroff++;
-    while (dir_read(fnp1) == 1)
-    {
-      if (fnp1->f_dir.dir_name[0] == '\0')
-        break;
-      if (fnp1->f_dir.dir_name[0] != DELETED
-          && fnp1->f_dir.dir_attrib != D_LFN)
-      {
-        found = TRUE;
-        break;
-      }
-      fnp1->f_diroff++;
-    }
-
     /* If anything was found, exit with an error.   */
-    if (found)
+    if (fnp->f_dir.dir_name[0] != DELETED && fnp->f_dir.dir_attrib != D_LFN)
       return DE_ACCESS;
-    return delete_dir_entry(fnp);
+    fnp->f_diroff++;
   }
-  else
-    /* No such file, return the error               */
-    return DE_FILENOTFND;
+
+  /* next, split the passed dir into components (i.e. -   */
+  /* path to new directory and name of new directory      */
+  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL ||
+      !find_fname(fnp, fcbname, D_ALL))
+    /* this error should not happen because dir_open() succeeded above */
+    return DE_PATHNOTFND;
+
+  return delete_dir_entry(fnp);
 }
 
 COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
