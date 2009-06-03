@@ -548,7 +548,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (!fstrcmp(path1, cdsp->cdsCurrentPath))
     return DE_RMVCUDIR;
 
-  /* first split the passed target into compnents (i.e. - path to */
+  /* first split the passed target into components (i.e. - path to*/
   /* new file name and name of new file name                      */
   if ((fnp2 = split_path(path2, fcbname, &fnode[1])) == NULL)
   {
@@ -560,7 +560,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (find_fname(fnp2, fcbname, attrib))
     return DE_ACCESS;
 
-  /* next split the passed source into compnents (i.e. - path to  */
+  /* next split the passed source into components (i.e. - path to */
   /* old file name and name of old file name                      */
   if ((fnp1 = split_path(path1, fcbname, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
@@ -568,27 +568,45 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (!find_fname(fnp1, fcbname, attrib))
     return DE_FILENOTFND;
 
-  ret = alloc_find_free(fnp2, path2, fcbname);
-  if (ret != SUCCESS)
-    return ret;
+  if (fnp1->f_dirstart == fnp2->f_dirstart)
+  {
+    /* rename in the same directory: change the directory entry in-place */
+    fnp2 = fnp1;
+    ParseDosName(path2, fcbname, FALSE);
+    /* ParseDosName succeeds because split_path above succeeds */
 
-  if ((ret = remove_lfn_entries(fnp1)) < 0)
-    return ret;
+    if ((ret = remove_lfn_entries(fnp1)) < 0)
+      return ret;
+  }
+  else
+  {
+    /* create new entry in other directory */
+    ret = alloc_find_free(fnp2, path2, fcbname);
+    if (ret != SUCCESS)
+      return ret;
 
-  /* init fnode for new file name to match old file name */
-  memcpy(&fnp2->f_dir, &fnp1->f_dir, sizeof(struct dirent));
+    if ((ret = remove_lfn_entries(fnp1)) < 0)
+      return ret;
+
+    /* init fnode for new file name to match old file name */
+    memcpy(&fnp2->f_dir, &fnp1->f_dir, sizeof(struct dirent));
+
+    /* The directory has been modified, so set the bit before       */
+    /* closing it, allowing it to be updated.                       */
+    fnp1->f_flags = F_DMOD | F_DDIR;
+
+    /* Ok, so we can delete this one. Save the file info.           */
+    *(fnp1->f_dir.dir_name) = DELETED;
+
+    dir_write(fnp1);
+  }
 
   /* put the fnode's name into the directory.                     */
   memcpy(fnp2->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
 
   /* The directory has been modified, so set the bit before       */
   /* closing it, allowing it to be updated.                       */
-  fnp1->f_flags = fnp2->f_flags = F_DMOD | F_DDIR;
-
-  /* Ok, so we can delete this one. Save the file info.           */
-  *(fnp1->f_dir.dir_name) = DELETED;
-
-  dir_write(fnp1);
+  fnp2->f_flags = F_DMOD | F_DDIR;
   dir_write(fnp2);
 
   /* SUCCESSful completion, return it                             */
