@@ -196,12 +196,13 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   if (status != S_OPENED)
   {
     init_direntry(&fnp->f_dir, attrib, FREE, fcbname);
-    fnp->f_flags = F_DMOD | F_DDIR;
+    fnp->f_flags = F_DMOD;
     if (!dir_write(fnp))
       return DE_ACCESS;
   }
 
   /* Now change to file                                   */
+  fnp->f_sft_idx = fd;
   fnp->f_offset = 0l;
 
   if (status != S_OPENED)
@@ -247,7 +248,7 @@ COUNT dos_close(COUNT fd)
 
     merge_file_changes(fnp, FALSE);     /* /// Added - Ron Cemer */
   }
-  fnp->f_flags |= F_DDIR;
+  fnp->f_sft_idx = 0xff;
 
   dir_write_update(fnp, TRUE);
   return SUCCESS;
@@ -592,7 +593,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
     /* The directory has been modified, so set the bit before       */
     /* closing it, allowing it to be updated.                       */
-    fnp1->f_flags = F_DMOD | F_DDIR;
+    fnp1->f_flags = F_DMOD;
 
     /* Ok, so we can delete this one. Save the file info.           */
     *(fnp1->f_dir.dir_name) = DELETED;
@@ -605,7 +606,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* The directory has been modified, so set the bit before       */
   /* closing it, allowing it to be updated.                       */
-  fnp2->f_flags = F_DMOD | F_DDIR;
+  fnp2->f_flags = F_DMOD;
   dir_write(fnp2);
 
   /* SUCCESSful completion, return it                             */
@@ -862,7 +863,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat, fcbname);
 
-  fnp->f_flags = F_DMOD | F_DDIR;
+  fnp->f_flags = F_DMOD;
 
   fnp->f_offset = 0l;
 
@@ -1017,7 +1018,7 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
 /* Description.
  *    Finds the cluster which contains byte at the fnp->f_offset offset and
  *  stores its number to the fnp->f_cluster. The search begins from the start of
- *  a file or a directory depending whether fnp->f_ddir is FALSE or TRUE
+ *  a file or a directory depending on whether the SFT index is valid
  *  and continues through the FAT chain until the target cluster is found.
  *  The mode can have only XFR_READ or XFR_WRITE values.
  *    In the XFR_WRITE mode map_cluster extends the FAT chain by creating
@@ -1069,7 +1070,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     /* If seek is to earlier in file than current position, */
     /* we have to follow chain from the beginning again...  */
     /* Set internal index and cluster size.                 */
-    fnp->f_cluster = (fnp->f_flags & F_DDIR) ? fnp->f_dirstart :
+    fnp->f_cluster = fnp->f_sft_idx == 0xff ? fnp->f_dirstart :
         getdstart(fnp->f_dpb, &fnp->f_dir);
     fnp->f_cluster_offset = 0;
   }
@@ -1332,8 +1333,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     unsigned sector, boff;
 
     /* Do an EOF test and return whatever was transferred   */
-    /* but only for regular files.                          */
-    if (mode == XFR_READ && !(fnp->f_flags & F_DDIR) && (fnp->f_offset >= fnp->f_dir.dir_size))
+    if (mode == XFR_READ && fnp->f_offset >= fnp->f_dir.dir_size)
     {
       fnode_to_sft(fnp);
       return ret_cnt;
@@ -1383,8 +1383,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
     /* see comments above */
 
-    if (!(fnp->f_flags & F_DDIR) && /* don't experiment with directories yet */
-        boff == 0)              /* complete sectors only */
+    if (boff == 0)              /* complete sectors only */
     {
       static ULONG startoffset;
       UCOUNT sectors_to_xfer, sectors_wanted;
@@ -1473,7 +1472,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* Then compare to what is left, since we can transfer  */
     /* a maximum of what is left.                           */
     xfr_cnt = min(to_xfer, secsize - boff);
-    if (!(fnp->f_flags & F_DDIR) && mode == XFR_READ)
+    if (mode == XFR_READ)
       xfr_cnt = (UWORD) min(xfr_cnt, fnp->f_dir.dir_size - fnp->f_offset);
 
     /* transfer a block                                     */
@@ -1634,7 +1633,6 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   fnp->f_flags |= F_DMOD | F_DDATE;
 
   /* close open files in compat mode, otherwise there was a critical error */
-  fnp->f_sft_idx = -1;
   rc = merge_file_changes(fnp, -1);
   if (rc == SUCCESS)
     dir_write(fnp);

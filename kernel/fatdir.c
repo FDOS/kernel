@@ -42,7 +42,7 @@ static BYTE *fatdirRcsId =
 VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
 {
   /* reset the directory flags    */
-  fnp->f_flags = F_DDIR;
+  fnp->f_sft_idx = 0xff;
   fnp->f_diroff = 0;
   fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
@@ -236,9 +236,6 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
 {
   struct buffer FAR *bp;
   UBYTE FAR *vp;
-
-  if (!(fnp->f_flags & F_DDIR))
-    return FALSE;
 
   /* Update the entry if it was modified by a write or create...  */
   if (fnp->f_flags & (F_DMOD|F_DDATE))
