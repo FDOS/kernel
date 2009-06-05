@@ -53,9 +53,6 @@ struct f_node {
   UBYTE f_sft_idx;              /* corresponding SFT index      */
 };
 
-#define F_DMOD  0x40            /* directory has been modified  */
-#define F_DDATE 0x4000          /* date set using setdate       */
-
 typedef struct f_node *f_node_ptr;
 
 struct lfn_inode {

@@ -43,6 +43,8 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
 {
   /* reset the directory flags    */
   fnp->f_sft_idx = 0xff;
+  fnp->f_flags &= ~SFT_FDATE;
+  fnp->f_flags |= SFT_FCLEAN;
   fnp->f_diroff = 0;
   fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
@@ -166,7 +168,7 @@ COUNT dir_read(REG f_node_ptr fnp)
 
   /* Determine if we hit the end of the directory. If we have,    */
   /* bump the offset back to the end and exit. If not, fill the   */
-  /* dirent portion of the fnode, clear the f_dmod bit and leave, */
+  /* dirent portion of the fnode, set the SFT_FCLEAN bit and leave,*/
   /* but only for root directories                                */
 
   if (fnp->f_dirstart == 0)
@@ -215,7 +217,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   swap_deleted(fnp->f_dir.dir_name);
 
   /* Update the fnode's directory info                    */
-  fnp->f_flags &= ~F_DMOD;
+  fnp->f_flags |= SFT_FCLEAN;
 
   /* and for efficiency, stop when we hit the first       */
   /* unused entry.                                        */
@@ -238,7 +240,7 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
   UBYTE FAR *vp;
 
   /* Update the entry if it was modified by a write or create...  */
-  if (fnp->f_flags & (F_DMOD|F_DDATE))
+  if ((fnp->f_flags & (SFT_FCLEAN|SFT_FDATE)) != SFT_FCLEAN)
   {
     bp = getblock(fnp->f_dirsector, fnp->f_dpb->dpb_unit);
 

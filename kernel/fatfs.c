@@ -196,7 +196,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   if (status != S_OPENED)
   {
     init_direntry(&fnp->f_dir, attrib, FREE, fcbname);
-    fnp->f_flags = F_DMOD;
+    fnp->f_flags &= ~SFT_FCLEAN;
     if (!dir_write(fnp))
       return DE_ACCESS;
   }
@@ -212,9 +212,9 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
     fnp->f_cluster_offset = 0;
   }
 
-  fnp->f_flags = 0;
-  if (status != S_OPENED)
-    fnp->f_flags = F_DMOD;
+  fnp->f_flags &= ~(SFT_FDATE|SFT_FCLEAN);
+  if (status == S_OPENED)
+    fnp->f_flags |= SFT_FCLEAN;
 
   merge_file_changes(fnp, status == S_OPENED); /* /// Added - Ron Cemer */
   /* /// Moved from above.  - Ron Cemer */
@@ -238,9 +238,9 @@ COUNT dos_close(COUNT fd)
   /* Translate the fd into a useful pointer                       */
   f_node_ptr fnp = sft_to_fnode(fd);
 
-  if (fnp->f_flags & F_DMOD)
+  if (!(fnp->f_flags & SFT_FCLEAN))
   {
-    if (!(fnp->f_flags & F_DDATE))
+    if (!(fnp->f_flags & SFT_FDATE))
     {
       fnp->f_dir.dir_time = dos_gettime();
       fnp->f_dir.dir_date = dos_getdate();
@@ -345,7 +345,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     if (fnp->f_dir.dir_attrib != D_LFN)
       break;
     fnp->f_dir.dir_name[0] = DELETED;
-    fnp->f_flags |= F_DMOD;
+    fnp->f_flags &= ~SFT_FCLEAN;
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
   fnp->f_diroff = original_diroff;
@@ -443,7 +443,7 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   /* The directory has been modified, so set the  */
   /* bit before closing it, allowing it to be     */
   /* updated                                      */
-  fnp->f_flags |= F_DMOD;
+  fnp->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp);
 
   /* SUCCESSful completion, return it             */
@@ -591,9 +591,9 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
     /* init fnode for new file name to match old file name */
     memcpy(&fnp2->f_dir, &fnp1->f_dir, sizeof(struct dirent));
 
-    /* The directory has been modified, so set the bit before       */
+    /* The directory has been modified, so reset the bit before     */
     /* closing it, allowing it to be updated.                       */
-    fnp1->f_flags = F_DMOD;
+    fnp1->f_flags &= ~SFT_FCLEAN;
 
     /* Ok, so we can delete this one. Save the file info.           */
     *(fnp1->f_dir.dir_name) = DELETED;
@@ -606,7 +606,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* The directory has been modified, so set the bit before       */
   /* closing it, allowing it to be updated.                       */
-  fnp2->f_flags = F_DMOD;
+  fnp2->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp2);
 
   /* SUCCESSful completion, return it                             */
@@ -686,7 +686,7 @@ STATIC BOOL find_free(f_node_ptr fnp)
 /* available, tries to extend the directory.                      */
 STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
 {
-  fnp->f_flags &= ~F_DMOD;
+  fnp->f_flags |= SFT_FCLEAN;
   fnp = split_path(path, fcbname, fnp);
 
   /* Get a free f_node pointer so that we can use */
@@ -697,7 +697,7 @@ STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
   {
     if (fnp->f_dirstart == 0)
     {
-      fnp->f_flags &= ~F_DMOD;
+      fnp->f_flags |= SFT_FCLEAN;
       return DE_TOOMANY;
     }
     else
@@ -863,7 +863,7 @@ COUNT dos_mkdir(BYTE * dir)
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat, fcbname);
 
-  fnp->f_flags = F_DMOD;
+  fnp->f_flags &= ~SFT_FCLEAN;
 
   fnp->f_offset = 0l;
 
@@ -928,7 +928,7 @@ COUNT dos_mkdir(BYTE * dir)
   flush_buffers(dpbp->dpb_unit);
 
   /* Close the directory so that the entry is updated     */
-  fnp->f_flags |= F_DMOD;
+  fnp->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp);
 
   return SUCCESS;
@@ -972,7 +972,7 @@ STATIC CLUSTER extend(f_node_ptr fnp)
   }
 
   /* Mark the directory so that the entry is updated              */
-  fnp->f_flags |= F_DMOD;
+  fnp->f_flags &= ~SFT_FCLEAN;
   return free_fat;
 }
 
@@ -1285,8 +1285,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   if (mode==XFR_WRITE)
   {
     fnp->f_dir.dir_attrib |= D_ARCHIVE;
-    fnp->f_flags |= F_DMOD;       /* mark file as modified */
-    fnp->f_flags &= ~F_DDATE;     /* set date not valid any more */
+    /* mark file as modified and set date not valid any more */
+    fnp->f_flags &= ~(SFT_FCLEAN|SFT_FDATE); 
     
     if (dos_extend(fnp) != SUCCESS)
     {
@@ -1630,7 +1630,8 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
-  fnp->f_flags |= F_DMOD | F_DDATE;
+  fnp->f_flags &= ~SFT_FCLEAN;
+  fnp->f_flags |= SFT_FDATE;
 
   /* close open files in compat mode, otherwise there was a critical error */
   rc = merge_file_changes(fnp, -1);
@@ -1810,12 +1811,10 @@ STATIC f_node_ptr sft_to_fnode(int fd)
 {
   sft FAR *sftp = idx_to_sft(fd);
   f_node_ptr fnp = &fnode[0];
-  UWORD flags;
 
   fnp->f_sft_idx = fd;
 
-  flags = sftp->sft_flags;
-  fnp->f_flags = (flags & SFT_FDATE) | ((flags & SFT_FDIRTY) ^ SFT_FDIRTY);
+  fnp->f_flags = sftp->sft_flags;
 
   fnp->f_dir.dir_attrib = sftp->sft_attrib;
   fmemcpy(fnp->f_dir.dir_name, sftp->sft_name, FNAME_SIZE + FEXT_SIZE);
@@ -1842,8 +1841,7 @@ STATIC void fnode_to_sft(f_node_ptr fnp)
 {
   sft FAR *sftp = idx_to_sft(fnp->f_sft_idx);
 
-  sftp->sft_flags = (sftp->sft_flags & ~(SFT_FDATE | SFT_FDIRTY)) |
-    ((fnp->f_flags & (SFT_FDATE | SFT_FDIRTY)) ^ SFT_FDIRTY);
+  sftp->sft_flags = fnp->f_flags;
 
   sftp->sft_attrib = fnp->f_dir.dir_attrib;
   fmemcpy(sftp->sft_name, fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE);

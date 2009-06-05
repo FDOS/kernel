@@ -115,7 +115,7 @@ typedef struct sfttbl {
 
 /* the following bits are file (block) unique                           */
 #define SFT_FDATE       0x4000  /* File date set                */
-#define SFT_FDIRTY      0x0040  /* File has been written to     */
+#define SFT_FCLEAN      0x0040  /* File has not been written to */
 #define SFT_FDMASK      0x003f  /* File mask for drive no       */
 
 /* the following bits are device (char) unique                          */
