@@ -807,6 +807,31 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
   return idx;
 }
 
+/* clear out the blocks in the cluster for a directory */
+STATIC int clear_dir(f_node_ptr fnp, CLUSTER cluster)
+{
+  int idx;
+  for (idx = 0; idx <= fnp->f_dpb->dpb_clsmask; idx++)
+  {
+    struct buffer FAR *bp;
+
+    /* as we are overwriting it completely, don't read first */
+    bp = getblockOver(clus2phys(cluster, fnp->f_dpb) + idx,
+                      fnp->f_dpb->dpb_unit);
+#ifdef DISPLAY_GETBLOCK
+    printf("DIR (clear_dir)\n");
+#endif
+    if (bp == NULL)
+      return DE_BLKINVLD;
+    fmemset(bp->b_buffer, 0, BUFFERSIZE);
+    bp->b_flag |= BFR_DIRTY | BFR_VALID;
+
+    if (idx != 0)
+      bp->b_flag |= BFR_UNCACHE;        /* needs not be cached */
+  }
+  return SUCCESS;
+}
+
 /*                                                              */
 /* create a directory - returns success or a negative error     */
 /* number                                                       */
@@ -814,9 +839,6 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
 COUNT dos_mkdir(BYTE * dir)
 {
   REG f_node_ptr fnp;
-  REG COUNT idx;
-  struct buffer FAR *bp;
-  struct dpb FAR *dpbp;
   CLUSTER free_fat, parent;
   COUNT ret;
   char fcbname[FNAME_SIZE + FEXT_SIZE];
@@ -865,69 +887,45 @@ COUNT dos_mkdir(BYTE * dir)
 
   fnp->f_flags &= ~SFT_FCLEAN;
 
-  fnp->f_offset = 0l;
-
   /* Mark the cluster in the FAT as used and create new dir there */
-  dpbp = fnp->f_dpb;
-  if (link_fat(dpbp, free_fat, LONG_LAST_CLUSTER) != SUCCESS) /* free->last */
+  if (link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER) != SUCCESS) /* free->last */
     return DE_HNDLDSKFULL; /* should never happen */
+
+  /* clean out the new directory */
+  ret = clear_dir(fnp, free_fat);
+  if (ret != SUCCESS)
+    return ret;
+
+  /* Write the new directory entry                         */
+  dir_write(fnp);
 
   /* Craft the new directory. Note that if we're in a new  */
   /* directory just under the root, ".." pointer is 0.     */
-  /* as we are overwriting it completely, don't read first */
-  bp = getblockOver(clus2phys(free_fat, dpbp), dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-  printf("FAT (dos_mkdir)\n");
-#endif
-  if (bp == NULL)
-    return DE_BLKINVLD;
+
+  dir_init_fnode(fnp, free_fat);
+  find_free(fnp);
 
   /* Create the "." entry                                 */
-  init_direntry(&DirEntBuffer, D_DIR, free_fat, ".          ");
+  init_direntry(&fnp->f_dir, D_DIR, free_fat, ".          ");
 
   /* And put it out                                       */
-  putdirent(&DirEntBuffer, bp->b_buffer);
+  fnp->f_flags &= ~SFT_FCLEAN;
+  dir_write(fnp);
 
   /* create the ".." entry                                */
-  DirEntBuffer.dir_name[1] = '.';
+  if (!find_free(fnp) && ((ret = extend_dir(fnp)) != SUCCESS))
+    return ret;
 #ifdef WITHFAT32
-  if (ISFAT32(dpbp) && parent == dpbp->dpb_xrootclst)
+  if (ISFAT32(fnp->f_dpb) && parent == fnp->f_dpb->dpb_xrootclst)
   {
     parent = 0;
   }
 #endif
-  setdstart(dpbp, &DirEntBuffer, parent);
+  /* use . to allow the compiler to merge duplicate strings */
+  init_direntry(&fnp->f_dir, D_DIR, parent, ".          ");
+  fnp->f_dir.dir_name[1] = '.';
 
   /* and put it out                                       */
-  putdirent(&DirEntBuffer, &bp->b_buffer[DIRENT_SIZE]);
-
-  /* fill the rest of the block with zeros                */
-  fmemset(&bp->b_buffer[2 * DIRENT_SIZE], 0, BUFFERSIZE - 2 * DIRENT_SIZE);
-
-  /* Mark the block to be written out                     */
-  bp->b_flag |= BFR_DIRTY | BFR_VALID;
-
-  /* clear out the rest of the blocks in the cluster      */
-  for (idx = 1; idx <= dpbp->dpb_clsmask; idx++)
-  {
-
-    /* as we are overwriting it completely, don't read first */
-    bp = getblockOver(clus2phys(getdstart(dpbp, &fnp->f_dir), dpbp) + idx,
-                      dpbp->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-    printf("DIR (dos_mkdir)\n");
-#endif
-    if (bp == NULL)
-      return DE_BLKINVLD;
-    fmemset(bp->b_buffer, 0, BUFFERSIZE);
-    bp->b_flag |= BFR_DIRTY | BFR_VALID | BFR_UNCACHE; /* need not be cached */
-  }
-
-  /* flush the drive buffers so that all info is written  */
-  /* hazard: no error checking! */
-  flush_buffers(dpbp->dpb_unit);
-
-  /* Close the directory so that the entry is updated     */
   fnp->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp);
 
@@ -978,31 +976,14 @@ STATIC CLUSTER extend(f_node_ptr fnp)
 
 STATIC COUNT extend_dir(f_node_ptr fnp)
 {
-  REG COUNT idx;
-
+  int ret;
   CLUSTER cluster = extend(fnp);
   if (cluster == LONG_LAST_CLUSTER)
     return DE_HNDLDSKFULL;
 
-  /* clear out the blocks in the cluster      */
-  for (idx = 0; idx <= fnp->f_dpb->dpb_clsmask; idx++)
-  {
-    REG struct buffer FAR *bp;
-
-    /* as we are overwriting it completely, don't read first */
-    bp = getblockOver(clus2phys(cluster, fnp->f_dpb) + idx,
-                      fnp->f_dpb->dpb_unit);
-#ifdef DISPLAY_GETBLOCK
-    printf("DIR (extend_dir)\n");
-#endif
-    if (bp == NULL)
-      return DE_BLKINVLD;
-    fmemset(bp->b_buffer, 0, BUFFERSIZE);
-    bp->b_flag |= BFR_DIRTY | BFR_VALID;
-
-    if (idx != 0)
-      bp->b_flag |= BFR_UNCACHE;        /* needs not be cached */
-  }
+  ret = clear_dir(fnp, cluster);
+  if (ret != SUCCESS)
+    return ret;
 
   if (!find_free(fnp))
     return DE_HNDLDSKFULL;
