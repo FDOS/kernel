@@ -54,7 +54,7 @@ static BYTE *RcsId =
 
 */
 
-COUNT DosDevIOctl(lregs * r)
+STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
 {
   static UBYTE cmd [] = {
     0, 0,
@@ -124,6 +124,7 @@ COUNT DosDevIOctl(lregs * r)
       if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
         return DE_INVLDHNDL;
 
+      *dev = s->sft_dev;
       attr = s->sft_dev->dh_attr;
       flags = s->sft_flags;
 
@@ -187,21 +188,7 @@ COUNT DosDevIOctl(lregs * r)
               || (r->AL == 0x0c && (attr & ATTR_GENIOCTL))))
           {
             CharReqHdr.r_unit = 0;
-            execrh((request FAR *) & CharReqHdr, s->sft_dev);
-            
-            if (CharReqHdr.r_status & S_ERROR)
-            {
-              CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-              return DE_DEVICE;
-            }
-
-            if (r->AL <= 0x03)
-              r->AX = CharReqHdr.r_count;
-            else if (r->AL <= 0x07)
-              r->AX = CharReqHdr.r_status & S_BUSY ? 0000 : 0x00ff;
-            else /* 0x0c or 0x10 */
-              r->AX = CharReqHdr.r_status;
-            break;
+            return 1;
           }
           return DE_INVLDFUNC;
       }
@@ -232,6 +219,7 @@ COUNT DosDevIOctl(lregs * r)
       dpbp = get_dpb(CharReqHdr.r_unit);
       if (dpbp)
       {
+        *dev = dpbp->dpb_device;
         attr = dpbp->dpb_device->dh_attr;
         CharReqHdr.r_unit = dpbp->dpb_subunit;
       }
@@ -281,39 +269,11 @@ COUNT DosDevIOctl(lregs * r)
           {
             return DE_INVLDFUNC;
           }
-
-          execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
-
-          if (CharReqHdr.r_status & S_ERROR)
-          {
-            CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-            return DE_DEVICE;
-          }
-          if (r->AL <= 0x05)
-            r->AX = CharReqHdr.r_count;
-          else if (r->AL == 0x08)
-            r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
-          else /* 0x0d or 0x11 */
-            r->AX = CharReqHdr.r_status;
-          break;
+          return 1;
 
         default: /* 0x0e, 0x0f */
           if (attr & ATTR_GENIOCTL)
-          {
-            
-            execrh((request FAR *) & CharReqHdr, dpbp->dpb_device);
-            
-            if (CharReqHdr.r_status & S_ERROR)
-            {
-              CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
-              return DE_ACCESS;
-            }
-            else
-            {
-              r->AL = CharReqHdr.r_unit;
-              return SUCCESS;
-            }
-          }
+            return 1;
           return DE_INVLDFUNC;
       }
       break;
@@ -321,3 +281,33 @@ COUNT DosDevIOctl(lregs * r)
   return SUCCESS;
 }
 
+int DosDevIOctl(lregs * r)
+{
+  int ret;
+  struct dhdr FAR *dev;
+
+  ret = DosDevIOctl1(r, &dev);
+  if(ret <= SUCCESS)
+    return ret;
+
+  /* call execrh() here instead of in DosDevIOctl1() to minimize stack usage */
+  execrh(&CharReqHdr, dev);
+
+  if (CharReqHdr.r_status & S_ERROR)
+  {
+    CritErrCode = (CharReqHdr.r_status & S_MASK) + 0x13;
+    return DE_ACCESS;
+  }
+
+  if (r->AL <= 0x05)                       /* 0x02, 0x03, 0x04, 0x05 */
+    r->AX = CharReqHdr.r_count;
+  else if (r->AL <= 0x07)                  /* 0x06, 0x07 */
+    r->AX = (CharReqHdr.r_status & S_BUSY) ? 0000 : 0x00ff;
+  else if (r->AL == 0x08)                  /* 0x08 */
+    r->AX = (CharReqHdr.r_status & S_BUSY) ? 1 : 0;
+  else if (r->AL == 0x0e || r->AL == 0x0f) /* 0x0e, 0x0f */
+    r->AL = CharReqHdr.r_unit;
+  else                                     /* 0x0c, 0x0d, 0x10, 0x11 */
+    r->AX = CharReqHdr.r_status;
+  return SUCCESS;
+}
