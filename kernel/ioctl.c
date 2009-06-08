@@ -78,7 +78,7 @@ int DosDevIOctl(lregs * r)
   sft FAR *s;
   struct dpb FAR *dpbp;
   unsigned attr;
-  unsigned char al = r->AL;
+  unsigned char unit, al = r->AL;
 
   if (al > 0x11)
     return DE_INVLDFUNC;
@@ -211,45 +211,39 @@ int DosDevIOctl(lregs * r)
 #define NDN_HACK
 /* NDN feeds the actual ASCII drive letter to this function */
 #ifdef NDN_HACK
-      CharReqHdr.r_unit = ((r->BL & 0x1f) == 0 ? default_drive :
-                           (r->BL & 0x1f) - 1);
+      unit = ((r->BL & 0x1f) == 0 ? default_drive : (r->BL & 0x1f) - 1);
 #else
-      CharReqHdr.r_unit = (r->BL == 0 ? default_drive : r->BL - 1);
+      unit = (r->BL == 0 ? default_drive : r->BL - 1);
 #endif
 
-      dev = NULL;
-      dpbp = get_dpb(CharReqHdr.r_unit);
+      dpbp = get_dpb(unit);
       if (dpbp)
       {
         dev = dpbp->dpb_device;
         attr = dev->dh_attr;
         CharReqHdr.r_unit = dpbp->dpb_subunit;
       }
-      else if (r->AL != 9)
-        return DE_INVLDDRV;
+      else
+      {
+        if (r->AL != 9)
+          return DE_INVLDDRV;
+        dev = NULL;
+        attr = ATTR_REMOTE;
+      }
 
       switch (r->AL)
       {
         case 0x09:
         {
-          struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
-          r->AX = S_DONE | S_BUSY;
-          if (cdsp != NULL && dev == NULL)
-          {
-            r->DX = ATTR_REMOTE;
-          }
-          else
-          {
-            if (dev == NULL)
-            {
-              return DE_INVLDDRV;
-            }
-            r->DX = attr;
-          }
+          /* note from get_dpb()                            */
+          /* that if cdsp == NULL then dev must be NULL too */
+          struct cds FAR *cdsp = get_cds(unit);
+          if (cdsp == NULL)
+            return DE_INVLDDRV;
           if (cdsp->cdsFlags & CDSSUBST)
-          {
-            r->DX |= ATTR_SUBST;
-          }
+            attr |= ATTR_SUBST;
+          r->AX = S_DONE | S_BUSY;
+          r->DX = attr;
           return SUCCESS;
         }
         case 0x08:
