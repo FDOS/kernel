@@ -54,7 +54,7 @@ static BYTE *RcsId =
 
 */
 
-STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
+int DosDevIOctl(lregs * r)
 {
   static UBYTE cmd [] = {
     0, 0,
@@ -73,7 +73,8 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
     /* 0x10 */ C_IOCTLQRY,
     /* 0x11 */ C_IOCTLQRY,
   };
-  
+
+  struct dhdr FAR *dev;
   sft FAR *s;
   struct dpb FAR *dpbp;
   unsigned attr;
@@ -84,7 +85,7 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
 
   /* commonly used, shouldn't harm to do front up */
   CharReqHdr.r_command = cmd[r->AL];
-  if (al == 0x0C || al == 0x0D || al >= 0x10) /* generic or query */
+  if (r->AL == 0x0C || r->AL == 0x0D || r->AL >= 0x10) /* generic or query */
   {
     CharReqHdr.r_cat = r->CH;            /* category (major) code */
     CharReqHdr.r_fun = r->CL;            /* function (minor) code */
@@ -105,7 +106,7 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
       NetDelay = r->CX;
       if (r->DX)
         NetRetry = r->DX;
-      break;
+      return SUCCESS;
 
     case 0x00:
     case 0x01:
@@ -124,8 +125,8 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
       if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
         return DE_INVLDHNDL;
 
-      *dev = s->sft_dev;
-      attr = s->sft_dev->dh_attr;
+      dev = s->sft_dev;
+      attr = dev->dh_attr;
       flags = s->sft_flags;
 
       switch (r->AL)
@@ -138,7 +139,7 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
             r->AX = flags;
           /* Undocumented result, Ax = Dx seen using Pcwatch */
           r->DX = r->AX;
-          break;
+          return SUCCESS;
 
         case 0x01:
           /* sft_flags is a file, return an error because you     */
@@ -156,18 +157,18 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
           /* Set it to what we got in the DL register from the    */
           /* user.                                                */
           s->sft_flags_lo = SFT_FDEVICE | r->DL;
-          break;
+          return SUCCESS;
 
         case 0x0a:
           r->DX = flags;
           r->AX = 0;
-          break;
+          return SUCCESS;
 
         case 0x06:
           if (!(flags & SFT_FDEVICE))
           {
             r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
-            break;
+            return SUCCESS;
           }
           goto IoCharCommon;
 
@@ -175,7 +176,7 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
           if (!(flags & SFT_FDEVICE))
           {
             r->AL = 0;
-            break;
+            return SUCCESS;
           }
           /* fall through */
 
@@ -188,7 +189,7 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
               || (r->AL == 0x0c && (attr & ATTR_GENIOCTL))))
           {
             CharReqHdr.r_unit = 0;
-            return 1;
+            break;
           }
           return DE_INVLDFUNC;
       }
@@ -216,11 +217,12 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
       CharReqHdr.r_unit = (r->BL == 0 ? default_drive : r->BL - 1);
 #endif
 
+      dev = NULL;
       dpbp = get_dpb(CharReqHdr.r_unit);
       if (dpbp)
       {
-        *dev = dpbp->dpb_device;
-        attr = dpbp->dpb_device->dh_attr;
+        dev = dpbp->dpb_device;
+        attr = dev->dh_attr;
         CharReqHdr.r_unit = dpbp->dpb_subunit;
       }
       else if (r->AL != 9)
@@ -232,13 +234,13 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
         {
           struct cds FAR *cdsp = get_cds(CharReqHdr.r_unit);
           r->AX = S_DONE | S_BUSY;
-          if (cdsp != NULL && dpbp == NULL)
+          if (cdsp != NULL && dev == NULL)
           {
             r->DX = ATTR_REMOTE;
           }
           else
           {
-            if (!dpbp)
+            if (dev == NULL)
             {
               return DE_INVLDDRV;
             }
@@ -248,7 +250,7 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
           {
             r->DX |= ATTR_SUBST;
           }
-          break;
+          return SUCCESS;
         }
         case 0x08:
           if (!(attr & ATTR_EXCALLS))
@@ -261,7 +263,8 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
           if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
           {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
-            break;      /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
+            /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
+            return SUCCESS;
           }
           if ((r->AL <= 0x05 && !(attr & ATTR_IOCTL))
            || (r->AL == 0x11 && !(attr & ATTR_QRYIOCTL))
@@ -269,26 +272,15 @@ STATIC int DosDevIOctl1(lregs * r, struct dhdr FAR **dev)
           {
             return DE_INVLDFUNC;
           }
-          return 1;
+          break;
 
         default: /* 0x0e, 0x0f */
           if (attr & ATTR_GENIOCTL)
-            return 1;
+            break;
           return DE_INVLDFUNC;
       }
       break;
   }
-  return SUCCESS;
-}
-
-int DosDevIOctl(lregs * r)
-{
-  int ret;
-  struct dhdr FAR *dev;
-
-  ret = DosDevIOctl1(r, &dev);
-  if(ret <= SUCCESS)
-    return ret;
 
   /* call execrh() here instead of in DosDevIOctl1() to minimize stack usage */
   execrh(&CharReqHdr, dev);
