@@ -78,7 +78,7 @@ int DosDevIOctl(lregs * r)
   sft FAR *s;
   struct dpb FAR *dpbp;
   unsigned attr;
-  unsigned char unit, al = r->AL;
+  unsigned char al = r->AL;
 
   if (al > 0x11)
     return DE_INVLDFUNC;
@@ -125,8 +125,6 @@ int DosDevIOctl(lregs * r)
       if ((s = get_sft(r->BX)) == (sft FAR *) - 1)
         return DE_INVLDHNDL;
 
-      dev = s->sft_dev;
-      attr = dev->dh_attr;
       flags = s->sft_flags;
 
       switch (r->AL)
@@ -134,7 +132,7 @@ int DosDevIOctl(lregs * r)
         case 0x00:
           /* Get the flags from the SFT                           */
           if (flags & SFT_FDEVICE)
-            r->AX = (attr & 0xff00) | (flags & 0xff);
+            r->AX = (flags & 0xff) | (s->sft_dev->dh_attr & 0xff00);
           else
             r->AX = flags;
           /* Undocumented result, Ax = Dx seen using Pcwatch */
@@ -163,37 +161,28 @@ int DosDevIOctl(lregs * r)
           r->DX = flags;
           r->AX = 0;
           return SUCCESS;
-
-        case 0x06:
-          if (!(flags & SFT_FDEVICE))
-          {
-            r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
-            return SUCCESS;
-          }
-          goto IoCharCommon;
-
-        case 0x07:
-          if (!(flags & SFT_FDEVICE))
-          {
-            r->AL = 0;
-            return SUCCESS;
-          }
-          /* fall through */
-
-        default: /* 0x02, 0x03, 0x0c, 0x10 */
-        IoCharCommon:  
-          if ((flags & SFT_FDEVICE) &&
-              (  (r->AL <= 0x03 && (attr & ATTR_IOCTL))
-              ||  r->AL == 0x06 || r->AL == 0x07
-              || (r->AL == 0x10 && (attr & ATTR_QRYIOCTL))
-              || (r->AL == 0x0c && (attr & ATTR_GENIOCTL))))
-          {
-            CharReqHdr.r_unit = 0;
-            break;
-          }
-          return DE_INVLDFUNC;
       }
-      break;
+      if (!(flags & SFT_FDEVICE))
+      {
+        if (r->AL == 0x06)
+          r->AL = s->sft_posit >= s->sft_size ? 0 : 0xFF;
+        else if (r->AL == 0x07)
+          r->AL = 0;
+        else
+          return DE_INVLDFUNC;
+        return SUCCESS;
+      }
+      dev = s->sft_dev;
+      attr = dev->dh_attr;
+      if ((r->AL <= 0x03 && (attr & ATTR_IOCTL))
+          ||  r->AL == 0x06 || r->AL == 0x07
+          || (r->AL == 0x10 && (attr & ATTR_QRYIOCTL))
+          || (r->AL == 0x0c && (attr & ATTR_GENIOCTL)))
+      {
+        CharReqHdr.r_unit = 0;
+        break;
+      }
+      return DE_INVLDFUNC;
     }
 
     default: /* block IOCTL: 4, 5, 8, 9, d, e, f, 11 */
@@ -208,20 +197,13 @@ int DosDevIOctl(lregs * r)
 /* JPP - changed to use default drive if drive=0 */
 /* JT Fixed it */
 
-#define NDN_HACK
-/* NDN feeds the actual ASCII drive letter to this function */
-#ifdef NDN_HACK
-      unit = ((r->BL & 0x1f) == 0 ? default_drive : (r->BL & 0x1f) - 1);
-#else
-      unit = (r->BL == 0 ? default_drive : r->BL - 1);
-#endif
-
-      dpbp = get_dpb(unit);
+      /* NDN feeds the actual ASCII drive letter to this function */
+      dpbp = get_dpb((r->BL & 0x1f) == 0 ? default_drive : (r->BL & 0x1f) - 1);
       if (dpbp)
       {
+        CharReqHdr.r_unit = dpbp->dpb_subunit;
         dev = dpbp->dpb_device;
         attr = dev->dh_attr;
-        CharReqHdr.r_unit = dpbp->dpb_subunit;
       }
       else
       {
@@ -237,7 +219,7 @@ int DosDevIOctl(lregs * r)
         {
           /* note from get_dpb()                            */
           /* that if cdsp == NULL then dev must be NULL too */
-          struct cds FAR *cdsp = get_cds(unit);
+          struct cds FAR *cdsp = get_cds1(r->BL & 0x1f);
           if (cdsp == NULL)
             return DE_INVLDDRV;
           if (cdsp->cdsFlags & CDSSUBST)
