@@ -75,12 +75,8 @@ int DosDevIOctl(lregs * r)
   };
 
   struct dhdr FAR *dev;
-  sft FAR *s;
-  struct dpb FAR *dpbp;
-  unsigned attr;
-  unsigned char al = r->AL;
 
-  if (al > 0x11)
+  if (r->AL > 0x11)
     return DE_INVLDFUNC;
 
   /* commonly used, shouldn't harm to do front up */
@@ -118,6 +114,7 @@ int DosDevIOctl(lregs * r)
     case 0x0c:
     case 0x10:
     {
+      sft FAR *s;
       unsigned flags;
 
       /* Test that the handle is valid and                    */
@@ -173,20 +170,14 @@ int DosDevIOctl(lregs * r)
         return SUCCESS;
       }
       dev = s->sft_dev;
-      attr = dev->dh_attr;
-      if ((r->AL <= 0x03 && (attr & ATTR_IOCTL))
-          ||  r->AL == 0x06 || r->AL == 0x07
-          || (r->AL == 0x10 && (attr & ATTR_QRYIOCTL))
-          || (r->AL == 0x0c && (attr & ATTR_GENIOCTL)))
-      {
-        CharReqHdr.r_unit = 0;
-        break;
-      }
-      return DE_INVLDFUNC;
+      CharReqHdr.r_unit = 0;
+      break;
     }
 
     default: /* block IOCTL: 4, 5, 8, 9, d, e, f, 11 */
-
+    {
+      struct dpb FAR *dpbp;
+      unsigned attr;
 /*
    This line previously returned the deviceheader at r->bl. But,
    DOS numbers its drives starting at 1, not 0. A=1, B=2, and so
@@ -228,37 +219,36 @@ int DosDevIOctl(lregs * r)
           r->DX = attr;
           return SUCCESS;
         }
-        case 0x08:
-          if (!(attr & ATTR_EXCALLS))
-	    return DE_INVLDFUNC;
-	  /* else fall through */
-        case 0x04:
-        case 0x05:
         case 0x0d:
-        case 0x11:
-          if (r->AL == 0x0D && (r->CX & ~(0x486B-0x084A)) == 0x084A)
+          if ((r->CX & ~(0x486B-0x084A)) == 0x084A)
           {             /* 084A/484A, 084B/484B, 086A/486A, 086B/486B */
             r->AX = 0;  /* (lock/unlock logical/physical volume) */
             /* simulate success for MS-DOS 7+ SCANDISK etc. --LG */
             return SUCCESS;
           }
-          if ((r->AL <= 0x05 && !(attr & ATTR_IOCTL))
-           || (r->AL == 0x11 && !(attr & ATTR_QRYIOCTL))
-           || (r->AL == 0x0d && !(attr & ATTR_GENIOCTL)))
-          {
-            return DE_INVLDFUNC;
-          }
+          /* fall through */
+        default: /* 0x04, 0x05, 0x08, 0x0e, 0x0f, 0x11 */
           break;
-
-        default: /* 0x0e, 0x0f */
-          if (attr & ATTR_GENIOCTL)
-            break;
-          return DE_INVLDFUNC;
       }
       break;
+    }
   }
 
-  /* call execrh() here instead of in DosDevIOctl1() to minimize stack usage */
+  {
+    unsigned testattr = ATTR_QRYIOCTL;
+    if (r->AL<=0x0f)
+      testattr = ATTR_GENIOCTL;
+    if (r->AL<=0x08)
+      testattr = ATTR_EXCALLS;
+    if (r->AL<=0x07)
+      testattr = 0xffff;
+    if (r->AL<=0x05)
+      testattr = ATTR_IOCTL;
+
+    if (!(dev->dh_attr & testattr))
+      return DE_INVLDFUNC;
+  }
+
   execrh(&CharReqHdr, dev);
 
   if (CharReqHdr.r_status & S_ERROR)
