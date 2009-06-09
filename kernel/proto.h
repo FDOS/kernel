@@ -80,14 +80,14 @@ const char FAR *get_root(const char FAR *);
 BOOL check_break(void);
 UCOUNT GenericReadSft(sft far * sftp, UCOUNT n, void FAR * bp,
                       COUNT * err, BOOL force_binary);
-COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode);
+COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode);
 /*COUNT DosRead(COUNT hndl, UCOUNT n, BYTE FAR * bp, COUNT FAR * err); */
 void BinarySftIO(int sft_idx, void *bp, int mode);
 #define BinaryIO(hndl, bp, mode) BinarySftIO(get_sft_idx(hndl), bp, mode)
 long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode);
 #define DosRead(hndl, n, bp) DosRWSft(get_sft_idx(hndl), n, bp, XFR_READ)
 #define DosWrite(hndl, n, bp) DosRWSft(get_sft_idx(hndl), n, bp, XFR_WRITE)
-ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode);
+ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode, int *rc);
 long DosOpen(char FAR * fname, unsigned flags, unsigned attrib);
 COUNT CloneHandle(unsigned hndl);
 long DosDup(unsigned Handle);

@@ -129,7 +129,7 @@ typedef struct sfttbl {
 #define SFT_FCONOUT     0x0002  /* device is console output     */
 #define SFT_FCONIN      0x0001  /* device is console input      */
 
-/* Covienence defines                                                   */
+/* Convenience defines                                                   */
 #define sft_dcb         sft_dcb_or_dev._sft_dcb
 #define sft_dev         sft_dcb_or_dev._sft_dev
 
@@ -137,3 +137,7 @@ typedef struct sfttbl {
 #define sft_flags_hi  sft_flags_union._split_sft_flags._sft_flags_hi
 #define sft_flags_lo  sft_flags_union._split_sft_flags._sft_flags_lo
 
+/* defines for LSEEK */
+#define SEEK_SET 0u
+#define SEEK_CUR 1u
+#define SEEK_END 2u

@@ -305,14 +305,14 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   }
 }
 
-COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
+COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
 {
   sft FAR *s = idx_to_sft(sft_idx);
   if (FP_OFF(s) == (size_t) -1)
     return DE_INVLDHNDL;
         
   /* Test for invalid mode                        */
-  if (mode < 0 || mode > 2)
+  if (mode > SEEK_END)
     return DE_INVLDFUNC;
 
   lpCurSft = s;
@@ -320,12 +320,13 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
   /* Do special return for character devices      */
   if (s->sft_flags & SFT_FDEVICE)
   {
-    s->sft_posit = 0l;
-    return SUCCESS;
+    new_pos = 0;
   }
-
-  /* seek from end of file */
-  if (mode == 2)
+  else if (mode == SEEK_CUR)
+  {
+    new_pos += s->sft_posit;
+  }
+  else if (mode == SEEK_END) /* seek from end of file */
   {
 /*
  *  RB list has it as Note:
@@ -339,29 +340,24 @@ COUNT SftSeek(int sft_idx, LONG new_pos, COUNT mode)
  */
     if ((s->sft_flags & SFT_FSHARED) &&
         (s->sft_mode & (O_DENYREAD | O_DENYNONE)))
-      s->sft_posit = remote_lseek(s, new_pos);
+      new_pos = remote_lseek(s, new_pos);
     else
-      s->sft_posit = s->sft_size + new_pos;
+      new_pos += s->sft_size;
   }
-  else if (mode == 0)
-    s->sft_posit = new_pos;
-  else /* mode == 1 */
-    s->sft_posit += new_pos;
+
+  s->sft_posit = new_pos;
   return SUCCESS;
 }
 
-ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode)
+ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode, int *rc)
 {
   int sft_idx = get_sft_idx(hndl);
-  COUNT result;
 
   /* Get the SFT block that contains the SFT      */
-  result = SftSeek(sft_idx, new_pos, mode);
-  if (result == SUCCESS)
-  {
+  *rc = SftSeek(sft_idx, new_pos, mode);
+  if (*rc == SUCCESS)
     return idx_to_sft(sft_idx)->sft_posit;
-  }
-  return (ULONG)-1;
+  return *rc;
 }
 
 STATIC long get_free_hndl(void)

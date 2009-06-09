@@ -931,17 +931,14 @@ dispatch:
     case 0x42:
       if (lr.AL > 2)
         goto error_invalid;
-      lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL);
-      if (lrc == -1)
-      {
-        lrc = DE_INVLDHNDL;
-      }
-      else
+      lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL,
+        &rc);
+      if (rc == SUCCESS)
       {
         lr.DX = (UWORD)(lrc >> 16);
-        lrc = (UWORD) lrc;
+        lr.AX = (UWORD) lrc;
       }
-      goto long_check;
+      goto short_check;
 
       /* Get/Set File Attributes                                      */
     case 0x43:
@@ -1957,19 +1954,13 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
       CritErrCode = SUCCESS;
       if (r.BP < 0x4200 || r.BP > 0x4202)
         goto error_invalid;
-#if 0
+      lrc = DosSeek(r.BX, MK_ULONG(r.CX, r.DX), r.BP & 0xff, &rc);
+      if (rc == SUCCESS)
       {
-        sft FAR *s = get_sft(r.BX);
-        if ((rc = _SftSeek(s, MK_ULONG(r.CX, r.DX), r.BP & 0xff)) >= SUCCESS)
-        {
-          r.DX = hiword (s->sft_posit);
-          r.AX = loword (s->sft_posit);
-        }
+        r.DX = (UWORD)(lrc >> 16);
+        r.AX = (UWORD) lrc;
       }
       goto short_check;
-#else
-        goto error_invalid;
-#endif
 
     case 0x29:                 /* read from file */
       r.FLAGS &= ~FLG_CARRY;
