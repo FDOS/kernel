@@ -54,46 +54,32 @@ static BYTE *RcsId =
 
 */
 
+/* this is a file scope static because with Turbo C 2.01 "static const" does
+ * not work correctly inside the function */
+STATIC const UBYTE cmd [] = {
+  0, 0,
+  /* 0x02 */ C_IOCTLIN,
+  /* 0x03 */ C_IOCTLOUT,
+  /* 0x04 */ C_IOCTLIN,
+  /* 0x05 */ C_IOCTLOUT,
+  /* 0x06 */ C_ISTAT,
+  /* 0x07 */ C_OSTAT,
+  /* 0x08 */ C_REMMEDIA,
+  0, 0, 0,
+  /* 0x0c */ C_GENIOCTL,
+  /* 0x0d */ C_GENIOCTL,
+  /* 0x0e */ C_GETLDEV,
+  /* 0x0f */ C_SETLDEV,
+  /* 0x10 */ C_IOCTLQRY,
+  /* 0x11 */ C_IOCTLQRY,
+};
+
 int DosDevIOctl(lregs * r)
 {
-  static UBYTE cmd [] = {
-    0, 0,
-    /* 0x02 */ C_IOCTLIN,
-    /* 0x03 */ C_IOCTLOUT,
-    /* 0x04 */ C_IOCTLIN,
-    /* 0x05 */ C_IOCTLOUT,
-    /* 0x06 */ C_ISTAT,
-    /* 0x07 */ C_OSTAT,
-    /* 0x08 */ C_REMMEDIA,
-    0, 0, 0,
-    /* 0x0c */ C_GENIOCTL,
-    /* 0x0d */ C_GENIOCTL,
-    /* 0x0e */ C_GETLDEV,
-    /* 0x0f */ C_SETLDEV,
-    /* 0x10 */ C_IOCTLQRY,
-    /* 0x11 */ C_IOCTLQRY,
-  };
-
   struct dhdr FAR *dev;
 
   if (r->AL > 0x11)
     return DE_INVLDFUNC;
-
-  /* commonly used, shouldn't harm to do front up */
-  CharReqHdr.r_command = cmd[r->AL];
-  if (r->AL == 0x0C || r->AL == 0x0D || r->AL >= 0x10) /* generic or query */
-  {
-    CharReqHdr.r_cat = r->CH;            /* category (major) code */
-    CharReqHdr.r_fun = r->CL;            /* function (minor) code */
-    CharReqHdr.r_io = MK_FP(r->DS, r->DX);    /* parameter block */
-  }
-  else
-  {
-    CharReqHdr.r_count = r->CX;
-    CharReqHdr.r_trans = MK_FP(r->DS, r->DX);
-  }
-  CharReqHdr.r_length = sizeof(request);
-  CharReqHdr.r_status = 0;
 
   switch (r->AL)
   {
@@ -248,6 +234,23 @@ int DosDevIOctl(lregs * r)
     if (!(dev->dh_attr & testattr))
       return DE_INVLDFUNC;
   }
+
+  CharReqHdr.r_command = cmd[r->AL];
+  if (r->AL == 0x0C || r->AL == 0x0D || r->AL >= 0x10) /* generic or query */
+  {
+    CharReqHdr.r_cat = r->CH;            /* category (major) code */
+    CharReqHdr.r_fun = r->CL;            /* function (minor) code */
+    CharReqHdr.r_si = r->SI;             /* contents of SI and DI */
+    CharReqHdr.r_di = r->DI;
+    CharReqHdr.r_io = MK_FP(r->DS, r->DX);    /* parameter block */
+  }
+  else
+  {
+    CharReqHdr.r_count = r->CX;
+    CharReqHdr.r_trans = MK_FP(r->DS, r->DX);
+  }
+  CharReqHdr.r_length = sizeof(request);
+  CharReqHdr.r_status = 0;
 
   execrh(&CharReqHdr, dev);
 
