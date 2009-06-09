@@ -258,7 +258,7 @@ COUNT lfn_dir_read(COUNT handle, lfn_inode_ptr lip);
 COUNT lfn_dir_write(COUNT handle);
 
 /* nls.c */
-BYTE DosYesNo(unsigned char ch);
+BYTE DosYesNo(UWORD ch);
 #ifndef DosUpMem
 VOID DosUpMem(VOID FAR * str, unsigned len);
 #endif
@@ -277,6 +277,7 @@ COUNT DosSetCountry(UWORD cntry);
 #endif
 COUNT DosGetCodepage(UWORD * actCP, UWORD * sysCP);
 COUNT DosSetCodepage(UWORD actCP, UWORD sysCP);
+VOID FAR *DosGetDBCS(void);
 UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
 
 /* prf.c */

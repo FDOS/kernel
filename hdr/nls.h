@@ -269,6 +269,8 @@
  *	information itself; it is ignored when the user calls DOS-65-0x
  *	to return such pointer.
  *	NLS_REORDER_POINTERS is *enabled* by default.
+ *      UPDATE: With NLS_REORDER_POINTERS, now table 7 (DBCS) is also
+ *      expected to be located at a predictable index. -- eca
  */
 
 /* Define if some user program possibly modifies the value of the internal
@@ -289,7 +291,7 @@
 		/* What version of nlsInfo and accompanying associations
 		   Must be passed to NLSFUNC upon MUX-14-00 to identify the
 		   correct kernel to the tools. */
-#define NLS_FREEDOS_NLSFUNC_VERSION 0xFD01
+#define NLS_FREEDOS_NLSFUNC_VERSION 0xFD02
         /* Represents a call to DOS-38 within DOS-65 handlers.
            Current implementation relys on 0x101! */
 #define NLS_DOS_38 0x101
@@ -425,8 +427,8 @@ struct nlsPackage {             /* the contents of one chain item of the
      MUX-14 processor does not require them and performs
      all actions itself, so that the kernel never tries to
      fetch this information itself. */
-  UBYTE yeschar;                /* yes / no character DOS-65-23 */
-  UBYTE nochar;
+  UWORD yeschar;                /* yes / no character DOS-65-23 */
+  UWORD nochar;
   unsigned numSubfct;           /* number of supported sub-functions */
   struct nlsPointer nlsPointers[1];     /* grows dynamically */
 };
@@ -474,14 +476,14 @@ struct nlsInfoBlock {           /* This block contains all information
 };
 
 extern struct nlsInfoBlock ASM nlsInfo;
-extern struct nlsPackage ASM nlsPackageHardcoded;
+extern struct nlsPackage      FAR ASM nlsPackageHardcoded;
         /* These are the "must have" tables within the hard coded NLS pkg */
-extern struct nlsFnamTerm nlsFnameTermHardcoded;
-extern struct nlsDBCS ASM nlsDBCSHardcoded;
-extern struct nlsCharTbl nlsUpcaseHardcoded;
-extern struct nlsCharTbl nlsFUpcaseHardcoded;
-extern struct nlsCharTbl nlsCollHardcoded;
-extern struct nlsExtCntryInfo nlsCntryInfoHardcoded;
+extern struct nlsFnamTerm     FAR ASM nlsFnameTermHardcoded;
+extern struct nlsDBCS         FAR ASM nlsDBCSHardcoded;
+extern struct nlsCharTbl      FAR ASM nlsUpcaseHardcoded;
+extern struct nlsCharTbl      FAR ASM nlsFUpcaseHardcoded;
+extern struct nlsCharTbl      FAR ASM nlsCollHardcoded;
+extern struct nlsExtCntryInfo FAR ASM nlsCntryInfoHardcoded;
 extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
 /***********************************************************************
@@ -570,8 +572,8 @@ struct csys_ccDefinition {   /* country/codepage reference */
 	  UWORD cntry, cp;              is missing
 	  int flags;                    is NLS_FLAG_HARDCODED, if the
 	  									kernel is to handle the data of its own
-	  UBYTE yeschar;                is filled
-	  UBYTE nochar;					is filled
+	  UWORD yeschar;                is filled
+	  UWORD nochar;					is filled
 	  unsigned numSubfct;           is filled
 	  struct nlsPointer nlsPointers[1];   is filled
 	  									the pointer member is the absolute

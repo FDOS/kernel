@@ -229,7 +229,7 @@ STATIC int SkipLine(char *pLine);
 STATIC char * stristr(char *s1, char *s2);
 #endif
 STATIC char strcaseequal(const char * d, const char * s);
-STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage);
+STATIC int LoadCountryInfoHardCoded(COUNT ctryCode);
 STATIC void umb_init(void);
 
 void HMAconfig(int finalize);
@@ -1216,34 +1216,130 @@ STATIC VOID CfgKeyBuf(BYTE * pLine)
  *
  *      Returns TRUE if successful, FALSE if not.
  */
-#if 0
-STATIC BOOL LoadCountryInfo(char *filename, UWORD ctryCode, UWORD codePage)
+STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
 {
-  printf("Sorry, the COUNTRY= statement has been temporarily disabled\n");
+  /* COUNTRY.SYS file data structures - see RBIL tables 2619-2622 */
 
-  UNREFERENCED_PARAMETER(codePage);
-  UNREFERENCED_PARAMETER(ctryCode);
-  UNREFERENCED_PARAMETER(filename);
+  struct {      /* file header */
+    char name[8];       /* "\377COUNTRY.SYS" */
+    char reserved[11];
+    ULONG offset;       /* offset of first entry in file */
+  } header;
+  struct {      /* entry */
+    int length;         /* length of entry, not counting this word, = 12 */
+    int country;        /* country ID */
+    int codepage;       /* codepage ID */
+    int reserved[2];
+    ULONG offset;       /* offset of country-subfunction-header in file */
+  } entry;
+  struct subf_hdr { /* subfunction header */
+    int length;         /* length of entry, not counting this word, = 6 */
+    int id;             /* subfunction ID */
+    ULONG offset;       /* offset within file of subfunction data entry */
+  };
+  static struct {   /* subfunction data */
+    char signature[8];  /* \377CTYINFO|UCASE|LCASE|FUCASE|FCHAR|COLLATE|DBCS */
+    int length;         /* length of following table in bytes */
+    UBYTE buffer[256];
+  } subf_data;
+  struct subf_tbl {
+    char sig[8];        /* signature for each subfunction data */
+    void FAR *p;        /* pointer to data in nls_hc.asm to be copied to */
+  };
+  static struct subf_tbl table[8] = {
+    {"\377       ", NULL},                  /* 0, unused */
+    {"\377CTYINFO", &nlsCntryInfoHardcoded},/* 1 */
+    {"\377UCASE  ", &nlsUpcaseHardcoded},   /* 2 */
+    {"\377LCASE  ", NULL},                  /* 3, not supported [yet] */
+    {"\377FUCASE ", &nlsFUpcaseHardcoded},  /* 4 */
+    {"\377FCHAR  ", &nlsFnameTermHardcoded},/* 5 */
+    {"\377COLLATE", &nlsCollHardcoded},     /* 6 */
+    {"\377DBCS   ", &nlsDBCSHardcoded}      /* 7, not supported [yet] */
+  };
+  static struct subf_hdr hdr[8];
+  int fd, entries, count, i;
+  char *filename = filenam == NULL ? "\\COUNTRY.SYS" : filenam;
+  BOOL rc = FALSE;
 
-  return FALSE;
-} 
-#endif
+  if ((fd = open(filename, 0)) < 0)
+  {
+    if (filenam == NULL)
+      return !LoadCountryInfoHardCoded(ctryCode);
+    printf("%s not found\n", filename);
+    return rc;
+  }
+  if (read(fd, &header, sizeof(header)) != sizeof(header))
+  {
+    printf("Error reading %s\n", filename);
+    goto ret;
+  }
+  if (memcmp(header.name, "\377COUNTRY", sizeof(header.name)))
+  {
+err:printf("%s has invalid format\n", filename);
+    goto ret;
+  }
+  if (lseek(fd, header.offset) == 0xffffffffL
+    || read(fd, &entries, sizeof(entries)) != sizeof(entries))
+    goto err;
+  for (i = 0; i < entries; i++)
+  {
+    if (read(fd, &entry, sizeof(entry)) != sizeof(entry) || entry.length != 12)
+      goto err;
+    if (entry.country != ctryCode || entry.codepage != codePage && codePage)
+      continue;
+    if (lseek(fd, entry.offset) == 0xffffffffL
+      || read(fd, &count, sizeof(count)) != sizeof(count)
+      || count > LENGTH(hdr)
+      || read(fd, &hdr, sizeof(struct subf_hdr) * count)
+                      != sizeof(struct subf_hdr) * count)
+      goto err;
+    for (i = 0; i < count; i++)
+    {
+      if (hdr[i].length != 6)
+        goto err;
+      if (hdr[i].id < 1 || hdr[i].id > 6 || hdr[i].id == 3)
+        continue;
+      if (lseek(fd, hdr[i].offset) == 0xffffffffL
+       || read(fd, &subf_data, 10) != 10
+       || memcmp(subf_data.signature, table[hdr[i].id].sig, 8) && (hdr[i].id !=4
+       || memcmp(subf_data.signature, table[2].sig, 8))  /* UCASE for FUCASE ^*/
+       || read(fd, subf_data.buffer, subf_data.length) != subf_data.length)
+        goto err;
+      if (hdr[i].id == 1)
+      {
+        if (((struct CountrySpecificInfo *)subf_data.buffer)->CountryID
+                                                     != entry.country
+         || ((struct CountrySpecificInfo *)subf_data.buffer)->CodePage
+                                                     != entry.codepage
+         && codePage)
+          continue;
+        nlsPackageHardcoded.cntry = entry.country;
+        nlsPackageHardcoded.cp = entry.codepage;
+        subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
+                min(subf_data.length, sizeof(struct CountrySpecificInfo));
+      }
+      fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer,
+                                /* skip length ^*/  subf_data.length);
+    }
+    rc = TRUE;
+    goto ret;
+  }
+  printf("couldn't find info for country ID %u\n", ctryCode);
+ret:
+  close(fd);
+  return rc;
+}
 
 STATIC VOID Country(BYTE * pLine)
 {
   /* Format: COUNTRY = countryCode, [codePage], filename   */
   COUNT ctryCode;
-  COUNT codePage = (COUNT)NLS_DEFAULT;
-  char  *filename = "";
+  COUNT codePage = 0;
+  char  *filename = NULL;
 
   if ((pLine = GetNumArg(pLine, &ctryCode)) == 0)
     goto error;
 
-
-    /*  currently 'implemented' 
-                 COUNTRY=49     */
-
-#if 0
   pLine = skipwh(pLine);
   if (*pLine == ',')
   {
@@ -1260,9 +1356,8 @@ STATIC VOID Country(BYTE * pLine)
       filename = szBuf;
     }
   }  
-#endif
       
-  if (!LoadCountryInfoHardCoded(filename, ctryCode, codePage))
+  if (LoadCountryInfo(filename, ctryCode, codePage))
     return;
   
 error:  
@@ -2465,11 +2560,9 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
 	Aitor Santamar­a Merino (SP)
 */	
 
-STATIC int LoadCountryInfoHardCoded(char *filename, COUNT ctryCode, COUNT codePage)
+STATIC int LoadCountryInfoHardCoded(COUNT ctryCode)
 {
   struct CountrySpecificInfo *country;
-  UNREFERENCED_PARAMETER(codePage);
-  UNREFERENCED_PARAMETER(filename);
 
   /* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename);  */
 

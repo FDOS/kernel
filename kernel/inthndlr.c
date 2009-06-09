@@ -1347,6 +1347,7 @@ dispatch:
       /* UNDOCUMENTED: Double byte and korean tables                  */
     case 0x63:
       {
+        VOID FAR *p;
 #if 0
         /* not really supported, but will pass.                 */
         lr.AL = 0x00;           /*jpp: according to interrupt list */
@@ -1356,8 +1357,9 @@ dispatch:
         switch (lr.AL)
         {
           case 0:
-            lr.DS = FP_SEG(&nlsDBCSHardcoded);
-            lr.SI = FP_OFF(&nlsDBCSHardcoded);
+            p = DosGetDBCS();
+            lr.DS = FP_SEG(p);
+            lr.SI = FP_OFF(p);
             break;
           case 1: /* set Korean Hangul input method to DL 0/1 */
             lr.AL = 0xff;       /* flag error (AL would be 0 if okay) */

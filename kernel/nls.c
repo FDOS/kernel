@@ -75,9 +75,11 @@ struct nlsInfoBlock ASM nlsInfo = {
 #ifdef NLS_REORDER_POINTERS
 #define getTable2(nls)	((nls)->nlsPointers[0].pointer)
 #define getTable4(nls)	((nls)->nlsPointers[1].pointer)
+#define getTable7(nls)	((nls)->nlsPointers[4].pointer)
 #else
 #define getTable2(nls)	getTable(2, (nls))
 #define getTable4(nls)	getTable(4, (nls))
+#define getTable7(nls)	getTable(7, (nls))
 #define NEED_GET_TABLE
 #endif
         /*== both chartables must be 128 bytes long and lower range is
@@ -108,7 +110,7 @@ STATIC long muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
 /*
  *	Call NLSFUNC to load the NLS package
  */
-COUNT muxLoadPkg(UWORD cp, UWORD cntry)
+STATIC COUNT muxLoadPkg(int subfct, UWORD cp, UWORD cntry)
 {
   long ret;
 
@@ -120,6 +122,11 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /* make sure the NLSFUNC ID is updated */
 #error "NLS_FREEDOS_NLSFUNC_VERSION == NLS_FREEDOS_NLSFUNC_ID"
 #endif
+  /* Install check must pass the FreeDOS NLSFUNC version as codepage (cp) and
+     the FreeDOS NLSFUNC ID as buffer size (bufsize).  If they match the
+     version in NLSFUNC, on return it will set BX (cp on entry) to FreeDOS
+     NLSFUNC ID.  call_nls will set the high word = BX on return.
+  */
   ret = muxGo(0, 0, NLS_FREEDOS_NLSFUNC_VERSION, 0, NLS_FREEDOS_NLSFUNC_ID, 0);
   if ((int)ret != 0x14ff)
     return DE_FILENOTFND;       /* No NLSFUNC --> no load */
@@ -129,7 +136,7 @@ COUNT muxLoadPkg(UWORD cp, UWORD cntry)
   /* OK, the correct NLSFUNC is available --> load pkg */
   /* If cp == -1 on entry, NLSFUNC updates cp to the codepage loaded
      into memory. The system must then change to this one later */
-  return (int)muxGo(NLSFUNC_LOAD_PKG, 0, cp, cntry, 0, 0);
+  return (int)muxGo(subfct, 0, cp, cntry, 0, 0);
 }
 
 STATIC int muxBufGo(int subfct, int bp, UWORD cp, UWORD cntry,
@@ -205,12 +212,15 @@ STATIC VOID FAR *getTable(UBYTE subfct, struct nlsPackage FAR * nls)
   switch (subfct)
   {
     case 2:
-      return &nlsUpHardcodedTable;
+      return &nlsUpcaseHardcoded;
     case 4:
-      return &nlsFnameUpHardcodedTable;
+      return &nlsFUpcaseHardcoded;
       /* case 5:                                                                      return &nlsFnameTermHardcodedTable; */
       /* case 6: return &nlsCollHardcodedTable; */
+    case 7:
+      return &nlsDBCSHardcoded;
   }
+  return NULL;
 }
 #endif
 
@@ -365,6 +375,9 @@ STATIC COUNT nlsSetPackage(struct nlsPackage FAR * nls)
 }
 STATIC COUNT DosSetPackage(UWORD cp, UWORD cntry)
 {
+  /* Right now, we do not have codepage change support in kernel, so push
+     it through the mux in any case. */
+#if 0
   struct nlsPackage FAR *nls;   /* NLS package to use to return the info from */
 
   /* nls := NLS package of cntry/codepage */
@@ -373,7 +386,28 @@ STATIC COUNT DosSetPackage(UWORD cp, UWORD cntry)
     return nlsSetPackage(nls);
 
   /* not loaded --> invoke NLSFUNC to load it */
-  return muxLoadPkg(cp, cntry);
+#endif
+  return muxLoadPkg(NLSFUNC_LOAD_PKG2, cp, cntry);
+}
+
+STATIC COUNT nlsLoadPackage(struct nlsPackage FAR * nls)
+{
+
+  nlsInfo.actPkg = nls;
+
+  return SUCCESS;
+}
+STATIC COUNT DosLoadPackage(UWORD cp, UWORD cntry)
+{
+  struct nlsPackage FAR *nls;   /* NLS package to use to return the info from */
+
+  /* nls := NLS package of cntry/codepage */
+  if ((nls = searchPackage(cp, cntry)) != NULL)
+    /* OK the NLS pkg is loaded --> activate it */
+    return nlsLoadPackage(nls);
+
+  /* not loaded --> invoke NLSFUNC to load it */
+  return muxLoadPkg(NLSFUNC_LOAD_PKG, cp, cntry);
 }
 
 STATIC void nlsUpMem(struct nlsPackage FAR * nls, VOID FAR * str, int len)
@@ -399,18 +433,41 @@ STATIC VOID xUpMem(struct nlsPackage FAR * nls, VOID FAR * str,
     muxBufGo(NLSFUNC_UPMEM, 0, nls->cp, nls->cntry, len, str);
 }
 
-STATIC int nlsYesNo(struct nlsPackage FAR * nls, unsigned char ch)
+STATIC BOOL nlsIsDBCS(UBYTE ch)
 {
-  log(("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
 
-  xUpMem(nls, MK_FP(_SS, &ch), 1);          /* Upcase character */
-  /* Cannot use DosUpChar(), because
-     maybe: nls != current NLS pkg
-     However: Upcase character within lowlevel
-     function to allow a yesNo() function
-     catched by external MUX-14 handler, which
-     does NOT upcase character. */
-  log(("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
+  if (ch < 128)
+    return FALSE;              /* No leadbyte is smaller than that */
+
+  {
+    UWORD FAR *t= ((struct nlsDBCS FAR*)getTable7(nlsInfo.actPkg))->dbcsTbl;
+
+    for (; *t != 0; ++t)
+      if (ch >= (*t & 0xFF) && ch <= (*t >> 8))
+        return TRUE;
+  }
+
+  return FALSE;
+}
+
+STATIC int nlsYesNo(struct nlsPackage FAR * nls, UWORD ch)
+{
+  /* Check if it is a dual byte character */
+  if (!nlsIsDBCS(ch & 0xFF)) {
+    ch &= 0xFF;
+    log(("NLS: nlsYesNo(): in ch=%u (%c)\n", ch, ch > 32 ? (char)ch : ' '));
+    xUpMem(nls, MK_FP(_SS, &ch), 1);          /* Upcase character */
+    /* Cannot use DosUpChar(), because
+       maybe: nls != current NLS pkg
+       However: Upcase character within lowlevel
+       function to allow a yesNo() function
+       catched by external MUX-14 handler, which
+       does NOT upcase character. */
+    log(("NLS: nlsYesNo(): upcased ch=%u (%c)\n", ch, ch > 32 ? (char)ch : ' '));
+  }
+  else
+    log(("NLS: nlsYesNo(): in ch=%u (DBCS)\n", ch));
+
   if (ch == nls->yeschar)
     return 1;
   if (ch == nls->nochar)
@@ -422,7 +479,7 @@ STATIC int nlsYesNo(struct nlsPackage FAR * nls, unsigned char ch)
  ***** DOS API ******************************************************
  ********************************************************************/
 
-BYTE DosYesNo(unsigned char ch)
+BYTE DosYesNo(UWORD ch)
 /* returns: 0: ch == "No", 1: ch == "Yes", 2: ch crap */
 {
   if (nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_YESNO)
@@ -467,7 +524,7 @@ VOID DosUpFMem(VOID FAR * str, unsigned len)
   log(("NLS: DosUpFMem(): len=%u, %04x:%04x=\"", len, FP_SEG(str),
        FP_OFF(str)));
   for (c = 0; c < len; ++c)
-    printf("%c", str[c] > 32 ? str[c] : '.');
+    printf("%c", ((char FAR *)str)[c] > 32 ? ((char FAR *)str)[c] : '.');
   printf("\"\n");
 #endif
   if (nlsInfo.actPkg->flags & NLS_FLAG_DIRECT_FUPCASE)
@@ -511,19 +568,21 @@ COUNT DosGetData(int subfct, UWORD cp, UWORD cntry, UWORD bufsize,
     return DE_INVLDFUNC;
 
   /* nls := NLS package of cntry/codepage */
-  if ((nls = searchPackage(cp, cntry)) == NULL
-      || (nls->flags & NLS_FLAG_DIRECT_GETDATA) == 0)
+  if ((nls = searchPackage(cp, cntry)) != NULL)
   {
-    /* If the NLS pkg is not loaded into memory or the
-       direct-access flag is disabled, the request must
-       be passed through MUX */
-    return (subfct == NLS_DOS_38)
-        ? mux38(nls->cp, nls->cntry, bufsize, buf)
-        : mux65(subfct, nls->cp, nls->cntry, bufsize, buf);
+    /* matching NLS package found */
+    if (nls->flags & NLS_FLAG_DIRECT_GETDATA)
+      /* Direct access to the data */
+      return nlsGetData(nls, subfct, buf, bufsize);
+    cp = nls->cp;
+    cntry = nls->cntry;
   }
 
-  /* Direct access to the data */
-  return nlsGetData(nls, subfct, buf, bufsize);
+  /* If the NLS pkg is not loaded into memory or the direct-access
+     flag is disabled, the request must be passed through MUX */
+  return (subfct == NLS_DOS_38)
+        ? mux38(cp, cntry, bufsize, buf)
+        : mux65(subfct, cp, cntry, bufsize, buf);
 }
 
 /*
@@ -554,7 +613,7 @@ COUNT DosGetCountryInformation(UWORD cntry, VOID FAR * buf)
 #ifndef DosSetCountry
 COUNT DosSetCountry(UWORD cntry)
 {
-  return DosSetPackage(NLS_DEFAULT, cntry);
+  return DosLoadPackage(NLS_DEFAULT, cntry);
 }
 #endif
 
@@ -578,6 +637,11 @@ COUNT DosSetCodepage(UWORD actCP, UWORD sysCP)
   if (sysCP == NLS_DEFAULT || sysCP == nlsInfo.sysCodePage)
     return DosSetPackage(actCP, NLS_DEFAULT);
   return DE_INVLDDATA;
+}
+
+VOID FAR *DosGetDBCS(void)
+{
+	return getTable7(nlsInfo.actPkg);
 }
 
 /********************************************************************
@@ -626,10 +690,11 @@ UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
       /* Does not pass buffer length */
       return nlsGetData(nls, CL, MK_FP(ES, DI), 512);
     case NLSFUNC_LOAD_PKG:
+      return nlsLoadPackage(nls);
     case NLSFUNC_LOAD_PKG2:
       return nlsSetPackage(nls);
     case NLSFUNC_YESNO:
-      return nlsYesNo(nls, CL);
+      return nlsYesNo(nls, CX);
     case NLSFUNC_UPMEM:
       nlsUpMem(nls, MK_FP(ES, DI), CX);
       return SUCCESS;

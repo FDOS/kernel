@@ -233,6 +233,24 @@ DUP2:
         mov ah, 46h
         jmp short common_int21
         
+;
+; ULONG ASMPASCAL lseek(int fd, long position);
+;
+    global LSEEK
+LSEEK:
+        pop ax         ; ret address
+        pop dx         ; position low
+        pop cx         ; position high
+        pop bx         ; fd
+        push ax        ; ret address
+        mov ax,4200h   ; origin: start of file
+        int 21h
+        jnc     seek_ret        ; CF=1?
+        sbb     ax,ax           ;  then dx:ax = -1, else unchanged
+        sbb     dx,dx
+seek_ret:
+        ret
+        
 ;; VOID init_PSPSet(seg psp_seg)
     global INIT_PSPSET
 INIT_PSPSET:

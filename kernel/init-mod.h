@@ -172,6 +172,7 @@ unsigned ASMPASCAL read(int fd, void *buf, unsigned count);
 int ASMPASCAL open(const char *pathname, int flags);
 int ASMPASCAL close(int fd);
 int ASMPASCAL dup2(int oldfd, int newfd);
+ULONG ASMPASCAL lseek(int fd, long position);
 seg ASMPASCAL allocmem(UWORD size);
 void ASMPASCAL init_PSPSet(seg psp_seg);
 int ASMPASCAL init_DosExec(int mode, exec_blk * ep, char * lp);
