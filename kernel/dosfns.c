@@ -982,13 +982,19 @@ COUNT DosChangeDir(BYTE FAR * s)
   return SUCCESS;
 }
 
-STATIC VOID pop_dmp(dmatch FAR * dmp)
+STATIC int pop_dmp(int rc, dmatch FAR * dmp)
 {
-  dmp->dm_attr_fnd = (BYTE) SearchDir.dir_attrib;
-  dmp->dm_time = SearchDir.dir_time;
-  dmp->dm_date = SearchDir.dir_date;
-  dmp->dm_size = (LONG) SearchDir.dir_size;
-  ConvertName83ToNameSZ(dmp->dm_name, (BYTE FAR *) SearchDir.dir_name);
+  dta = dmp;
+  if (rc == SUCCESS)
+  {
+    fmemcpy(dta, &sda_tmp_dm, 21);
+    dmp->dm_attr_fnd = (BYTE) SearchDir.dir_attrib;
+    dmp->dm_time = SearchDir.dir_time;
+    dmp->dm_date = SearchDir.dir_date;
+    dmp->dm_size = (LONG) SearchDir.dir_size;
+    ConvertName83ToNameSZ(dmp->dm_name, (BYTE FAR *) SearchDir.dir_name);
+  }
+  return rc;
 }
 
 COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
@@ -1039,13 +1045,7 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
   else
     rc = dos_findfirst(attr, PriPathName);
 
-  dta = dmp;
-  if (rc == SUCCESS)
-  {
-    fmemcpy(dta, &sda_tmp_dm, 21);
-    pop_dmp(dmp);
-  }
-  return rc;
+  return pop_dmp(rc, dmp);
 }
 
 COUNT DosFindNext(void)
@@ -1083,13 +1083,7 @@ COUNT DosFindNext(void)
   rc = (sda_tmp_dm.dm_drive & 0x80) ?
     network_redirector_fp(REM_FINDNEXT, &sda_tmp_dm) : dos_findnext();
 
-  dta = dmp;
-  if (rc == SUCCESS)
-  {
-    fmemcpy(dmp, &sda_tmp_dm, 21);
-    pop_dmp(dmp);
-  }
-  return rc;
+  return pop_dmp(rc, dmp);
 }
 
 COUNT DosGetFtime(COUNT hndl, date * dp, time * tp)
