@@ -427,13 +427,17 @@ FSTRCMP:
                 ; and the destination pointer, d
                 les             di,[bp+8]
                 
+                mov bl,8
+
+%if 0
                 jmp short dostrcmp
 
 ;******
-                global  _strcmp
-_strcmp:
+                global STRCMP
+STRCMP:
                 call pascal_setup
 
+                mov bl,4
 
                 ; Get the source pointer, ss
                 ; mov             si,[bp+4]
@@ -443,9 +447,11 @@ _strcmp:
                 xchg si,di
 
 dostrcmp:                       
+%endif
                                     ; replace strncmp(s1,s2)-->
                                     ;         strncmp(s1,s2,0xffff)
                 mov cx,0xffff
+%if 0
                 jmp short dostrncmp
 
                 
@@ -460,6 +466,7 @@ FSTRNCMP:
                 ; and the destination pointer, d
                 les             di,[bp+8]
                 mov             cx,[bp+12]
+                mov             bl,10
                 
                 jmp short dostrncmp
 
@@ -477,6 +484,7 @@ _strncmp:
                 xchg si,di
 
 dostrncmp:
+%endif
                 jcxz strncmp_retzero
 
 strncmp_loop:                
