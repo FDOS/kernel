@@ -75,13 +75,13 @@ VOID XlateLcase(BYTE * szFname, COUNT nChars)
     returns number of characters in the directory component (up to the
     last backslash, including d:) or negative if error
  */
-int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
+int ParseDosName(const char *filename, BOOL bAllowWildcards)
 {
-  int nDirCnt, nFileCnt, nExtCnt;
-  const char *lpszLclDir, *lpszLclFile, *lpszLclExt;
+  int nDirCnt;
+  const char *lpszLclDir, *lpszLclFile;
 
   /* Initialize the users data fields                             */
-  nDirCnt = nFileCnt = nExtCnt = 0;
+  nDirCnt = 0;
 
   /* NB: this code assumes ASCII                          */
 
@@ -101,12 +101,9 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
   filename = lpszLclFile;
   while (bAllowWildcards ? WildChar(*filename) :
          NameChar(*filename))
-  {
-    ++nFileCnt;
     ++filename;
-  }
 
-  if (nFileCnt == 0)
+  if (filename == lpszLclFile)
   {
     int err = DE_PATHNOTFND;
     if (bAllowWildcards && *filename == '\0' &&
@@ -118,34 +115,20 @@ int ParseDosName(const char *filename, char *fcbname, BOOL bAllowWildcards)
 
   /* Now we have pointers set to the directory portion and the    */
   /* file portion.  Now determine the existance of an extension.  */
-  lpszLclExt = filename;
   if ('.' == *filename)
   {
-    lpszLclExt = ++filename;
+    ++filename;
     while (*filename)
     {
       if (bAllowWildcards ? WildChar(*filename) :
           NameChar(*filename))
-      {
-        ++nExtCnt;
         ++filename;
-      }
       else
-      {
         return DE_FILENOTFND;
-      }
     }
   }
   else if (*filename)
     return DE_FILENOTFND;
-
-  /* Finally copy whatever the user wants extracted to the user's */
-  /* buffers.                                                     */
-  memset(fcbname, ' ', FNAME_SIZE + FEXT_SIZE);
-  memcpy(fcbname, lpszLclFile, nFileCnt);
-  memcpy(&fcbname[FNAME_SIZE], lpszLclExt, nExtCnt);
-
-  /* Clean up before leaving                              */
 
   return nDirCnt;
 }

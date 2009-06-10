@@ -130,7 +130,7 @@ VOID ASMCFUNC DosIdle_hlt(void);
 #endif
 
 /* dosnames.c */
-int ParseDosName(const char *, char *, BOOL);
+int ParseDosName(const char *, BOOL);
 
 /* error.c */
 VOID dump(void);
@@ -146,7 +146,7 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update);
 COUNT dos_findfirst(UCOUNT attr, BYTE * name);
 COUNT dos_findnext(void);
 void ConvertName83ToNameSZ(BYTE FAR * destSZ, BYTE FAR * srcFCBName);
-int FileName83Length(BYTE * filename83);
+const char *ConvertNameSZToName83(char *destFCBName, const char *srcSZ);
 
 /* fatfs.c */
 struct dpb FAR *get_dpb(COUNT dsk);

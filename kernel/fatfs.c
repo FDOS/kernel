@@ -260,7 +260,7 @@ COUNT dos_close(COUNT fd)
 f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
 {
   /* Start off by parsing out the components.                     */ 
-  int dirlength = ParseDosName(path, fcbname, FALSE);
+  int dirlength = ParseDosName(path, FALSE);
 
   if (dirlength < SUCCESS)
     return (f_node_ptr) 0;
@@ -292,6 +292,10 @@ f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
     fnp = dir_open(path, fnp);
     path[dirlength] = tmp;
   } 
+
+  /* Extract the 8.3 filename from the path */
+  ConvertNameSZToName83(fcbname, &path[dirlength]);
+
   return fnp;
 }
 

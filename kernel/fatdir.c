@@ -98,18 +98,7 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
     /* Convert the name into an absolute name for           */
     /* comparison...                                        */
 
-    memset(fcbname, ' ', FNAME_SIZE + FEXT_SIZE);
-
-    for (i = 0; i < FNAME_SIZE + FEXT_SIZE; i++, dirname++)
-    {
-      char c = *dirname;
-      if (c == '.')
-        i = FNAME_SIZE - 1;
-      else if (c != '\0' && c != '\\')
-        fcbname[i] = c;
-      else
-        break;
-    }
+    dirname = ConvertNameSZToName83(fcbname, dirname);
 
     /* Now search through the directory to  */
     /* find the entry...                    */
@@ -309,7 +298,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* current directory, do a seek and read.                       */
 
   /* Parse out the file name */
-  i = ParseDosName(name, SearchDir.dir_name, TRUE);
+  i = ParseDosName(name, TRUE);
   if (i < SUCCESS)
     return i;
 /*
@@ -344,12 +333,9 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   }
 
   /* Now initialize the dirmatch structure.            */
-
+  ConvertNameSZToName83(dmp->dm_name_pat, &name[i]);
   dmp->dm_drive = name[0] - 'A';
   dmp->dm_attr_srch = attr;
-
-  /* Copy the raw pattern from our data segment to the DTA. */
-  fmemcpy(dmp->dm_name_pat, SearchDir.dir_name, FNAME_SIZE + FEXT_SIZE);
 
   if ((attr & (D_VOLID|D_DIR))==D_VOLID)
   {
@@ -393,7 +379,7 @@ COUNT dos_findnext(void)
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
   fnp = &fnode[0];
-  dmp = fnp->f_dmp;
+  dmp = &sda_tmp_dm;
   fnp->f_dpb = get_dpb(dmp->dm_drive);
   if (media_check(fnp->f_dpb) < 0)
     return DE_NFILES;
@@ -502,4 +488,24 @@ int FileName83Length(BYTE * filename83)
   return strlen(buff);
 }
 #endif
+
+/* this routine converts a name portion of a fully qualified path       */
+/* name, so . and .. are not allowed, only straightforward 8+3 names    */
+const char *ConvertNameSZToName83(char *fcbname, const char *dirname)
+{
+  int i;
+  memset(fcbname, ' ', FNAME_SIZE + FEXT_SIZE);
+
+  for (i = 0; i < FNAME_SIZE + FEXT_SIZE; i++, dirname++)
+  {
+    char c = *dirname;
+    if (c == '.')
+      i = FNAME_SIZE - 1;
+    else if (c != '\0' && c != '\\')
+      fcbname[i] = c;
+    else
+      break;
+  }
+  return dirname;
+}
 
