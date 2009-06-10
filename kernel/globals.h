@@ -46,8 +46,8 @@ static BYTE *Globals_hRcsId =
 #include "sft.h"
 #include "cds.h"
 #include "exe.h"
-#include "fnode.h"
 #include "dirmatch.h"
+#include "fnode.h"
 #include "file.h"
 #include "clock.h"
 #include "kbd.h"
@@ -308,6 +308,7 @@ extern UWORD ASM wAttr;
 extern BYTE ASM default_drive;      /* default drive for dos                */
 
 extern dmatch ASM sda_tmp_dm;       /* Temporary directory match buffer     */
+extern dmatch ASM sda_tmp_dm_ren;   /* 2nd Temporary directory match buffer */
 extern BYTE
   ASM internal_data[],              /* sda areas                            */
   ASM swap_always[],                /*  "    "                              */

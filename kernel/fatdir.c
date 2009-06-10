@@ -45,7 +45,9 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_sft_idx = 0xff;
   fnp->f_flags &= ~SFT_FDATE;
   fnp->f_flags |= SFT_FCLEAN;
-  fnp->f_diroff = 0;
+  fnp->f_dmp = &sda_tmp_dm;
+  if (fnp == &fnode[1])
+    fnp->f_dmp = &sda_tmp_dm_ren;
   fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
 
@@ -55,7 +57,7 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
     if (ISFAT32(fnp->f_dpb))
       dirstart = fnp->f_dpb->dpb_xrootclst;
 #endif
-  fnp->f_cluster = fnp->f_dirstart = dirstart;
+  fnp->f_cluster = fnp->f_dmp->dm_dircluster = dirstart;
 }
 
 f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
@@ -81,6 +83,7 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
            -- 2001/09/04 ska*/
 
   dir_init_fnode(fnp, 0);
+  fnp->f_dmp->dm_entry = 0;
 
   dirname += 2;               /* Assume FAT style drive       */
   while(*dirname != '\0')
@@ -120,7 +123,7 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
         i = TRUE;
         break;
       }
-      fnp->f_diroff++;
+      fnp->f_dmp->dm_entry++;
     }
 
     if (!i || !(fnp->f_dir.dir_attrib & D_DIR))
@@ -132,6 +135,7 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
       /* make certain we've moved off */
       /* root                         */
       dir_init_fnode(fnp, getdstart(fnp->f_dpb, &fnp->f_dir));
+      fnp->f_dmp->dm_entry = 0;
     }
   }
   return fnp;
@@ -148,7 +152,7 @@ STATIC void swap_deleted(char *name)
  *  Read next consequitive directory entry, pointed by fnp.
  *  If some error occures the other critical
  *  fields aren't changed, except those used for caching.
- *  The fnp->f_diroff always corresponds to the directory entry
+ *  The fnp->f_dmp->dm_entry always corresponds to the directory entry
  *  which has been read.
  * Return value.
  *  1              - all OK, directory entry having been read is not empty.
@@ -161,9 +165,10 @@ COUNT dir_read(REG f_node_ptr fnp)
   struct buffer FAR *bp;
   REG UWORD secsize = fnp->f_dpb->dpb_secsize;
   unsigned sector;
+  unsigned entry = fnp->f_dmp->dm_entry;
 
   /* can't have more than 65535 directory entries */
-  if (fnp->f_diroff >= 65535U)
+  if (entry >= 65535U)
       return DE_SEEK;
 
   /* Determine if we hit the end of the directory. If we have,    */
@@ -171,18 +176,18 @@ COUNT dir_read(REG f_node_ptr fnp)
   /* dirent portion of the fnode, set the SFT_FCLEAN bit and leave,*/
   /* but only for root directories                                */
 
-  if (fnp->f_dirstart == 0)
+  if (fnp->f_dmp->dm_dircluster == 0)
   {
-    if (fnp->f_diroff >= fnp->f_dpb->dpb_dirents)
+    if (entry >= fnp->f_dpb->dpb_dirents)
       return DE_SEEK;
 
-    fnp->f_dirsector = fnp->f_diroff / (secsize / DIRENT_SIZE) +
+    fnp->f_dirsector = entry / (secsize / DIRENT_SIZE) +
       fnp->f_dpb->dpb_dirstrt;
   }
   else
   {
     /* Do a "seek" to the directory position        */
-    fnp->f_offset = fnp->f_diroff * (ULONG)DIRENT_SIZE;
+    fnp->f_offset = entry * (ULONG)DIRENT_SIZE;
 
     /* Search through the FAT to find the block     */
     /* that this entry is in.                       */
@@ -211,7 +216,7 @@ COUNT dir_read(REG f_node_ptr fnp)
   bp->b_flag &= ~(BFR_DATA | BFR_FAT);
   bp->b_flag |= BFR_DIR | BFR_VALID;
 
-  fnp->f_diridx = fnp->f_diroff % (secsize / DIRENT_SIZE);
+  fnp->f_diridx = entry % (secsize / DIRENT_SIZE);
   getdirent(&bp->b_buffer[fnp->f_diridx * DIRENT_SIZE], &fnp->f_dir);
 
   swap_deleted(fnp->f_dir.dir_name);
@@ -355,26 +360,20 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
       if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID &&
           fnp->f_dir.dir_name[0] != DELETED)
       {
-        dmp->dm_dircluster = fnp->f_dirstart;   /* TE */
         memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
 #ifdef DEBUG
         printf("dos_findfirst: %11s\n", fnp->f_dir.dir_name);
 #endif
         return SUCCESS;
       }
-      fnp->f_diroff++;
+      dmp->dm_entry++;
     }
 
     /* Now that we've done our failed search, return an error.    */
     return DE_NFILES;
   }
   /* Otherwise just do a normal find next                         */
-  else
-  {
-    dmp->dm_entry = 0;
-    dmp->dm_dircluster = fnp->f_dirstart;
-    return dos_findnext();
-  }
+  return dos_findnext();
 }
 
 /*
@@ -389,14 +388,12 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 COUNT dos_findnext(void)
 {
   REG f_node_ptr fnp;
-  REG dmatch *dmp = &sda_tmp_dm;
-
-  /* Allocate an fnode if possible - error return (0) if not.     */
-  fnp = &fnode[0];
-  memset(fnp, 0, sizeof(*fnp));
+  REG dmatch *dmp;
 
   /* Select the default to help non-drive specified path          */
   /* searches...                                                  */
+  fnp = &fnode[0];
+  dmp = fnp->f_dmp;
   fnp->f_dpb = get_dpb(dmp->dm_drive);
   if (media_check(fnp->f_dpb) < 0)
     return DE_NFILES;
@@ -405,13 +402,10 @@ COUNT dos_findnext(void)
 
   /* Search through the directory to find the entry, but do a     */
   /* seek first.                                                  */
-  fnp->f_diroff = dmp->dm_entry;
-
   /* Loop through the directory                                   */
   while (dir_read(fnp) == 1)
   {
     ++dmp->dm_entry;
-    ++fnp->f_diroff;
     if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
         && !(fnp->f_dir.dir_attrib & D_VOLID))
     {
@@ -430,7 +424,6 @@ COUNT dos_findnext(void)
               fnp->f_dir.dir_attrib))
         {
           /* If found, transfer it to the dmatch structure                */
-          dmp->dm_dircluster = fnp->f_dirstart;
           memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
           /* return the result                                            */
           return SUCCESS;

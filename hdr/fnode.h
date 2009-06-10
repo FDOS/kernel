@@ -38,12 +38,11 @@ static BYTE *fnode_hRcsId =
 struct f_node {
   UWORD f_flags;                /* file flags                   */
 
+  dmatch *f_dmp;                /* this file's dir match        */
   struct dirent f_dir;          /* this file's dir entry image  */
 
   ULONG f_dirsector;            /* the sector containing dir entry*/
   UBYTE f_diridx;               /* offset/32 of dir entry in sec*/
-  UWORD f_diroff;               /* offset/32 of the dir entry   */
-  CLUSTER f_dirstart;           /* the starting cluster of dir  */
   /* when dir is not root         */
   struct dpb FAR *f_dpb;        /* the block device for file    */
 

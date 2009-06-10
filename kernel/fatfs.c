@@ -317,7 +317,7 @@ STATIC BOOL find_fname(f_node_ptr fnp, char *fcbname, int attr)
     {
       return TRUE;
     }
-    fnp->f_diroff++;
+    fnp->f_dmp->dm_entry++;
   }
   return FALSE;
 }
@@ -333,13 +333,13 @@ STATIC BOOL find_fname(f_node_ptr fnp, char *fcbname, int attr)
  */
 COUNT remove_lfn_entries(f_node_ptr fnp)
 {
-  unsigned original_diroff = fnp->f_diroff;
+  unsigned original_diroff = fnp->f_dmp->dm_entry;
 
   while (TRUE)
   {
-    if (fnp->f_diroff == 0)
+    if (fnp->f_dmp->dm_entry == 0)
       break;
-    fnp->f_diroff--;
+    fnp->f_dmp->dm_entry--;
     if (dir_read(fnp) <= 0)
       return DE_BLKINVLD;
     if (fnp->f_dir.dir_attrib != D_LFN)
@@ -348,7 +348,7 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     fnp->f_flags &= ~SFT_FCLEAN;
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
-  fnp->f_diroff = original_diroff;
+  fnp->f_dmp->dm_entry = original_diroff;
   if (dir_read(fnp) <= 0)
     return DE_BLKINVLD;
 
@@ -510,7 +510,7 @@ COUNT dos_rmdir(BYTE * path)
   if (fnp->f_dir.dir_name[0] != '.' || fnp->f_dir.dir_name[1] != ' ')
     return DE_ACCESS;
 
-  fnp->f_diroff++;
+  fnp->f_dmp->dm_entry++;
   dir_read(fnp);
   /* secondard entry should be ".." */
   if (fnp->f_dir.dir_name[0] != '.' || fnp->f_dir.dir_name[1] != '.')
@@ -518,13 +518,13 @@ COUNT dos_rmdir(BYTE * path)
 
   /* Now search through the directory and make certain */
   /* that there are no entries                         */
-  fnp->f_diroff++;
+  fnp->f_dmp->dm_entry++;
   while (dir_read(fnp) == 1)
   {
     /* If anything was found, exit with an error.   */
     if (fnp->f_dir.dir_name[0] != DELETED && fnp->f_dir.dir_attrib != D_LFN)
       return DE_ACCESS;
-    fnp->f_diroff++;
+    fnp->f_dmp->dm_entry++;
   }
 
   /* next, split the passed dir into components (i.e. -   */
@@ -567,7 +567,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (find_fname(fnp2, fcbname, attrib))
     return DE_ACCESS;
 
-  if (fnp1->f_dirstart == fnp2->f_dirstart)
+  if (fnp1->f_dmp->dm_dircluster == fnp2->f_dmp->dm_dircluster)
   {
     /* rename in the same directory: change the directory entry in-place */
     fnp2 = fnp1;
@@ -676,7 +676,7 @@ STATIC BOOL find_free(f_node_ptr fnp)
   {
     if (fnp->f_dir.dir_name[0] == DELETED)
       return TRUE;
-    fnp->f_diroff++;
+    fnp->f_dmp->dm_entry++;
   }
   return rc >= 0;
 }
@@ -695,7 +695,7 @@ STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
   /* find an empty slot, we need to abort.        */
   if (find_free(fnp) == 0)
   {
-    if (fnp->f_dirstart == 0)
+    if (fnp->f_dmp->dm_dircluster == 0)
     {
       fnp->f_flags |= SFT_FCLEAN;
       return DE_TOOMANY;
@@ -866,7 +866,7 @@ COUNT dos_mkdir(BYTE * dir)
   if (find_fname(fnp, fcbname, D_ALL))
     return DE_ACCESS;
 
-  parent = fnp->f_dirstart;
+  parent = fnp->f_dmp->dm_dircluster;
 
   ret = alloc_find_free(fnp, dir, fcbname);
   if (ret != SUCCESS)
@@ -903,6 +903,7 @@ COUNT dos_mkdir(BYTE * dir)
   /* directory just under the root, ".." pointer is 0.     */
 
   dir_init_fnode(fnp, free_fat);
+  fnp->f_dmp->dm_entry = 0;
   find_free(fnp);
 
   /* Create the "." entry                                 */
@@ -1051,7 +1052,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     /* If seek is to earlier in file than current position, */
     /* we have to follow chain from the beginning again...  */
     /* Set internal index and cluster size.                 */
-    fnp->f_cluster = fnp->f_sft_idx == 0xff ? fnp->f_dirstart :
+    fnp->f_cluster = fnp->f_sft_idx == 0xff ? fnp->f_dmp->dm_dircluster :
         getdstart(fnp->f_dpb, &fnp->f_dir);
     fnp->f_cluster_offset = 0;
   }
@@ -1134,7 +1135,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
 
 #ifdef DSK_DEBUG
     printf("write %d links; dir offset %ld, cluster %d\n",
-           fnp->f_count, fnp->f_diroff, fnp->f_cluster);
+           fnp->f_count, fnp->f_dmp->dm_entry, fnp->f_cluster);
 #endif
 
     xfr_cnt = count < (ULONG) secsize - boff ?
@@ -1430,7 +1431,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
 
 #ifdef DSK_DEBUG
     printf("r/w %d links; dir offset %d, cluster %d, mode %x\n",
-           fnp->f_count, fnp->f_diroff, fnp->f_cluster, mode);
+           fnp->f_count, fnp->f_dmp->dm_entry, fnp->f_cluster, mode);
 #endif
 
     /* Get the block we need from cache                     */
@@ -1557,7 +1558,7 @@ int dos_cd(char * PathName)
 
   /* problem: RBIL table 01643 does not give a FAT32 field for the
      CDS start cluster. But we are not using this field ourselves */
-  cdsp->cdsStrtClst = (UWORD)fnp->f_dirstart;
+  cdsp->cdsStrtClst = (UWORD)fnp->f_dmp->dm_dircluster;
   return SUCCESS;
 }
 #endif

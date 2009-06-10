@@ -617,19 +617,20 @@ _ext_open_mode   dw 0                   ;2E1 - extended open mode
 
                 ; Pad to 0620h
                 times (300h - ($ - _internal_data)) db 0
-                global _szNames
-_szNames:               
-;;              times 11 db 0
 
-                global  _FcbSearchBuffer        ; during FCB search 1st/next use bottom
-_FcbSearchBuffer:              ;  of error stack as scratch buffer
-;               times 43 db 0              ;  - only used during int 21 call
-                ; stacks are made to initialize to no-ops so that high-water
-                ; testing can be performed
-                
                 global apistk_bottom
 apistk_bottom:
-                times STACK_SIZE dw 0x9090 ;300 - Error Processing Stack
+                ; use bottom of error stack as scratch buffer
+                ;  - only used during int 21 call
+                global  _sda_tmp_dm_ren
+_sda_tmp_dm_ren:times 21 db 0x90   ;300 - 21 byte srch state for rename
+                global  _SearchDir_ren
+_SearchDir_ren: times 32 db 0x90   ;315 - 32 byte dir entry for rename
+
+                ; stacks are made to initialize to no-ops so that high-water
+                ; testing can be performed
+                times STACK_SIZE*2-($-apistk_bottom) db 0x90
+                ;300 - Error Processing Stack
                 global  _error_tos
 _error_tos:
                 times STACK_SIZE dw 0x9090 ;480 - Disk Function Stack

@@ -7,7 +7,6 @@
 #include "mcb.h"
 #include "sft.h"
 #include "fat.h"
-#include "fnode.h"
 #include "file.h"
 #include "cds.h"
 #include "device.h"
