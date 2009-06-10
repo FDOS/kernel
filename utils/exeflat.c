@@ -36,11 +36,11 @@ large portions copied from task.c
 
 /* history
 
-	10/??/01 - Bart Oldeman 
-		primary release
+        10/??/01 - Bart Oldeman 
+                primary release
 
-	11/28/01 - tom ehlert 	
-		added -UPX option to make the kernel compressable with UPX
+        11/28/01 - tom ehlert   
+                added -UPX option to make the kernel compressable with UPX
 
 */
 
@@ -85,7 +85,7 @@ static void usage(void)
 
 static int exeflat(const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
-                   int flat_exe, exe_header *header)
+                   int UPX, exe_header *header)
 {
   int i, j;
   size_t bufsize;
@@ -198,16 +198,18 @@ static int exeflat(const char *srcfile, const char *dstfile,
   printf("\nProcessed %d relocations, %d not shown\n",
          header->exRelocItems, silentdone);
 
-  /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
-  compress_sys_file = flat_exe && size < 65420;
-
   if ((dest = fopen(dstfile, "wb+")) == NULL)
   {
     printf("Destination file %s could not be created\n", dstfile);
     exit(1);
   }
 
-  if (flat_exe && !compress_sys_file) {
+  /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
+  compress_sys_file = size < 65420;
+  if (UPX) {
+      printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
+  }
+  if (UPX && !compress_sys_file) {
     /* write header without relocations to file */
     exe_header nheader = *header;
     nheader.exRelocItems = 0;
@@ -240,7 +242,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
     free(*curbuf);
   }
 
-  if (flat_exe && compress_sys_file) {
+  if (UPX && compress_sys_file) {
     /* overwrite first 8 bytes with SYS header */
     UWORD dhdr[4];
     fseek(dest, 0, SEEK_SET);
@@ -336,7 +338,7 @@ int main(int argc, char **argv)
 {
   short silentSegments[20], silentcount = 0;
   static exe_header header; /* must be initialized to zero */
-  int UPX = FALSE, flat_exe = FALSE;
+  int UPX = FALSE;
   int i;
   size_t sz, len, len2, n;
   int compress_sys_file;
@@ -362,9 +364,6 @@ int main(int argc, char **argv)
       case 'U':
         UPX = i;
         break;
-      case 'E':
-        flat_exe = TRUE;
-        break;
       case 'S':
         if (silentcount >= LENGTH(silentSegments))
         {
@@ -372,10 +371,10 @@ int main(int argc, char **argv)
                  LENGTH(silentSegments));
           exit(1);
         }
-	
+        
         silentSegments[silentcount++] = (short)strtol(argptr + 1, NULL, 0);
         break;
-	
+        
       default:
         usage();
     }
@@ -386,8 +385,8 @@ int main(int argc, char **argv)
 
   compress_sys_file = exeflat(argv[1], argv[2], argv[3],
                               silentSegments, silentcount,
-                              TRUE, &header);
-  if (!UPX || flat_exe)
+                              UPX, &header);
+  if (!UPX)
     exit(0);
 
   /* move kernel.sys tmp$$$$$.exe */
@@ -416,14 +415,14 @@ int main(int argc, char **argv)
     len += n;
   }
   cmdbuf[len++] = ' ';
-  cmdbuf[len++] = '\'';
+  /* if tmpexe is tmpfile set above no quotes needed, if user needs quotes should add on cmd line */
   memcpy(cmdbuf + len, tmpexe, len2);
-  cmdbuf[len + len2 - 1] = '\'';
   cmdbuf[len + len2] = '\0';
   printf("%s\n", cmdbuf);
   if (system(cmdbuf))
   {
     printf("Problems executing %s\n", cmdbuf);
+    printf("Removing [%s]\n", tmpexe);
     remove(tmpexe);
     exit(1);
   }
