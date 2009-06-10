@@ -39,12 +39,12 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 STATIC f_node_ptr sft_to_fnode(int fd);
 STATIC void fnode_to_sft(f_node_ptr fnp);
-STATIC f_node_ptr split_path(char *, char *, f_node_ptr fnp);
-STATIC BOOL find_fname(f_node_ptr, char *, int);
+STATIC f_node_ptr split_path(char *, f_node_ptr fnp);
+STATIC BOOL find_fname(f_node_ptr, int);
     /* /// Added - Ron Cemer */
 STATIC int merge_file_changes(f_node_ptr fnp, int collect);
 STATIC BOOL find_free(f_node_ptr);
-STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname);
+STATIC int alloc_find_free(f_node_ptr fnp, char *path);
 STATIC VOID wipe_out(f_node_ptr);
 STATIC CLUSTER extend(f_node_ptr);
 STATIC COUNT extend_dir(f_node_ptr);
@@ -133,17 +133,16 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 {
   REG f_node_ptr fnp;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
   int status = S_OPENED;
 
   /* next split the passed dir into comopnents (i.e. - path to   */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(path, fcbname, sft_to_fnode(fd))) == NULL)
+  if ((fnp = split_path(path, sft_to_fnode(fd))) == NULL)
     return DE_PATHNOTFND;
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, truncate it (O_CREAT).                     */
-  if (find_fname(fnp, fcbname, D_ALL | attrib))
+  if (find_fname(fnp, D_ALL | attrib))
   {
     if (flags & O_TRUNC)
     {
@@ -181,7 +180,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   }
   else if (flags & O_CREAT)
   {
-    int ret = alloc_find_free(fnp, path, fcbname);
+    int ret = alloc_find_free(fnp, path);
     if (ret != SUCCESS)
       return ret;
     status = S_CREATED;
@@ -195,7 +194,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 
   if (status != S_OPENED)
   {
-    init_direntry(&fnp->f_dir, attrib, FREE, fcbname);
+    init_direntry(&fnp->f_dir, attrib, FREE, fnp->f_dmp->dm_name_pat);
     fnp->f_flags &= ~SFT_FCLEAN;
     if (!dir_write(fnp))
       return DE_ACCESS;
@@ -257,7 +256,7 @@ COUNT dos_close(COUNT fd)
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
-f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
+f_node_ptr split_path(char * path, f_node_ptr fnp)
 {
   /* Start off by parsing out the components.                     */ 
   int dirlength = ParseDosName(path, FALSE);
@@ -294,7 +293,8 @@ f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
   } 
 
   /* Extract the 8.3 filename from the path */
-  ConvertNameSZToName83(fcbname, &path[dirlength]);
+  if (fnp)
+    ConvertNameSZToName83(fnp->f_dmp->dm_name_pat, &path[dirlength]);
 
   return fnp;
 }
@@ -302,9 +302,7 @@ f_node_ptr split_path(char * path, char * fcbname, f_node_ptr fnp)
 /* checks whether directory part of path exists */
 BOOL dir_exists(char * path)
 {
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
-
-  return split_path(path, fcbname, &fnode[0]) != NULL;
+  return split_path(path, &fnode[0]) != NULL;
 }
 
 BOOL fcbmatch(const char *fcbname1, const char *fcbname2)
@@ -312,11 +310,11 @@ BOOL fcbmatch(const char *fcbname1, const char *fcbname2)
   return memcmp(fcbname1, fcbname2, FNAME_SIZE + FEXT_SIZE) == 0;
 }
 
-STATIC BOOL find_fname(f_node_ptr fnp, char *fcbname, int attr)
+STATIC BOOL find_fname(f_node_ptr fnp, int attr)
 {
   while (dir_read(fnp) == 1)
   {
-    if (fcbmatch(fnp->f_dir.dir_name, fcbname)
+    if (fcbmatch(fnp->f_dir.dir_name, fnp->f_dmp->dm_name_pat)
         && (fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
     {
       return TRUE;
@@ -457,18 +455,17 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
 COUNT dos_delete(BYTE * path, int attrib)
 {
   REG f_node_ptr fnp;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL)
+  if ((fnp = split_path(path, &fnode[0])) == NULL)
   {
     return DE_PATHNOTFND;
   }
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, fcbname, attrib))
+  if (find_fname(fnp, attrib))
   {
     /* Do not delete directories or r/o files       */
     /* lfn entries and volume labels are only found */
@@ -487,7 +484,6 @@ COUNT dos_delete(BYTE * path, int attrib)
 COUNT dos_rmdir(BYTE * path)
 {
   REG f_node_ptr fnp;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* prevent removal of the current directory of that drive */
   register struct cds FAR *cdsp = get_cds(path[0] - 'A');
@@ -533,8 +529,8 @@ COUNT dos_rmdir(BYTE * path)
 
   /* next, split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, fcbname, &fnode[0])) == NULL ||
-      !find_fname(fnp, fcbname, D_ALL))
+  if ((fnp = split_path(path, &fnode[0])) == NULL ||
+      !find_fname(fnp, D_ALL))
     /* this error should not happen because dir_open() succeeded above */
     return DE_PATHNOTFND;
 
@@ -546,7 +542,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   REG f_node_ptr fnp1;
   REG f_node_ptr fnp2;
   COUNT ret;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
+  char *fcbname;
 
   /* prevent renaming of the current directory of that drive */
   register struct cds FAR *cdsp = get_cds(path1[0] - 'A');
@@ -555,22 +551,23 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* first split the passed source into components (i.e. - path to*/
   /* old file name and name of old file name                      */
-  if ((fnp1 = split_path(path1, fcbname, &fnode[0])) == NULL)
+  if ((fnp1 = split_path(path1, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
-  if (!find_fname(fnp1, fcbname, attrib))
+  if (!find_fname(fnp1, attrib))
     return DE_FILENOTFND;
 
   /* next split the passed target into components (i.e. - path to */
   /* new file name and name of new file name                      */
-  if ((fnp2 = split_path(path2, fcbname, &fnode[1])) == NULL)
+  if ((fnp2 = split_path(path2, &fnode[1])) == NULL)
     return DE_PATHNOTFND;
 
   /* Check that we don't have a duplicate name, so if we find     */
   /* one, it's an error.                                          */
-  if (find_fname(fnp2, fcbname, attrib))
+  if (find_fname(fnp2, attrib))
     return DE_ACCESS;
 
+  fcbname = fnp2->f_dmp->dm_name_pat;
   if (fnp1->f_dmp->dm_dircluster == fnp2->f_dmp->dm_dircluster)
   {
     /* rename in the same directory: change the directory entry in-place */
@@ -585,7 +582,7 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
       return DE_ACCESS;
 
     /* create new entry in other directory */
-    ret = alloc_find_free(fnp2, path2, fcbname);
+    ret = alloc_find_free(fnp2, path2);
     if (ret != SUCCESS)
       return ret;
 
@@ -685,13 +682,13 @@ STATIC BOOL find_free(f_node_ptr fnp)
   return rc >= 0;
 }
 
-/* alloc_find_free: resets the directory by an open               */
+/* alloc_find_free: resets the directory                          */
 /* Then finds a spare directory entry and if not                  */
 /* available, tries to extend the directory.                      */
-STATIC int alloc_find_free(f_node_ptr fnp, char *path, char *fcbname)
+STATIC int alloc_find_free(f_node_ptr fnp, char *path)
 {
   fnp->f_flags |= SFT_FCLEAN;
-  fnp = split_path(path, fcbname, fnp);
+  fnp = split_path(path, fnp);
 
   /* Get a free f_node pointer so that we can use */
   /* it in building the new file.                 */
@@ -845,11 +842,10 @@ COUNT dos_mkdir(BYTE * dir)
   REG f_node_ptr fnp;
   CLUSTER free_fat, parent;
   COUNT ret;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* first split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(dir, fcbname, &fnode[0])) == NULL)
+  if ((fnp = split_path(dir, &fnode[0])) == NULL)
   {
     return DE_PATHNOTFND;
   }
@@ -867,12 +863,12 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, fcbname, D_ALL))
+  if (find_fname(fnp, D_ALL))
     return DE_ACCESS;
 
   parent = fnp->f_dmp->dm_dircluster;
 
-  ret = alloc_find_free(fnp, dir, fcbname);
+  ret = alloc_find_free(fnp, dir);
   if (ret != SUCCESS)
     return ret;
 
@@ -887,7 +883,7 @@ COUNT dos_mkdir(BYTE * dir)
   if (free_fat == LONG_LAST_CLUSTER)
     return DE_HNDLDSKFULL;
 
-  init_direntry(&fnp->f_dir, D_DIR, free_fat, fcbname);
+  init_direntry(&fnp->f_dir, D_DIR, free_fat, fnp->f_dmp->dm_name_pat);
 
   fnp->f_flags &= ~SFT_FCLEAN;
 
@@ -1571,14 +1567,13 @@ int dos_cd(char * PathName)
 COUNT dos_getfattr(BYTE * name)
 {
   f_node_ptr fnp;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
 
   /* split the passed dir into components (i.e. - path to         */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(name, fcbname, &fnode[0])) == NULL)
+  if ((fnp = split_path(name, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
-  if (find_fname(fnp, fcbname, D_ALL))
+  if (find_fname(fnp, D_ALL))
     return fnp->f_dir.dir_attrib;
   return DE_FILENOTFND;
 }
@@ -1586,7 +1581,6 @@ COUNT dos_getfattr(BYTE * name)
 COUNT dos_setfattr(BYTE * name, UWORD attrp)
 {
   f_node_ptr fnp;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
   int rc;
 
   /* JPP-If user tries to set VOLID or RESERVED bits, return error.
@@ -1600,10 +1594,10 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 
   /* split the passed dir into components (i.e. - path to         */
   /* new directory and name of new directory.                     */
-  if ((fnp = split_path(name, fcbname, &fnode[0])) == NULL)
+  if ((fnp = split_path(name, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
-  if (!find_fname(fnp, fcbname, D_ALL))
+  if (!find_fname(fnp, D_ALL))
     return DE_FILENOTFND;
 
   /* if caller tries to set DIR on non-directory, return error */

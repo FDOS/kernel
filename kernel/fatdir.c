@@ -63,7 +63,7 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
 f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
 {
   int i;
-  char fcbname[FNAME_SIZE + FEXT_SIZE];
+  char *fcbname;
 
   /* determine what drive and dpb we are using...                 */
   fnp->f_dpb = get_dpb(dirname[0]-'A');
@@ -86,6 +86,7 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
   fnp->f_dmp->dm_entry = 0;
 
   dirname += 2;               /* Assume FAT style drive       */
+  fcbname = fnp->f_dmp->dm_name_pat;
   while(*dirname != '\0')
   {
     /* skip all path seperators                             */
