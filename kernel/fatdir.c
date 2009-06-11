@@ -43,8 +43,6 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
 {
   /* reset the directory flags    */
   fnp->f_sft_idx = 0xff;
-  fnp->f_flags &= ~SFT_FDATE;
-  fnp->f_flags |= SFT_FCLEAN;
   fnp->f_dmp = &sda_tmp_dm;
   if (fnp == &fnode[1])
     fnp->f_dmp = &sda_tmp_dm_ren;
@@ -211,9 +209,6 @@ COUNT dir_read(REG f_node_ptr fnp)
 
   swap_deleted(fnp->f_dir.dir_name);
 
-  /* Update the fnode's directory info                    */
-  fnp->f_flags |= SFT_FCLEAN;
-
   /* and for efficiency, stop when we hit the first       */
   /* unused entry.                                        */
   /* either returns 1 or 0                                */
@@ -235,7 +230,7 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
   UBYTE FAR *vp;
 
   /* Update the entry if it was modified by a write or create...  */
-  if ((fnp->f_flags & (SFT_FCLEAN|SFT_FDATE)) != SFT_FCLEAN)
+  if (!update || (fnp->f_flags & (SFT_FCLEAN|SFT_FDATE)) != SFT_FCLEAN)
   {
     bp = getblock(fnp->f_dirsector, fnp->f_dpb->dpb_unit);
 

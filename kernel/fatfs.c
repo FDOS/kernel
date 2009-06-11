@@ -195,7 +195,6 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   if (status != S_OPENED)
   {
     init_direntry(&fnp->f_dir, attrib, FREE, fnp->f_dmp->dm_name_pat);
-    fnp->f_flags &= ~SFT_FCLEAN;
     if (!dir_write(fnp))
       return DE_ACCESS;
   }
@@ -347,7 +346,6 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
     if (fnp->f_dir.dir_attrib != D_LFN)
       break;
     fnp->f_dir.dir_name[0] = DELETED;
-    fnp->f_flags &= ~SFT_FCLEAN;
     if (!dir_write(fnp)) return DE_BLKINVLD;
   }
   fnp->f_dmp->dm_entry = original_diroff;
@@ -445,7 +443,6 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   /* The directory has been modified, so set the  */
   /* bit before closing it, allowing it to be     */
   /* updated                                      */
-  fnp->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp);
 
   /* SUCCESSful completion, return it             */
@@ -592,10 +589,6 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
     /* init fnode for new file name to match old file name */
     memcpy(&fnp2->f_dir, &fnp1->f_dir, sizeof(struct dirent));
 
-    /* The directory has been modified, so reset the bit before     */
-    /* closing it, allowing it to be updated.                       */
-    fnp1->f_flags &= ~SFT_FCLEAN;
-
     /* Ok, so we can delete this one. Save the file info.           */
     *(fnp1->f_dir.dir_name) = DELETED;
 
@@ -604,10 +597,6 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
 
   /* put the fnode's name into the directory.                     */
   memcpy(fnp2->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
-
-  /* The directory has been modified, so set the bit before       */
-  /* closing it, allowing it to be updated.                       */
-  fnp2->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp2);
 
   /* SUCCESSful completion, return it                             */
@@ -687,7 +676,6 @@ STATIC BOOL find_free(f_node_ptr fnp)
 /* available, tries to extend the directory.                      */
 STATIC int alloc_find_free(f_node_ptr fnp, char *path)
 {
-  fnp->f_flags |= SFT_FCLEAN;
   fnp = split_path(path, fnp);
 
   /* Get a free f_node pointer so that we can use */
@@ -698,7 +686,6 @@ STATIC int alloc_find_free(f_node_ptr fnp, char *path)
   {
     if (fnp->f_dmp->dm_dircluster == 0)
     {
-      fnp->f_flags |= SFT_FCLEAN;
       return DE_TOOMANY;
     }
     else
@@ -885,8 +872,6 @@ COUNT dos_mkdir(BYTE * dir)
 
   init_direntry(&fnp->f_dir, D_DIR, free_fat, fnp->f_dmp->dm_name_pat);
 
-  fnp->f_flags &= ~SFT_FCLEAN;
-
   /* Mark the cluster in the FAT as used and create new dir there */
   if (link_fat(fnp->f_dpb, free_fat, LONG_LAST_CLUSTER) != SUCCESS) /* free->last */
     return DE_HNDLDSKFULL; /* should never happen */
@@ -910,7 +895,6 @@ COUNT dos_mkdir(BYTE * dir)
   init_direntry(&fnp->f_dir, D_DIR, free_fat, ".          ");
 
   /* And put it out                                       */
-  fnp->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp);
 
   /* create the ".." entry                                */
@@ -927,7 +911,6 @@ COUNT dos_mkdir(BYTE * dir)
   fnp->f_dir.dir_name[1] = '.';
 
   /* and put it out                                       */
-  fnp->f_flags &= ~SFT_FCLEAN;
   dir_write(fnp);
 
   return SUCCESS;
@@ -970,8 +953,6 @@ STATIC CLUSTER extend(f_node_ptr fnp)
       return LONG_LAST_CLUSTER; /* should never happen */
   }
 
-  /* Mark the directory so that the entry is updated              */
-  fnp->f_flags &= ~SFT_FCLEAN;
   return free_fat;
 }
 
@@ -1610,8 +1591,6 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 
   /* set attributes that user requested */
   fnp->f_dir.dir_attrib |= attrp;       /* JPP */
-  fnp->f_flags &= ~SFT_FCLEAN;
-  fnp->f_flags |= SFT_FDATE;
 
   /* close open files in compat mode, otherwise there was a critical error */
   rc = merge_file_changes(fnp, -1);
