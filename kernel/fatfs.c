@@ -1812,7 +1812,7 @@ STATIC void fnode_to_sft(f_node_ptr fnp)
   sftp->sft_diridx = fnp->f_diridx;
   sftp->sft_dirsector = fnp->f_dirsector;
   sftp->sft_dcb = fnp->f_dpb;
-  /* Do not update sftp->sft_posit (fnp->f_offset): dosfns.c takes care of it */
+  sftp->sft_posit = fnp->f_offset;
   sftp->sft_cuclust = fnp->f_cluster;
   sftp->sft_relclust = (UWORD)fnp->f_cluster_offset;
 #ifdef WITHFAT32

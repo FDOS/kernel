@@ -296,13 +296,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
       return rc;
   }
   /* /// End of additions for SHARE - Ron Cemer */
-  {
-    long XferCount = rwblock(sft_idx, bp, n, mode);
-    if (XferCount < 0)
-      return XferCount;
-    s->sft_posit += XferCount;
-    return XferCount;
-  }
+  return rwblock(sft_idx, bp, n, mode);
 }
 
 COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
