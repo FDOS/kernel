@@ -385,15 +385,18 @@ COUNT dos_findnext(void)
         /* can also find volume labels if you set e.g. D_DIR|D_VOLUME      */
         UBYTE attr_srch;
         attr_srch = dmp->dm_attr_srch & ~(D_RDONLY | D_ARCHIVE | D_DEVICE);
-        if ((attr_srch == D_VOLID && (fnp->f_dir.dir_attrib & D_VOLID)) ||
-            !(~attr_srch & (D_DIR | D_SYSTEM | D_HIDDEN | D_VOLID) &
-              fnp->f_dir.dir_attrib))
+        if (attr_srch == D_VOLID)
         {
-          /* If found, transfer it to the dmatch structure                */
-          memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
-          /* return the result                                            */
-          return SUCCESS;
+          if (!(fnp->f_dir.dir_attrib & D_VOLID))
+            continue;
         }
+        else if (~attr_srch & (D_DIR | D_SYSTEM | D_HIDDEN | D_VOLID) &
+                 fnp->f_dir.dir_attrib)
+          continue;
+        /* If found, transfer it to the dmatch structure                */
+        memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
+        /* return the result                                            */
+        return SUCCESS;
       }
     }
   }
