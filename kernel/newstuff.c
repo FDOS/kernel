@@ -242,6 +242,11 @@ long DosMkTmp(BYTE FAR * pathname, UWORD attr)
 #define PNE_WILDCARD 1
 #define PNE_DOT 2
 
+STATIC const char _DirChars[] = "\"[]:|<>+=;,";
+
+#define DirChar(c)  (((unsigned char)(c)) >= ' ' && \
+                     !strchr(_DirChars, (c)))
+
 #define addChar(c) \
 { \
   if (p >= dest + SFTMAX) PATH_ERROR; /* path too long */	\
@@ -287,6 +292,7 @@ STATIC int parse_name_ext(int i, const char FAR **src, char **cp, char *dest)
     default:
       if (i) {	/* name length in limits */
         --i;
+        if (!DirChar(c)) PATH_ERROR;
         addChar(c);
       }
   }

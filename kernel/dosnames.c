@@ -37,33 +37,6 @@ static BYTE *dosnamesRcsId =
 
 #include "globals.h"
 
-const char _DirWildNameChars[] = "*?./\\\"[]:|<>+=;,";
-
-#define PathSep(c) ((c)=='/'||(c)=='\\')
-#define DriveChar(c) (((c)>='A'&&(c)<='Z')||((c)>='a'&&(c)<='z'))
-#define DirChar(c)  (((unsigned char)(c)) >= ' ' && \
-                     !strchr(_DirWildNameChars+5, (c)))
-#define WildChar(c) (((unsigned char)(c)) >= ' ' && \
-                     !strchr(_DirWildNameChars+2, (c)))
-#define NameChar(c) (((unsigned char)(c)) >= ' ' && \
-                     !strchr(_DirWildNameChars, (c)))
-
-VOID XlateLcase(BYTE * szFname, COUNT nChars);
-VOID DosTrimPath(BYTE * lpszPathNamep);
-
-/* Should be converted to a portable version after v1.0 is released.    */
-#if 0
-VOID XlateLcase(BYTE * szFname, COUNT nChars)
-{
-  while (nChars--)
-  {
-    if (*szFname >= 'a' && *szFname <= 'z')
-      *szFname -= ('a' - 'A');
-    ++szFname;
-  }
-}
-#endif
-
 /*
     MSD durring an FindFirst search string looks like this;
     (*), & (.)  == Current directory *.*
@@ -88,8 +61,8 @@ int ParseDosName(const char *filename, BOOL bAllowWildcards)
   /* Now see how long a directory component we have.              */
   lpszLclDir = lpszLclFile = filename;
   filename += 2;
-  
-  while (DirChar(*filename))
+
+  while (*filename)
   {
     if (*filename == '\\')
       lpszLclFile = filename + 1;
@@ -99,8 +72,7 @@ int ParseDosName(const char *filename, BOOL bAllowWildcards)
 
   /* Parse out the file name portion.                             */
   filename = lpszLclFile;
-  while (bAllowWildcards ? WildChar(*filename) :
-         NameChar(*filename))
+  while (*filename)
     ++filename;
 
   if (filename == lpszLclFile)
@@ -112,23 +84,6 @@ int ParseDosName(const char *filename, BOOL bAllowWildcards)
       err = DE_NFILES;
     return err;
   }
-
-  /* Now we have pointers set to the directory portion and the    */
-  /* file portion.  Now determine the existance of an extension.  */
-  if ('.' == *filename)
-  {
-    ++filename;
-    while (*filename)
-    {
-      if (bAllowWildcards ? WildChar(*filename) :
-          NameChar(*filename))
-        ++filename;
-      else
-        return DE_FILENOTFND;
-    }
-  }
-  else if (*filename)
-    return DE_FILENOTFND;
 
   return nDirCnt;
 }
