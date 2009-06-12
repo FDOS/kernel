@@ -283,6 +283,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   REG f_node_ptr fnp;
   REG dmatch *dmp = &sda_tmp_dm;
   REG COUNT i;
+  char *fname;
 
 /*  printf("ff %Fs\n", name);*/
 
@@ -308,13 +309,13 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* directory and only searched for once.  So we need to open    */
   /* the root and return only the first entry that contains the   */
   /* volume id bit set (while ignoring LFN entries).              */
-  /* RBIL: ignore ReaDONLY and ARCHIVE bits                       */
+  /* RBIL: ignore ReaDONLY and ARCHIVE bits but DEVICE ignored too*/
   /* For compatibility with bad search requests, only treat as    */
   /*   volume search if only volume bit set, else ignore it.      */
-  if ((attr & ~(D_RDONLY | D_ARCHIVE))==D_VOLID) /* if ONLY label wanted */
-    i = 3; /* redirect search to root dir (?) in volume label case */
-  else
-    attr &= ~D_VOLID;  /* ignore volume mask */
+  fname = &name[i];
+  if ((attr & ~(D_RDONLY | D_ARCHIVE | D_DEVICE)) == D_VOLID)
+    /* if ONLY label wanted redirect search to root dir */
+    i = 3;
 
   /* Now open this directory so that we can read the      */
   /* fnode entry and do a match on it.                    */
@@ -329,32 +330,10 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   }
 
   /* Now initialize the dirmatch structure.            */
-  ConvertNameSZToName83(dmp->dm_name_pat, &name[i]);
+  ConvertNameSZToName83(dmp->dm_name_pat, fname);
   dmp->dm_drive = name[0] - 'A';
   dmp->dm_attr_srch = attr;
 
-  if ((attr & (D_VOLID|D_DIR))==D_VOLID)
-  {
-    /* Now do the search                                    */
-    while (dir_read(fnp) == 1)
-    {
-      /* Test the attribute and return first found    */
-      if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE)) == D_VOLID &&
-          fnp->f_dir.dir_name[0] != DELETED)
-      {
-        memcpy(&SearchDir, &fnp->f_dir, sizeof(struct dirent));
-#ifdef DEBUG
-        printf("dos_findfirst: %11s\n", fnp->f_dir.dir_name);
-#endif
-        return SUCCESS;
-      }
-      dmp->dm_entry++;
-    }
-
-    /* Now that we've done our failed search, return an error.    */
-    return DE_NFILES;
-  }
-  /* Otherwise just do a normal find next                         */
   return dos_findnext();
 }
 
@@ -388,8 +367,8 @@ COUNT dos_findnext(void)
   while (dir_read(fnp) == 1)
   {
     ++dmp->dm_entry;
-    if (fnp->f_dir.dir_name[0] != '\0' && fnp->f_dir.dir_name[0] != DELETED
-        && !(fnp->f_dir.dir_attrib & D_VOLID))
+    if (fnp->f_dir.dir_name[0] != DELETED
+        && (fnp->f_dir.dir_attrib & D_LFN) != D_LFN)
     {
       if (fcmp_wild(dmp->dm_name_pat, fnp->f_dir.dir_name, FNAME_SIZE + FEXT_SIZE))
       {
@@ -401,8 +380,13 @@ COUNT dos_findnext(void)
          */
 
         /* Test the attribute as the final step */
-        if (!(fnp->f_dir.dir_attrib & D_VOLID) &&
-            !(~dmp->dm_attr_srch & (D_DIR | D_SYSTEM | D_HIDDEN) &
+        /* It's either a special volume label search or an                 */
+        /* attribute inclusive search. The attribute inclusive search      */
+        /* can also find volume labels if you set e.g. D_DIR|D_VOLUME      */
+        UBYTE attr_srch;
+        attr_srch = dmp->dm_attr_srch & ~(D_RDONLY | D_ARCHIVE | D_DEVICE);
+        if ((attr_srch == D_VOLID && (fnp->f_dir.dir_attrib & D_VOLID)) ||
+            !(~attr_srch & (D_DIR | D_SYSTEM | D_HIDDEN | D_VOLID) &
               fnp->f_dir.dir_attrib))
         {
           /* If found, transfer it to the dmatch structure                */

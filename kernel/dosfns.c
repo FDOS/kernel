@@ -1021,6 +1021,8 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
     const char *p;
     COUNT i;
 
+    /* make sure the next search fails */
+    sda_tmp_dm.dm_entry = 0xffff;
     /* Found a matching device. Hence there cannot be wildcards. */
     SearchDir.dir_attrib = D_DEVICE;
     SearchDir.dir_time = dos_gettime();
@@ -1043,10 +1045,6 @@ COUNT DosFindNext(void)
   COUNT rc;
   register dmatch FAR *dmp = dta;
 
-  /* findnext will always fail on a device name device name or volume id */
-  if (dmp->dm_attr_fnd & (D_DEVICE | D_VOLID))
-    return DE_NFILES;
-
 /*
  *  The new version of SHSUCDX 1.0 looks at the dm_drive byte to
  *  test 40h. I used RamView to see location MSD 116:04be and
@@ -1068,6 +1066,12 @@ COUNT DosFindNext(void)
   printf("findnext: %d\n", dmp->dm_drive);
 #endif
   fmemcpy(&sda_tmp_dm, dmp, 21);
+
+  /* findnext will always fail on a volume id search or device name */
+  if ((sda_tmp_dm.dm_attr_srch & ~(D_RDONLY | D_ARCHIVE | D_DEVICE)) == D_VOLID
+      || sda_tmp_dm.dm_entry == 0xffff)
+    return DE_NFILES;
+
   memset(&SearchDir, 0, sizeof(struct dirent));
   dta = &sda_tmp_dm;
   rc = (sda_tmp_dm.dm_drive & 0x80) ?
