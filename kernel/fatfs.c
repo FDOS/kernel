@@ -254,18 +254,10 @@ COUNT dos_close(COUNT fd)
 /*                                                                      */
 /* split a path into it's component directory and file name             */
 /*                                                                      */
-f_node_ptr split_path(char * path, f_node_ptr fnp)
+f_node_ptr split_path(const char * path, f_node_ptr fnp)
 {
-  /* Start off by parsing out the components.                     */ 
-  int i = 2, dirlength = 3;
-
-  /* Now see how long a directory component we have.              */
-  while (path[i])
-    if (path[i++] == '\\')
-      dirlength = i;
-
   /* check if the path ends in a backslash                        */
-  if (path[dirlength] == '\0')
+  if (path[strlen(path) - 1] == '\\')
     return (f_node_ptr) 0;
 
 /*  11/29/99 jt
@@ -289,18 +281,7 @@ f_node_ptr split_path(char * path, f_node_ptr fnp)
 #endif
 
   /* Translate the path into a useful pointer                     */
-  {
-    char tmp = path[dirlength];
-    path[dirlength] = '\0';
-    fnp = dir_open(path, fnp);
-    path[dirlength] = tmp;
-  } 
-
-  /* Extract the 8.3 filename from the path */
-  if (fnp)
-    ConvertNameSZToName83(fnp->f_dmp->dm_name_pat, &path[dirlength]);
-
-  return fnp;
+  return dir_open(path, TRUE, fnp);
 }
 
 /* checks whether directory part of path exists */
@@ -498,7 +479,7 @@ COUNT dos_rmdir(BYTE * path)
 
   /* Check that the directory is empty. Only the  */
   /* "." and ".." are permissable.                */
-  fnp = dir_open(path, &fnode[0]);
+  fnp = dir_open(path, FALSE, &fnode[0]);
   if (fnp == NULL)
     return DE_PATHNOTFND;
 
@@ -1539,7 +1520,7 @@ int dos_cd(char * PathName)
     return DE_INVLDDRV;
 
   /* now test for its existance. If it doesn't, return an error.  */
-  if ((fnp = dir_open(PathName, &fnode[0])) == NULL)
+  if ((fnp = dir_open(PathName, FALSE, &fnode[0])) == NULL)
     return DE_PATHNOTFND;
 
   /* problem: RBIL table 01643 does not give a FAT32 field for the

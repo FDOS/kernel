@@ -58,7 +58,7 @@ VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart)
   fnp->f_cluster = fnp->f_dmp->dm_dircluster = dirstart;
 }
 
-f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
+f_node_ptr dir_open(register const char *dirname, BOOL split, f_node_ptr fnp)
 {
   int i;
   char *fcbname;
@@ -87,17 +87,18 @@ f_node_ptr dir_open(register const char *dirname, f_node_ptr fnp)
   fcbname = fnp->f_dmp->dm_name_pat;
   while(*dirname != '\0')
   {
-    /* skip all path seperators                             */
-    while (*dirname == '\\')
-      ++dirname;
-    /* don't continue if we're at the end                   */
-    if (*dirname == '\0')
-      break;
+    /* skip the path seperator                              */
+    ++dirname;
 
     /* Convert the name into an absolute name for           */
     /* comparison...                                        */
 
     dirname = ConvertNameSZToName83(fcbname, dirname);
+
+    /* do not continue if we split the filename off and are */
+    /* at the end                                           */
+    if (split && *dirname == '\0')
+      break;
 
     /* Now search through the directory to  */
     /* find the entry...                    */

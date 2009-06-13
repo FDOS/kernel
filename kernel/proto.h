@@ -136,7 +136,7 @@ VOID fatal(BYTE * err_msg);
 
 /* fatdir.c */
 VOID dir_init_fnode(f_node_ptr fnp, CLUSTER dirstart);
-f_node_ptr dir_open(const char *dirname, f_node_ptr fnp);
+f_node_ptr dir_open(const char *dirname, BOOL split, f_node_ptr fnp);
 COUNT dir_read(REG f_node_ptr fnp);
 BOOL dir_write_update(REG f_node_ptr fnp, BOOL update);
 #define dir_write(fnp) dir_write_update(fnp, FALSE)
@@ -168,7 +168,7 @@ CLUSTER dos_free(struct dpb FAR * dpbp);
 BOOL dir_exists(char * path);
 VOID dpb16to32(struct dpb FAR *dpbp);
 
-f_node_ptr split_path(char *, f_node_ptr fnp);
+f_node_ptr split_path(const char *, f_node_ptr fnp);
 
 int dos_cd(char * PathName);
 
