@@ -21,7 +21,7 @@ OBJS3=apisupt.obj intr.obj irqstack.obj blockio.obj chario.obj systime.obj \
 error.obj
 OBJS4=break.obj dosfns.obj fatdir.obj fatfs.obj fattab.obj fcbfns.obj \
 inthndlr.obj
-OBJS5=ioctl.obj dosnames.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
+OBJS5=ioctl.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
 OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj
 OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
 initdisk.obj initclk.obj
@@ -97,7 +97,6 @@ blockio.obj: blockio.c    $(HEADERS) $(TARGET).lnk
 break.obj: break.c        $(HEADERS) $(TARGET).lnk  
 chario.obj: chario.c      $(HEADERS) $(TARGET).lnk  
 dosfns.obj: dosfns.c      $(HEADERS) $(TARGET).lnk  
-dosnames.obj: dosnames.c  $(HEADERS) $(TARGET).lnk  
 dsk.obj: dsk.c            $(HEADERS) $(TARGET).lnk  
 error.obj: error.c        $(HEADERS) $(TARGET).lnk  
 fatdir.obj: fatdir.c      $(HEADERS) $(TARGET).lnk  

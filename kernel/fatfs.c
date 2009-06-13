@@ -257,9 +257,15 @@ COUNT dos_close(COUNT fd)
 f_node_ptr split_path(char * path, f_node_ptr fnp)
 {
   /* Start off by parsing out the components.                     */ 
-  int dirlength = ParseDosName(path);
+  int i = 2, dirlength = 3;
 
-  if (dirlength < SUCCESS)
+  /* Now see how long a directory component we have.              */
+  while (path[i])
+    if (path[i++] == '\\')
+      dirlength = i;
+
+  /* check if the path ends in a backslash                        */
+  if (path[dirlength] == '\0')
     return (f_node_ptr) 0;
 
 /*  11/29/99 jt

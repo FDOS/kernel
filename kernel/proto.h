@@ -129,9 +129,6 @@ VOID ASMCFUNC DosIdle_hlt(void);
 #pragma aux (cdecl) DosIdle_hlt modify exact []
 #endif
 
-/* dosnames.c */
-int ParseDosName(const char *);
-
 /* error.c */
 VOID dump(void);
 VOID panic(BYTE * s);
