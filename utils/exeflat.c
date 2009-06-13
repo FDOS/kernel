@@ -389,11 +389,11 @@ int main(int argc, char **argv)
   if (!UPX)
     exit(0);
 
-  /* move kernel.sys tmp$$$$$.exe */
+  /* move kernel.sys tmp.exe */
   tmpexe = argv[2];
   if (!compress_sys_file)
   {
-    tmpexe = "tmp$$$$$.exe";
+    tmpexe = "tmp.exe";
     rename(argv[2], tmpexe);
   }
 
