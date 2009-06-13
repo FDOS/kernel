@@ -39,7 +39,6 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 STATIC f_node_ptr sft_to_fnode(int fd);
 STATIC void fnode_to_sft(f_node_ptr fnp);
-STATIC f_node_ptr split_path(char *, f_node_ptr fnp);
 STATIC BOOL find_fname(f_node_ptr, int);
     /* /// Added - Ron Cemer */
 STATIC int merge_file_changes(f_node_ptr fnp, int collect);
@@ -258,7 +257,7 @@ COUNT dos_close(COUNT fd)
 f_node_ptr split_path(char * path, f_node_ptr fnp)
 {
   /* Start off by parsing out the components.                     */ 
-  int dirlength = ParseDosName(path, FALSE);
+  int dirlength = ParseDosName(path);
 
   if (dirlength < SUCCESS)
     return (f_node_ptr) 0;

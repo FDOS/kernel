@@ -282,8 +282,6 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
 {
   REG f_node_ptr fnp;
   REG dmatch *dmp = &sda_tmp_dm;
-  REG COUNT i;
-  char *fname;
 
 /*  printf("ff %Fs\n", name);*/
 
@@ -294,14 +292,14 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* dirmatch structure and then for every find, we will open the */
   /* current directory, do a seek and read.                       */
 
-  /* Parse out the file name */
-  i = ParseDosName(name, TRUE);
-  if (i < SUCCESS)
-    return i;
-/*
-  printf("\nff %s", Tname);
-  printf("ff %s", fcbname);
-*/
+  /* first: findfirst("D:\\") returns DE_NFILES */
+  if (name[3] == '\0')
+    return DE_NFILES;
+
+  /* Now open this directory so that we can read the      */
+  /* fnode entry and do a match on it.                    */
+  if ((fnp = split_path(name, &fnode[0])) == NULL)
+    return DE_PATHNOTFND;
 
   /* Now search through the directory to find the entry...        */
 
@@ -312,25 +310,11 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   /* RBIL: ignore ReaDONLY and ARCHIVE bits but DEVICE ignored too*/
   /* For compatibility with bad search requests, only treat as    */
   /*   volume search if only volume bit set, else ignore it.      */
-  fname = &name[i];
   if ((attr & ~(D_RDONLY | D_ARCHIVE | D_DEVICE)) == D_VOLID)
     /* if ONLY label wanted redirect search to root dir */
-    i = 3;
+    dir_init_fnode(fnp, 0);
 
-  /* Now open this directory so that we can read the      */
-  /* fnode entry and do a match on it.                    */
-
-/*  printf("dir_open %s\n", szDirName);*/
-  {
-    char tmp = name[i];
-    name[i] = '\0';
-    if ((fnp = dir_open(name, &fnode[0])) == NULL)
-      return DE_PATHNOTFND;
-    name[i] = tmp;
-  }
-
-  /* Now initialize the dirmatch structure.            */
-  ConvertNameSZToName83(dmp->dm_name_pat, fname);
+  /* Now further initialize the dirmatch structure.       */
   dmp->dm_drive = name[0] - 'A';
   dmp->dm_attr_srch = attr;
 

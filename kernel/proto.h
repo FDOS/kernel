@@ -130,7 +130,7 @@ VOID ASMCFUNC DosIdle_hlt(void);
 #endif
 
 /* dosnames.c */
-int ParseDosName(const char *, BOOL);
+int ParseDosName(const char *);
 
 /* error.c */
 VOID dump(void);
@@ -171,7 +171,7 @@ CLUSTER dos_free(struct dpb FAR * dpbp);
 BOOL dir_exists(char * path);
 VOID dpb16to32(struct dpb FAR *dpbp);
 
-VOID trim_path(BYTE FAR * s);
+f_node_ptr split_path(char *, f_node_ptr fnp);
 
 int dos_cd(char * PathName);
 

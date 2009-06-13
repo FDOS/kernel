@@ -48,7 +48,7 @@ static BYTE *dosnamesRcsId =
     returns number of characters in the directory component (up to the
     last backslash, including d:) or negative if error
  */
-int ParseDosName(const char *filename, BOOL bAllowWildcards)
+int ParseDosName(const char *filename)
 {
   int nDirCnt;
   const char *lpszLclDir, *lpszLclFile;
@@ -76,14 +76,7 @@ int ParseDosName(const char *filename, BOOL bAllowWildcards)
     ++filename;
 
   if (filename == lpszLclFile)
-  {
-    int err = DE_PATHNOTFND;
-    if (bAllowWildcards && *filename == '\0' &&
-        (nDirCnt == 3 || filename[-1] != '\\'))
-        /* D:\ or D:\DOS but not D:\DOS\ */
-      err = DE_NFILES;
-    return err;
-  }
+    return DE_PATHNOTFND;
 
   return nDirCnt;
 }
