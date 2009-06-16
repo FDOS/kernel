@@ -104,7 +104,6 @@ struct dpb FAR *get_dpb(COUNT dsk)
 STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
                           CLUSTER cluster, char *name)
 {
-  dentry->dir_size = 0l;
   memset(dentry, 0, sizeof(struct dirent));
   memcpy(dentry->dir_name, name, FNAME_SIZE + FEXT_SIZE);
 #ifdef WITHFAT32
@@ -138,13 +137,14 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   /* find one, truncate it (O_CREAT).                     */
   if (status == SUCCESS)
   {
+    unsigned char dir_attrib = fnp->f_dir.dir_attrib;
     if (flags & O_TRUNC)
     {
       /* The only permissable attribute is archive,   */
       /* check for any other bit set. If it is, give  */
       /* an access error.                             */
-      if ((fnp->f_dir.dir_attrib & (D_RDONLY | D_DIR | D_VOLID))
-          || (fnp->f_dir.dir_attrib & ~D_ARCHIVE & ~attrib))
+      if ((dir_attrib & (D_RDONLY | D_DIR | D_VOLID))
+          || (dir_attrib & ~D_ARCHIVE & ~attrib))
         return DE_ACCESS;
 
       /* Release the existing files FAT and set the   */
@@ -156,15 +156,14 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
     else if (flags & O_OPEN)
     {
       /* force r/o open for FCB if the file is read-only */
-      if ((flags & O_FCB) && (fnp->f_dir.dir_attrib & D_RDONLY))
+      if ((flags & O_FCB) && (dir_attrib & D_RDONLY))
         flags = (flags & ~3) | O_RDONLY;
 
       /* Check permissions. -- JPP
          (do not allow to open volume labels/directories,
           and do not allow writing to r/o files) */
-      if ((fnp->f_dir.dir_attrib & (D_DIR | D_VOLID)) ||
-          ((fnp->f_dir.dir_attrib & D_RDONLY) &&
-           ((flags & O_ACCMODE) != O_RDONLY)))
+      if ((dir_attrib & (D_DIR | D_VOLID)) ||
+          ((dir_attrib & D_RDONLY) && ((flags & O_ACCMODE) != O_RDONLY)))
         return DE_ACCESS;
       status = S_OPENED;
     }
@@ -187,32 +186,24 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
     return status;
   }
 
-  if (status != S_OPENED)
+  /* Now change to file                                   */
+  fnp->f_sft_idx = fd;
+  fnp->f_offset = 0l;
+  fnp->f_cluster_offset = 0;
+
+  fnp->f_flags &= ~(SFT_FDATE|SFT_FCLEAN);
+  if (status == S_OPENED)
+    fnp->f_flags |= SFT_FCLEAN;
+  else
   {
     init_direntry(&fnp->f_dir, attrib, FREE, fnp->f_dmp->dm_name_pat);
     if (!dir_write(fnp))
       return DE_ACCESS;
   }
 
-  /* Now change to file                                   */
-  fnp->f_sft_idx = fd;
-  fnp->f_offset = 0l;
-
-  if (status != S_OPENED)
-  {
-    fnp->f_cluster = FREE;
-    setdstart(fnp->f_dpb, &fnp->f_dir, FREE);
-    fnp->f_cluster_offset = 0;
-  }
-
-  fnp->f_flags &= ~(SFT_FDATE|SFT_FCLEAN);
-  if (status == S_OPENED)
-    fnp->f_flags |= SFT_FCLEAN;
-
   merge_file_changes(fnp, status == S_OPENED); /* /// Added - Ron Cemer */
   /* /// Moved from above.  - Ron Cemer */
   fnp->f_cluster = getdstart(fnp->f_dpb, &fnp->f_dir);
-  fnp->f_cluster_offset = 0;
 
   fnode_to_sft(fnp);
   return status;
