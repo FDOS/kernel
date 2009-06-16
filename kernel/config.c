@@ -1324,7 +1324,7 @@ err:printf("%s has invalid format\n", filename);
     rc = TRUE;
     goto ret;
   }
-  printf("couldn't find info for country ID %u\n", ctryCode);
+  printf("could not find country info for country ID %u\n", ctryCode);
 ret:
   close(fd);
   return rc;
@@ -2161,391 +2161,63 @@ STATIC void CfgMenuColor(BYTE * pLine)
 #define _TIME_12 0
 #define _TIME_24 1
 
-struct CountrySpecificInfo specificCountriesSupported[] = {
-    
-  /* US */ {
-    1,                          /*  = W1 W437   # Country ID & Codepage */
-    437,      
-    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Canadian French */ ,{
-    2,                          /*  = W1 W437   # Country ID & Codepage */
-    863,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Latin America */ ,{
-    3,                          /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Russia - by arkady */ ,{
-    7,                          /*  = W1 W437   # Country ID & Codepage */
-    866,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "RUB",                      /* '$' ,'EUR'   */
-                                /* should be "\xE0", but as no codepage
-                                   support exists (yet), better to leave it as 'Rubels'
-                                */       						
-    " ",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    3,                          /*  Currency format : currency follows, after blank */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* DUTCH */ ,{
-    31,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Belgium */ ,{
-    32,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* France */ ,{
-    33,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Spain */ ,{
-    34,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    "'",                        /*      Decimal point - by aitor       */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Hungary */ ,{
-    36,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$HU",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Yugoslavia */ ,{
-    38,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$YU",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Italy */ ,{
-    39,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Switzerland */ ,{
-    41,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "SF",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Czechoslovakia */ ,{
-    42,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$YU",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* UK */ ,{
-    44,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "\x9c",                      /* Pound sign    */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Denmark */ ,{
-    45,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "DKK",                      /*     */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  /* Sweden */ ,{
-    46,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "SEK",                      /*     */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Norway */ ,{
-    47,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "NOK",                      /*     */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Poland */ ,{
-    48,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_YMD,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "PLN",                      /*  michael tyc: PLN means PoLish New zloty, I think)   */
-    ",",                        /* ','          # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* GERMAN */ ,{
-    49,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    1,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* Argentina */ ,{
-    54,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$ar",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    1,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
+struct CountrySpecificInfoSmall {
+  short CountryID;    /*  = W1 W437   # Country ID */
+  char  DateFormat;           /*    Date format: 0/1/2: U.S.A./Europe/Japan */
+  char  CurrencyString[3];    /* '$' ,'EUR'   */
+  char  ThousandSeparator;    /* ','          # Thousand's separator */
+  char  DecimalPoint;         /* '.'        # Decimal point        */
+  char  DateSeparator;        /* '-'  */
+  char  TimeSeparator;        /* ':'  */
+  char  CurrencyFormat;       /* = 0  # Currency format (bit array)  */
+  char  CurrencyPrecision;    /* = 2  # Currency precision           */
+  char  TimeFormat;           /* = 0  # time format: 0/1: 12/24 houres */
+};
 
-  /* Brazil */ ,{
-    55,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$ar",                      /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    1,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-  
-  /* International English */ ,{
-    61,                         /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_MDY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "$",                        /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
+struct CountrySpecificInfoSmall specificCountriesSupported[] = {
 
-  /* Japan - Yuki Mitsui */ ,{
-    81,                       /*  = W1 W437   # Country ID & Codepage */
-    932,      
-    _DATE_YMD,                  /*    Date format: 0/1/2:U.S.A./Europe/Japan */
-    "\x81\x8f",                 /* '$' ,'EUR'   */
-    ",",                        /* ','        # Thousand's separator */
-    ".",                        /* '.'        # Decimal point        */
-    "/",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision          */
-    _TIME_12                    /* = 0  # time format: 0/1: 12/24 houres 
-                                 */
-  }
+/* table rewritten by Bernd Blaauw
+Country ID  : international numbering
+Date format : M = Month, D = Day, Y = Year (4digit); 0=USA, 1=Europe, 2=Japan
+Currency    : $ = dollar, EUR = EURO, United Kingdom uses the pound sign
+Thousands   : separator for thousands (1,000,000 bytes; Dutch: 1.000.000 bytes)
+Decimals    : separator for decimals (2.5KB; Dutch: 2,5KB)
+Datesep     : Date separator (2/4/2004 or 2-4-2004 for example)
+Timesep     : usually ":" is used to separate hours, minutes and seconds
+Currencyf   : Currency format (bit array)
+Currencyp   : Currency precision
+Timeformat  : 0=12 hour format (AM/PM), 1=24 hour format (16:12 means 4:12 PM)
 
-  /* Portugal */ ,{
-    351,                        /*  = W1 W437   # Country ID & Codepage */
-    850,      
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                        /* '$' ,'EUR'   */
-    ".",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    "-",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0,                          /* = 0  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 houres */
-  }
-
-  /* Finland - by wolf */ ,{
-    358,                        /*  = W1 W437   # Country ID & Codepage */
-    850,
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "EUR",                      /* '$' ,'EUR'   */
-    " ",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    0x3,                        /*  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
-  }
-
-  /* Bulgaria - by Luchezar Georgiev */ ,{
-    359,                        /*  = W1 W437   # Country ID & Codepage */
-    855,
-    _DATE_DMY,                  /*    Date format: 0/1/2: U.S.A./Europe/Japan */
-    "BGL",                      /* '$' ,'EUR'   */
-    " ",                        /* ','          # Thousand's separator */
-    ",",                        /* '.'        # Decimal point        */
-    ".",                        /* '-'  DateSeparator */
-    ":",                        /* ':'  TimeSeparator */
-    3,                          /*  # Currency format (bit array) */
-    2,                          /* = 2  # Currency precision           */
-    _TIME_24                    /* = 0  # time format: 0/1: 12/24 hours */
-  }
-
-  /* Ukraine - by Oleg Deribas */ ,{
-    380,         /*  = W380 W848   # Country ID & Codepage  */
-    848,
-    _DATE_DMY,   /* Date format: 0/1/2: U.S.A./Europe/Japan */
-    "UAH",       /* Currency */
-    " ",         /* ' '  # Thousand's separator */
-    ",",         /* ','  # Decimal point        */
-    ".",         /* '.'  DateSeparator */
-    ":",         /* ':'  TimeSeparator */
-    3,           /* = 3  # Currency format (bit array)    */
-    2,           /* = 2  # Currency precision             */
-    _TIME_24     /* = 1  # time format: 0/1: 12/24 houres */
-  }
-
-};    
-
+  ID  Date     currency  1000 0.1 date time C digit time       Locale/Country
+-----------------------------------------------------------------------------*/
+{  1,_DATE_MDY,"$"       ,',','.', '/',':', 0 , 2,_TIME_12},/* United States */
+{  2,_DATE_YMD,"$"       ,',','.', '-',':', 0 , 2,_TIME_24},/* Canada French */
+{  3,_DATE_MDY,"$"       ,',','.', '/',':', 0 , 2,_TIME_12},/* Latin America */
+{  7,_DATE_DMY,"RUB"     ,' ',',', '.',':', 3 , 2,_TIME_24},/* Russia        */
+{ 31,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Netherlands   */
+{ 32,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Belgium       */
+{ 33,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* France        */
+{ 34,_DATE_DMY,"EUR"     ,'.','\'','-',':', 0 , 2,_TIME_24},/* Spain         */
+{ 36,_DATE_DMY,"$HU"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Hungary       */
+{ 38,_DATE_DMY,"$YU"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Yugoslavia    */
+{ 39,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Italy         */
+{ 41,_DATE_DMY,"SF"      ,'.',',', '.',':', 0 , 2,_TIME_24},/* Switserland   */
+{ 42,_DATE_YMD,"$YU"     ,'.',',', '.',':', 0 , 2,_TIME_24},/* Czech/Slovakia*/
+{ 44,_DATE_DMY,"\x9c"    ,'.',',', '/',':', 0 , 2,_TIME_24},/* United Kingdom*/
+{ 45,_DATE_DMY,"DKK"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Denmark       */
+{ 46,_DATE_YMD,"SEK"     ,',','.', '-',':', 0 , 2,_TIME_24},/* Sweden        */
+{ 47,_DATE_DMY,"NOK"     ,',','.', '.',':', 0 , 2,_TIME_24},/* Norway        */
+{ 48,_DATE_YMD,"PLN"     ,',','.', '.',':', 0 , 2,_TIME_24},/* Poland        */
+{ 49,_DATE_DMY,"EUR"     ,'.',',', '.',':', 1 , 2,_TIME_24},/* Germany       */
+{ 54,_DATE_DMY,"$ar"     ,'.',',', '/',':', 1 , 2,_TIME_12},/* Argentina     */
+{ 55,_DATE_DMY,"$ar"     ,'.',',', '/',':', 1 , 2,_TIME_24},/* Brazil        */
+{ 61,_DATE_MDY,"$"       ,'.',',', '/',':', 0 , 2,_TIME_24},/* Int. English  */
+{ 81,_DATE_YMD,"\x81\x8f",',','.', '/',':', 0 , 2,_TIME_12},/* Japan         */
+{351,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Portugal      */
+{358,_DATE_DMY,"EUR"     ,' ',',', '.',':',0x3, 2,_TIME_24},/* Finland       */
+{359,_DATE_DMY,"BGL"     ,' ',',', '.',':', 3 , 2,_TIME_24},/* Bulgaria      */
+{380,_DATE_DMY,"UAH"     ,' ',',', '.',':', 3 , 2,_TIME_24},/* Ukraine       */
+};
 
 /* contributors to above table:
 
@@ -2557,12 +2229,12 @@ struct CountrySpecificInfo specificCountriesSupported[] = {
 	Arkady Belousov (RUS)
         Luchezar Georgiev (BUL)
 	Yuki Mitsui (JAP)
-	Aitor Santamar­a Merino (SP)
-*/	
+	Aitor Santamaria Merino (SP)
+*/
 
 STATIC int LoadCountryInfoHardCoded(COUNT ctryCode)
 {
-  struct CountrySpecificInfo *country;
+  struct CountrySpecificInfoSmall *country;
 
   /* printf("cntry: %u, CP%u, file=\"%s\"\n", ctryCode, codePage, filename);  */
 
@@ -2574,20 +2246,24 @@ STATIC int LoadCountryInfoHardCoded(COUNT ctryCode)
   {
     if (country->CountryID == ctryCode)
     {
-      int codepagesaved = nlsCountryInfoHardcoded.C.CodePage;
-
-      fmemcpy(&nlsCountryInfoHardcoded.C.CountryID,
-              country,
-              min(nlsCountryInfoHardcoded.TableSize, sizeof *country));
-
-      nlsCountryInfoHardcoded.C.CodePage = codepagesaved;
-
+      nlsCountryInfoHardcoded.C.CountryID = country->CountryID;
+      nlsCountryInfoHardcoded.C.DateFormat = country->DateFormat;
+      nlsCountryInfoHardcoded.C.CurrencyString[0] = country->CurrencyString[0];
+      nlsCountryInfoHardcoded.C.CurrencyString[1] = country->CurrencyString[1];
+      nlsCountryInfoHardcoded.C.CurrencyString[2] = country->CurrencyString[2];
+      nlsCountryInfoHardcoded.C.ThousandSeparator[0] = country->ThousandSeparator;
+      nlsCountryInfoHardcoded.C.DecimalPoint[0] = country->DecimalPoint;
+      nlsCountryInfoHardcoded.C.DateSeparator[0] = country->DateSeparator;
+      nlsCountryInfoHardcoded.C.TimeSeparator[0] = country->TimeSeparator;
+      nlsCountryInfoHardcoded.C.CurrencyFormat = country->CurrencyFormat;
+      nlsCountryInfoHardcoded.C.CurrencyPrecision = country->CurrencyPrecision;
+      nlsCountryInfoHardcoded.C.TimeFormat = country->TimeFormat;
       return 0;
     }
   }
 
-  printf("could not find country info for country ID %u\n"
-         "current supported countries are ", ctryCode);
+  printf("could not find country info for country ID %u\n", ctryCode);
+  printf("current supported countries are ");
 
   for (country = specificCountriesSupported;
        country < specificCountriesSupported + LENGTH(specificCountriesSupported);
