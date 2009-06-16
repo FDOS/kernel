@@ -39,7 +39,7 @@ BYTE *RcsId = "$Id$";
 /*                                                                      */
 STATIC f_node_ptr sft_to_fnode(int fd);
 STATIC void fnode_to_sft(f_node_ptr fnp);
-STATIC BOOL find_fname(f_node_ptr, int);
+STATIC int find_fname(const char *path, int attr, f_node_ptr fnp);
     /* /// Added - Ron Cemer */
 STATIC int merge_file_changes(f_node_ptr fnp, int collect);
 STATIC BOOL find_free(f_node_ptr);
@@ -131,17 +131,12 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 
 int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 {
-  REG f_node_ptr fnp;
-  int status = S_OPENED;
-
-  /* next split the passed dir into comopnents (i.e. - path to   */
-  /* new directory and name of new directory.                     */
-  if ((fnp = split_path(path, sft_to_fnode(fd))) == NULL)
-    return DE_PATHNOTFND;
+  REG f_node_ptr fnp = sft_to_fnode(fd);
+  int status = find_fname(path, D_ALL | attrib, fnp);
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, truncate it (O_CREAT).                     */
-  if (find_fname(fnp, D_ALL | attrib))
+  if (status == SUCCESS)
   {
     if (flags & O_TRUNC)
     {
@@ -171,13 +166,14 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
           ((fnp->f_dir.dir_attrib & D_RDONLY) &&
            ((flags & O_ACCMODE) != O_RDONLY)))
         return DE_ACCESS;
+      status = S_OPENED;
     }
     else
     {
       return DE_FILEEXISTS;
     }
   }
-  else if (flags & O_CREAT)
+  else if (status == DE_FILENOTFND && (flags & O_CREAT))
   {
     int ret = alloc_find_free(fnp, path);
     if (ret != SUCCESS)
@@ -188,7 +184,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   {
     /* open: If we can't find the file, just return a not    */
     /* found error.                                          */
-    return DE_FILENOTFND;
+    return status;
   }
 
   if (status != S_OPENED)
@@ -295,18 +291,23 @@ BOOL fcbmatch(const char *fcbname1, const char *fcbname2)
   return memcmp(fcbname1, fcbname2, FNAME_SIZE + FEXT_SIZE) == 0;
 }
 
-STATIC BOOL find_fname(f_node_ptr fnp, int attr)
+STATIC int find_fname(const char *path, int attr, f_node_ptr fnp)
 {
+  /* check for leading backslash and open the directory given that */
+  /* contains the file given by path.                              */
+  if ((fnp = split_path(path, fnp)) == NULL)
+    return DE_PATHNOTFND;
+
   while (dir_read(fnp) == 1)
   {
     if (fcbmatch(fnp->f_dir.dir_name, fnp->f_dmp->dm_name_pat)
         && (fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
     {
-      return TRUE;
+      return SUCCESS;
     }
     fnp->f_dmp->dm_entry++;
   }
-  return FALSE;
+  return DE_FILENOTFND;
 }
 
 /* Description.
@@ -437,18 +438,12 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
 
 COUNT dos_delete(BYTE * path, int attrib)
 {
-  REG f_node_ptr fnp;
-
-  /* first split the passed dir into components (i.e. -   */
-  /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, &fnode[0])) == NULL)
-  {
-    return DE_PATHNOTFND;
-  }
+  REG f_node_ptr fnp = &fnode[0];
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, attrib))
+  int ret = find_fname(path, attrib, fnp);
+  if (ret == SUCCESS)
   {
     /* Do not delete directories or r/o files       */
     /* lfn entries and volume labels are only found */
@@ -461,7 +456,7 @@ COUNT dos_delete(BYTE * path, int attrib)
   }
   else
     /* No such file, return the error               */
-    return DE_FILENOTFND;
+    return ret;
 }
 
 COUNT dos_rmdir(BYTE * path)
@@ -495,7 +490,7 @@ COUNT dos_rmdir(BYTE * path)
 
   fnp->f_dmp->dm_entry++;
   dir_read(fnp);
-  /* secondard entry should be ".." */
+  /* second entry should be ".." */
   if (fnp->f_dir.dir_name[0] != '.' || fnp->f_dir.dir_name[1] != '.')
     return DE_ACCESS;
 
@@ -512,8 +507,7 @@ COUNT dos_rmdir(BYTE * path)
 
   /* next, split the passed dir into components (i.e. -   */
   /* path to new directory and name of new directory      */
-  if ((fnp = split_path(path, &fnode[0])) == NULL ||
-      !find_fname(fnp, D_ALL))
+  if (find_fname(path, D_ALL, fnp) != SUCCESS)
     /* this error should not happen because dir_open() succeeded above */
     return DE_PATHNOTFND;
 
@@ -532,23 +526,18 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
   if (!fstrcmp(path1, cdsp->cdsCurrentPath))
     return DE_RMVCUDIR;
 
-  /* first split the passed source into components (i.e. - path to*/
-  /* old file name and name of old file name                      */
-  if ((fnp1 = split_path(path1, &fnode[0])) == NULL)
-    return DE_PATHNOTFND;
-
-  if (!find_fname(fnp1, attrib))
-    return DE_FILENOTFND;
-
-  /* next split the passed target into components (i.e. - path to */
-  /* new file name and name of new file name                      */
-  if ((fnp2 = split_path(path2, &fnode[1])) == NULL)
-    return DE_PATHNOTFND;
+  /* first check if the source file exists                        */
+  fnp1 = &fnode[0];
+  ret = find_fname(path1, attrib, fnp1);
+  if (ret != SUCCESS)
+    return ret;
 
   /* Check that we don't have a duplicate name, so if we find     */
   /* one, it's an error.                                          */
-  if (find_fname(fnp2, attrib))
-    return DE_ACCESS;
+  fnp2 = &fnode[1];
+  ret = find_fname(path2, attrib, fnp2);
+  if (ret != DE_FILENOTFND)
+    return ret == SUCCESS ? DE_ACCESS : ret;
 
   fcbname = fnp2->f_dmp->dm_name_pat;
   if (fnp1->f_dmp->dm_dircluster == fnp2->f_dmp->dm_dircluster)
@@ -816,13 +805,6 @@ COUNT dos_mkdir(BYTE * dir)
   CLUSTER free_fat, parent;
   COUNT ret;
 
-  /* first split the passed dir into components (i.e. -   */
-  /* path to new directory and name of new directory      */
-  if ((fnp = split_path(dir, &fnode[0])) == NULL)
-  {
-    return DE_PATHNOTFND;
-  }
-
   /* check that the resulting combined path does not exceed
      the 67 MAX_CDSPATH limit. this leads to problems:
      A) you can't CD to this directory later
@@ -836,8 +818,10 @@ COUNT dos_mkdir(BYTE * dir)
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, it's an error.                             */
-  if (find_fname(fnp, D_ALL))
-    return DE_ACCESS;
+  fnp = &fnode[0];
+  ret = find_fname(dir, D_ALL, fnp);
+  if (ret != DE_FILENOTFND)
+    return ret == SUCCESS ? DE_ACCESS : ret;
 
   parent = fnp->f_dmp->dm_dircluster;
 
@@ -1533,16 +1517,9 @@ int dos_cd(char * PathName)
 #ifndef IPL
 COUNT dos_getfattr(BYTE * name)
 {
-  f_node_ptr fnp;
-
-  /* split the passed dir into components (i.e. - path to         */
-  /* new directory and name of new directory.                     */
-  if ((fnp = split_path(name, &fnode[0])) == NULL)
-    return DE_PATHNOTFND;
-
-  if (find_fname(fnp, D_ALL))
-    return fnp->f_dir.dir_attrib;
-  return DE_FILENOTFND;
+  f_node_ptr fnp = &fnode[0];
+  int ret = find_fname(name, D_ALL, fnp);
+  return ret == SUCCESS ? fnp->f_dir.dir_attrib : ret;
 }
 
 COUNT dos_setfattr(BYTE * name, UWORD attrp)
@@ -1559,13 +1536,10 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
   if ((attrp & (D_VOLID | 0xC0)) != 0)
     return DE_ACCESS;
 
-  /* split the passed dir into components (i.e. - path to         */
-  /* new directory and name of new directory.                     */
-  if ((fnp = split_path(name, &fnode[0])) == NULL)
-    return DE_PATHNOTFND;
-
-  if (!find_fname(fnp, D_ALL))
-    return DE_FILENOTFND;
+  fnp = &fnode[0];
+  rc = find_fname(name, D_ALL, fnp);
+  if (rc != SUCCESS)
+    return rc;
 
   /* if caller tries to set DIR on non-directory, return error */
   if ((attrp & D_DIR) && !(fnp->f_dir.dir_attrib & D_DIR))
