@@ -71,14 +71,6 @@ void setdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value)
   if (ISFAT32(dpbp))
     dentry->dir_start_high = (UWORD)(value >> 16);
 }
-
-BOOL checkdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value)
-{
-  if (!ISFAT32(dpbp))
-    return dentry->dir_start == (UWORD)value;
-  return (dentry->dir_start == (UWORD)value &&
-          dentry->dir_start_high == (UWORD)(value >> 16));
-}
 #endif
 
 ULONG clus2phys(CLUSTER cl_no, struct dpb FAR * dpbp)
@@ -585,7 +577,7 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
     next = next_cluster(dpbp, st);
 
     /* just exit if a damaged file system exists    */
-    if (next == FREE || next == 1)
+    if (next <= 1)
       return;
 
     /* zap the FAT pointed to                       */
@@ -601,7 +593,7 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
     }
     else
 #endif
-    if ((dpbp->dpb_cluster == UNKNCLUSTER) || (dpbp->dpb_cluster > st))
+    if ((dpbp->dpb_cluster == UNKNCLUSTER) || (dpbp->dpb_cluster > (UWORD)st))
       dpbp->dpb_cluster = (UWORD)st;
 
     /* and just follow the linked list              */
@@ -618,8 +610,9 @@ STATIC VOID wipe_out_clusters(struct dpb FAR * dpbp, CLUSTER st)
 STATIC VOID wipe_out(f_node_ptr fnp)
 {
   /* if not already free and valid file, do it */
-  if (fnp && !checkdstart(fnp->f_dpb, &fnp->f_dir, FREE))
-  wipe_out_clusters(fnp->f_dpb, getdstart(fnp->f_dpb, &fnp->f_dir));
+  CLUSTER cluster = getdstart(fnp->f_dpb, &fnp->f_dir);
+  if (cluster != FREE)
+    wipe_out_clusters(fnp->f_dpb, cluster);
   /* no flushing here: could get lost chain or "crosslink seed" but */
   /* it would be annoying if mass-deletes could not use BUFFERS...  */
 }
@@ -1010,7 +1003,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
   {
     /* get next cluster in the chain */
     cluster = next_cluster(fnp->f_dpb, fnp->f_cluster);
-    if (cluster == 1 || cluster == FREE) /* error or chain into the void */
+    if (cluster <= 1) /* 1/error or 0/FREE chain into the void */
       return DE_SEEK;
 
     /* If this is a read and the next is a LAST_CLUSTER,               */
@@ -1790,7 +1783,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
 {
 
   ULONG lastoffset = fnp->f_offset;     /* has to be saved */
-  CLUSTER next, st;
+  CLUSTER last, next, st;
   struct dpb FAR *dpbp = fnp->f_dpb;
 
   fnp->f_offset = fnp->f_dir.dir_size;     /* end of file */
@@ -1805,7 +1798,7 @@ STATIC VOID shrink_file(f_node_ptr fnp)
 
   next = next_cluster(dpbp, st); /* return nr. of 1st cluster after new end */
 
-  if (next == 1 || next == FREE) /* error or chain points into the void */
+  if (next <= 1) /* 1/error or 0/FREE chain points into the void */
     goto done;
 
   /* Loop from start until either a FREE entry is         */
@@ -1817,16 +1810,16 @@ STATIC VOID shrink_file(f_node_ptr fnp)
   {
     fnp->f_cluster = FREE;
     setdstart(dpbp, &fnp->f_dir, FREE); /* file no longer has start cluster */
-    if (link_fat(dpbp, st, FREE) != SUCCESS) /* free first cluster of chain */
-      goto done; /* do not wipe remainder of chain if FAT is broken */
+    last = FREE;
   }
   else
   {
     if (next == LONG_LAST_CLUSTER) /* nothing to do, file already ends here */
       goto done;
-    if (link_fat(dpbp, st, LONG_LAST_CLUSTER) != SUCCESS) /* make file end */
-      goto done; /* do not wipe remainder of chain if FAT is broken */
+    last = LONG_LAST_CLUSTER; /* make file end */
   }
+  if (link_fat(dpbp, st, last) != SUCCESS)
+    goto done; /* do not wipe remainder of chain if FAT is broken */
 
   wipe_out_clusters(dpbp, next); /* free clusters after the end */
   /* flush buffers, make sure disk is updated - hazard: no error checking! */

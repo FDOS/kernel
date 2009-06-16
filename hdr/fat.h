@@ -131,14 +131,11 @@ struct lfn_entry {
 struct dpb;
 CLUSTER getdstart(struct dpb FAR *dpbp, struct dirent *dentry);
 void setdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);
-BOOL checkdstart(struct dpb FAR *dpbp, struct dirent *dentry, CLUSTER value);
 #else
 #define getdstart(dpbp, dentry) \
   ((dentry)->dir_start)
 #define setdstart(dpbp, dentry, value) \
   (((dentry)->dir_start) = (UWORD)(value))
-#define checkdstart(dpbp, dentry, value) \
-  (((dentry)->dir_start) == (UWORD)(value))
 #endif
 
 #define DIR_NAME        0
