@@ -41,14 +41,6 @@ struct config {     /* Configuration variables */
   BYTE cfgStacks;            /* number of stacks */
   BYTE cfgStacksHigh;
   UWORD cfgStackSize;        /* stacks size for each stack */
-  /* COUNTRY=
-   * In Pass #1 these information is collected and in PostConfig()
-   * the NLS package is loaded into memory.      -- 2000/06/11 ska
-   */
-  WORD cfgCSYS_cntry;        /* country ID to be loaded */
-  UWORD cfgCSYS_cp;          /* requested codepage; NLS_DEFAULT if default */
-  WORD cfgCSYS_memory;       /* # of bytes required for the NLS pkg; 0 if none */
-  VOID FAR *cfgCSYS_data;    /* where the loaded data is for PostConfig() */
   UBYTE cfgP_0_startmode;    /* load command.com high or not */
   unsigned ebda2move;        /* value for switches=/E:nnnn */
 };

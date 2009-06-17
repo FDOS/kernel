@@ -143,10 +143,6 @@ struct config Config = {
   0,
   STACKSIZE
       /* COUNTRY= is initialized within DoConfig() */
-      , 0                       /* country ID */
-      , 0                       /* codepage */
-      , 0                       /* amount required memory */
-      , 0                       /* pointer to loaded data */
       , 0                       /* strategy for command.com is low by default */
       , 0                       /* default value for switches=/E:nnnn */
 };
@@ -829,7 +825,6 @@ STATIC BOOL SkipLine(char *pLine)
     switch (toupper(key & 0x00ff))
     {
       case 'N':
-      case 'n':
         printf("N\n");
         return TRUE;
 
@@ -842,7 +837,6 @@ STATIC BOOL SkipLine(char *pLine)
       case '\r':
       case '\n':
       case 'Y':
-      case 'y':
         printf("Y\n");
         return FALSE;
 
