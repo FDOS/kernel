@@ -183,10 +183,11 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
   fnp->f_offset = 0l;
   fnp->f_cluster_offset = 0;
 
-  fnp->f_flags &= ~(SFT_FDATE|SFT_FCLEAN);
-  if (status == S_OPENED)
-    fnp->f_flags |= SFT_FCLEAN;
-  else
+  fnp->f_flags &= ~SFT_FDATE;
+  /* use FCLEAN even on replaced/created files: the bit is reset */
+  /* if the file is written to later                             */
+  fnp->f_flags |= SFT_FCLEAN;
+  if (status != S_OPENED)
   {
     init_direntry(&fnp->f_dir, attrib, FREE, fnp->f_dmp->dm_name_pat);
     if (!dir_write(fnp))
