@@ -52,7 +52,10 @@ if not "%OLDPATH%" == "" set OLDPATH=
 
 set MAKE=
 set COMPILER=
+set ALLCFLAGS=
+set CFLAGS=
 set XCPU=
+set XCPU_EX=
 set XFAT=
 set XLINK=
 set TC2_BASE=
@@ -61,7 +64,9 @@ set TC3_BASE=
 set BC5_BASE=
 set MS_BASE=
 set XNASM=
+set NASMFLAGS=
 set XUPX=
 set UPXOPT=
+set LOADSEG=
 
 :end
