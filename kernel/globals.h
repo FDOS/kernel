@@ -213,12 +213,7 @@ GLOBAL BYTE copyright[] =
 
 GLOBAL const BYTE ASM os_release[]
 #ifdef MAIN
-    = "FreeDOS kernel build " KERNEL_BUILD_STRING
-    " [version " SOURCE_DATE_STRING " compiled " __DATE__ "]\n"
-#if 0
-    = "FreeDOS kernel version " KERNEL_VERSION_STRING
-    " (Build " KERNEL_BUILD_STRING ") [" __DATE__ " " __TIME__ "]\n"
-#endif
+    = KERNEL_VERSION_STRING
 #if 0
     "For technical information and description of the DOS-C operating system\n\
 consult \"FreeDOS Kernel\" by Pat Villani, published by Miller\n\
