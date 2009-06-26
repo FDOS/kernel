@@ -64,20 +64,19 @@ struct xdpbforformat {
     } rebuilddpb;
 
     struct {
-      DWORD newmirroring;       /* new active FAT/mirroring state, or -1 to get
+      DWORD new;                /* new active FAT/mirroring state, or -1 to get
                                    bits 3-0: the 0-based FAT number of the active FAT
                                    bits 6-4: reserved (0)
                                    bit 7: do not mirror active FAT to inactive FATs
+                                   or:
+                                   set new root directory cluster, -1 - get current
                                  */
-      DWORD oldmirroring;       /* previous active FAT/mirroring state (as above) */
+      DWORD old;                 /* previous active FAT/mirroring state (as above)
+                                    or
+                                    get previous root directory cluster
+                                 */
       UDWORD reserved[2];
-    } setmirroring;
-
-    struct {
-      DWORD newrootclst;        /* set new root directory cluster, -1 - get current */
-      DWORD oldrootclst;        /* get previous root directory cluster */
-      UDWORD reserved[2];
-    } setroot;
+    } setget;
   } xdff_f;
 };
 

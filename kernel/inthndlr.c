@@ -293,53 +293,43 @@ int int21_fat32(lregs *r)
           break;
         }
         case 0x03:
-        {
-          struct buffer FAR *bp;
-          bpb FAR *bpbp;
-          DWORD newmirroring =
-            xdffp->xdff_f.setmirroring.newmirroring;
-      
-          if (newmirroring != -1
-              && (ISFAT32(dpb)
-                  && (newmirroring & ~(0xf | 0x80))))
-          {
-            return DE_INVLDPARM;
-          }
-          xdffp->xdff_f.setmirroring.oldmirroring =
-            (ISFAT32(dpb) ? dpb->dpb_xflags : 0);
-          if (newmirroring != -1 && ISFAT32(dpb))
-          {
-            bp = getblock(1, dpb->dpb_unit);
-            bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
-            bp->b_flag |= BFR_VALID | BFR_DIRTY;
-            bpbp = (bpb FAR *) & bp->b_buffer[BT_BPB];
-            bpbp->bpb_xflags = (UWORD)newmirroring;
-          }
-          goto rebuild_dpb;
-        }
         case 0x04:
         {
-          struct buffer FAR *bp;
-          bpb FAR *bpbp;
-          DWORD rootclst = xdffp->xdff_f.setroot.newrootclst;
-          if (!ISFAT32(dpb)
-              || (rootclst != -1
-                  && (rootclst == 1
-                      || (ULONG)rootclst > dpb->dpb_xsize)))
-          {
+          ULONG value;
+          if (!ISFAT32(dpb))
             return DE_INVLDPARM;
-          }
-          xdffp->xdff_f.setroot.oldrootclst = dpb->dpb_xrootclst;
-          if (rootclst != -1)
+
+          value = xdffp->xdff_f.setget.new;
+          if ((UWORD) xdffp->xdff_function == 0x03)
           {
-            bp = getblock(1, dpb->dpb_unit);
+            /* FAT mirroring */
+            if (value != 0xFFFFFFFF && (value & ~(0xf | 0x80)))
+                return DE_INVLDPARM;
+              xdffp->xdff_f.setget.old = dpb->dpb_xflags;
+          }
+          else
+          {
+            /* root cluster */
+            if (value != 0xFFFFFFFF && (value < 2 || value > dpb->dpb_xsize))
+              return DE_INVLDPARM;
+            xdffp->xdff_f.setget.old = dpb->dpb_xrootclst;
+          }
+          if (value != 0xFFFFFFFF)
+          {
+            bpb FAR *bpbp;
+            struct buffer FAR *bp = getblock(1, dpb->dpb_unit);
             bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
             bp->b_flag |= BFR_VALID | BFR_DIRTY;
             bpbp = (bpb FAR *) & bp->b_buffer[BT_BPB];
-            bpbp->bpb_xrootclst = rootclst;
+            if ((UWORD) xdffp->xdff_function == 0x03)
+              bpbp->bpb_xflags = (UWORD)value;
+            else
+              bpbp->bpb_xrootclst = value;
           }
           goto rebuild_dpb;
         }
+        default:
+          return DE_INVLDFUNC;
       }
     
       break;
