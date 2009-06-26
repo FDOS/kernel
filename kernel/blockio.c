@@ -259,6 +259,24 @@ VOID setinvld(REG COUNT dsk)
   while (FP_OFF(bp) != FP_OFF(firstbuf));
 }
 
+/*      Check if there is at least one dirty buffer                     */
+/*                                                                      */
+BOOL dirty_buffers(REG COUNT dsk)
+{
+  struct buffer FAR *bp = firstbuf;
+
+  do
+  {
+    if (bp->b_unit == dsk &&
+        (bp->b_flag & (BFR_VALID | BFR_DIRTY)) == (BFR_VALID | BFR_DIRTY))
+      return TRUE;
+    bp = b_next(bp);
+  }
+  while (FP_OFF(bp) != FP_OFF(firstbuf));
+  return FALSE;
+}
+
+/*                                                                      */
 /*                                                                      */
 /*                      Flush all buffers for a disk                    */
 /*                                                                      */

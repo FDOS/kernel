@@ -38,6 +38,7 @@ struct buffer FAR *getblk(ULONG blkno, COUNT dsk, BOOL overwrite);
 #define getblock(blkno, dsk) getblk(blkno, dsk, FALSE);
 #define getblockOver(blkno, dsk) getblk(blkno, dsk, TRUE);
 VOID setinvld(REG COUNT dsk);
+BOOL dirty_buffers(REG COUNT dsk);
 BOOL flush_buffers(REG COUNT dsk);
 BOOL flush(void);
 BOOL fill(REG struct buffer FAR * bp, ULONG blkno, COUNT dsk);
