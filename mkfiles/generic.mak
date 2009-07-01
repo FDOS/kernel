@@ -31,6 +31,10 @@ CP=copy
 ECHOTO=..\utils\echoto
 CLDEF=0
 
+!if $(LOADSEG)0 == 0
+LOADSEG=0x60
+!endif
+
 !include "../mkfiles/$(COMPILER).mak"
 
 !if $(CLDEF) == 0

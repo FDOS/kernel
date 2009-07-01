@@ -1,7 +1,5 @@
 #
-# Makefile for Borland C++ 3.1 for kernel.sys
-#
-# $Id$
+# Makefile for kernel.sys  (originally for Borland C/C++ 3.1)
 #
 
 !include "../mkfiles/generic.mak"
@@ -29,7 +27,7 @@ OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
 
 #               *Explicit Rules*
 
-production:     ../bin/$(TARGET).sys
+production:     ../bin/$(TARGET).sys ..\bin\country.sys
 
 ../bin/$(TARGET).sys: kernel.sys
 		$(CP) kernel.sys ..$(DIRSEP)bin
@@ -39,10 +37,13 @@ production:     ../bin/$(TARGET).sys
 # -S to avoid showing expected relocations
 # 0x10 & 0x74 for non-fat32 kernel, 0x10 & 0x73 for fat32 enabled kernel
 kernel.sys:	kernel.exe ../utils/exeflat.exe
-		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys 0x60 -S0x10 -S0x73 -S0x74 $(UPXOPT) $(XUPX)
+		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) -S0x10 -S0x73 -S0x74 $(UPXOPT) $(XUPX)
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
+
+..\bin\country.sys: country.asm
+		$(NASM) -o $*.sys country.asm
 
 clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
