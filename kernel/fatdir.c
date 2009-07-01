@@ -90,6 +90,12 @@ f_node_ptr dir_open(register const char *dirname, BOOL split, f_node_ptr fnp)
     /* skip the path seperator                              */
     ++dirname;
 
+    /* don't continue if we're at the end: this check is    */
+    /* for root directories, the only fully-qualified path  */
+    /* names that end in a \                                */
+    if (*dirname == '\0')
+      break;
+
     /* Convert the name into an absolute name for           */
     /* comparison...                                        */
 
