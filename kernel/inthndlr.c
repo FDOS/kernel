@@ -303,18 +303,18 @@ int int21_fat32(lregs *r)
           if ((UWORD) xdffp->xdff_function == 0x03)
           {
             /* FAT mirroring */
-            if (value != 0xFFFFFFFF && (value & ~(0xf | 0x80)))
+            if (value != 0xFFFFFFFFUL && (value & ~(0xf | 0x80)))
                 return DE_INVLDPARM;
               xdffp->xdff_f.setget.old = dpb->dpb_xflags;
           }
           else
           {
             /* root cluster */
-            if (value != 0xFFFFFFFF && (value < 2 || value > dpb->dpb_xsize))
+            if (value != 0xFFFFFFFFUL && (value < 2 || value > dpb->dpb_xsize))
               return DE_INVLDPARM;
             xdffp->xdff_f.setget.old = dpb->dpb_xrootclst;
           }
-          if (value != 0xFFFFFFFF)
+          if (value != 0xFFFFFFFFUL)
           {
             bpb FAR *bpbp;
             struct buffer FAR *bp = getblock(1, dpb->dpb_unit);

@@ -27,7 +27,7 @@ OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
 
 #               *Explicit Rules*
 
-production:     ../bin/$(TARGET).sys ..\bin\country.sys
+production:     ../bin/$(TARGET).sys ../bin/country.sys
 
 ../bin/$(TARGET).sys: kernel.sys
 		$(CP) kernel.sys ..$(DIRSEP)bin
@@ -42,7 +42,7 @@ kernel.sys:	kernel.exe ../utils/exeflat.exe
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
 
-..\bin\country.sys: country.asm
+../bin/country.sys: country.asm
 		$(NASM) -o $*.sys country.asm
 
 clobber:        clean
