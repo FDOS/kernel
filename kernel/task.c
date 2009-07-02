@@ -526,7 +526,7 @@ VOID return_user(void)
   /* might be a good idea to do that after closing
      but doesn't help NET either TE */
 
-  if (!tsr)
+  if (!tsr && p->ps_parent != cu_psp)
   {
     network_redirector(REM_CLOSEALL);
     for (i = 0; i < p->ps_maxfiles; i++)

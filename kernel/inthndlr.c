@@ -1035,8 +1035,6 @@ dispatch:
 
       /* End Program                                                  */
     case 0x4c:
-      if (((psp FAR *)MK_FP(cu_psp, 0))->ps_parent == cu_psp)
-        break;
       tsr = FALSE;
       rc = 0;
       if (ErrorMode)
