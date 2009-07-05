@@ -368,7 +368,8 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   dest[0] = '\0';		/* better probable for sanity check below --
                                    included by original truename() */
   /* MUX succeeded and really something */
-  if (QRemote_Fn(dest, src) == SUCCESS && dest[0] != '\0')
+  if (!(mode & CDS_MODE_SKIP_PHYSICAL) &&
+      QRemote_Fn(dest, src) == SUCCESS && dest[0] != '\0')
   {
     tn_printf(("QRemoteFn() returned: \"%S\"\n", dest));
 #ifdef DEBUG_TRUENAME
@@ -431,7 +432,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   rootPos = p = dest + 2;
   if (*p != '/') /* i.e., it's a backslash! */
   {
-    COUNT prevresult = result;
+    BYTE *cp;
     if (!(mode & CDS_MODE_SKIP_PHYSICAL))
     {
       tn_printf(("SUBSTing from: %S\n", cdsEntry->cdsCurrentPath));
@@ -459,8 +460,28 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     p++;
     /* truename must use the CuDir of the "virtual" drive letter! */
     /* tn_printf(("DosGetCuDir drive #%u\n", prevresult & 0x1f)); */
-    if (DosGetCuDir((UBYTE)((prevresult & 0x1f) + 1), p) < 0)
-      return DE_PATHNOTFND;
+    fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
+    cp = TempCDS.cdsCurrentPath;
+    /* ensure termination of strcpy */
+    cp[MAX_CDSPATH - 1] = '\0';
+    if ((TempCDS.cdsFlags & CDSNETWDRV) == 0)
+    {
+      /* dos_cd ensures that the path exists; if not, we
+         need to change to the root directory */
+      int result = dos_cd(cp);
+      if (result == DE_PATHNOTFND)
+        cp[TempCDS.cdsBackslashOffset + 1] =
+          cdsEntry->cdsCurrentPath[TempCDS.cdsBackslashOffset + 1] = '\0';
+      else if (result < SUCCESS)
+        return DE_PATHNOTFND;
+    }
+
+    cp += TempCDS.cdsBackslashOffset;
+    if (*cp == '\0')
+      p[0] = '\0';
+    else
+      strcpy(p, cp + 1);
+
     if (*src != '\\' && *src != '/')
       p += strlen(p);
     else /* skip the absolute path marker */

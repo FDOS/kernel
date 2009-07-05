@@ -887,38 +887,19 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
 
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 {
-  BYTE *cp;
-  struct cds FAR *cdsp;
+  char path[3];
 
-  /* next - "log" in the drive            */
-  /* first check for valid drive          */
-  cdsp = get_cds1(drive);
-  if (cdsp == NULL)
+  if (drive-- == 0) /* get default drive or convert to 0 = A:, 1 = B:, ... */
+    drive = default_drive;
+  path[0] = 'A' + (drive & 0x1f);
+  path[1] = ':';
+  path[2] = '\0';
+
+  if (truename(path, PriPathName, CDS_MODE_SKIP_PHYSICAL) < SUCCESS)
     return DE_INVLDDRV;
 
-  fmemcpy(&TempCDS, cdsp, sizeof(TempCDS));
-  cp = TempCDS.cdsCurrentPath;
-  /* ensure termination of fstrcpy */
-  cp[MAX_CDSPATH - 1] = '\0';
-
-  if ((TempCDS.cdsFlags & CDSNETWDRV) == 0)
-  {
-    /* dos_cd ensures that the path exists; if not, we
-       need to change to the root directory */
-    int result = dos_cd(cp);
-    if (result == DE_PATHNOTFND)
-      cp[TempCDS.cdsBackslashOffset + 1] =
-        cdsp->cdsCurrentPath[TempCDS.cdsBackslashOffset + 1] = '\0';
-    else if (result < SUCCESS)
-      return result;
-  }
-
-  cp += TempCDS.cdsBackslashOffset;
-  if (*cp == '\0')
-    s[0] = '\0';
-  else
-    fstrcpy(s, cp + 1);
-
+  /* skip d:\ */
+  fstrcpy(s, PriPathName + 3);
   return SUCCESS;
 }
 
