@@ -1482,10 +1482,7 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
 int dos_cd(char * PathName)
 {
   f_node_ptr fnp;
-  struct cds FAR *cdsp = get_cds(PathName[0] - 'A');
-
-  if ((media_check(cdsp->cdsDpb) < 0))
-    return DE_INVLDDRV;
+  struct cds FAR *cdsp;
 
   /* now test for its existance. If it doesn't, return an error.  */
   if ((fnp = dir_open(PathName, FALSE, &fnode[0])) == NULL)
@@ -1493,6 +1490,7 @@ int dos_cd(char * PathName)
 
   /* problem: RBIL table 01643 does not give a FAT32 field for the
      CDS start cluster. But we are not using this field ourselves */
+  cdsp = get_cds(PathName[0] - 'A');
   cdsp->cdsStrtClst = (UWORD)fnp->f_dmp->dm_dircluster;
   return SUCCESS;
 }

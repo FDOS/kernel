@@ -466,14 +466,16 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     cp[MAX_CDSPATH - 1] = '\0';
     if ((TempCDS.cdsFlags & CDSNETWDRV) == 0)
     {
+      if ((media_check(TempCDS.cdsDpb) < 0))
+        return DE_PATHNOTFND;
+
       /* dos_cd ensures that the path exists; if not, we
          need to change to the root directory */
-      int result = dos_cd(cp);
-      if (result == DE_PATHNOTFND)
+      if (dos_cd(cp) != SUCCESS) {
         cp[TempCDS.cdsBackslashOffset + 1] =
           cdsEntry->cdsCurrentPath[TempCDS.cdsBackslashOffset + 1] = '\0';
-      else if (result < SUCCESS)
-        return DE_PATHNOTFND;
+        dos_cd(cp);
+      }
     }
 
     cp += TempCDS.cdsBackslashOffset;

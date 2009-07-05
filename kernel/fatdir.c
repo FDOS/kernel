@@ -68,8 +68,7 @@ f_node_ptr dir_open(register const char *dirname, BOOL split, f_node_ptr fnp)
   /* Perform all directory common handling after all special      */
   /* handling has been performed.                                 */
 
-  if (media_check(fnp->f_dpb) < 0)
-    return (f_node_ptr) 0;
+  /* truename() already did a media check()                       */
 
   /* Walk the directory tree to find the starting cluster         */
   /*                                                              */
