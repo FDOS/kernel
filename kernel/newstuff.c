@@ -470,7 +470,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   }
 
   /* append the path specified in src */
-  addSep = ADD;			/* add separator */
+  addSep = *src ? ADD : DONT_ADD;      /* add separator */
 
   while(*src)
   {
