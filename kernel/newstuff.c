@@ -253,61 +253,13 @@ STATIC const char _DirChars[] = "\"[]:|<>+=;,";
   *p++ = c; \
 }
 
-/* helper for truename: parses either name or extension */
-STATIC int parse_name_ext(int i, const char FAR **src, char **cp, char *dest)
-{
-  int retval = SUCCESS;
-  char *p = *cp;
-  char c;
-  
-  while(1) switch(c=*(*src)++)
-  {
-    case '.':
-      retval |= PNE_DOT;
-      /* fall through */
-    case '/':
-    case '\\':
-    case '\0':
-      *cp = p;
-      return retval;
-    case '*':
-      retval |= PNE_WILDCARD;
-      /* register the wildcard, even if no '?' is appended */
-      if (i) do
-      {
-        addChar('?');
-      } while(--i);
-      /** Alternative implementation:
-          if (i)
-          {
-            if (dest + SFTMAX - *p < i)
-              PATH_ERROR;
-            fmemset(p, '?', i);
-            p += i;
-          }		**/
-      break;
-    case '?':
-      retval |= PNE_WILDCARD;
-      /* fall through */
-    default:
-      if (i) {	/* name length in limits */
-        --i;
-        if (!DirChar(c)) PATH_ERROR;
-        addChar(c);
-      }
-  }
-  
- errRet:
-  return -1;
-}
-
 COUNT truename(const char FAR * src, char * dest, COUNT mode)
 {
   COUNT i;
   struct dhdr FAR *dhp;
   const char FAR *froot;
   COUNT result;
-  int gotAnyWildcards = 0;
+  unsigned state;
   struct cds FAR *cdsEntry;
   char *p = dest;	  /* dynamic pointer into dest */
   char *rootPos;
@@ -466,7 +418,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     cp[MAX_CDSPATH - 1] = '\0';
     if ((TempCDS.cdsFlags & CDSNETWDRV) == 0)
     {
-      if ((media_check(TempCDS.cdsDpb) < 0))
+      if (media_check(TempCDS.cdsDpb) < 0)
         return DE_PATHNOTFND;
 
       /* dos_cd ensures that the path exists; if not, we
@@ -495,11 +447,12 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   /* append the path specified in src */
   addSep = *src ? ADD : DONT_ADD;      /* add separator */
 
+  state = 0;
   while(*src)
   {
     /* New segment.  If any wildcards in previous
        segment(s), this is an invalid path. */
-    if (gotAnyWildcards)
+    if (state & PNE_WILDCARD)
       return DE_PATHNOTFND;
     switch(*src++)
     {   
@@ -554,29 +507,55 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         /* append component in 8.3 convention */
         --src;
         /* first character skipped in switch() */
-        i = parse_name_ext(FNAME_SIZE, &src, &p, dest);
-        if (i == -1)
-          PATH_ERROR;
-        if (i & PNE_WILDCARD)
-          gotAnyWildcards = TRUE;
-        /* strip trailing dot */
-        if ((i & PNE_DOT) && *src != '/' && *src != '\\')
+
+        /* *** parse name and extension *** */
+        i = FNAME_SIZE;
+        state &= ~PNE_DOT;
+        while(*src != '/' && *src  != '\\' && *src != '\0')
         {
-          if (*src == '\0')
-            continue;
-          /* we arrive here only when an extension-dot has been found */
-          addChar('.');
-          i = parse_name_ext(FEXT_SIZE, &src, &p, dest);
-          if (i == -1 || i & PNE_DOT) /* multiple dots are ill-formed */
-            PATH_ERROR;
-          if (i & PNE_WILDCARD)
-            gotAnyWildcards = TRUE;
+          char c = *src++;
+          if (c == '*')
+          {
+            /* register the wildcard, even if no '?' is appended */
+            c = '?';
+            while (i)
+            {
+              --i;
+              addChar(c);
+            }
+            /** Alternative implementation:
+                if (i)
+                {
+                  if (dest + SFTMAX - *p < i)
+                    PATH_ERROR;
+                  fmemset(p, '?', i);
+                  p += i;
+                }		**/
+          }
+          if (c == '.')
+          {
+            if (state & PNE_DOT) /* multiple dots are ill-formed */
+              PATH_ERROR;
+            /* strip trailing dot */
+            if (*src == '/' || *src == '\\' || *src == '\0')
+              break;
+            /* we arrive here only when an extension-dot has been found */
+            state |= PNE_DOT;
+            i = FEXT_SIZE + 1;
+          }
+          else if (c == '?')
+            state |= PNE_WILDCARD;
+          if (i) {	/* name length in limits */
+            --i;
+            if (!DirChar(c)) PATH_ERROR;
+            addChar(c);
+          }
         }
-        --src;			/* terminator or separator was skipped */
+        /* *** end of parse name and extension *** */
         break;
     }
   }
-  if (gotAnyWildcards && !(mode & CDS_MODE_ALLOW_WILDCARDS))
+  if (state & PNE_WILDCARD && !(mode & CDS_MODE_ALLOW_WILDCARDS))
     return DE_PATHNOTFND;
   if (addSep == ADD || p == dest + 2)
   {
