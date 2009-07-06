@@ -907,18 +907,10 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 COUNT DosChangeDir(BYTE FAR * s)
 {
   COUNT result;
-  BYTE FAR *p;
-
-  /* don't do wildcard CHDIR --TE */
-  for (p = s; *p; p++)
-    if (*p == '*' || *p == '?')
-      return DE_PATHNOTFND;
 
   result = truename(s, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
-  {
     return result;
-  }
 
   if ((FP_OFF(current_ldt) != 0xFFFF) &&
       (strlen(PriPathName) >= sizeof(current_ldt->cdsCurrentPath)))
