@@ -304,12 +304,13 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   if (cdsEntry == NULL)
     return DE_PATHNOTFND;
 
+  fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
   tn_printf(("CDS entry: #%u @%p (%u) '%S'\n", result, cdsEntry,
-            cdsEntry->cdsBackslashOffset, cdsEntry->cdsCurrentPath));
+            TempCDS.cdsBackslashOffset, TempCDS.cdsCurrentPath));
   /* is the current_ldt thing necessary for compatibly??
      -- 2001/09/03 ska*/
   current_ldt = cdsEntry;
-  if (cdsEntry->cdsFlags & CDSNETWDRV)
+  if (TempCDS.cdsFlags & CDSNETWDRV)
     result |= IS_NETWORK;
   
   dhp = IsDevice(src); /* returns header if -char- device */
@@ -385,34 +386,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   if (*p != '/') /* i.e., it's a backslash! */
   {
     BYTE *cp;
-    if (!(mode & CDS_MODE_SKIP_PHYSICAL))
-    {
-      tn_printf(("SUBSTing from: %S\n", cdsEntry->cdsCurrentPath));
-/* What to do now: the logical drive letter will be replaced by the hidden
-   portion of the associated path. This is necessary for NETWORK and
-   SUBST drives. For local drives it should not harm.
-   This is actually the reverse mechanism of JOINED drives. */
 
-      fmemcpy(dest, cdsEntry->cdsCurrentPath, cdsEntry->cdsBackslashOffset);
-      if (cdsEntry->cdsFlags & CDSSUBST)
-      {
-        /* The drive had been changed --> update the CDS pointer */
-        if (dest[1] == ':')
-        {  /* sanity check if this really is a local drive still */
-          unsigned i = drLetterToNr(dest[0]);
-          
-          /* truename returns the "real", not the "virtual" drive letter! */
-          if (i < lastdrive) /* sanity check #2 */
-            result = (result & 0xffe0) | i;
-        }
-      }
-      rootPos = p = dest + current_ldt->cdsBackslashOffset;
-      *p = '\\'; /* force backslash! */
-    }
-    p++;
-    /* truename must use the CuDir of the "virtual" drive letter! */
-    /* tn_printf(("DosGetCuDir drive #%u\n", prevresult & 0x1f)); */
-    fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
     cp = TempCDS.cdsCurrentPath;
     /* ensure termination of strcpy */
     cp[MAX_CDSPATH - 1] = '\0';
@@ -430,11 +404,39 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
       }
     }
 
-    cp += TempCDS.cdsBackslashOffset;
-    if (*cp == '\0')
-      p[0] = '\0';
+    if (!(mode & CDS_MODE_SKIP_PHYSICAL))
+    {
+      tn_printf(("SUBSTing from: %S\n", cp));
+/* What to do now: the logical drive letter will be replaced by the hidden
+   portion of the associated path. This is necessary for NETWORK and
+   SUBST drives. For local drives it should not harm.
+   This is actually the reverse mechanism of JOINED drives. */
+
+      strcpy(dest, cp);
+      if (TempCDS.cdsFlags & CDSSUBST)
+      {
+        /* The drive had been changed --> update the CDS pointer */
+        if (dest[1] == ':')
+        {  /* sanity check if this really is a local drive still */
+          unsigned i = drLetterToNr(dest[0]);
+          
+          /* truename returns the "real", not the "virtual" drive letter! */
+          if (i < lastdrive) /* sanity check #2 */
+            result = (result & 0xffe0) | i;
+        }
+      }
+      rootPos = p = dest + TempCDS.cdsBackslashOffset;
+    }
     else
-      strcpy(p, cp + 1);
+    {
+      cp += TempCDS.cdsBackslashOffset;
+      /* truename must use the CuDir of the "virtual" drive letter! */
+      /* tn_printf(("DosGetCuDir drive #%u\n", prevresult & 0x1f)); */
+      strcpy(p, cp);
+    }
+    if (p[0] == '\0')
+      p[1] = p[0];
+    p[0] = '\\'; /* force backslash! */
 
     if (*src != '\\' && *src != '/')
       p += strlen(p);
@@ -626,7 +628,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     if (os_major==6 && (result & (IS_DEVICE|IS_NETWORK)) == IS_DEVICE)
       result = 0x3a00; /* MS DOS 6.22, according to RBIL: AH=3a if char dev */
     else
-      result = 0; /* AL is 00, 2f, 5c, or last-of-cdsEntry->cdsCurrentPath? */
+      result = 0; /* AL is 00, 2f, 5c, or last-of-TempCDS.cdsCurrentPath? */
   }
   tn_printf(("Physical path: \"%s\"\n", dest));
   return result;
