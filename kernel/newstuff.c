@@ -264,7 +264,6 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   char *p = dest;	  /* dynamic pointer into dest */
   char *rootPos;
   char src0;
-  enum { DONT_ADD, ADD, ADD_UNLESS_LAST } addSep;
 
   tn_printf(("truename(%S)\n", src));
 
@@ -447,7 +446,6 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   }
 
   /* append the path specified in src */
-  addSep = *src ? ADD : DONT_ADD;      /* add separator */
 
   state = 0;
   while(*src)
@@ -456,115 +454,99 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
        segment(s), this is an invalid path. */
     if (state & PNE_WILDCARD)
       return DE_PATHNOTFND;
-    switch(*src++)
-    {   
-      case '/':
-      case '\\':	/* skip multiple separators (duplicated slashes) */
-        addSep = ADD;
-        break;
-      case '.':	/* special directory component */
-        switch(*src)
-        {
-          case '/':
-          case '\\':
-          case '\0':
-            /* current path -> ignore */
-            addSep = ADD_UNLESS_LAST;
-            /* If (/ or \) && no ++src
-               --> addSep = ADD next turn */
-            continue;	/* next char */
-          case '.':	/* maybe ".." entry */
-            switch(src[1])
-            {
-              case '/':
-              case '\\':
-              case '\0':
-                /* remove last path component */
-                while(*--p != '\\')
-                  if (p <= rootPos) /* already on root */
-                    return DE_PATHNOTFND;
-                /* the separator was removed -> add it again */
-                ++src;		/* skip the second dot */
-                /* If / or \, next turn will find them and
-                   assign addSep = ADD */
-                addSep = ADD_UNLESS_LAST;
-                continue;	/* next char */
-            }
-        }
-        
-        /* ill-formed .* or ..* entries => return error */
-    errRet:
-        /* The error is either PATHNOTFND or FILENOTFND
-           depending on if it is not the last component */
-        return fstrchr(src, '/') == 0 && fstrchr(src, '\\') == 0
-          ? DE_FILENOTFND
-          : DE_PATHNOTFND;
-      default:	/* normal component */
-        if (addSep != DONT_ADD)
-        {	/* append backslash */
-          addChar(*rootPos);
-          addSep = DONT_ADD;
-        }
-        
-        /* append component in 8.3 convention */
-        --src;
-        /* first character skipped in switch() */
 
-        /* *** parse name and extension *** */
-        i = FNAME_SIZE;
-        state &= ~PNE_DOT;
-        while(*src != '/' && *src  != '\\' && *src != '\0')
+    /* append backslash if not already there.
+       MS DOS preserves a trailing '\\', so an access to "C:\\DOS\\"
+       or "CDS.C\\" fails; in that case the last new segment consists of just
+       the \ */
+    if (p[-1] != *rootPos)
+      addChar(*rootPos);
+    /* skip multiple separators (duplicated slashes) */
+    while (*src == '/' || *src == '\\')
+      src++;
+
+    if(*src == '.')
+    {
+      /* special directory component */
+      ++src;
+      if (*src == '.') /* skip the second dot */
+        ++src;
+      if (*src == '/' || *src == '\\' || *src == '\0')
+      {
+        --p; /* backup the backslash */
+        if (src[-2] == '.')
         {
-          char c = *src++;
-          if (c == '*')
-          {
-            /* register the wildcard, even if no '?' is appended */
-            c = '?';
-            while (i)
-            {
-              --i;
-              addChar(c);
-            }
-            /** Alternative implementation:
-                if (i)
-                {
-                  if (dest + SFTMAX - *p < i)
-                    PATH_ERROR;
-                  fmemset(p, '?', i);
-                  p += i;
-                }		**/
-          }
-          if (c == '.')
-          {
-            if (state & PNE_DOT) /* multiple dots are ill-formed */
-              PATH_ERROR;
-            /* strip trailing dot */
-            if (*src == '/' || *src == '\\' || *src == '\0')
-              break;
-            /* we arrive here only when an extension-dot has been found */
-            state |= PNE_DOT;
-            i = FEXT_SIZE + 1;
-          }
-          else if (c == '?')
-            state |= PNE_WILDCARD;
-          if (i) {	/* name length in limits */
-            --i;
-            if (!DirChar(c)) PATH_ERROR;
-            addChar(c);
-          }
+          /* ".." entry */
+          /* remove last path component */
+          while(*--p != '\\')
+            if (p <= rootPos) /* already on root */
+              return DE_PATHNOTFND;
         }
-        /* *** end of parse name and extension *** */
-        break;
+        continue;	/* next char */
+      }
+
+      /* ill-formed .* or ..* entries => return error */
+    errRet:
+      /* The error is either PATHNOTFND or FILENOTFND
+         depending on if it is not the last component */
+      return fstrchr(src, '/') == 0 && fstrchr(src, '\\') == 0
+        ? DE_FILENOTFND
+        : DE_PATHNOTFND;
     }
+
+    /* normal component */
+    /* append component in 8.3 convention */
+
+    /* *** parse name and extension *** */
+    i = FNAME_SIZE;
+    state &= ~PNE_DOT;
+    while(*src != '/' && *src  != '\\' && *src != '\0')
+    {
+      char c = *src++;
+      if (c == '*')
+      {
+        /* register the wildcard, even if no '?' is appended */
+        c = '?';
+        while (i)
+        {
+          --i;
+          addChar(c);
+        }
+        /** Alternative implementation:
+            if (i)
+            {
+              if (dest + SFTMAX - *p < i)
+                PATH_ERROR;
+              fmemset(p, '?', i);
+              p += i;
+            }		**/
+      }
+      if (c == '.')
+      {
+        if (state & PNE_DOT) /* multiple dots are ill-formed */
+          PATH_ERROR;
+        /* strip trailing dot */
+        if (*src == '/' || *src == '\\' || *src == '\0')
+          break;
+        /* we arrive here only when an extension-dot has been found */
+        state |= PNE_DOT;
+        i = FEXT_SIZE + 1;
+      }
+      else if (c == '?')
+        state |= PNE_WILDCARD;
+      if (i) {	/* name length in limits */
+        --i;
+        if (!DirChar(c)) PATH_ERROR;
+        addChar(c);
+      }
+    }
+    /* *** end of parse name and extension *** */
   }
   if (state & PNE_WILDCARD && !(mode & CDS_MODE_ALLOW_WILDCARDS))
     return DE_PATHNOTFND;
-  if (addSep == ADD || p == dest + 2)
+  if (p == dest + 2)
   {
-    /* MS DOS preserves a trailing '\\', so an access to "C:\\DOS\\"
-       or "CDS.C\\" fails. */
-    /* But don't add the separator, if the last component was ".." */
-    /* we must also add a seperator if dest = "c:" */  
+    /* we must always add a seperator if dest = "c:" */
     addChar('\\');
   }
   
