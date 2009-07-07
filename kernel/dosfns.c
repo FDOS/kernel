@@ -910,7 +910,7 @@ COUNT DosChangeDir(BYTE FAR * s)
 
   result = truename(s, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
-    return result;
+    return DE_PATHNOTFND;
 
   if ((FP_OFF(current_ldt) != 0xFFFF) &&
       (strlen(PriPathName) >= sizeof(current_ldt->cdsCurrentPath)))
