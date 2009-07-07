@@ -304,7 +304,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     return DE_PATHNOTFND;
 
   fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
-  tn_printf(("CDS entry: #%u @%p (%u) '%S'\n", result, cdsEntry,
+  tn_printf(("CDS entry: #%u @%p (%u) '%s'\n", result, cdsEntry,
             TempCDS.cdsBackslashOffset, TempCDS.cdsCurrentPath));
   /* is the current_ldt thing necessary for compatibly??
      -- 2001/09/03 ska*/
@@ -323,7 +323,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   if (!(mode & CDS_MODE_SKIP_PHYSICAL) &&
       QRemote_Fn(dest, src) == SUCCESS && dest[0] != '\0')
   {
-    tn_printf(("QRemoteFn() returned: \"%S\"\n", dest));
+    tn_printf(("QRemoteFn() returned: \"%s\"\n", dest));
 #ifdef DEBUG_TRUENAME
     if (strlen(dest) >= SFTMAX)
       panic("Truename: QRemote_Fn() overflowed output buffer");
@@ -405,7 +405,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
 
     if (!(mode & CDS_MODE_SKIP_PHYSICAL))
     {
-      tn_printf(("SUBSTing from: %S\n", cp));
+      tn_printf(("SUBSTing from: %s\n", cp));
 /* What to do now: the logical drive letter will be replaced by the hidden
    portion of the associated path. This is necessary for NETWORK and
    SUBST drives. For local drives it should not harm.
@@ -592,7 +592,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         result &= ~IS_NETWORK;
         if (cdsp->cdsFlags & CDSNETWDRV)
           result |= IS_NETWORK;
-	tn_printf(("JOINed path: \"%S\"\n", dest));
+	tn_printf(("JOINed path: \"%s\"\n", dest));
         return result;
       }
     }

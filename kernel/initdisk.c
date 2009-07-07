@@ -427,7 +427,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
     /* The "+2*NSECTORFAT12" is for the reserved first two FAT entries */
     defbpb->bpb_nfsect = (UWORD)cdiv((fatdat + 2 * NSECTORFAT12) * 3UL,
                                      SEC_SIZE * 2 * NSECTORFAT12 + NFAT*3);
-#if DEBUG
+#ifdef DEBUG
     /* Need to calculate number of clusters, since the unused parts of the
      * FATS and data area together could make up space for an additional,
      * not really present cluster.
