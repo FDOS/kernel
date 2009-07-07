@@ -210,13 +210,14 @@ static int exeflat(const char *srcfile, const char *dstfile,
       printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
   }
   if (UPX && !compress_sys_file) {
+    ULONG realsize;
     /* write header without relocations to file */
     exe_header nheader = *header;
     nheader.exRelocItems = 0;
     nheader.exHeaderSize = 2;
-    size += 32;
-    nheader.exPages = (UWORD)(size >> 9);
-    nheader.exExtraBytes = (UWORD)size & 511;
+    realsize = size + 32;
+    nheader.exPages = (UWORD)(realsize >> 9);
+    nheader.exExtraBytes = (UWORD)realsize & 511;
     if (nheader.exExtraBytes)
       nheader.exPages++;
     if (fwrite(&nheader, sizeof(nheader), 1, dest) != 1) {
