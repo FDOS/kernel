@@ -32,7 +32,7 @@
 #define FDCONFIG        /* include support to configure FD kernel */
 /* #define DRSYS */     /* SYS for Enhanced DR-DOS (OpenDOS enhancement Project) */
 
-#define SYS_VERSION "v3.6a"
+#define SYS_VERSION "v3.6c"
 #define SYS_NAME "FreeDOS System Installer "
 
 
@@ -204,7 +204,7 @@ char *getenv(const char *name)
 BYTE pgm[] = "SYS";
 
 #define SEC_SIZE        512
-#define COPY_SIZE	0x4000
+#define COPY_SIZE       0x4000
 
 struct bootsectortype {
   UBYTE bsJump[3];
@@ -604,7 +604,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   sprintf(opts->srcDrive, "%c:", 'A' + getcurdrive());
   if (srcarg)
   {
-	int slen;
+        int slen;
     /* set source path, reserving room to append filename */
     if ( (argv[srcarg][1] == ':') /* || ((argv[srcarg][0]=='\\') && (argv[srcarg][1] == '\\'))*/ ) 
       strncpy(opts->srcDrive, argv[srcarg], SYS_MAXPATH-13);
@@ -900,7 +900,7 @@ void reset_drive(int DosDrive);
 
 void truename(char far *dest, const char *src);
 #pragma aux truename = \
-      "mov ah,0x60"	  \
+      "mov ah,0x60"       \
       "int 0x21"          \
       parm [es di] [si];
 
@@ -1019,7 +1019,7 @@ int MyAbsReadWrite(int DosDrive, int count, ULONG sector, void *buffer,
 unsigned getextdrivespace(void far *drivename, void *buf, unsigned buf_size);
 #pragma aux getextdrivespace =  \
       "mov ax, 0x7303"    \
-      "stc"		  \
+      "stc"               \
       "int 0x21"          \
       "sbb ax, ax"        \
       parm [es dx] [di] [cx] \
@@ -1064,7 +1064,7 @@ BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
       "and cx, 1"      \
       "xchg cx, ax"    \
 "quit:"                \
-      modify [bx cx]   \
+      modify [bx cx dx]   \
       value [ax];
 #else
 
@@ -1504,7 +1504,7 @@ void put_boot(SYSOptions *opts)
   if (opts->writeBS)
   {
 #ifdef DEBUG
-    printf("writing new bootsector to drive %c:\n", opts->dstDrive + 'A');
+    printf("Writing new bootsector to drive %c:\n", opts->dstDrive + 'A');
 #endif
 
     /* write newboot to a drive */
@@ -1584,6 +1584,25 @@ BOOL check_space(COUNT drive, ULONG bytes)
 
 BYTE copybuffer[COPY_SIZE];
 
+/* allocate memory from DOS, return 0 on success, nonzero otherwise */
+int alloc_dos_mem(ULONG memsize, UWORD *theseg)
+{
+#ifdef __TURBOC__
+  if (allocmem((unsigned)((memsize+15)>>4), theseg)==-1)
+#else
+  unsigned dseg;
+  if (_dos_allocmem((unsigned)((memsize+15)>>4), &dseg)==0)
+    *theseg = (UWORD)dseg;
+#endif
+    return 0; /* success */
+  return -1; /* failed to allocate memory */
+}
+#ifdef __TURBOC__
+#define dos_freemem freemem
+#else
+#define dos_freemem _dos_freemem
+#endif
+
 /* copies file (path+filename specified by srcFile) to drive:\filename */
 BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
 {
@@ -1626,6 +1645,7 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
     return FALSE;
   }
 
+#if 0 /* simple copy loop, read chunk then write chunk, repeat until all data copied */
   while ((ret = read(fdin, copybuffer, COPY_SIZE)) > 0)
   {
     if (write(fdout, copybuffer, ret) != ret)
@@ -1633,14 +1653,86 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
       printf("Can't write %u bytes to %s\n", ret, dest);
       close(fdout);
       unlink(dest);
-      break;
+      return FALSE;
     }
     copied += ret;
   }
+ #else /* read in whole file, then write out whole file */
+  {
+    ULONG filesize;
+    UWORD theseg;
+    BYTE far *buffer, far *bufptr;
+    UWORD offs;
+    unsigned chunk_size;
+    
+    /* get length of file to copy, then allocate enough memory for whole file */
+    filesize = filelength(fdin);
+    if (alloc_dos_mem(filesize, &theseg)!=0)
+    {
+      printf("Not enough memory to buffer %lu bytes for %s\n", filesize, source);
+      return NULL;
+    }
+    bufptr = buffer = MK_FP(theseg, 0);
+
+    /* read in whole file, a chunk at a time; adjust size of last chunk to match remaining bytes */
+    chunk_size = (COPY_SIZE < filesize)?COPY_SIZE:(unsigned)filesize;
+    while ((ret = read(fdin, copybuffer, chunk_size)) > 0)
+    {
+      for (offs = 0; offs < ret; offs++)
+      {
+        *bufptr = copybuffer[offs];
+        bufptr++;
+        if (FP_OFF(bufptr) > 0x7777) /* watcom needs this in tiny model */
+        {
+          bufptr = MK_FP(FP_SEG(bufptr)+0x700, FP_OFF(bufptr)-0x7000);
+        }
+      }
+      /* keep track of how much read in, and only read in filesize bytes */
+      copied += ret;
+      chunk_size = (COPY_SIZE < (filesize-copied))?COPY_SIZE:(unsigned)(filesize-copied);
+    }
+
+    /* write out file, a chunk at a time; adjust size of last chunk to match remaining bytes */
+    bufptr = buffer;
+    copied = 0;
+    do
+    {
+      /* keep track of how much read in, and only read in filesize bytes */
+      chunk_size = (COPY_SIZE < (filesize-copied))?COPY_SIZE:(unsigned)(filesize-copied);
+      copied += chunk_size;
+
+      /* setup chunk of data to be written out */
+      for (offs = 0; offs < chunk_size; offs++)
+      {
+        copybuffer[offs] = *bufptr;
+        bufptr++;
+        if (FP_OFF(bufptr) > 0x7777) /* watcom needs this in tiny model */
+        {
+          bufptr = MK_FP(FP_SEG(bufptr)+0x700, FP_OFF(bufptr)-0x7000);
+        }
+      }
+
+      /* write the data to disk, abort on any error */
+      if (write(fdout, copybuffer, chunk_size) != chunk_size)
+      {
+        printf("Can't write %u bytes to %s\n", ret, dest);
+        close(fdout);
+        unlink(dest);
+        return FALSE;
+      }
+    } while (copied < filesize);
+
+    dos_freemem(theseg);
+  }
+ #endif
 
   {
 #if defined __WATCOMC__ || defined _MSC_VER /* || defined __BORLANDC__ */
-    unsigned short date, time;	  
+#if defined(__WATCOMC__) && __WATCOMC__ < 1280
+    unsigned short date, time;
+#else
+    unsigned date, time;
+#endif
     _dos_getftime(fdin, &date, &time);
     _dos_setftime(fdout, date, time);
 #elif defined __TURBOC__
