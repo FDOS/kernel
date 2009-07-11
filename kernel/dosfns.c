@@ -837,17 +837,21 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
   struct cds FAR *cdsp;
   UCOUNT rg[4];
 
+  /* ensure all fields known value - clear reserved bytes & set xfs_version.actual to 0 */
+  fmemset(xfsp, 0, sizeof(struct xfreespace));
+  xfsp->xfs_datasize = sizeof(struct xfreespace);
+
   /*
-    DriveString should be in form of "C:", "C:\", "\", 
-    where "\" is treated as a request for the current drive,
+    DriveString should be in form of "C:", "C:\", "\", "", ., or .\
+    where missing drive is treated as a request for the current drive,
     or network name in form "\\SERVER\share" 
     however, network names like \\SERVER\C aren't supported yet
   */
   cdsp = NULL;
-  if (DriveString[1] == ':')
+  if ( !*DriveString || (*DriveString == '.') || (IS_SLASH(DriveString[0]) && !IS_SLASH(DriveString[1])) )
+    cdsp = get_cds(default_drive);  /* if "" or .[\] or \[path] then use current drive */
+  else if (DriveString[1] == ':')
     cdsp = get_cds(DosUpFChar(*DriveString) - 'A');  /* assume drive specified */
-  else if (IS_SLASH(DriveString[0]) && !IS_SLASH(DriveString[1]))
-      cdsp = get_cds(default_drive);  /* use current drive */
 
   if (cdsp == NULL) /* either error, really bad string, or network name */
     return DE_INVLDDRV;
@@ -878,8 +882,6 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
   xfsp->xfs_totalsectors = xfsp->xfs_totalclusters * xfsp->xfs_clussize;
   xfsp->xfs_freesectors = xfsp->xfs_freeclusters * xfsp->xfs_clussize;
   xfsp->xfs_datasize = sizeof(struct xfreespace);
-
-  fmemset(xfsp->xfs_reserved, 0, 8);
 
   return SUCCESS;
 }

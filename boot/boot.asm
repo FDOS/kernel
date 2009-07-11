@@ -26,41 +26,48 @@
 ; Cambridge, MA 02139, USA.
 ;
 ;
-;	+--------+ 1FE0:7E00
-;	|BOOT SEC|
-;	|RELOCATE|
-;	|--------| 1FE0:7C00
-;	|        |
-;	|--------| 1FE0:3000
-;	| CLUSTER|
-;	|  LIST  |
-;	|--------| 1FE0:2000
-;	|        |
-;	|--------| 0000:7E00
-;	|BOOT SEC| overwritten by max 128k FAT buffer
-;	|ORIGIN  | and later by max 134k loaded kernel
-;	|--------| 0000:7C00
-;	|        |
-;	|--------|
-;	|KERNEL  | also used as max 128k FAT buffer
-;	|LOADED  | before kernel loading starts
-;	|--------| 0060:0000
-;	|        |
-;	+--------+
+;       +--------+ 1FE0:7E00
+;       |BOOT SEC|
+;       |RELOCATE|
+;       |--------| 1FE0:7C00
+;       |LBA PKT |
+;       |--------| 1FE0:7BC0
+;       |--------| 1FE0:7BA0
+;       |BS STACK|
+;       |--------|
+;       |4KBRDBUF| used to avoid crossing 64KB DMA boundary
+;       |--------| 1FE0:63A0
+;       |        |
+;       |--------| 1FE0:3000
+;       | CLUSTER|
+;       |  LIST  |
+;       |--------| 1FE0:2000
+;       |        |
+;       |--------| 0000:7E00
+;       |BOOT SEC| overwritten by max 128k FAT buffer
+;       |ORIGIN  | and later by max 134k loaded kernel
+;       |--------| 0000:7C00
+;       |        |
+;       |--------|
+;       |KERNEL  | also used as max 128k FAT buffer
+;       |LOADED  | before kernel loading starts
+;       |--------| 0060:0000
+;       |        |
+;       +--------+
 
 
 ;%define ISFAT12         1
 ;%define ISFAT16         1
 
 
-segment	.text
+segment .text
 
 %define BASE            0x7c00
 
                 org     BASE
 
 Entry:          jmp     short real_start
-		nop
+                nop
 
 ;       bp is initialized to 7c00h
 %define bsOemName       bp+0x03      ; OEM label
@@ -91,15 +98,91 @@ Entry:          jmp     short real_start
 
 ;%define StoreSI         bp+3h          ;temp store
 
-;       To save space, functions that are just called once are
-;       implemented as macros instead. Four bytes are saved by
-;       avoiding the call / ret instructions.
+;-----------------------------------------------------------------------
+
+                times   0x3E-$+$$ db 0
+
+; using bp-Entry+loadseg_xxx generates smaller code than using just
+; loadseg_xxx, where bp is initialized to Entry, so bp-Entry equals 0
+%define loadsegoff_60   bp-Entry+loadseg_off
+%define loadseg_60      bp-Entry+loadseg_seg
+
+%define LBA_PACKET       bp-0x40
+%define LBA_SIZE       word [LBA_PACKET]    ; size of packet, should be 10h
+%define LBA_SECNUM     word [LBA_PACKET+2]  ; number of sectors to read
+%define LBA_OFF        LBA_PACKET+4         ; buffer to read/write to
+%define LBA_SEG        LBA_PACKET+6
+%define LBA_SECTOR_0   word [LBA_PACKET+8 ] ; LBA starting sector #
+%define LBA_SECTOR_16  word [LBA_PACKET+10]
+%define LBA_SECTOR_32  word [LBA_PACKET+12]
+%define LBA_SECTOR_48  word [LBA_PACKET+14]
+
+%define READBUF 0x63A0 ; max 4KB buffer (min 2KB stack), == stacktop-0x1800
+%define READADDR_OFF   BP-0x60-0x1804    ; pointer within user buffer
+%define READADDR_SEG   BP-0x60-0x1802
+
+%define PARAMS LBA_PACKET+0x10
+;%define RootDirSecs     PARAMS+0x0         ; # of sectors root dir uses
+
+%define fat_start       PARAMS+0x2         ; first FAT sector
+
+%define root_dir_start  PARAMS+0x6         ; first root directory sector
+
+%define data_start      PARAMS+0x0a        ; first data sector
+
+
+;-----------------------------------------------------------------------
+;   ENTRY
+;-----------------------------------------------------------------------
+
+real_start:
+                cli
+                cld
+                xor     ax, ax
+                mov     ds, ax
+                mov     bp, BASE
+
+
+                                        ; a reset should not be needed here
+;               int     0x13            ; reset drive
+
+;               int     0x12            ; get memory available in AX
+;               mov     ax, 0x01e0
+;               mov     cl, 6           ; move boot sector to higher memory
+;               shl     ax, cl
+;               sub     ax, 0x07e0
+
+                mov     ax, 0x1FE0
+                mov     es, ax
+                mov     si, bp
+                mov     di, bp
+                mov     cx, 0x0100
+                rep     movsw
+                jmp     word 0x1FE0:cont
+
+loadseg_off     dw      0
+loadseg_seg     dw      LOADSEG
+
+cont:
+                mov     ds, ax
+                mov     ss, ax
+                lea     sp, [bp-0x60]
+                sti
+;
+; Note: some BIOS implementations may not correctly pass drive number
+; in DL, however we work around this in SYS.COM by NOP'ing out the use of DL
+; (formerly we checked for [drive]==0xff; update sys.c if code moves)
+;
+                mov     [drive], dl     ; rely on BIOS drive number in DL
+
+                mov     LBA_SIZE, 10h
+                mov     LBA_SECNUM,1    ; initialise LBA packet constants
+                mov     word [LBA_SEG],ds
+                mov     word [LBA_OFF],READBUF
 
 
 ;       GETDRIVEPARMS:  Calculate start of some disk areas.
 ;
-
-%macro		GETDRIVEPARMS	0
                 mov     si, word [nHidden]
                 mov     di, word [nHidden+2]
                 add     si, word [bsResSectors]
@@ -126,100 +209,14 @@ Entry:          jmp     short real_start
                 xor     dx, dx
                 div     bx
 
-                mov     word [RootDirSecs], ax  ; AX = sectors per root directory
+;               mov     word [RootDirSecs], ax  ; AX = sectors per root directory
+                push    ax
 
                 add     si, ax
                 adc     di, byte 0              ; DI:SI = first data sector
 
                 mov     [data_start], si
                 mov     [data_start+2], di
-%endmacro
-
-;-----------------------------------------------------------------------
-
-		times	0x3E-$+$$ db 0
-
-%define loadsegoff_60	bp+loadseg_off-Entry
-%define loadseg_60	bp+loadseg_seg-Entry
-
-;%define LBA_PACKET      bp+0x42
-;		db      10h  ; size of packet
-;		db      0        ; const
-;		dw      1        ; number of sectors to read
-%define LBA_PACKET       bp-0x40
-%define LBA_SIZE       word [LBA_PACKET]
-%define LBA_SECNUM     word [LBA_PACKET+2]
-%define LBA_OFF        LBA_PACKET+4
-%define LBA_SEG        LBA_PACKET+6
-%define LBA_SECTOR_0   word [LBA_PACKET+8 ]
-%define LBA_SECTOR_16  word [LBA_PACKET+10]
-%define LBA_SECTOR_32  word [LBA_PACKET+12]
-%define LBA_SECTOR_48  word [LBA_PACKET+14]
-
-
-
-%define PARAMS LBA_PACKET+0x10
-%define RootDirSecs     PARAMS+0x0         ; # of sectors root dir uses
-
-%define fat_start       PARAMS+0x2         ; first FAT sector
-
-%define root_dir_start  PARAMS+0x6         ; first root directory sector
-
-%define data_start      PARAMS+0x0a        ; first data sector
-
-
-;-----------------------------------------------------------------------
-;   ENTRY
-;-----------------------------------------------------------------------
-
-real_start:
-		cli
-		cld
-		xor	ax, ax
-		mov	ds, ax
-		mov     bp, 0x7c00
-
-
-					; a reset should not be needed here
-;		int     0x13            ; reset drive
-
-;		int	0x12		; get memory available in AX
-;		mov	ax, 0x01e0
-;		mov	cl, 6		; move boot sector to higher memory
-;		shl	ax, cl
-;		sub	ax, 0x07e0
-
-		mov	ax, 0x1FE0
-		mov	es, ax
-		mov	si, bp
-		mov	di, bp
-		mov	cx, 0x0100
-		rep	movsw
-                jmp     word 0x1FE0:cont
-
-loadseg_off	dw	0
-loadseg_seg	dw	LOADSEG
-
-cont:
-		mov     ds, ax
-		mov	ss, ax
-		lea     sp, [bp-0x60]
-		sti
-;
-; Some BIOS don't pass drive number in DL, so don't use it if [drive] is known
-;
-		cmp     byte [drive], 0xff ; impossible number written by SYS
-		jne     dont_use_dl     ; was SYS drive: other than A or B?
-		mov     [drive], dl     ; yes, rely on BIOS drive number in DL
-dont_use_dl:				; no,  rely on [drive] written by SYS
-
-		mov     LBA_SIZE, 10h
-		mov     LBA_SECNUM,1    ; initialise LBA packet constants
-
-                call    print
-                db      "FreeDOS",0
-
-                GETDRIVEPARMS
 
 
 ;       FINDFILE: Searches for the file in the root directory.
@@ -232,15 +229,13 @@ dont_use_dl:				; no,  rely on [drive] written by SYS
 
                 mov     ax, word [root_dir_start]
                 mov     dx, word [root_dir_start+2]
-                mov     di, word [RootDirSecs]
+                pop     di                      ; mov     di, word [RootDirSecs]
                 les     bx, [loadsegoff_60] ; es:bx = 60:0
                 call    readDisk
-                jc      jmp_boot_error
-
-		les     di, [loadsegoff_60] ; es:di = 60:0
+                les     di, [loadsegoff_60] ; es:di = 60:0
 
 
-		; Search for KERNEL.SYS file name, and find start cluster.
+                ; Search for KERNEL.SYS file name, and find start cluster.
 
 next_entry:     mov     cx, 11
                 mov     si, filename
@@ -251,16 +246,12 @@ next_entry:     mov     cx, 11
                 je      ffDone
 
                 add     di, byte 0x20   ; go to next directory entry
-                cmp     byte [es:di], 0	; if the first byte of the name is 0,
-                jnz     next_entry	; there is no more files in the directory
+                cmp     byte [es:di], 0 ; if the first byte of the name is 0,
+                jnz     next_entry      ; there is no more files in the directory
 
-                jc      boot_error	; fail if not found
+                jc      boot_error      ; fail if not found
 ffDone:
                 push    ax              ; store first cluster number
-
-;                call    print
-;                db      " FAT",0
-
 
 
 ;       GETFATCHAIN:
@@ -271,25 +262,21 @@ ffDone:
 ;
 ;       The file must fit in conventional memory, so it can't be larger than
 ;       640 kb. The sector size must be at least 512 bytes, so the FAT chain
-;       can't be larger than around 3 kb.
+;       can't be larger than 2.5 KB (655360 / 512 * 2 = 2560).
 ;
 ;       Call with:      AX = first cluster in chain
 
-                ; Load the complete FAT into memory. The FAT can't be larger
-                ; than 128 kb, so it should fit in the temporary buffer.
-
-                les	bx, [loadsegoff_60]     ; es:bx=60:0
+                les     bx, [loadsegoff_60]     ; es:bx=60:0
                 mov     di, [sectPerFat]
                 mov     ax, word [fat_start]
                 mov     dx, word [fat_start+2]
                 call    readDisk
                 pop     ax                      ; restore first cluster number
-jmp_boot_error: jc      boot_error
 
                 ; Set ES:DI to the temporary storage for the FAT chain.
                 push    ds
                 pop     es
-		mov     ds, [loadseg_60]
+                mov     ds, [loadseg_60]
                 mov     di, FATBUF
 
 next_clust:     stosw                           ; store cluster number
@@ -309,8 +296,8 @@ fat_12:         add     si, si          ; multiply cluster number by 3...
                 ; the number was odd, CF was set in the last shift instruction.
 
                 jnc     fat_even
-		mov	cl, 4
-		shr	ax, cl
+                mov     cl, 4
+                shr     ax, cl
 
 fat_even:       and     ah, 0x0f        ; mask off the highest 4 bits
                 cmp     ax, 0x0ff8      ; check for EOF
@@ -342,9 +329,6 @@ finished:       ; Mark end of FAT chain with 0, so we have a single
                 push    cs
                 pop     ds
 
-                ;call    print
-                ;db      " Kernel",0			; "KERNEL"
-                
 
 ;       loadFile: Loads the file into memory, one cluster at a time.
 
@@ -353,10 +337,12 @@ finished:       ; Mark end of FAT chain with 0, so we have a single
                 mov     si, FATBUF      ; set DS:SI to the FAT chain
 
 cluster_next:   lodsw                           ; AX = next cluster to read
-                or      ax, ax                  ; if EOF...
-                je      boot_success            ; ...boot was successful
+                or      ax, ax                  ; EOF?
+                jne     load_next               ; no, continue
+                mov     bl,dl ; drive (left from readDisk)
+                jmp     far [loadsegoff_60]     ; yes, pass control to kernel
 
-                dec     ax                      ; cluster numbers start with 2
+load_next:      dec     ax                      ; cluster numbers start with 2
                 dec     ax
 
                 mov     di, word [bsSecPerClust]
@@ -365,35 +351,27 @@ cluster_next:   lodsw                           ; AX = next cluster to read
                 add     ax, [data_start]
                 adc     dx, [data_start+2]      ; DX:AX = first sector to read
                 call    readDisk
-                jnc     cluster_next
+                jmp     short cluster_next
 
+; shows text after the call to this function.
 
-boot_error:     call    print
-                db      " err",0
+show:           pop     si
+                lodsb                           ; get character
+                push    si                      ; stack up potential return address
+                mov     ah,0x0E                 ; show character
+                int     0x10                    ; via "TTY" mode
+                cmp     al,'.'                  ; end of string?
+                jne     show                    ; until done
+                ret
 
-		xor	ah,ah
-		int	0x16			; wait for a key
-		int	0x19			; reboot the machine
+boot_error:     call    show
+;                db      "Error! Hit a key to reboot."
+                db      "Error!."
 
-boot_success:   
-		;call    print
-                ;db      " GO! ",0
-                mov     bl, [drive]
-		jmp	far [loadsegoff_60]
-
-
-; prints text after call to this function.
-
-print_1char:        
-                xor   bx, bx                   ; video page 0
-                mov   ah, 0x0E                 ; else print it
-                int   0x10                     ; via TTY mode
-print:          pop   si                       ; this is the first character
-print1:         lodsb                          ; get token
-                push  si                       ; stack up potential return address
-                cmp   al, 0                    ; end of string?
-                jne   print_1char              ; until done
-                ret                            ; and jump to it
+                xor     ah,ah
+                int     0x13                    ; reset floppy
+                int     0x16                    ; wait for a key
+                int     0x19                    ; reboot the machine
 
 
 ;       readDisk:       Reads a number of sectors into memory.
@@ -401,58 +379,59 @@ print1:         lodsb                          ; get token
 ;       Call with:      DX:AX = 32-bit DOS sector number
 ;                       DI = number of sectors to read
 ;                       ES:BX = destination buffer
-;                       ES must be 64k aligned (1000h, 2000h etc).
 ;
 ;       Returns:        CF set on error
 ;                       ES:BX points one byte after the last byte read.
 
 readDisk:       push    si
 
-		mov     LBA_SECTOR_0,ax
-		mov     LBA_SECTOR_16,dx
-		mov     word [LBA_SEG],es
-		mov     word [LBA_OFF],bx
+                mov     LBA_SECTOR_0,ax
+                mov     LBA_SECTOR_16,dx
+                mov     word [READADDR_SEG], es
+                mov     word [READADDR_OFF], bx
 
+                call    show
+                db      "."
 read_next:
 
 ;******************** LBA_READ *******************************
 
-						; check for LBA support
-										
-  		mov 	ah,041h		;
-        	mov 	bx,055aah	;
+                                                ; check for LBA support
+                                                                                
+                mov     ah,041h         ;
+                mov     bx,055aah       ;
                 mov     dl, [drive]
-		test	dl,dl			; don't use LBA addressing on A:
-		jz	read_normal_BIOS	; might be a (buggy)
-						; CDROM-BOOT floppy emulation
+                test    dl,dl                   ; don't use LBA addressing on A:
+                jz      read_normal_BIOS        ; might be a (buggy)
+                                                ; CDROM-BOOT floppy emulation
 
                 int     0x13
-                jc	read_normal_BIOS
+                jc      read_normal_BIOS
 
-                shr     cx,1			; CX must have 1 bit set
+                shr     cx,1                    ; CX must have 1 bit set
 
-                sbb	bx,0aa55h - 1		; tests for carry (from shr) too!
-                jne	read_normal_BIOS
+                sbb     bx,0aa55h - 1           ; tests for carry (from shr) too!
+                jne     read_normal_BIOS
                 
-  				
-						; OK, drive seems to support LBA addressing
+                                
+                                                ; OK, drive seems to support LBA addressing
 
-		lea	si,[LBA_PACKET]
+                lea     si,[LBA_PACKET]
                             
-						; setup LBA disk block                            	
-		mov	LBA_SECTOR_32,bx
-		mov	LBA_SECTOR_48,bx
-	
-		mov	ah,042h
+                                                ; setup LBA disk block                                  
+                mov     LBA_SECTOR_32,bx  ; bx is 0 if extended 13h mode supported
+                mov     LBA_SECTOR_48,bx
+        
+                mov     ah,042h
                 jmp short    do_int13_read
 
-							
+                                                        
 
 read_normal_BIOS:      
 
 ;******************** END OF LBA_READ ************************
-		mov     cx,LBA_SECTOR_0
-		mov     dx,LBA_SECTOR_16
+                mov     cx,LBA_SECTOR_0
+                mov     dx,LBA_SECTOR_16
 
 
                 ;
@@ -487,35 +466,38 @@ read_normal_BIOS:
                 xchg    ch, cl                  ; set cyl no low 8 bits
                 ror     cl, 1                   ; move track high bits into
                 ror     cl, 1                   ; bits 7-6 (assumes top = 0)
-                mov     al, byte [sectPerTrack]
-                sub     al, ah                  ; al has # of sectors left
-                inc     ah                      ; sector offset from 1
                 or      cl, ah                  ; merge sector into cylinder
+                inc     cx                      ; make sector 1-based (1-63)
 
-		les     bx,[LBA_OFF]
+                les     bx,[LBA_OFF]
                 mov     ax, 0x0201
 do_int13_read:                
                 mov     dl, [drive]
                 int     0x13
+                jc      boot_error              ; exit on error
 
-read_finished:
-                jnc     read_ok                 ; jump if no error
-                xor     ah, ah                  ; else, reset floppy
-                int     0x13
-read_next_chained:                   
-                jmp     short read_next         ; read the same sector again
+                mov     ax, word [bsBytesPerSec]  
 
-read_ok:
-		mov	ax, word [bsBytesPerSec]
-		div	byte[LBA_PACKET] ; luckily 16 !!
-		add     word [LBA_SEG], ax
+                push    di
+                mov     si,READBUF              ; copy read in sector data to
+                les     di,[READADDR_OFF]       ; user provided buffer
+                mov     cx, ax
+;                shr     cx, 1                   ; convert bytes to word count
+;                rep     movsw
+                rep     movsb
+                pop     di
+
+;               div     byte[LBA_PACKET]        ; luckily 16 !!
+                mov     cl, 4
+                shr     ax, cl                  ; adjust segment pointer by increasing
+                add     word [READADDR_SEG], ax ; by paragraphs read in (per sector)
 
                 add     LBA_SECTOR_0,  byte 1
                 adc     LBA_SECTOR_16, byte 0   ; DX:AX = next sector to read
                 dec     di                      ; if there is anything left to read,
-                jnz     read_next_chained       ; continue
+                jnz     read_next               ; continue
 
-		mov     es,word [LBA_SEG]
+                les     bx, [READADDR_OFF]
                 ; clear carry: unnecessary since adc clears it
                 pop     si
                 ret
@@ -525,3 +507,32 @@ read_ok:
 filename        db      "KERNEL  SYS",0,0
 
 sign            dw      0xAA55
+
+%ifdef DBGPRNNUM
+; DEBUG print hex digit routines
+PrintLowNibble:         ; Prints low nibble of AL, AX is destroyed
+        and  AL, 0Fh    ; ignore upper nibble
+        cmp  AL, 09h    ; if greater than 9, then don't base on '0', base on 'A'
+        jbe .printme
+        add  AL, 7              ; convert to character A-F
+        .printme:
+        add  AL, '0'    ; convert to character 0-9
+      mov  AH,0x0E      ; show character
+      int  0x10         ; via "TTY" mode
+      retn
+PrintAL:                ; Prints AL, AX is preserved
+        push AX         ; store value so we can process a nibble at a time
+        shr  AL, 4              ; move upper nibble into lower nibble
+      call PrintLowNibble
+        pop  AX         ; restore for other nibble
+        push AX         ; but save so we can restore original AX
+      call PrintLowNibble
+        pop  AX         ; restore for other nibble
+      retn
+PrintNumber:            ; Prints (in Hex) value in AX, AX is preserved
+      xchg AH, AL ; high byte 1st
+      call PrintAL
+      xchg AH, AL  ; now low byte
+      call PrintAL
+        retn
+%endif

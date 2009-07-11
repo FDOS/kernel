@@ -43,16 +43,11 @@
 #define charp init_charp
 #endif
 
-#ifdef VERSION_STRINGS
-static BYTE *prfRcsId =
-    "$Id$";
-#endif
+#include "debug.h"  /* must be below xx to init_xx */
 
 /* special console output routine */
 /*#define DOSEMU */
 #ifdef DOSEMU
-
-int VA_CDECL printf(const char * fmt, ...);
 
 #define MAX_BUFSIZE 80                       /* adjust if necessary */
 static int buff_offset = 0;
@@ -63,7 +58,7 @@ void put_console(int c)
   if (buff_offset >= MAX_BUFSIZE)
   {
     buff_offset = 0;
-    printf("Printf buffer overflow!\n");
+    DebugPrintf(("Printf buffer overflow!\n"));
   }
   if (c == '\n')
   {
@@ -121,22 +116,21 @@ void put_console(int c)
 }
 #endif                          /*  DOSEMU   */
 
-#if defined(DEBUG) || defined(FORSYS) || defined(_INIT)
+#if defined(DEBUG_NEED_PRINTF) || defined(FORSYS) || defined(_INIT) || defined(TEST)
 
 #ifndef FORSYS
 /* copied from bcc (Bruce's C compiler) stdarg.h */
-typedef char *va_list;
-#define va_start(arg, last) ((arg) = (char *) (&(last)+1))
-#define va_arg(arg, type) (((type *)(arg+=sizeof(type)))[-1])
+typedef char FAR *va_list;
+#define va_start(arg, last) ((arg) = (va_list) (&(last)+1))
+#define va_arg(arg, type) (((type FAR *)(arg+=sizeof(type)))[-1])
 #define va_end(arg)
 #endif
 
-static BYTE *charp = 0;
+static BYTE FAR *charp = 0;
 
 STATIC VOID handle_char(COUNT);
 STATIC void ltob(LONG, BYTE *, COUNT);
-STATIC void do_printf(const char *, REG va_list);
-int VA_CDECL printf(const char * fmt, ...);
+STATIC void do_printf(const char FAR *, REG va_list);
 
 /* special handler to switch between sprintf and printf */
 STATIC VOID handle_char(COUNT c)
@@ -188,7 +182,7 @@ STATIC void ltob(LONG n, BYTE * s, COUNT base)
 #define LONGARG 4
 
 /* printf -- short version of printf to conserve space */
-int VA_CDECL printf(const char *fmt, ...)
+int VA_CDECL printf(CONST char FAR *fmt, ...)
 {
   va_list arg;
   va_start(arg, fmt);
@@ -197,7 +191,7 @@ int VA_CDECL printf(const char *fmt, ...)
   return 0;
 }
 
-int VA_CDECL sprintf(char * buff, const char * fmt, ...)
+int VA_CDECL sprintf(char FAR * buff, CONST char FAR * fmt, ...)
 {
   va_list arg;
 
@@ -208,7 +202,7 @@ int VA_CDECL sprintf(char * buff, const char * fmt, ...)
   return 0;
 }
 
-STATIC void do_printf(CONST BYTE * fmt, va_list arg)
+STATIC void do_printf(CONST BYTE FAR * fmt, va_list arg)
 {
   int base;
   BYTE s[11], FAR * p;
@@ -267,7 +261,7 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
       case 'p':
         {
           UWORD w0 = va_arg(arg, unsigned);
-          char *tmp = charp;
+          char FAR*tmp = charp;
           sprintf(s, "%04x:%04x", va_arg(arg, unsigned), w0);
           p = s;
           charp = tmp;
@@ -320,6 +314,7 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 
       default:
         handle_char('?');
+      case '%':
 
         handle_char(*fmt);
         continue;
@@ -405,14 +400,14 @@ void put_string(const char *s)
 
 #ifdef TEST
 /*
-	this testprogram verifies that the strings are printed correctly
-	( or the way, I expect them to print)
-	
-	compile like (note -DTEST !)
+        this testprogram verifies that the strings are printed correctly
+        ( or the way, I expect them to print)
+        
+        compile like (note -DTEST !)
 
-	c:\tc\tcc -DTEST -DI86 -I..\hdr prf.c
-	
-	and run. if strings are wrong, the program will wait for the ANYKEY
+        c:\tc\tcc -DTEST -DI86 -I..\hdr prf.c
+        
+        and run. if strings are wrong, the program will wait for the ANYKEY
 
 */
 #include <stdio.h>

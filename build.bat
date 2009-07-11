@@ -65,9 +65,6 @@ if "%1" == "/D"    goto setDefine
 shift
 if not "%1" == "" goto loop_commandline
 
-if "%COMPILER%" == "" echo you MUST define a COMPILER variable in CONFIG.BAT
-if "%COMPILER%" == "" goto abort
-
 call default.bat
 :-if "%LAST%" == "" goto noenv
 

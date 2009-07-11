@@ -25,12 +25,9 @@
 /****************************************************************/
 
 #include "portab.h"
+#include "debug.h"
 #include "init-mod.h"
 #include "dyndata.h"
-#ifdef VERSION_STRINGS
-static BYTE *dskRcsId =
-    "$Id$";
-#endif
 
 UBYTE InitDiskTransferBuffer[SEC_SIZE] BSS_INIT({0});
 COUNT nUnits BSS_INIT(0);
@@ -148,22 +145,6 @@ COUNT nUnits BSS_INIT(0);
  * handle and read foreign hard disks moved across computers, whether using
  * CHS or LBA, strengthening its role as a rescue environment.
  */
-
-/* #define DEBUG */
-
-#define _BETA_                  /* messages for initial phase only */
-
-#if defined(DEBUG)
-#define DebugPrintf(x) printf x
-#else
-#define DebugPrintf(x)
-#endif
-
-#if defined(_BETA_)
-#define BetaPrintf(x) printf x
-#else
-#define BetaPrintf(x)
-#endif
 
 #define LBA_to_CHS   init_LBA_to_CHS
 
@@ -586,10 +567,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
     pddt->ddt_descflags &= ~DF_LBA;
   pddt->ddt_ncyl = driveParam->chs.Cylinder;
 
-#ifdef DEBUG
-  if (pddt->ddt_descflags & DF_LBA)
-    DebugPrintf(("LBA enabled for drive %c:\n", 'A' + nUnits));
-#endif
+  DebugPrintf(("LBA %senabled for drive %c:\n", (pddt->ddt_descflags & DF_LBA)?"":"not ", 'A' + nUnits));
 
   pddt->ddt_offset = StartSector;
 

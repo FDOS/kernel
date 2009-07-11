@@ -224,8 +224,6 @@ int int21_fat32(lregs *r)
       rc = DosGetExtFree(MK_FP(r->DS, r->DX), xfsp);
       if (rc != SUCCESS)
         return rc;
-      xfsp->xfs_datasize = sizeof(struct xfreespace);
-      xfsp->xfs_version.actual = 0;
       break;
     }
     /* Set DPB to use for formatting */

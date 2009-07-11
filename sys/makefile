@@ -38,6 +38,12 @@ fat32chs.h:	../boot/fat32chs.bin bin2c.com
 fat32lba.h:	../boot/fat32lba.bin bin2c.com
 		.$(DIRSEP)bin2c.com ../boot/fat32lba.bin fat32lba.h fat32lba
 
+oemfat12.h:	../boot/oemfat12.bin bin2c.com
+		.$(DIRSEP)bin2c.com ../boot/oemfat12.bin oemfat12.h oemfat12
+
+oemfat16.h:	../boot/oemfat16.bin bin2c.com
+		.$(DIRSEP)bin2c.com ../boot/oemfat16.bin oemfat16.h oemfat16
+
 prf.obj:	../kernel/prf.c
 		$(CC) $(CFLAGS) ..$(DIRSEP)kernel$(DIRSEP)prf.c
 
@@ -49,12 +55,12 @@ sys.com:        $(SYS_EXE_dependencies)
 		$(CL) $(CFLAGST) $(TINY) $(SYS_EXE_dependencies)
 
 clobber:	clean
-		-$(RM) bin2c.com sys.com fat*.h
+		-$(RM) bin2c.com sys.com fat*.h oemfat*.h
 
 clean:
 		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me
 
 #		*Individual File Dependencies*
-sys.obj: sys.c ../hdr/portab.h ../hdr/device.h fat12com.h fat16com.h fat32chs.h fat32lba.h
+sys.obj: sys.c ../hdr/portab.h ../hdr/device.h fat12com.h fat16com.h fat32chs.h fat32lba.h oemfat12.h oemfat16.h
 		$(CC) $(CFLAGS) $*.c
 

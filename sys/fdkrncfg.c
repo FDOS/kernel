@@ -24,8 +24,12 @@ char KERNEL[] = "KERNEL.SYS";
 #include <fcntl.h>
 
 #include "portab.h"
-extern int VA_CDECL printf(const char * fmt, ...);
-extern int VA_CDECL sprintf(char * buff, const char * fmt, ...);
+/* These definitions deliberately put here instead of
+ * #including <stdio.h> to make executable MUCH smaller
+ * using [s]printf from prf.c!
+ */
+extern int VA_CDECL printf(CONST char FAR * fmt, ...);
+extern int VA_CDECL sprintf(char FAR * buff, CONST char FAR * fmt, ...);
 
 #ifdef __WATCOMC__
 unsigned _dos_close(int handle);
@@ -44,13 +48,13 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
 
 #else
 #include <io.h>
-#include <stdio.h>
+/* #include <stdio.h> */
 #endif
 
 #define FAR far
 #include "kconfig.h"
 
-KernelConfig cfg = { 0 };
+KernelConfig cfg; /* static memory zeroed automatically */
 
 typedef unsigned char byte;
 typedef signed char sbyte;
@@ -59,10 +63,6 @@ typedef signed short sword;
 typedef unsigned long dword;
 typedef signed long sdword;
 
-/* These structures need to be byte packed, if your compiler
-   does not do this by default, add the appropriate command,
-   such as #pragma pack(1) here, protected with #ifdefs of course.
-*/
 
 /* Displays command line syntax */
 void showUsage(void)

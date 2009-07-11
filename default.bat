@@ -8,6 +8,16 @@ if "%1" == "clearset" goto clearset
 
 :-----------------------------------------------------------------------
 
+if not "%COMPILER%" == "" goto skip_cc
+
+set COMPILER=WATCOM
+
+echo No compiler specified, defaulting to Open Watcom
+
+:skip_cc
+
+:-----------------------------------------------------------------------
+
 if not "%MAKE%" == "" goto skip_make
 
 if "%COMPILER%" == "TC2"      set MAKE=%TC2_BASE%\make
