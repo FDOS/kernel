@@ -73,12 +73,19 @@ struct lol {
   unsigned short min_pars;     /* 64 minimum para req by program execed   */
   unsigned short uppermem_root;/* 66 Start of umb chain (usually 9fff)    */
   unsigned short last_para;    /* 68 para: start scanning during memalloc */
+  /* ANY ITEM BELOW THIS POINT MAY CHANGE */
   /* FreeDOS specific entries */
   unsigned char os_setver_minor;/*6a settable minor DOS version           */
   unsigned char os_setver_major;/*6b settable major DOS version           */
   unsigned char os_minor;      /* 6c minor DOS version                    */
   unsigned char os_major;      /* 6d major DOS version                    */
-  unsigned char rev_number;    /* 6e minor DOS version                    */
+  unsigned char rev_number;    /* 6e DOS revision#, only 3 bits           */
   unsigned char version_flags; /* 6f DOS version flags                    */
   char *os_release;            /* 70 near pointer to os_release string    */
+#ifdef WIN31SUPPORT
+  unsigned short winInstanced; /* WinInit called                          */
+  unsigned long  winStartupInfo[4];
+  unsigned short instanceTable[5];
+#endif
 };
+
