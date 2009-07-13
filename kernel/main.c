@@ -30,6 +30,7 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId =
@@ -37,7 +38,7 @@ static BYTE *mainRcsId =
 #endif
 
 static char copyright[] =
-    "(C) Copyright 1995-2006 Pasquale J. Villani and The FreeDOS Project.\n"
+    "(C) Copyright 1995-2009 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
     "GNU General Public License as published by the Free Software Foundation;\n"
@@ -108,11 +109,15 @@ VOID ASMCFUNC FreeDOSmain(void)
     drv = 3; /* C: */
   LoL->BootDrive = drv;
 
+  /* install DOS API and other interrupt service routines, basic kernel functionality works */
   setup_int_vectors();
 
   CheckContinueBootFromHarddisk();
 
+  /* display copyright info and kernel emulation status */
   signon();
+
+  /* initialize all internal variables, process CONFIG.SYS, load drivers, etc */
   init_kernel();
 
 #ifdef DEBUG
@@ -683,14 +688,14 @@ STATIC VOID InitSerialPorts(VOID)
 }
 
 /*****************************************************************
-	if kernel.config.BootHarddiskSeconds is set,
-	the default is to boot from harddisk, because
-	the user is assumed to just have forgotten to
-	remove the floppy/bootable CD from the drive.
-	
-	user has some seconds to hit ANY key to continue
-	to boot from floppy/cd, else the system is 
-	booted from HD
+        if kernel.config.BootHarddiskSeconds is set,
+        the default is to boot from harddisk, because
+        the user is assumed to just have forgotten to
+        remove the floppy/bootable CD from the drive.
+        
+        user has some seconds to hit ANY key to continue
+        to boot from floppy/cd, else the system is 
+        booted from HD
 */
 
 STATIC int EmulatedDriveStatus(int drive,char statusOnly)
@@ -706,9 +711,9 @@ STATIC int EmulatedDriveStatus(int drive,char statusOnly)
   init_call_intr(0x13, &r);     
   
   if (r.flags & 1)
-  	return FALSE;
+        return FALSE;
   
-  return TRUE;	
+  return TRUE;  
 }
 
 STATIC void CheckContinueBootFromHarddisk(void)
