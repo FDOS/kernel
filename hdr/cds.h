@@ -26,12 +26,6 @@
 /* Cambridge, MA 02139, USA.                                    */
 /****************************************************************/
 
-#ifdef MAIN
-#ifdef VERSION_STRINGS
-static BYTE *Cds_hRcsId =
-    "$Id$";
-#endif
-#endif
 
 #define MAX_CDSPATH 67
 
@@ -61,9 +55,9 @@ struct cds {
                                      if local path: ofs > colon
                            */
 
-  BYTE cdsNetFlag1;
-  BYTE FAR *cdsIfs;
-  UWORD cdsNetFlags2;
+  BYTE cdsNetFlag1;        /* According to PCDOS 7 Tech Ref: IFS drive, 2=IFS, 4=NetUse */
+  BYTE FAR *cdsIfs;        /* Pointer to Installable File System Header */
+  UWORD cdsNetFlags2;      /* File System specific data */
 
 };
 
