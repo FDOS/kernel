@@ -366,7 +366,11 @@ _min_pars       dw      0               ; 0064 minimum paragraphs of memory
 _uppermem_root  dw      0ffffh          ; 0066 dmd_upper_root (usually 9fff)
 _last_para      dw      0               ; 0068 para of last mem search
 SysVarEnd:
+
 ;; FreeDOS specific entries
+;; all variables below this point are subject to relocation.
+;; programs should not rely on any values below this point!!!
+
                 global  _os_setver_minor
 _os_setver_minor        db      0
                 global  _os_setver_major
@@ -379,9 +383,44 @@ _os_major       db      5
 _rev_number     db      0
                 global  _version_flags         
 _version_flags  db      0
+
                 global  os_release
                 extern  _os_release
 os_release      dw      _os_release
+
+%IFDEF WIN31SUPPORT
+                global  _winStartupInfo, _winInstanced
+_winInstanced    dw 0 ; set to 1 on WinInit broadcast, 0 on WinExit broadcast
+_winStartupInfo:
+                dw 0 ; structure version (same as windows version)
+                dd 0 ; next startup info structure, 0:0h marks end
+                dd 0 ; far pointer to name virtual device file or 0:0h
+                dd 0 ; far pointer, reference data for virtual device driver
+                dw instance_table,seg instance_table ; array of instance data
+instance_table: ; should include stacks, Win may auto determine SDA region
+                ; we simply include whole DOS data segment
+                dw 0, seg _DATASTART ; [SEG:OFF] address of region's base
+                dw markEndInstanceData wrt seg _DATASTART ; size in bytes
+                dd 0 ; 0 marks end of table
+patch_bytes:         ; mark end of array of offsets of critical section bytes to patch
+                dw 0 ; and 0 length for end of instance_table entry
+                global  _winPatchTable
+_winPatchTable: ; returns offsets to various internal variables
+                dw 0x0006      ; DOS version, major# in low byte, eg. 6.00
+                dw save_DS     ; where DS stored during int21h dispatch
+                dw save_BX     ; where BX stored during int21h dispatch
+                dw _InDOS      ; offset of InDOS flag
+                dw _MachineId  ; offset to variable containing MachineID
+                dw patch_bytes ; offset of to array of offsets to patch
+                               ; NOTE: this points to a null terminated
+                               ; array of offsets of critical section bytes
+                               ; to patch, for now we just point this to
+                               ; an empty table, purposely not _CritPatch
+                               ; ie we just point to a 0 word to mark end
+                dw _uppermem_root ; seg of last arena header in conv memory
+                                  ; this matches MS DOS's location, but 
+                                  ; do we have the same meaning?
+%ENDIF ; WIN31SUPPORT
 
 ;;  The first 5 sft entries appear to have to be at DS:00cc
                 times (0cch - ($ - DATASTART)) db 0
@@ -597,8 +636,13 @@ _current_sft_idx    dw      0               ;28A - SFT index for next open
                 global  _current_filepos
 _current_filepos times 2 dw 0       ;2AE - current offset in file
 
-                ; Pad to 05f0h
-                times (2d0h - ($ - _internal_data)) db 0
+                ; Pad to 05eah
+                times (2cah - ($ - _internal_data)) db 0
+                ;global _save_BX
+                ;global _save_DS
+save_BX                 dw      0       ;2CA - unused by FreeDOS, for Win3.x
+save_DS                 dw      0       ;      compatibility, match MS's positions
+                        dw      0
                 global  _prev_user_r
                 global  prev_int21regs_off
                 global  prev_int21regs_seg
@@ -711,6 +755,9 @@ segment DYN_DATA
         global _Dyn
 _Dyn:
         DynAllocated dw 0
+
+markEndInstanceData:  ; mark end of DOS data seg we say needs instancing
+
         
 segment ID_B
     global __INIT_DATA_START
