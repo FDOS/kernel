@@ -136,9 +136,9 @@
 #endif
 
 #ifdef DEBUG_NEED_PRINTF
-int VA_CDECL printf(CONST char FAR * fmt, ...);
+int VA_CDECL printf(CONST char * fmt, ...);
 #ifdef DEBUG_PRINT_COMPORT
-int VA_CDECL dbgc_printf(CONST char FAR * fmt, ...);
+int VA_CDECL dbgc_printf(CONST char * fmt, ...);
 #endif
 #endif
 

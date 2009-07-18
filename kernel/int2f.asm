@@ -101,6 +101,7 @@ Int2f?14:      ;; MUX-14 -- NLSFUNC API
                ;; all functions are passed to syscall_MUX14
                push bp                 ; Preserve BP later on
                PUSH$ALL
+               mov ds, [cs:_DGROUP_]
                call _syscall_MUX14
                pop bp                  ; Discard incoming AX
                push ax                 ; Correct stack for POP$ALL

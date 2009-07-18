@@ -103,7 +103,7 @@ STATIC long muxGo(int subfct, UWORD bp, UWORD cp, UWORD cntry, UWORD bufsize,
   log(("NLS: muxGo(): subfct=%x, cntry=%u, cp=%u, ES:DI=%p\n",
        subfct, cntry, cp, buf));
   ret = call_nls(bp, buf, subfct, cp, cntry, bufsize);
-  log(("NLS: muxGo(): return value = %d\n", ret));
+  log(("NLS: muxGo(): return value = %lx\n", ret));
   return ret;
 }
 

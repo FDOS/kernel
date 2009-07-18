@@ -118,19 +118,26 @@ void put_console(int c)
 
 #if defined(DEBUG_NEED_PRINTF) || defined(FORSYS) || defined(_INIT) || defined(TEST)
 
+#if defined(DEBUG_NEED_PRINTF) && !defined(_INIT) && !defined(FORSYS)
+/* need to use FAR pointers for resident DEBUG printf()s where SS != DS */
+#define SSFAR FAR
+#else
+#define SSFAR
+#endif
+
 #ifndef FORSYS
 /* copied from bcc (Bruce's C compiler) stdarg.h */
-typedef char FAR *va_list;
+typedef char SSFAR *va_list;
 #define va_start(arg, last) ((arg) = (va_list) (&(last)+1))
-#define va_arg(arg, type) (((type FAR *)(arg+=sizeof(type)))[-1])
+#define va_arg(arg, type) (((type SSFAR *)(arg+=sizeof(type)))[-1])
 #define va_end(arg)
 #endif
 
-static BYTE FAR *charp = 0;
+static BYTE SSFAR *charp = 0;
 
 STATIC VOID handle_char(COUNT);
-STATIC void ltob(LONG, BYTE *, COUNT);
-STATIC void do_printf(const char FAR *, REG va_list);
+STATIC void ltob(LONG, BYTE SSFAR *, COUNT);
+STATIC void do_printf(const char *, REG va_list);
 
 /* special handler to switch between sprintf and printf */
 STATIC VOID handle_char(COUNT c)
@@ -142,10 +149,10 @@ STATIC VOID handle_char(COUNT c)
 }
 
 /* ltob -- convert an long integer to a string in any base (2-16) */
-STATIC void ltob(LONG n, BYTE * s, COUNT base)
+STATIC void ltob(LONG n, BYTE SSFAR * s, COUNT base)
 {
   ULONG u;
-  BYTE *p, *q;
+  BYTE SSFAR *p, SSFAR *q;
   int c;
 
   u = n;
@@ -182,7 +189,7 @@ STATIC void ltob(LONG n, BYTE * s, COUNT base)
 #define LONGARG 4
 
 /* printf -- short version of printf to conserve space */
-int VA_CDECL printf(CONST char FAR *fmt, ...)
+int VA_CDECL printf(CONST char *fmt, ...)
 {
   va_list arg;
   va_start(arg, fmt);
@@ -191,7 +198,22 @@ int VA_CDECL printf(CONST char FAR *fmt, ...)
   return 0;
 }
 
-int VA_CDECL sprintf(char FAR * buff, CONST char FAR * fmt, ...)
+#if defined(DEBUG_NEED_PRINTF) && !defined(_INIT) && !defined(FORSYS)
+STATIC int VA_CDECL fsprintf(char FAR * buff, CONST char * fmt, ...)
+{
+  va_list arg;
+
+  va_start(arg, fmt);
+  charp = buff;
+  do_printf(fmt, arg);
+  handle_char('\0');
+  return 0;
+}
+#else
+#define fsprintf sprintf
+#endif
+
+int VA_CDECL sprintf(char * buff, CONST char * fmt, ...)
 {
   va_list arg;
 
@@ -202,7 +224,7 @@ int VA_CDECL sprintf(char FAR * buff, CONST char FAR * fmt, ...)
   return 0;
 }
 
-STATIC void do_printf(CONST BYTE FAR * fmt, va_list arg)
+STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 {
   int base;
   BYTE s[11], FAR * p;
@@ -261,8 +283,8 @@ STATIC void do_printf(CONST BYTE FAR * fmt, va_list arg)
       case 'p':
         {
           UWORD w0 = va_arg(arg, unsigned);
-          char FAR*tmp = charp;
-          sprintf(s, "%04x:%04x", va_arg(arg, unsigned), w0);
+          char SSFAR *tmp = charp;
+          fsprintf(s, "%04x:%04x", va_arg(arg, unsigned), w0);
           p = s;
           charp = tmp;
           break;
