@@ -1701,7 +1701,8 @@ COUNT media_check(REG struct dpb FAR * dpbp)
 #ifdef WITHFAT32
       /* extend dpb only for internal or FAT32 devices */
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp,
-                 ISFAT32(dpbp) || FP_SEG(dpbp) == FP_SEG(&os_major));
+                 MediaReqHdr.r_bpptr->bpb_nfsect == 0 ||
+                 FP_SEG(dpbp) == FP_SEG(&os_major));
 #else
       bpb_to_dpb(MediaReqHdr.r_bpptr, dpbp);
 #endif
