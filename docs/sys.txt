@@ -1,4 +1,4 @@
-FreeDOS SYS 3.6
+FreeDOS System Installer v3.6d, Jul 29 2009
 documentation by:
   Jeremy Davis
   Bart Oldeman
@@ -13,8 +13,7 @@ The best documentation is the source itself, but
 we try to keep this document updated.
 
 
-Usage:
-SYS [source] dest: [bootsect] [{option}]
+Usage: SYS [source] drive: [bootsect] [{option}]
   source   = A:,B:,C:\KERNEL\BIN\,etc., or current directory if not given
   dest     = A,B,etc.
   bootsect = name of 512-byte boot sector file image for drive:
@@ -33,13 +32,19 @@ SYS [source] dest: [bootsect] [{option}]
   /K name  : name of kernel to use in boot sector instead of KERNEL.SYS
   /L segm  : hex load segment to use in boot sector instead of 0x60
   /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...
-  /FORCEDRV: force use of drive # set in bs instead of BIOS boot value
+  /FORCE   : override automatic selection of BIOS related settings
+             /FORCE:BSDRV (/FORCEDRV) use boot drive # set in bootsector
+             /FORCE:BIOSDRV use boot drive # provided by BIOS
+             /FORCE:AUTO select LBA or CHS depending on BIOS availability
+             /FORCE:LBA always use LBA
+             /FORCE:CHS always use CHS
   /NOBAKBS : skips copying boot sector to backup bs, FAT32 only else ignored
-  /SKFN filename : set KERNEL.SYS input file and /OEM:FD
-  /SCFN filename : sets COMMAND.COM input file
+  /SKFN filename : copy from filename to KERNEL.SYS; settings same as /OEM:FD
+  /SCFN filename : copy from filename to COMMAND.COM
   /BACKUPBS [path]filename : save current bs before overwriting
   /DUMPBS   [path]filename : save current bs and exit
   /RESTORBS [path]filename : overwrite bs and exit
+  /VERBOSE : display additional (debug) output
 
 SYS CONFIG /help
 
@@ -85,6 +90,17 @@ for dual booting or diagnostic purposes.
 
 If you also specify BOTH, sys will write to both
 the image file and the boot sector.
+
+The FORCE options override the default actions
+to use.  On FAT32 drives /FORCE:LBA and /FORCE:CHS
+will select which boot sector code is used (default
+same as /FORCE:AUTO will choose based on query of
+BIOS support for LBA extensions and use LBA if it
+is supported else only CHS will be used).  On FAT12
+and FAT16 drives specifying /FORCE:LBA will ensure
+even 1st floppy drive attempts to use LBA support
+(note that CHS may still be used if LBA check fails)
+and /FORCE:CHS will always bypass use of LBA extensions.
 
 
 Kernel Configuration Options:
