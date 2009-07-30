@@ -398,9 +398,11 @@ read_next:
 
                                                 ; check for LBA support
                                                                                 
-                mov     ah,041h         ;
-                mov     bx,055aah       ;
+                mov     ah,041h                 ;
+                mov     bx,055aah               ;
                 mov     dl, [drive]
+
+                ; NOTE: sys must be updated if location changes!!!
                 test    dl,dl                   ; don't use LBA addressing on A:
                 jz      read_normal_BIOS        ; might be a (buggy)
                                                 ; CDROM-BOOT floppy emulation
@@ -419,7 +421,7 @@ read_next:
                 lea     si,[LBA_PACKET]
                             
                                                 ; setup LBA disk block                                  
-                mov     LBA_SECTOR_32,bx  ; bx is 0 if extended 13h mode supported
+                mov     LBA_SECTOR_32,bx        ; bx is 0 if extended 13h mode supported
                 mov     LBA_SECTOR_48,bx
         
                 mov     ah,042h
@@ -514,25 +516,26 @@ PrintLowNibble:         ; Prints low nibble of AL, AX is destroyed
         and  AL, 0Fh    ; ignore upper nibble
         cmp  AL, 09h    ; if greater than 9, then don't base on '0', base on 'A'
         jbe .printme
-        add  AL, 7              ; convert to character A-F
+        add  AL, 7      ; convert to character A-F
         .printme:
         add  AL, '0'    ; convert to character 0-9
-      mov  AH,0x0E      ; show character
-      int  0x10         ; via "TTY" mode
-      retn
+        mov  AH,0x0E    ; show character
+        int  0x10       ; via "TTY" mode
+        retn
 PrintAL:                ; Prints AL, AX is preserved
         push AX         ; store value so we can process a nibble at a time
         shr  AL, 4              ; move upper nibble into lower nibble
-      call PrintLowNibble
+        call PrintLowNibble
         pop  AX         ; restore for other nibble
         push AX         ; but save so we can restore original AX
-      call PrintLowNibble
+        call PrintLowNibble
         pop  AX         ; restore for other nibble
-      retn
+        retn
 PrintNumber:            ; Prints (in Hex) value in AX, AX is preserved
-      xchg AH, AL ; high byte 1st
-      call PrintAL
-      xchg AH, AL  ; now low byte
-      call PrintAL
+        xchg AH, AL     ; high byte 1st
+        call PrintAL
+        xchg AH, AL     ; now low byte
+        call PrintAL
         retn
 %endif
+
