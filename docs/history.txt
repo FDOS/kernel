@@ -10,6 +10,312 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
+2009 Aug xx - Build 2039
+-------- Jeremy Davis, Bart Oldeman
+
++ Changes Jeremy
+	* r1494, 1483 docs/sys.txt, sys/sys.c: update documentation to
+	  include new options; add option to sys to force LBA or CHS
+	  usage, allow using BIOS specified boot drive # on floppy,
+	  add verbose output (debug prints), and reorder some steps in
+	  copy() to avoid some unnecessary disk swaps on single drive systems
+	* r1493 boot/boot.asm: add comment about location that may be
+	  modified by sys (and some whitespace changes due to editor)
+	* r1492 boot/makefile: create list file when assembling boot sectors
+	* r1489 kernel/main.c: update copyright year, add some comments
+	* r1488 kernel/kernel.asm: mark unused space in kernel for unused win
+	  compatibility structs
+	* r1487 hdr/lol.h, hdr/win.h: comment/structure info update
+	* r1486 hdr/process.h: comments added
+	* r1485 hdr/device.h: comments added
+	* r1484 hdr/cds.h: update comments
+	* r1483 docs/sys.txt: update sys usage documentation
+	* r1482 boot/boot.asm, boot/makefile, boot/oemboot.asm,
+	  build.bat, default.bat, hdr/debug.h, kernel/{dosfns.c,init-mod.h,
+	  initdisk.c,inthndlr.c,prf.c,proto.h},sys/{fdkrncfg.c,makefile,sys.c}:
+	  update sys to current version, adjust printf to support
+	  percent modifier, consistent prototype, and handle text not in
+	  current segment (FAR *) better, merge part of simplified debug (via
+	  prints) support
+	* r1467 kernel/makefile, mkfiles/generic.mak: update build process to
+	  include country.sys
+	* r1466 kernel/country.asm: sync country source with latest from
+	  eduardocasino.es site
+	* r1465 kernel/country.asm: add source for country.sys from dev
+	  branch
+	* r1456 hdr/version.h, kernel/globals.h: simplify how version
+	  specified, enable SVN builds with revision#
+	* r1455 build.bat: add convenience options to build.bat for setting
+	  various defines
+	* r1454 default.bat: clear some additional env variables
+	* r1431 kernel/makefile, utils/exeflat.c: More verbose output of UPX
+	  method (sys or exe) used and fix case without UPX so kernel boots.
+	* r1385 docs/fdkernel.lsm, hdr/version.h: update version # in
+	  preparation for next release and to avoid confusion between svn and
+	  release kernels
+
++ Changes Bart
+	* r1491 hdr/debug.h, kernel/{init-mod.h,kernel/int2f.asm,nls.c,prf.c, 
+	  proto.h}, sys/{fdkrncfg.c,sys.c}: Use near pointers for printf()s
+	  where possible. Problematic is only the case where SS!=DS (which 
+	  happens sometimes in resident code), in which case va_list/va_arg
+	  need to use FAR pointers. DS!=DGROUP never works, so I corrected 
+	  that for NLS_DEBUG, by setting DS in int2f.asm.
+	* r1490 kernel/fatfs.c: Check the BPB instead of the DPB for FAT32
+	  after a BUILDBPB device call, as the DPB may still be uninitialized
+	  at this point. Fixes FAT32 drives in USBDRIVE (http://bretjohnson.us)
+	* r1480 utils/exeflat.c: Corrected a bug in exeflat: it was writing
+	  32 bytes too many from possibly unexisting buffers after compressing
+	  exe files.
+	* r1479 kernel/{initdisk.c,newstuff.c}: Corrected DEBUG #if to
+	  #ifdef for Turbo C and corrected debug printfs in truename().
+	* r1478 kernel/newstuff.c: Simplified truename(): eliminated the
+	  addSep state by adding a backslash in every new segment, including a
+	  trailing backslash. Simplified . and .. logic. Converted switch to if
+	  because there were few cases left.
+	* r1477 kernel/dosfns.c: DosChangeDir can only return DE_PATHNOTFND
+	  in case of error, so force that error code.
+	* r1476 kernel/dosfns.c: Remove the wildcard check for DosChangeDir()
+	  because truename() already does that.
+	* r1475 kernel/newstuff.c: Use simpler code for copying the current
+	  directory constructing the "truename": instead of fmemcpy followed by
+	  strcpy, just use strcpy. Also use the near TempCDS more.
+	* r1474 kernel/newstuff.c: Unify parse_name_ext for name and
+	  extension and inline this function into truename(). This is an
+	  optimization (200 bytes).
+	* r1473 kernel{fatdir.c,fatfs.c,newstuff.c}: If the current directory
+	  is no longer valid, call dos_cd() for the root to update the CDS
+	  cluster. Call media_check explicitly in truename() as a central 
+	  first and only place in directory-using DOS calls (except
+	  DosFindNext) to call it.
+	* r1472 kernel/{dosfns.c,newstuff.c}: The original DosGetCuDir
+	  is now inlined in truename(). DosGetCuDir now does truename("D:",
+	  CDS_MODE_SKIP_PHYSICAL), and this mode was changed to no longer call
+	  QRemote_Fn (int2f/ax=1123).
+	* r1471 kernel/newstuff.c: Fix truename("C:") where the current
+	  directory is different from the root: then it should not append a
+	  backslash.
+	* r1470 kernel/{inthndlr.c,makefile}: Turbo C 2.01 and Linux
+	  cross-compilation compatibility fixes.
+	* r1469 kernel/{inthndlr.c,task.c}: For self-owning PSPs do
+	  everything that a normal exit does except for closing files and
+	  releasing memory (see RBIL). Thanks to Christian Masloch.
+	* r1468 kernel/fatdir.c: Fix problem with cd\ reported by
+	  ibid_ag@lavabit.com on the mailing list.
+	* r1458 kernel/{blockio.c, fatfs.c, proto.h}: In case of
+	  "not sure" if the removable media has changed, the IBM PCDOS
+	  technical reference says to call BLDBPB if there are no used buffers,
+	  so we only do it then, instead of flushing the buffers.
+	* r1457 hdr/{xstructs.h, inthndlr.c}: Merged int21/ax=7304,
+	  subfunctions 3 and 4, which work very similarly.
+	* r1453 kernel/fatfs.c: Set the clean bit also on created/replaced
+	  files, not just opened files, so the directory entry is only updated
+	  after they are written too. Fixes SF bug #2380531.
+	* r1452 kernel/initdisk.c: Use a better formula for calculating FAT12
+	  clusters, by multiplying nominator and denominator by 3.
+	* r1451 kernel/{fatfs.c, initdisk.c}: initdisk: further	optimizations
+	  in CalculateFATData(): merging the FAT16 & FAT32 loops. 
+	  fatfs: #if DEBUG fix.
+	* r1450 kernel/initdisk.c: Optimized initdisk.c by using constants
+	  instead of variables where possible.
+	* r1449 kernel/config.c, kernel/config.h: Removed unused config
+	  variables and don't detect 'y' and 'n' if we're using toupper anyway.
+	* r1448 hdr/{fat.h, fatfs.c}: Cluster optimizations, mainly for FAT32
+	  eliminated checkdstart, replaced (cl == FREE || cl == 1) by (cl <= 1),
+	  UWORD cluster cast for FAT12/16, and merge if branches for link_fat().
+	* r1447 kernel/fatfs.c: Merged if status==S_OPENED logic in dos_open,
+	  cache dir_attrib, and remove unnecessary init to 0.
+	* r1446 kernel/config.c: Make the built-in COUNTRY table more compact
+	  and allow to merge duplicate strings for error message.
+	* r1445 kernel/fatfs.c: Optimization: changed find_fname() to call
+	  split_path() because find_fname was always preceeded by split_path().
+	  The return code is now an error code, DE_FILENOTFND, DE_PATHNOTFND,
+	  or SUCCESS, depending on the failure.
+	* r1444 kernel/{fatdir.c, fatfs.c, proto.h}: Added a
+	  split boolean argument to dir_open so the trick with setting the
+	  dir/filename separator to 0 can be avoided, and we don't need to
+	  calculate its location in split_path(). Without the trick many more
+	  char * path arguments in the kernel can become "const char *".
+	* r1443 utils/exeflat.c: Use tmp.exe instead of tmp$$$$$.exe -- the
+	  Linux cross compilation really has trouble without quotes because $$
+	  can be expanded as a shell variable when passed to system().
+	* r1442 kernel/{dosnames.c, fatfs.c, makefile, proto.h}:
+	  Remove dosnames.c and inline ParseDosName, because there is only one
+	  user left (split_path()) which only uses it to find out if the path 
+	  ends in a backslash and the length of the directory part.
+	* r1441 kernel/{dosnames.c, fatdir.c, fatfs.c, proto.h}:
+	  dos_findfirst() now uses split_path(). The only thing
+	  that needed to be added was the need to check for "d:\" paths which
+	  return DE_NFILES. Also, findfirst("d:\nonexist\*.*",D_VOLID) should
+	  fail even if it actually searches in d:\.
+	* r1440 kernel/{dosnames.c, newstuff.c}: The invalid pathname
+	  character detection is moved from ParseDosName (dosnames.c) to
+	  truename (newstuff.c), because TRUENAME should check these characters
+	  before passing paths on to fatfs.c & fatdir.c.
+	* r1439 kernel/fatdir.c: Corrected the if-statement && logic for
+	  attributes in the findnext loop.
+	* r1438 kernel/{dosfns.c, fatdir.c}: Make findfirst/findnext
+	  more MSDOS compatible:
+	  * ignore 0x40 (D_DEVICE) in search attribute.
+	  * if you specify D_VOLID + one or more of D_HIDDEN, D_SYSTEM, and
+	    D_DIR you will get files *and* volume labels in the specified
+	    directory, not forced to the root directory.
+	  * VOLID searches must look at the search pattern name too,
+	    or do not match.
+	* r1437 kernel/{dosfns.c, fatfs.c}: For read/write don't update
+	  sft_posit in dosfns.c anymore so fatfs.c takes care of it.
+	* r1436 kernel/{fatdir.c, fatfs.c}: Remove usage of the fnode
+	  f_flags field where it is not relevant anymore. Because of the
+	  explicit dir_write() calls we only need them in situations where SFTs
+	  where used, that is for open files but not for directories.
+	* r1435 kernel/{fatdir.c, fatfs.c}: Eliminate fcbname[] on the
+	  stack: we can use dm_name_pat in the dirmatch structures instead.
+	* r1434 kernel/asmsupt.asm: %if 0 unused asm functions and fix a
+	  stack return problem with fstrcmp.
+	* r1433 kernel/{dosnames.c, fatdir.c, fatfs.c, proto.h}:
+	  Split 8.3 FCB-style filename extraction from ParseDosName
+	  into a new ConvertNameSZToName83 function, also used by dir_open().
+	* r1432 hdr/fnode.h, kernel/{fatdir.c, fatfs.c, globals.h, init-mod.h,
+	  kernel.asm}:
+	  Move the fnode fields f_diroff and f_dirstart into a referenced 
+	  directory match structure with fields dm_entry and dm_dircluster.
+	* r1430 hdr/nls.h, kernel/{config.c, init-mod.h, inthndlr.c, intr.asm,
+	  kernel/nls.c, kernel/nls_hc.asm, kernel/proto.h}: 
+	  Ported COUNTRY.SYS support from the unstable branch.
+	  Simple country support is kept: COUNTRY=31 will look for country.sys
+	  but if it does not exist, not complain and load the built-in info.
+	* r1429 hdr/sft.h, kernel/{dosfns.c, inthndlr.c, proto.h}: Seek changes:
+	  * merge unstable kernel optimizations
+	  * enable seek for int2f/AX=1228
+	  * -1 is a valid offset, so we need to process the return code
+	    seperately
+	* r1428 kernel/dosfns.c: Merge pop_dmp optimization from the unstable
+	  kernel.
+	* r1427 kernel/ioctl.c: This change was missed, as the changelog
+	  mentioned it was in 2035a already: r_si/r_di contents added as
+	  documented in PC-DOS Technical Update. I also moved the CharReqHdr
+	  filling in to just before execrh, and made the command table a static
+	  const so it is outside the SDA (OW places it in CONST2).
+	* r1426 kernel/ioctl.c: Optimization: move the attribute checks down
+	  and localize some variables.
+	* r1425 kernel/ioctl.c: Streamline ioctl.c code so OW saves 2 more
+	  words of stack.
+	* r1424 kernel/ioctl.c: r1115 set the dpb_subunit but that was wrong
+	  for get_cds() called from AX=4409. Use a local variable unit to avoid
+	  that, and simplify the AX=4409 logic like in the unstable kernel.
+	* r1423 kernel/ioctl.c: Inline ioctl helper routine back again. Save
+	  stack by using the dev variable that points to the device smartly.
+	* r1422 kernel/ioctl.c: Split DosDevIoctl into two calls so execrh
+	  can be called with minimal stack usage. Always return DE_ACCESS when
+	  the device fails instead of DE_DEVICE, as DE_DEVICE is only used for
+	  renames between devices that are not the same.
+	* r1421 kernel/fatfs.c: Introduce clear_dir() to clear a directory,
+	  this was code shared between dos_mkdir() and extend_dir(). Now
+	  dos_mkdir() calls this function to clear the new directory, and then
+	  creates the . and .. entries using higher level functions instead of
+	  dealing with the blocks directly.
+	* r1420 hdr/{fnode.h, sft.h}, kernel/{fatdir.c, fatfs.c}: Make
+	  the fnode f_flags completely equal to the SFT sft_flags. Rename
+	  SFT_FDIRTY to SFT_FCLEAN to avoid confusion.
+	* r1419 hdr/fnode.h, kernel/{fatdir.c, fatfs.c}: Eliminate the
+	  fnode F_DDIR flag which has no SFT equivalent: f_sft_idx==0xff can do
+	  the same. rwblock() is never called for directories so the checks
+	  could be removed.
+	* r1418 kernel/fatfs.c: Flip target and source checks to avoid
+	  calling ParseDosName for in-directory renames. Do not allow to rename
+	  directories between different directories.
+	* r1417 kernel/fatfs.c: RENAME: if the source and target directories
+	  are the same, rename the directory entry in-place instead of creating
+	  a new one and deleting the old one. Fixes archived bugzilla bug:
+	  http://www.freedos.org/bugzilla/cgi-bin/show_bug.cgi?id=1908
+	* r1416 kernel/fatfs.c: Change dos_rmdir to only use 1 fnode. It now
+	  first checks if the directory is empty and then opens the parent and
+	  deletes the real directory. No longer returns DE_FILENOTFND(2), but
+	  return DE_PATHNOTFND(3) instead.
+	* r1415 hdr/dirmatch.h: Cleanup dirmatch.h: make attributes and size
+	  unsigned, and make the unused dm_flags field reserved.
+	* r1414 kernel/{dosfns.c, proto.h, task.c}: Introduce get_cds1 to merge
+	  common code that checks for 0=default_drive,1=A,etc.
+	  Make load_transfer() static.
+	* r1413 kernel/chario.c: Inline cooked_write_char() into cooked_write().
+	* r1411 kernel/fatfs.c: Fix compilation with Turbo C.
+	* r1410 kernel/{fatdir.c, fatfs.c, proto.h}: Eliminate dir_close().
+	  Its only purpose left was to flush buffers, which isn't necessary
+	  after just open/read, so we can move that to dir_write().
+	* r1409 kernel/{dosfns.c, fatfs.c}:
+	  Move the open/creat access checks to more efficient places.
+	* r1408 kernel/fatfs.c: Make merge_file_changes more direct dealing
+	  with SFTs and merge the "close open files setfattr wants to change"
+	  functionality there.
+	* r1407 kernel/dosfns.c: Eliminate DosGetFile -- it is no longer
+	  necessary because the filename is already copied from the fnode.
+	* r1406 kernel/dosfns.c: Fix a regression with sft_flags overwriting
+	  what dos_open wrote so file dates/times would always be updated, even
+	  for reads!
+	* r1405 kernel/{dosfns.c, fatdir.c, fatfs.c, fcbfns.c, proto.h}:
+	  Eliminate dos_setfsize, dos_setftime, and dos_lseek, by just using
+	  the SFT. dos_setfsize	still needed to merge changes for SHARE so the
+	  call was replaced by a new dos_merge_file_changes() call.
+	* r1404 hdr/fnode.h, kernel/{fatdir.c, fatfs.c}: Eliminate
+	  xlt_fd(), save_far_f_node(), and the redundant fnode f_mode field.
+	* r1403 kernel/{dosfns.c, fatfs.c}: Let merge_file_changes
+	  operate directly on the other SFTs. dos_setfattr with SHARE now
+	  closes open SFTs referring to that file in compat mode.
+	* r1402 kernel/fatfs.c: Fix SFT/fnode fields so the SHARE related
+	  functions is_same_file() and merge_file_changes() work.
+	* r1401 hdr/fnode.h, kernel/{fatfs.c, globals.h}: Remove
+	  redundant checks for fnodes==0 since the checks are done in dosfns.c.
+	  Replace global f_nodes[] array by f_sft_idx fields in the fnodes.
+	* r1400 hdr/sft.h, kernel/{dosfns.c, fatfs.c, fcbfns.c,	proto.h}:
+	  Eliminate the sft_status field as it is now equal to the SFT index.
+	* r1399 kernel/{dosfns.c, fatfs.c, proto.h, task.c}:
+	  Eliminate dos_getftime, dos_getfsize, and dos_getfattr_fd, because we
+	  can now get these properties directly from the SFT.
+	* r1398 hdr/fnode.h, kernel/{fatdir.c, fatfs.c, proto.h}:
+	  Eliminate f_count field in fnodes and some no-op functions.
+	* r1397 hdr/{fnode.h, lol.h}, kernel/{config.c, dosfns.c, fatfs.c,
+	  globals.h, kernel.asm, proto.h}:
+	  This is the main change to eliminate far fnodes. SFT info is copied
+	  from and to the two near fnodes. Some cleanups still follow.
+	* r1396 hdr/sft.h:
+	  Make the SFT DOS 4+ compatible and change fields to be unsigned.
+	* r1395 kernel/dosfns.c:
+	  Handle sft_count before calling dos_open and after calling dos_close
+	  so the SFT is open for longer, during fatfs.c	operations.
+	* r1394 kernel/prf.c: Fix compilation with -DDOSEMU set.
+	* r1393 kernel/{dosfns.c, fatfs.c}: Handle dos_getfattr and
+	  dos_setfattr directly at the directory level, instead of opening the
+	  file, to avoid needing to claim SFTs in later changes. Clarify and
+	  implement parts of the correct SHARE behaviour.
+	* r1392 hdr/fat.h, kernel/{fatdir.c, fatfs.c, proto.h}:
+	  On close or commit, only update those directory entry fields that
+	  have an SFT equivalent. The rest stays unmodified on disk.
+	* r1391 kernel/{fatdir.c, fatfs.c}: Use explicit dir_write()
+	  instead of letting dir_close() do the writing. This is to prepare for
+	  an updating version to deal with SFTs.
+	* r1390 hdr/fnode.h, kernel/fatdir.c: Add f_dirsector (sector
+	  containing dentry) and f_diridx (index within sector) fields to the
+	  fnode, to make fnodes more compatible with SFTs. Use them to simplify
+	  dir_read() and dir_write().
+	* r1389 kernel/{fatdir.c, fatfs.c, globals.h, inthndlr.c, lfnapi.c, 
+	  proto.h}: Force near fnode use to use either fnode[0] or fnode[1] 
+	  instead of the allocation scheme. This eliminates the checks
+	  done in inthndlr.c because the f_count field is no longer checked.
+	* r1388 makefile, mkfiles/owlinux.mak: Change Linux makefiles to only
+	  update what is necessary for subsequent makes.
+	* r1387 config.m, docs/build.txt, drivers/makefile, kernel/{makefile,
+	  segs.inc}, makefile, mkfiles/{generic.mak, owlinux.mak, watcom.mak}, 
+	  sys/makefile, utils/{exeflat.c, makefile}:
+	  Add Linux cross-compile capability, using Open Watcom:
+	  * Flip \ to /	where possible.
+	  * Introduce $(DIRSEP) (/ or \) for use inside commands in
+	    makefiles where / won't work in DOS.
+	  * Override various settings for Linux in owlinux.mak.
+          * Add quotes in exeflat.c to avoid shell expansion of $$$$$.
+          * Let "make all", "make clean", and "make clobber" do the job.
+	* r1386 utils/echoto.bat: OW 1.8 MS2WLINK is too picky about leading
+	  and trailing whitespace so echoto is changed to not generate any.
+
 2009 May 16 - Build 2038
 -------- Pat Villani, Bart Oldeman, Eric Auer
 
