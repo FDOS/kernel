@@ -1,7 +1,7 @@
 Begin3
 Title:          The FreeDOS Kernel
-Version:        2039
-Entered-date:   2009-06-21
+Version:        SVN
+Entered-date:   N/A
 Description:    The FreeDOS Kernel
 Keywords:       kernel, FreeDOS, DOS, MSDOS
 Author:         (developers: can be reached on the freedos-kernel mailing list)
@@ -11,4 +11,3 @@ Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel
 Platforms:      DOS, FreeDOS, DOSEMU (OpenWatcom C or Turbo C, NASM, optionally UPX)
 Copying-policy: GPL2
 End
-
