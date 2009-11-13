@@ -32,7 +32,7 @@
 #define FDCONFIG              /* include support to configure FD kernel */
 /* #define DRSYS */           /* SYS for Enhanced DR-DOS (OpenDOS enhancement Project) */
 
-#define SYS_VERSION "v3.6d"
+#define SYS_VERSION "v3.6e"
 #define SYS_NAME "FreeDOS System Installer "
 
 
@@ -617,10 +617,39 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
     {
       drivearg = argno;         /* either source or destination drive */
     }
-    else if (!srcarg /* && drivearg */)
+    else if (!srcarg /* && drivearg */ && !opts->bsFile)
     {
-      srcarg = drivearg; /* set source path */
-      drivearg = argno;  /* set destination drive */
+      /* need to determine is user specified [source] dest or dest [bootfile] (or [source] dest [bootfile])
+         - dest must be either X or X: as only a drive specifier without any path is valid -
+         if 1st arg not drive and 2nd is then [source] dest form
+         if 1st arg drive and 2nd is not drive then dest [bootfile] form
+         if both 1st arg and 2nd are not drives then invalid arguments
+         if both 1st arg and 2nd are drives then assume [source] dest form (use ./X form is single letter used)
+      */
+      if (!argv[drivearg][1] || (argv[drivearg][1]==':' && !argv[drivearg][2])) // if 1st arg drive
+      {
+        if (!argv[argno][1] || (argv[argno][1]==':' && !argv[argno][2])) // if 2nd arg drive
+        {
+          srcarg = drivearg; /* set source path */
+          drivearg = argno;  /* set destination drive */
+        }
+        else
+        {
+          opts->bsFile = argv[argno];
+        }
+      }
+      else
+      {
+        if (!argv[argno][1] || (argv[argno][1]==':' && !argv[argno][2])) // if 2nd arg drive
+        {
+          srcarg = drivearg; /* set source path */
+          drivearg = argno;  /* set destination drive */
+        }
+        else
+        {
+          goto EXITBADARG;
+        }
+      }
     }
     else if (!opts->bsFile /* && srcarg && drivearg */)
     {
@@ -628,6 +657,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
     }
     else /* if (opts->bsFile && srcarg && drivearg) */
     {
+      EXITBADARG:
       printf("%s: invalid argument %s\n", pgm, argv[argno]);
       showHelpAndExit();
     }

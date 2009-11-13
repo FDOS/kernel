@@ -1,4 +1,4 @@
-FreeDOS System Installer v3.6d, Jul 29 2009
+FreeDOS System Installer v3.6e - Nov 13, 2009
 documentation by:
   Jeremy Davis
   Bart Oldeman
@@ -15,7 +15,7 @@ we try to keep this document updated.
 
 Usage: SYS [source] drive: [bootsect] [{option}]
   source   = A:,B:,C:\KERNEL\BIN\,etc., or current directory if not given
-  dest     = A,B,etc.
+  dest     = drive (A:,B:,C:,... or A,B,C,...) to install system to
   bootsect = name of 512-byte boot sector file image for drive:
              to write to *instead* of real boot sector
   {option} is one or more of the following:
