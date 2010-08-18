@@ -1807,7 +1807,7 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
     if (alloc_dos_mem(filesize, &theseg)!=0)
     {
       printf("Not enough memory to buffer %lu bytes for %s\n", filesize, source);
-      return NULL;
+      return FALSE;
     }
     bufptr = buffer = MK_FP(theseg, 0);
 
