@@ -724,12 +724,12 @@ init_end:
 segment _DATA
 ; blockdev private stack
                 global  blk_stk_top
-                times 192 dw 0
+                times 256 dw 0
 blk_stk_top:
 
 ; clockdev private stack
                 global  clk_stk_top
-                times 64 dw 0
+                times 128 dw 0
 clk_stk_top:
 
 ; Dynamic data:
