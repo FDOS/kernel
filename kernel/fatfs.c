@@ -1725,11 +1725,11 @@ STATIC f_node_ptr sft_to_fnode(int fd)
   fnp->f_dir.dir_time = sftp->sft_time;
   fnp->f_dir.dir_date = sftp->sft_date;
   fnp->f_dir.dir_size = sftp->sft_size;
+  fnp->f_dpb = sftp->sft_dcb;
   setdstart(fnp->f_dpb, &fnp->f_dir, sftp->sft_stclust);
 
   fnp->f_diridx = sftp->sft_diridx;
   fnp->f_dirsector = sftp->sft_dirsector;
-  fnp->f_dpb = sftp->sft_dcb;
   fnp->f_offset = sftp->sft_posit;
   fnp->f_cluster = sftp->sft_cuclust;
 #ifdef WITHFAT32
