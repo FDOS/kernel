@@ -544,6 +544,7 @@ VOID return_user(void)
 
   irp->CS = FP_SEG(p->ps_isv22);
   irp->IP = FP_OFF(p->ps_isv22);
+  irp->FLAGS = 0x200; /* clear trace and carry flags, set interrupt flag */
 
   if (InDOS)
     --InDOS;
