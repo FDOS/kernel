@@ -626,9 +626,9 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
          if both 1st arg and 2nd are not drives then invalid arguments
          if both 1st arg and 2nd are drives then assume [source] dest form (use ./X form is single letter used)
       */
-      if (!argv[drivearg][1] || (argv[drivearg][1]==':' && !argv[drivearg][2])) // if 1st arg drive
+      if (!argv[drivearg][1] || (argv[drivearg][1]==':' && !argv[drivearg][2])) /* if 1st arg drive */
       {
-        if (!argv[argno][1] || (argv[argno][1]==':' && !argv[argno][2])) // if 2nd arg drive
+        if (!argv[argno][1] || (argv[argno][1]==':' && !argv[argno][2])) /* if 2nd arg drive */
         {
           srcarg = drivearg; /* set source path */
           drivearg = argno;  /* set destination drive */
@@ -640,7 +640,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
       }
       else
       {
-        if (!argv[argno][1] || (argv[argno][1]==':' && !argv[argno][2])) // if 2nd arg drive
+        if (!argv[argno][1] || (argv[argno][1]==':' && !argv[argno][2])) /* if 2nd arg drive */
         {
           srcarg = drivearg; /* set source path */
           drivearg = argno;  /* set destination drive */
