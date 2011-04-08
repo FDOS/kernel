@@ -10,7 +10,52 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
-2009 Aug xx - Build 2039
+2011 Apr xx - Build 2040
+-------- Jeremy Davis, Bart Oldeman
+
++ Changes Jeremy
+	* r1501 sys/sys.c: correct return value from NULL to FALSE -
+	  fix compile with OW1.9
+	* r1500 docs/sys.txt, sys/sys.c:
+	  handle case when source not specified but filename for boot
+	  sector is given (sys X: bootfile.bin)
+
++ Changes Bart
+	* r1565 sys/sys.c: Change // to /* comments for Turbo C compatibility.
+	* r1564 kernel/dosfns.c: If handle valid, close file in PSP
+	  table before the low-level close + (perhaps) critical error.
+	  Avoids closing the file twice (and hitting the critical
+	  error twice) on abort/program termination.
+	  Also, close can only return error 6 (DE_INVLDHNDL), not 5
+	  (DE_ACCESS), see RBIL.
+	* r1563 kernel/task.c: From Christian Masloch:
+	  set flags to 0x200 (IF set) when transferring to int22
+	  termination address.
+	* r1562 kernel/fatfs.c: Check errors for callers of dir_write
+	  and shrink_file. Fixes: Bug: File creation does not check
+	  whether buffers are written correctly
+	  (http://www.bttr-software.de/forum/forum_entry.php?id=9783)
+	* r1561 kernel/blockio.c, kernel/fatdir.c:
+	  No longer force flush1() and dir_write_update() to return
+	  TRUE if there were disk write errors. Part 1 for fixing
+	  http://www.bttr-software.de/forum/forum_entry.php?id=9783
+	  Bug: File creation does not check whether buffers are
+	  written correctly
+	* r1560 kernel/kernel.asm:
+	  Enlarge clock and block driver stacks. Thanks to Damien Guibouret
+	  <damien.guibouret@partition-saving.com>.
+	* r1559 kernel/fatfs.c: Fix value that is used before being initialised.
+	  This lead to a drive to not be considered as FAT32 despite it is
+	  (or vice-versa).
+	  Thanks to Damien Guibouret <damien.guibouret@partition-saving.com>.
+	* r1499 kernel/makefile:
+	  With the stack changes the DOS segment has moved to 0x79.
+	* r1498 kernel/irqstack.asm:
+	  New irqstack.asm: irq 2, 3, 4, 5, 6, 10, 11, 12, 14, 15 now
+	  use the IBM interrupt sharing protocol for STACKS. Affect
+	  int 2 too, but not IRQ 7 (INT 0fh) and IRQ 9 (INT 71h)
+
+2009 Aug 04 - Build 2039
 -------- Jeremy Davis, Bart Oldeman
 
 + Changes Jeremy
