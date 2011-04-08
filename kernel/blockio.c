@@ -305,41 +305,37 @@ BOOL flush_buffers(REG COUNT dsk)
 /*                                                                      */
 STATIC BOOL flush1(struct buffer FAR * bp)
 {
-/* All lines with changes on 9/4/00 by BER marked below */
-
-  UWORD result;                 /* BER 9/4/00 */
+  BOOL ok = TRUE;
 
   if ((bp->b_flag & (BFR_VALID | BFR_DIRTY)) == (BFR_VALID | BFR_DIRTY))
   {
-    /* BER 9/4/00  */
-    result = dskxfer(bp->b_unit, bp->b_blkno, bp->b_buffer, 1, DSKWRITE);
+#ifdef WITHFAT32
+    ULONG b_offset = 0;
+#else
+    UWORD b_offset = 0;
+#endif
+    UBYTE b_copies = 1;
+    ULONG blkno = bp->b_blkno;
     if (bp->b_flag & BFR_FAT)
     {
-      UWORD b_copies = bp->b_copies;
-      ULONG blkno = bp->b_blkno;
+      b_copies = bp->b_copies;
+      b_offset = bp->b_offset;
 #ifdef WITHFAT32
-      ULONG b_offset = bp->b_offset;
       if (b_offset == 0) /* FAT32 FS */
         b_offset = bp->b_dpbp->dpb_xfatsize;
-#else
-      UWORD b_offset = bp->b_offset;
 #endif
-      while (--b_copies > 0)
-      {
-        blkno += b_offset;
-        /* BER 9/4/00 */
-        result = dskxfer(bp->b_unit, blkno, bp->b_buffer, 1, DSKWRITE);
-      }
+    }
+    while (b_copies--)
+    {
+      if (dskxfer(bp->b_unit, blkno, bp->b_buffer, 1, DSKWRITE))
+        ok = FALSE;
+      blkno += b_offset;
     }
   }
-  else
-    result = 0;                 /* This negates any error code returned in result...BER */
-  /* and 0 returned, if no errors occurred - tom          */
   bp->b_flag &= ~BFR_DIRTY;     /* even if error, mark not dirty */
-  if (result != 0)              /* otherwise system has trouble  */
+  if (!ok)                      /* otherwise system has trouble  */
     bp->b_flag &= ~BFR_VALID;   /* continuing.           */
-  return (TRUE);                /* Forced to TRUE...was like this before dskxfer()  */
-  /* returned error codes...BER */
+  return ok;
 }
 
 /*                                                                      */

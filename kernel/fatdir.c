@@ -278,9 +278,7 @@ BOOL dir_write_update(REG f_node_ptr fnp, BOOL update)
     bp->b_flag |= BFR_DIR | BFR_DIRTY | BFR_VALID;
   }
   /* Clear buffers after directory write or DOS close                     */
-  /* hazard: no error checking!                                           */
-  flush_buffers(fnp->f_dpb->dpb_unit);
-  return TRUE;
+  return flush_buffers(fnp->f_dpb->dpb_unit);
 }
 
 #ifndef IPL
