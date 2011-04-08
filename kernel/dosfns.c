@@ -689,7 +689,7 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
        */
       struct dhdr FAR *dev = sftp->sft_dev;
       if (BinaryCharIO(&dev, 0, MK_FP(0x0000, 0x0000), C_CLOSE) != SUCCESS)
-        return DE_ACCESS;
+        return DE_INVLDHNDL;
     }
     /* now just drop the count if a device */
     if (!commitonly)
@@ -717,13 +717,18 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
 COUNT DosClose(COUNT hndl)
 {
   psp FAR *p = MK_FP(cu_psp, 0);
-  COUNT ret;
+  int sft_idx = get_sft_idx(hndl);
+
+  if (FP_OFF(idx_to_sft(sft_idx)) == (size_t) - 1)
+    return DE_INVLDHNDL;
+
+  /* We must close the (valid) file handle before any critical error */
+  /* may occur, else e.g. ABORT will try to close the file twice,    */
+  /* the second time after stdout is already closed */
+  p->ps_filetab[hndl] = 0xff;
 
   /* Get the SFT block that contains the SFT      */
-  ret = DosCloseSft(get_sft_idx(hndl), FALSE);
-  if (ret != DE_INVLDHNDL && ret != DE_ACCESS)
-    p->ps_filetab[hndl] = 0xff;
-  return ret;
+  return DosCloseSft(sft_idx, FALSE);
 }
 
 UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
