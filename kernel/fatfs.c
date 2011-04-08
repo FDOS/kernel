@@ -49,7 +49,7 @@ STATIC CLUSTER extend(f_node_ptr);
 STATIC COUNT extend_dir(f_node_ptr);
 CLUSTER first_fat(f_node_ptr);
 COUNT map_cluster(f_node_ptr, COUNT);
-STATIC VOID shrink_file(f_node_ptr fnp);
+STATIC int shrink_file(f_node_ptr fnp);
 
 /* FAT time notation in the form of hhhh hmmm mmmd dddd (d = double second) */
 STATIC time time_encode(struct dostime *t)
@@ -227,8 +227,7 @@ COUNT dos_close(COUNT fd)
   }
   fnp->f_sft_idx = 0xff;
 
-  dir_write_update(fnp, TRUE);
-  return SUCCESS;
+  return dir_write_update(fnp, TRUE) ? SUCCESS : DE_INVLDHNDL;
 }
 
 /*                                                                      */
@@ -298,7 +297,7 @@ STATIC int find_fname(const char *path, int attr, f_node_ptr fnp)
  *  pointed by fnp, fnode isn't modified (I hope).
  * Return value. 
  *  SUCCESS     - completed successfully.
- *  DE_BLKINVLD - error occured, fnode is released.
+ *  DE_ACCESS   - error occurred, fnode is released.
  * input: fnp with valid non-LFN directory entry, not equal to '..' or
  *  '.'
  */
@@ -312,15 +311,15 @@ COUNT remove_lfn_entries(f_node_ptr fnp)
       break;
     fnp->f_dmp->dm_entry--;
     if (dir_read(fnp) <= 0)
-      return DE_BLKINVLD;
+      return DE_ACCESS;
     if (fnp->f_dir.dir_attrib != D_LFN)
       break;
     fnp->f_dir.dir_name[0] = DELETED;
-    if (!dir_write(fnp)) return DE_BLKINVLD;
+    if (!dir_write(fnp)) return DE_ACCESS;
   }
   fnp->f_dmp->dm_entry = original_diroff;
   if (dir_read(fnp) <= 0)
-    return DE_BLKINVLD;
+    return DE_ACCESS;
 
   return SUCCESS;
 }
@@ -413,7 +412,8 @@ STATIC COUNT delete_dir_entry(f_node_ptr fnp)
   /* The directory has been modified, so set the  */
   /* bit before closing it, allowing it to be     */
   /* updated                                      */
-  dir_write(fnp);
+  if (!dir_write(fnp))
+    return DE_ACCESS;
 
   /* SUCCESSful completion, return it             */
   return SUCCESS;
@@ -550,15 +550,15 @@ COUNT dos_rename(BYTE * path1, BYTE * path2, int attrib)
     /* Ok, so we can delete this one. Save the file info.           */
     *(fnp1->f_dir.dir_name) = DELETED;
 
-    dir_write(fnp1);
+    if (!dir_write(fnp1))
+      return DE_ACCESS;
   }
 
   /* put the fnode's name into the directory.                     */
   memcpy(fnp2->f_dir.dir_name, fcbname, FNAME_SIZE + FEXT_SIZE);
-  dir_write(fnp2);
 
   /* SUCCESSful completion, return it                             */
-  return SUCCESS;
+  return dir_write(fnp2) ? SUCCESS : DE_ACCESS;
 }
 
 /*                                                              */
@@ -769,7 +769,7 @@ STATIC int clear_dir(f_node_ptr fnp, CLUSTER cluster)
     printf("DIR (clear_dir)\n");
 #endif
     if (bp == NULL)
-      return DE_BLKINVLD;
+      return DE_ACCESS;
     fmemset(bp->b_buffer, 0, BUFFERSIZE);
     bp->b_flag |= BFR_DIRTY | BFR_VALID;
 
@@ -836,7 +836,8 @@ COUNT dos_mkdir(BYTE * dir)
     return ret;
 
   /* Write the new directory entry                         */
-  dir_write(fnp);
+  if (!dir_write(fnp))
+    return DE_ACCESS;
 
   /* Craft the new directory. Note that if we're in a new  */
   /* directory just under the root, ".." pointer is 0.     */
@@ -849,7 +850,8 @@ COUNT dos_mkdir(BYTE * dir)
   init_direntry(&fnp->f_dir, D_DIR, free_fat, ".          ");
 
   /* And put it out                                       */
-  dir_write(fnp);
+  if (!dir_write(fnp))
+    return DE_ACCESS;
 
   /* create the ".." entry                                */
   if (!find_free(fnp) && ((ret = extend_dir(fnp)) != SUCCESS))
@@ -865,7 +867,8 @@ COUNT dos_mkdir(BYTE * dir)
   fnp->f_dir.dir_name[1] = '.';
 
   /* and put it out                                       */
-  dir_write(fnp);
+  if (!dir_write(fnp))
+    return DE_ACCESS;
 
   return SUCCESS;
 }
@@ -925,8 +928,8 @@ STATIC COUNT extend_dir(f_node_ptr fnp)
     return DE_HNDLDSKFULL;
 
   /* flush the drive buffers so that all info is written          */
-  /* hazard: no error checking! */
-  flush_buffers(fnp->f_dpb->dpb_unit);
+  if (!flush_buffers(fnp->f_dpb->dpb_unit))
+    return DE_ACCESS;
 
   return SUCCESS;
 
@@ -1090,7 +1093,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
     }
     if (bp == NULL)
     {
-      return DE_BLKINVLD;
+      return DE_ACCESS;
     }
 
     /* set a block to zero                                  */
@@ -1230,7 +1233,8 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     if (mode == XFR_WRITE)
     {
       fnp->f_dir.dir_size = fnp->f_offset;
-      shrink_file(fnp); /* this is the only call to shrink_file... */
+      if (shrink_file(fnp) < 0) /* this is the only call to shrink_file... */
+        return DE_ACCESS;
       /* why does empty write -always- truncate to current offset? */
     }
     fnode_to_sft(fnp);
@@ -1536,8 +1540,8 @@ COUNT dos_setfattr(BYTE * name, UWORD attrp)
 
   /* close open files in compat mode, otherwise there was a critical error */
   rc = merge_file_changes(fnp, -1);
-  if (rc == SUCCESS)
-    dir_write(fnp);
+  if (rc == SUCCESS && !dir_write(fnp))
+    rc = DE_ACCESS;
   return rc;
 }
 #endif
@@ -1780,12 +1784,13 @@ STATIC void fnode_to_sft(f_node_ptr fnp)
     Apps tested (VB ISAM); BO: confirmation???
 */
 
-STATIC VOID shrink_file(f_node_ptr fnp)
+STATIC int shrink_file(f_node_ptr fnp)
 {
 
   ULONG lastoffset = fnp->f_offset;     /* has to be saved */
   CLUSTER last, next, st;
   struct dpb FAR *dpbp = fnp->f_dpb;
+  int ret = DE_ACCESS;
 
   fnp->f_offset = fnp->f_dir.dir_size;     /* end of file */
 
@@ -1816,19 +1821,23 @@ STATIC VOID shrink_file(f_node_ptr fnp)
   else
   {
     if (next == LONG_LAST_CLUSTER) /* nothing to do, file already ends here */
-      goto done;
+      goto done_success;
     last = LONG_LAST_CLUSTER; /* make file end */
   }
   if (link_fat(dpbp, st, last) != SUCCESS)
     goto done; /* do not wipe remainder of chain if FAT is broken */
 
   wipe_out_clusters(dpbp, next); /* free clusters after the end */
-  /* flush buffers, make sure disk is updated - hazard: no error checking! */
-  flush_buffers(fnp->f_dpb->dpb_unit);
+  /* flush buffers, make sure disk is updated */
+  if (!flush_buffers(fnp->f_dpb->dpb_unit))
+    goto done;
+
+done_success:
+  ret = SUCCESS;
 
 done:
   fnp->f_offset = lastoffset;   /* has to be restored */
-
+  return ret;
 }
 
 /*
