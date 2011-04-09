@@ -105,13 +105,13 @@ general_irq_service:
                 push    bx
                 mov     bx, sp
                 mov     bx, [ss:bx+2]   ; return address->old ivec
-                jmp     common_irq
+                jmp     short common_irq
         
 general_irq_service_share:
                 push    bx
                 mov     bx, sp
                 mov     bx, [ss:bx+2]   ; return address->old ivec
-                sub     bx, irq_3 - irq_2 - 2
+                sub     bx, byte irq_3 - irq_2 - 2
 common_irq:
                 push    dx
                 push    ax
@@ -152,7 +152,7 @@ return:         pop     ds              ; restore registers and return
                 pop     ax
                 pop     dx
                 pop     bx
-                add     sp, 2
+                add     sp, byte 2
                 iret
 
 dont_switch:    pushf

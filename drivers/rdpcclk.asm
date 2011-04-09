@@ -43,7 +43,7 @@ READPCCLOCK:
 
 		; (ah is still 0, al contains midnight flag)
                 add     word [_DaysSinceEpoch  ],ax    ;   *some* BIOSes accumulate several days
-                adc     word [_DaysSinceEpoch+2],0     ;
+                adc     word [_DaysSinceEpoch+2],byte 0;
 
 						; set return value dx:ax
 		xchg	ax,cx			; ax=_cx, cx=_ax

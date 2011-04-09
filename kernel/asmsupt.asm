@@ -540,6 +540,10 @@ strncmp_retzero:
 strncmp_done:
                 lahf
 		ror  ah,1
+%ifdef _INIT
+strncmp_done2:  jmp  short pascal_return
+%else
 strncmp_done2:  jmp  pascal_return
+%endif
 
 %endif

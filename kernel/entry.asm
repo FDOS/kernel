@@ -83,7 +83,7 @@ reloc_call_cpm_entry:
                 ;       psp seg
                 ;       000ah
                 ;
-                add     sp, 2           ; remove unneeded far return offset 0ah
+                add     sp, byte 2      ; remove unneeded far return offset 0ah
                 pushf                   ; start setting up int 21h stack
                 ;
                 ; now stack is
@@ -173,7 +173,7 @@ stack_loop:
                 int 10h
                 inc si
                 inc si
-                cmp si, 13*2
+                cmp si, byte 13*2
                 jb stack_loop
                 mov al, 0dh
                 int 10h
@@ -380,9 +380,9 @@ int21_exit_nodec:
 
 %if XCPU >= 386
 %ifdef WATCOM
-                sub bp, 4   ; for fs and gs only
+                sub bp, byte 4   ; for fs and gs only
 %else        
-                sub bp, 6   ; high parts of eax, ebx or ecx, edx
+                sub bp, byte 6   ; high parts of eax, ebx or ecx, edx
 %endif        
 %endif                          
 

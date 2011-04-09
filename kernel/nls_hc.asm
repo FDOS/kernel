@@ -125,6 +125,3 @@ _nlsDBCSHardcoded:
 	DB  000h, 000h, 000h, 000h
 	GLOBAL _hcTablesEnd
 _hcTablesEnd:
-
-
-END

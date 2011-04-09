@@ -35,9 +35,9 @@ production:     ../bin/$(TARGET).sys ../bin/country.sys
 		$(CP) kernel.map ..$(DIRSEP)bin$(DIRSEP)$(TARGET).map
 
 # -S to avoid showing expected relocations
-# 0x10 & 0x74 for non-fat32 kernel, 0x10 & 0x73 for fat32 enabled kernel
+# 0x10 & 0x78 or 0x79 depending on compilation options
 kernel.sys:	kernel.exe ../utils/exeflat.exe
-		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) -S0x10 -S0x79 $(UPXOPT) $(XUPX)
+		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) -S0x10 -S0x78 -S0x79 $(UPXOPT) $(XUPX)
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;

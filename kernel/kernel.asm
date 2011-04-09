@@ -1010,9 +1010,9 @@ global _ExecUserDisableA20
 
 _ExecUserDisableA20:
 
-    cmp word [cs:_XMSDriverAddress],0
+    cmp word [cs:_XMSDriverAddress], byte 0
     jne NeedToDisable
-    cmp word [cs:_XMSDriverAddress+2],0
+    cmp word [cs:_XMSDriverAddress+2], byte 0
     je noNeedToDisable
 NeedToDisable:        
     push ax 
