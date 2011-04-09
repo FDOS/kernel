@@ -771,6 +771,9 @@ segment INIT_TEXT_START
                 global  __InitTextStart
 __InitTextStart:                    ; and c version
 
+segment INIT_TEXT_END
+                global  __InitTextEnd
+__InitTextEnd:                      ; and c version
 
 ;
 ; start end end of HMA area

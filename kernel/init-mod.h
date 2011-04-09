@@ -259,7 +259,8 @@ extern struct lol ASM FAR DATASTART;
 extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE area    */
   FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
   FAR ASM _HMATextEnd[], DOSFAR ASM break_ena;  /* break enabled flag                   */
-extern BYTE DOSFAR _InitTextStart,       /* first available byte of ram          */
+extern BYTE DOSFAR ASM _InitTextStart[],     /* first available byte of ram          */
+  DOSFAR ASM _InitTextEnd[],
   DOSFAR ReturnAnyDosVersionExpected,
   DOSFAR ASM HaltCpuWhileIdle;
 

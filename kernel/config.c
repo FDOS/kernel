@@ -2386,7 +2386,11 @@ VOID DoInstall(void)
   */
 
   set_strategy(LAST_FIT);
-  installMemory = allocmem(((unsigned)_init_end + ebda_size + 15) / 16);
+  installMemory = ((unsigned)_init_end + ebda_size + 15) / 16;
+#ifdef __WATCOMC__
+  installMemory += (_InitTextEnd - _InitTextStart + 15) / 16;
+#endif
+  installMemory = allocmem(installMemory);
 
   InstallPrintf(("allocated memory at %x\n",installMemory));
 

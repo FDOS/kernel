@@ -21,6 +21,11 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 	  sector is given (sys X: bootfile.bin)
 
 + Changes Bart
+	* r1569 kernel/{config.c,kernel.asm,init-mod.h,globals.h}:
+	  Allocate bigger chunk of memory for INSTALL for __WATCOMC__
+	  because the memory layout is different from other compilers.
+	  Fixes issues mentioned by Bret Johnson and Christian Masloch
+	  in freedos-user/freedos-kernel.
 	* r1568 kernel/asmsupt.asm, mkfiles/owlinux.mak: Make sure the
 	  DOS native and Linux cross-builds produce identical binaries.
 	* r1567	drivers/rdpcclk.asm,kernel/{asmsupt,entry,irqstack,kernel,
