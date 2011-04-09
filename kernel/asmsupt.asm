@@ -34,6 +34,11 @@
 ; $Id$
 ;
 
+; for OW on Linux:
+%ifdef owlinux
+%define WATCOM
+%endif
+
 %ifdef WATCOM
 %ifdef _INIT
 %define WATCOM_INIT ; no seperate init segment for watcom.

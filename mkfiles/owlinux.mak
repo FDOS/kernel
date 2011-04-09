@@ -16,4 +16,4 @@ CLT=gcc -DDOSC_TIME_H -I../hdr -o $@
 CLC=$(CLT)
 CFLAGST=-fo=.obj $(CFLAGST)
 ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 
-XLINK=$(XLINK) debug all op symfile format dos option map op statics F { $(OBJS) ../lib/device.lib } N kernel.exe $#
+XLINK=$(XLINK) debug all op symfile format dos option map,statics,verbose F { $(OBJS) } L ../lib/device.lib N kernel.exe $#

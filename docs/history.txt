@@ -21,6 +21,13 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 	  sector is given (sys X: bootfile.bin)
 
 + Changes Bart
+	* r1568 kernel/asmsupt.asm, mkfiles/owlinux.mak: Make sure the
+	  DOS native and Linux cross-builds produce identical binaries.
+	* r1567	drivers/rdpcclk.asm,kernel/{asmsupt,entry,irqstack,kernel,
+	  nls_hc}.asm, kernel/makefile:
+	  Remove useless END from nls_hc.asm, add explicit byte
+          overrides for older versions of NASM for more compact code,
+          and adjust silent relocation segments.
 	* r1565 sys/sys.c: Change // to /* comments for Turbo C compatibility.
 	* r1564 kernel/dosfns.c: If handle valid, close file in PSP
 	  table before the low-level close + (perhaps) critical error.
