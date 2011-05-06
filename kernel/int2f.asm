@@ -100,12 +100,14 @@ Check4Share:
 Int2f?14:      ;; MUX-14 -- NLSFUNC API
                ;; all functions are passed to syscall_MUX14
                push bp                 ; Preserve BP later on
+               Protect386Registers
                PUSH$ALL
                mov ds, [cs:_DGROUP_]
                call _syscall_MUX14
                pop bp                  ; Discard incoming AX
                push ax                 ; Correct stack for POP$ALL
                POP$ALL
+               Restore386Registers
                mov bp, sp
                or ax, ax
                jnz Int2f?14?1          ; must return set carry

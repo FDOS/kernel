@@ -136,17 +136,33 @@ irp_hi    equ 26
 	%macro  Protect386Registers 0
 	%endmacro
 	
+	%macro  RestoreSP 0
+		mov sp, bp  
+	%endmacro
+
 	%macro  Restore386Registers 0
 	%endmacro
 
-
 %ELSE           
-	%macro  Protect386Registers  0
-
 	%ifdef WATCOM
+
+	%macro  Protect386Registers  0
 		push fs
 		push gs
+	%endmacro
+
+	%macro  RestoreSP 0
+		lea sp, [bp-4]
+	%endmacro
+
+	%macro  Restore386Registers  0
+		pop gs
+		pop fs
+	%endmacro
+
 	%else
+
+	%macro  Protect386Registers  0
 		push eax
 		pop ax
         %ifdef MSCL8
@@ -158,16 +174,13 @@ irp_hi    equ 26
         %endif
 		push edx
 		pop dx
-	%endif
+	%endmacro
 
+	%macro  RestoreSP 0
+		lea sp, [bp-6]
 	%endmacro
 
 	%macro  Restore386Registers  0
-
-	%ifdef WATCOM
-		pop gs
-		pop fs
-	%else
 		push dx
 		pop edx
         %ifdef MSCL8
@@ -179,8 +192,7 @@ irp_hi    equ 26
         %endif
 		push ax
 		pop eax
-	%endif
-
 	%endmacro
 
+	%endif
 %ENDIF

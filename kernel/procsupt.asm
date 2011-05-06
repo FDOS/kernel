@@ -58,21 +58,23 @@ _exec_user:
 ;
                 pop     ax		      ; return address (unused)
 
-                pop     ax		      ; irp (user ss:sp)
-                pop	dx
+                pop     bp		      ; irp (user ss:sp)
+                pop	si
 		pop	cx		      ; disable A20?
+		or	cx,cx
+		jz	do_iret
+
                 cli
-                mov     ss,dx
-                mov     sp,ax                   ; set-up user stack
+                mov     ss,si
+                mov     sp,bp                   ; set-up user stack
                 sti
 ;
-		or	cx,cx
                 POP$ALL
-		jz      do_iret
                 extern _ExecUserDisableA20
                 jmp far _ExecUserDisableA20
 do_iret:
-		iret
+                extern _int21_iret
+                jmp _int21_iret
 
 segment _LOWTEXT
 
@@ -128,6 +130,7 @@ _spawn_int23:
 
 ;; 1999/03/27 ska - comments: see cmt1.txt
 		mov ds, [cs:_DGROUP_]		;; Make sure DS is OK
+		mov bp, [_user_r]
 
                 ; restore to user stack
                 cli					;; Pre-8086 don't disable INT autom.
@@ -144,11 +147,12 @@ _spawn_int23:
 ;      this patch helps FreeDos to survive CtrlC,
 ;      but should clearly be done somehow else.
                 mov     ss, [_user_r+2]
-                mov     sp, [_user_r]
+                RestoreSP
 
                 sti
 
                 ; get all the user registers back
+                Restore386Registers
                 POP$ALL
 
                 ;; Construct the piece of code into the stack

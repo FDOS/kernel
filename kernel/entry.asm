@@ -251,7 +251,6 @@ reloc_call_int21_handler:
                 sti
                 PUSH$ALL
                 mov bp,sp
-                Protect386Registers
                 ;
                 ; Create kernel reference frame.
                 ;
@@ -259,6 +258,7 @@ reloc_call_int21_handler:
                 ; until later when which stack to run on is determined.
                 ;
 int21_reentry:
+                Protect386Registers
                 mov     dx,[cs:_DGROUP_]
                 mov     ds,dx
 
@@ -378,17 +378,11 @@ int21_exit_nodec:
                 pop bp      ; get back user stack
                 pop si
 
-%if XCPU >= 386
-%ifdef WATCOM
-                sub bp, byte 4   ; for fs and gs only
-%else        
-                sub bp, byte 6   ; high parts of eax, ebx or ecx, edx
-%endif        
-%endif                          
-
+                global  _int21_iret
+_int21_iret:
                 cli
                 mov     ss,si
-                mov     sp,bp
+                RestoreSP
 
 int21_ret:
                 Restore386Registers
@@ -557,7 +551,7 @@ CritErr05:
                 ;       make bp:si point to dev header
                 ;
                 mov     si,word [bp+10]     ; lpDevice Offset
-                mov     bp,word [bp+12]     ; lpDevice segment
+                mov     cx,word [bp+12]     ; lpDevice segment
                 ;
                 ; Now save real ss:sp and retry info in internal stack
                 ;
@@ -580,7 +574,10 @@ CritErr05:
                 ; switch to user's stack
                 ;
                 mov     ss,[es:PSP_USERSS]
-                mov     sp,[es:PSP_USERSP]
+                mov     bp,[es:PSP_USERSP]
+                RestoreSP
+                Restore386Registers
+                mov     bp,cx        
                 ;
                 ; and call critical error handler
                 ;
