@@ -1792,10 +1792,11 @@ STATIC int shrink_file(f_node_ptr fnp)
   struct dpb FAR *dpbp = fnp->f_dpb;
   int ret = DE_ACCESS;
 
-  fnp->f_offset = fnp->f_dir.dir_size;     /* end of file */
-
   if (fnp->f_offset)
     fnp->f_offset--;            /* last existing cluster */
+  else if (fnp->f_cluster == FREE)
+    /* zero offset, 0-byte file: nothing to do ! */
+    goto done_success;
 
   if (map_cluster(fnp, XFR_READ) != SUCCESS)    /* error, don't truncate */
     goto done;
