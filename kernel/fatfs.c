@@ -692,7 +692,7 @@ time dos_gettime(void)
 /*                                                              */
 STATIC CLUSTER find_fat_free(f_node_ptr fnp)
 {
-  REG CLUSTER idx, size;
+  REG CLUSTER idx, size, cluster;
   struct dpb FAR *dpbp = fnp->f_dpb;
 
 #ifdef DISPLAY_GETBLOCK
@@ -717,39 +717,41 @@ STATIC CLUSTER find_fat_free(f_node_ptr fnp)
 
   /* Search the FAT table looking for the first free      */
   /* entry.                                               */
-  for (; idx <= size; idx++)
+  cluster = idx;
+  for (;;)
   {
 #ifdef CHECK_FAT_DURING_CLUSTER_ALLOC /* slower but nice side effect ;-) */
     if (next_cluster(dpbp, idx) == FREE)
 #else
     if (is_free_cluster(dpbp, idx))
 #endif
+    {
+      cluster = idx;
       break;
+    }
+    idx++;
+    /* wrap the search just in case there are free clusters before */
+    /* dpbp->dpb_(x)cluster (the fsinfo entry is just a hint!)     */
+    if (idx > size) idx = 2;
+    if (idx == cluster) {
+      /* No empty clusters, disk is FULL!                     */
+      cluster = UNKNCLUSTER;
+      idx = LONG_LAST_CLUSTER;
+      break;
+    }
   }
 
 #ifdef WITHFAT32
   if (ISFAT32(dpbp))
   {
-    dpbp->dpb_xcluster = idx;
-    if (idx > size)
-    {
-      /* No empty clusters, disk is FULL!                     */
-      dpbp->dpb_xcluster = UNKNCLUSTER;
-      idx = LONG_LAST_CLUSTER;
-    }
+    dpbp->dpb_xcluster = cluster;
     /* return the free entry                                */
     write_fsinfo(dpbp);
     return idx;
   }
 #endif
 
-  dpbp->dpb_cluster = (UWORD)idx;
-  if ((UWORD)idx > (UWORD)size)
-  {
-    /* No empty clusters, disk is FULL!                     */
-    dpbp->dpb_cluster = UNKNCLUSTER;
-    idx = LONG_LAST_CLUSTER;
-  }
+  dpbp->dpb_cluster = (UWORD)cluster;
   /* return the free entry                                */
   return idx;
 }
@@ -1446,7 +1448,7 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
   /* There's an unwritten rule here. All fs       */
   /* cluster start at 2 and run to max_cluster+2  */
   REG CLUSTER i;
-  REG CLUSTER cnt = 0;
+  REG CLUSTER cnt;
   CLUSTER max_cluster = dpbp->dpb_size;
 
 #ifdef WITHFAT32
@@ -1461,6 +1463,7 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
   if (dpbp->dpb_nfreeclst != UNKNCLSTFREE)
     return dpbp->dpb_nfreeclst;
 
+  cnt = 0;
   for (i = 2; i <= max_cluster; i++)
   {
 #ifdef CHECK_FAT_DURING_SPACE_CHECK /* slower but nice side effect ;-) */
@@ -1468,7 +1471,19 @@ CLUSTER dos_free(struct dpb FAR * dpbp)
 #else
     if (is_free_cluster(dpbp, i))
 #endif
+    {
+      if (cnt == 0)
+      {
+        /* update first free cluster number */
+#ifdef WITHFAT32
+        if (ISFAT32(dpbp))
+          dpbp->dpb_xcluster = i;
+        else
+#endif
+          dpbp->dpb_cluster = (UWORD)i;
+      }
       ++cnt;
+    }
   }
 #ifdef WITHFAT32
   if (ISFAT32(dpbp))
