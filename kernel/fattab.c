@@ -92,20 +92,34 @@ void read_fsinfo(struct dpb FAR * dpbp)
 {
   struct buffer FAR *bp;
   struct fsinfo FAR *fip;
+  CLUSTER cluster;
+
+  if (dpbp->dpb_xfsinfosec == 0xffff)
+    return;
 
   bp = getblock(dpbp->dpb_xfsinfosec, dpbp->dpb_unit);
   bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT | BFR_DIRTY);
   bp->b_flag |= BFR_VALID;
 
   fip = (struct fsinfo FAR *)&bp->b_buffer[0x1e4];
-  dpbp->dpb_xnfreeclst = fip->fi_nfreeclst;
-  dpbp->dpb_xcluster = fip->fi_cluster;
+  /* need to range check values because they may not be correct */
+  cluster = fip->fi_nfreeclst;
+  if (cluster >= dpbp->dpb_xsize)
+    cluster = XUNKNCLSTFREE;
+  dpbp->dpb_xnfreeclst = cluster;
+  cluster = fip->fi_cluster;
+  if (cluster < 2 || cluster > dpbp->dpb_xsize)
+    cluster = UNKNCLUSTER;
+  dpbp->dpb_xcluster = cluster;
 }
 
 void write_fsinfo(struct dpb FAR * dpbp)
 {
   struct buffer FAR *bp;
   struct fsinfo FAR *fip;
+
+  if (dpbp->dpb_xfsinfosec == 0xffff)
+    return;
 
   bp = getblock(dpbp->dpb_xfsinfosec, dpbp->dpb_unit);
   bp->b_flag &= ~(BFR_DATA | BFR_DIR | BFR_FAT);
