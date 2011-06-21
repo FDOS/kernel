@@ -108,6 +108,7 @@
 */*/kernel/lfnapi.c
 */*/kernel/ludivmul.inc
 */*/kernel/main.c
+*/*/kernel/memdisk.asm
 */*/kernel/memmgr.c
 */*/kernel/misc.c
 */*/kernel/network.c

@@ -20,7 +20,7 @@ error.obj
 OBJS4=break.obj dosfns.obj fatdir.obj fatfs.obj fattab.obj fcbfns.obj \
 inthndlr.obj
 OBJS5=ioctl.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
-OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj
+OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj memdisk.obj
 OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
 initdisk.obj initclk.obj
 OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
@@ -79,6 +79,7 @@ intr.obj:	intr.asm    segs.inc			$(TARGET).lnk
 io.obj:		io.asm	    segs.inc $(HDR)stacks.inc   $(TARGET).lnk
 irqstack.obj:   irqstack.asm segs.inc			$(TARGET).lnk
 kernel.obj:	kernel.asm  segs.inc ludivmul.inc 	$(TARGET).lnk
+memdisk.obj:	memdisk.asm  segs.inc $(TARGET).lnk
 nls_hc.obj:	nls_hc.asm  segs.inc			$(TARGET).lnk
 nlssupt.obj:	nlssupt.asm segs.inc $(HDR)stacks.inc   $(TARGET).lnk
 printer.obj:	printer.asm io.inc			$(TARGET).lnk

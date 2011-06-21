@@ -599,16 +599,99 @@ STATIC void umb_init(void)
   }
 }
 
+/* we require 386, so only supported for 386+ compiled kernels */
+#if defined(MEMDISK_ARGS)
+#ifndef I386
+#undef MEMDISK_ARGS
+#endif
+#endif
+
+#ifdef MEMDISK_ARGS
+struct memdiskinfo {
+  UWORD bytes;               /* Total size of this structure, value >= 26 */
+  UBYTE version_minor;       /* Memdisk minor version */
+  UBYTE version;             /* Memdisk major version */
+  UDWORD base;               /* Pointer to disk data in high memory */
+  UDWORD size;               /* Size of disk in 512 byte sectors */
+  char FAR * cmdline;        /* Command line */
+  ADDRESS oldint13;          /* Old INT 13h */
+  ADDRESS oldint15;          /* Old INT 15h */
+  UWORD olddosmem;           /* Amount of DOS memory before Memdisk loaded */
+  UBYTE boot_id;             /* major >= 3, boot loader ID */
+  UBYTE unused;
+  UWORD DPT_offset;          /* >= 3.71, ES based offset to installed DPT, +16 is Old INT 1Eh */
+};
+
+/* query_memdisk() based on similar subroutine in Eric Auer's public domain getargs.asm which is based on IFMEMDSK */
+struct memdiskinfo FAR * ASMCFUNC query_memdisk(UBYTE drive);
+#endif
+
+
 VOID DoConfig(int nPass)
 {
   COUNT nFileDesc;
   BYTE *pLine;
   BOOL bEof;
+  
+
+#ifdef MEMDISK_ARGS
+  /* check if MEMDISK used for LoL->BootDrive, if so check for special appended arguments */
+  struct memdiskinfo FAR *mdsk;
+  BYTE FAR *mdsk_cfg = NULL;
+  UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
+  mdsk = query_memdisk(drv);
+#endif
+
   if (nPass==0)
+  {
     HaltCpuWhileIdle = 0; /* init to "no HLT while idle" */
 
+#ifdef MEMDISK_ARGS
+    if (mdsk != NULL)
+    {
+      printf("MEMDISK version %u.%02u  (%lu sectors)\n", mdsk->version, mdsk->version_minor, mdsk->size);
+      DebugPrintf(("MEMDISK args:{%S}  bootdrive=[%0Xh]\n", mdsk->cmdline, (unsigned int)drv));
+    }
+#endif
+  }
+
+#ifdef MEMDISK_ARGS
+  if (mdsk != NULL)
+  {
+    /* scan for FD= */
+    /* when done mdsk->cmdline points to { character or assume no valid CONFIG options */
+    for (mdsk_cfg=mdsk->cmdline; *mdsk_cfg; ++mdsk_cfg)
+    {
+      if (*mdsk_cfg != ' ') continue;
+      ++mdsk_cfg;
+      if (*mdsk_cfg != 'F') goto goback1;
+      ++mdsk_cfg;
+      if (*mdsk_cfg != 'D') goto goback2;
+      ++mdsk_cfg;
+      if (*mdsk_cfg != '=') goto goback3;
+      ++mdsk_cfg;
+      break;
+
+      goback3:
+        --mdsk_cfg;
+      goback2:
+        --mdsk_cfg;
+      goback1:
+        --mdsk_cfg;
+    }
+    /* if FD= was not found then flag as no extra CONFIG lines */
+    if (!*mdsk_cfg) mdsk_cfg = NULL;
+  }
+  else
+  {
+    DebugPrintf(("MEMDISK not detected! bootdrive=[%0Xh]\n", (unsigned int)drv));
+  }
+#endif
+
+
   /* Check to see if we have a config.sys file.  If not, just     */
-  /* exit since we don't force the user to have one.              */
+  /* exit since we don't force the user to have one (but 1st      */
+  /* also process MEMDISK passed config options if present).      */
   if ((nFileDesc = open("fdconfig.sys", 0)) >= 0)
   {
     DebugPrintf(("Reading FDCONFIG.SYS...\n"));
@@ -619,9 +702,17 @@ VOID DoConfig(int nPass)
     if ((nFileDesc = open("config.sys", 0)) < 0)
     {
       DebugPrintf(("CONFIG.SYS not found\n"));
-      return;
+#ifdef MEMDISK_ARGS
+      if (mdsk_cfg != NULL)
+        bEof = TRUE;
+      else
+#endif
+        return;
     }
-    DebugPrintf(("Reading CONFIG.SYS...\n"));
+    else
+    {
+      DebugPrintf(("Reading CONFIG.SYS...\n"));
+    }
   }
 
   /* Have one -- initialize.                                      */
@@ -633,12 +724,22 @@ VOID DoConfig(int nPass)
   /* do the table lookup and execute the handler for that         */
   /* function.                                                    */
 
+#ifdef MEMDISK_ARGS
+  for (; !bEof || (mdsk_cfg != NULL); nCfgLine++)
+#else
   for (; !bEof; nCfgLine++)
+#endif
   {
     struct table *pEntry;
 
     pLineStart = szLine;
 
+
+#ifdef MEMDISK_ARGS
+    if (!bEof)
+    {
+#endif
+        
     /* read in a single line, \n or ^Z terminated */
 
     for (pLine = szLine;;)
@@ -663,8 +764,46 @@ VOID DoConfig(int nPass)
         pLine++;
     }
 
+#ifdef MEMDISK_ARGS
+    }
+    else if (mdsk_cfg != NULL)
+    {
+        pLine = szLine;
+        /* copy data to near buffer skipping { and } */
+        if (*mdsk_cfg != '{') /* if not at start of line */
+        {
+            mdsk_cfg = NULL; /* no longer need data, so set to NULL to flag done */
+        }
+        else
+        {
+            for (pLine = szLine, mdsk_cfg++; *mdsk_cfg; mdsk_cfg++, pLine++)
+            {
+              /* copy character to near buffer */
+              *pLine = *mdsk_cfg;
+
+              /* ensure we don't copy too much, exceed our buffer size */
+              if (pLine >= szLine + sizeof(szLine) - 3)
+              {
+                CfgFailure(pLine);
+                printf("error - line overflow line %d \n", nCfgLine);
+                break;
+              }
+
+              /* if end of this simulated line is found, skip over EOL marker then proceed to process line */
+              if (*pLine == '}')
+              {
+                  mdsk_cfg++;
+                  break;
+              }
+            }
+        }
+    }
+#endif
+
     *pLine = 0;
     pLine = szLine;
+
+    DebugPrintf(("CONFIG=[%s]\n", pLine));
 
     /* Skip leading white space and get verb.               */
     pLine = scan(pLine, szBuf);
