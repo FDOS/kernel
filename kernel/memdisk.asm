@@ -43,10 +43,10 @@ CPU 386
 		push ecx
 		push edx                ; we only care about high word
 		push eax                ; we only care about high word
+        mov edx,53490000h       ; magic3 +
         mov dl, al              ; drive number (only argument, assumed to be in AL)
         mov eax,454d0800h       ; magic1 + AH=8 (get geometry)
         mov ecx,444d0000h       ; magic2
-        mov edx,53490000h       ; magic3 +
         mov ebx,3f4b0000h       ; magic4
         int 13h                 ; BIOS DISK API
         shr eax,16              ; ignore AX
