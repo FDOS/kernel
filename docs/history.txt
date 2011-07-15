@@ -15,6 +15,7 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 + Changes Jeremy
 	* r1637 fix out of range byte in country.asm
+	* r1685 add int 2f subfunc 122B and 122D from Eduardo Casino
 	
 + Changes Bart
 	* r?
