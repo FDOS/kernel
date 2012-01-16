@@ -36,7 +36,7 @@
 #endif
 
 /* The actual kernel revision, 2000+REVISION_SEQ = 2.REVISION_SEQ */
-#define REVISION_SEQ    40      /* returned in BL by int 21 function 30 */
+#define REVISION_SEQ    41      /* returned in BL by int 21 function 30 */
 #define OEM_ID          0xfd    /* FreeDOS, returned in BH by int 21 30 */
 
 /* Used for version information displayed to user at boot (& stored in os_release string) */
