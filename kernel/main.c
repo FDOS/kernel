@@ -38,7 +38,7 @@ static BYTE *mainRcsId =
 #endif
 
 static char copyright[] =
-    "(C) Copyright 1995-2011 Pasquale J. Villani and The FreeDOS Project.\n"
+    "(C) Copyright 1995-2012 Pasquale J. Villani and The FreeDOS Project.\n"
     "All Rights Reserved. This is free software and comes with ABSOLUTELY NO\n"
     "WARRANTY; you can redistribute it and/or modify it under the terms of the\n"
     "GNU General Public License as published by the Free Software Foundation;\n"
