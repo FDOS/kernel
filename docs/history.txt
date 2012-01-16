@@ -10,12 +10,14 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
-2011 Jul XX - Build 2041
+2012 Jan XX - Build 2041
 -------- Jeremy Davis, Bart Oldeman
 
 + Changes Jeremy
 	* r1637 fix out of range byte in country.asm
 	* r1685 add int 2f subfunc 122B and 122D from Eduardo Casino
+    * r1697 from Pete Batard, do not display CHS mismatch warning 
+      during booting when forcing LBA mode option set
 	
 + Changes Bart
 	* r?
