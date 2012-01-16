@@ -810,10 +810,13 @@ BOOL is_suspect(struct CHS *chs, struct CHS *pEntry_chs)
 void print_warning_suspect(char *partitionName, UBYTE fs, struct CHS *chs,
                            struct CHS *pEntry_chs)
 {
-  printf("WARNING: using suspect partition %s FS %02x:", partitionName, fs);
-  printCHS(" with calculated values ", chs);
-  printCHS(" instead of ", pEntry_chs);
-  printf("\n");
+  if (!InitKernelConfig.ForceLBA)
+  {
+    printf("WARNING: using suspect partition %s FS %02x:", partitionName, fs);
+    printCHS(" with calculated values ", chs);
+    printCHS(" instead of ", pEntry_chs);
+    printf("\n");
+  }
   memcpy(pEntry_chs, chs, sizeof(struct CHS));
 }
 
