@@ -548,7 +548,8 @@ CritErr05:
                 mov     al,byte [bp+6]      ; nDrive
                 mov     di,word [bp+8]      ; nError
                 ;
-                ;       make bp:si point to dev header
+                ;       make cx:si point to dev header
+                ;       after registers restored use bp:si
                 ;
                 mov     si,word [bp+10]     ; lpDevice Offset
                 mov     cx,word [bp+12]     ; lpDevice segment
