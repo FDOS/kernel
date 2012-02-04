@@ -18,6 +18,8 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 	* r1685 add int 2f subfunc 122B and 122D from Eduardo Casino
     * r1697 from Pete Batard, do not display CHS mismatch warning 
       during booting when forcing LBA mode option set
+    * r1702 improve handling for sectors not 512 bytes in size 
+      (up to 2048 bytes, larger sizes not yet working)
 	
 + Changes Bart
 	* r?
