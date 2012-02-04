@@ -37,7 +37,9 @@ static BYTE *buffer_hRcsId =
 #endif
 #endif
 
-#define BUFFERSIZE 512
+#include "dsk.h"                /* only for MAX_SEC_SIZE        */
+#define BUFFERSIZE MAX_SEC_SIZE
+
 struct buffer {
   UWORD b_next;                 /* next buffer in LRU list      */
   UWORD b_prev;                 /* previous buffer in LRU list  */

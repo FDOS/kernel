@@ -239,7 +239,7 @@ extern sfttbl FAR * ASM sfthead;    /* System File Table head               */
 extern struct dhdr
 FAR * ASM clock,                    /* CLOCK$ device                        */
   FAR * ASM syscon;                 /* console device                       */
-extern WORD ASM maxbksize;          /* Number of Drives in system           */
+extern WORD ASM maxsecsize;         /* largest sector size in use (can use) */
 extern struct buffer
 FAR *ASM firstbuf;                  /* head of buffers linked list          */
 enum {LOC_CONV=0, LOC_HMA=1};
@@ -332,7 +332,7 @@ extern UBYTE ASM BootDrive,         /* Drive we came up from                */
 
 extern keyboard ASM kb_buf;
 extern char ASM local_buffer[LINEBUFSIZE0A];
-extern UBYTE DiskTransferBuffer[SEC_SIZE];
+extern UBYTE DiskTransferBuffer[/*SEC_SIZE*/];
 
 extern struct cds
   ASM TempCDS;

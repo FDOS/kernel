@@ -292,7 +292,7 @@ extern struct lowvec {
 /* floppy parameter table, at 70:xxxx */
 extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
 
-extern char DOSFAR DiskTransferBuffer[SEC_SIZE]; /* in dsk.c */
+extern char DOSFAR DiskTransferBuffer[/*MAX_SEC_SIZE*/]; /* in dsk.c */
 
 struct RelocationTable {
   UBYTE jmpFar;

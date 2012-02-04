@@ -436,10 +436,10 @@ UWORD dskxfer(COUNT dsk, ULONG blkno, VOID FAR * buf, UWORD numblocks,
     {
       IoReqHdr.r_trans = deblock_buf;
       if (mode == DSKWRITE)
-        fmemcpy(deblock_buf, buf, SEC_SIZE);
+        fmemcpy(deblock_buf, buf, dpbp->dpb_secsize);
       execrh((request FAR *) & IoReqHdr, dpbp->dpb_device);
       if (mode == DSKREAD)
-        fmemcpy(buf, deblock_buf, SEC_SIZE);
+        fmemcpy(buf, deblock_buf, dpbp->dpb_secsize);
     }
     else
     {

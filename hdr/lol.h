@@ -39,7 +39,7 @@ struct lol {
   struct sfttbl far *sfthead;  /*  4 System File Table head               */
   struct dhdr far *clock;      /*  8 CLOCK$ device                        */
   struct dhdr far *syscon;     /*  c console device                       */
-  unsigned short maxsecbytes;  /* 10 max bytes per sector for any blkdev  */
+  unsigned short maxsecsize;   /* 10 max bytes per sector for any blkdev  */
   void far *inforecptr;        /* 12 pointer to disk buffer info record   */
   struct cds far *CDSp;        /* 16 Current Directory Structure          */
   struct sfttbl far *FCBp;     /* 1a FCB table pointer                    */

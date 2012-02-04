@@ -81,7 +81,7 @@ UWORD LBA_WRITE_VERIFY = 0x4302;
                    this is certainly true, if located somewhere
                    at 0xf+1000 and must hold already during BOOT time
                  */
-UBYTE DiskTransferBuffer[1 * SEC_SIZE];
+UBYTE DiskTransferBuffer[MAX_SEC_SIZE];
 
 struct FS_info {
   ULONG serialno;
@@ -388,7 +388,7 @@ STATIC WORD getbpb(ddt * pddt)
   pbpbarray->bpb_nbyte = getword(&DiskTransferBuffer[BT_BPB]);
 
   if (DiskTransferBuffer[0x1fe] != 0x55
-      || DiskTransferBuffer[0x1ff] != 0xaa || pbpbarray->bpb_nbyte != 512)
+      || DiskTransferBuffer[0x1ff] != 0xaa || pbpbarray->bpb_nbyte % 512)
   {
     /* copy default bpb to be sure that there is no bogus data */
     memcpy(pbpbarray, &pddt->ddt_defbpb, sizeof(bpb));
@@ -891,8 +891,8 @@ STATIC unsigned DMA_max_transfer(void FAR * buffer, unsigned count)
 {
   unsigned dma_off = (UWORD)((FP_SEG(buffer) << 4) + FP_OFF(buffer));
   unsigned sectors_to_dma_boundary = (dma_off == 0 ?
-    0xffff / SEC_SIZE :
-    (UWORD)(-dma_off) / SEC_SIZE);
+    0xffff / maxsecsize :
+    (UWORD)(-dma_off) / maxsecsize);
 
   return min(count, sectors_to_dma_boundary);
 }
@@ -941,6 +941,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
   int num_retries;
 
+	UWORD bytes_sector = pddt->ddt_bpb.bpb_nbyte;   /* bytes per sector, usually 512 */
   *transferred = 0;
   
   /* only low-level format floppies for now ! */
@@ -983,7 +984,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
       if ((mode & 0xff00) == (LBA_WRITE & 0xff00))
       {
-        fmemcpy(DiskTransferBuffer, buffer, 512);
+        fmemcpy(DiskTransferBuffer, buffer, bytes_sector);
       }
     }
     else
@@ -1066,14 +1067,14 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
     if (transfer_address == DiskTransferBuffer &&
         (mode & 0xff00) == (LBA_READ & 0xff00))
     {
-      fmemcpy(buffer, DiskTransferBuffer, 512);
+      fmemcpy(buffer, DiskTransferBuffer, bytes_sector);
     }
 
     *transferred += count;
     LBA_address += count;
     totaltodo -= count;
 
-    buffer = adjust_far((char FAR *)buffer + count * 512);
+    buffer = adjust_far((char FAR *)buffer + count * bytes_sector);
   }
 
   return (error_code);

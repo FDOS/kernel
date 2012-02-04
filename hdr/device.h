@@ -177,7 +177,8 @@ typedef struct {
 } bpb;
 
 #define N_RETRY         5       /* number of retries permitted  */
-#define SEC_SIZE        512     /* size of sector in bytes      */
+
+#include "dsk.h"
 
 #define LBA_READ         0x4200
 #define LBA_WRITE        0x4300

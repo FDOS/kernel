@@ -29,7 +29,9 @@
 #include "init-mod.h"
 #include "dyndata.h"
 
-UBYTE InitDiskTransferBuffer[SEC_SIZE] BSS_INIT({0});
+#define FLOPPY_SEC_SIZE 512u  /* common sector size */
+
+UBYTE InitDiskTransferBuffer[MAX_SEC_SIZE] BSS_INIT({0});
 COUNT nUnits BSS_INIT(0);
 
 /*
@@ -279,11 +281,11 @@ typedef struct {
 
 floppy_bpb floppy_bpbs[5] = {
 /* copied from Brian Reifsnyder's FORMAT, bpb.h */
-  {SEC_SIZE, 2, 1, 2, 112, 720, 0xfd, 2, 9, 2}, /* FD360  5.25 DS   */
-  {SEC_SIZE, 1, 1, 2, 224, 2400, 0xf9, 7, 15, 2},       /* FD1200 5.25 HD   */
-  {SEC_SIZE, 2, 1, 2, 112, 1440, 0xf9, 3, 9, 2},        /* FD720  3.5  LD   */
-  {SEC_SIZE, 1, 1, 2, 224, 2880, 0xf0, 9, 18, 2},       /* FD1440 3.5  HD   */
-  {SEC_SIZE, 2, 1, 2, 240, 5760, 0xf0, 9, 36, 2}        /* FD2880 3.5  ED   */
+  {FLOPPY_SEC_SIZE, 2, 1, 2, 112, 720, 0xfd, 2, 9, 2}, /* FD360  5.25 DS   */
+  {FLOPPY_SEC_SIZE, 1, 1, 2, 224, 2400, 0xf9, 7, 15, 2},       /* FD1200 5.25 HD   */
+  {FLOPPY_SEC_SIZE, 2, 1, 2, 112, 1440, 0xf9, 3, 9, 2},        /* FD720  3.5  LD   */
+  {FLOPPY_SEC_SIZE, 1, 1, 2, 224, 2880, 0xf0, 9, 18, 2},       /* FD1440 3.5  HD   */
+  {FLOPPY_SEC_SIZE, 2, 1, 2, 240, 5760, 0xf0, 9, 36, 2}        /* FD2880 3.5  ED   */
 };
 
 COUNT init_getdriveparm(UBYTE drive, bpb * pbpbarray)
@@ -407,7 +409,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       fatdat = 32640;
     /* The "+2*NSECTORFAT12" is for the reserved first two FAT entries */
     defbpb->bpb_nfsect = (UWORD)cdiv((fatdat + 2 * NSECTORFAT12) * 3UL,
-                                     SEC_SIZE * 2 * NSECTORFAT12 + NFAT*3);
+                                     FLOPPY_SEC_SIZE * 2 * NSECTORFAT12 + NFAT*3);
 #ifdef DEBUG
     /* Need to calculate number of clusters, since the unused parts of the
      * FATS and data area together could make up space for an additional,
@@ -456,7 +458,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       defbpb->bpb_ndirent = 0;
       defbpb->bpb_nreserved = 0x20;
       fatdata = NumSectors - 0x20;
-      fatentpersec = SEC_SIZE/4;
+      fatentpersec = FLOPPY_SEC_SIZE/4;
       maxcl = FAT32MAX;
     }
     else
@@ -471,7 +473,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
          max FAT16 size for FreeDOS = 4,293,984,256 bytes = 4GiB-983,040 */
       if (fatdata > 8386688ul)
         fatdata = 8386688ul;
-      fatentpersec = SEC_SIZE/2;
+      fatentpersec = FLOPPY_SEC_SIZE/2;
       maxcl = FAT16MAX;
     }
 
@@ -571,7 +573,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
 
   pddt->ddt_offset = StartSector;
 
-  pddt->ddt_defbpb.bpb_nbyte = SEC_SIZE;
+  pddt->ddt_defbpb.bpb_nbyte = FLOPPY_SEC_SIZE;
   pddt->ddt_defbpb.bpb_mdesc = 0xf8;
   pddt->ddt_defbpb.bpb_nheads = driveParam->chs.Head;
   pddt->ddt_defbpb.bpb_nsecs = driveParam->chs.Sector;
