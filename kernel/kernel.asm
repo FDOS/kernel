@@ -302,7 +302,7 @@ _clock          dd      0               ; 0008 CLOCK$ device
                 global  _syscon
 _syscon         dw      _con_dev,seg _con_dev   ; 000c console device
                 global  _maxsecsize
-_maxsecsize     dw      4096            ; 0010 maximum bytes/sector of any block device
+_maxsecsize     dw      512             ; 0010 maximum bytes/sector of any block device
                 dd      0               ; 0012 pointer to buffers info structure
                 global  _CDSp
 _CDSp           dd      0               ; 0016 Current Directory Structure

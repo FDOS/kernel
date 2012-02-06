@@ -3,10 +3,8 @@
 /*                           dsk.h                              */
 /*                      Disk access Header File                 */
 /*                                                              */
-/*                       November 20, 1991                      */
-/*                                                              */
-/*                      Copyright (c) 1995                      */
-/*                      Pasquale J. Villani                     */
+/*                      Copyright (c) 2012                      */
+/*                      FreeDOS                                 */
 /*                      All Rights Reserved                     */
 /*                                                              */
 /* This file is part of DOS-C.                                  */
@@ -29,5 +27,5 @@
 
 
 #ifndef MAX_SEC_SIZE
-#define MAX_SEC_SIZE    (4*512) /* max supported size of sector in bytes */
+#define MAX_SEC_SIZE    (1*512) /* max supported size of sector in bytes */
 #endif
