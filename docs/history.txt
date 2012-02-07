@@ -10,8 +10,8 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
-2012 Jan XX - Build 2041
--------- Jeremy Davis, Bart Oldeman
+2012 Feb 07 - Build 2041
+-------- Jeremy Davis
 
 + Changes Jeremy
 	* r1637 fix out of range byte in country.asm
@@ -21,9 +21,6 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
     * r1702 improve handling for sectors not 512 bytes in size 
       (up to 2048 bytes, larger sizes not yet working)
     * r1705 add cpu detection so memdisk args supported in 8086 build
-	
-+ Changes Bart
-	* r?
 
 2011 Jun 21 - Build 2040
 -------- Jeremy Davis, Bart Oldeman
