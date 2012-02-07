@@ -22,7 +22,7 @@
 ;
 ;
 
-%if XCPU == 386       ; requires 386+ registers, until CPU check implemented only allow for 386 builds
+; requires 386+ registers, check LoL->CPU >=3 prior to calling (or use 386 build)
 
 %include "segs.inc"
 segment INIT_TEXT
@@ -77,5 +77,3 @@ CPU 386
 		pop di
 		pop es
 		retn
-
-%endif

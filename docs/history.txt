@@ -20,6 +20,7 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
       during booting when forcing LBA mode option set
     * r1702 improve handling for sectors not 512 bytes in size 
       (up to 2048 bytes, larger sizes not yet working)
+    * r1705 add cpu detection so memdisk args supported in 8086 build
 	
 + Changes Bart
 	* r?

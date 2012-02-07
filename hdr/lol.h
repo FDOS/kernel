@@ -55,7 +55,7 @@ struct lol {
   unsigned short nbuffers;     /* 3f Number of buffers                    */
   unsigned short nlookahead;   /* 41 Number of lookahead buffers          */
   unsigned char BootDrive;     /* 43 bootdrive (1=A:)                     */
-  unsigned char dwordmoves;    /* 44 use dword moves (unused)             */
+  unsigned char cpu;           /* 44 CPU family [was unused dword moves]  */
   unsigned short xmssize;      /* 45 extended memory size in KB           */ 
   struct buffer far *firstbuf; /* 47 head of buffers linked list          */
   unsigned short dirtybuf;     /* 4b number of dirty buffers              */

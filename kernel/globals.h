@@ -326,6 +326,7 @@ extern BYTE ASM verify_ena,         /* verify enabled flag                  */
 extern UWORD ASM return_code;       /* Process termination rets             */
 
 extern UBYTE ASM BootDrive,         /* Drive we came up from                */
+  ASM CPULevel,                     /* CPU family, 0=8086, 1=186, ...       */
   ASM scr_pos;                      /* screen position for bs, ht, etc      */
 /*extern WORD
   NumFloppies; !!*//* How many floppies we have            */

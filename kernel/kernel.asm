@@ -103,7 +103,8 @@ beyond_entry:   resb    256-(beyond_entry-entry)
 segment INIT_TEXT
 
                 extern  _FreeDOSmain
-
+                extern  _query_cpu
+                
                 ;
                 ; kernel start-up
                 ;
@@ -189,6 +190,10 @@ cont:           ; Now set up call frame
 ;!!             shr     al,cl
 ;!!             inc     al
 ;!!                mov     byte [_NumFloppies],al ; and how many
+
+                call _query_cpu
+                mov     byte [_CPULevel],al
+                ; TODO display error if built for 386 running on 8086 etc
                 
                 mov     ax,ss
                 mov     ds,ax
@@ -335,11 +340,11 @@ _LoL_nbuffers   dw      1               ; 003F number of buffers
                 global  _BootDrive
 _BootDrive      db      1               ; 0043 drive we booted from   
 
-%IF XCPU < 386
-                db      0               ; 0044 cpu type (1 if >=386)
-%ELSE                
-                db      1               ; 0044 cpu type (1 if >=386)
-%ENDIF
+                global  _CPULevel
+_CPULevel       db      0               ; 0044 cpu type (MSDOS >0 indicates dword moves ok, ie 386+)
+                                        ; unless compatibility issues arise FD uses
+                                        ; 0=808x, 1=18x, 2=286, 3=386+
+                                        ; see cpu.asm, use >= as may add checks for 486 ...
 
                 dw      0               ; 0045 Extended memory in KBytes
 buf_info:               
@@ -379,7 +384,6 @@ _os_setver_major        db      5
 _os_minor       db      0
                 global  _os_major              
 _os_major       db      5
-                global  _rev_number
 _rev_number     db      0
                 global  _version_flags         
 _version_flags  db      0

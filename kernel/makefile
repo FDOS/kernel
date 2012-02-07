@@ -22,7 +22,7 @@ inthndlr.obj
 OBJS5=ioctl.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
 OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj memdisk.obj
 OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
-initdisk.obj initclk.obj
+initdisk.obj initclk.obj cpu.obj
 OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
 
 #               *Explicit Rules*
@@ -71,6 +71,7 @@ $(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER)
 apisupt.obj:	apisupt.asm segs.inc			$(TARGET).lnk
 asmsupt.obj:	asmsupt.asm segs.inc			$(TARGET).lnk
 console.obj:	console.asm io.inc			$(TARGET).lnk
+cpu.obj:	cpu.asm  segs.inc $(TARGET).lnk
 dosidle.obj:	dosidle.asm segs.inc			$(TARGET).lnk
 entry.obj:	entry.asm   segs.inc $(HDR)stacks.inc	$(TARGET).lnk
 execrh.obj:	execrh.asm  segs.inc 			$(TARGET).lnk

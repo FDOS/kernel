@@ -599,13 +599,6 @@ STATIC void umb_init(void)
   }
 }
 
-/* we require 386, so only supported for 386+ compiled kernels */
-#if defined(MEMDISK_ARGS)
-#ifndef I386
-#undef MEMDISK_ARGS
-#endif
-#endif
-
 #ifdef MEMDISK_ARGS
 struct memdiskinfo {
   UWORD bytes;               /* Total size of this structure, value >= 26 */
@@ -638,8 +631,12 @@ VOID DoConfig(int nPass)
   /* check if MEMDISK used for LoL->BootDrive, if so check for special appended arguments */
   struct memdiskinfo FAR *mdsk;
   BYTE FAR *mdsk_cfg = NULL;
-  UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
-  mdsk = query_memdisk(drv);
+  /* memdisk check & usage requires 386+, DO NOT invoke if less than 386 */
+  if (LoL->cpu >= 3)
+  {
+    UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
+    mdsk = query_memdisk(drv);
+  }
 #endif
 
   if (nPass==0)

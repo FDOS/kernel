@@ -39,7 +39,7 @@ BYTE *RcsId =
 
 #ifdef TSC
 STATIC VOID StartTrace(VOID);
-static bTraceNext = FALSE;
+STATIC bTraceNext = FALSE;
 #endif
 
 #if 0                           /* Very suspicious, passing structure by value??
@@ -81,7 +81,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
           /* Set Ctrl-C flag; returns dl = break_ena              */
         case 0x01:
           break_ena = irp->DL & 1;
-          /* fall through */
+          /* fall through so DL only low bit (as in MS-DOS) */
 
           /* Get Ctrl-C flag                                      */
         case 0x00:
@@ -105,19 +105,26 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
         case 0x06:
           irp->BL = os_major;
           irp->BH = os_minor;
-          irp->DL = rev_number;
+          irp->DL = 0;                  /* lower 3 bits revision #, remaining should be 0 */
           irp->DH = version_flags;      /* bit3:runs in ROM,bit 4: runs in HMA */
           break;
 
-        case 0x03:             /* DOS 7 does not set AL */
-        case 0x07:             /* neither here */
+     /* case 0x03: */          /* DOS 7 does not set AL */
+     /* case 0x07: */          /* neither here */
 
         default:               /* set AL=0xFF as error, NOT carry */
           irp->AL = 0xff;
           break;
 
-          /* set FreeDOS returned version for int 21.30 from BX */
-        case 0xfc:             /* 0xfc ... 0xff are FreeDOS extensions */
+        /* the remaining are FreeDOS extensions */
+
+          /* return CPU family */
+        case 0xfa:
+          irp->AL = CPULevel;
+          break;
+					
+           /* set FreeDOS returned version for int 21.30 from BX */
+        case 0xfc:
           os_setver_major = irp->BL;
           os_setver_minor = irp->BH;
           break;
@@ -724,9 +731,12 @@ dispatch:
 
       /* Get (editable) DOS Version                                   */
     case 0x30:
+      if (lr.AL == 1) /* from RBIL, if AL=1 then return version_flags */
+          lr.BH = version_flags;
+      else
+          lr.BH = OEM_ID;
       lr.AL = os_setver_major;
       lr.AH = os_setver_minor;
-      lr.BH = OEM_ID;
       lr.BL = REVISION_SEQ;
       lr.CX = 0; /* do not set this to a serial number!
                     32RTM won't like non-zero values   */
@@ -942,6 +952,33 @@ dispatch:
           rc = DosSetFattr((BYTE FAR *) FP_DS_DX, lr.CX);
           lr.AX = lr.CX;
           break;
+
+#if 0
+        case 0x02:
+            /* get compressed size -> compression not support returns size in clusters */
+            /* rc = DosGetClusterCnt((BYTE FAR *) FP_DS_DX); */
+          goto error_invalid;
+#endif
+
+        case 0xff: /* DOS 7.20 (w98) extended name (128 char length) functions */
+        {
+          switch(lr.CL)
+          {
+                /* Dos Create Directory                                         */
+                case 0x39:
+                /* Dos Remove Directory                                         */
+                case 0x3a:
+                rc = DosMkRmdir(FP_DS_DX, lr.AH);
+                goto short_check;
+
+                /* Dos rename file */
+                case 0x56:
+                rc = DosRename(FP_DS_DX, FP_ES_DI);
+                goto short_check;
+
+              /* fall through to goto error_invaid */
+          }
+        }
 
         default:
           goto error_invalid;
