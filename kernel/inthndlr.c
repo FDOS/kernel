@@ -118,11 +118,6 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
         /* the remaining are FreeDOS extensions */
 
-          /* return CPU family */
-        case 0xfa:
-          irp->AL = CPULevel;
-          break;
-					
            /* set FreeDOS returned version for int 21.30 from BX */
         case 0xfc:
           os_setver_major = irp->BL;
