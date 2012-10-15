@@ -21,6 +21,12 @@
         	  ' hit any key to continue to boot from 'diskette or CD'
         	  wait ## seconds
         	  if no key hit, boot from HD
+
+	Version_: only in kernel 2042 or higher, offline version identification
+		OemID: 0xFD for FreeDOS kernel, 0xDC for DosC kernel
+		Major: actual kernel version (not MS-DOS compatibility version), e.g. 2
+		Revision: revision sequence, e.g. 42 for kernel 2042
+		Release: 0 if released version, >0 for svn builds (e.g. svn revision #)
             
 */
 typedef struct _KernelConfig {
@@ -33,4 +39,11 @@ typedef struct _KernelConfig {
   unsigned char ForceLBA;
   unsigned char GlobalEnableLBAsupport; /* = 0 --> disable LBA support */
   signed char BootHarddiskSeconds;
+
+  /* for version 2042 and higher only */
+  unsigned char Version_OemID;
+  unsigned char Version_Major;
+  unsigned short Version_Revision;
+  unsigned short Version_Release;
+
 } KernelConfig;

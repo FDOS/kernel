@@ -263,7 +263,7 @@ static void write_header(FILE *dest, size_t size)
   static char JumpBehindCode[] = {
     /* kernel config header - 32 bytes */
     0xeb, 0x1b,               /*     jmp short realentry */
-    'C', 'O', 'N', 'F', 'I', 'G', 32 - 2 - 6 - 2 - 3, 0,      /* WORD */
+    'C', 'O', 'N', 'F', 'I', 'G', 6, 0,      /* WORD */
     0,                        /* DLASortByDriveNo            db 0  */
     1,                        /* InitDiskShowDriveAssignment db 1  */
     2,                        /* SkipConfigSeconds           db 2  */
