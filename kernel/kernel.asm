@@ -89,6 +89,7 @@ configend:
 ; init sequence
 ;************************************************************       
 
+                cpu 8086                ; (keep initial entry compatible)
 
 realentry:                              ; execution continues here
 
@@ -198,13 +199,76 @@ cont:           ; Now set up call frame
 ;!!                mov     byte [_NumFloppies],al ; and how many
 
                 call _query_cpu
-                mov     byte [_CPULevel],al
-                ; TODO display error if built for 386 running on 8086 etc
+%if XCPU != 86
+ %if XCPU < 186 || (XCPU % 100) != 86 || (XCPU / 100) > 9
+  %fatal Unknown CPU level defined
+ %endif
+                cmp     al, (XCPU / 100)
+                jb      cpu_abort       ; if CPU not supported -->
+
+                cpu XCPU
+%endif
+                mov     [_CPULevel], al
                 
                 mov     ax,ss
                 mov     ds,ax
                 mov     es,ax
                 jmp     _FreeDOSmain
+
+%if XCPU != 86
+        cpu 8086
+
+cpu_abort:
+        mov ah, 0Fh
+        int 10h                 ; get video mode, bh = active page
+
+        call .first
+
+%define LOADNAME "FreeDOS"
+        db 13,10                ; (to emit a blank line after the tracecodes)
+        db 13,10
+        db LOADNAME, " load error: An 80", '0'+(XCPU / 100)
+        db   "86 processor or higher is required by this build.",13,10
+        db "To use ", LOADNAME, " on this processor please"
+        db  " obtain a compatible build.",13,10
+        db 13,10
+        db "Press any key to reboot.",13,10
+        db 0
+
+.display:
+        mov ah, 0Eh
+        mov bl, 07h             ; page in bh, bl = colour for some modes
+        int 10h                 ; write character (may change bp!)
+
+.first:
+        cs lodsb                ; get character
+        test al, al             ; zero ?
+        jnz .display            ; no, display and get next character -->
+
+        xor ax, ax
+        xor dx, dx
+        int 13h                 ; reset floppy disks
+        xor ax, ax
+        mov dl, 80h
+        int 13h                 ; reset hard disks
+
+                                ; this "test ax, imm16" opcode is used to
+        db 0A9h                 ;  skip "sti" \ "hlt" during first iteration
+.wait:
+        sti
+        hlt                     ; idle while waiting for keystroke
+        mov ah, 01h
+        int 16h                 ; get keystroke
+        jz .wait                ; none available, loop -->
+
+        mov ah, 00h
+        int 16h                 ; remove keystroke from buffer
+
+        int 19h                 ; reboot
+        jmp short $             ; (in case it returns, which it shouldn't)
+
+        cpu XCPU
+%endif        ; XCPU != 86
 
 
 segment INIT_TEXT_END
