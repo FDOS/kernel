@@ -9,3 +9,7 @@
 
 # Executable files
 *.EXE
+
+# FreeDOS build tools configuration
+config.bat
+
