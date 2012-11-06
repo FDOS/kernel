@@ -647,7 +647,7 @@ VOID DoConfig(int nPass)
     if (mdsk != NULL)
     {
       printf("MEMDISK version %u.%02u  (%lu sectors)\n", mdsk->version, mdsk->version_minor, mdsk->size);
-      DebugPrintf(("MEMDISK args:{%S}  bootdrive=[%0Xh]\n", mdsk->cmdline, (unsigned int)drv));
+      DebugPrintf(("MEMDISK args:{%S}\n", mdsk->cmdline));
     }
 #endif
   }
@@ -670,11 +670,7 @@ VOID DoConfig(int nPass)
         
       if (*mdsk_cfg != '=') continue;
       ++mdsk_cfg;
-      
-      /* skip past any extra spaces between = and ( */
-      while (*mdsk_cfg == ' ')
-        ++mdsk_cfg;
-        
+              
       /* assume found extra config options */
       break;
     }
@@ -768,13 +764,18 @@ VOID DoConfig(int nPass)
     else if (mdsk_cfg != NULL)
     {
         pLine = szLine;
-        /* copy data to near buffer skipping { and } */
+
+        /* skip past any extra spaces before ( */
+        while (*mdsk_cfg == ' ')
+          ++mdsk_cfg;
+
         if (*mdsk_cfg != '{') /* if not at start of line */
         {
             mdsk_cfg = NULL; /* no longer need data, so set to NULL to flag done */
         }
         else
         {
+            /* copy data to near buffer skipping { and } */
             for (pLine = szLine, mdsk_cfg++; *mdsk_cfg; mdsk_cfg++, pLine++)
             {
               /* copy character to near buffer */
@@ -786,6 +787,19 @@ VOID DoConfig(int nPass)
                 CfgFailure(pLine);
                 printf("error - line overflow line %d \n", nCfgLine);
                 break;
+              }
+              
+              /* if initrd=IMAGEFILE or BOOT_IMAGE=memdisk is found, treat same as end of line & end of file */
+              /* we backtrack to enable use of near pointers in memcmp */
+              if ((*pLine == '=') && ((pLine - szLine) >= 7))
+              {
+                if ((memcmp(pLine-6, "initrd=", 7) == 0) || (memcmp(pLine-10, "BOOT_IMAGE=", 11) == 0))
+                {
+                  pLine -= 6;  /* backup */
+                  if (*pLine == '_') pLine -= 4;
+                  mdsk_cfg = NULL;
+                  break;
+                }
               }
 
               /* if end of this simulated line is found, skip over EOL marker then proceed to process line */
