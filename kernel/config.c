@@ -659,22 +659,24 @@ VOID DoConfig(int nPass)
     /* when done mdsk->cmdline points to { character or assume no valid CONFIG options */
     for (mdsk_cfg=mdsk->cmdline; *mdsk_cfg; ++mdsk_cfg)
     {
-      if (*mdsk_cfg != ' ') continue;
+      if ((*mdsk_cfg | 32) != 'f') continue;
       ++mdsk_cfg;
-      if (*mdsk_cfg != 'F') goto goback1;
+      if ((*mdsk_cfg | 32) != 'd') continue;
       ++mdsk_cfg;
-      if (*mdsk_cfg != 'D') goto goback2;
+      
+      /* skip past any extra spaces between D and = */
+      while (*mdsk_cfg == ' ')
+        ++mdsk_cfg;
+        
+      if (*mdsk_cfg != '=') continue;
       ++mdsk_cfg;
-      if (*mdsk_cfg != '=') goto goback3;
-      ++mdsk_cfg;
+      
+      /* skip past any extra spaces between = and ( */
+      while (*mdsk_cfg == ' ')
+        ++mdsk_cfg;
+        
+      /* assume found extra config options */
       break;
-
-      goback3:
-        --mdsk_cfg;
-      goback2:
-        --mdsk_cfg;
-      goback1:
-        --mdsk_cfg;
     }
     /* if FD= was not found then flag as no extra CONFIG lines */
     if (!*mdsk_cfg) mdsk_cfg = NULL;
