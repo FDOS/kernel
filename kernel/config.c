@@ -202,6 +202,7 @@ STATIC VOID CfgMenuEsc(BYTE * pLine);
 STATIC VOID DoMenu(void);
 STATIC VOID CfgMenuDefault(BYTE * pLine);
 STATIC BYTE * skipwh(BYTE * s);
+STATIC int iswh(unsigned char c);
 STATIC BYTE * scan(BYTE * s, BYTE * d);
 STATIC BOOL isnum(char ch);
 #if 0
@@ -617,6 +618,94 @@ struct memdiskinfo {
 
 /* query_memdisk() based on similar subroutine in Eric Auer's public domain getargs.asm which is based on IFMEMDSK */
 struct memdiskinfo FAR * ASMCFUNC query_memdisk(UBYTE drive);
+
+struct memdiskopt {
+  BYTE * name;
+  UWORD size;
+};
+
+/* Given a pointer to a memdisk command line and buffer will copy the next
+   config.sys equivalent line to pLine and return updated cLine.
+   Call repeatedly until end of string (*cLine == '\0').
+   Each simulated line is indicated be enclosing the line in curly braces {}
+   with the end } optional - the next { will indicate end/beginning and
+   end of line.  MEMDISK options may appear nearly anywhere on line and are
+   ignored - see memdisk_opts for list of recognized options.
+*/
+  BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
+  {
+    int ws = TRUE;
+    BYTE FAR *ptr;
+    STATIC struct memdiskopt memdiskopts[] = {
+      {"initrd", 6}, {"BOOT_IMAGE", 10},
+      {"c", 1}, {"h", 1}, {"s", 1}, 
+      {"floppy", 6}, {"harddisk", 8}, {"iso", 3}, 
+      {"raw", 3}, {"bigraw", 6}, {"int", 3}, {"safeint", 7},
+      {"nopass", 6}, {"nopassany", 9},
+      {"edd", 3}, {"noedd", 5}
+    };
+    
+    /* skip everything until end of line or starting { */
+    for (; *cLine && (*cLine != '{'); ++cLine)
+      ;
+
+    /* exit early if end of line reached, else skip past { */
+    if (!*cLine)
+    {
+      *pLine = 0;
+      return cLine;
+    }
+    cLine++;
+
+    /* scan for end marker }, start of next line {, or end of line */
+    for (ptr = cLine; *ptr && (*ptr != '}') && (*ptr != '{'); ++ptr)
+      ;
+      
+    /* copy to pLine buffer, skipping memdisk options */
+    while (*cLine && (cLine < ptr))
+    {
+      /* if last character was whitespace (or start of line) check for memdisk option to skip */
+      if (ws)
+      {
+        int i;
+        for (i = 0; i < 16; ++i)
+        {
+          /* compare with option */
+          if (fmemcmp(cLine, memdiskopts[i].name, memdiskopts[i].size) == 0) 
+          {
+            BYTE FAR *tmp = cLine + memdiskopts[i].size;
+            /* ensure character after is end of line, =, or whitespace */
+            if (!*tmp || (*tmp == '=') || iswh(*tmp))
+            {
+              cLine = tmp;
+              if (*cLine == '=')
+              {
+                /* skip past all characters after = */
+                for (; *cLine && (cLine < ptr) && !iswh(*cLine); ++cLine)
+                  ;
+              }
+              
+              break;
+            }
+          }
+        }
+      }
+      
+      if (cLine < ptr)
+      {
+        *pLine = *cLine;
+        ws = iswh(*pLine);
+        ++cLine;
+        ++pLine;
+      }
+    }
+    *pLine = 0;
+
+    /* return location to begin next scan from */    
+    if (*ptr == '}') ptr++;
+    return ptr;
+  }
+
 #endif
 
 
@@ -624,18 +713,18 @@ VOID DoConfig(int nPass)
 {
   COUNT nFileDesc;
   BYTE *pLine;
-  BOOL bEof;
+  BOOL bEof = FALSE;
   
-
 #ifdef MEMDISK_ARGS
   /* check if MEMDISK used for LoL->BootDrive, if so check for special appended arguments */
-  struct memdiskinfo FAR *mdsk;
-  BYTE FAR *mdsk_cfg = NULL;
+  struct memdiskinfo FAR *mdsk = NULL;
+  BYTE FAR *cLine;
   /* memdisk check & usage requires 386+, DO NOT invoke if less than 386 */
   if (LoL->cpu >= 3)
   {
     UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
     mdsk = query_memdisk(drv);
+    if (mdsk != NULL) cLine = mdsk->cmdline;
   }
 #endif
 
@@ -648,40 +737,14 @@ VOID DoConfig(int nPass)
     {
       printf("MEMDISK version %u.%02u  (%lu sectors)\n", mdsk->version, mdsk->version_minor, mdsk->size);
       DebugPrintf(("MEMDISK args:{%S}\n", mdsk->cmdline));
+      printf("MEMDISK args:{%S}\n", mdsk->cmdline);
     }
-#endif
-  }
-
-#ifdef MEMDISK_ARGS
-  if (mdsk != NULL)
-  {
-    /* scan for FD= */
-    /* when done mdsk->cmdline points to { character or assume no valid CONFIG options */
-    for (mdsk_cfg=mdsk->cmdline; *mdsk_cfg; ++mdsk_cfg)
+    else
     {
-      if ((*mdsk_cfg | 32) != 'f') continue;
-      ++mdsk_cfg;
-      if ((*mdsk_cfg | 32) != 'd') continue;
-      ++mdsk_cfg;
-      
-      /* skip past any extra spaces between D and = */
-      while (*mdsk_cfg == ' ')
-        ++mdsk_cfg;
-        
-      if (*mdsk_cfg != '=') continue;
-      ++mdsk_cfg;
-              
-      /* assume found extra config options */
-      break;
+      DebugPrintf(("MEMDISK not detected!\n"));
     }
-    /* if FD= was not found then flag as no extra CONFIG lines */
-    if (!*mdsk_cfg) mdsk_cfg = NULL;
-  }
-  else
-  {
-    DebugPrintf(("MEMDISK not detected! bootdrive=[%0Xh]\n", (unsigned int)drv));
-  }
 #endif
+  }
 
 
   /* Check to see if we have a config.sys file.  If not, just     */
@@ -697,8 +760,10 @@ VOID DoConfig(int nPass)
     if ((nFileDesc = open("config.sys", 0)) < 0)
     {
       DebugPrintf(("CONFIG.SYS not found\n"));
+      /* at this point no config file was found, may return early */
 #ifdef MEMDISK_ARGS
-      if (mdsk_cfg != NULL)
+      /* if memdisk in use then only assume end of file reached and proceed, else return early */
+      if (mdsk != NULL)
         bEof = TRUE;
       else
 #endif
@@ -710,25 +775,20 @@ VOID DoConfig(int nPass)
     }
   }
 
-  /* Have one -- initialize.                                      */
-  nCfgLine = 0;
-  bEof = 0;
-  pLine = szLine;
+  nCfgLine = 0;  /* keep track of which line in file for errors   */
 
   /* Read each line into the buffer and then parse the line,      */
   /* do the table lookup and execute the handler for that         */
   /* function.                                                    */
 
 #ifdef MEMDISK_ARGS
-  for (; !bEof || (mdsk_cfg != NULL); nCfgLine++)
+  for (; !bEof || (mdsk != NULL); nCfgLine++)
 #else
   for (; !bEof; nCfgLine++)
 #endif
   {
     struct table *pEntry;
-
     pLineStart = szLine;
-
 
 #ifdef MEMDISK_ARGS
     if (!bEof)
@@ -759,67 +819,22 @@ VOID DoConfig(int nPass)
         pLine++;
     }
 
+    *pLine = 0;
 #ifdef MEMDISK_ARGS
     }
-    else if (mdsk_cfg != NULL)
+    else if (mdsk != NULL)
     {
-        pLine = szLine;
-
-        /* skip past any extra spaces before ( */
-        while (*mdsk_cfg == ' ')
-          ++mdsk_cfg;
-
-        if (*mdsk_cfg != '{') /* if not at start of line */
-        {
-            mdsk_cfg = NULL; /* no longer need data, so set to NULL to flag done */
-        }
-        else
-        {
-            /* copy data to near buffer skipping { and } */
-            for (pLine = szLine, mdsk_cfg++; *mdsk_cfg; mdsk_cfg++, pLine++)
-            {
-              /* copy character to near buffer */
-              *pLine = *mdsk_cfg;
-
-              /* ensure we don't copy too much, exceed our buffer size */
-              if (pLine >= szLine + sizeof(szLine) - 3)
-              {
-                CfgFailure(pLine);
-                printf("error - line overflow line %d \n", nCfgLine);
-                break;
-              }
-              
-              /* if initrd=IMAGEFILE or BOOT_IMAGE=memdisk is found, treat same as end of line & end of file */
-              /* we backtrack to enable use of near pointers in memcmp */
-              if ((*pLine == '=') && ((pLine - szLine) >= 7))
-              {
-                if ((memcmp(pLine-6, "initrd=", 7) == 0) || (memcmp(pLine-10, "BOOT_IMAGE=", 11) == 0))
-                {
-                  pLine -= 6;  /* backup */
-                  if (*pLine == '_') pLine -= 4;
-                  mdsk_cfg = NULL;
-                  break;
-                }
-              }
-
-              /* if end of this simulated line is found, skip over EOL marker then proceed to process line */
-              if (*pLine == '}')
-              {
-                  mdsk_cfg++;
-                  break;
-              }
-            }
-        }
+      cLine = GetNextMemdiskLine(cLine, szLine);
+      /* if end of memdisk command line reached, flag done */
+      if (!*cLine)
+        mdsk = NULL;
     }
 #endif
 
-    *pLine = 0;
-    pLine = szLine;
-
-    DebugPrintf(("CONFIG=[%s]\n", pLine));
+    DebugPrintf(("CONFIG=[%s]\n", szLine));
 
     /* Skip leading white space and get verb.               */
-    pLine = scan(pLine, szBuf);
+    pLine = scan(szLine, szBuf);
 
     /* If the line was blank, skip it.  Otherwise, look up  */
     /* the verb and execute the appropriate function.       */
