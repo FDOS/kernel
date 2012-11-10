@@ -745,33 +745,31 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
       if (mf && (*ptr == '='))
       {
         BYTE FAR *old=sLine, FAR *new;
-        printf("Found = after memdisk arg\n");
         /* check for = in command line */
         for (; old < mf; ++old)
         {
           for (; (*old != '=') && (old < mf); ++old)
             ;
           /* ASSERT ptr points to = after memdisk option and old points to = before memdisk option or mf */
-          printf("old = %c and new = %c\n", *old, *ptr);
           
           /* compare backwards to see if same option */
           for (new = ptr; (old >= sLine) && ((*old & 0xCD) == (*new & 0xCD)); --old, --new)
           {
-            printf("%c=%c -> ", *old, *new);
             if (iswh(*old) || iswh(*new)) break;
           }
-            if (((old <= sLine) || iswh(*old)) && iswh(*new))
-            {
-              printf("MATCH - clearing \n");
-              /* match found so overwrite with spaces */
-              for(++old; !iswh(*old) && (old < mf); ++old)
-                *old = ' '; 
-              old = mf;
-            }
           
-          printf("skipping after =\n");
-          for (; (*old != '=') && (old < mf); ++old)
-            ;
+          /* if match found then overwrite, otherwise skip past the = */
+          if (((old <= sLine) || iswh(*old)) && iswh(*new))
+          {
+            /* match found so overwrite with spaces */
+            for(++old; !iswh(*old) && (old < mf); ++old)
+              *old = ' '; 
+          }
+          else
+          {
+            for (; (*old != '=') && (old < mf); ++old)
+              ;
+          }
         }
       }
       
@@ -820,7 +818,6 @@ VOID DoConfig(int nPass)
     {
       printf("MEMDISK version %u.%02u  (%lu sectors)\n", mdsk->version, mdsk->version_minor, mdsk->size);
       DebugPrintf(("MEMDISK args:{%S}\n", mdsk->cmdline));
-      printf("MEMDISK args:{%S}\n", mdsk->cmdline);
     }
     else
     {
@@ -915,7 +912,6 @@ VOID DoConfig(int nPass)
 #endif
 
     DebugPrintf(("CONFIG=[%s]\n", szLine));
-    printf("CONFIG=[%s]\n", szLine);
 
     /* Skip leading white space and get verb.               */
     pLine = scan(szLine, szBuf);
