@@ -634,12 +634,9 @@ BYTE FAR * ProcessMemdiskLine(BYTE FAR *cLine)
   BYTE FAR *ptr;
   BYTE FAR *sLine = cLine;
   
-  printf("\nMEMDISK:%S:\n", cLine);
-  
   /* skip everything until end of line or starting { */
   for (; *cLine && (*cLine != '{'); ++cLine)
-    printf("%c", *cLine);
-  printf("\n1st { offset is %u, ", (unsigned)(BYTE)(cLine - sLine));
+    ;
   sLine = cLine;
     
   for (ptr = cLine; *cLine; ptr = cLine)
@@ -650,9 +647,7 @@ BYTE FAR * ProcessMemdiskLine(BYTE FAR *cLine)
      
     /* calc offset from previous { to next { or eol and replace previous { with offset */
     *ptr = (BYTE)(cLine - ptr);
-    printf("->%u, ", (unsigned)(*ptr));
   }
-  printf("End\n");
 
   return sLine;
 }
@@ -680,7 +675,6 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
 
   int ws = TRUE;  /* treat start of line same as if whitespace seen */
   BYTE FAR *ptr = cLine;  /* start of current cfg line, where { was */
-  printf("%u -> \n", (unsigned)(*cLine));
   
   /* exit early if already at end of command line */
   if (!*cLine) return cLine;
