@@ -674,7 +674,9 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
   };
 
   int ws = TRUE;  /* treat start of line same as if whitespace seen */
+  BYTE FAR * mf = NULL;   /* where last line split by memdisk option */
   BYTE FAR *ptr = cLine;  /* start of current cfg line, where { was */
+  BYTE FAR *sLine = cLine;
   
   /* exit early if already at end of command line */
   if (!*cLine) return cLine;
@@ -706,6 +708,9 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
           /* ensure character after is end of line, =, or whitespace */
           if (!c || (c == '=') || iswh(c))
           {
+            /* flag this line split */
+            mf = ptr;
+            
             /* matched option so point past it */
             ptr += memdiskopts[i].size;
             
@@ -734,6 +739,42 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
     if (ptr < cLine)
     {
       ws = iswh(*ptr);
+      
+      /* allow replacing X=Y prior to memdisk options with X=Z after */
+      /* on 1st pass if find a match we overwrite it with spaces */
+      if (mf && (*ptr == '='))
+      {
+        BYTE FAR *old=sLine, FAR *new;
+        printf("Found = after memdisk arg\n");
+        /* check for = in command line */
+        for (; old < mf; ++old)
+        {
+          for (; (*old != '=') && (old < mf); ++old)
+            ;
+          /* ASSERT ptr points to = after memdisk option and old points to = before memdisk option or mf */
+          printf("old = %c and new = %c\n", *old, *ptr);
+          
+          /* compare backwards to see if same option */
+          for (new = ptr; (old >= sLine) && ((*old & 0xCD) == (*new & 0xCD)); --old, --new)
+          {
+            printf("%c=%c -> ", *old, *new);
+            if (iswh(*old) || iswh(*new)) break;
+          }
+            if (((old <= sLine) || iswh(*old)) && iswh(*new))
+            {
+              printf("MATCH - clearing \n");
+              /* match found so overwrite with spaces */
+              for(++old; !iswh(*old) && (old < mf); ++old)
+                *old = ' '; 
+              old = mf;
+            }
+          
+          printf("skipping after =\n");
+          for (; (*old != '=') && (old < mf); ++old)
+            ;
+        }
+      }
+      
 copy_char:
       *pLine = *ptr;
       ++pLine;
