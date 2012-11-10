@@ -607,7 +607,7 @@ struct memdiskinfo {
   UBYTE version;             /* Memdisk major version */
   UDWORD base;               /* Pointer to disk data in high memory */
   UDWORD size;               /* Size of disk in 512 byte sectors */
-  char FAR * cmdline;        /* Command line */
+  char FAR * cmdline;        /* Command line; currently <= 2047 chars */
   ADDRESS oldint13;          /* Old INT 13h */
   ADDRESS oldint15;          /* Old INT 15h */
   UWORD olddosmem;           /* Amount of DOS memory before Memdisk loaded */
@@ -624,6 +624,39 @@ struct memdiskopt {
   UWORD size;
 };
 
+/* preprocesses memdisk command line to allow simpler handling
+  { is replaced by unsigned offset to start of next config line
+  e.g.  "{{HI{HI}{HI{HI" --> "13HI4HI}3HI3HI"
+  FreeDOS supports max 256 length config lines, memdisk 4 max command length 2047
+*/
+BYTE FAR * ProcessMemdiskLine(BYTE FAR *cLine)
+{
+  BYTE FAR *ptr;
+  BYTE FAR *sLine = cLine;
+  
+  printf("\nMEMDISK:%S:\n", cLine);
+  
+  /* skip everything until end of line or starting { */
+  for (; *cLine && (*cLine != '{'); ++cLine)
+    printf("%c", *cLine);
+  printf("\n1st { offset is %u, ", (unsigned)(BYTE)(cLine - sLine));
+  sLine = cLine;
+    
+  for (ptr = cLine; *cLine; ptr = cLine)
+  {
+    /* skip everything until end of line or starting { */
+    for (++cLine; *cLine && (*cLine != '{'); ++cLine)
+      ;
+     
+    /* calc offset from previous { to next { or eol and replace previous { with offset */
+    *ptr = (BYTE)(cLine - ptr);
+    printf("->%u, ", (unsigned)(*ptr));
+  }
+  printf("End\n");
+
+  return sLine;
+}
+
 /* Given a pointer to a memdisk command line and buffer will copy the next
    config.sys equivalent line to pLine and return updated cLine.
    Call repeatedly until end of string (*cLine == '\0').
@@ -632,79 +665,91 @@ struct memdiskopt {
    end of line.  MEMDISK options may appear nearly anywhere on line and are
    ignored - see memdisk_opts for list of recognized options.
 */
-  BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
-  {
-    int ws = TRUE;
-    BYTE FAR *ptr;
-    STATIC struct memdiskopt memdiskopts[] = {
+BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
+{
+  STATIC struct memdiskopt memdiskopts[] = {
       {"initrd", 6}, {"BOOT_IMAGE", 10},
-      {"c", 1}, {"h", 1}, {"s", 1}, 
       {"floppy", 6}, {"harddisk", 8}, {"iso", 3}, 
-      {"raw", 3}, {"bigraw", 6}, {"int", 3}, {"safeint", 7},
       {"nopass", 6}, {"nopassany", 9},
       {"edd", 3}, {"noedd", 5}
-    };
-    
-    /* skip everything until end of line or starting { */
-    for (; *cLine && (*cLine != '{'); ++cLine)
-      ;
+/*
+      {"c", 1}, {"h", 1}, {"s", 1}, 
+      {"raw", 3}, {"bigraw", 6}, {"int", 3}, {"safeint", 7}
+*/
+  };
 
-    /* exit early if end of line reached, else skip past { */
-    if (!*cLine)
-    {
-      *pLine = 0;
-      return cLine;
-    }
-    cLine++;
+  int ws = TRUE;  /* treat start of line same as if whitespace seen */
+  BYTE FAR *ptr = cLine;  /* start of current cfg line, where { was */
+  printf("%u -> \n", (unsigned)(*cLine));
+  
+  /* exit early if already at end of command line */
+  if (!*cLine) return cLine;
 
-    /* scan for end marker }, start of next line {, or end of line */
-    for (ptr = cLine; *ptr && (*ptr != '}') && (*ptr != '{'); ++ptr)
-      ;
-      
-    /* copy to pLine buffer, skipping memdisk options */
-    while (*cLine && (cLine < ptr))
+  /* point to start of next line; terminates current line if no } found before here */
+  cLine += *cLine;
+
+  /* restore original character we overwrite with offset, for next iteration of cfg file */
+  *ptr = '{'; 
+  
+  /* ASSERT ptr points to start of line { and cLine points to start of next line { (or eol)*/
+  
+  /* copy chars to pLine buffer until } or start of next line */  
+  for (++ptr; (*ptr != '}') && (ptr < cLine); ++ptr)
+  {
+    /* if not in last {} then simply copy chars up to } (or next {) */
+    if (*cLine) goto copy_char;
+
+    /* otherwise if last character was whitespace (or start of line) check for memdisk option to skip */
+    if (ws)
     {
-      /* if last character was whitespace (or start of line) check for memdisk option to skip */
-      if (ws)
+      int i;
+      for (i = 0; i < 9; ++i)
       {
-        int i;
-        for (i = 0; i < 16; ++i)
+        /* compare with option */
+        if (fmemcmp(ptr, memdiskopts[i].name, memdiskopts[i].size) == 0) 
         {
-          /* compare with option */
-          if (fmemcmp(cLine, memdiskopts[i].name, memdiskopts[i].size) == 0) 
+          BYTE c = *(ptr + memdiskopts[i].size);
+          /* ensure character after is end of line, =, or whitespace */
+          if (!c || (c == '=') || iswh(c))
           {
-            BYTE FAR *tmp = cLine + memdiskopts[i].size;
-            /* ensure character after is end of line, =, or whitespace */
-            if (!*tmp || (*tmp == '=') || iswh(*tmp))
+            /* matched option so point past it */
+            ptr += memdiskopts[i].size;
+            
+            /* allow extra whitespace between option and = by skipping it */
+            while (iswh(*ptr))
+              ++ptr;
+
+            /* if option has = value then skip it as well */
+            if (*ptr == '=')
             {
-              cLine = tmp;
-              if (*cLine == '=')
-              {
-                /* skip past all characters after = */
-                for (; *cLine && (cLine < ptr) && !iswh(*cLine); ++cLine)
-                  ;
-              }
-              
-              break;
+              /* allow extra whitespace between = and value by skipping it */
+              while (iswh(*ptr))
+                ++ptr;
+                
+              /* skip past all characters after = */
+              for (; (*ptr != '}') && (ptr < cLine) && !iswh(*ptr); ++ptr)
+                ;
             }
+              
+            break; /* memdisk option found, no need to keep check rest in list */
           }
         }
       }
-      
-      if (cLine < ptr)
-      {
-        *pLine = *cLine;
-        ws = iswh(*pLine);
-        ++cLine;
-        ++pLine;
-      }
     }
-    *pLine = 0;
-
-    /* return location to begin next scan from */    
-    if (*ptr == '}') ptr++;
-    return ptr;
+      
+    if (ptr < cLine)
+    {
+      ws = iswh(*ptr);
+copy_char:
+      *pLine = *ptr;
+      ++pLine;
+    }
   }
+  *pLine = 0;
+
+  /* return location to begin next scan from */    
+  return cLine;
+}
 
 #endif
 
@@ -724,7 +769,10 @@ VOID DoConfig(int nPass)
   {
     UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
     mdsk = query_memdisk(drv);
-    if (mdsk != NULL) cLine = mdsk->cmdline;
+    if (mdsk != NULL) 
+    {
+      cLine = ProcessMemdiskLine(mdsk->cmdline);
+    }
   }
 #endif
 
@@ -832,6 +880,7 @@ VOID DoConfig(int nPass)
 #endif
 
     DebugPrintf(("CONFIG=[%s]\n", szLine));
+    printf("CONFIG=[%s]\n", szLine);
 
     /* Skip leading white space and get verb.               */
     pLine = scan(szLine, szBuf);
