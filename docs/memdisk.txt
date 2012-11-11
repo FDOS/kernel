@@ -79,13 +79,13 @@ LABEL clean
 MENU LABEL FreeDOS with no drivers
 KERNEL memdisk
 INITRD /fdos0360.img
-APPEND FLOPPY FD={SET config=0}
+APPEND floppy FD={SET config=0}
 
 LABEL jemm
 MENU LABEL FreeDOS with memory manager
 KERNEL memdisk
 INITRD /fdos0360.img
-APPEND FLOPPY FD={SET config=1}{DEVICE?=JEMMEX.EXE
+APPEND floppy FD={SET config=1}{DEVICE?=JEMMEX.EXE
 
 
 Syslinux boot-prompt (when vesamenu not used):
