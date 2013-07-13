@@ -305,8 +305,12 @@ Example:  switchar=-
 SWITCHES
 Usage: switches=/E[:xxx] /F /K /N /W
 Adjusts boot time processing behaviour.
-/E enables moving of EBDA (Extended BIOS Data Area), optionally a
-   size in kilobytes may be specified [xxx, in range of 48-1024]
+/E specifies how to handle moving of EBDA (Extended BIOS Data Area), 
+   if a size in bytes is specified [xxx, in range of 48-1024]
+   then the EBDA will be moved from the top of conventional memory
+   to a lower address (allowing for potentially larger free block
+   of conventional memory if video memory at A0000 is available).
+   without a size, the EBDA will not be moved   
 /F skips the delay checking for F5/F8 keystroke before processing
    config.sys [equivalent to SYS CONFIG skipconfigseconds=0]
    F5 and F8 are only processed if pressed before DOS boots but
