@@ -320,9 +320,14 @@ Adjusts boot time processing behaviour.
    handling for 102/105 key keyboards.
 /N disables F5/F8 support [equivalent to kernel config (SYS CONFIG,
    run SYS CONFIG /? for explanations) skipconfigseconds=-1]
-   F5 (skip config) and F8 (single step config.sys) are ignored.
+   F5 (skip config) and F8 (single step config.sys) key presses
+   are ignored (note: with /F a well timed F5/F8 still works, whereas
+   /N completely disables).
 /W is NOT supported in FreeDOS. This option in MS DOS would set a flag
-   for Windows 3.0 to skip loading wina20.386 from the root directory.
+   for Windows 3.0 to skip loading wina20.386 from the root directory,
+   used when \WINA20.386 is moved into a subdirectory, a device line
+   with proper path must be added to Microsoft (R) Windows SYSTEM.INI 
+   [386Enhanced] section.  ---  may be ignored for compatibility
 
 VERSION
 Usage:  version=x.y
