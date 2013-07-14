@@ -251,8 +251,8 @@ struct table {
 };
 
 STATIC struct table commands[] = {
-  /* first = switches! this one is special since it is asked for but
-     also checked before F5/F8 */
+  /* first = switches! this one is special; some options will
+     always be ran, others depends on F5/F8 and ? processing */
   {"SWITCHES", 0, CfgSwitches},
 
   /* rem is never executed by locking out pass                    */
@@ -388,9 +388,9 @@ void PreConfig2(void)
   if (Config.ebda2move)
   {
     ebda_size = ebdasize();
-    ram_top += ebda_size / 1024;
     if (ebda_size > Config.ebda2move)
       ebda_size = Config.ebda2move;
+    ram_top += ebda_size / 1024;
   }
 
   /* We expect ram_top as Kbytes, so convert to paragraphs */
@@ -404,8 +404,8 @@ void PreConfig2(void)
   if (ebda_size)  /* move the Extended BIOS Data Area from top of RAM here */
     movebda(ebda_size, FP_SEG(KernelAlloc(ebda_size, 'I', 0)));
 
-  if (UmbState == 2)
-    umb_init();
+//  if (UmbState == 2)
+//    umb_init();
 }
 
 /* Do third pass initialization.                                        */
@@ -923,17 +923,19 @@ VOID DoConfig(int nPass)
 
     pEntry = LookUp(commands, szBuf);
 
+	/* should config command be executed on this pass? */
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
     
-    if (nPass == 0) /* pass 0 always executed (rem Menu prompt switches) */
+	/* pass 0 always executed (rem Menu prompt switches) */
+    if (nPass == 0) 
     {
       pEntry->func(pLine);
       continue;
     }
     else
     {
-      if (SkipLine(pLineStart))   /* F5/F8 processing */
+      if (SkipLine(pLineStart))   /* F5/F8/?/! processing */
         continue;
     }
 
@@ -1349,6 +1351,7 @@ STATIC VOID CfgSwitches(BYTE * pLine)
         InitKernelConfig.SkipConfigSeconds = 0;
         break;
       case 'E': /* /E[[:]nnnn]  Set the desired EBDA amount to move in bytes */
+        if (commands[0].pass == 0)
         {       /* Note that if there is no EBDA, this will have no effect */
           int n = 0;
           if (*++pLine == ':')
@@ -1818,6 +1821,7 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
   seg base, start;
   struct submcb FAR *p;
 
+  /* if no umb available force low allocation */
   if (UmbState != 1)
     mode = 0;
 
