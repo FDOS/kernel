@@ -530,6 +530,8 @@ STATIC void umb_init(void)
     UmbState = 1;
 
     /* reset root */
+    /* Note: since device drivers can change what is considered top of memory (e.g. move XBDA) we must requery */
+    ram_top = init_oem();
     LoL->uppermem_root = ram_top * 64 - 1;
 
     /* create link mcb (below) */
@@ -1351,12 +1353,11 @@ STATIC VOID CfgSwitches(BYTE * pLine)
         InitKernelConfig.SkipConfigSeconds = 0;
         break;
       case 'E': /* /E[[:]nnnn]  Set the desired EBDA amount to move in bytes */
-        if (commands[0].pass == 0)
         {       /* Note that if there is no EBDA, this will have no effect */
           int n = 0;
           if (*++pLine == ':')
             pLine++;                    /* skip optional separator */
-          if (!isnum(*pLine))
+          if (!(isnum(*pLine) || (*pLine == '-')))
           {
             pLine--;
             break;
