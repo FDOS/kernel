@@ -292,11 +292,11 @@ long cooked_read(struct dhdr FAR **pdev, size_t n, char FAR *bp)
   return xfer;
 }
 
-STATIC unsigned char read_char_sft_dev(int sft_in, int sft_out,
+STATIC unsigned read_char_sft_dev(int sft_in, int sft_out,
                                        struct dhdr FAR **pdev,
                                        BOOL check_break)
 {
-  unsigned char c;
+  unsigned c;
 
   if (*pdev)
   {
