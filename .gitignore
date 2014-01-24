@@ -13,3 +13,5 @@
 # FreeDOS build tools configuration
 config.bat
 
+
+kernel/KERNEL.SYS
