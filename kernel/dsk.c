@@ -496,6 +496,7 @@ STATIC WORD IoctlQueblk(rqptr rp, ddt * pddt)
   return failure(E_CMD);
 }
 
+/* read/write block with CHS based off start of drive's partition */
 STATIC COUNT Genblockio(ddt * pddt, UWORD mode, WORD head, WORD track,
                  WORD sector, WORD count, VOID FAR * buffer)
 {
@@ -506,6 +507,19 @@ STATIC COUNT Genblockio(ddt * pddt, UWORD mode, WORD head, WORD track,
                       ((ULONG) track * pddt->ddt_bpb.bpb_nheads + head) *
                       (ULONG) pddt->ddt_bpb.bpb_nsecs +
                       pddt->ddt_offset + sector, count, &transferred);
+}
+
+/* read/write block with CHS based off start of disk drive is on */
+STATIC COUNT GenblockioAbs(ddt * pddt, UWORD mode, WORD head, WORD track,
+                 WORD sector, WORD count, VOID FAR * buffer)
+{
+  UWORD transferred;
+
+  /* apparently sector is ZERO, not ONE based !!! */
+  return LBA_Transfer(pddt, mode, buffer,
+                      ((ULONG) track * pddt->ddt_bpb.bpb_nheads + head) *
+                      (ULONG) pddt->ddt_bpb.bpb_nsecs +
+                      sector, count, &transferred);
 }
 
 STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
@@ -546,10 +560,10 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         /*pbpb->bpb_nsector = gblp->gbio_nsecs; */
         break;
       }
-    case 0x41:                 /* write track */
+    case 0x41:                 /* write track - CHS is absolute not relative to partition start */
       {
         struct gblkrw FAR *rw = rp->r_rw;
-        ret = Genblockio(pddt, LBA_WRITE, rw->gbrw_head, rw->gbrw_cyl,
+        ret = GenblockioAbs(pddt, LBA_WRITE, rw->gbrw_head, rw->gbrw_cyl,
                          rw->gbrw_sector, rw->gbrw_nsecs, rw->gbrw_buffer);
         if (ret != 0)
           return dskerr(ret);
@@ -719,10 +733,10 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         /*gblp->gbio_nsecs = pbpb->bpb_nsector; */
         break;
       }
-    case 0x61:                 /* read track */
+    case 0x61:                 /* read track - CHS is absolute on disk not relative to start of partition */
       {
         struct gblkrw FAR *rw = rp->r_rw;
-        ret = Genblockio(pddt, LBA_READ, rw->gbrw_head, rw->gbrw_cyl,
+        ret = GenblockioAbs(pddt, LBA_READ, rw->gbrw_head, rw->gbrw_cyl,
                          rw->gbrw_sector, rw->gbrw_nsecs, rw->gbrw_buffer);
         if (ret != 0)
           return dskerr(ret);
