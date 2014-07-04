@@ -103,8 +103,9 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 #endif
   dentry->dir_start = (UWORD)cluster;
   dentry->dir_attrib = (UBYTE)attrib;
-  dentry->dir_time = dos_gettime();
-  dentry->dir_date = dos_getdate();
+  /* set create and last modified time & date */
+  dentry->dir_crtime = dentry->dir_time = dos_gettime();
+  dentry->dir_crdate = dentry->dir_date = dos_getdate();
 }
 
 /************************************************************************/
