@@ -47,8 +47,8 @@ STATIC void FcbNameInit(fcb FAR * lpFcb, BYTE * pszBuffer, COUNT * pCurDrive);
 STATIC void FcbNextRecord(fcb FAR * lpFcb);
 STATIC void FcbCalcRec(xfcb FAR * lpXfcb);
 
-#define TestCmnSeps(lpFileName) (*lpFileName && strchr(":<|>+=,", *lpFileName) != NULL)
-#define TestFieldSeps(lpFileName) ((unsigned char)*lpFileName <= ' ' || strchr("/\"[]<>|.", *lpFileName) != NULL)
+#define TestCmnSeps(lpFileName) (*lpFileName && strchr(":;,=+ \t", *lpFileName) != NULL)
+#define TestFieldSeps(lpFileName) ((unsigned char)*lpFileName <= ' ' || strchr("/\\\"[]<>|.:;,=+\t", *lpFileName) != NULL)
 
 static dmatch Dmatch;
 
@@ -78,7 +78,7 @@ BYTE FAR *FatGetDrvData(UBYTE drive, UBYTE * pspc, UWORD * bps, UWORD * nc)
   return NULL;
 }
 
-#define PARSE_SEP_STOP          0x01
+#define PARSE_SKIP_LEAD_SEP     0x01
 #define PARSE_DFLT_DRIVE        0x02
 #define PARSE_BLNK_FNAME        0x04
 #define PARSE_BLNK_FEXT         0x08
@@ -93,10 +93,11 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
   WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
 
   /* pjv -- ExtFcbToFcb?                                          */
-  if (!(*wTestMode & PARSE_SEP_STOP))
+  
+  /* skip leading separators if requested                         */
+  if (*wTestMode & PARSE_SKIP_LEAD_SEP)
   {
-    lpFileName = ParseSkipWh(lpFileName);
-    if (TestCmnSeps(lpFileName))
+    while (TestCmnSeps(lpFileName))
       ++lpFileName;
   }
 
@@ -104,6 +105,8 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
   lpFileName = ParseSkipWh(lpFileName);
 
   /* Now check for drive specification                            */
+  /* If drive specified, set to it (when valid) otherwise         */
+  /* set to default drive unless leave as-is requested            */
   if (*(lpFileName + 1) == ':')
   {
     /* non-portable construct to be changed                 */
@@ -122,6 +125,8 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
   }
 
   /* Undocumented behavior, set record number & record size to 0  */
+  /* per MS-DOS Encyclopedia pp269 no other FCB fields modified   */
+  /* except zeroing current block and record size fields          */
   lpFcb->fcb_cublock = lpFcb->fcb_recsiz = 0;
 
   if (!(*wTestMode & PARSE_BLNK_FNAME))
@@ -169,33 +174,6 @@ const BYTE FAR * ParseSkipWh(const BYTE FAR * lpFileName)
   return lpFileName;
 }
 
-#if 0                           /* defined above */
-BOOL TestCmnSeps(BYTE FAR * lpFileName)
-{
-  BYTE *pszTest, *pszCmnSeps = ":<|>+=,";
-
-  for (pszTest = pszCmnSeps; *pszTest != '\0'; ++pszTest)
-    if (*lpFileName == *pszTest)
-      return TRUE;
-  return FALSE;
-}
-#endif
-
-#if 0
-BOOL TestFieldSeps(BYTE FAR * lpFileName)
-{
-  BYTE *pszTest, *pszCmnSeps = "/\"[]<>|.";
-
-  /* Another non-portable construct                               */
-  if (*lpFileName <= ' ')
-    return TRUE;
-
-  for (pszTest = pszCmnSeps; *pszTest != '\0'; ++pszTest)
-    if (*lpFileName == *pszTest)
-      return TRUE;
-  return FALSE;
-}
-#endif
 
 const BYTE FAR * GetNameField(const BYTE FAR * lpFileName, BYTE FAR * lpDestField,
                        COUNT nFieldSize, BOOL * pbWildCard)
@@ -206,8 +184,7 @@ const BYTE FAR * GetNameField(const BYTE FAR * lpFileName, BYTE FAR * lpDestFiel
   while (*lpFileName != '\0' && !TestFieldSeps(lpFileName)
          && nIndex < nFieldSize)
   {
-    if (*lpFileName == ' ')
-      break;
+    /* convert * into multiple ? for remaining length of field    */
     if (*lpFileName == '*')
     {
       *pbWildCard = TRUE;
@@ -215,8 +192,11 @@ const BYTE FAR * GetNameField(const BYTE FAR * lpFileName, BYTE FAR * lpDestFiel
       ++lpFileName;
       break;
     }
+    /* include ? as-is but flag for return purposes wildcard used */
     if (*lpFileName == '?')
       *pbWildCard = TRUE;
+    
+    /* store uppercased character, and advance to next char       */
     *lpDestField++ = DosUpFChar(*lpFileName++);
     ++nIndex;
   }
