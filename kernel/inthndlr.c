@@ -1377,7 +1377,7 @@ dispatch:
           case 0:
             p = DosGetDBCS();
             lr.DS = FP_SEG(p);
-            lr.SI = FP_OFF(p);
+            lr.SI = FP_OFF(p) + 2;
             break;
           case 1: /* set Korean Hangul input method to DL 0/1 */
             lr.AL = 0xff;       /* flag error (AL would be 0 if okay) */
