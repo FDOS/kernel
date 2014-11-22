@@ -21,9 +21,9 @@ OBJS4=break.obj dosfns.obj fatdir.obj fatfs.obj fattab.obj fcbfns.obj \
 inthndlr.obj
 OBJS5=ioctl.obj memmgr.obj task.obj newstuff.obj nls.obj network.obj
 OBJS6=prf.obj misc.obj strings.obj syspack.obj lfnapi.obj iasmsupt.obj memdisk.obj
-OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj \
-initdisk.obj initclk.obj cpu.obj
-OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7)
+OBJS7=main.obj config.obj initoem.obj inithma.obj dyninit.obj iprf.obj
+OBJS8=initdisk.obj initclk.obj cpu.obj
+OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7) $(OBJS8)
 
 #               *Explicit Rules*
 
@@ -62,7 +62,8 @@ $(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER)
 		$(ECHOTO) $(TARGET).lnk $(OBJS4)+
 		$(ECHOTO) $(TARGET).lnk $(OBJS5)+
 		$(ECHOTO) $(TARGET).lnk $(OBJS6)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS7)
+		$(ECHOTO) $(TARGET).lnk $(OBJS7)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS8)
 		$(ECHOTO) $(TARGET).lnk kernel.exe
 		$(ECHOTO) $(TARGET).lnk kernel.map
 		$(ECHOTO) $(TARGET).lnk $(LIBS)

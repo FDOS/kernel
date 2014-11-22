@@ -100,9 +100,14 @@ static unsigned short __inline getSS(void)
   asm mov ax, ss;
 }
 
+#elif defined(__WATCOMC__) && defined(BUILD_UTILS)
+  /* workaround for building some utils with OpenWatcom (owcc) */
+#define MC68K
 #elif defined(__WATCOMC__)      /* don't know a better way */
 
+#if defined(_M_I86)
 #define I86
+#endif
 #define __int__(intno) asm int intno;
 void disable(void);
 #pragma aux disable = "cli" modify exact [];
@@ -170,10 +175,12 @@ We might even deal with a pre-ANSI compiler. This will certainly not compile.
 typedef __SIZE_TYPE__  size_t;
 #else
 #define CONST
+#if !(defined(_SIZE_T) || defined(_SIZE_T_DEFINED) || defined(__SIZE_T_DEFINED))
 typedef unsigned       size_t;
 #endif
 #endif
-#ifdef I86
+#endif
+#if defined(I86) && !defined(MC68K)
 #define VOID           void
 #define FAR            far      /* segment architecture */
 #define NEAR           near     /*    "          "      */

@@ -1542,7 +1542,7 @@ err:printf("%s has invalid format\n", filename);
     {
       if (hdr[i].length != 6)
         goto err;
-      if (hdr[i].id < 1 || hdr[i].id > 6 || hdr[i].id == 3)
+      if (hdr[i].id < 1 || hdr[i].id > 7 || hdr[i].id == 3)
         continue;
       if (lseek(fd, hdr[i].offset) == 0xffffffffL
        || read(fd, &subf_data, 10) != 10

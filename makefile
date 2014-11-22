@@ -1,10 +1,14 @@
 # What you WANT on DOS is: 
 # EDIT CONFIG.B, COPY CONFIG.B to CONFIG.BAT, RUN BUILD.BAT
 # On Linux, use config.mak, and "make all", "make clean", or "make clobber"
+# On Windows, use config.mak, and 
+# "mingw32-make all", "mingw32-make clean", or "mingw32-make clobber"
 
 default:
 	@echo On DOS, please type build, clean, or clobber.
 	@echo On Linux, please type make all, make clean, or make clobber.
+	@echo On Windows, please type mingw32-make all, mingw32-make clean, or
+	@echo mingw32-make clobber.
 
 build:
 	build
@@ -60,14 +64,27 @@ zip: zip_src zipfat16 zipfat32
 #Linux part
 #defaults: override using config.mak
 export
-COMPILER=owlinux
 
-XCPU=86
-XFAT=32
+ifeq ($(OS),Windows_NT)
+BUILDENV ?= windows
+else
+BUILDENV ?= linux
+endif
+
+ifeq ($(BUILDENV),windows)
+COMPILER=owwin
+TEST_F=type >nul 2>nul
+else
+COMPILER=owlinux
+TEST_F=test -f
 ifndef WATCOM
   WATCOM=$(HOME)/watcom
   PATH:=$(WATCOM)/binl:$(PATH)
 endif
+endif
+
+XCPU=86
+XFAT=32
 XUPX=upx --8086 --best
 XNASM=nasm
 MAKE=wmake -ms -h
@@ -81,7 +98,7 @@ endif
 
 all:
 	cd utils && $(MAKE) production
-	cd lib && ( test -f libm.lib || touch libm.lib )
+	cd lib && ( $(TEST_F) libm.lib || wtouch libm.lib )
 	cd drivers && $(MAKE) production
 	cd boot && $(MAKE) production
 	cd sys && $(MAKE) production
