@@ -435,7 +435,10 @@ struct nlsPackage {             /* the contents of one chain item of the
 
 struct nlsDBCS {                /* The internal structure is unknown to me */
   UWORD numEntries;
-  UWORD dbcsTbl[1];
+  UWORD dbcsTbl[4];             /* I don't know max size but it should need
+                                   at least 3 words (6 bytes)
+                                   ({0x81,0x9f,0xe0,0xfc,0,0} for CP932-Japan)
+                                   -- lpproj 2014/10/27 */
 };
 
 struct nlsCharTbl {
