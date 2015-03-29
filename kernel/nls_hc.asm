@@ -122,6 +122,7 @@ _nlsCollHardcoded:
 	GLOBAL _nlsDBCSHardcoded
 _nlsDBCSHardcoded:
 ?table7:
-	DB  000h, 000h, 000h, 000h
+	DB  000h, 000h, 000h, 000h, 000h, 000h, 000h, 000h
+	DB  000h, 000h
 	GLOBAL _hcTablesEnd
 _hcTablesEnd:
