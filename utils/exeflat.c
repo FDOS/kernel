@@ -53,7 +53,7 @@ large portions copied from task.c
 
 #define BUFSIZE 32768u
 
-#define KERNEL_START 0x10 /* the kernel code really starts here at 60:10 */
+#define KERNEL_START 0x16 /* the kernel code really starts here at 60:16 */
 
 typedef struct {
   UWORD off, seg;
@@ -97,6 +97,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   FILE *src, *dest;
   short silentdone = 0;
   int compress_sys_file;
+  UWORD realentry;
 
   if ((src = fopen(srcfile, "rb")) == NULL)
   {
@@ -198,6 +199,16 @@ static int exeflat(const char *srcfile, const char *dstfile,
   printf("\nProcessed %d relocations, %d not shown\n",
          header->exRelocItems, silentdone);
 
+  realentry = KERNEL_START;
+  if (buffers[0][0] == 0xeb /* jmp short */)
+  {
+    realentry = buffers[0][1] + 2;
+  }
+  else if (buffers[0][0] == 0xe9 /* jmp near */)
+  {
+    realentry = ((UWORD)(buffers[0][2]) << 8) + buffers[0][1] + 3;
+  }
+
   if ((dest = fopen(dstfile, "wb+")) == NULL)
   {
     printf("Destination file %s could not be created\n", dstfile);
@@ -250,8 +261,9 @@ static int exeflat(const char *srcfile, const char *dstfile,
     for (i = 0; i < 3; i++)
       dhdr[i] = 0xffff;
     /* strategy will jump to us, interrupt never called */
-    dhdr[3] = KERNEL_START;
+    dhdr[3] = realentry; /* KERNEL_START; */
     fwrite(dhdr, sizeof(dhdr), 1, dest);
+    printf("KERNEL_START = 0x%04x\n", realentry);
   }
   fclose(dest);
   return compress_sys_file;
