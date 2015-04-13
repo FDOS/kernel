@@ -1563,6 +1563,24 @@ err:printf("%s has invalid format\n", filename);
         subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
                 min(subf_data.length, sizeof(struct CountrySpecificInfo));
       }
+      if (hdr[i].id == 7)
+      {
+        if (subf_data.length == 0)
+        {
+          /* if DBCS table (in country.sys) is empty, clear internal table */
+          *(DWORD *)(subf_data.buffer) = 0L;
+          fmemcpy((BYTE FAR *)(table[hdr[i].id].p), subf_data.buffer, 4);
+        }
+        else
+        {
+          fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer, subf_data.length);
+          /* write length */
+          *(UWORD *)(subf_data.buffer) = subf_data.length;
+          fmemcpy((BYTE FAR *)(table[hdr[i].id].p), subf_data.buffer, 2);
+        }
+        continue;
+      }
+      
       fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer,
                                 /* skip length ^*/  subf_data.length);
     }

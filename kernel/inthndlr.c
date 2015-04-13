@@ -868,10 +868,8 @@ dispatch:
           rc = DosGetCountryInformation(cntry, FP_DS_DX);
           if (rc >= SUCCESS)
           {
-            /* HACK FIXME */
             if (cntry == (UWORD) - 1)
-              cntry = 1;
-            /* END OF HACK */
+              cntry = nlsInfo.actPkg->cntry;
             lr.AX = lr.BX = cntry;
           }
         }
