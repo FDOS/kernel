@@ -413,16 +413,37 @@ STATIC WORD getbpb(ddt * pddt)
   */
   {
     struct FS_info *fs = (struct FS_info *)&DiskTransferBuffer[0x27];
+    register BYTE extended_BPB_signature;
 #ifdef WITHFAT32
     if (pbpbarray->bpb_nfsect == 0)
     {
       /* FAT32 boot sector */
       fs = (struct FS_info *)&DiskTransferBuffer[0x43];
+      /* Extended BPB signature, offset differs for FAT32 vs FAT12/16 */
+      extended_BPB_signature = DiskTransferBuffer[0x42];
     }
+    else
 #endif
-    pddt->ddt_serialno = getlong(&fs->serialno);
-    memcpy(pddt->ddt_volume, fs->volume, sizeof fs->volume);
-    memcpy(pddt->ddt_fstype, fs->fstype, sizeof fs->fstype);
+      extended_BPB_signature = DiskTransferBuffer[0x26];
+
+    /* 0x29 is usual signature value for serial#,vol label,& fstype; 
+       0x28 older EBPB signature indicating only serial# is valid   */
+    if ((extended_BPB_signature == 0x29) || (extended_BPB_signature == 0x28))
+    {
+      pddt->ddt_serialno = getlong(&fs->serialno);
+    } else {
+      /* short BPB, no serial # available */
+      pddt->ddt_serialno = 0;
+    }
+    if (extended_BPB_signature == 0x29)
+    {
+      fmemcpy(pddt->ddt_volume, fs->volume, sizeof fs->volume);
+      fmemcpy(pddt->ddt_fstype, fs->fstype, sizeof fs->fstype);
+    } else {
+      /* earlier extended BPB or short BPB, fields not available */
+      fmemcpy(pddt->ddt_volume, "NO NAME    ", 11);
+      fmemcpy(pddt->ddt_fstype, "FAT??   ", 8);
+    }
   }
 
 #ifdef DSK_DEBUG
@@ -693,6 +714,15 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         if (ret != 0)
           return (ret);
 
+        /* return error if media lacks extended BPB with serial # */
+        {
+          register BYTE extended_BPB_signature = 
+            DiskTransferBuffer[(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x26 : 0x42)];
+          if ((extended_BPB_signature != 0x29) || (extended_BPB_signature != 0x28))
+            return failure(E_MEDIA);
+        }
+
+        /* otherwise, store serial # in extended BPB */
         fs = (struct FS_info *)&DiskTransferBuffer
             [(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x27 : 0x43)];
         fs->serialno = gioc->ioc_serialno;
@@ -750,6 +780,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
         if (ret != 0)
           return (ret);
 
+        /* Note: getbpb() will initialize extended BPB fields with default values */
         gioc->ioc_serialno = pddt->ddt_serialno;
         fmemcpy(gioc->ioc_volume, pddt->ddt_volume, 11);
         fmemcpy(gioc->ioc_fstype, pddt->ddt_fstype, 8);
