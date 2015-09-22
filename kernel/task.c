@@ -469,7 +469,8 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
     /* rewind to start */
     SftSeek(fd, 0, 0);
     /* read everything, but at most 64K - sizeof(PSP)             */
-    DosRWSft(fd, 0xff00, sp, XFR_READ);
+    /* lpproj: some device drivers (not exe) are larger than 0xff00bytes... */
+    DosRWSft(fd, (mode == OVERLAY) ? 0xfffeU : 0xff00U, sp, XFR_READ);
     DosCloseSft(fd, FALSE);
   }
 
