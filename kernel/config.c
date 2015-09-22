@@ -1502,7 +1502,8 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
     {"\377DBCS   ", &nlsDBCSHardcoded}      /* 7, not supported [yet] */
   };
   static struct subf_hdr hdr[8];
-  int fd, entries, count, i;
+  static int entries, count;
+  int fd, i;
   char *filename = filenam == NULL ? "\\COUNTRY.SYS" : filenam;
   BOOL rc = FALSE;
 

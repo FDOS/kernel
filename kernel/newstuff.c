@@ -299,9 +299,23 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   else
     result = default_drive;
 
+  dhp = IsDevice(src);
+
   cdsEntry = get_cds(result);
   if (cdsEntry == NULL)
-    return DE_PATHNOTFND;
+  {
+    /* workaround for a device prefixed with invalid drive (e.g. "@:NUL") */
+    /* (MS-DOS always return drive P: for invalid drive. Why P:?) */
+    if (dhp)
+    {
+      result = default_drive;
+      cdsEntry = get_cds(result);
+      if (cdsEntry == NULL)
+        return DE_PATHNOTFND;
+    }
+    else
+      return DE_PATHNOTFND;
+  }
 
   fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
   tn_printf(("CDS entry: #%u @%p (%u) '%s'\n", result, cdsEntry,
@@ -312,7 +326,6 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   if (TempCDS.cdsFlags & CDSNETWDRV)
     result |= IS_NETWORK;
   
-  dhp = IsDevice(src); /* returns header if -char- device */
   if (dhp)
     result |= IS_DEVICE;
 
