@@ -1137,6 +1137,8 @@ dispatch:
       /* Dos Create New Psp & set p_size                              */
     case 0x55:
       child_psp(lr.DX, cu_psp, lr.SI);
+      /* copy command line from the parent (required for some device loaders) */
+      fmemcpy(MK_FP(lr.DX, 0x80), MK_FP(cu_psp, 0x80), 128);
       cu_psp = lr.DX;
       break;
 
