@@ -503,6 +503,18 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   sftp->sft_shroff = -1;        /* /// Added for SHARE - Ron Cemer */
   sftp->sft_attrib = attrib = attrib | D_ARCHIVE;
 
+  /* check for a device   */
+  if ((result & IS_DEVICE) && (dhp = IsDevice(fname)) != NULL)
+  {
+    int rc = DeviceOpenSft(dhp, sftp);
+    /* check the status code returned by the
+     * driver when we tried to open it
+     */
+    if (rc < SUCCESS)
+      return rc;
+    return sft_idx;
+  }
+
   if (result & IS_NETWORK)
   {
     int status;
@@ -533,18 +545,6 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
       return sft_idx | ((long)status << 16);
     }
     return status;
-  }
-
-  /* check for a device   */
-  if ((result & IS_DEVICE) && (dhp = IsDevice(fname)) != NULL)
-  {
-    int rc = DeviceOpenSft(dhp, sftp);
-    /* check the status code returned by the
-     * driver when we tried to open it
-     */
-    if (rc < SUCCESS)
-      return rc;
-    return sft_idx;
   }
 
   /* First test the flags to see if the user has passed a valid   */
