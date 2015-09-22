@@ -414,6 +414,17 @@ const char FAR *get_root(const char FAR * fname)
   return fname;
 }
 
+STATIC void ConvertPathNameToFCBName(char *FCBName, const char *PathName)
+{
+  ConvertNameSZToName83(FCBName, (char *)FP_OFF(get_root(PathName)));
+  FCBName[FNAME_SIZE + FEXT_SIZE] = '\0';
+}
+
+STATIC void set_fcbname(void)
+{
+  ConvertPathNameToFCBName(DirEntBuffer.dir_name, PriPathName);
+}
+
 /* initialize SFT fields (for open/creat) for character devices */
 STATIC int DeviceOpenSft(struct dhdr FAR *dhp, sft FAR *sftp)
 {
@@ -489,6 +500,8 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   result = truename(fname, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
     return result;
+
+  set_fcbname();
 
   /* now get a free system file table entry       */
   if ((sftp = get_free_sft(&sft_idx)) == (sft FAR *) - 1)
@@ -919,6 +932,8 @@ COUNT DosChangeDir(BYTE FAR * s)
   if (result < SUCCESS)
     return DE_PATHNOTFND;
 
+  set_fcbname();
+
   if ((FP_OFF(current_ldt) != 0xFFFF) &&
       (strlen(PriPathName) >= sizeof(current_ldt->cdsCurrentPath)))
     return DE_PATHNOTFND;
@@ -976,6 +991,8 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
                 CDS_MODE_CHECK_DEV_PATH | CDS_MODE_ALLOW_WILDCARDS);
   if (rc < SUCCESS)
     return rc;
+
+  set_fcbname();
 
   /* /// Added code here to do matching against device names.
      DOS findfirst will match exact device names if the
@@ -1049,7 +1066,7 @@ COUNT DosFindNext(void)
 
   /* findnext will always fail on a volume id search or device name */
   if ((sda_tmp_dm.dm_attr_srch & ~(D_RDONLY | D_ARCHIVE | D_DEVICE)) == D_VOLID
-      || sda_tmp_dm.dm_entry == 0xffff)
+      || (!(sda_tmp_dm.dm_drive & 0x80) && sda_tmp_dm.dm_entry == 0xffff))
     return DE_NFILES;
 
   memset(&SearchDir, 0, sizeof(struct dirent));
@@ -1113,6 +1130,8 @@ COUNT DosGetFattr(BYTE FAR * name)
   if (PriPathName[3] == '\0')
     return 0x10;
 
+  set_fcbname();
+
   if (result & IS_NETWORK)
     return network_redirector(REM_GETATTRZ);
 
@@ -1132,6 +1151,8 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
   result = truename(name, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
     return result;
+
+  set_fcbname();
 
   if (result & IS_NETWORK)
     return remote_setfattr(attrp);
@@ -1170,6 +1191,8 @@ COUNT DosDelete(BYTE FAR * path, int attrib)
   if (result < SUCCESS)
     return result;
 
+  set_fcbname();
+
   if (result & IS_NETWORK)
     return network_redirector(REM_DELETE);
 
@@ -1206,6 +1229,8 @@ COUNT DosRename(BYTE FAR * path1, BYTE FAR * path2)
   if (result < SUCCESS)
     return result;
 
+  set_fcbname();
+
   if ((result & (IS_NETWORK | IS_DEVICE)) == IS_DEVICE)
     return DE_FILENOTFND;
 
@@ -1219,6 +1244,8 @@ COUNT DosMkRmdir(const char FAR * dir, int action)
   result = truename(dir, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
     return result;
+
+  set_fcbname();
 
   if (result & IS_NETWORK)
     return network_redirector(action == 0x39 ? REM_MKDIR : REM_RMDIR);
@@ -1355,7 +1382,10 @@ COUNT DosTruename(const char FAR *src, char FAR *dest)
   */  
   COUNT rc = truename(src, PriPathName, CDS_MODE_ALLOW_WILDCARDS);
   if (rc >= SUCCESS)
+  {
     fstrcpy(dest, PriPathName);
+    set_fcbname();
+  }
   return rc;
 }
 
