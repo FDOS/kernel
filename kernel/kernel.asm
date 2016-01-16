@@ -222,7 +222,7 @@ cpu_abort:
         mov ah, 0Fh
         int 10h                 ; get video mode, bh = active page
 
-        call .first
+        call .first             ; print string that follows (address pushed by call)
 
 %define LOADNAME "FreeDOS"
         db 13,10                ; (to emit a blank line after the tracecodes)
@@ -240,7 +240,9 @@ cpu_abort:
         mov bl, 07h             ; page in bh, bl = colour for some modes
         int 10h                 ; write character (may change bp!)
 
+        db 0A8h                 ; [test al,imm8] skip "pop si" [=imm8] after the first iteration 
 .first:
+        pop si                  ; (first iteration only) get message address from stack
         cs lodsb                ; get character
         test al, al             ; zero ?
         jnz .display            ; no, display and get next character -->
@@ -253,7 +255,7 @@ cpu_abort:
         int 13h                 ; reset hard disks
 
                                 ; this "test ax, imm16" opcode is used to
-        db 0A9h                 ;  skip "sti" \ "hlt" during first iteration
+        db 0A9h                 ; skip "sti" \ "hlt" [=imm16] during first iteration
 .wait:
         sti
         hlt                     ; idle while waiting for keystroke
