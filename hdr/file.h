@@ -58,8 +58,10 @@ static BYTE *file_hRcsId =
 /* bits 2, 3 reserved */
 
 /* bits 4, 5, 6 sharing modes */
+/* see PC Mag Nov 15, 1988 "Networked Database" p234 by Frank J Derfler Jr */
 #define O_SHAREMASK     0x0070  /* mask to isolate shared bits  */
 
+#define O_COMPAT        0x0000  /* default, compatibility mode  */
 #define O_DENYALL       0x0010  /* sharing bits                 */
 #define O_DENYWRITE     0x0020  /*     "      "                 */
 #define O_DENYREAD      0x0030  /*     "      "                 */

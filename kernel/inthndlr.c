@@ -1797,6 +1797,28 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                            default_drive, 
                            r.callerARG1, /* error, from RBIL passed on stack */  
                            CDSp[(WORD)default_drive].cdsDpb->dpb_device);
+      r.FLAGS |= FLG_CARRY;
+      if (r.AL == 1) r.FLAGS &= ~FLG_CARRY;  /* carry clear if should retry */
+      break;
+      
+    case 0x0b:                 /* sharing violation occurred */
+      {
+        /* ES:DI = SFT for previous open of file */
+        sft FAR *sftp = MK_FP(r.ES, r.DI);
+        /* default to don't retry, ie fail/abort/etc other than retry */
+        r.FLAGS |= FLG_CARRY;
+        /* from RBIL if SFT for FCB or compatibility mode without NOINHERIT call int24h */
+        if ((sftp->sft_mode & O_FCB) || !(sftp->sft_mode & (O_SHAREMASK | O_NOINHERIT)))
+        {
+          r.AL = CriticalError(0x38, /* ignore/retry/fail - ??? */
+                               default_drive, 
+                               r.callerARG1, /* error, from RBIL passed on stack */  
+                               CDSp[(WORD)default_drive].cdsDpb->dpb_device);
+          /* clear carry if should retry */
+          if (r.AL == 1) r.FLAGS &= ~FLG_CARRY;
+        }
+        r.AX = 0x20;  /* error sharing violation */
+      }
       break;
 
     case 0x0c:                 /* perform "device open" for device, set owner for FCB */
