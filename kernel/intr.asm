@@ -313,8 +313,8 @@ ALLOCMEM:
     global SET_DTA
 SET_DTA:
         pop ax           ; ret address
-        pop bx           ; seg(dta)
         pop dx           ; off(dta)
+        pop bx           ; seg(dta)
         push ax          ; ret address
         mov ah, 1ah
         push ds
