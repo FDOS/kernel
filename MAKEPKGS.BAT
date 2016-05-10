@@ -7,7 +7,8 @@ CD ..
 ECHO create source copy
 if EXIST SOURCE RMDIR /S /Q SOURCE > NUL
 MKDIR SOURCE
-ECHO .git> SOURCE\SKIPLIST
+ECHO \.svn>SOURCE\SKIPLIST
+ECHO .git>>SOURCE\SKIPLIST
 XCOPY %BASEPATH% SOURCE\ke%1 /S /V /I /Q /G /H /R /Y /EXCLUDE:SOURCE\SKIPLIST
 DEL SOURCE\SKIPLIST > NUL
 ECHO ensuring clean
@@ -50,7 +51,7 @@ GOTO DONE
 
 :BZK
 ECHO build kernel %VERSION%
-CALL build.bat /D KERNEL_VERSION /V "%1 " 86 upx fat%FAT%
+CALL build.bat /D KERNEL_VERSION /V "%1 " 86 win upx fat%FAT%
 DEL BIN\K??86??.sys
 SET LSMRET=BZK_2
 SET LSMFILE=docs\fdkernel.lsm
@@ -95,7 +96,7 @@ SET VERSION=
 GOTO %LSMRET%
 
 :USAGE
-ECHO Tag and build release kernels - usage: RELEASE {VERSION} e.g. RELEASE 2039
+ECHO Build kernel packages (interim builds or release without tagging) - usage: RELEASE {VERSION} e.g. RELEASE 2039
 :DONE
 CD %BASEPATH%
 SET BASEPATH=
