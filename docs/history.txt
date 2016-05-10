@@ -10,6 +10,37 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
+2016 May 16 - Build 2042
+-------- Jeremy Davis, Sava
+
++ Changes Jeremy
+    * support determining kernel file version without booting it
+    * from Christian Masloch, display error on unsupported CPU
+    * improve memdisk CONFIG.SYS processing support
+    * ensure top of RAM correctly adjusted after moving EBDA
+    * fix reading from NULL
+    * merge creation date & time from old dev branch
+    * use absolute not relative disk read/writes 
+      (allows syslinux DOS installer to work correctly)
+    * Fix FCB parse filename (int21h func 29h)
+    * Improve support for older BPB based volumes lacking extended fields.
+      (Based on lpproj's nec98:Fix for DOS 3.x partitions)
+    * Int 2F/AX=120Ah & AX=120Bh based on RBIL, untested
+    
++ Changes Sava (lpproj)
+    * add cross-compile capability on Windows with OW and mingw32-make
+    * Fix pointer of DBCS table (int 0x21, func 0x6300)
+    * Enable to load DBCS table from COUNTRY.SYS
+    * Return current country code (func 0x38)
+    * Fix broken decompression on loading FAT16 kernel (compressed in dos/sys)
+    * On creating child PSP (func 0x55), copy command line parameters 
+      from the parent (required for some device loaders)
+    * Fix incomplete loading of huge (more than 65280 bytes) binary device driver
+    * Fix an error at opening a character device prefixed with invalid 
+      drive letter (e.g. "@:NUL")
+    * Copy FCB-format filename from PriPathName (some redirectors require 
+      FCB-format filename stored in SDA+22Bh DirEntBuffer)
+
 2012 Feb 07 - Build 2041
 -------- Jeremy Davis
 
