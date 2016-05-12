@@ -30,9 +30,14 @@ cd ..\kernel
 cd ..\hdr
 if exist *.bak del *.bak
 
+cd ..\bin
+if exist sys.com del sys.com
+if exist country.sys del country.sys
+
 cd ..
 if exist *.bak del *.bak
 if exist status.me del status.me
+
 
 :end
 default.bat clearset

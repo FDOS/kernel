@@ -55,7 +55,7 @@ sys.com:        $(SYS_EXE_dependencies)
 		$(CL) $(CFLAGST) $(TINY) $(SYS_EXE_dependencies)
 
 clobber:	clean
-		-$(RM) bin2c.exe sys.com fat*.h oemfat*.h
+		-$(RM) bin2c.exe bin2c.com sys.com fat*.h oemfat*.h
 
 clean:
 		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me

@@ -15,3 +15,4 @@ config.bat
 
 
 kernel/KERNEL.SYS
+bin/COMMAND.COM
