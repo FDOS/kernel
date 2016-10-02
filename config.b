@@ -30,11 +30,13 @@ set XNASM=nasm
 :**********************************************************************
 
 :- Turbo C 2.01
-set COMPILER=TC2
+:- set COMPILER=TC2
 :- Turbo C++ 1.01
 :- set COMPILER=TURBOCPP
 :- Turbo C 3.0
 :- set COMPILER=TC3
+:- Borland C 3.1
+set COMPILER=BC3
 :- Borland C
 :- set COMPILER=BC5
 :- Microsoft C
@@ -46,9 +48,10 @@ set COMPILER=TC2
 :-- where is the BASE dir of your compiler(s) ??
 :-**********************************************************************
 						
-set TC2_BASE=c:\tc201
+:- set TC2_BASE=c:\tc201
 :- set TP1_BASE=c:\tcpp
 :- set TC3_BASE=c:\tc3
+set BC3_BASE=c:\bc
 :- set BC5_BASE=c:\bc5
 :- set MS_BASE=c:\msvc
 
