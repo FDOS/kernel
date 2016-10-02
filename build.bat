@@ -1,4 +1,4 @@
-@echo off
+rem @echo off
 rem batch file to build everything
 rem IF NOTHING COMPILES, CHECK IF YOUR CVS CHECKOUT USES CORRECT DOS LINEBREAKS
 
