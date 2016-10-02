@@ -19,10 +19,11 @@
 :-**********************************************************************
 :-- define NASM executable - remember - it should not be protected
 :-  mode DJGPP version if you're using Windows NT/2k/XP to compile
-:-  also: DJGPP-nasm crashes when using protected mode Borland's make
+:-  because DJGPP-nasm crashes when using protected mode Borland's
+:-  make under Windows NT/2k/XP
 :-**********************************************************************
 
-set XNASM=c:\bin\nasm16
+set XNASM=nasm
 
 :**********************************************************************
 :- define your COMPILER type here, pick one of them
