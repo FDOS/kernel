@@ -47,7 +47,7 @@ call build -r tc    86 fat32
 
 :***** (Open) Watcom kernels
 
-if "%WATCOM%" == "" goto no_wc
+if not "%COMPILER%" == "WATCOM" goto no_wc
 call build -r wc    386 fat32
 %ONERROR%
 call build -r wc    386 fat16
