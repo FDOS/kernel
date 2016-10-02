@@ -415,7 +415,7 @@ void setvec(unsigned char intno, intvec vector);
 void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 void ASMCFUNC DosIdle_hlt(void);        /* dosidle.asm */
 
-GLOBAL BYTE ReturnAnyDosVersionExpected;
+GLOBAL BYTE ASM ReturnAnyDosVersionExpected;
 GLOBAL BYTE ASM HaltCpuWhileIdle;
 
 /* near fnodes:
