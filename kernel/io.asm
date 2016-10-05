@@ -212,6 +212,7 @@ uUnitNumber	dw	0
 ;       at any time.  The request is stored into memory in the one and only
 ;       location available for that purpose.
 ;
+                global GenStrategy
 GenStrategy:
                 mov     word [cs:_ReqPktPtr],bx
                 mov     word [cs:_ReqPktPtr+2],es
