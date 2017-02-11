@@ -155,6 +155,14 @@ COUNT UmbState BSS_INIT(0);
 STATIC BYTE szLine[256] BSS_INIT({0});
 STATIC BYTE szBuf[256] BSS_INIT({0});
 
+#define MAX_CHAINS 5
+struct CfgFile {
+  COUNT nFileDesc;
+  COUNT nCfgLine;
+} cfgFile[MAX_CHAINS];
+COUNT nCurChain = 0;
+COUNT nFileDesc;
+
 BYTE singleStep BSS_INIT(FALSE);        /* F8 processing */
 BYTE SkipAllConfig BSS_INIT(FALSE);     /* F5 processing */
 BYTE askThisSingleCommand BSS_INIT(FALSE);      /* ?device=  device?= */
@@ -188,6 +196,7 @@ STATIC VOID InitPgm(BYTE * pLine);
 STATIC VOID InitPgmHigh(BYTE * pLine);
 STATIC VOID CmdInstall(BYTE * pLine);
 STATIC VOID CmdInstallHigh(BYTE * pLine);
+STATIC VOID CmdChain(BYTE * pLine);
 STATIC VOID CmdSet(BYTE * pLine);
 
 
@@ -294,8 +303,9 @@ STATIC struct table commands[] = {
   {"DEVICEHIGH", 2, DeviceHigh},
   {"INSTALL", 2, CmdInstall},
   {"INSTALLHIGH", 2, CmdInstallHigh},
+  {"CHAIN", 2, CmdChain},
   {"SET", 2, CmdSet},
-  
+
   /* default action                                               */
   {"", -1, CfgFailure}
 };
@@ -417,14 +427,14 @@ void PostConfig(void)
   /* We could just have loaded FDXMS or HIMEM */
   if (HMAState == HMA_REQ && MoveKernelToHMA())
     HMAState = HMA_DONE;
-  
+
   if (Config.cfgDosDataUmb)
   {
     Config.cfgFilesHigh = TRUE;
     Config.cfgLastdriveHigh = TRUE;
     Config.cfgStacksHigh = TRUE;
   }
-        
+
   /* compute lastdrive ... */
   LoL->lastdrive = Config.cfgLastdrive;
   if (LoL->lastdrive < LoL->nblkdev)
@@ -540,13 +550,13 @@ STATIC void umb_init(void)
     mumcb_init(LoL->uppermem_root, umb_seg - LoL->uppermem_root - 1);
 
     /* setup the real mcb for the devicehigh block */
-    mcb_init(umb_seg, umb_size - 2, MCB_NORMAL); 
+    mcb_init(umb_seg, umb_size - 2, MCB_NORMAL);
 
     umb_base_seg = umb_max = umb_start = umb_seg;
     UMB_top = umb_size;
 
-    /* there can be more UMBs ! 
-       this happens, if memory mapped devces are in between 
+    /* there can be more UMBs !
+       this happens, if memory mapped devces are in between
        like UMB memory c800..c8ff, d8ff..efff with device at d000..d7ff
        However some of the xxxHIGH commands still only work with
        the first UMB.
@@ -635,18 +645,18 @@ BYTE FAR * ProcessMemdiskLine(BYTE FAR *cLine)
 {
   BYTE FAR *ptr;
   BYTE FAR *sLine = cLine;
-  
+
   /* skip everything until end of line or starting { */
   for (; *cLine && (*cLine != '{'); ++cLine)
     ;
   sLine = cLine;
-    
+
   for (ptr = cLine; *cLine; ptr = cLine)
   {
     /* skip everything until end of line or starting { */
     for (++cLine; *cLine && (*cLine != '{'); ++cLine)
       ;
-     
+
     /* calc offset from previous { to next { or eol and replace previous { with offset */
     *ptr = (BYTE)(cLine - ptr);
   }
@@ -666,11 +676,11 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
 {
   STATIC struct memdiskopt memdiskopts[] = {
       {"initrd", 6}, {"BOOT_IMAGE", 10},
-      {"floppy", 6}, {"harddisk", 8}, {"iso", 3}, 
+      {"floppy", 6}, {"harddisk", 8}, {"iso", 3},
       {"nopass", 6}, {"nopassany", 9},
       {"edd", 3}, {"noedd", 5}
 /*
-      {"c", 1}, {"h", 1}, {"s", 1}, 
+      {"c", 1}, {"h", 1}, {"s", 1},
       {"raw", 3}, {"bigraw", 6}, {"int", 3}, {"safeint", 7}
 */
   };
@@ -679,7 +689,7 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
   BYTE FAR * mf = NULL;   /* where last line split by memdisk option */
   BYTE FAR *ptr = cLine;  /* start of current cfg line, where { was */
   BYTE FAR *sLine = cLine;
-  
+
   /* exit early if already at end of command line */
   if (!*cLine) return cLine;
 
@@ -687,11 +697,11 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
   cLine += *cLine;
 
   /* restore original character we overwrite with offset, for next iteration of cfg file */
-  *ptr = '{'; 
-  
+  *ptr = '{';
+
   /* ASSERT ptr points to start of line { and cLine points to start of next line { (or eol)*/
-  
-  /* copy chars to pLine buffer until } or start of next line */  
+
+  /* copy chars to pLine buffer until } or start of next line */
   for (++ptr; (*ptr != '}') && (ptr < cLine); ++ptr)
   {
     /* if not in last {} then simply copy chars up to } (or next {) */
@@ -704,7 +714,7 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
       for (i = 0; i < 9; ++i)
       {
         /* compare with option */
-        if (fmemcmp(ptr, memdiskopts[i].name, memdiskopts[i].size) == 0) 
+        if (fmemcmp(ptr, memdiskopts[i].name, memdiskopts[i].size) == 0)
         {
           BYTE c = *(ptr + memdiskopts[i].size);
           /* ensure character after is end of line, =, or whitespace */
@@ -712,10 +722,10 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
           {
             /* flag this line split */
             mf = ptr;
-            
+
             /* matched option so point past it */
             ptr += memdiskopts[i].size;
-            
+
             /* allow extra whitespace between option and = by skipping it */
             while (iswh(*ptr))
               ++ptr;
@@ -726,22 +736,22 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
               /* allow extra whitespace between = and value by skipping it */
               while (iswh(*ptr))
                 ++ptr;
-                
+
               /* skip past all characters after = */
               for (; (*ptr != '}') && (ptr < cLine) && !iswh(*ptr); ++ptr)
                 ;
             }
-              
+
             break; /* memdisk option found, no need to keep check rest in list */
           }
         }
       }
     }
-      
+
     if (ptr < cLine)
     {
       ws = iswh(*ptr);
-      
+
       /* allow replacing X=Y prior to memdisk options with X=Z after */
       /* on 1st pass if find a match we overwrite it with spaces */
       if (mf && (*ptr == '='))
@@ -753,19 +763,19 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
           for (; (*old != '=') && (old < mf); ++old)
             ;
           /* ASSERT ptr points to = after memdisk option and old points to = before memdisk option or mf */
-          
+
           /* compare backwards to see if same option */
           for (new = ptr; (old >= sLine) && ((*old & 0xCD) == (*new & 0xCD)); --old, --new)
           {
             if (iswh(*old) || iswh(*new)) break;
           }
-          
+
           /* if match found then overwrite, otherwise skip past the = */
           if (((old <= sLine) || iswh(*old)) && iswh(*new))
           {
             /* match found so overwrite with spaces */
             for(++old; !iswh(*old) && (old < mf); ++old)
-              *old = ' '; 
+              *old = ' ';
           }
           else
           {
@@ -774,7 +784,7 @@ BYTE FAR * GetNextMemdiskLine(BYTE FAR *cLine, BYTE *pLine)
           }
         }
       }
-      
+
 copy_char:
       *pLine = *ptr;
       ++pLine;
@@ -782,7 +792,7 @@ copy_char:
   }
   *pLine = 0;
 
-  /* return location to begin next scan from */    
+  /* return location to begin next scan from */
   return cLine;
 }
 
@@ -791,10 +801,9 @@ copy_char:
 
 VOID DoConfig(int nPass)
 {
-  COUNT nFileDesc;
   BYTE *pLine;
   BOOL bEof = FALSE;
-  
+
 #ifdef MEMDISK_ARGS
   /* check if MEMDISK used for LoL->BootDrive, if so check for special appended arguments */
   struct memdiskinfo FAR *mdsk = NULL;
@@ -804,7 +813,7 @@ VOID DoConfig(int nPass)
   {
     UBYTE drv = (LoL->BootDrive < 3)?0x0:0x80; /* 1=A,2=B,3=C */
     mdsk = query_memdisk(drv);
-    if (mdsk != NULL) 
+    if (mdsk != NULL)
     {
       cLine = ProcessMemdiskLine(mdsk->cmdline);
     }
@@ -876,7 +885,7 @@ VOID DoConfig(int nPass)
     if (!bEof)
     {
 #endif
-        
+
     /* read in a single line, \n or ^Z terminated */
 
     for (pLine = szLine;;)
@@ -913,6 +922,15 @@ VOID DoConfig(int nPass)
     }
 #endif
 
+    if (bEof && nCurChain) {
+      struct CfgFile *cfg = &cfgFile[--nCurChain];
+      close(nFileDesc);
+      bEof = FALSE;
+      nFileDesc = cfg->nFileDesc;
+      nCfgLine = cfg->nCfgLine;
+      continue;
+    }
+
     DebugPrintf(("CONFIG=[%s]\n", szLine));
 
     /* Skip leading white space and get verb.               */
@@ -928,9 +946,9 @@ VOID DoConfig(int nPass)
 	/* should config command be executed on this pass? */
     if (pEntry->pass >= 0 && pEntry->pass != nPass)
       continue;
-    
+
 	/* pass 0 always executed (rem Menu prompt switches) */
-    if (nPass == 0) 
+    if (nPass == 0)
     {
       pEntry->func(pLine);
       continue;
@@ -957,7 +975,7 @@ VOID DoConfig(int nPass)
     /* YES. DO IT */
     pEntry->func(pLine);
   }
-  close(nFileDesc); 
+  close(nFileDesc);
 
   if (nPass == 0)
   {
@@ -974,14 +992,14 @@ STATIC struct table * LookUp(struct table *p, BYTE * token)
 
 /*
     get BIOS key with timeout:
-    
+
     timeout < 0: no timeout
     timeout = 0: poll only once
     timeout > 0: timeout in seconds
-    
+
     return
             0xffff : no key hit
-            
+
             0xHH.. : scancode in upper  half
             0x..LL : asciicode in lower half
 */
@@ -1025,6 +1043,7 @@ UWORD GetBiosKey(int timeout)
 STATIC BOOL SkipLine(char *pLine)
 {
   short key;
+  COUNT i;
 
   if (InitKernelConfig.SkipConfigSeconds >= 0)
   {
@@ -1033,7 +1052,7 @@ STATIC BOOL SkipLine(char *pLine)
       printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
 
     key = GetBiosKey(InitKernelConfig.SkipConfigSeconds);       /* wait 2 seconds */
-    
+
     InitKernelConfig.SkipConfigSeconds = -1;
 
     if (key == 0x3f00)          /* F5 */
@@ -1067,6 +1086,8 @@ STATIC BOOL SkipLine(char *pLine)
   if (!askThisSingleCommand && !singleStep)
     return FALSE;
 
+  for (i = 0; i < nCurChain; i++)
+    printf(" ");
   printf("%s[Y,N]?", pLine);
 
   for (;;)
@@ -1411,7 +1432,7 @@ STATIC VOID Fcbs(BYTE * pLine)
     Config.cfgProtFcbs = Config.cfgFcbs;
 }
 
-/* 
+/*
    Keyboard buffer relocation: KEYBUF=start[,end]
    Select a new location for the  keyboard buffer  at 0x40:xx,
    for example 0x40:0xac-0xff, but 0x50:5-0xff ("basica" only?)
@@ -1581,7 +1602,7 @@ err:printf("%s has invalid format\n", filename);
         }
         continue;
       }
-      
+
       fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer,
                                 /* skip length ^*/  subf_data.length);
     }
@@ -1619,12 +1640,12 @@ STATIC VOID Country(BYTE * pLine)
       GetStringArg(++pLine, szBuf);
       filename = szBuf;
     }
-  }  
-      
+  }
+
   if (LoadCountryInfo(filename, ctryCode, codePage))
     return;
-  
-error:  
+
+error:
   CfgFailure(pLine);
 }
 
@@ -1752,7 +1773,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   if (base == start)
     base++;
   base++;
-  
+
   /* Get the device driver name                                   */
   GetStringArg(pLine, szBuf);
 
@@ -1817,7 +1838,7 @@ STATIC VOID CfgFailure(BYTE * pLine)
   {
     if (ErrorAlreadyPrinted[nCfgLine/8] & (1 << (nCfgLine%8)))
       return;
-        
+
     ErrorAlreadyPrinted[nCfgLine/8] |= (1 << (nCfgLine%8));
   }
   printf("CONFIG.SYS error in line %d\n", nCfgLine);
@@ -1827,7 +1848,7 @@ STATIC VOID CfgFailure(BYTE * pLine)
   printf("^\n");
 }
 
-struct submcb 
+struct submcb
 {
   char type;
   unsigned short start;
@@ -1960,16 +1981,16 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
     unsigned numbers = 0;
     for ( ; isnum(*s); s++)
         numbers |= 1 << (*s -'0');
-    
+
     if (*s == '?')
     {
       MenuLine = numbers;
-      Menus |= numbers;    
+      Menus |= numbers;
       s = skipwh(s+1);
     }
   }
 
-  
+
   /* !dos=high,umb    ?? */
   if (*s == '!')
   {
@@ -2063,7 +2084,7 @@ STATIC char strcaseequal(const char * d, const char * s)
 
 /*
     moved from BLOCKIO.C here.
-    that saves some relocation problems    
+    that saves some relocation problems
 */
 
 STATIC void config_init_buffers(int wantedbuffers)
@@ -2143,7 +2164,7 @@ STATIC void config_init_buffers(int wantedbuffers)
 }
 
 /*
-    Undocumented feature:  ANYDOS 
+    Undocumented feature:  ANYDOS
         will report to MSDOS programs just the version number
         they expect. be careful with it!
 */
@@ -2171,8 +2192,8 @@ STATIC VOID CfgIgnore(BYTE * pLine)
 }
 
 /*
-   'MENU'ing stuff   
-   although it's worse then MSDOS's , its better then nothing    
+   'MENU'ing stuff
+   although it's worse then MSDOS's , its better then nothing
 */
 
 STATIC void ClearScreen(unsigned char attr);
@@ -2340,14 +2361,14 @@ STATIC VOID CfgMenuDefault(BYTE * pLine)
   COUNT num = 0;
 
   pLine = skipwh(pLine);
-  
+
   if ('=' != *pLine)
   {
     CfgFailure(pLine);
     return;
   }
   pLine = skipwh(pLine + 1);
-  
+
   /* Format:  STACKS = stacks [, stackSize]       */
   pLine = GetNumArg(pLine, &num);
   MenuSelected = num;
@@ -2543,7 +2564,7 @@ STATIC int LoadCountryInfoHardCoded(COUNT ctryCode)
 
 
 /* ****************************************************************
-** implementation of INSTALL=NANSI.COM /P /X /BLA 
+** implementation of INSTALL=NANSI.COM /P /X /BLA
 */
 
 int  numInstallCmds BSS_INIT(0);
@@ -2563,7 +2584,7 @@ STATIC VOID _CmdInstall(BYTE * pLine,int mode)
   struct instCmds *cmd;
 
   InstallPrintf(("Installcmd %d:%s\n",numInstallCmds,pLine));
-  
+
   if (numInstallCmds > LENGTH(InstallCommands))
   {
     printf("Too many Install commands given (%d max)\n",LENGTH(InstallCommands));
@@ -2584,15 +2605,35 @@ STATIC VOID CmdInstallHigh(BYTE * pLine)
 {
   _CmdInstall(pLine,0x80);	/* load high, if possible */
 }
+STATIC VOID CmdChain(BYTE * pLine)
+{
+  struct CfgFile *cfg;
+  int fd;
+
+  InstallPrintf(("CHAIN: %s\n", pLine));
+  if (nCurChain >= MAX_CHAINS) {
+    CfgFailure(pLine);
+    return;
+  }
+  if ((fd = open(pLine, 0)) < 0) {
+    CfgFailure(pLine);
+    return;
+  }
+  cfg = &cfgFile[nCurChain++];
+  cfg->nFileDesc = nFileDesc;
+  cfg->nCfgLine = nCfgLine;
+  nFileDesc = fd;
+  nCfgLine = 0;
+}
 
 STATIC VOID InstallExec(struct instCmds *icmd)
-{                            
+{
   BYTE filename[128], *args, *d, *cmd = icmd->buffer;
   exec_blk exb;
 
   InstallPrintf(("installing %s\n",cmd));
 
-  cmd=skipwh(cmd);     
+  cmd=skipwh(cmd);
 
   for (args = cmd, d = filename; ;args++,d++)
   {
@@ -2618,12 +2659,12 @@ STATIC VOID InstallExec(struct instCmds *icmd)
   {
     CfgFailure(cmd);
   }
-}		
+}
 
 STATIC void free(seg segment)
 {
   iregs r;
-        
+
   r.a.b.h = 0x49;				/* free memory	*/
   r.es  = segment;
   init_call_intr(0x21, &r);
@@ -2642,15 +2683,15 @@ STATIC void set_strategy(unsigned char strat)
 VOID DoInstall(void)
 {
   int i;
-  unsigned short installMemory; 
+  unsigned short installMemory;
   struct instCmds *cmd;
 
   if (numInstallCmds == 0)
     return;
-  
+
   InstallPrintf(("Installing commands now\n"));
 
-  /* grab memory for this install code 
+  /* grab memory for this install code
      we KNOW, that we are executing somewhere at top of memory
      we need to protect the INIT_CODE from other programs
      that will be executing soon
@@ -2673,7 +2714,7 @@ VOID DoInstall(void)
   }
   set_strategy(FIRST_FIT);
   free(installMemory);
-  
+
   InstallPrintf(("Done with installing commands\n"));
   return;
 }
