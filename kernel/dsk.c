@@ -901,7 +901,8 @@ STATIC WORD dskerr(COUNT code)
     translate LBA sectors into CHS addressing
 */
 
-STATIC int LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
+STATIC int LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt,
+    const bpb ** ppbpb)
 {
   /* we need the defbpb values since those are taken from the
      BIOS, not from some random boot sector, except when
@@ -926,6 +927,7 @@ STATIC int LBA_to_CHS(ULONG LBA_address, struct CHS *chs, const ddt * pddt)
   chs->Cylinder = (UWORD)LBA_address;
   chs->Head = hsrem / pbpb->bpb_nsecs;
   chs->Sector =  hsrem % pbpb->bpb_nsecs + 1;
+  *ppbpb = pbpb;
   return 0;
 }
 
@@ -1069,15 +1071,15 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
       }
       else
       {                         /* transfer data, using old bios functions */
-
-        if (LBA_to_CHS(LBA_address, &chs, pddt))
+        const bpb *pbpb;
+        if (LBA_to_CHS(LBA_address, &chs, pddt, &pbpb))
           return 1;
 
         /* avoid overflow at end of track */
 
-        if (chs.Sector + count > (unsigned)pddt->ddt_bpb.bpb_nsecs + 1)
+        if (chs.Sector + count > (unsigned)pbpb->bpb_nsecs + 1)
         {
-          count = pddt->ddt_bpb.bpb_nsecs + 1 - chs.Sector;
+          count = pbpb->bpb_nsecs + 1 - chs.Sector;
         }
 
         error_code = (mode == LBA_READ ? fl_read :
