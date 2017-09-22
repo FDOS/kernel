@@ -56,8 +56,8 @@ XCPU=86
 # XCPU=186
 # XCPU=386
 
-XFAT=16
-# XFAT=32
+# XFAT=16
+XFAT=32
 
 # Give extra compiler DEFINE flags here
 # such as -DDEBUG : extra DEBUG output

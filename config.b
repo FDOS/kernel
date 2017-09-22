@@ -109,8 +109,8 @@ set XCPU=86
 :- set XCPU=186
 :- set XCPU=386
 
-set XFAT=16
-:- set XFAT=32
+:- set XFAT=16
+set XFAT=32
 
 :- Give extra compiler DEFINE flags here
 :- such as -DDEBUG : extra DEBUG output
