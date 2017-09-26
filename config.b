@@ -105,9 +105,9 @@ set XUPX=upx --8086 --best
 :* select your default target: required CPU and what FAT system to support
 :**********************************************************************
 
-set XCPU=86
+:- set XCPU=86
 :- set XCPU=186
-:- set XCPU=386
+set XCPU=386
 
 :- set XFAT=16
 set XFAT=32
