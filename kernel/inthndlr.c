@@ -1917,7 +1917,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
                                    ; probable use: get sizeof(CDSentry)
                                  */
       {
-        struct cds FAR *cdsp = get_cds(r.callerARG1 & 0xff);
+        struct cds FAR *cdsp = get_cds_unvalidated(r.callerARG1 & 0xff);
 
         if (cdsp == NULL)
         {
