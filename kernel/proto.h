@@ -118,6 +118,7 @@ COUNT DosLockUnlock(COUNT hndl, LONG pos, LONG len, COUNT unlock);
 int idx_to_sft_(int SftIndex);
 sft FAR *idx_to_sft(int SftIndex);
 int get_sft_idx(UCOUNT hndl);
+struct cds FAR *get_cds_unvalidated(unsigned dsk);
 struct cds FAR *get_cds(unsigned dsk);
 struct cds FAR *get_cds1(unsigned dsk);
 COUNT DosTruename(const char FAR * src, char FAR * dest);

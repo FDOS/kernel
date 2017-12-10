@@ -93,6 +93,13 @@ STATIC int remote_lock_unlock(sft FAR *sftp,    /* SFT for file */
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
                              int unlock);       /* one to unlock; zero to lock */
 
+struct cds FAR *get_cds_unvalidated(unsigned drive)
+{
+  if (drive >= lastdrive)
+    return NULL;
+  return &CDSp[drive];
+}
+
 /* get current directory structure for drive
    return NULL if the CDS is not valid or the
    drive is not within range */
