@@ -30,7 +30,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *dosfnsRcsId =
-    "$Id$";
+    "$Id: dosfns.c 1564 2011-04-08 18:27:48Z bartoldeman $";
 #endif
 
 #include "globals.h"

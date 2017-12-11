@@ -31,7 +31,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *dirmatch_hRcsId =
-    "$Id$";
+    "$Id: dirmatch.h 1415 2009-06-02 13:18:24Z bartoldeman $";
 #endif
 #endif
 

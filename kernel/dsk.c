@@ -30,7 +30,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *dskRcsId =
-    "$Id$";
+    "$Id: dsk.c 1702 2012-02-04 08:46:16Z perditionc $";
 #endif
 
 #if defined(DEBUG)

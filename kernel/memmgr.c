@@ -31,7 +31,7 @@
 
 #ifdef VERSION_STRING
 static BYTE *memmgrRcsId =
-    "$Id$";
+    "$Id: memmgr.c 1338 2007-07-20 20:52:33Z mceric $";
 #endif
 
 #define nxtMCBsize(mcb,size) MK_FP(FP_SEG(mcb) + (size) + 1, FP_OFF(mcb))

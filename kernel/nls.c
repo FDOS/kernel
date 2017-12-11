@@ -40,7 +40,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: nls.c 1491 2009-07-18 20:48:44Z bartoldeman $";
 #endif
 
 #ifdef NLS_DEBUG

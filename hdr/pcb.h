@@ -52,7 +52,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *pcb_hRcsId =
-    "$Id$";
+    "$Id: pcb.h 1316 2007-05-15 17:48:47Z bartoldeman $";
 #endif
 #endif
 

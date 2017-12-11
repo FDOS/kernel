@@ -115,5 +115,5 @@ set XFAT=16
 
 
 :-
-:- $Id$
+:- $Id: config.b 864 2004-04-11 12:21:25Z bartoldeman $
 :-

@@ -24,7 +24,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: irqstack.asm 1567 2011-04-09 02:03:20Z bartoldeman $
 ;
 
 

@@ -33,7 +33,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: config.c 1705 2012-02-07 08:10:33Z perditionc $";
 #endif
 
 #ifdef DEBUG

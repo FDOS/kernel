@@ -25,7 +25,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: floppy.asm 980 2004-06-19 19:41:47Z perditionc $
 ;
 
 %include "../kernel/segs.inc"

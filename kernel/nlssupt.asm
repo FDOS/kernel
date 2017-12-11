@@ -24,7 +24,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: nlssupt.asm 971 2004-05-30 19:31:07Z bartoldeman $
 ;
 
 

@@ -32,7 +32,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *syspackRcsId =
-    "$Id$";
+    "$Id: syspack.c 485 2002-12-09 00:17:15Z bartoldeman $";
 #endif
 
 #ifdef NONNATIVE

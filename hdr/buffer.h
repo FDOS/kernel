@@ -33,7 +33,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *buffer_hRcsId =
-    "$Id$";
+    "$Id: buffer.h 1702 2012-02-04 08:46:16Z perditionc $";
 #endif
 #endif
 

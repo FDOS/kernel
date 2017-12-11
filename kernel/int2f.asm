@@ -25,7 +25,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: int2f.asm 1591 2011-05-06 01:46:55Z bartoldeman $
 ;
 
         %include "segs.inc"

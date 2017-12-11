@@ -30,7 +30,7 @@
 #ifdef VERSION_STRINGS
 #ifdef MAIN
 static BYTE *Globals_hRcsId =
-    "$Id$";
+    "$Id: globals.h 1705 2012-02-07 08:10:33Z perditionc $";
 #endif
 #endif
 

@@ -31,7 +31,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: fattab.c 1631 2011-06-13 16:27:34Z bartoldeman $";
 #endif
 
 /************************************************************************/

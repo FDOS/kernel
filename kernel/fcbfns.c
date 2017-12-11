@@ -31,7 +31,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: fcbfns.c 1405 2009-05-26 20:44:44Z bartoldeman $";
 #endif
 
 #define FCB_SUCCESS     0

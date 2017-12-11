@@ -25,7 +25,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: kernel.asm 1705 2012-02-07 08:10:33Z perditionc $
 ;
 
                 %include "segs.inc"

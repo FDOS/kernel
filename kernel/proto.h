@@ -29,7 +29,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *Proto_hRcsId =
-    "$Id$";
+    "$Id: proto.h 1491 2009-07-18 20:48:44Z bartoldeman $";
 #endif
 #endif
 

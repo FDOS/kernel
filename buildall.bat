@@ -1,7 +1,7 @@
 @echo off
 rem IF NOTHING COMPILES, CHECK IF YOUR CVS CHECKOUT USES CORRECT DOS LINEBREAKS
 
-:- $Id$
+:- $Id: buildall.bat 1305 2006-10-31 21:13:02Z bartoldeman $
 
 :----------------------------------------------------------
 :- batch file to build _many_ KERNELS, hope build works.

@@ -1,7 +1,7 @@
 #
 # makefile for libm.lib
 #
-# $Id$
+# $Id: makefile 688 2003-09-15 10:46:24Z bartoldeman $
 #
 
 

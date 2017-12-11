@@ -1,7 +1,7 @@
 #
 # makefile for bin2c.com and sys.com
 #
-# $Id$
+# $Id: makefile 1482 2009-07-11 16:59:43Z perditionc $
 #
 
 !include "../mkfiles/generic.mak"

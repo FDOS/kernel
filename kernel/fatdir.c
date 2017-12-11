@@ -32,7 +32,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *fatdirRcsId =
-    "$Id$";
+    "$Id: fatdir.c 1561 2011-04-08 15:35:23Z bartoldeman $";
 #endif
 
 /* Description.

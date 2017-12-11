@@ -31,7 +31,7 @@
 
 #ifdef VERSION_STRINGS
 static char *RcsId =
-    "$Id$";
+    "$Id: initclk.c 1359 2008-03-09 16:11:10Z mceric $";
 #endif
 
 /*                                                                      */

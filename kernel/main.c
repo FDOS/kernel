@@ -34,7 +34,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *mainRcsId =
-    "$Id$";
+    "$Id: main.c 1699 2012-01-16 20:45:44Z perditionc $";
 #endif
 
 static char copyright[] =

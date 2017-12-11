@@ -1,7 +1,7 @@
 @echo off
 
 :- batch file to clobber everything
-:- $Id$
+:- $Id: clobber.bat 1181 2006-05-20 20:45:59Z mceric $
 
 if not exist config.bat echo You must copy CONFIG.B to CONFIG.BAT and edit it to reflect your setup!
 if not exist config.bat goto end

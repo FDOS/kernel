@@ -32,7 +32,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: network.c 895 2004-04-21 17:40:12Z bartoldeman $";
 #endif
 
 /* see RBIL D-2152 and D-215D06 before attempting

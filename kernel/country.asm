@@ -24,7 +24,7 @@
 ; 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 ; or go to http://www.gnu.org/licenses/gpl.html
 
-; $Id$
+; $Id: country.asm 1637 2011-06-27 01:05:22Z perditionc $
 
 ; This COUNTRY.SYS is compatible with COUNTRY.SYS
 ; of MS-DOS, PC-DOS, PTS-DOS, OS/2, Win9x, WinNT

@@ -31,7 +31,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static char *portab_hRcsId =
-    "$Id$";
+    "$Id: portab.h 1121 2005-03-15 15:25:08Z perditionc $";
 #endif
 #endif
 

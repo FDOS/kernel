@@ -32,7 +32,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: initoem.c 1321 2007-05-21 02:16:36Z bartoldeman $";
 #endif
 
 #define EBDASEG 0x40e

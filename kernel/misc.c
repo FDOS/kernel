@@ -30,7 +30,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *miscRcsId =
-    "$Id$";
+    "$Id: misc.c 653 2003-08-09 09:35:18Z bartoldeman $";
 #endif
 
 #include "globals.h"

@@ -33,7 +33,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *blockioRcsId =
-    "$Id$";
+    "$Id: blockio.c 1702 2012-02-04 08:46:16Z perditionc $";
 #endif
 
 #define b_next(bp) ((struct buffer FAR *)(MK_FP(FP_SEG(bp), bp->b_next)))

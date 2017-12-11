@@ -34,7 +34,7 @@
 
 #ifdef VERSION_STRINGS
 BYTE *RcsId =
-    "$Id$";
+    "$Id: inthndlr.c 1709 2012-02-08 02:13:49Z perditionc $";
 #endif
 
 #ifdef TSC

@@ -25,7 +25,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: entry.asm 1701 2012-01-16 22:06:21Z perditionc $
 ;
 
                 %include "segs.inc"

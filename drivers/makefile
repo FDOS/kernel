@@ -1,7 +1,7 @@
 #
 # makefile for device.lib
 #
-# $Id$
+# $Id: makefile 1387 2009-05-19 21:39:29Z bartoldeman $
 #
 
 

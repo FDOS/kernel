@@ -31,7 +31,7 @@
 ; Bart Oldeman: optimized a bit: see /usr/include/bits/string.h from 
 ; glibc 2.2
 ;
-; $Id$
+; $Id: asmsupt.asm 1568 2011-04-09 02:42:51Z bartoldeman $
 ;
 
 ; for OW on Linux:

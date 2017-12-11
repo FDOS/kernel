@@ -25,7 +25,7 @@
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
 ;
-; $Id$
+; $Id: execrh.asm 1184 2006-05-20 20:49:59Z mceric $
 ;
 
                 %include "segs.inc"

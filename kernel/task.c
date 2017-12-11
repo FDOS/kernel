@@ -31,7 +31,7 @@
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
-    "$Id$";
+    "$Id: task.c 1563 2011-04-08 16:04:24Z bartoldeman $";
 #endif
 
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))

@@ -9,7 +9,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *XStructs_hRcsId =
-    "$Id$";
+    "$Id: xstructs.h 1457 2009-06-26 20:00:41Z bartoldeman $";
 #endif
 #endif
 

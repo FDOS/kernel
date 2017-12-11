@@ -31,7 +31,7 @@
 #ifdef MAIN
 #ifdef VERSION_STRINGS
 static BYTE *fnode_hRcsId =
-    "$Id$";
+    "$Id: fnode.h 1432 2009-06-10 16:10:54Z bartoldeman $";
 #endif
 #endif
 
