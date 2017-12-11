@@ -1,0 +1,198 @@
+			     Technical Data
+		          DOS-C Systems Calls
+
+The following table represents the industry standard kernel DOS calls
+currently supported by DOS-C. This list is for FreeDOS build 2036 (5/2006).
+
+int 20:	Terminated Current Process
+	Supported
+
+int 21:	DOS System Call
+	Supported.  See table below.
+
+int 21	Description			State		Ver	Status
+---------------------------------------------------------------------------
+00h	Terminate Program		superseded	1.00	supported
+01h	Read Keyboard with Echo		superseded	1.00	supported
+02h	Display Character		superseded	1.00	supported
+03h	Auxilliary Input		superseded	1.00	supported
+04h	Auxilliary Output		superseded	1.00	supported
+05h	Print Character			superseded	1.00	supported
+06h	Direct Console I/O		active		1.00	supported
+07h	Direct Console Input		active		1.00	supported
+08h	Read Keyboard Without Echo	active		1.00	supported
+09h	Display String			superseded	1.00	supported
+0ah	Buffered Keyboard Input		superseded	1.00	supported
+0bh	Check Keyboard Status		active		1.00	supported
+0ch	Flush Buffer, Read Keyboard	active		1.00	supported
+0dh	Reset Drive			active		1.00	supported
+0eh	Set Default Drive		active		1.00	supported
+0fh	Open File with FCB		superseded	1.00	supported
+10h	Close File with FCB		superseded	1.00	supported
+11h	Find First File with FCB	superseded	1.00	supported
+12h	Find Next File with FCB		superseded	1.00	supported
+13h	Delete File with FCB		superseded	1.00	supported
+14h	Sequential Read			superseded	1.00	supported
+15h	Sequential Write		superseded	1.00	supported
+16h	Create File with FCB		superseded	1.00	supported
+17h	Rename File with FCB		superseded	1.00	supported
+18h	CP/M compatibility		obsolete	1.00	supported
+19h	Get Default Drive		active		1.00	supported
+1ah	Set Disk Transfer Address	active		1.00	supported
+1bh	Get Default Drive Data		superseded	2.00	supported
+1ch	Get Drive Data			superseded	2.00	supported
+1dh	CP/M compatibility		obsolete	1.00	supported
+1eh	CP/M compatibility		obsolete	1.00	supported
+1fh	Get Default DPB			active		5.00	supported
+20h	CP/M compatibility		obsolete	1.00	supported
+21h	Random Read			superseded	1.00	supported
+22h	Random Write			superseded	1.00	supported
+23h	Get File Size			superseded	1.00	supported
+24h	Set Random Record Number	superseded	1.00	supported
+25h	Set Interrupt Vector		active		1.00	supported
+26h	Create New PSP			superseded	1.00	supported
+27h	Random Block Read		superseded	1.00	supported
+28h	Random Block Write		superseded	1.00	supported
+29h	Parse Filename			active		1.00	supported
+2ah	Get Date			active		1.00	supported
+2bh	Set Date			active		1.00	supported
+2ch	Get Time			active		1.00	supported
+2dh	Set Time			active		1.00	supported
+2eh	Set/Reset Verify Flag		active		1.00	supported
+2fh	Get DTA				active		2.00	supported
+30h	Get Version Number		active		2.00	supported
+31h	Keep Program			active		2.00	supported
+32h	Get DPB				active		5.00	supported
+3300h	Get CTRL+C Check Flag		active		2.00	supported
+3301h	Set CTRL+C Check Flag		active		2.00	supported
+3305h	Get Startup Drive		active		2.00	supported
+3306h	Get MS-DOS Version		active		5.00	supported
+33ffh	Get DOS-C Release		superset		supported
+34h	Get InDOS Flag Address		active		2.00	supported
+35h	Get Interrupt Vector		active		2.00	supported
+36h	Get Disk Free Space		active		2.00	supported
+37h	Get/Set Switchar		undocumented	2.00	supported
+38h	Get/Set Country Information	active		2.00	supported
+39h	Create Directory		active		2.00	supported
+3ah	Remove Directory		active		2.00	supported
+3bh	Change Current Directory	active		2.00	supported
+3ch	Create File with Handle		active		2.00	supported
+3dh	Open File with Handle		active		2.00	supported
+3eh	Close File with Handle		active		2.00	supported
+3fh	Read File or Device		active		2.00	supported
+40h	Write File or Device		active		2.00	supported
+41h	Delete File			active		2.00	supported
+42h	Move File Pointer		active		2.00	supported
+4300h	Get File Attributes		active		2.00	supported
+4301h	Set File Attributes		active		2.00	supported
+44h     Ioctl entry                     active          2.00    supported
+45h	Duplicate File Handle		active		2.00	supported
+46h	Force Duplicate File Handle	active		2.00	supported
+47h	Get Current Directory		active		2.00	supported
+48h	Allocate Memory			active		2.00	supported
+49h	Free Allocated Memory		active		2.00	supported
+4ah	Set Memory Block Size		active		2.00	supported
+4b00h	Load and Execute Program	active		2.00	supported
+4b01h   Load Program                    active          5.00    supported
+4b03h	Load Overlay			active		2.00	supported
+4b05h   Set Execution State             active          5.00     PLANNED
+4ch	End Program			active		2.00	supported
+4dh	Get Child-Program Return Value	active		2.00	supported
+4eh	Find First File			active		2.00	supported
+4fh	Find Next File			active		2.00	supported
+50h	Set PSP Address			active		2.00	supported
+51h	Get PSP Address			active		2.00	supported
+52h	Get List of Lists		undocumented	2.00	supported
+53h     Translate BPB to DPB            undocumented            supported
+54h	Get Verify State		active		2.00	supported
+55h	Create New Psp			undocumented	2.00	supported
+56h	Rename File			active		2.00	supported
+5700h	Get File Date and Time		active		2.00	supported
+5701h	Set File Date and Time		active		2.00	supported
+5800h	Get Allocation Strategy		active		3.00	supported
+5801h	Set Allocation Strategy		active		3.00	supported
+5802h   Get Upper-Memory Link           active          5.00    supported
+5803h   Set Upper-Memory Link           active          5.00    supported
+59h     Get Extended Error              active          3.00    supported
+5ah     Create Temporary File           active          3.00    supported
+5bh     Create New File                 active          3.00    supported
+5ch     Lock/Unlock File                active          3.10    supported
+5d00h   Server Function Call            active          3.10    supported
+5d01h   Commit All Files                active          3.10     NOTE 3
+5d02h   Close File by Name              active          3.10     NOTE 3
+5d03h   Close All Files for Computer    active          3.10     NOTE 3
+5d04h   Close All Files for Process     active          3.10     NOTE 3
+5d05h   Get Open File List              active          3.10     NOTE 3
+5d06h   Get Multiple SDA                active          4.00    supported
+5d07h   Get Redirected Printer Mode     active          3.10    supported
+5d08h   Set Redirected Printer Mode     active          4.00    supported
+5d09h   Flush Redirected Printer Output active          4.00    supported
+5d0ah   Set Extended Error              active          4.00    supported
+5eh     Generic Network Functions #1    active          3.10    supported
+5fh     Generic Network Functions #2    active          3.10    supported
+60h     Truename function               undocumented    3.00    supported
+61h     UNUSED                          obsolete                supported
+62h     Get current PSP                 active          3.00    supported
+63h	Multibyte char ops		undocumented	3.20	 NOTE 1
+64h     ?                               undocumented          returns error
+65h	NLS Functions			active		3.30	supported
+66h	Code Page Functions		active		3.30	supported
+67h     Set Maximum Handle Count        active          3.30    supported
+68h     Commit File                     active          3.30    supported
+69h     GET/SET DISK SERIAL NUMBER      active          4.00    supported
+6ah     COMMIT FILE (same as 68h)       active          4.00    supported
+6bh     NULL FUNCTION                   active          5.00    supported
+6ch     Extended Open/Create            active          4.00    supported
+71h     LONG FILENAME FUNCTIONS         active          7.00     NOTE 2
+
+int 22: Program Termination Address.
+	Supported.
+
+int 23:	Ctrl-C/Ctrl_Break Handler.
+	Supported.
+
+int 24:	Critical Error Handler
+        Dummy routine default.
+
+int 25: Absolute Disk Read
+        Supported.
+
+int 26: Absolute Disk Write
+        Supported.
+
+int 27:	TSR
+	Supported.
+
+int 28:	DOS Idle.
+	Supported.
+
+int 29:	Fast Console Output.
+	Supported.
+
+int 2F:	DOS Multiplex.
+	Supported (not ALL functions, but MOST functions supported)
+
+Notes:
+
+Note 1 - function 63 Returns error code and lead byte table pointer
+	DS:SI (function 0). Functions 1 and 2 return error code -1
+	(Korean Hangul keyboard input method not supported), but our
+	UNSTABLE kernels can contain more NLSFUNC / COUNTRY support.
+
+Note 2 - for LFN support, you can load a separate driver like DOSLFN.
+	It will hook int 21 and provide long file name functionality.
+
+Note 3 - planned, but the implementation will be in SHARE. The DOS
+	kernel only calls hooks (via far call) in a table which is
+	right before the SFT (list of lists [4] points to SFT). As
+	long as our SHARE does not support the hooks, they are not
+	supported either, the unused hook table would waste memory.
+
+License
+-------
+See COPYING in DOS-C root directory for license.
+
+
+---------------------------------------------------------------------
+
+$Id: intfns.txt 1344 2007-07-28 18:29:50Z mceric $

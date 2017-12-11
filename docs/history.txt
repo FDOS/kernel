@@ -1,0 +1,3911 @@
+
+
+General web notes: You can read details about bugzilla bug NUMBER on
+http://bugzilla.freedos.org/cgi-bin/bugzilla/show_bug.cgi?id=NUMBER
+and details about newer bugs managed in our sourceforge bug tracker on
+http://sf.net/tracker/?func=detail&aid=NUMBER&group_id=5109&atid=105109
+
+You can read more details (diff, changelog) about SVN revision NUMBER on
+http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
+Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
+
+
+2012 Feb 07 - Build 2041
+-------- Jeremy Davis
+
++ Changes Jeremy
+	* r1637 fix out of range byte in country.asm
+	* r1685 add int 2f subfunc 122B and 122D from Eduardo Casino
+    * r1697 from Pete Batard, do not display CHS mismatch warning 
+      during booting when forcing LBA mode option set
+    * r1702 improve handling for sectors not 512 bytes in size 
+      (up to 2048 bytes, larger sizes not yet working)
+    * r1705 add cpu detection so memdisk args supported in 8086 build
+
+2011 Jun 21 - Build 2040
+-------- Jeremy Davis, Bart Oldeman
+
++ Changes Jeremy
+	* r1635 from Christian Masloch, correction for memdisk check
+	* r1634 optional CONFIG.SYS options via memdisk
+	* r1633 force DPT to 512 byte sectors
+	* r1501 sys/sys.c: correct return value from NULL to FALSE -
+	  fix compile with OW1.9
+	* r1500 docs/sys.txt, sys/sys.c:
+	  handle case when source not specified but filename for boot
+	  sector is given (sys X: bootfile.bin)
+
++ Changes Bart
+	* r1632 make free cluster search circular
+	* r1631 do not use FSINFO if not valid
+	* r1609 truncating 0 byte file should not fail
+	* r1591 fix SF bug 3090610 - 386 register save/restore
+	* r1569 kernel/{config.c,kernel.asm,init-mod.h,globals.h}:
+	  Allocate bigger chunk of memory for INSTALL for __WATCOMC__
+	  because the memory layout is different from other compilers.
+	  Fixes issues mentioned by Bret Johnson and Christian Masloch
+	  in freedos-user/freedos-kernel.
+	* r1568 kernel/asmsupt.asm, mkfiles/owlinux.mak: Make sure the
+	  DOS native and Linux cross-builds produce identical binaries.
+	* r1567	drivers/rdpcclk.asm,kernel/{asmsupt,entry,irqstack,kernel,
+	  nls_hc}.asm, kernel/makefile:
+	  Remove useless END from nls_hc.asm, add explicit byte
+          overrides for older versions of NASM for more compact code,
+          and adjust silent relocation segments.
+	* r1565 sys/sys.c: Change // to /* comments for Turbo C compatibility.
+	* r1564 kernel/dosfns.c: If handle valid, close file in PSP
+	  table before the low-level close + (perhaps) critical error.
+	  Avoids closing the file twice (and hitting the critical
+	  error twice) on abort/program termination.
+	  Also, close can only return error 6 (DE_INVLDHNDL), not 5
+	  (DE_ACCESS), see RBIL.
+	* r1563 kernel/task.c: From Christian Masloch:
+	  set flags to 0x200 (IF set) when transferring to int22
+	  termination address.
+	* r1562 kernel/fatfs.c: Check errors for callers of dir_write
+	  and shrink_file. Fixes: Bug: File creation does not check
+	  whether buffers are written correctly
+	  (http://www.bttr-software.de/forum/forum_entry.php?id=9783)
+	* r1561 kernel/blockio.c, kernel/fatdir.c:
+	  No longer force flush1() and dir_write_update() to return
+	  TRUE if there were disk write errors. Part 1 for fixing
+	  http://www.bttr-software.de/forum/forum_entry.php?id=9783
+	  Bug: File creation does not check whether buffers are
+	  written correctly
+	* r1560 kernel/kernel.asm:
+	  Enlarge clock and block driver stacks. Thanks to Damien Guibouret
+	  <damien.guibouret@partition-saving.com>.
+	* r1559 kernel/fatfs.c: Fix value that is used before being initialised.
+	  This lead to a drive to not be considered as FAT32 despite it is
+	  (or vice-versa).
+	  Thanks to Damien Guibouret <damien.guibouret@partition-saving.com>.
+	* r1499 kernel/makefile:
+	  With the stack changes the DOS segment has moved to 0x79.
+	* r1498 kernel/irqstack.asm:
+	  New irqstack.asm: irq 2, 3, 4, 5, 6, 10, 11, 12, 14, 15 now
+	  use the IBM interrupt sharing protocol for STACKS. Affect
+	  int 2 too, but not IRQ 7 (INT 0fh) and IRQ 9 (INT 71h)
+
+2009 Aug 04 - Build 2039
+-------- Jeremy Davis, Bart Oldeman
+
++ Changes Jeremy
+	* r1494, 1483 docs/sys.txt, sys/sys.c: update documentation to
+	  include new options; add option to sys to force LBA or CHS
+	  usage, allow using BIOS specified boot drive # on floppy,
+	  add verbose output (debug prints), and reorder some steps in
+	  copy() to avoid some unnecessary disk swaps on single drive systems
+	* r1493 boot/boot.asm: add comment about location that may be
+	  modified by sys (and some whitespace changes due to editor)
+	* r1492 boot/makefile: create list file when assembling boot sectors
+	* r1489 kernel/main.c: update copyright year, add some comments
+	* r1488 kernel/kernel.asm: mark unused space in kernel for unused win
+	  compatibility structs
+	* r1487 hdr/lol.h, hdr/win.h: comment/structure info update
+	* r1486 hdr/process.h: comments added
+	* r1485 hdr/device.h: comments added
+	* r1484 hdr/cds.h: update comments
+	* r1483 docs/sys.txt: update sys usage documentation
+	* r1482 boot/boot.asm, boot/makefile, boot/oemboot.asm,
+	  build.bat, default.bat, hdr/debug.h, kernel/{dosfns.c,init-mod.h,
+	  initdisk.c,inthndlr.c,prf.c,proto.h},sys/{fdkrncfg.c,makefile,sys.c}:
+	  update sys to current version, adjust printf to support
+	  percent modifier, consistent prototype, and handle text not in
+	  current segment (FAR *) better, merge part of simplified debug (via
+	  prints) support
+	* r1467 kernel/makefile, mkfiles/generic.mak: update build process to
+	  include country.sys
+	* r1466 kernel/country.asm: sync country source with latest from
+	  eduardocasino.es site
+	* r1465 kernel/country.asm: add source for country.sys from dev
+	  branch
+	* r1456 hdr/version.h, kernel/globals.h: simplify how version
+	  specified, enable SVN builds with revision#
+	* r1455 build.bat: add convenience options to build.bat for setting
+	  various defines
+	* r1454 default.bat: clear some additional env variables
+	* r1431 kernel/makefile, utils/exeflat.c: More verbose output of UPX
+	  method (sys or exe) used and fix case without UPX so kernel boots.
+	* r1385 docs/fdkernel.lsm, hdr/version.h: update version # in
+	  preparation for next release and to avoid confusion between svn and
+	  release kernels
+
++ Changes Bart
+	* r1491 hdr/debug.h, kernel/{init-mod.h,kernel/int2f.asm,nls.c,prf.c, 
+	  proto.h}, sys/{fdkrncfg.c,sys.c}: Use near pointers for printf()s
+	  where possible. Problematic is only the case where SS!=DS (which 
+	  happens sometimes in resident code), in which case va_list/va_arg
+	  need to use FAR pointers. DS!=DGROUP never works, so I corrected 
+	  that for NLS_DEBUG, by setting DS in int2f.asm.
+	* r1490 kernel/fatfs.c: Check the BPB instead of the DPB for FAT32
+	  after a BUILDBPB device call, as the DPB may still be uninitialized
+	  at this point. Fixes FAT32 drives in USBDRIVE (http://bretjohnson.us)
+	* r1480 utils/exeflat.c: Corrected a bug in exeflat: it was writing
+	  32 bytes too many from possibly unexisting buffers after compressing
+	  exe files.
+	* r1479 kernel/{initdisk.c,newstuff.c}: Corrected DEBUG #if to
+	  #ifdef for Turbo C and corrected debug printfs in truename().
+	* r1478 kernel/newstuff.c: Simplified truename(): eliminated the
+	  addSep state by adding a backslash in every new segment, including a
+	  trailing backslash. Simplified . and .. logic. Converted switch to if
+	  because there were few cases left.
+	* r1477 kernel/dosfns.c: DosChangeDir can only return DE_PATHNOTFND
+	  in case of error, so force that error code.
+	* r1476 kernel/dosfns.c: Remove the wildcard check for DosChangeDir()
+	  because truename() already does that.
+	* r1475 kernel/newstuff.c: Use simpler code for copying the current
+	  directory constructing the "truename": instead of fmemcpy followed by
+	  strcpy, just use strcpy. Also use the near TempCDS more.
+	* r1474 kernel/newstuff.c: Unify parse_name_ext for name and
+	  extension and inline this function into truename(). This is an
+	  optimization (200 bytes).
+	* r1473 kernel{fatdir.c,fatfs.c,newstuff.c}: If the current directory
+	  is no longer valid, call dos_cd() for the root to update the CDS
+	  cluster. Call media_check explicitly in truename() as a central 
+	  first and only place in directory-using DOS calls (except
+	  DosFindNext) to call it.
+	* r1472 kernel/{dosfns.c,newstuff.c}: The original DosGetCuDir
+	  is now inlined in truename(). DosGetCuDir now does truename("D:",
+	  CDS_MODE_SKIP_PHYSICAL), and this mode was changed to no longer call
+	  QRemote_Fn (int2f/ax=1123).
+	* r1471 kernel/newstuff.c: Fix truename("C:") where the current
+	  directory is different from the root: then it should not append a
+	  backslash.
+	* r1470 kernel/{inthndlr.c,makefile}: Turbo C 2.01 and Linux
+	  cross-compilation compatibility fixes.
+	* r1469 kernel/{inthndlr.c,task.c}: For self-owning PSPs do
+	  everything that a normal exit does except for closing files and
+	  releasing memory (see RBIL). Thanks to Christian Masloch.
+	* r1468 kernel/fatdir.c: Fix problem with cd\ reported by
+	  ibid_ag@lavabit.com on the mailing list.
+	* r1458 kernel/{blockio.c, fatfs.c, proto.h}: In case of
+	  "not sure" if the removable media has changed, the IBM PCDOS
+	  technical reference says to call BLDBPB if there are no used buffers,
+	  so we only do it then, instead of flushing the buffers.
+	* r1457 hdr/{xstructs.h, inthndlr.c}: Merged int21/ax=7304,
+	  subfunctions 3 and 4, which work very similarly.
+	* r1453 kernel/fatfs.c: Set the clean bit also on created/replaced
+	  files, not just opened files, so the directory entry is only updated
+	  after they are written too. Fixes SF bug #2380531.
+	* r1452 kernel/initdisk.c: Use a better formula for calculating FAT12
+	  clusters, by multiplying nominator and denominator by 3.
+	* r1451 kernel/{fatfs.c, initdisk.c}: initdisk: further	optimizations
+	  in CalculateFATData(): merging the FAT16 & FAT32 loops. 
+	  fatfs: #if DEBUG fix.
+	* r1450 kernel/initdisk.c: Optimized initdisk.c by using constants
+	  instead of variables where possible.
+	* r1449 kernel/config.c, kernel/config.h: Removed unused config
+	  variables and don't detect 'y' and 'n' if we're using toupper anyway.
+	* r1448 hdr/{fat.h, fatfs.c}: Cluster optimizations, mainly for FAT32
+	  eliminated checkdstart, replaced (cl == FREE || cl == 1) by (cl <= 1),
+	  UWORD cluster cast for FAT12/16, and merge if branches for link_fat().
+	* r1447 kernel/fatfs.c: Merged if status==S_OPENED logic in dos_open,
+	  cache dir_attrib, and remove unnecessary init to 0.
+	* r1446 kernel/config.c: Make the built-in COUNTRY table more compact
+	  and allow to merge duplicate strings for error message.
+	* r1445 kernel/fatfs.c: Optimization: changed find_fname() to call
+	  split_path() because find_fname was always preceeded by split_path().
+	  The return code is now an error code, DE_FILENOTFND, DE_PATHNOTFND,
+	  or SUCCESS, depending on the failure.
+	* r1444 kernel/{fatdir.c, fatfs.c, proto.h}: Added a
+	  split boolean argument to dir_open so the trick with setting the
+	  dir/filename separator to 0 can be avoided, and we don't need to
+	  calculate its location in split_path(). Without the trick many more
+	  char * path arguments in the kernel can become "const char *".
+	* r1443 utils/exeflat.c: Use tmp.exe instead of tmp$$$$$.exe -- the
+	  Linux cross compilation really has trouble without quotes because $$
+	  can be expanded as a shell variable when passed to system().
+	* r1442 kernel/{dosnames.c, fatfs.c, makefile, proto.h}:
+	  Remove dosnames.c and inline ParseDosName, because there is only one
+	  user left (split_path()) which only uses it to find out if the path 
+	  ends in a backslash and the length of the directory part.
+	* r1441 kernel/{dosnames.c, fatdir.c, fatfs.c, proto.h}:
+	  dos_findfirst() now uses split_path(). The only thing
+	  that needed to be added was the need to check for "d:\" paths which
+	  return DE_NFILES. Also, findfirst("d:\nonexist\*.*",D_VOLID) should
+	  fail even if it actually searches in d:\.
+	* r1440 kernel/{dosnames.c, newstuff.c}: The invalid pathname
+	  character detection is moved from ParseDosName (dosnames.c) to
+	  truename (newstuff.c), because TRUENAME should check these characters
+	  before passing paths on to fatfs.c & fatdir.c.
+	* r1439 kernel/fatdir.c: Corrected the if-statement && logic for
+	  attributes in the findnext loop.
+	* r1438 kernel/{dosfns.c, fatdir.c}: Make findfirst/findnext
+	  more MSDOS compatible:
+	  * ignore 0x40 (D_DEVICE) in search attribute.
+	  * if you specify D_VOLID + one or more of D_HIDDEN, D_SYSTEM, and
+	    D_DIR you will get files *and* volume labels in the specified
+	    directory, not forced to the root directory.
+	  * VOLID searches must look at the search pattern name too,
+	    or do not match.
+	* r1437 kernel/{dosfns.c, fatfs.c}: For read/write don't update
+	  sft_posit in dosfns.c anymore so fatfs.c takes care of it.
+	* r1436 kernel/{fatdir.c, fatfs.c}: Remove usage of the fnode
+	  f_flags field where it is not relevant anymore. Because of the
+	  explicit dir_write() calls we only need them in situations where SFTs
+	  where used, that is for open files but not for directories.
+	* r1435 kernel/{fatdir.c, fatfs.c}: Eliminate fcbname[] on the
+	  stack: we can use dm_name_pat in the dirmatch structures instead.
+	* r1434 kernel/asmsupt.asm: %if 0 unused asm functions and fix a
+	  stack return problem with fstrcmp.
+	* r1433 kernel/{dosnames.c, fatdir.c, fatfs.c, proto.h}:
+	  Split 8.3 FCB-style filename extraction from ParseDosName
+	  into a new ConvertNameSZToName83 function, also used by dir_open().
+	* r1432 hdr/fnode.h, kernel/{fatdir.c, fatfs.c, globals.h, init-mod.h,
+	  kernel.asm}:
+	  Move the fnode fields f_diroff and f_dirstart into a referenced 
+	  directory match structure with fields dm_entry and dm_dircluster.
+	* r1430 hdr/nls.h, kernel/{config.c, init-mod.h, inthndlr.c, intr.asm,
+	  kernel/nls.c, kernel/nls_hc.asm, kernel/proto.h}: 
+	  Ported COUNTRY.SYS support from the unstable branch.
+	  Simple country support is kept: COUNTRY=31 will look for country.sys
+	  but if it does not exist, not complain and load the built-in info.
+	* r1429 hdr/sft.h, kernel/{dosfns.c, inthndlr.c, proto.h}: Seek changes:
+	  * merge unstable kernel optimizations
+	  * enable seek for int2f/AX=1228
+	  * -1 is a valid offset, so we need to process the return code
+	    seperately
+	* r1428 kernel/dosfns.c: Merge pop_dmp optimization from the unstable
+	  kernel.
+	* r1427 kernel/ioctl.c: This change was missed, as the changelog
+	  mentioned it was in 2035a already: r_si/r_di contents added as
+	  documented in PC-DOS Technical Update. I also moved the CharReqHdr
+	  filling in to just before execrh, and made the command table a static
+	  const so it is outside the SDA (OW places it in CONST2).
+	* r1426 kernel/ioctl.c: Optimization: move the attribute checks down
+	  and localize some variables.
+	* r1425 kernel/ioctl.c: Streamline ioctl.c code so OW saves 2 more
+	  words of stack.
+	* r1424 kernel/ioctl.c: r1115 set the dpb_subunit but that was wrong
+	  for get_cds() called from AX=4409. Use a local variable unit to avoid
+	  that, and simplify the AX=4409 logic like in the unstable kernel.
+	* r1423 kernel/ioctl.c: Inline ioctl helper routine back again. Save
+	  stack by using the dev variable that points to the device smartly.
+	* r1422 kernel/ioctl.c: Split DosDevIoctl into two calls so execrh
+	  can be called with minimal stack usage. Always return DE_ACCESS when
+	  the device fails instead of DE_DEVICE, as DE_DEVICE is only used for
+	  renames between devices that are not the same.
+	* r1421 kernel/fatfs.c: Introduce clear_dir() to clear a directory,
+	  this was code shared between dos_mkdir() and extend_dir(). Now
+	  dos_mkdir() calls this function to clear the new directory, and then
+	  creates the . and .. entries using higher level functions instead of
+	  dealing with the blocks directly.
+	* r1420 hdr/{fnode.h, sft.h}, kernel/{fatdir.c, fatfs.c}: Make
+	  the fnode f_flags completely equal to the SFT sft_flags. Rename
+	  SFT_FDIRTY to SFT_FCLEAN to avoid confusion.
+	* r1419 hdr/fnode.h, kernel/{fatdir.c, fatfs.c}: Eliminate the
+	  fnode F_DDIR flag which has no SFT equivalent: f_sft_idx==0xff can do
+	  the same. rwblock() is never called for directories so the checks
+	  could be removed.
+	* r1418 kernel/fatfs.c: Flip target and source checks to avoid
+	  calling ParseDosName for in-directory renames. Do not allow to rename
+	  directories between different directories.
+	* r1417 kernel/fatfs.c: RENAME: if the source and target directories
+	  are the same, rename the directory entry in-place instead of creating
+	  a new one and deleting the old one. Fixes archived bugzilla bug:
+	  http://www.freedos.org/bugzilla/cgi-bin/show_bug.cgi?id=1908
+	* r1416 kernel/fatfs.c: Change dos_rmdir to only use 1 fnode. It now
+	  first checks if the directory is empty and then opens the parent and
+	  deletes the real directory. No longer returns DE_FILENOTFND(2), but
+	  return DE_PATHNOTFND(3) instead.
+	* r1415 hdr/dirmatch.h: Cleanup dirmatch.h: make attributes and size
+	  unsigned, and make the unused dm_flags field reserved.
+	* r1414 kernel/{dosfns.c, proto.h, task.c}: Introduce get_cds1 to merge
+	  common code that checks for 0=default_drive,1=A,etc.
+	  Make load_transfer() static.
+	* r1413 kernel/chario.c: Inline cooked_write_char() into cooked_write().
+	* r1411 kernel/fatfs.c: Fix compilation with Turbo C.
+	* r1410 kernel/{fatdir.c, fatfs.c, proto.h}: Eliminate dir_close().
+	  Its only purpose left was to flush buffers, which isn't necessary
+	  after just open/read, so we can move that to dir_write().
+	* r1409 kernel/{dosfns.c, fatfs.c}:
+	  Move the open/creat access checks to more efficient places.
+	* r1408 kernel/fatfs.c: Make merge_file_changes more direct dealing
+	  with SFTs and merge the "close open files setfattr wants to change"
+	  functionality there.
+	* r1407 kernel/dosfns.c: Eliminate DosGetFile -- it is no longer
+	  necessary because the filename is already copied from the fnode.
+	* r1406 kernel/dosfns.c: Fix a regression with sft_flags overwriting
+	  what dos_open wrote so file dates/times would always be updated, even
+	  for reads!
+	* r1405 kernel/{dosfns.c, fatdir.c, fatfs.c, fcbfns.c, proto.h}:
+	  Eliminate dos_setfsize, dos_setftime, and dos_lseek, by just using
+	  the SFT. dos_setfsize	still needed to merge changes for SHARE so the
+	  call was replaced by a new dos_merge_file_changes() call.
+	* r1404 hdr/fnode.h, kernel/{fatdir.c, fatfs.c}: Eliminate
+	  xlt_fd(), save_far_f_node(), and the redundant fnode f_mode field.
+	* r1403 kernel/{dosfns.c, fatfs.c}: Let merge_file_changes
+	  operate directly on the other SFTs. dos_setfattr with SHARE now
+	  closes open SFTs referring to that file in compat mode.
+	* r1402 kernel/fatfs.c: Fix SFT/fnode fields so the SHARE related
+	  functions is_same_file() and merge_file_changes() work.
+	* r1401 hdr/fnode.h, kernel/{fatfs.c, globals.h}: Remove
+	  redundant checks for fnodes==0 since the checks are done in dosfns.c.
+	  Replace global f_nodes[] array by f_sft_idx fields in the fnodes.
+	* r1400 hdr/sft.h, kernel/{dosfns.c, fatfs.c, fcbfns.c,	proto.h}:
+	  Eliminate the sft_status field as it is now equal to the SFT index.
+	* r1399 kernel/{dosfns.c, fatfs.c, proto.h, task.c}:
+	  Eliminate dos_getftime, dos_getfsize, and dos_getfattr_fd, because we
+	  can now get these properties directly from the SFT.
+	* r1398 hdr/fnode.h, kernel/{fatdir.c, fatfs.c, proto.h}:
+	  Eliminate f_count field in fnodes and some no-op functions.
+	* r1397 hdr/{fnode.h, lol.h}, kernel/{config.c, dosfns.c, fatfs.c,
+	  globals.h, kernel.asm, proto.h}:
+	  This is the main change to eliminate far fnodes. SFT info is copied
+	  from and to the two near fnodes. Some cleanups still follow.
+	* r1396 hdr/sft.h:
+	  Make the SFT DOS 4+ compatible and change fields to be unsigned.
+	* r1395 kernel/dosfns.c:
+	  Handle sft_count before calling dos_open and after calling dos_close
+	  so the SFT is open for longer, during fatfs.c	operations.
+	* r1394 kernel/prf.c: Fix compilation with -DDOSEMU set.
+	* r1393 kernel/{dosfns.c, fatfs.c}: Handle dos_getfattr and
+	  dos_setfattr directly at the directory level, instead of opening the
+	  file, to avoid needing to claim SFTs in later changes. Clarify and
+	  implement parts of the correct SHARE behaviour.
+	* r1392 hdr/fat.h, kernel/{fatdir.c, fatfs.c, proto.h}:
+	  On close or commit, only update those directory entry fields that
+	  have an SFT equivalent. The rest stays unmodified on disk.
+	* r1391 kernel/{fatdir.c, fatfs.c}: Use explicit dir_write()
+	  instead of letting dir_close() do the writing. This is to prepare for
+	  an updating version to deal with SFTs.
+	* r1390 hdr/fnode.h, kernel/fatdir.c: Add f_dirsector (sector
+	  containing dentry) and f_diridx (index within sector) fields to the
+	  fnode, to make fnodes more compatible with SFTs. Use them to simplify
+	  dir_read() and dir_write().
+	* r1389 kernel/{fatdir.c, fatfs.c, globals.h, inthndlr.c, lfnapi.c, 
+	  proto.h}: Force near fnode use to use either fnode[0] or fnode[1] 
+	  instead of the allocation scheme. This eliminates the checks
+	  done in inthndlr.c because the f_count field is no longer checked.
+	* r1388 makefile, mkfiles/owlinux.mak: Change Linux makefiles to only
+	  update what is necessary for subsequent makes.
+	* r1387 config.m, docs/build.txt, drivers/makefile, kernel/{makefile,
+	  segs.inc}, makefile, mkfiles/{generic.mak, owlinux.mak, watcom.mak}, 
+	  sys/makefile, utils/{exeflat.c, makefile}:
+	  Add Linux cross-compile capability, using Open Watcom:
+	  * Flip \ to /	where possible.
+	  * Introduce $(DIRSEP) (/ or \) for use inside commands in
+	    makefiles where / won't work in DOS.
+	  * Override various settings for Linux in owlinux.mak.
+          * Add quotes in exeflat.c to avoid shell expansion of $$$$$.
+          * Let "make all", "make clean", and "make clobber" do the job.
+	* r1386 utils/echoto.bat: OW 1.8 MS2WLINK is too picky about leading
+	  and trailing whitespace so echoto is changed to not generate any.
+
+2009 May 16 - Build 2038
+-------- Pat Villani, Bart Oldeman, Eric Auer
+
+Thanks to Geraldo Netto for summarizing the 2008 SVN changelog. See also:
+http://freedos.svn.sourceforge.net/viewvc/freedos/kernel/trunk/?view=log
+Patches are mostly from Bart and Eric, some from Jeremy and Tom.
+
++ Changes Jeremy 2009
+
+	* r1412 from Eric: update this history.txt (and bugs.txt, contrib.txt)
+	* r1381-r1384 update bugs.txt version.h LSM, tag SVN for 2038 release
+	* r1374, r1380 fcbfns FCB open old GEM compat (bigsize/recsiz/recno)
+	  http://sf.net/tracker/?func=detail&aid=2253450&group_id=5109&atid=355109
+	* r1379 dosfns.c fatfs.c proto.h from Eric: only check for SHARE on
+	  open/close, avoid extra 2f.1000 calls.
+	* r1378 dsk.c from Lucho: Press any key, not Press the any key  ;-) 
+	* r1377 initdisk.c from RayeR: Use total cyl count, not max cylinder
+	  (fixes off by one bug on non-LBA PC) & fix overflow by ULONG cast.
+	  Improve DebugPrintf calls, fix format string (only in debug kernels)
+	* r1376 inthndlr.c from Tom: 21.1c return AL=0xff for invalid drives
+	  (fixes bug for apps which use int 21.1c to find FAT drive letters)
+	* r1372, r1375 from Bart: process.h/entry.asm make CP/M call PSP[5]
+	  work (1 line jbe versus ja fix and detailed comments about stack)
+	  This fixes SF tracked bug 2421577.
+	* r1373 kernel.asm add : after _HMATextAvailable avoid nasm warning
+	* r1371 watcom.mak make sure even Windows Watcom C builds a DOS SYS
+	  (would otherwise make a SYS meant for use in Windows by default)
+	* r1370 default bat make compiling without UPX possible again
+	* r1369 let DosGetExtFree 21.7303 accept drive with and w/o slash
+	  This fixes SF tracked bug 2380828 (GetDiskFreeSpaceEx if no slash)
+	* r1368 tag for ke2038test
+
++ Changes Bart + Eric (mostly)
+	* r1367 sys.c from Bart: 32bit date/time if WATCOMC 1279+ (OW 1.8)
+	* r1366 config.c, config.txt allow BUFFERSHIGH as alias to BUFFERS,
+	  buffers are in UMB, we use HMA anyway. Drop unused int 16.1 call.
+	* r1365 inthndlr.c allow/ignore type hints in int 21.7305 disk read
+	* r1364 fdkernel.lsm and version.h updated to 2038 / Apr 2008
+	  Updated this history.txt changelog to state of April 2008
+	* r1363 add Geraldo (changelog) and Fritz (docs) to contrib.txt
+	  New version of config.txt - verbose, readable, up to date
+	* r1362 update readme.cvs - add info about SVN / subversion
+	* r1361, 1355 update information about bugzilla. You can also
+	  write the maintainer or mailinglist but we prefer bugzilla...
+	  Add information about SourceForge feature request tracker, too
+	* r1360 new Free Software Foundation (FSF) mail addr in COPYING
+	* r1359 BIOS y2k bug workaround: If BIOS date 1900..1979, assume
+	  date 2000..2079 (we only read CMOS date at boot) Fix bug 1748
+	* r1358 more secure FAT handling to avoid crosslinks if reboot
+	  with open files: Thanks to Hardi Stengelin for research help;
+  	  always test link_fat result, new is_free_cluster, checks in
+	  link_fat and next_cluster (bad index/value, bad chain / extend
+	  -> warning). Do link_fat before setdstart. Lazy FS INFO writes
+	* r1357 truename must use the current working directory of the
+	  created-by-subst virtual drive when it resolves relative paths
+	  even though the "real" drive/dir are returned in the end. Note
+	  that "subst e: d:\" shows a warning as it tries "mkdir d:\"
+	  Fixes bug 1862 "CHDIR fails on substituted drives"
+	* r1356 SYS has to update the backup boot sector of FAT32, else
+	  dosfsck would show a warning about a boot / backup mismatch
+	* r1354 Use _dos_allocmem for OW, similar to Turbo C version
+	  Split file copy into readfile and writefile, nicer source code
+	  Preserve time and date of kernel.sys and command.com
+	* r1353 let exeflat call UPX, simpler makefile as in unstable branch
+	* r1351, 1352 exeflat reorganization, no functional changes
+	* r1350 add ASM/CDECL to HaltCpuWhileIdle decl, fix Turbo C compile
+	* r1349 change copy() in SYS to "read to RAM, update boot, write to
+	  disk", reduces disk changes on single floppy PC, fixes bug 1840
+	* r1348 treat load image size of EXE modulo 1 MB, do not abort if
+	  size > 1 MB. Fixes bug 1854, Turbo C++ 3: paras=(word)(pages<<5)
+	* r1346 init HaltCpuWhileIdle to 0 before installing int handlers
+	* r1345 int 21.5a mktemp: only enforce root tempfile name if no dir
+	  is given in template *and* DOS version is 5.xx, else no dirspec
+	  Tried to make int 21.60 truename return 0 if okay, 3a00 if char
+	  device and not join/net?? Set default FAT16 DOS version to 6.22
+	  (was 5.0, only int 21.5a/21.60 and userland differ from 6.22)
+	* r1344 clarified intfns.txt for int 21.63 (country/nlsfunc), int
+	  21.71 (LFN) and int 21.5d0x (share). The latter would need both
+	  kernel and SHARE extension to be supported, neither are done yet
+	* r1341, 1343: fix Bochs incompatible (PostConfig crash) IRQTEXT,
+	  now with corrected segment loads in irqstack.asm (segs->groups)
+	  This fixes a problem introduced in SVN revision 1325/1326. We now
+	  have a "fastboot" int 19 reboot hook from Japheth's JEMM JEMFBHLP
+	* r1342 fix fat32readwrite prototype, reg use in detect LBA pragma
+
+
+2007 Jul 21 - Build 2036 svn, in other words, 2038 pre
+-------- Eric Auer (eric@coli.uni-sb.de)
+
+Thanks to Geraldo Netto for summarizing the SVN changelog - See also:
+http://freedos.svn.sourceforge.net/viewvc/freedos/kernel/trunk/?view=log
+All main features of Tom's fork are available in kernel 2038 now.
+
++ Changes Bart + Eric
+	* r1340 version 2038pre/2036svn (fdkernel.lsm, version.h, history)
+	* r1339 new IDLEHALT=n (HLT on idle, save energy) and KEYBUF=n[,m]
+          (relocate keyboard buffer, eg to 40:105-1ff) config.sys options
+	* r1338 removed "Dutch plurals" ("Dutch plural's" ;-))
+	* r1336-1337 disable interrupts while storing interrupt vectors,
+	  fix 8086 compatibility again
+	* r1335 use lastdrive Z for initial CDS, so device=f:... etc works
+	* r1334 fix bug 1953: int 21.29 now returns valid only for existing
+	  drives, not for all, and leave FCB empty/unset if no valid drive
+	  http://sf.net/tracker/?func=detail&aid=2362450&group_id=5109&atid=105109
+	* r1333 fix stack for UPX compression as .sys, fix size limit 65420
+	* r1332 fix F5/F8 zero timeout handling in GetBiosKey
+	* r1331 some config.txt / contrib.txt updates merged from UNSTABLE
+	* r1330 fix Turbo C compilation: nls.* adds ASM/CDECL nlsInfoBlock
+	  and makefile uses "$(COMSPEC) /c if exist" in UPX handling
+	* r1329 UPX compress kernels below 64k as .sys, save 2k disk space
+	* r1328 process relocations before compressing kernel, save 130 by
+	* r1327 use more flexible exeflat UPX trailer from unstable branch
+	* r1325-1326 new IRQTEXT segment, put pre-boot interrupt vectors
+	  at 70:100 so int 19 reboot with JEMM386 "fastboot" can work
+	  (see r1341, r1343: this introduced a later fixed problem...)
+	* r1324 add SHARE driver/TSR for file locking to main SVN branch
+	* r1323 fix bug 1956: use segment, not offset, for file handle NULL
+	  check - otherwise apps which allocate their own FILES can break
+	* r1322 fix problem with old game which uses findfirst attrib 77a8
+	  (do not return volume label as findfirst/findnext result here)
+	* r1320 add some comments about what intr() does
+	* r1319 read partitioning via CHS (unless Cyl>1023 / LBA forced via
+	  SYS CONFIG) for better compat with old boot managers like "PROT"
+	* r1318 avoid compile time warning with OpenWatcom 1.7 in-devel
+	* r1313 call_nls optimization: ID in high word of long, no pointer
+	* r1312 always set lr.ES just before break, so OW can tail merge
+	* r1308 avoid OW 1.6 warnings about functions redeclared as static
+	* r1307 fix OW warning about comparing unsigned int to <= 0...
+	* r1306 NUL device has to return 0 bytes for reads even in raw
+	  mode - fixes problem with DJGPP sed (possibly also bug 1793?)
+
++ changes merged from Tom's extra stable fork of kernel 2035a:
+	* r1321 only move EBDA if ramsize == peek(0, RAMSIZE)
+	* r1317 extra free of near f_nodes to avoid INT24 problems
+	* r1316 remove unused intr prototype for resident code,
+	  add dir kernel.exe to build process, cosmetic p=A -> p = A
+	* r1315 set OEM name in boot sector to FRDOS5.1 (5 uppercase
+	  letter, 4 or 5, dot, digit: Win9x seems to like that better...
+	* r1314 implement int 2f.4a00 "DJ style" floppy change call
+	  (let GUIs hook "Insert disk..." dialog on single floppy systems)
+	  Some forgotten bits of int2f.asm NLS related updates
+	* r1311 optimized method to set extended error (smaller)
+	* r1310 use a command table for IOCTL, save ca 83 bytes
+	* r1309 fix typo "booot"
+
++ these changes are already in FreeDOS 1.0 kernel 2036cvs Aug 18 2006:
+	* r1305 build system adjustments - suppress dos4g banner etc
+	* r1304 fix MS QB4 (QBasic/QuickBasic) problem, allow double free
+	  (freed MCBs are unlinked from the chain but not invalidated)
+	* r1303 only use 28 bits of FAT32, mask out others, add logging
+	* r1302 add COMn/AUX func 6 (input status), remove read wait for DSR
+
+
+2006 May 20 - Build 2036 cvs and 2037 test
+-------- Eric Auer (eric@coli.uni-sb.de)
+
+WARNING: This changelog entry is a draft! The cvs log contains
+  data for both HEAD and UNSTABLE branch while a cvs checkout
+  seems to return only the HEAD branch. This file history.txt
+  should describe "2036 cvs" HEAD and "2037 test" UNSTABLE
+  separately rather than in one merged changelog item.
+
+In addition, the "Changes Eric" items yet have to be ported to
+  the UNSTABLE branch and the version.h for UNSTABLE should say
+  "03 Mar 2006" "2037 test" (revision 37)...!
+
+Most recent changes to source code (see version.h) are:
+  HEAD 9 Sep 2005 (not counting the Korean stub and execrh change
+    by Eric, and not counting the version number change itself)
+  UNSTABLE 3 Mar 2006 (includes SYS changes, more Win3 support,
+    COM port output for debug print, the SHARE tool...)
+    The head to unstable diff in general is quite large. As a rule
+    of thumb, use UNSTABLE if you need NLSFUNC or Win3 386 mode or if
+    you need a very new kernel, and use HEAD if you need stability.
+
++ Changes Jeremy
+	* build.bat, config.b: UPX and WIN3 build options, for BUILDALL
+	* boot/oemboot.asm: set backup boot sector on FAT32, add update
+	  option, fix oemboot to work with msdos 7+, in UNSTABLE branch.
+	* docs/bugs.txt: update Bugzilla URL
+	* docs/config.txt: document SWITCHES, based on suggestions from Eric
+	* docs/contrib.txt, docs/fdkernel.lsm: new email address
+	* docs/sys.htm, docs/sys.txt: see oemboot.asm
+	* docs/sys.txt: better check for valid backup boot sector # and add
+	  option to skip setting it
+	* hdr/debug.h, kernel/prf.c: slight cleanup, send debug prints to COM
+	  port, allow printf to work correctly when SS!=DS, debug changes
+	* hdr/device.h: add comments about what flags mean
+	* hdr/portab.h: from dev: add MK_PTR and MK_SEG_PTR macros
+	  add/use halt() wrapper for issuing "hlt" asm instruction
+	* hdr/version.h: update version to 2035b-cvs (= not a release yet)
+	* kernel/config.c: fix read calls to detect error, from Eric / Brad
+	* kernel/console.asm, newstuff.c, prf.c, task.c: compile time option
+	  to send debug output to COM port ("serial debugging console")
+	* kernel/dosfns.c: do not compares filenames to name field in block
+	  devices, extra win3 support, misc debug output changes, IsDevice
+	  should not compare filenames against block device driver headers
+	* kernel/dsk.c: works towards better SS!=DS support, centralized
+	  debug macros, some comments
+	* kernel/entry.asm: more win3 support, debug output changes, comments
+	* kernel/execrh.asm: protect 386 registers, using hdr/stacks.inc
+	  macros (Watcom: FS, GS Others: high 16 bits of EAX EDX, for MSCL8
+	  also ECX, for BC5 also EBX), for ALL device driver calls. Without
+	  this, some versions of free-EMM386 crash 386 optimized kernels.
+	  See list archives 24 Jul 2005 and later.
+	* kernel/fatfs.c: don't leave fd open when failing DIR bit check
+	  bug 1874 fix, do not consider setting DIR bit an error for
+	  int 21/4301=set attribute, if really is a directory
+	  Added some disabled debug messages, improved win3 support.
+	* kernel/init-mod.h: allow printf to work correctly when SS!=DS
+	* kernel/initdisk.h: insure bpb_huge is initialized (zeroed) [merge
+	  from dev kernel], fake floppy ddt so hd access works correctly on
+	  floppyless systems, based on suggested fix from Eric
+	* kernel/int2f.asm kernel.asm main.c: initial BIOS disk int 13h wrapper,
+	  only passively detects and notes floppy disk change, more win3 support
+	* kernel/inthndlr.c: potential fix for spurious near fnodes!=0 msg with
+	  shsufdrv and >2 near fnodes in use for bug 1879, use halt() wrapper,
+	  more win3 support, some debug output changes.
+	* kernel/intwrap.asm: assembly glue to wrap misc interrupts with C
+	  handler, cleaner push immediate from Arkady and note big bug to be
+	  fixed, later moved to UNSTABLE branch (also affects makefile)
+	* kernel/proto.h: fix prototype, add FAR
+	  allow printf to work correctly when SS!=DS
+	* mkfiles/generic.mak: undo a local only change, build list option
+	  is proper way to do this. more win3 support, upx build option.
+	* mkfiles/watcom.mak: allow printf to work correctly when SS!=DS
+	* share/MAKEFILE, share/share.c, share/share.hlp: FreeDOS SHARE
+	  (initial revision, later moved to UNSTABLE branch)
+	* sys/fdkrncfg.c: sync printf prototypes (uncorrupt executables)
+	* sys/sys.c: sync printf prototypes (uncorrupt executables)
+	  better check for valid backup boot sector # and add option to skip
+	  setting it. set backup boot sector on FAT32, add update option,
+	  fix oemboot to work with msdos 7+
+
++ Changes Eric
+	* kernel/globals.h changed the os_release version message to be
+          "build 2036 cvs [version Sep 09 2005 compiled May 20 2006]" as
+	  opposed to the old
+	  "version 1.1.35 (Build 2035b-cvs) [Jul 23 2005 12:34:56]"
+	  -> removed the "1.1.35" and compile TIME, added SOURCE DATE
+	* hdr/version.h removed some no longer used version defines
+	  Changed build to "2036 cvs" (revision 36)
+	  WARNING: Version should be "2037 test" (revision 37) for UNSTABLE!
+        * docs/history.txt: summarized log -d '>Feb 25 2005' kernel for this
+	  WARNING: some of the described changes might be available only
+	  in the UNSTABLE cvs branch (like SYS OEMBOOT, Win3, COM port
+	  output for debug print, the SHARE tool, ...)
+	* kernel/execrh.asm: removed the "protect 386 registers" patch
+	  again, a fixed version of free-EMM386 is available. This reduces
+	  device driver call overhead in terms of CPU and stack usage.
+	  Older EMM386 versions destroyed eax ebx ecx edi esi ebp fs gs,
+	  now go_driver_entry in emm386.asm saves those registers. Only the
+	  INIT was broken, but the execrh.asm patch protected ALL functions.
+	* share/share.c: changes to reduce TSR memory footprint
+	* kernel/inthndlr.c: added stub for function 0x6301/0x6302 Korean
+	  Hangul keyboard input methods (0x63xx is DBCS support related)
+	* docs/intfns.txt: updated list of supported DOS functions. When
+	  DOSLFN is loaded for int 21.71, only remaining unsupported int
+	  21 functions are 21.4b05 (set execution state), int 21.63xx
+	  (DBCS / Korean Hangul, see above) and int 21.5d01 - 21.5d05
+	  (close files by name/computer/task, list open files, commit all)
+	* made linebreaks in all batch files use CR LF, as Unix line breaks
+	  confuse command.com, leading to "early abort" or "endless loop"
+
++ Changes Lucho
+	* kernel/chario.c: Fix Ctrl-Z bug and retro-optimise a bit
+	* kernel/config.c, sys/sys.c: Fix BC 3.1 CONFIG.C compile and
+	  SYS Abnormal Program Termination error for BC
+	* sys/sys.c: fix update option (compared too many characters)
+
++ Changes Eduardo
+	* kernel/config.c: fix Spanish (34, not duplicate of 33)
+	* kernel/inthndlr.c: add int 2f subfunc 122B and 122D
+
++ Changes Jason
+	* kernel/fatfs.c: extended DPBs and Set Extended Error function
+	* kernel/inthndlr.c, kernel/proto.h: same
+
++ Changes Arkady
+	* kernel/inthndlr.c: use direct access instead of reading from copy
+	  made on stack
+	* kernel/intwrap.asm, kernel/kernel.asm: cleaner push immediate from
+	  Arkady and note big bug to be fixed
+
++ Changes Michael
+	* share/share.c: bugfixes
+
++ Changes Japheth
+	* share/share.c: HXDOS related improvements
+
++ Changes Bart
+	* kernel/main.c: patch to make device=f:\foo.sys work. String printf
+	  optimisation
+
+
+2005 Feb 25 - Build 2035a
+-------- Jeremy Davis (jeremyd@computer.org)
++ Changes Bart
+        * int2f.asm: call_nls: DI register was not preserved (bug 1812)
++ Changes Arkady
+	* floppy.asm: fix epilog for FL_SETMEDIATYPE & FL_SETDISKTYPE
+	  to use 'ret' instead of 'ret 8'; improve comments
+	* entry.asm: use unsigned comparision instead of signed
++ Changes Lucho
+	* dsk.c: text in play_dj
+	* fatfs.c:
+          - zero creation/access stamp on directory entry write as MS-DOS 7.10
+          - prevent removal or renaming of the current directory of that drive
+	* ioctl.c:
+	  - r_si/r_di contents added as documented in PC-DOS Technical Update
+	* inthndlr.c
+	  - fix: for INT21/5F07 and 5F08, before changing bit CDSPHYSDRV,
+	    MS-DOS checks if physical device associated with drive letter. Without
+	    this check MS-FORMAT under FreeDOS was destroys RAMDISK.
+	  - zero serial number of Int 21h/30h (else buggy 32RTM thrashed stack) [& Bart]
+	  - set AX = ES after Int 21h/4Ah (undocumented but expected by BRUN45)
+	    (the last 2 changes needed to fix bugs discovered by Michael Devore)
+	  - added Int 2Fh/2Fh processing to set DOS version as per MS-DOS 4.0
++ Changes Eduardo
+	* inthndlr.c: added Int 2Fh/26-29h processing for NLSFUNC (with Lucho)
+
+
+2004 May 30 - Build 2035
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Lucho + Tom
+	* config.c, fatfs.c, globals.h, init-mod.h: From Tom: must
+	  set r_bpfat for C_BLDBPB, otherwise USBASPI.SYS, DI1000DD.SYS
+	  won't like us. From Lucho: use DiskTransferBuffer for deblock_buf.
++ Changes Lucho
+	* docs/fdkernel.lsm, stacks.inc, version.h,
+	  entry.asm, inthndlr.c, io.asm, nlssupt.asm: no need to preserve
+	  high part of ecx for Borland, ebx for MSVC
+	* device.h, dsk.c, init-mod.h, ioctl.c:  MSC fixes and small cleanup
+	* ioctl.c: Cache attr and control flow optimizations (~120 bytes)
+	* device.h, dsk.c, ioctl.c: deal with the correct
+	  structure for generic and query ioctls. Fixes issues with
+	  3rd party device drivers (or ones that use dsk.c)
+	* dosfns.c, inthndlr.c, proto.h: Merge dosmkdir and dosrmdir
+	* config.c: strcasecmp and set_strategy common code optimizations.
+	* main.c: Add necessary cast for BC
+	* portab.h: Avoid problem with BC declaring __emit__, en/disable twice.
+	* dsk.c: DJ mechanism without memcpy.
+	* newstuff.c: replace loops by fmemset/fmemcpy (43 bytes)
+	* dosfns.c, fatdir.c, fcbfns.c, ioctl.c: Some small cleanups.
+	* config.c: GetNumArg and misc other cleanups
+	* time.h, fatfs.c: converted TM_ENCODE into a function.
+	* inthndlr.c, proto.h, fatfs.c: Inlined dos_setdta.
+	  Various bug fixes and cleanups from Lucho and Arkady.
+	* inithma.c: moved fmemcmp's into a checkHMA function.
+	* inithma.c: HMAFree == 0xfff0 - bytesToAllocate
+	  is valid and may happen if the buffers occupy exactly all HMA
+	  space up to and including the last byte at ffff:ffff. Failing
+	  caused all buffers to go low ...
+	* inthndlr.c: cleanups (merge common code into long_check and
+	  short_check). Made int21/3301,2e,54 consistent with MSDOS
+	  behaviour.
+	* globals.h, task.c, main.c: Convert setvec into a function
+	  for the resident code
++ Changes Arkady
+	* initdisk.c: initdisk optimizations (65 bytes) and is_suspect fix.
+	* config.c, init-mod.h, intr.asm: optimized allocmem()
+	* fattab.c, kernel.asm: optimizations
+	* main.c: Make signon one big printf function call.
+	* ioctl.c: bugfix for INT21/440b (change NetRetry if DX is _non_zero).
+	* inthndlr.c: cntry == 0 doesn't make sense for Set Country
+	  Information. Fix int21/5e02+
+	* sys/talloc.c: Turbo C really wants unsigned __brklvl. Only shows
+	  up if you enable stack checking.
++ Changes Bart
+	* memmgr.c, proto.h, inthndlr.c: DosUmbLink no longer
+	  tries to merge free blocks. Also cleaned up a bit.
+	* inthndlr.c: Fix int21/3302 (the swap was wrong, Lucho & Bart)
+	* config.c: Pointer-ise specificCountriesSupported accesses.
+	* config.c: Reorganized GetBiosKey a bit -- inlining
+	  GetBiosTime saves a slight amount of code, converted timeout < 0
+	  to a blocking read instead of polling.
+	* config.c: Use strcaseequal instead of strcasecmp since we
+	  never care about order anyway.
+	* chario.c: Fix problem with redirected input and
+	  int21/ah=0a (debug < foo.txt) -- could get you an invalid opcode!
+	* console.asm, main.c, prf.c: Use int29 for kernel console
+	  output. Enables ansi escape sequences in config.sys once you load
+	  nansi.sys. It also saves a couple of bytes.
+	* newstuff.c, proto.h: made dosmktmp to return a long:
+	  consistent with DosOpen et al and avoids the cast.
+	* mkfiles/tc2.mak: Let TC2 warn for the utilities.
+	* config.c: Disabled EBDA moves by default. Automatic EBDA
+	  moves now happen using switches=/e:-1
+	* config.c: Pointer-ize MenuStruct[MenuSelected]... (from
+	  Lucho). and InstallCommands[i].  (from Bart). Some other small
+	  optimizations.
+	* memmgr.c: Some small optimizations (46 bytes) and dead
+	  code removal from Lucho and Bart
+	* init-mod.h: Need to define strchr to init_strchr otherwise
+	  the wrong one may be called.
+	* initdisk.c: Do a bit of printf merging.
+	* filelist, drivers/makefile, init-mod.h, inthndlr.c,
+	  task.c, globals.h, main.c: Convert getvec into a C function.
+	* int2f.asm: Clean up int2f assembly a bit (merge some
+	  common bits, clarify label names)
+	* fatfs.c, fattab.c: fattab.c now remembers if the old FAT
+	  entry was free or not, so the free space adjustment could be
+	  moved back to fattab.c.
+	* init-mod.h: Replaced setvec macro by a function.
+	* entry.asm, inthndlr.c: Made int21/ah=25,35 reentrant.
+	  Solves problem with Intel PRO/1000 driver.
+	* portab.h, globals.h, main.c: Initialise all int
+	  vectors except the ones at 70:xxxx using a table.  Convert setvec
+	  into a function that disables/enables ints (init code only for
+	  now, resident code will follow later); cli/sti (disable/enable)
+	  are now macros (inlined).
+	* fnode.h, fatdir.c, fatfs.c: dir_read() no longer updates the
+	  diroff counter. This eliminates the NEW field,
+	  simplifies remove_lfn_entries(), and avoids a bug if you delete
+	  the first entry in the root directory on FAT32.
+	* fattab.c: Stop abusing "idx". The OW optimizer likes this better,too.
+	* fattab.c: Clean up FAT12 handling -- there's a portable
+	  approach that's small too.
+	* fattab.c: Inlined much of getFATblock() into link_fat.
+	  Saves the idx reference.  The second call (for a FAT12 entry that
+	  is divided in two sectors) can be much simpler, no need to
+	  recalculate. Merged next_cluster and link_fat into one
+	  function depending on a special Cluster2 value.
+	* fattab.c: Calculate the nibble/word/dword index of the FAT
+	  entry in the sector centrally in getFATblock.
+	* fattab.c: "clussec" can be of CLUSTER size if we divide by
+	  an adjusted "words per sector"(FAT16), or "dwords per
+	  sector"(FAT32) value instead of multiplying it first. For FAT12
+	  the *3/2 works out a little differently: here we first multiply
+	  by 3 and then divide by the number of "nibbles per sector".
+	* main.c: Config.cfgInitTail is a pointer now so sizeof
+	  isn't good. Just using strcpy helps F5 and F8.
+	* main.c: "copyright" is near now so we have to use %s and not %S
+	* blockio.c, dosfns.c, int2f.asm, network.c, proto.h, task.c:
+	  reduced the number of network redirector functions in
+	  int2f.asm. The remote_ functions (with one far pointer
+	  argument) are now called with the help of a
+	  network_redirector() wrapper in C by one multiplex function
+	  using a generic void *arg argument to pass the third
+	  parameter which can be various things.
+	  Split int2f.asm functions, don't let them preserve as many
+	  registers, use pascal calling convention for the "open"
+	  (but really: multiplex) function.
+	* dsk.c: floppy determination type optimization for format --
+	  based on Arkady's suggestions a long time ago.
+	  + a few other small optimizations (~70 bytes total).
+
+
+2004 Apr 17 - Build 2034
+-------- Bart Oldeman (bart@dosemu.org)
+    * break.c, chario.c, inthndlr.c, proto.h: Improve ctrl-c/ctrl-break
+      handling:
+      - read_char_sft_dev handles ^C at a fairly high level.
+      - ^C didn't work for int21/ah=3f. Corrected
+      - Do_DosIdle_loop still needs to wait even if it doesn't call the
+        idle int
+      - ^C needs to be echoed to STDOUT for low character functions
+        (ah<0xd) but to the device that is read from for handle
+	functions. So we need to pass either the STDOUT sft or that
+        device on to the ^C echoer which now correctly prints ^C\r\n.
+      - misc cleanups in break.c.
+    * main.c: Move memset up a little else it would overwrite too much.
+    * build.txt, config.c, init-mod.h, initdisk.c, inithma.c, main.c: Lucho
+      reported that MSC compiled kernels now work after all. Let's mark
+      those nasty "BSS" variables explicitly then to try to avoid
+      future problems. Also DATASTART should be FAR and not DOSFAR for MSC
+    * stacks.inc, generic.mak, entry.asm, int2f.asm, kernel.asm, segs.inc:
+      (suggested by Arkady): use CPU to enforce 8086 etc instructions.
+    * ioctl.c: Correct int21/ax=4401: returned AL = old value, should
+      set CY and DE_INVLDDATA if DH!=0 (RBIL is a little confusing here).
+    * memmgr.c: Converted nxtMCBsize back to a macro. There is no need
+      to use far2para; FP_SEG works fine since MCBs always have offset 0.
+    * build.txt, config.c, config.h, kernel.asm, main.c, segs.inc, task.c:
+      Removed obsolete BYTE cfgCSYS_fnam[NAMEMAX]; config variable. Changed
+      cfgInit and cfgInitTail to pointers, adjusted some code to cooperate.
+    * chario.c: The screen position (for TABs) is only for raw
+      *CONOUT* devices already updated in dosfns.c
+    * memmgr.c, proto.h: Make unnecessary far pointers near.
+    * device.h, dsk.c, initdisk.c: Move the ddt bitfields to
+      df_descflags. Let SetLogDev call GetLogdev, eliminating common code.
+    * init-mod.h, mscl8.mak: Some vars need to be DOSFAR;
+      init code is no longer tiny but small.
+    * segs.inc, inithma.c, main.c, asmsupt.asm, execrh.asm, init-mod.h,
+      kernel.asm, watcom.mak:
+      Make CS the same for INIT and HMA text for Watcom. Move HMA text
+      up in kernel.asm. Use std for the memory move: helps if there's
+      overlap (PCs with a very low amount of RAM).
+      No longer include duplicate execrh, asmsupt, and u8m/d functions
+      for the init text in the Watcom compiled kernel, since they can
+      be called "near" in the resident code.
+    * portab.h, kernel.asm, main.c, segs.inc:
+      Use the "small" model for the init code (split code/data).
+    * main.c: Use pointer to MK_FP(0,0x5e0) to save a bit of code.
+    * initdisk.c: Move some common code into a "push_ddt" function.
+    * sys.c: Correct int25/26 pragmas. Need to explicitly preserve bp
+      and pop flags.
+    * initdisk.c: fmemcpy->memcpy where possible
+    * config.c, init-mod.h, inithma.c, int2f.asm: Make
+      UMB_get_largest "pascal". Let it use the xms driver address from
+      the HMA code. Misc small config.c cleanups.
+    * initdisk.c: "Cache" far drive data table near. Enables elimination
+      of many far pointers in initdisk.c. Also clear up the
+      unnecessary casts in ConvPartTableEntryToIntern.
+    * drivers/getvec.asm, drivers/rdpcclk.asm, drivers/wratclk.asm,
+      drivers/wrpcclk.asm, globals.h: Use pascal calling
+      conventions for all clock related asm functions.
+    * drivers/floppy.asm, dsk.c: Use pascal calling conventions
+      for floppy asm functions.
+    * init-mod.h, intr.asm, proto.h, kernel.asm: Use the
+      pascal calling convention for all intr.asm functions, and let
+      them pop the stack (smaller code than using bx). Tell Watcom
+      which registers are clobbered; save some more registers for
+      intr() -- especially for intr() this helps.
+    * device.h, execrh.asm, init-mod.h: Use pascal calling conventions
+      for execrh().
+    * mkfiles/watcom.mak: Use the "-r" switch for Watcom to preserve ES
+      around calls -- saves ~350 bytes.
+    * sys.c, init-mod.h, fdkrncfg.c, portab.h, prf.c, proto.h:
+      Introduce VA_CDECL: only Turbo C 2.01 needs an explicit cdecl
+      for printf, all other compilers can use it with pascal or
+      "register" calling conventions.  Saves ~50 bytes for the init code.
+    * asmsupt.asm, config.c, init-mod.h: Use strchr and strlen
+      more often; also use strchr in the init code.
+    * memmgr.c: Better to call fmemset than to do things manually.
+    * asmsupt.asm, proto.h, init-mod.h: Be more specific about
+      which registers are clobbered by asmsupt.asm functions. Preserve
+      "ES" for Watcom.  Saves ~150 bytes resident, ~90 bytes
+      nonresident, more for 386 kernels.
+      Preserve bx and cx for WATCOMC as well. Saves another 200 bytes.
+    * inthndlr.c: Simplify memory access mode check.
+    * dsk.c: Remove wrong "512" value for number of root directory
+      entries on FAT32 partitions.
+    * file.h, sft.h, dosfns.c, fcbfns.c: Get rid of SFT_M* mode
+      values. O_* values are sufficient.
+    * file.h, fatfs.c: Define O_ACCMODE and use it instead of "3" for
+      the open access mask.
+    * config.c, init-mod.h: Change default STACKS= size to 256.
+    * config.c, init-mod.h, main.c: Remove lpOldTop variable.
+      It is no longer necessary (has not been for some time) and the
+      assignment in config_init_buffers() was wrong (screwed up fnodes,
+      so that buffers overlapped fnodes...).
+    * lol.h, config.c, fatfs.c, globals.h, kernel.asm, proto.h:
+      Made the main fnodes far so they can be in the HMA.
+      Internally the kernel uses two near fnodes though, to save on
+      codesize and fmemcpy's if necessary. Having memory management on
+      two fnodes is a little silly but I just want to make sure with
+      the panic message that we never accidentally try to use three near
+      fnodes at the same time (two are used at the same time by rename,
+      commit, and merge_file_changes).  This can be cleaned up later.
+    * fatfs.c:
+      - Merge three almost identical pieces of code used to allocate a new
+        directory entry in creat, rename, and mkdir into alloc_find_free.
+      - Merge find_fat_free() and extend() -- they were almost
+        identical. Have a simplified clause for f_cluster ==
+        FREE. Set f_cluster = FREE in shrink_file if the file is set to
+        0 bytes; in that case we should set the current cluster to FREE
+        even if it is currently a LONG_LAST_CLUSTER.
+    * fnode.h, fatdir.c, fatfs.c, lfnapi.c:
+      - Eliminate f_back field. extend() now uses f_cluster instead of
+        f_back, while map_cluster makes sure it's not set to
+        LONG_LAST_CLUSTER (but to the cluster before it) when calling
+        extend(). extend() and first_fat() now return the new cluster
+        number or LONG_LAST_CLUSTER, just like find_fat_free().
+      - Eliminated f_sector and f_boff fields from fnodes.
+      - Avoid bitfields for fnodes, using flags instead. Replaced droot
+        field by checks for f_dirstart == 0.
+      - Make f_diroff an entry offset so it can be 16bits. Enforce the
+        65536 entry limit in dir_read(), except for root directories.
+	For root directories it's checked against a different limit
+	later. Saves 80 bytes or so + 2	bytes in every f_node.
+    * dsk.c, fatfs.c, memmgr.c: Remove add_far. adjust_far can do the job.
+    * chario.c: Echo input LF as CR-LF unless it's the first
+      character. Never store LF in the buffer.
+    * memmgr.c, task.c: Eliminated long2para and avoided use of "long"s
+      in DosExeLoader, using paragraphs to measure size instead. Saves
+      ~130 bytes together.
+    * prf.c, asmsupt.asm: Saved ~75 bytes in printf and by elimination of
+      fstrlen. There's only one call; inlining doesn't increase the size.
+    * dosfns.c, int2f.asm, intr.asm, nls.c: Eliminate intr()
+      from resident code. Saves ~200 bytes of HMA resident code.  Also
+      made the nls.c functions SS!=DS safe.
+    * init-mod.h, inthndlr.c, intr.asm, main.c, proto.h, task.c:
+      int21/ah=26: new_psp now copies the old psp and just sets a few
+      fields int21/ah=55: child_psp does the rest init code does the
+      init (fixed values are always copied now)
+    * dosfns.c: Commit each close, even if the ref count is > 0.
+    * prf.c: Borland C didn't like one pseudo register use.
+    * initdisk.c: Merge "suspect partition" copy/paste code into functions.
+    * asmsupt.asm: Save a couple bytes by moving the strncmp_retzero block.
+    * fcbfns.c, proto.h: Don't call truename from FcbNameInit(). It
+      was only necessary for "FcbRename", which can call it itself.
+      Fixes for FcbOpen/FcbFindFirstNext a consequence of
+      truename's funny behaviour: truename(c:nul) = c:/nul and
+      truename(c:/nul) = c:\nul. Fixes the EJECT problem from Lucho.
+      Remove unused variable lpFcb.
+    * portab.h, dsk.c, main.c, newstuff.c: Define I386 and I186 more
+      cleanly.  Add (UWORD) casts to silence the compiler. Optimize
+      (head*sector) to secs_per_cyl. Add BORLANDC to compiler list
+      and simplify startup printf to one message.
+      #pragma enable_message(130) for Watcom C causes it to
+      behave a little more like Borland in terms of warnings.
+    * exeflat.c, fatfs.c, fattab.c, fcbfns.c, inthndlr.c,
+      memmgr.c, task.c, blockio.c, fatdir.c: Added explicit
+      (UWORD) type casts to avoid compiler warnings and sometimes save
+      a few bytes too. Also changed the FcbParseFname return value:
+      returns offset portion of pointer (SI) instead of the number of
+      bytes to be added to SI.
++ Changes Lucho
+    * task.c: fixes the CHKDSK I: "Invalid drive specification" bug
+    * mcb.h, inthndlr.c: save 33 bytes by eliminating a switch for
+      memory/UMB access modes.
+    * talloc.c: talloc won't work with MSC (no sbrk or brk available)
+      + fix
+    * stacks.inc: smaller Protect/Restore 386 register macros.
+    * inthndlr.c: Code size reduction and dead code removal.
+    * dosnames.c: Remove wrong automatic "*.*" code from Lixing
+      Yuan -- return DE_PATHNOTFND or D_NFILES instead
+    * ioctl.c: move the lock/unlock simulation of success before the
+      device GENIOCTL check so that it applies to any device.
+    * filelist, dosnames.h, dosfns.c, dosnames.c, fatdir.c, fatfs.c,
+      globals.h, init-mod.h: (with Bart) -- remove the dosnames path
+      67 length check. Review the places where it really matters (chdir
+      and mkdir).
+    * init-mod.h, intr.asm, kernel.asm, main.c, procsupt.asm,
+      proto.h, task.c: enable interactive re-execution of the SHELL.
+    * nls.h, config.h, globals.h, init-mod.h: move NLS #defines to
+      nls.h. Move config structure to config.h. Some cosmetic changes.
+    * contrib.txt: From Lucho: update contributors list.
+    * config.c: From Lucho: fix EBDA problems with INSTALL. This
+      fixes the weird fmemcpy lockup; in reality kernel init code was
+      overwritten.
+    * asmsupt.asm, config.c, init-mod.h, inithma.c, main.c, makefile,
+      prf.c: Use asmsupt string and mem functions for the init code too.
++ Changes Arkady
+    * task.c: A few suggestions. Saves 5 bytes.
+    * inthndlr.c: Use AL, not AX, for int2f/ax=1213, as per RBIL
+    * inthndlr.c: Use xreg struct and macros to optimize the
+      int2f/12,4a handler a bit ~25 bytes
+    * config.c: Buffer config fixes.
+    * inthndlr.c, proto.h: Corrections to int2f/ax=4a01/2.
+    * blockio.c: buffer intersection check should use > instead
+      of >=. small optimization -- the segment in bp == firstbuf is
+      always the same so we just need to compare offsets.
+      AllocateHMASpace needs to check FP_SEG(firstbuf) for 0xffff,
+      since the buffers may not live in the HMA.
+    * *.bat, config.b, kernel/makefile, generic.mak: .BAT file and
+      makefile cleanups. Also Lucho reported that nmake/nologo doesn't
+      always work in 4dos, but nmake /nologo works.
+
+
+2004 Jan 31 - Build 2033
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * config.c: allow "0" in full-screen config menus and plug a
+      few potential related overflows.
+    * sys.c: correct sectors/track, head and hidden sector values
+      if the boot sector disagrees with the default bpb (unless the
+      default bpb says that the number of hidden sectors is zero (usual
+      for floppies)).
+    * config.c, main.c: Only put PATH= in the environment if
+      it's still empty just before executing the shell. This repairs
+      SET PATH=.... in config.sys without confusing anyone.
+    * fatdir.c, fatfs.c: Fixed bug #1722: dir_close() was
+      called for normal files (via map_cluster and find_fat_free). This
+      completely messed up rwblock. Removed these calls (for
+      directories they are already covered at a higher level) and added
+      a few sanity checks to dir_close and dir_write.
+    * chario.c, inthndlr.c: Expand tabs for int21/ah=2,9 even
+      in raw device modes and if stdout is redirected. This solves bug
+      1737 (grep2msg problem)
+    * ioctl.c: Adapted from Chris Rodie's patch for bugzilla
+      #1730: do a device input status request for int21/ax=4406 for
+      devices (not for files). Save ~100 bytes by replacing
+      s->sft_flags with flags, s->sft_dev->dh_attr with attr and
+      simplifying the if() statement a bit
+    * hdr/sft.h, dosfns.c: Adapted from Chris Rodie's patch
+      (bugzilla #1729): "open" and "close" should call the open/close
+      functions for devices using a device request when appropriate.
+    * hdr/fat.h, fatdir.c, fatfs.c, fattab.c, prf.c, proto.h:
+      + FAT32 kernels should ignore the upper word of the cluster
+        number for FAT16 partitions (just like FAT16 kernels do)
+      + added extra checks to make sure that invalid FAT entries are
+        never followed
+      +	print a message in case of FAT corruption
+      + some small optimizations and header cleanups (some suggested by
+        Arkady)
+    * config.c: Make strupr code unambiguous
+    * filelist, sys/makefile, sys/sys.c, sys/talloc.c: ~1K size
+      reduction for sys.com by using Tom's talloc.c malloc/free
+      functions and using our own filelength for watcomc.
+    * initdisk.c: Better (for FAT32) and simpler FAT default
+      value calculations.  Also use 16-bit instead of 32-bit quantities
+      where possible to save code size. Use a FAT32 table so that FATs
+      won't be too big for drives <= 64 GB
+    * dosfns.c: Do not clobber the DTA if findfirst or findnext fails.
+      Fixes bug #1712
+    * fatfs.c: Rename blockio by rqblockio (namespace conflict with dsk.c)
+    * inthndlr.c: FAT32 kernels should fail int21/ah=71 with
+      al=0, carry set.
+    * hdr/portab.h, nls.c: (as reported by Tom) Fix nls upcase problem
+      with SS!=DS.
+    * fatfs.c: Move permission check to better place (only for
+      necessary for opening existing files), not for creating them --
+      suggested by Steffen. Force r/o open for FCB and legacy creat
+      if the file is read-only
+    * fatfs.c: Move common code in media_check() to a new
+      blockio() function.
+    * fcbfns.c, globals.h, inthndlr.c: Change FcbReadWrite to
+      handle multiple records at once; this allows for the optimization
+      of FcbRandomBlockIO.
+    * fcbfns.c: Divide optimisation (ceiling) + some small cleanups
+    * fcbfns.c, globals.h, kernel.asm: Rename the global lpFcb
+      variable to sda_lpFcb. Then use local lpFcb variables where
+      necessary. This clears up the confusing shadowing.
+    * fcbfns.c, inthndlr.c, proto.h: Fix FCB problems with
+      int21/ah=27,28 (RandomBlockIO)
+    * boot32.asm: jmp -> jmp short (necessary for nasm 0.98)
+    * dosfns.c, inthndlr.c, proto.h: Implement support for
+      int2f/ax=1220.  Fix int2f/ax=1216 (needs sft handles, not psp
+      handles, and to return the relative handle in BX, and to deal
+      with carry)
+    * boot.asm: Fix problem with FAT12
++ Changes Eric Luttmann <ecl@users.sourceforge.net>:
+    * main.c: Fix for multisegmented device drivers: If there are multiple
+      device drivers in a single driver file, only the END ADDRESS
+      returned by the last INIT call should be the used.  It is
+      recommended that all the device drivers in the file return the
+      same address.  This fixes a load problem with DUSE.
+    * config.c, init-mod.h, main.c: fix for multi-segment device
+      drivers; preserve rq_endaddr between init calls for the same driver.
++ Changes Lucho:
+    * inthndlr.c: Remove AL=0 check for AH=6c (from Arkady) Optimize DL check.
+    * main.c, serial.asm: (with some help from Tom):
+      initialize serial ports and retry serial reads on timeout.
+    * sys.c, boot.asm, boot32.asm, boot32lb.asm:
+      SYS 3.0 changes: added /L parameter to SYS to be able to change
+      the kernel boot segment + a few boot sector changes to get the
+      pointer at the same magic place for all boot sectors.
+    * makefile: clean up *.lnk files for "clean" and "clobber".
+    * dsk.c: the DJ mechanism needs to affect MEM 0050h:0004h - MS-DOS
+      LOGICAL DRIVE FOR SINGLE-FLOPPY SYSTEM (A: / B:) Size:BYTE
+    * int2f.asm, generic.mak: basic implementation of INT 2F/ax=4a33 -
+      CHECK MS-DOS VERSION 7; necessary for SpinRite (Steve Gibson)
+    * inthndlr.c: implement int2f/ax=1211 NORMALIZE ASCIZ FILENAME
+    * config.c, init-mod.h, main.c: Added SET support to config.sys
+
+
+2003 Sep 24 - Build 2032a
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * fix segment problems with ctrl-c and character uppercase
+      handlers
+    * fix critical error callers to set the critical error code
+      immediately before calling the handler (in case they call
+      DOS-59); don't set the critical error in inthndlr.c if
+      something else already did. Return with an errorcode if
+      "truename" and "read"/"write" encountered a critical error.
+    * sys.c: add /k kernname.sys option to and straighten out SYS option
+      processing; remove the metakern magic.
+    * config.c: ignore the segment part for multi-part device drivers
+
+
+2003 Sep 21 - Build 2032
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Rune Espeseth <re@icd.no> (modified by Bart)
+    * config.txt, config.c: Full screen config.sys menus (use MENUCOLOR=)
++ Changes Michal Bakowski (mb@orad.pl)
+    * initdisk.c, kernel.asm: Change the boot drive to always
+      be C: if DLASortByDriveNo==1
++ Changes Arkady
+    * dsk.c: Use memcpy instead of fmemcpy; avoid downcasting
+      from far to near.
+    * sysclk.c: err if sizeof(struct ClockRecord) != rp->r_count
+      move year init below reading the BIOS
+    * main.c: init_device corrections/cleanups
+    * device.h: Change r_status and dh_name to unsigned quantities.
+    * task.c: Free memory if there is an error in the relocation
+      table.
+    * floppy.asm, getvec.asm, rdatclk.asm, rdpcclk.asm, wrpcclk.asm:
+      driver .asm files optimizations (also from Bart); remove
+      obsolete rdatclk.
+    * build.txt: Fix some typos.
+    * inthndlr.c: Add missing (); small optimization for DosGetdate/time.
++ Changes Lucho
+    * boot.asm, boot32.asm, boot32lb.asm, sys.c: add metakern support:
+      sys looks for a file metakern.sys which is a multiple of 512.
+    * break.c: Fix ctrl-break bug.
+    * ioctl.c: IOCTL 4406 provided reverse AL output on regular
+      files - FF if EOF, 0 if not. It should output 0 if EOF, FF if not.
+    * initclk.c: Initclk changes
+    * config.c, init-mod.h, initoem.c: Support for
+      switches=/e[[:]nnnn] and for moving the EBDA
+    * fatfs.c: Use 0x10000UL (avoids Turbo C warning)
+    * sys.c: Move manually added "RCS" entries to the CVS log.
+    * main.c: Adjustments for MSVC.
+    * ioctl.c: int21/ax=440d lock/unlock logical/physical volume
+      simulate success for MS-DOS 7+ SCANDISK etc. --LG
+    * main.c: && should be || in check for \, / and :
+    * task.c: Adjust registers used when starting programs. Some
+      demos expect undocumented values (with Bart).
+    * mscl8.mak: Forgotten HMA_TEXT for MS compilers.
+    * sys.c: Add lock/unlock drive to SYS
+    * history.txt: Changelog correction.
+    * fatfs.c: Use near bpb on the stack in bpb_to_dpb.  Make
+      sure the number of FAT sectors is actually enough to hold that
+      many clusters. Otherwise back the number of clusters down
+    * procsupt.asm, proto.h, task.c: Don't disable a20 for
+      "exit" int21/ah=4c
++ Changes Lucho, Tom, Eric
+    * boot.asm, boot32.asm, boot32lb.asm, makefiles, sys.c:
+      * boot.asm modified to support non-512 byte sectors
+        (e.g. 1.2 MB NEC diskettes)
+      * 512 byte sector size check removed (although Eric's boot32ea.asm
+        does require 512-byte sectors, all LBA FAT32 volumes have
+        512-byte sectors anyway).
+      * boot.asm cleaned up and modified to support Metakern
+        bsDriveNumber updated by SYS even #ifndef STORE_BOOT_INFO
+      * (nothing in common)
+      *  SYS Now supports and includes the following new boot sectors:
+        1) the combined CHS+LBA FAT12/FAT16 boot sector by Tom Ehlert(29 July)
+        2) the CHS-only FAT32 boot sector -- as patched by Jon Gentle(08 July)
+        3) the LBA-only FAT32 boot sector by Eric Auer and Jon Gentle (19 July)
+      * The old combined (CHS+LBA), no-CALCPARAMS, no-resizable, non-Ghostable,
+        non-standard FAT32 boot sector and STORE_BOOT_INFO is no longer used.
+      * dump_sector() showed ASCII debug printout for the old sector
+        only - fixed.
+      * Put a boot sector only if sector size= 512 (may it not be so in
+        Japan?!). If non-512 byte sectors encountered, report to the
+        fd-kernel mailing list.
+      * Now puts boot sector before copying kernel/shell so it works in
+        WinNT now.
+      * check_space() now implemented at last (required significant
+        modifications)
+      * New (FAT type) detection method according to a MS White Paper.
+      * Now BOOTONLY works even without preceding boot sector image file name.
+      * Some minor code cleanups.
+      * Bart: some cleanups to the above; replaced 386 code for CHS FAT32
+        by 8088 code. Use boot32lb.asm instead of boot32ea.asm
++ Changes Bart
+    * portab.h, process.h, init-mod.h, inithma.c, kernel.asm, main.c, task.c:
+      * add support for the far jmp at "int 30" (0000:00c0)
+      * mirror it for the HMA (ffff:00d0)
+      * put all DOS int handler (and the CPM entry jumped to from
+        int30) jumpers in the "CONST" portion of DGROUP (instead of
+	LGROUP)	This helps Turbo C++ 1.01 make with the -S (swap)
+	switch.
+      * adjustments to set the relevant PSP fields in task.c
+    * blockio.c: Always use huge block sectors if the relevant bit is
+      set in the device header. This solves a problem with xmsdsk.
+    * chario.c: Small optimizations
+    * clobber.bat: Remove duplicate clobber.
+    * Flip some slashes for Linux compat and simplifications in makefiles
+    * device.h, portab.h: Use STATIC=static for watcom C (statics
+      are in the mapfile); remove some cruft.
+    * makefile, wlinker.bat: More verbose mapfiles for watcom
+      C; some slash preparations to allow cross-building on Linux
+    * exeflat.c, patchobj.c: Fix warnings reported by Turbo C
+    * break.c, chario.c, dosfns.c, globals.h, inthndlr.c,
+      proto.h, systime.c: (with a little help from Arkady)
+      Simplifications and cleanups.
+      Pass a near pointer to the far pointer that points to the device
+      instead of an SFT index (in general).
+      Make cooked_write much faster by only testing for input every 32
+      characters.  No longer test for ctl_s on syscon if writing to
+      the printer: just read from the printer which will return zero
+      characters.  Fix reading/writing zero characters by returning
+      "256" (special code). Adjust interfaces in other files.
+    * portab.h: New UNREFERENCED_PARAMETER macro that appears to
+      work for all compilers.
+    * floppy.asm: Remove unused code.
+    * init-mod.h: Solve compilation problem with Borland C++ 3.1
+    * config.b: "-p" is no longer necessary in config.bat
+    * kernel.asm: Add necessary "BootHardDiskSeconds" for non
+      UPXed kernels.
+    * chario.c, dosfns.c: Add necessary casts to ? : constructions;
+      cleanup read_line_handle a little.
+    * portab.h: Add peek and poke #defines
+    * chario.c: Fix pointer overflow problem for reading line using handle.
+    * makefiles, exeflat.c Clean cleans a bit more; change () to (void)
+    * main.c: Set the PSP before the DTA. This solves an interrupt
+      vector table corruption.
+    * kernel.asm: Use "local" (instead of "global") disable/enable
+      A20. This solves the problems with NIOS.
+    * asmsupt.asm, misc.c, proto.h, strings.c: Remove (unused) strncpy.
+
+
+2003 Jul 19 - Build 2031
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Luchezar Georgiev
+    * (with Bart) add extra low disk buffer to avoid HMA
+      problems with certain device drivers.
+    * Add an extra space character at the end of the command line
+      for device drivers to prevent wrong behavior at empty command line.
+    * point to a correct environment for INSTALL=
+      (fixes problems with xmsdsk).
+    * change device driver error code check (using S_ERROR | S_DONE)
+      (fixes problem with the SystemSoft PCMCIA socket services driver)
+    * correct parameter order in inthndlr.c, chario.c
+    * INSTALLHIGH correction.
++ Changes Tom
+    * Fix a problem with the 'BootFromHarddiskIfNoKeyHit' option.
+      that occurred with some Compaq and Fujitsu/Siemens highend equipment.
++ Changes Bernd Blaauw
+    * config.txt updates
++ Changes Steffen Kaiser
+    * NLS adjustments
++ Changes Bart
+    * Correct problem with multiple UMBs (bug #1671)
+    * main.c: there aren't lastdrive open file handles but a
+      maximum of 20.
+    * Make "unable to disable A20" message #ifdef DEBUG only.
+    * config.c,main.c: Small size optimizations (some proposed by
+      Arkady Belousov)
+    * asmsupt.asm: Removed unnecessary jcxz's (Arkady)
+    * intr.asm: intr() cleanup and small optimizations (Arkady)
+    * Use PASCAL calling convention by default for Turbo compilers.
+    * Move more externs to header files
+    * SFT init cleanup (+3 files need to be low)
+    * config.c, main.c: Fix bug in block device driver init of
+      DPBs (bug #1969, TDSK problem)
+
+
+2003 Jun 18 - Build 2030
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * if user left accidentally floppy or CD in drive,
+      give him a chance to continue to boot from HD.
+      disabled by default, enablable by SYS CONFIG
+      (BOOTHARDDISKSECONDS)
++ Changes Lixing Yuan
+    * dosnames.c cleanup, fix for truename if the filename
+      contains wildcards and a trailing dot.
++ Changes Eric Auer
+    * add sanity check to initdisk.c for (driveParam->chs.Sector == 0)
+      + some display tweaks
+    * add EECHO (echo with $=ESC) support to the config.sys parser.
+    * distinguish between the builtin DOS version and the settable
+      DOS version.
+    * console.asm now accepts extended scancodes (modified by Bart, fixes
+      bug #1657)
+    * added BOOTONLY option to SYS (modified by Bart)
++ Changes David Bolen
+    * add support for UNC-style paths (that start with "\\")
++ Changes Luchezar Georgiev
+    * add Bulgarian country structure data
++ Changes Bart
+    * flip some slashes in drivers/*.asm
+      (enables cross-assembly on Linux)
+    * remove superfluous printf("\n") in patchobj.c
+    * combine the INIT class with the CODE class (classes can span
+      multiple physical segments)
+    * re-add _TEXT to LGROUP to be able to simplify the patchobj magic
+    * don't specify -zPI_GROUP for the init code in Borland compilers
+      (unnecessary, it will be put there because of segs.inc)
+    * remove STDPATCH; it is no longer necessary
+    * add FILESHIGH, LASTDRIVEHIGH, and STACKSHIGH and DOSDATA=UMB
+      to load these structures into UMBs
+    * make DOS sub-MCBs visible (seen by MEM)
+    * preliminary allocation of FILES etc. now takes place at the
+      top of conventional memory, and device drivers are loaded before
+      the final allocation takes place.
+    * handle multiple UMBs more correctly (but config.sys can use
+      only one UMB for devicehigh -- /Ln,xxxx is not yet implemented)
+    * minor size optimizations in newstuff.c, chario.c, dosfns.c and fcbfns.c.
+      asmsupt.asm: correct fmemchr (all n's) and *memset/*memcpy
+      (n==0)
+    * introduce lol structure for list of lists; avoid lots of
+      relocations
+    * avoid more relocations in the asm files by loading ds from
+      [cs:_DGROUP_]
+    * Fix problem with attributes with the volume label bit + findnext
+    * SYS: avoid copying kernel.sys and command.com if the destination
+      is identical to the source (fixes bug #1656).
+    * Fix bug in DeleteBlockInBufferCache: needs to make the block
+      invalid, not flush it, if we're writing (bug #1635).
+    * added switches=/k/n/f support to the config.sys parser.
+
+
+2003 Mar 14 - Build 2029
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * fattab.c, fat.h removed the wrong ELSE_ISFAT32()
+    * fatfs.c: rmdir would crash if you rmdir'ed an existing file
+    * config.c, main.c, portab.h
+      implement INSTALL and INSTALLHIGH for config.sys
+      basic COUNTRY=xxx support (with a little help from others,
+      mentioned in config.c)
+    * execrh.asm: save si, di for strategy device driver handler
+    * (adjusted by Bart): the internal "truename" has to reject
+      wildcards for all commands except for the exposed "truename"
+      (DosTrueName, int21/ah=60), FindFirst and FCB functions.
++ Changes Bart
+    * add top level makefile with list of files to zip for releases
+    * remove obsolete documentation and intr.h
+    * eliminated the "f_highwater" fnode field.
+    * reintroduced HMA_TEXT segment and adjust segments in libm.lib
+      to solve problems with Borland compilers.
+
+
+2002 Dec 9 - Build 2028
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * move clock driver initialization to inittext
+    * new ELSE_ISFAT16 macro to save some bytes
+    * use _TEXT for old HMA_TEXT, _LOWTEXT for old _TEXT to get
+      a slightly less complicated memory model from the C compiler's
+      point of view.
+    * add support for int2f/4a01,4a02: query/allocate HMA space.
+    * updated config.txt
++ Changes Arkady V. Belousov
+    * slightly improved asm for print_hex and int2f clear_ax stuff
+    * use #error for unknown compilers
+    * remove hexDigits reference
+    * correct comment in kernel.asm (pad to 05fdh)
++ Changes Bart
+    * fix ss:sp init bug for int21/ax=4b01 (visible in DEBUG)
+    * fix redirection problem for character output routines
+    * fix press the any key message for floppy swaps
+    * correct cluster value for BAD cluster
+    * correct FAT12/16/32 cutoff magic values as per the MS spec
+    * the BUFFERS structure is now the same as in MSDOS 5+ and uses
+      a circular double-linked list using near pointers.
+    * move all old RCS log messages into one seperate file
+    * divide the fnode f_cluster_offset field by the size of a cluster:
+      this gives a more efficient map_cluster().
+    * point the CharMapSrvc pointer to the DOS DS for AARD compliance.
+    * nls.c: set CX to cooperate with load_unf.exe
+
+
+2002 Nov 9 - Build 2027
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * memset ErrorAlreadyPrinted to 0 in config.c
++ Changes Bart
+    * reset drive before and after int26 in SYS for winnt compatibility
+    * propagate sharing bits correctly in DosOpen
+    * return DE_NFILES if a volume label is not found; search for volume
+      label if attr & 8 not just if attr==8
+    * initialize the critical error code to 0 in inthndlr.c
+    * ignore value of DH for extended open int21/ah=6c
+    * fix problem with NULL device code being in the wrong segment
+    * Hopefully innocent hack to deal with NDN in ioctl.c (ignore upper bits
+      of the drive number)
+    * use subst bit 15 for int21/ax=4409(IOCTL-CHECK IF BLOCK DEVICE REMOTE).
+
+
+2002 Oct 27 - Build 2027rc
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * reorganized chario.c, got F1-F6, Ins, Del, etc. working
+    * fixed bug in extended open
+    * fixed bug in memory manager (realloc should try to defragment;
+      UMB fixes)
+    * consistently pass sft_idx around for all SFT functions (instead of
+      the far pointer)
+    * lpUserStack is gone :)
+    * Idle interrupt: now uses disk i/o stack instead of error stack if it
+      re-enters DOS; can not be called from int21/ah=3f. It also checks
+      InDos now (as documented in "undocumented dos").
+    * int21/ah=59 should use the disk i/o stack, not the character stack.
+    * get_cds: a uniform way to get the CDS for drive X which can do error
+      checking too. get_dpb: similar.
+    * task.c uses mid-level system file handles instead of PSP handles.
+    * SFT sequence is MS/DR DOS like: 0=AUX 1=CON 2=PRN
+    * int21/ah=4d needs to clear the return code after returning it.
+    * Removed need for "unusedretval" because some functions return a long int
+      now.
+    * Do not warn for some additional LBA partition layouts (begin/end
+      cylinder=1023) in initdisk.c.
+    * support int2f/ax=1213 (uppercase character) (ASCII only for now).
+    * fix for top of memory parameter to device driver - fixes problem
+      with DRDOS emm386
+    * eliminated printf for non-init code -- use put_unsigned and
+      put_string instead
+    * better MK_FP for Turbo C++ 1.01 and later
+    * PSP related task.c cleanups
+    * use --best and new upx (1.23) for binary build
+    Changes Tom and Bart:
+    * Use Pascal calling convention for memcpy and friends in asmsupt.asm
+    * Fixed make temp file
+    * fix bug in DosFindNext
+    * misc makefile fixes
+
+
+2002 Aug 3 - Build 2027test
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * enable LBA FAT16 booting
+    * workaround for redirectors that do/do not set the opencount
+    * int25/26 should fail for redirectors
+    * set the number of sectors per track in the INT 1E table when
+      reading/writing floppies
+    * disabled fatal() in error.c
+    * Disable the A20 line upon exec (int21/ah=4B). This is necessary for some
+      brain-dead exepacked programs.
+    * removed unnecessary "BUFFERS" fields
+    * proper check for network/non-existing drive for int25/26.
+    * save more bytes on the stack at various places
+    * made the local registers for inthndlr.c "near" instead of "far".
+    * fix bug in strchr handling for fcbfns.c (FcbParseFname)
++ Changes Steffen (but changed a lot by Bart)
+    * new truename (Bart: but without mapPath() style struct)
+    * merge open/create functions into one extended open function
+    * also honor the sharing bits better for "open"
+    * use local 8+3 path names in fatfs.c; merge name+extension
+      into one array
+    * take care of filenames that start with ASCII 5: they should be
+      treated as starting with 0xe5
+    * exploit the fact that the filenames are already "truenames",
+      i.e., fully qualified in fatfs.c. This simplifies parsing a lot.
++ Changes Bart
+    * make "if exist c:\dir\nul" working
+    * honor "do not inherit handle on exec" flag for "open".
+    * improve the FCB functions so that they set the critical error code
+      properly
+    * next_cluster returns "1" instead of DE_xxx in case of failure.
+    * create one function to do binary character IO (used for CLOCK$
+      driver and character drivers such as CON)
+    * better handling of ABORT/FAIL
+    * merge all read and write functions
+    * patchobj makefile correction
+    * printf uses va_list etc.
+    * quicker and more robust Watcom build
+    * use FS: and GS: for Watcom 386.
+    * workaround: don't use DL for floppy boots, but fixed A:
+    * disable unused functions in floppy.asm
+    * cleaner prototypes (thanks to gcc)
+    * reorganized ioctl.c; there was an uninitialized variable.
+    * inlined some functions of fattab.c
+    * added (f)strcmp, (f)memcmp and (f)memchr to asmsupt.asm
+    * initially suggested by Arkady: dsk.c FS_info copy optimization
+    * initialize a VDISK signature in the HMA
+    * sysclk.c: small size optimization
+    * small UMB fixes
+    * made the CDS into a proper array instead of a structure with
+      one member
+    * large task.c cleanups -
+      merge as much as possible from DosExeLoader and DosComLoader
+      (from Tom:) eliminate some structures in low memory
+    * main.c: slightly cleanup "SHELL=" line parsing.
+
+
+2002 May 9 - Build 2026b
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * limit output at boot time somewhat
+    * GetCurrentDirectory should fail, if drive is accessible
+    * fixed some minor config.sys parser bugs and have the possibility
+      of things like 123?device=EMM386.EXE NOEMS
+    * shorter version of DosMemLargest()
++ Changes Bart
+    * repaired makefile dependencies
+    * implemented multi-sector writes, and re-merged
+      readblock()/writeblock() into rwblock ()
+    * implemented int21/ah=1c for network drives (RHIDE needs this)
+    * initialize current_ldt for findnext (hinted by Steffen)
+    * check serial number for floppy disk changes where the drive
+      does not feature a changeline
+    * reset to root directory when floppy has changed
+    * cleaned up endian helpers {get,put}{byte,word,long}
+    * don't close file if disk is full
+    * enforce minimum of 9 sectors per track for INT1E (necessary for
+      some floppies on some XTs)
+    * clear carry when calling INT23 (ctrl-break handler) as per RBIL
+    * don't copy FCBs on exec if they are pointed to by FFFF:FFFF.
+    * resolved warnings for  Watcom (now compiles with -wx -we)
+    * truename fix (return DE_FILENOTFND for foo.bar.foo)
++ Changes Jeremy
+    * fixed SYS _dos_getdrive for non-Borland compilers
++ Changes Tom and Bart
+    * cleaned up fatfs.c, fattab.c, sysclk.c (CLOCK$ driver), systime.c
+
+
+2002 Feb 17 - Build 2026a
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Martin
+    * fixed SYS for non-Watcom compilers
++ Changes Tom
+    * set CONFIG environment variable to selected number of CONFIG.SYS
+      menu entry, for example for use in AUTOEXEC.BAT.
++ Changes Bart
+    * fixed FCBOpen
+    * network redirector fixes ; it appears that clearing CF before calling
+       the redirector is safer than setting CF
+    * allow creating, renaming and deleting volume labels using FCBs
+    * fix renaming with wildcards using FCBs
+    * some dosfns.c and fcbfns.c clean-ups
+    * booting from hard disk now always sets the default drive to C:,
+      not D: if booting from the second physical hard disk, etc (bug #1062).
+
+
+2002 Feb 9 - Build 2026
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * fixed various typos, #includes
++ Changes Bart
+    * fixed ECHO in config.sys
+    * made passing parameters to command.com more robust:
+      zero commandline before use, fixed buffer overflow for F5+F8
+    * "uppermem_root" in the List of Lists is now FFFF if no UMBs
+      available, as documented in RBIL
+    * removed all direct hooks from init_text to hma_text; duplicated
+      the remaining functions (memset, memcpy and friends).
+    * bumped up default DOS version of FAT32 enabled kernel to 7.10
+
+
+2002 Feb 3 - Build 2026test
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * FCB clean-ups and fixes (bug in FCB Random IO,
+      CYRUS CHESS, bug #1014)
+    * initial config.sys menus (see config.txt)
+    * execrh.asm: construct 'interrupt' address after strategy to avoid
+      some issues with non-trivial 'strategy' routines.
+    * make kernel UPX-able
+    * cleaned up midnight flag, dates
+    * tmark() and friends are floppy specific and implemented in C
+      instead of ASM (parts by Bart)
+    * DMA boundary checking gives the right number of sectors if
+      the start sector is 512-bytes-aligned.
++ Changes Victor
+    * lfn fixes (lfn is only a place holder, does not work yet)
+    * FAT32 fixes
+    * dosemu log nicer
++ Changes Martin
+    * log output
+    * warning fixes for sys, patchobj and prf.c
++ Changes Bart
+    * FCB clean-ups and fixes
+    * make Watcom compiled kernel runnable
+    * make compilation with Pascal style calling conventions
+      for Borland compilers (-p) possible
+    * initialize CDS before opening devices
+    * implement lock/unlock for remote drives
+    * implement commit file (int21/ah=68,6a)
+    * implement ioctl get/set logical drive map (int21/ax=440E--F)
+    * implement get address of drive data table (int2f/ax=0803)
+    * fix "get address of SDA" (int21/ax=5d06)
+    * do not use CHS if the root extended partition of the relevant
+      logical partition is labelled LBA (bug #1011)
+    * hopefully avoid format problem (bug #1030) by not setting drive
+      to "non-accessible" while reading the bpb.
+    * boot sector fixes:
+      enable booting beyond cylinder x where x * number of heads >= 65536.
+      still uses CHS to boot (not able to boot beyond cylinder 1023)
+      recognize FF8-FFF as FAT12 ending (was only FFF) (bug #1021)
+    * avoid using LIB when linking the kernel by echo-ing to a linker
+      resource file. Use a batch file to bypass Borlands Make 2.0
+      unwillingness to redirect stdout.
+    * UMB variable clean-up
+    * use of "const" for constant global variables
+    * reduced size of Watcom-compiled SYS binary
+
+
+2001 Nov 18 - Build 2025c
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Bart
+    * ran source code .c and .h files through "indent"
+    * fixed new printf bug
+    * removed some duplicate documents
++ Changes Victor & Bart
+    * fixed sys.c fat32 detection bug (offset 0x10, not 0x2c)
+
+
+2001 Nov 17 - Build 2025b
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * fix a few more batch file and makefile details
+    * fix problems with command line editing: F1 and right key
+    * string merging in dosnames.c
+    * optimizations for MSC
++ Changes Bart
+    * fix readblock problem not properly detecting EOF - it sometimes
+      returned an error where it should just report a short count.
+      Also fnp->f_offset==0 is not a special case for blockread
+      (neither should it be for write - but that'll be for later)
+      For both cases it's perfectly legal to do a seek first.
+    * fix writeblock not setting highwater to offset when doing a
+      truncate (count == 0)
+    * hopefully now really fix the floppy change problem -
+      dsk.c: getbpb() should query changeline BEFORE reading the BPB.
+    * fixed warnings from WATCOM compiler - one of them was in fact
+      a bug in fcbfns.c
+    * started big clean-up
+      - converted obsolete bcopy(), sncopy() and friends to memcpy(),
+        strncpy() etc.
+      - removed $Log entries that are also on the CVS server and
+        removed the $ so no new entries will be added in files.
+      indenting will be next - other fixes will be buried in diffs if
+      I do that now.
+
+
+2001 Nov 12 - Build 2025a
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes Tom
+    * initialize LBA parameter struct to 0's - some BIOSes don't fill
+      in everything. Thanks to Bernd Blaauw's bug report.
+    * Minor boot sector optimization.
+    * added some exeflat options
++ Changes Jeremy
+    * changes to fdkrncfg.c: mostly cosmetic to the output
+    * added sys.doc file (updated by Bart)
++ Changes Bart
+    * let int 0 (divide by zero) and int 6 (invalid opcode) print a
+      stack trace to aid in debugging
+    * fixed floppy drive detection for XT's.
+    * fixed bug in int21/ah=0x32 and friends - we should flush data before the
+      forced media_check
+    * Use CHS addressing if possible on partitions with the relevant ID,
+      you can overide this using the new FORCELBA and GLOBALENABLELBASUPPORT
+      sys config options.
+    * Always use BIOS values for translating LBA to CHS for fixed disks -
+      ignoring the boot sector values. For floppies the boot sector is used.
+    * fixed "truename hello." to remove the trailing dot.
+    * added options to SYS to write to a boot sector image file
+    * set Critical Error Code for ioctl's
+    * fake cluster size for 64k clusters just like FAT32 for INT21/AH=0x36
+      and friends.
++ Changes Bart+Tom+Victor
+    * make makefile system more robust
++ Changes Victor
+    * cleaned up map_cluster and dir_read (bug fixed by Bart)
+    * updated LFN API (in development, not used yet)
+
+
+2001 Nov 4 - Build 2025a (test)
+-------- Bart Oldeman (bart@dosemu.org)
++ Changes tom
+    * config.sys processing: placing ? on the left side of '=' like
+	 ?device=  or device ?=
+	 asks for this single line
+      fill the available HMA with buffers
+    * added kernel configuration options to sys.com, small area at 60:xx
+      (in cooperation with Jeremy)	
+    * readblock optimized to read as many data as possible in one
+      int13 request - great speedups for large reads
+    * some more SDA variables need to be updated for the network
+      redirector (the sft index)
+    * reduce stack usage in task.c, fattab.c, ioctl.c, execrh.asm, inthndlr.c
+    * protect high part of 32-bit registers (stacks.inc)
+    * moved copyright messages to init data to save a bit of memory
+    * added relocinf, patchobj, sorted + some more output of exeflat
+    * UMB fixes
++ Fixes Bart, Victor, Tom
+    * more FAT32 fixes - to work with device drivers
+    * fixed overflow problem with more than 2048 directory entries
+    * various space saving changes, dir_init_fnode
++ Changes Bart, Tom
+    * many makefile changes to enable compilation with different
+      compilers (MS, Watcom, Borland). Watcom compiles but the result
+      does not run yet.
++ Changes Bart
+    * extended the double-byte lead table from int21/ah=63 to 4 zeros
+      to make Watcom happy
+    * support for IOCTL AX=440D, CL=40,41,42,61,62 for
+      read/write/format track - this enables R. Nordier format to work
+    * default floppy type depends on the drive
+    * rewrote many parts of int2f.asm to have a cleaner remote_xxx
+      interface with less code and stack usage.
+    * limit for int21/ah=36 is FFF6 total/free sectors
+    * made the rtc clock reading code a bit more robust - assumes
+      there is no rtc if the returned date is zero
+    * removed non-necessary code in dosnames.c because we're always
+      dealing with a TRUENAME there
+    * added zero extending of files, but removed it (unless you force
+      it) since MSDOS doesn't zero-extend files either
+    * wrote a source for exeflat, removed all binaries from the source
+    * added more INT2F/AH=12 functions to solve some MSCDEX issues
+    * changed BAD sector handling : only ....FF7 is recognized as BAD,
+      but FORMAT information from initdisk will only give ....FEF as
+      the largest cluster (for safety), so ....FF0-....FF6 are not used
+      for newly formatted disks (here .... is either nothing, F, or
+      FFFF, FAT12/FAT16/FAT32).
+    * more fatfs/fatdir clean-ups - now unnecessary fields dfull,
+      dremote and dsize removed from fnodes.
+
+
+2001 Sep 24 - Build 2025
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes Victor
+    * More FAT32 fixes
++ Fixes Tom
+    * Printer handling
+    * misc INT2F/AH=12 fixes.
+    * misc clean-ups
++ Fixes Bart
+    * Added drive B: handling if only one floppy drive available
+      (look for play_dj() in dsk.c)
+    * Simplify Victor's FAT32 fixes a bit
+    * More printer clean-ups
+    * fixed sys (thanks Jeremy)
+    * DosChangeDir fails for path name too long.
++ Fixes Jeremy
+    * Changed SYS so if no source given or only source drive (no path)
+      given, then checks for kernel.sys & command.com in current
+      path (of current drive or given drive) and if not there
+      uses root (but only if source & destination drive are different).
+      Fix printf to include count(ret) if copy can't write all requested bytes
+
+
+2001 Sep 22 - Build 2025 (test)
+-------- Bart Oldeman (bart@dosemu.org)
++ Added Victor
+    * FAT32 support (credits to Martin Stromberg for boot32.asm optimizations)
+    * Delete long file names if short file name given
++ Added Jeremy
+    * modified SYS so it takes optional 2nd parameter (similar to PC DOS)
+      where if only 1 argument is given, assume to be destination drive,
+      but if two arguments given, 1st is source (drive and/or path)
+      and second is destination drive
++ fixes Victor
+    * some small FCB and dsk.c fixes
++ fixes Tom
+    * some FAT32 issues
+    * many compiler portability changes (compiles with Watcom, MSC, ...)
+    * DosMemChange should set the PSP
+    * converted INT2F/AH=12 functions to C and added some - enough to
+      get most of the MS LAN network client working
++ fixes Bart
+    * some FAT32 issues
+    * Dos{Open,Creat}Sft drive letter issues
+       for CDROMs (thanks Jeremy)
+    * shrink_file should ALWAYS fail for directories, also with
+      dos_set_fattr (thanks Jeremy)
+    * only give warnings for slightly suspect partitions at boot
+      time where CHS does not match LBA.
+    * re-enabled copyright notice.
+    * some dsk.c clean-ups to avoid DIR giving the same contents for
+      a different floppy (get serial number/volume label did reset the
+      changed state).
+    * attribute should be 8-bit fix
+
+
+2001 Aug 19 - Build 2024/h
+-------- Bart Oldeman (bart@dosemu.org)
++ fixes Bart
+    * truename fixes (#580)
+    * free space fixes (#249)
+    * Ctrl-C/Ctrl-Break fix
+
+
+2001 Aug 19 - Build 2024/g
+-------- Bart Oldeman (bart@dosemu.org)
++ fixes Bart
+    * set file time fixes
+    * clock fixes
+    * findfirst/next fixes
+    * added a bit more int2f/ax=12xx functionality
+    * buffers trick to fool MFT so that it does not crash
+    * Ctrl-S (pause) and Ctrl-P (printer echo) now work.
+      Ctrl-Q is ignored by DOS.
+    * FCB "closing twice is legal" fix. Necessary for visicalc.
++ fixes Bart + Tom
+    * fixed shsucdx /u unloading problem	
+
+
+2001 Jul 28 - Build 2024/f
+-------- Bart Oldeman (bart@dosemu.org)
++ fixes Bart
+    * fixed get current directory - MSCDEX works now (always)
+    * initdisk.c correctly sets number of hidden sectors: necessary
+      for FORMAT - SYS chain to work
++ updates Bart
+    * initialisation memory situation changed: kernel is loaded
+      to the top of conventional memory in the beginning. Then
+      move it back low or high depending on DOS=HIGH and the presence
+      of an XMS driver.
+      DOS=HIGH without an XMS driver (such as FDXMS) has no effect anymore!
++ fixes Tom, Victor, Bart
+    * various fatfs.c fixes and clean ups
+
+
+2001 Jul 23 - Build 2024/e
+-------- Bart Oldeman (bart@dosemu.org)
++ fixes Tom
+    * dyninit allocation fix
+    * various clean ups
++ fixes Bart
+    * #define DBLBYTE in inhndlr.c. Necessary for PQDI
+    * FCB corrections and cleanups (with a little help from Tom)
+    * cleaned up (FCB)FindFirst/FindNext a little more.
+    * task.c: copies default FCBs, initializes AX properly and
+      an int21/ax=4b01 fix. Also closes all FCB opened files upon
+      termination of a program.
+    * dosnames.c: fixed DJGPP "ls c:/" problem reported by Martin
++ fixes Victor Vlasenko
+    * Makefile fix for dealing with Borland make 3.6
+    * fix for fatfs.c shrink_file()
++ fixes Bart
+    * handle B: just like A: on a single floppy system. There still needs to be
+      user interaction like "Please put a floppy in drive B:".
+    * ioctl.c fix for INT21/AX=4400 + sft driveno field
+    * various small fcb fixes
+    * put file position number and pointers to Pri/SecPathName into
+      SDA. Now MSCDEX works as redirector (but still not always :-()
+    * redirector set attribute fixes + various cleanups
+    * truename+attr+ioctl fix => DJGPP libc compiles cleanly!
++ changes Bart
+    * use the output of truename() consistently: this saves a lot of
+      headaches in parsing later and also allows a lot of simplifying:
+      made many parameters in fatfs.c and fatdir.c NEAR
++ added Bart
+    * partly implemented the "Drive Data Table" see RBIL INT2f/AX=0803
+    * implemented construction of default BPB in initdisk.c
+    * implemented the access flag in dsk.c
+    * printf writes to DOSEMU log if prf.c compiled with #define DOSEMU
++ fixes Bart
+    * dsk.c uses default BPB in the right places (with help from Tom and Brian)
+    * Brian's FORMAT now works
+    * Tab fix (bug reported by Martin Stromberg)
+    * INT21/AH=0x1f now simply uses AH=0x32 for the default drive
++ fixes Tom
+    * saved some static variables
+    * implementation of int_2f_111e_call() for network/LAN manager
+    * return AX=0001 for default redirector handler
+    * enable use of multiple UMBs
+    * fixed task.c 'LOADHIGH executables': minAlloc == maxAlloc = 0
+      and an fixed overwriting the MCB
+
+
+2001 Jul 9 - Build 2024/d
+-------- Bart Oldeman (bart@dosemu.org)
++ fixes Bart:
+    * fixed Ctrl-C (Ctrl-S and Ctrl-Q still missing).
+    * ioctl EOF fix (DJGPP less&gdb problem reported by Martin Stromberg)
+    * INT21/AH=29 (Parse Filename into FCB) fix (NC problem reported
+      by Ken Martwick) with clean up from Tom.
+    * ioctl should do a media_check before calling the block driver:
+      this fixes bug #726 (first dir gave serial no. 1234-5678).
+    * initdisk.c now uses the init data segment.
++ fixes Tom:
+    * fixes for INT21/AH=32; this should cure the problems with
+      Brian's new format.
+    * more SYS fixes.
++ added Tom:
+    * some more diagnostics (123) to aid finding bugs when booting from
+      a hard disk.
+
+from 2001 jun 23 : KE2024BP
+
++ fixes Tom:
+    * FAT FS: would not expand files correctly, if lseek()
+      beyond EOF (see also relnotes.txt)
+    * FcbFindFirst/Next made compatible with MSDOS CHKDSK
+    * saved even more bytes (now 24 buffers in HMA :-)
+
+from KE2024BM
++ added Tom:
+    * a mechanism, to regain near data (like miarray, bpbarray,...)
+      this is somewhat braindamaging, moving the kernel up and down,
+      working with different CS/DS combinations, but somehow working, :-)
+      miarray allocated, using this mechanism.
+    * made f_nodes near (2 K saving in HMA_TEXT)
+      this technic might as well applied to CDs, DPB, sft's, ...
+      this even saves a few bytes on stack :-)
+
+from 2001 May 21: Build2024L
++ Fixes  Tom:
+    * Clustersize 64K made working (one small ULONG was missing)
+    * check for drive existence for INT25/26
+    * NDEV = max number of possible harddisk partitions bumped
+      from 8 to 20 (my testconfiguration has 13)
+
++ Added  tom:
+    * LBA support for disks > 8GB (with the help from Brian
+    Reifsnyder, see also relnotes.txt)
+    * moved initialization for DISK (partition scanning) to INIT_CODE
+
+
+2001 Jun 2 - Build 2024
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Tom:
+    * small fixes again.
+    * one possible cause for data corruption (BFR_VALID) detected
+    * directories with 'ARCHIVE' attribute could not be deleted
+    * saved even more bytes (now 20 buffers in HMA :-)
+    * some issues with pathnames around PARSE_MAX removed
+    * blanks in filenames weren't proper handled
+    * there was (at rare circumstances) a buffer overflow
+      while config.sys parsing.
++ Fixes  Bart:
+    * INT 21 0A - Dos Buffered Input reworked
+    * init_PSPSet() fix for setting the PSP
++ Added  tom:
+    * slighly better buffer handling (search BFR_UNCACHE)
+      now go more FAT+DIR sectors, less DATA sectors into cache
+    * dos_mkdir tuned (was ~0.5 sec on 64K cluster partitions)
+
+2001 Apr 29 - Build 2024
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Bart:
+	 * fixed the "TYPE > FOO.TXT" poor man's editor.
+	 * use "fast console output" (int 29) when applicable.
+	 * moved 5 FILES to DOS DS:00CC and fixed the SFT linked list.
+	 * cleaned up findfirst/findnext for redirected drives.
+	 Tom:
+	 * more VDISK changes (changed slightly by Bart)
+	 * check for presence of A:/B: (changed by Bart to use the BIOS equipment flag
+	    from INT11 instead of INT13).
+	 * added F5/F8 stepping through config.sys; default SHELL=COMMAND.COM /P/E:256
+	   Use ESC to stop single stepping, F5 to skip remaining config.sys/autoexec.bat.
+	 * new sys: uses INT25/26 instead of the low level INT13 related kernel code from
+	    floppy.asm (see also comments in sys.c) + a few fixes (also boot.asm related)
+	    from Bart.
+	 * Hopefully fixed DateTime Changed + ATTRIB |= ARCHIVE bug.
+	 * cleaned up dsk.c and saved more bytes.
+	 Przemyslaw Czerpak:
+	 * Default lastdrive should be 5 (E) not 6 (F).
+	 * fixed not ignoring whitespace after '=' in config.sys
+	 * noted INT21/AX=3800 bug for getting the country. Put in a workaround for now.
+
+2001 Apr 21 - Build 2024
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Tom:
+         * fixed a missing close_dir in fatfs.c.
+         * many reductions of stack space requirements.
+         we hope this fixes some FAT corruption problems.
+         Bart:
+         * fixed "copy con" and INT21/AH=0B. The SFT_FEOF flag,
+           strangely enough, if true indicates NOT end-of-file.
+         * VDISK signature required in HMA (bug 701 dborca@usa.net).
+         Alan Kamrowski
+         * fixed intr: it wasn't putting the flags back correctly
+           and swapped si and bp.
++ Update Bart:
+         * Changed initialization data segment to its code segment.
+           This frees up a few more kb.
+         * This required some header reorganisation:
+           init-mod.h is for the init modules, globals.h for all the
+           others.
+         * Eliminated the master environment, as it is normally
+           managed by command.com, not by the kernel. This saves 512
+           bytes and command.com now copies a default environment from
+           0068:0000; this is in the DOS_PSP at 60:0.
+         * Moved low memory code segment to 70:0.
++ Add    Tom:
+         * Default interrupt 6 handler (invalid opcode).
+
+2001 Apr 16 - Build 2024
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  * Use turboc.cfg to avoid long command lines; edit ALLCFLAGS
+           in config.mak to enable DEBUG etc.
+         * Fixed critical error handler.
+         * Fixed loading .exe's in UMBs if not enough space available.
+         * Some device drivers require \r\n at the end of their
+           parameter line.
+
+
+2001 Apr 16 - Build 2023
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  * Thanks to Martin Stromberg for pointing some bugs out:
+         * more warnings fixed.
+	 * accidentally opened too many file handles at boot time.
+	 * device drivers should not be linked into the device chain
+	   if they do not take up memory.
++ Add	 * added printf "%S" and "%Fs" to print far strings.
+         * enabled and cleaned up INT21/AH=6C (extended open/create).
+
+2001 Apr 15 - Build 2023
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Tom:
+         * apisupt.asm not necessary anymore.
+         * fix warnings.
+         * Don't allow directories to be created in DOS_CREAT.
+         * LoadDevice: drivers should not hang the computer if they fail.
+         Bart:
+         * fixed SYS.
+         * made most calls near again, with a jump/stack trick to
+           switch between INIT_TEXT and HMA_TEXT.
+         * INIT_TEXT now calls INT21 itself for some things (setting
+           PSP, opening/reading/closing devices and (fd)config.sys).
+         * fixed some carry handling in inthndlr.c and
+         * drives are checked before trying to access them.
+         * fixed console driver "busy state" confusion: the built-in
+           driver had it wrong, nansi.sys had it right:
+           "If no characters in buffer, return BUSY".
+         * space savings (RTL related and various other places)
+         * redirector fixes for find_next.
+         * CREAT on a device file failed (FD said it already existed).
+           But for some reason it should not fail in DOS.
+         * get ATTRIB/other things on a device file should return
+           FILENOTFOUND, not PATHNOTFOUND.
+           The sft_status field is not used for redirected drives.
+         * DosSelectDrv checks the media before setting the default
+           drive.
+         * Fixed INT21/AH=3,4,5 (character R/W AUX/PRN).
+         Hans Lermen:
+         * critical error handler destroyed AH (entry.asm).
+         Martin Stromberg
+         * find_first for volume labels fix.
+         * check drive at more places and avoid drive "@:" for drive "':".
+         * config.m: comment out NASM= by default.
+         * printf fix with DEBUG on.
++ Add    Tom: Introduce init_data segment.
+              New temp file creation implementation.
+         Bart: added INT21/AH=53. XMSDSK works fine now.
+               dynamic allocation of Drive Parameter Blocks (they are
+               all FAR now).
++ Update Bart: moved DOS_PSP to segment 0x60 as segment 0x50 is already used by
+	       GWBASIC/BASICA
+
+2001 Apr  2 - Build 2023
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Bart: Volkov Commander revealed a few bugs:
+	  -int 21/ah=55 forgot to set current psp to child psp.
+  	  -memory allocation: mem_access_mode was a signed byte, and hence 0x80 was
+  	   translated to 0xff80 and not 0x0080 when converting to a COUNT. Hence
+  	   changed it to become a UBYTE.
+  	  -An error in memmgr.c: search again in low mem for modes 0x80,81,82, not
+  	   0x40,0x41,0x42
+	 * execrh.asm & int2f.asm: made code executable on a 8088 (no push
+	   constant)
+	 * entry.asm: made sure dos_crit_sect is executed when required to.
+	 * Another redirector fix. int 2f/1122 needed DS=current psp. This caused a
+           bug for me: after compiling FreeCOM on a redirected drive "dir" did not
+  	   work any more.
+	 * The nansi.sys problem: as it was, the initialisation phase of nansi
+  	   called int/ah=30, which checked control-break, which checks the console
+  	   driver, which at that point is the still not initialized nansi. This
+  	   messed up the request header passed to it. A solution I found is to link
+  	   a device into the device chain _after_ initialisation, not before.
+	 * Redirector fix: network.c uses fmemcpy instead of fsncopy.
+	 * Fixed INT 21/AH=6 (direct console input).
+         Tom:
+         * DE_NFILES instead of DE_FILENOTFOUND to allow Volkov Commander to browse empty
+           drives.
+         * Fixed bug wrt zero terminated device names (should be spaces terminated).
+
+2001 Mar 30 - Build 2023
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Tom: Kernel alloc initialises to 0. This avoids some weird errors.
+              Implemented default divide by 0 handler (INT 0)
+              FILES= fixes from config.sys. fatfs.c ignored it and always
+              used the default of 16.
+              Misc debug code removal.
+              int 21/ax=3306 report running HIGH fix.
+              int 21/ah=69 : save CX
+              InitializeAllBPBs() or MakeNortonDiskEditorHappy()
+              More extended information if MCB chain corruption occurs.
+         Bart: getdpb fixes (int 21/ah=32).
+               fix carry handling in int 21/ah=5e.
+               fix {get,set}_machine_name in network.c
+	       saner lastdrive handling
++ Add    Support for SHELLHIGH in config.sys
+
+2001 Mar 28 - Build 2023
+--------
++ Fixes  Bug fix release 2023b: dsk.c (reported by Nagy Daniel), inthndlr and
+	 int25/26 fixes by Tom Ehlert.
+
+2001 Mar 27 - Build 2023
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Bug fix release 2023a: fixed stack segment bug in entry.asm.
+
+2001 Mar 25 - Build 2023
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  sys.com compilation: it is a proper .com and works again.
+	 Suggestions from Martin Stromberg: warning removal and some
+	 debugging related changes.
+	 Suggestion from Aitor Santamaria Merino: implemented NUMLOCK=ON/OFF
+         in config.sys. Also implemented strcasecmp.
+	 Updated intfns.txt; reported version is now 5.0.
+
+
+2001 Mar 24 - Build 2022
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  Tom and Bart: cli/sti handling and other fixes in entry.asm,
+         procsupt.asm and apisupt.asm.
+         Bart: warning removal + other compile time fixes.
+         Tom: * more partition detection fixes in dsk.c.
+              * dos_gettime() fix.
+
+2001 Mar 21 - Build 2022
+-------- Bart Oldeman (bart@dosemu.org)
++ Clean  A lot of space savings by Tom Ehlert, merely because Turbo C 2.01 does not
+         do it. And several more complicated situations as well, like coding some
+	 string functions in assembly (asmsupt.asm).
++ Add    Tom Ehlert: support for DOS=HIGH. Now most of the kernel can be loaded into
+         the HMA. This required a lot of segmentation changes. Let's hope the best
+	 of it. Support for device drivers with multiple devices.
++ Fixes  From Tom Ehlert:
+         task.c bug fix (image_size is in bytes)
+	 dosfns.c change dir to E:\FREEDOS\*.PRJ fix
+	 fcbfns.c fixes.
+	 break.c Ctrl-C Ctrl-C -> crash temporary fix.
++ Fixes  From Bart:
+	 Let UMBs work again after HMA changes.
+	 Be able to compile sys.com again. Is now really a .exe file but still masks
+	 as .com in the hope that we can make it a real .com again.
+	 DeviceHigh loads low if there are not enough UMB's available.
+	 Fixed another redirector problem.
++ Update Optimized asmsupt.asm a bit with help of the glibc 2.2 source.	
++ Fixes  Tom Ehlert and Brian Reifsnyder: fix partition detection in dsk.c +
+         other bug fixes (also: floppy.asm).
++ Update Tom Ehlert optimized blockio.c.
++ Fixes  a few small ones from Tom I forgot.
+
+2001 Mar 08 - Build 2022
+-------- Bart Oldeman (bart@dosemu.org)
++ Fixes  MCB chain corruption fix (thanks Tom Ehlert and Martin Stromberg)
+         Redirector fixes (CDROMs and DOSEmu lredir'ed drives appear to work fine now)
+         UMB fixes
+         Various recodings (dsk.c, prf.c, portab.h) to make kernel
+          object footprint 3k smaller (Tom Ehlert)
+         Fix handling of very long path names (Tom Ehlert)
+         FindFirst/FindNext fixes (Tom Ehlert)
+         Configuration for libm.mak is in config.mak (Martin Stromberg)
+         NLS fix to include pointer to CharMapSrvc. Note: these are
+          changes to automatically generated .asm files, but the
+          generator (GRAB_UNF.EXE) is missing. (thanks Tom Ehlert)
+         DosSelectDrv fix (Martin Stromberg)
+         config.c always converts to upper case and handles dos=umb correctly
+
+2000 Dec 15 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixes	 Added Patches from Bart Oldeman (bart@dosemu.org)
+         Fix for NLAST in globals.h and change default return in inthndlr.c.
+
+2000 Oct 29 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
+         Rebuild local cvs tree after a crash. Update CVS at Sourceforge.net
+         with changes.
+
+2000 Sep 04 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
++ ADD	 Adding Ron Cemer patch for Share support!
+
+2000 Sep 04 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixes  Brian Reifsnyder (reifsnyderb@mindspring.com)
+         Modified dskxfer() such that error codes are now returned.
+         Functions that rely on dskxfer() have also been modified accordingly.
+         Modified interrupts 0x25 & 0x26 to return more accurate error codes.
+         Updated dskxfer() prototype.
+
+2000 Aug 15 - Build 2022
+-------- James Tabor (jimtabor@infohwy.com)
+         2000/08/12 22:49:00  Ron Cemer (roncemer@gte.net)
+         Fixed writeblock() to only use getbuf() if writing a
+         complete sector; otherwise use getbloc() and do a
+         read-modify-write to prevent writing garbage back
+         over pre-existing data in the file.
+         This was a major BUG.
+
+
+2000 Aug 05 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
+         Clean up and finish umb code to get 2021 out.
+
+2000 Jul 26 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix    New patch from Ron IsDevice and truename fix.
+
+2000 Jul 14 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Added NLS patches from Steffen Kaiser and patch from Ron
+         (roncemer@gte.net).
+
+2000 Jun 25 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Add and Fix support for UMB's.
+
+2000 Jun 20 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix	 Bart Oldeman (bart@dosemu.org) found bugs with copy
+         command using Dosemu Lredir. Fixed Dosfns return for ReadCount,
+         WriteCount and  DosGetFattr. Fixed the return in int2f.asm for
+         Read/Write Remote. By adding xor ax,ax.
+         I found some more return bugs in int2f.asm after adding Barts
+         patch.
+
+2000 Jun 08 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Started the UMB code. Devicehigh and dos=umb only works with
+         Dosemu for now.
+
+2000 Jun 07 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Int2f added code for Fastopen call.
+         Now MSD Scandisk works!
+
+2000 Jun 06 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Add    Dos Func 0x59 and found a redirector bug in fncfns.c.
+
+2000 Jun 01 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix    Lastdrive is a real number 1 thru 26 not 0 thru 25.
++ Fix    Ioctl and Dsk did not return the currect AX for Ioctl calls.
+
+2000 Jun 01 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Clean  Removed test prinf statements in source.
+* Thanks to Lixing Yuan for pointing out an copy to root error.
+
+2000 May 31 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Patch  Lixing Yuan (yuanlixg@china.com) Patch for parsing bug in
+	 FindFirst with wildcards -> ParseDosName (dosnames.c).
+
+2000 May 28 - Build 2021
+-------- James Tabor (jimtabor@infohwy.com)
++ Added  Open/Close/Media check to dsk.c and io.asm.
++ Fixed  Device checking in truename. Truename needs to be rewriten.
+
+
+2000 May 26 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
+         Code Clean up and Now the Release.
+
+2000 May 26 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  IsDevice is used in FcbFns.c and DosFns.c. I removed IsDevice
+         from DosNames.c an placed it in DosFns.c. FcbFns had dup code
+         and it was removed. This fixed all the functions using IsDevice.
+
+         Truename works now. I consider it dangerous and brain damaged.
+         Note:
+          truename X:\DIR\con -> X:/CON, note the '/'.
+          truename foo*.* -> X:\DIR\FOO?????.???
+          truename *.*\*.*\*.* -> ????????.???\????????.???\????????.???
+          truename *.*\*.**\*.* -> endless Loop
+             I will fix this later ;^)
+
+         Found InitPSP running 3 time. On the 2'nd run the standard handles
+         were closed with out DosClose. Now Device Drivers can Print out
+         there startup info.
+
++ Added  New IOCTL code in Dsk.c.
+
+2000 May 26 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fix    Kolyan Ksenev (7207@mx.csd.tsu.ru) (nik0la@acm.org)
+         found Major bugs in Task.c and chario.c.
+
+2000 May 25 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  Project history.
+
+2000 May 17 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  Delete, Rename, Mkdir, and Rmdir. Comment out isDevice. There is
+         a serious bug in isDevice.
++ Added  Finished adding function code for disk serial number support.
++ Clean  Cleaned up source and removed duplicate functions.
+
+2000 May 14 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Clean  Cleaned out the remaining CR's.
+
+2000 May 08 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Update Started Update to the New CVS at Sourceforge.net. Setting source
+         from 2018 to 2020.
+
+2000 May 06
+-------- Jim Hall (jhall1.isd.net)
++ Import Jim Hall imported the CVS from gcfl.net to Sourceforge.net.
+
+2000 Apr 28 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Added  Dos Function calls 0x69, and 0x6C. IOCTL support in disk driver.
+         New functions not yet fully implemented.
+         Clean up DSK.C, IOCTL.C and FCBFNS.C. Removed old blk_device
+         pointers.
+
+2000 Apr 03 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  All DPB chains were linking to -1.
+
+2000 Apr 02 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ Fixed  Dos_Free returned wrong due to MaxCluster Calc.
+	 Media_Check MaxCluster count wrong, needed +1.
+
+2000 Apr 01 - Build 2020
+-------- James Tabor (jimtabor@infohwy.com)
++ fixed  Unable to cd back out of cdrom directories.
+
+
+2000 Mar 31 - Build 2019
+-------- James Tabor (jimtabor@infohwy.com)
++ added Eric W. Biederman patches via CVS.
+
+2000 Mar 25
+-------- Eric Biederman
++ Fixed	 Lastdrive handling
++ Fixed	 Not enough drives for number present devices
++ Added    Working (though not perfect network redirector)
+           Note: Error codes internal to freedos are negative
+                 Error codes external to freedos are postive.
+                 The network redirector is external to freedos...
+           Note: Running the nonredirected functions on a redirected
+                 drive is dangerous.   My patch is very careful
+                 not to.  Except in truename.  Where (a) it is safe
+                 and (b) I think it is required, and (c) it is needed
+                 by dosemu.
+
+2000 Mar 19 - Build 2019
+-------- James Tabor (jimtabor@infohwy.com)
+* Jean-Francois <lozevis.jeanfrancois@free.fr> email noting
+  the set/clear interrupt was reverse in order.
+
+2000 Mar 17 - Build 2019
+-------- Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
++ Fixed Config.c COUNTRY= statement
++ Fixed *.c to call upFMem() when upcasing filenames
+- Removed everything to load NLS into memory
+= Redesigned hardcoded NLS information
+
+--> The kernel will now return the proper information for the
+    hardcoded NLS (U.S.A. / CP437), it would return the correct
+    information for other NLS, too, if there would be a NLSFUNC
+    available, which is not at this time.
+
+NOTE: The way the external NLSFUNC is called does not look well,
+therefore expect a change soon.
+
+2000 Mar 15 - Build 2019
+-------- James Tabor (jimtabor@infohwy.com)
+* Dennis Newbold and Massimo De Munari email kernel bug reports
+  with changes to Globals.h and Inthndlr.c. Fix to leap year and
+  Delete file return code.
+* Michal Meller found a bug in media_check. It return the wrong
+  value of sector count. Change in FATFS.C.
+* Fixed Func 0x32 based on information from Marty <k3pbu@arrl.net>.
+  Func 0x32 Get Drive Parameter BLK did not work.
+
+
+2000 Mar 09 - Build 2018
+-------- James Tabor (jimtabor@infohwy.com)
+Added   CDS and made FD CDS based. Changes encompass all of the
+	code for FD.
+Fixed   Task.c, rewritten code from FINODE to SFT function calls.
+	Unable to execute from CD. Main.c and Config.c has small
+	changes.
+Fixed   Device drivers are unable to write to con. Rewritten code to
+	relocate DOS_PSP pointer to 050:0000. Removed references to
+	DOS_PSP in DosFns.c.
+Added   Network and Redirection function calls in Inthndlr.c and
+	network.c.
+
+I have a note in FatFs.c line 313, describing functions not yet
+supported for networking. I don't understand Pats thoughts on SFT to
+FINODE. IMHO it would have been easier to stay with SFT all through
+the code.
+
+I tested MS-Dos 6.22 Command and found it unable to do Find First or
+Next. This too could explain why MSCDEX does the same thing. I only
+test this with the current FDCommand at the time, so this could have
+changed.
+
+
+1999 Sep 24 - Build 2017
+-------- John Price (linux-guru@gcfl.net)
+* Per Jens Horstmeier's email, changed boot sector code to make
+  Siemens CDROM's bootable.  The changes should be OK for all other
+  machines too (in theory).
+
+
+1999 Sep 22 - Build 2016
+-------- John Price (linux-guru@gcfl.net)
+* Turned off debug output from the kernel.  It does not seem to be
+  necessary at this time.
+* Changed boot sector to do single-sector reads instead of
+  multi-sector reads.  Appearantly this was part of the reason the
+  kernel would not boot from a 720K, or other format floppies.  Thanx
+  to Charles Dye for the info.
+
+1999 Sep 16 - Build 2016
+-------- James Tabor (jimtabor@infohwy.com)
+* Added Networking and Server Call
+* Added Dos Idle call
+* fixed Console.asm ConInStat
+
+
+1999 Sep 13 - Build 2014
+-------- John Price (linux-guru@gcfl.net)
+* Deleted some files from the drivers directory that were not being
+  used.
+* Changed the LIB.MAK file so it would work for TC2 or TC3 or higher.
+* Changed SYS.COM so that it creates a sys.log file with more debug
+  information to help debug problems with making boot disks.
+
+1999 Sep 13 - Build 2014
+-------- James Tabor (jimtabor@infohwy.com)
+* Submitted changes to CONSOLE.ASM & INTHNDLR.ASM to fix the INT21
+  func 0B bug.
+
+1999 Sep 13 - Build 2014
+-------- Helmut Fritsch (helmut.fritsch@gcd-hs.de)
+* Submitted changes to CONSOLE.ASM to fix the INT21 func 0B bug.
+
+1999 Sep 10 - Build 2014
+-------- ror4 (f2xm1@crosswinds.net)
+* At the suggestion of Mr John Price, modified the int 0x25 and int
+  0x26 so that they no longer update the disk buffers (int 0x26 only
+  invalidates the buffers for the specified drive). This is to avoid
+  inconsistent disk buffers from appearing in the buffer chain due to
+  interactions between int 0x25/0x26 and file read/write operations.
+
+
+1999 Aug 24 - Build 2013
+-------- John Price (linux-guru@gcfl.net)
+* With ideas from ror4, I redid the build batch file so you can
+  specify where what make to use.
+* Also created CONFIG.M and CONFIG.B which should be copied to
+  CONFIG.MAK and CONFIG.BAT, respecively, and edited to reflect the
+  users configuration.  This keeps new versions from replacing the
+  configuration files so the user does not have to keep reseting
+  their configutation.
+
+1999 Aug 15 - Build 2013
+-------- ror4 (ror4@angelfire.com)
+* Patched the source so that it can be compiled with Turbo C 2.01.
+  (`asm' statements were rewritten into very ugly equivalents... they
+  probably need more work. :( )
+* Modified the `dmatch' structure in `hdr/dirmatch.h' so that the
+  `dm_dirstart' field is in the right place, and also to make it
+  compile under TC 2.01, which doesn't allow bit fields of any types
+  other than signed or unsigned int.
+* Fixed a few minor bugs in error code returning in `kernel/fatfs.c'.
+
+
+1999 Jul 16 - Build 2012
+-------- ror4 (ror4@iname.com)
+* Finally ported all the assembly modules to `nasm'. *phew*
+* Undid plonee's patches to `kernel/fatfs.c' (sorry). They were
+  causing the resulting findfirst/findnext DTA structures to be
+  incompatible with MSDOS's.
+* Also rewrote all the pattern copying code in `dos_findfirst' in
+  `kernel/fatdir.c' to prevent a bad buffer overflow problem.
+* Modified the disk buffer handling code, so that logical sector
+  numbers in disk buffers are now 0-based instead of 1-based.
+* int 0x25 and int 0x26 now do multi-sector reads/writes.
+
+1999 Jul 14 - Build 2012
+-------- ror4 (ror4@iname.com)
+* Ported the modules in the `drivers/' branch to `nasm'.
+
+
+1999 May 04 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Fixed the code for converting day numbers into Julian calendar
+  dates: the first and last days of each month are now returned
+  correctly.
+* Undid a change to the code to get the day of the week.
+
+1999 May 02 - Build 2011
+-------- John Price (linux-guru@gcfl.net)
+* blockio.c: changed getblock and getbuf so that they leave at least
+  3 FAT type buffers valid.  This helps because the FAT is accessed
+  very often compared to other sectors.
+* fatfs.c: Fixed a bug in map_cluster so it will optimize FAT reads
+  on disks that have more than one sector per cluster.  This
+  sigificantly improved disk access of big files on hard drives.
+
+1999 May 02 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Corrected the `struct buffer' definition in `kernel/globals.h' so
+  that it corresponds exactly to Ralf Brown's description of a DOS 3.x
+  buffer.
+* Also fixed the problem with FATs > 255 sectors, by making use of an
+  originally unused field in the buffer structure.
+
+1999 May 01 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Fixed a problem which caused disk corruption on partitions with
+  FATs larger than 127 sectors. (However, FATs larger than 255
+  sectors may still experience problems -- this is due to a
+  limitation of the DOS 3.x buffering scheme.)
+* Fixed a bug in the handling of the `stacks=' command in
+  `(fd)config.sys' which caused the system to behave strangely.
+
+1999 Apr 22 - Build 2011
+-------- Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
+bugfix: memmgr.c: Invalid returned largest size in MemLargest()
+fix: memmgr.c: DosMemLargest: change prototype to match its useage
+bugfix: inthdlr.c: 0x49: ES is decremented
+fix: inthdlr.c: 0x00: DosMemCheck() does nothing --> added panic()
+fix: inthdlr.c: 0x4c: DosMemCheck() does nothing --> added panic()
+fix: inthdlr.c: 0x00: changed to make it the same as DOS-4C-00
+	Both actions differed e.g. in ErrorMode
+chg: memmgr.c: the 'name' field of the MCB is never initialized by
+	DOS-48, DOS-49 or DOS-4A. Leave this to the program loading function.
+bugfix: memmgr.c: adjust_far() / add_far():
+	Both function together (and the way they are used) don't make sense:
+	adjust_far() normalizes a far pointer, add_far() generates a linear
+	address. Usually both are used this way:
+		far_poi = adjust_far(far_poi);
+		while(...) {
+			...
+			far_poi = add_far(far_poi, uword);
+			...
+		}
+	First one makes sure that 'far_poi' is normalized, then far_poi
+	becomes a linear address, which makes it very difficult to use
+	it, because the possibility to get a segment warp gets very high.
+	-->
+		Change: add_far() also returns a normalized real mode pointer
+		as adjust_far() does.
+	Probably in DOS-C supporting various architecures thee functions
+	served other duties, but the current useage is highly dangerous.
+bugfix: task.c: ChildEnv(): nEnvSize didn't counted the last '\0'
+bugfix: task.c: ChildEnv(): Allocation: maximum absolute filename to
+	short and forgot the word counter
+bugfix: task.c: ChildEnv(): for very corrupt environments, the
+	copy function failed.
+bugfix: task.c: DosExeLoader(): If exe_size > allocated_size or
+	DosMemLargest() failes, the environment is not deallocated
+bugfix: task.c: DosExeLoader(): Calculating the exe_size to be
+	allocated. At both places (+ header.exMinAlloc & ...MaxAlloc)
+	sizeof(psp) is added to exe_size. Why? image_size already
+	contains sizeof(psp).
+chg: task.c: DosExeLoader()/DosComLoader(): MCB patching and command
+	line copying is no outside of those functions
+chg: asmsupt.asm: _fbcopy: re-use parts of _bcopy
+add: asmsupt.asm: fmemset, fmemclr, fmemclra {Replace the explicit
+	for() loops}
+
+1999 Apr 22 - Build 2011
+-------- ror4 (ror4@cryogen.com)
+* Ported boot.asm to NASM.  The plan is to port all assembly to NASM
+  over time.
+
+
+1999 Apr 19 - Build 2010
+-------- John Price (linux-guru@gcfl.net)
+* Undid the change I made to getblock below because it DID NOT speed
+anything up, and in fact slowed access down.
+
+
+1999 Apr 18 - Build 2009
+-------- John Price (linux-guru@gcfl.net)
+* change getblock so that it flushes all buffers for a drive when it
+  has to flush one of them to make room.  This should speed disk
+  access slightly.
+* Change the boot sector so there is a compile-time option to use
+  multi-sector IO or single-sector IO.  The default is multi since
+  ror4 seemed to have fixed the problem we had before.
+
+1999 Apr 18 - Build 2009
+-------- ror4 (ror4@cryogen.com)
+* The boot sector can now load the kernel properly from a hard disk.
+* Other minor changes.
+
+
+1999 Apr 16 - Build 2008
+-------- ror4 (ror4@cryogen.com)
+* Modified the block device driver to prepare it for multi-sector I/O
+  support.  Among other things, the driver can now handle transfer
+  buffers which cross DMA boundaries.
+* Some other minor changes.
+
+1999 Apr 15 - Build 2008
+-------- John Price (linux-guru@gcfl.net)
+* Changed mainly the map_cluster function in fatfs.c so that instead
+  of starting at the beginning of the FAT chain every time, it will
+  be smart about it, and start at the last FAT location that it was
+  before if it can.  This speeds up disk access considerably
+  especially on slower machines.
+
+1999 Apr 15 - Build 2008
+-------- Steffen Kaiser (Steffen.Kaiser@fh-rhein-sieg.de)
+bugfix: ^Break handler according cmt1.txt
+bugfix: DosCreat(): Detection for Devices and extension:
+	the semi-colon behind if(*froot) is definitely wrong, whether
+	one wants CON.EXT to be interpreted as CON or not.
+bugfix: DosOpen(): dito
+
+* Re-implementation of ^Break handler -- 1999/03/27 ska
+  + Warning: The handle_break() function assumes that the InDOS flag
+  was incremented (except if ErrorMode is true). Never call
+  handle_break() unless the InDOS flag has been incremented within
+  this reentrant call of DOS.
+
+  + ^Break is detected and handled at certain places within the
+  kernel only:  a) within the CON: device when reading or writing a
+  character, and b) when entering the INT-21 service (if extended
+  break checking is enabled).  At these places the process flow can
+  be modified to: either a) redo the interrupted function or b) abort
+  the currently running process.
+
+  + Both actions are performed by switching back to the user stack
+  and enter INT-21 handler again. If to terminate the program, AX is
+  modified into 4C00h.
+
+  + By default, if the user has no ^Break handler installed, the
+  program is terminated.
+
+  + Heavy change: The original implementation installed an unique
+  INT-23 handler that directly called the actions performed
+  DOS-4C-XX.  In fact, this was identically with when the user had an
+  own handler installed and returned the Carry flag set, except that
+  it was somewhat quicker, because the kernel need not decode the
+  4C00h command.  Now the Carry flag is set prior the call of INT-23,
+  so the default action is to terminate the program.
+
+  + Note: INT-23 is called with all registers as they are passed to
+  the INT-21 entry. When they are modified, they are passed
+  _modified_ to the API interpreter. This also allows the DOS1-style
+  termination by to load register AH with 0 (zero).
+
+  + RBIL says:
+     "any DOS call may safely be made within the INT 23 handler,
+     although the handler must check for a recursive invocation if it
+     does call DOS"
+  This can be interpreted so or so, the problem is that the user can
+  call DOS again, what would overwrite the saved _usr_stack pointer
+  with a different value and, therefore, cannot be used to check if
+  INT-23 was returned by RETF or RETF2/IRET.
+
+  Because a recursive invokation of INT-23 is to prevented by the
+  user, the kernel could internally save SP to somewhere else.
+  However:
+  a) where?
+  b) is it reliable that the user ever returns from INT-23 at all?
+
+  The implemented method uses the same mechanism as fail-safe intr()
+  function is implemented: A little piece of code is constructed
+  within the stack, which contains the value of SP as an operand of
+  an immediate MOV instruction.
+
+
+1999 Apr 13 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* The boot sector now moves itself to the last 512 bytes of
+  conventional memory instead of a lower memory location.
+* The kernel startup code has also been modified so that it works
+  with the new boot sector.
+
+1999 Apr 12 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* The directory scanning functions (`findfirst'/`findnext') now also
+  recognize more flavours of the volume label attribute byte (namely
+  0x09, 0x28 and 0x29).
+* Subdirectories are now no longer assumed to have the same size as
+  the root directory.
+* `device/device.lib' is now included as a dependency in the kernel
+  makefile.
+* Removed several unused assembler modules from the `device/' branch
+  (see `device/device.mak').
+
+1999 Apr 11 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* The kernel now reads times from the system clock (0x40:0x6c)
+  instead of the RTC. The RTC is only used during startup to
+  initialize the system clock. (As a side effect of this,
+  `ReadATClock' has been moved from `_TEXT' to `INIT_TEXT'.)
+* Checking for leap years is now improved -- year numbers which are
+  divisible by 100 but not by 400 are not counted as leap years. (Not
+  that it matters for year 2000, though.)
+* The scaling factor used to convert the system time count to a
+  second count has been changed from 18.2 to the more accurate (?)
+  19663/1080.
+* Day numbers used by `clock$' are now 0-based (as in MSDOS) instead
+  of 1-based. Thus 1 Jan 1980 is now day number 0.
+
+1999 Apr 10 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* Added code to prevent the kernel from returning path names
+  containing double backslashes.
+
+1999 Apr 9 - Build 2007
+-------- ror4 (ror4@usa.net)
+* File handles are now cloned properly when a child process is spawned.
+* The `DosClose' function now also frees SFT entries corresponding to
+  devices, not only those entries corresponding to files.
+* Removed a (minor) memory corruption bug in the code for int 0x21,
+  ah = 0x09.
+
+1999 Apr 6 - Build 2007
+-------- ror4 (ror4@cryogen.com)
+* Functions ax = 0x5700 and 0x5701 (get/set file date and time) now
+  return the right values at the right times. (They used to return
+  success when there's an error, and return error when there's a
+  success.)
+* Removed the `/k' switch to the linker in `sys/sys.mak'.
+
+
+1999 Apr 4 - Build 2006
+-------- John Price (linux-guru@gcfl.net)
+* added "version=" directive so that you can change the version that
+  the kernel reports.  Usage: version=<major>.<minor> (i.e.
+  version=6.22)
+
+1999 Apr 4 - Build 2006
+-------- ror4 (ror4@usa.net)
+* Fixed the file name parsing function (`ParseDosNames') so that it
+  handles single-character path names correctly.
+* Also modified the functions which call `ParseDosNames' to check its
+  return value instead of assuming that it is always successful.
+  (This is not currentl useful, but it will be when error checking is
+  introduced into `ParseDosNames'. In other words, there'll be more
+  changes to `ParseDosNames' in the near future...)
+
+* After wondering for a long time why the kernel text segment was
+  always getting corrupted when I ran DJGPP `bash' 1.14.7, I finally
+  decided to examine the code occurring before the handler for int
+  0x21, ah = 0x60, and I found out why... :)
+* Fixed the problem of int 0x21, ax = 0x5d06 causing memory
+  corruption.
+* Corrected the types of `internal_data', `swap_always' and
+  `swap_indos' in `kernel/globals.h'.
+
+* Improved checking for invalid file names in `ParseDosName'
+  (although I'm still not sure whether the check is water-tight or
+  not).
+* Changed the default path setting from `PATH=' to `PATH=.'.
+
+* Output from character I/O functions now goes to standard output as
+  it should, instead of the console. Also, there's now a clear
+  distinction between console input/output and standard input/output.
+* Tabs are now expanded during writes to the console device.
+* Removed a hard-wired limit on the number of entries in a JFT.
+  (Although I'm not sure whether this is really correct...)
+* Many other changes to the file descriptor handling code.
+
+1999 Mar 29 - Build 2006
+-------- John Price (linux-guru@gcfl.net)
+* Changed boot loader so it prints some feedback info while booting.
+  Removed code to handle FAT12 and FAT16, and code to calculate the
+  start of the fat, rootdir, and data.  Moved these functions into
+  the sys command.  Now there are two versions of the boot loader
+  created, one to handle FAT16, and one for FAT12.  These are
+  hard-coded into the sys command, so the need for the boot.bin file
+  is obsolete.
+* created a new program (bin2c) to convert the boot loader binary
+  file into a header file that can be included in the sys program as
+  an array of bytes.
+
+1999 Mar 29 - Build 2006
+-------- ror4 (ror4@usa.net)
+* Changed the class of `_BSSEND' from "STACK" to "BSS" in the
+  `drivers/' branch (which I forgot about in my last patch).
+* Removed all traces of the `CONST' segment, since it was causing
+  `IGROUP' to be assimilated into `DGROUP', which shouldn't happen.
+* Added a `(void)' cast to the `setvec' macro in `kernel/globals.h'
+  (`setvec' no longer returns the original ISR vector).
+* Changed an incorrect error message in `sys/sys.c'.
+* Removed `drivers/setvec.asm', since it's no longer needed.
+* Also removed `kernel/krnstart'.
+* The name field in a process's MCB is now filled in the same manner
+  as in MSDOS -- instead of being padded to the right with spaces, it
+  is now terminated with '\0'. Also, if the original file name
+  doesn't have an extension, the code will stop copying the file name
+  at '\0' instead of continuing to look for a '.'.
+* Fixed the problem of the `switchar' syscall (int 0x21, ax = 0x3700) not
+  returning the correct value.
+
+
+1999 Mar 28 - Build 2005
+-------- ror4 (ror4@usa.net)
+* Removed the need for `ipl.sys'. (!) The kernel makefile now
+  statically relocates `kernel.exe' to 0x60:0 and outputs the
+  resulting binary to `kernel.sys', and the boot sector has also been
+  modified to load `kernel.sys' at 0x60:0 instead of `ipl.sys' at
+  0x2000:0. (I chose 0x60:0 because it's the first 512-byte boundary
+  occurring after the BIOS data area, 0x40:0.) Finally, `sys.com' has
+  also been updated.
+
+* Also changed the boot sector code in some other ways. In
+  particular, because `kernel.sys' is rather large, I had to add some
+  code to move the boot sector away from 0:0x7c00 to somewhere
+  higher. (For 640K systems the boot sector will be shifted to
+  0x6000:0x7c00. However, there may be problems on systems with very
+  little conventional memory -- I'll probably look into this later.)
+
+* Made some minor changes to the assembler source files so that they
+  can compile on `masm'. (JP: The code still compiles fine with tasm
+  too).
+
+* Also changed several incorrect label references in the assembler
+  sources. (JP: These changes fixed the "Fixup" errors we been
+  talking about in the list)
+
+* Eliminated redundant re-makes of files in the various makefiles.
+  For one thing, `*.cfg' files are no longer generated from the
+  makefiles, but are independent from them. (I didn't like the idea
+  of having to compile an entire branch each time I edit a
+  makefile...) Also, intermediate files are now retained instead of
+  deleted.
+
+* Also made some changes to `build.bat' (you'll know them when you
+  see them).
+
+* Added a file `lib/libm.mak'
+
+* Added a file `kernel/krnstart
+
+* The code required to initialize the kernel (or rather most of it)
+  is no longer retained in memory after the initialization process is
+  done. I accomplished this by moving most of the initialization code
+  from `_TEXT' to a new segment named `INIT_TEXT'. Of course, I also
+  had to introduce lots of other changes in order for everything to
+  compile and run properly:
+  - Added code to `kernel/src/kernel/kernel.asm' to move the contents
+    of `INIT_TEXT' to the top of conventional memory and continue
+    from there.  Control is only transferred back to `_TEXT' when the
+    kernel calls `p_0'.
+  - Many functions are called from both `_TEXT' and `INIT_TEXT'. To
+    fix this, I created far wrappers for these functions which can
+    then be called from `INIT_TEXT'. (E.g. for `execrh' there's a
+    corresponding far function named `init_call_execrh' which simply
+    calls `execrh' with its own parameters.) One exception to this is
+    `printf' -- instead of creating a far wrapper for a near
+    `printf', I created a near wrapper for a far `printf' (now called
+    `init_call_printf'), because it was easier that way. :)
+  - Most functions which are required only during initialization time
+    were shifted into `INIT_TEXT'. (There are still some functions
+    which should rightfully go into `INIT_TEXT', but are retained in
+    `_TEXT' as far functions, because I found it too difficult to
+    move them out. :( ) Because Turbo C only allows at most one code
+    segment to be defined for each module, I had to shift some
+    functions around within the source tree -- the file
+    `kernel/src/kernel/proto.h' says it all.
+  - A cosmetic change mentioned here for completeness: all functions
+    defined in `INIT_TEXT' are now marked with the word `INIT' (in
+    fact a null macro) so that the reader can easily distinguish them
+    from functions defined in `_TEXT'.
+
+* Replaced `exit' calls with `for (;;);'.
+
+* Changed `strcpy' into a macro which calls `scopy'.
+
+* Also redefined `setvec' to be a macro (I didn't want to waste time
+  writing a far wrapper for it).
+
+* Removed the `break_key' function in `kernel/src/kernel/kernel.asm'.
+
+* `low_int25_handler' and `low_int26_handler' are now of type
+  `void interrupt far()' instead of `void near()'. (I hope I updated
+  `entry.asm' correctly -- I never tested `int 0x25' and `int 0x26'...)
+
+* Changed the class of `_BSSEND' from "STACK" to "BSS" -- "STACK" is
+  now used for a separate stack segment (`_STACK').
+
+* Assembler modules now include `segs.inc' instead of having their
+  own long list of segment definitions. (Some day I'll update the
+  makefile dependencies to reflect this.)
+
+* Also made a few minor changes to the assembler modules so that
+  `masm' won't complain.
+
+* Changed the `-X' switch in `kernel.cfg' to `-X-', so that I don't
+  have to worry about C module dependencies.
+
+* Removed the definition of `CFLAGS' from the makefile -- everything
+  is now in `kernel.cfg'.
+
+* Created a file `kernel/src/kernel/init-mod.h' which is included by
+  modules whose code is supposed to go into `INIT_TEXT' instead of
+  `TEXT'.
+
+* This diff solves the problem of the MCB of a process not having a
+  correct value in its name field (bug report #6).
+  (The definition of the `toupper' macro is because I shifted the
+  `toupper' function into `INIT_TEXT' a while ago, and therefore
+  can't be called from `_TEXT' now...)
+
+
+-------- John Price (linux-guru@gcfl.net)
+* Made changes so you can create a directory with the same name as a
+  volume label, but you still can't rename or delete it!
+
+* Fix findfirst and findnext functions so that act as they should.
+  (i.e. If the attrib has only the volume label set, then it returns
+  the volume label entry in the root directory, else it returns the
+  files/directories that are specified with the attrib, ignoring the
+  read-only and archive bits (these are always returned).
+
+* reorginize the source tree.  Removed IPL directory, and command.
+  Moved all the file system C files into the kernel directory.
+  Modifed build.bat, clean.bat, and all the make files to reflect the
+  new tree.
+
+* changed so that kernel will look for a "fdconfig.sys" file, and use
+  it INSTEAD of config.sys.  If it does not find it, it will look
+  for, and read config.sys, if it exists.
+
+* Fixed so that if you call an INT 21 function with AH containing a
+  unsupported function, the carry flag is set.
+
+
+----- older history, from rcs logs.
+
+13 Nov 2002 tom
+initclk.c:
+Initial revision
+
+2001/11/04 bartoldeman
+install.bat:
+Text files need to be LF ended at the server. So be it...
+
+2001/04/29           brianreifsnyder
+dsk.c:
+Added phase 1 support for LBA hard drives
+
+20 Apr 2001  Bart Oldeman
+buffer.h:
+Initial revision.
+
+2001/04/16 bartoldeman
+dsk.c:
+Fixed handles, config.sys drivers, warnings. Enabled INT21/AH=6C, printf %S/%Fs
+
+2001/04/15 bartoldeman
+dsk.c:
+See history.txt for the list of fixes.
+
+2001/03/27 bartoldeman
+dsk.c:
+dsk.c (reported by Nagy Daniel), inthndlr and int25/26 fixes by Tom Ehlert.
+
+2001/03/24 bartoldeman
+dsk.c:
+See history.txt: dsk.c changes, warning removal and int21 entry handling.
+
+2001/03/22 bartoldeman
+install.bat:
+Change LF to CR/LF in batch files.
+
+2001/03/21 bartoldeman
+dsk.c:
+See history.txt for changes. Bug fixes and HMA support are the main ones.
+
+2001/03/16 tom ehlert
+inithma.c:
+initial creation
+
+2001/03/08 bartoldeman
+dsk.c:
+Space saving fixes from Tom Ehlert
+
+2001/03/07 10:00:00 tomehlert
+prf.c:
+recoded for smaller object footprint, added main() for testing+QA
+
+2000/10/29 jimtabor
+inthndlr.c:
+Adding Share Support by Ron Cemer
+
+2000/08/15 jhall1
+build.txt:
+update to the build.txt file to remove references to the now-defunct
+web site at gcfl.net (John's old site).
+
+2000/08/06 jimtabor
+inthndlr.c, nls_load.c:
+Add new files and update cvs with patches and changes
+
+2000/06/21 jimtabor
+dsk.c, inthndlr.c:
+Add UMB code, patch, and code fixes
+
+2000/06/01 jimtabor
+dsk.c:
+Read History for Changes
+
+2000/05/26 jimtabor
+dsk.c:
+Read History file for Change info
+
+2000/05/25 jimtabor
+dsk.c, inthndlr.c:
+Fixed project history
+
+2000/05/17 jimtabor
+dsk.c, inthndlr.c:
+Cleanup, add and fix source.
+
+2000/05/11 jimtabor
+inthndlr.c:
+Removed #if statement
+
+2000/05/11 jimtabor
+dsk.c, inthndlr.c:
+Added code for DOS FN 69 & 6C
+
+2000/05/11 jimtabor
+install.bat, inthndlr.c:
+Clean up and Release
+
+2000/05/08 jimtabor
+inthndlr.c, dosnames.c, dsk.c, dosnames.h, build.txt:
+Update CVS to 2020
+
+2000/05/06 jhall1
+getvec.asm, dsk.c, inthndlr.c:
+The FreeDOS Kernel.  A DOS kernel that aims to be 100% compatible with
+MS-DOS.  Distributed under the GNU GPL.
+
+2000/04/29 jtabor
+device.h, blockio.c, dsk.c, fatfs.c, inthndlr.c, ioctl.c:
+Added new functions and clean up code
+
+2000/04/02 jtabor
+newstuff.c:
+Fix ChgDir Code
+
+2000/04/02 jtabor
+dosfns.c:
+Replaced ChgDir Code
+
+2000/04/02 jtabor
+dosfns.c:
+Fix to DosChgDir
+
+2000/03/31 jprice
+sys.c:
+Added discription of program.
+
+2000/03/31 jtabor
+config.c, dosfns.c, dosnames.c, fatdir.c, fcbfns.c, int2f.asm, main.c,
+makefile, network.c, newstuff.c, proto.h, task.c:
+Added Eric W. Biederman Patches
+
+2000/03/23 ska
+nls.c:
+Initial revision
+
+2000/03/20 kernel
+entry.asm:
+Change in Entry.asm
+
+2000/03/18 kernel
+intfns.txt:
+changes in supported functions
+
+2000/03/17 kernel
+config.c, fatdir.c, fatfs.c, fcbfns.c, inthndlr.c, makefile,
+network.c, nlssupt.asm, proto.h:
+Steffen Kaiser's NLS changes
+
+2000/03/17 kernel
+inthndlr.c:
+Fixed Func 0x32
+
+2000/03/17 kernel
+fatfs.c:
+Added Change for media_check
+
+2000/03/16 kernel
+globals.h, inthndlr.c:
+*** empty log message ***
+
+2000/03/09 kernel
+dosfns.c, dosnames.c, dsk.c, error.c, execrh.asm, fatdir.c, fatfs.c,
+fcbfns.c, globals.h, initoem.c, int2f.asm, inthndlr.c, io.asm,
+ioctl.c, kernel.asm, main.c, makefile, memmgr.c, misc.c, network.c,
+newstuff.c, prf.c, proto.h, strings.c, sysclk.c, task.c, blockio.c,
+break.c, chario.c, config.c, console.asm, cds.h, dcb.h, device.h,
+dirmatch.h, fnode.h, mcb.h, sft.h, stacks.inc:
+2017f updates by James Tabor
+
+1999/09/25 jprice
+boot.asm:
+Optimize boot loader.  Documentation.
+
+1999/09/24 jprice
+boot.asm:
+Added changes recommended by Jens Horstmeier
+to make their bootable CD work.
+
+1999/09/23 jprice
+main.c, network.c, proto.h, globals.h, inthndlr.c, kernel.asm,
+makefile, config.c, console.asm, dosfns.c, entry.asm, fatfs.c,
+fcbfns.c, chario.c, boot.asm, fcb.h, sys/makefile, sys.c:
+*** empty log message ***
+
+1999/09/20 jprice
+sys.c:
+Changed open/creat to fopen to make TC2 happy.
+
+1999/09/15 jprice
+sys.c:
+Changed boot sector writing code so easier to read.
+
+1999/09/14 jprice
+lib/makefile:
+no message
+
+1999/09/14 jprice
+sys.c:
+Added debug log creation to sys.com.
+
+1999/09/14 jprice
+console.asm:
+no message
+
+1999/09/14 jprice
+inthndlr.c:
+ror4: fix int25 & 26 are not cached.
+
+1999/09/14 jprice
+fatfs.c, dosfns.c:
+Fixed bug where you could write over directories.
+
+1999/09/13 jprice
+inthndlr.c, console.asm:
+Fix 210B function
+
+1999/09/13 jprice
+console.asm:
+Changes from Helmut Fritsch to fix INT21 func B
+
+1999/09/13 jprice
+makefile:
+Some clean up.
+
+1999/09/13 jprice
+config.b, config.b:
+Added COMPILER variable
+
+1999/09/13 jprice
+lib/makefile:
+Added !if so we can use TC2 or TC3 to compile.
+
+1999/08/25 jprice
+build.txt:
+update
+
+1999/08/25 jprice
+config.b, clobber.bat, clean.bat, config.b, build.bat:
+New build batch files.
+
+1999/08/25 jprice
+intfns.txt, build.txt, build.bat:
+New build config
+
+1999/08/25 jprice
+config.b, sys/makefile, sys.c, lib/makefile, task.c, main.c, makefile,
+memmgr.c, newstuff.c, proto.h, strings.c, fatfs.c, globals.h,
+initoem.c, inthndlr.c, blockio.c, chario.c, config.c, dosfns.c,
+fatdir.c, date.h, dirmatch.h, portab.h, time.h, drivers/makefile,
+install.bat:
+ror4 patches to allow TC 2.01 compile.
+
+1999/08/10 jprice
+clobber.bat:
+case
+
+1999/08/10 jprice
+dsk.c, inthndlr.c:
+ror4 2011-04 patch
+
+1999/08/10 jprice
+globals.h, inthndlr.c, fatfs.c, fattab.c, blockio.c:
+ror4 2011-03 patch
+
+1999/08/10 jprice
+irqstack.asm, kernel.asm, makefile, nlssupt.asm, printer.asm,
+procsupt.asm, segs.inc, apisupt.asm, asmsupt.asm, console.asm, entry.asm, execrh.asm, fatdir.c,
+int2f.asm, io.asm, io.inc, stacks.inc:
+ror4 2011-02 patch
+
+1999/08/10 jprice
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, drivers/makefile, getvec.asm, floppy.asm:
+ror4 2011-01 patch
+
+1999/05/04 jprice
+systime.c:
+ror4 date fix
+
+1999/05/03 jprice
+fat.h:
+Changed some variables from signed to unsigned.
+
+1999/05/03 jprice
+blockio.c, config.c, dosfns.c, fatdir.c, fatfs.c, fattab.c, globals.h,
+inthndlr.c, misc.c, proto.h:
+Patches from ror4 and many changed of signed to unsigned variables.
+
+1999/05/03 jprice
+sys/makefile:
+no message
+
+1999/05/03 jprice
+fatfs.c:
+Fixed bug in map_cluster function
+
+1999/05/03 jprice
+blockio.c:
+Changed getblock & getbuf so that they leave at least 3 buffer for FAT data.
+
+1999/04/23 jprice
+procsupt.asm:
+Fixed got_cbreak function.
+
+1999/04/23 jprice
+makefile:
+no message
+
+1999/04/23 jprice
+asmsupt.asm, inthndlr.c, memmgr.c, misc.c, proto.h, task.c:
+Memory manager changes made by ska
+
+1999/04/23 jprice
+clobber.bat:
+Initial include
+
+1999/04/23 jprice
+clean.bat, build.bat, sys/makefile, lib/makefile, makefile, drivers/makefile:
+Improved by jprice
+
+1999/04/23 jprice
+boot/makefile:
+Ported to NASM by ror4. Improvements
+
+1999/04/23 jprice
+boot.asm:
+Ported to NASM by ror4
+
+1999/04/21 jprice
+blockio.c:
+no message
+
+1999/04/18 jprice
+blockio.c:
+no message
+
+1999/04/17 jprice
+sys.c, boot.asm:
+Fixed multi-sector code
+
+1999/04/17 jprice
+build.bat:
+ror4 patches
+
+1999/04/17 jprice
+boot.asm:
+Changed so multi-sector IO is optional.
+
+1999/04/16 jprice
+blockio.c, config.c, dsk.c, globals.h, main.c, proto.h, floppy.asm:
+ror4 multi-sector IO
+
+1999/04/16 jprice
+break.c:
+Steffen contributed.
+
+1999/04/16 jprice
+dosfns.c, globals.h, inthndlr.c, irqstack.asm, main.c, makefile, procsupt.asm,
+proto.h, chario.c, config.c:
+Steffen c-break handler changes
+
+1999/04/16 jprice
+fatfs.c, fattab.c, globals.h, main.c, task.c, blockio.c, config.c,
+dsk.c, fatdir.c, fnode.h, dcb.h:
+Optimized FAT handling
+
+1999/04/13 jprice
+kernel.asm:
+changes for boot loader
+
+1999/04/13 jprice
+boot.asm:
+Moves boot sector to top of mem
+
+1999/04/13 jprice
+makefile, fatdir.c, drivers/makefile:
+no message
+
+1999/04/12 jprice
+fatfs.c, blockio.c:
+Using getbuf to write data instead of getblock
+using getblock made it read the block before it wrote it
+
+1999/04/12 jprice
+systime.c, config.c, dosfns.c, fatfs.c, globals.h, main.c, proto.h,
+sysclk.c:
+more ror4 patches.  Changes for multi-block IO
+
+1999/04/12 jprice
+rdpcclk.asm, rdatclk.asm:
+more ror4 patches
+
+1999/04/11 jprice
+blockio.c:
+Working on multi-block IO
+
+1999/04/11 jprice
+globals.h, inthndlr.c, main.c, newstuff.c, proto.h, task.c, blockio.c,
+config.c, dosfns.c, fatdir.c, fatfs.c, fattab.c:
+ror4 patches
+
+1999/04/06 jprice
+boot.asm:
+Put back code to read multiple sectors at a time.
+
+1999/04/04 jprice
+config.c, globals.h, inthndlr.c, main.c, dosfns.c, dosnames.c,
+fatdir.c, fatfs.c, fcbfns.c, globals.h, inthndlr.c, ioctl.c, main.c,
+newstuff.c, prf.c, proto.h, strings.c, chario.c, sft.h, device.h:
+no message
+
+1999/04/01 jprice
+sys.c:
+SYS modified for new boot loader
+
+1999/04/01 jprice
+boot/makefile, boot.asm:
+New boot loader
+
+1999/04/01 jprice
+install.bat:
+no message
+
+1999/03/29 jprice
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, rdatclk.asm, drivers/makefile,
+getvec.asm, floppy.asm, globals.h, io.inc, task.c:
+ror4 changes
+
+1999/03/29 jprice
+sys.c:
+Fixed error message
+
+1999/03/29 jprice
+sys.c, syspack.c, prf.c, misc.c, fcbfns.c, fattab.c, fatfs.c,
+fatdir.c, error.c, dosnames.c, dosfns.c, chario.c, blockio.c, task.c,
+systime.c, sysclk.c, strings.c, proto.h, segs.inc, procsupt.asm,
+printer.asm, nlssupt.asm, newstuff.c, memmgr.c, main.c, makefile,
+kernel.asm, irqstack.asm, ioctl.c, io.inc, io.asm, inthndlr.c,
+int2f.asm, globals.h, initoem.c, execrh.asm, entry.asm, dsk.c,
+console.asm, config.c, asmsupt.asm, apisupt.asm, wrpcclk.asm,
+wratclk.asm, rdpcclk.asm, rdatclk.asm, getvec.asm, floppy.asm,
+drivers/makefile, install.bat, boot/makefile, boot.asm, tail.h,
+time.h, sft.h, stacks.inc, process.h, portab.h, pcb.h, kbd.h, mcb.h,
+file.h, fnode.h, fcb.h, exe.h, fat.h, dosnames.h, error.h, device.h,
+date.h, dcb.h, cds.h, clock.h, dirmatch.h, intfns.txt, clean.bat,
+build.bat:
+New version without IPL.SYS
+
+1999/03/25 jprice
+fatdir.c:
+Fixed findfirst & findnext functions to treat the attributes like MSDOS does.
+
+1999/03/23 jprice
+inthndlr.c:
+Now sets carry when we don't support a function
+
+1999/03/23 jprice
+config.c:
+Now checks for a reads fdconfig.sys file, if exists
+
+1999/03/23 jprice
+fatfs.c:
+Fixed mkdir DOS function so it will create a directory with same name as the volument label
+
+1999/03/02 jprice
+inthndlr.c:
+Added some comments.  Fixed some minor bugs.
+
+1999/03/02 jprice
+fatfs.c:
+Fixed bugs with dos set attribute function.  Now returns correct
+error code, and errors if user tries to set bits 6 & 7.
+
+1999/03/02 jprice
+boot.asm:
+Added entry address for more recent versions of TLINK
+
+1999/03/02 jprice
+intfns.txt:
+Updated interrupt list
+
+1999/03/01 jprice
+makefile:
+Fixed so it'll work with config.mak
+
+1999/03/01 jprice
+makefile:
+Turned off DEBUG define.
+
+1999/03/01 jprice
+inthndlr.c:
+Added some DEBUG ifdef's so that it will compile without DEBUG defined.
+
+1999/02/14 jprice
+fatdir.c, dsk.c:
+Changed check media so that it checks if a floppy disk has been changed.
+
+1999/02/14 jprice
+floppy.asm:
+Added functions to check if a floppy disk has been changed.
+
+1999/02/09 jprice
+makefile, drivers/makefile, boot/makefile, clean.bat, build.bat:
+Make makefile use common config.mak file
+
+1999/02/09 jprice
+blockio.c, chario.c, dosfns.c, error.c, fatdir.c, fatfs.c, fattab.c,
+fcbfns.c, device.h, error.h, sysclk.c, systime.c, task.c, apisupt.asm,
+asmsupt.asm, config.c, console.asm, dsk.c, entry.asm, execrh.asm,
+globals.h, initoem.c, int2f.asm, inthndlr.c, io.asm, io.inc, ioctl.c,
+irqstack.asm, kernel.asm, main.c, makefile, memmgr.c, newstuff.c,
+nlssupt.asm, printer.asm, procsupt.asm, proto.h, segs.inc, floppy.asm:
+Added Pat's 1937 kernel patches
+
+1999/02/04 jprice
+chario.c, fatfs.c, fcbfns.c, strings.c, sysclk.c, systime.c, task.c:
+Formating.  Added comments.
+
+1999/02/04 jprice
+inthndlr.c:
+Formating
+
+1999/02/04 jprice
+makefile:
+Added option to share constants (-d).
+
+1999/02/04 jprice
+device.h:
+no message
+
+1999/02/02 jprice
+dosnames.c:
+Steve Miller fixed a bug with doing "cd ." would lock the machine.
+
+1999/02/01 jprice
+apisupt.asm, asmsupt.asm, config.c, dsk.c, entry.asm, execrh.asm, globals.h,
+initoem.c, int2f.asm, inthndlr.c, ioctl.c, irqstack.asm, kernel.asm,
+main.c, memmgr.c, newstuff.c, nlssupt.asm, procsupt.asm, proto.h,
+strings.c, sysclk.c, systime.c, task.c:
+Clean up; Now you can use hex numbers in config.sys. added config.sys screen function to change screen mode (28 or 43/50 lines)
+
+1999/02/01 jprice
+chario.c, dosfns.c, dosnames.c, error.c, fatdir.c, fatfs.c, fattab.c,
+fcbfns.c, misc.c, prf.c, syspack.c, blockio.c:
+Fixed findfirst function to find volume label with Windows long filenames
+
+1999/02/01 jprice
+cds.h, clock.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, error.h,
+exe.h, fat.h, fcb.h, file.h, fnode.h, kbd.h, mcb.h, pcb.h, portab.h, process.h,
+sft.h, stacks.inc, tail.h, time.h:
+Clean up
+
+1999/01/30 jprice
+clean.bat, build.bat:
+Clean up
+
+1999/01/30 jprice
+main.c, config.c, initoem.c, inthndlr.c:
+Clean up; Fixed bug with set attribute function.
+
+1999/01/30 jprice
+globals.h:
+Clean up; commented out copyright messages while we debug.
+
+1999/01/30 jprice
+blockio.c, fatdir.c, fatfs.c:
+Clean up; Fixed bug with set attribute function.  If you tried to
+change the attributes of a directory, it would erase it.
+
+1999/01/30 jprice
+cds.h, clock.h, error.h, fat.h, fnode.h, build.bat:
+Clean up
+
+1999/01/22 jprice
+cds.h, clock.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, error.h,
+exe.h, fat.h, fcb.h, file.h, fnode.h, kbd.h, mcb.h, pcb.h, portab.h, process.h,
+sft.h, stacks.inc, tail.h, time.h, wrpcclk.asm, wratclk.asm,
+rdpcclk.asm, rdatclk.asm, drivers/makefile, getvec.asm, floppy.asm,
+blockio.c, chario.c, dosfns.c, dosnames.c, error.c, fatdir.c, fatfs.c,
+fattab.c, fcbfns.c, misc.c, prf.c, syspack.c, procsupt.asm, proto.h,
+strings.c, sysclk.c, systime.c, task.c, globals.h, initoem.c,
+int2f.asm, inthndlr.c, ioctl.c, irqstack.asm, kernel.asm, main.c,
+makefile, memmgr.c, newstuff.c, nlssupt.asm, apisupt.asm, asmsupt.asm,
+config.c, dsk.c, entry.asm, execrh.asm, boot/makefile, boot.asm:
+Formating.
+
+1999/01/21 jprice Fixed comments.
+sys.c:
+Added indent program
+
+1999/01/21 jprice Added messages to sys.  Also made
+sys.c:
+it create a .COM file.
+
+1999/01/20 jprice
+cds.h, clock.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, error.h,
+exe.h, fat.h, fcb.h, file.h, fnode.h, kbd.h, mcb.h, pcb.h, portab.h, process.h,
+sft.h, stacks.inc, tail.h, time.h, apisupt.asm, asmsupt.asm, config.c, dsk.c,
+entry.asm, execrh.asm, globals.h, initoem.c, int2f.asm, ioctl.c, irqstack.asm,
+kernel.asm, main.c, makefile, memmgr.c, newstuff.c, nlssupt.asm,
+procsupt.asm, proto.h, strings.c, sysclk.c, systime.c, task.c:
+Imported sources
+
+1999/01/20 jprice
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, rdatclk.asm, drivers/makefile,
+getvec.asm, floppy.asm, boot/makefile, boot.asm, blockio.c, chario.c, dosfns.c,
+dosnames.c, error.c, fatdir.c, fatfs.c, fattab.c, fcbfns.c,
+inthndlr.c, misc.c, prf.c, syspack.c:
+Imported sources
+
+10 Jan 1999            SRM
+makefile:
+Took out "/P-" from TLINK
+Changed "bcc" to "tcc"
+
+06 Dec 1998  patv
+entry.asm:
+New int 21h handler code.
+
+06 Dec 1998  patv
+inthndlr.c:
+Expanded due to improved int 21h handler code.
+
+06 Dec 1998  patv
+ioctl.c, proto.h, apisupt.asm, globals.h:
+Expanded due to new I/O subsystem.
+
+06 Dec 1998  patv
+makefile:
+Added new files for I/O subsystem.
+
+06 Dec 1998  patv
+main.c, dsk.c:
+Changed due to new I/O subsystem.
+
+06 Dec 1998  patv
+irqstack.asm, newstuff.c, int2f.asm, kernel.asm, systime.c,
+nlssupt.asm, asmsupt.asm, procsupt.asm, task.c, execrh.asm, fatdir.c,
+fatfs.c:
+Bug fixes.
+
+06 Dec 1998  patv
+dosfns.c:
+Expanded dos functions due to new I/O subsystem.
+
+06 Dec 1998  patv
+fcbfns.c:
+Expanded fcb functions for new I/O subsystem.
+
+06 Dec 1998  patv
+error.c:
+Now handles errors like MS-DOS.
+
+06 Dec 1998  patv
+chario.c:
+changes in character I/O because of new I/O subsystem.
+
+06 Dec 1998  patv
+blockio.c:
+Changes in block I/O because of new I/O subsystem.
+
+06 Dec 1998  patv
+floppy.asm:
+New floppy support functions.
+
+06 Dec 1998  patv
+device.h:
+Changed for new I/O subsystem
+
+06 Dec 1998  patv
+error.h:
+Added new errors for new I/O subsystem.
+
+06 Dec 1998  patv
+io.inc, segs.inc:
+Initial revision.
+
+09 Feb 1998  patv
+fatfs.c, fattab.c:
+Eliminated FAT12 EOF and error returns.
+
+07 Feb 1998  patv
+stacks.inc, pcb.h, entry.asm, procsupt.asm, inthndlr.c, task.c,
+globals.h, proto.h:
+Modified stack fram to match DOS standard
+
+03 Feb 1998  patv
+kernel.asm:
+Added a start-up stack for loadable device drivers.  Need the separate
+stack so that all int 21h functions can be called.
+
+03 Feb 1998  patv
+fatfs.c:
+Fixed lseek bug.
+
+02 Feb 1998  patv
+globals.h:
+Fixed size of default_drive.  Caused failures when break_ena was not zero.
+
+31 Jan 1998  patv
+task.c:
+Corrected type in load high code.
+
+31 Jan 1998  patv
+task.c:
+Added load high in memory option in DosExeLoader.
+
+22 Jan 1998  patv
+task.c:
+Eliminated warnings.
+
+22 Jan 1998  patv
+process.h:
+Had to change ps_prevps to VOID FAR * due to BC++ error.
+
+22 Jan 1998  patv
+process.h:
+Corrected ps_prevpsp declaration.
+
+22 Jan 1998  patv
+task.c:
+Corrected short .COM problem.
+
+22 Jan 1998  patv
+makefile:
+Outdated stacks.asm.
+
+22 Jan 1998  patv
+fatfs.c:
+Corrected remaining file name and extension copies that did not
+account for far file nodes due to allocated FILES= spec.
+
+22 Jan 1998  patv
+inthndlr.c, proto.h, config.c, globals.h, kernel.asm, main.c,
+blockio.c, dosnames.c, fatdir.c, fatfs.c:
+Fixed pointer problems affecting SDA
+
+11 Jan 1998  patv
+ioctl.c, proto.h, chario.c, device.h:
+Added functionality to ioctl.
+
+08 Jan 1998  patv
+chario.c:
+Changed automatic requestic packets to static to save stack space.
+
+06 Jan 1998  patv
+inthndlr.c:
+Broke apart int21_system from int21_handler.
+
+06 Jan 1998  patv
+kernel.asm:
+Reduced device driver stack sizes.
+
+04 Jan 1998  patv
+globals.h, proto.h, inthndlr.c, newstuff.c, systime.c, main.c,
+config.c, ioctl.c, memmgr.c, dsk.c, initoem.c, strings.c, sysclk.c,
+task.c, fatfs.c, chario.c, dosfns.c, dosnames.c, fattab.c, fcbfns.c,
+prf.c, syspack.c, blockio.c, error.c, fatdir.c, misc.c, device.h,
+cds.h, clock.h, date.h, dcb.h, fat.h, file.h, fnode.h, kbd.h, mcb.h,
+pcb.h, sft.h, dirmatch.h, error.h, exe.h, fcb.h, portab.h, process.h,
+tail.h, time.h:
+Changed Log for strip utility
+
+04 Jan 1998  patv
+kernel.asm, inthndlr.c, main.c, config.c, newstuff.c, fatfs.c:
+Corrected subdirectory bug
+
+03 Jan 1998  patv
+globals.h, kernel.asm, makefile, systime.c, inthndlr.c, main.c,
+proto.h, asmsupt.asm, dosfns.c, dosnames.c, fatfs.c, blockio.c,
+fatdir.c, fcbfns.c:
+Converted data area to SDA format
+
+31 Dec 1997  patv
+strings.c:
+Added new far string functions.
+
+30 Dec 1997  patv
+chario.c:
+Modified to support SDA
+
+01 Aug 1997  patv
+inthndlr.c:
+COMPATIBILITY: Added return '$' in AL for function int 21h fn 09h
+
+06 Feb 1997  patv
+kernel.asm:
+Reduced stack sizes for block and clock devices.
+
+06 Feb 1997  patv
+globals.h:
+Changed version format string
+
+06 Feb 1997  patv
+main.c:
+Modified to support new version format and changed debug message to
+output drive letter instead of number.
+
+06 Feb 1997  patv
+globals.h:
+Modified to support new version format
+
+06 Feb 1997  patv
+inthndlr.c, kernel.asm:
+Added hooks for tsc command
+
+30 Jan 1997  patv
+makefile:
+Added TSC flag for trace support.
+
+22 Jan 1997  patv
+newstuff.c, inthndlr.c, task.c, irqstack.asm:
+pre-0.92 Svante Frey bug fixes.
+
+22 Jan 1997  patv
+globals.h:
+Changed to support version.h and pre-0.92 Svante Frey bug fixes.
+
+22 Jan 1997  patv
+main.c:
+Now does correct default drive initialization.
+
+22 Jan 1997  patv
+fatfs.c, dosfns.c:
+pre-0.92 bug fixes
+
+16 Jan 1997  patv
+irqstack.asm:
+Initial revision.
+
+16 Jan 1997  patv
+globals.h, main.c, memmgr.c, task.c, ioctl.c, config.c, inthndlr.c,
+apisupt.asm, nlssupt.asm, proto.h, makefile, fcbfns.c, chario.c,
+dosnames.c, blockio.c, dosfns.c, fatdir.c, fatfs.c, fattab.c,
+device.h, fcb.h, sft.h, dsk.c, boot.asm:
+Corrected copyright
+
+10 Jan 1997  patv
+boot.asm:
+Re-written to support C drive and eliminate restrictions on IPL.SYS
+
+10 Jan 1997  patv
+boot/makefile:
+Changed to use FreeDOS exe2bin and support new boot code
+
+17 Dec 1996  patv
+boot/makefile:
+Converted to FreeDOS exe2bin.
+
+13 Sep 1996  patv
+globals.h:
+Fixed boot for hard drive
+
+29 Aug 1996  patv
+makefile, globals.h, task.c, floppy.asm, wrpcclk.asm, wratclk.asm,
+drivers/makefile, rdpcclk.asm, rdatclk.asm, getvec.asm, boot/makefile,
+boot.asm:
+Bug fixes for v0.91b
+
+29 May 1996  patv
+clock.h, date.h, dcb.h, kbd.h, dirmatch.h, error.h, exe.h, sft.h,
+tail.h, time.h, fnode.h, mcb.h, pcb.h, portab.h, process.h,
+dosnames.h, fat.h, fcb.h, file.h, device.h, dosfns.c, fatdir.c,
+misc.c, fatfs.c, fattab.c, fcbfns.c, chario.c, dosnames.c, syspack.c,
+blockio.c, error.c, prf.c, initoem.c, sysclk.c, int2f.asm, config.c,
+kernel.asm, inthndlr.c, proto.h, systime.c, apisupt.asm, asmsupt.asm,
+nlssupt.asm, procsupt.asm, task.c, globals.h, memmgr.c, dsk.c, main.c,
+makefile, execrh.asm, ioctl.c, strings.c:
+bug fixes for v0.91a
+
+19 Feb 1996  patv
+int2f.asm:
+Initial revision.
+
+19 Feb 1996  patv
+makefile, kernel.asm, nlssupt.asm, proto.h, globals.h, config.c,
+inthndlr.c, task.c, dsk.c, main.c, memmgr.c, strings.c, initoem.c,
+ioctl.c, sysclk.c, systime.c, fatdir.c, misc.c, fatfs.c, dosfns.c,
+dosnames.c, fattab.c, drivers/makefile, cds.h, dirmatch.h, exe.h,
+sft.h, tail.h, time.h, fcb.h, file.h, fnode.h, mcb.h, pcb.h, portab.h,
+process.h, clock.h, date.h, dcb.h, device.h, dosnames.h, fat.h,
+error.h, kbd.h:
+Added NLS, int2f and config.sys processing
+
+01 Sep 1995  patv
+wrpcclk.asm, wratclk.asm, rdpcclk.asm, rdatclk.asm, getvec.asm,
+floppy.asm, boot.asm, apisupt.asm, asmsupt.asm, proto.h, kernel.asm,
+procsupt.asm, execrh.asm, strings.c, task.c, inthndlr.c, memmgr.c,
+dsk.c, main.c, sysclk.c, globals.h, initoem.c, ioctl.c, systime.c,
+dosfns.c, blockio.c, error.c, misc.c, dosnames.c, fcbfns.c, chario.c,
+fattab.c, prf.c, syspack.c, fatfs.c, fatdir.c, time.h, pcb.h,
+portab.h, process.h, sft.h, tail.h, fat.h, fcb.h, file.h, fnode.h,
+mcb.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, clock.h,
+error.h, exe.h, kbd.h:
+First GPL release.
+
+30 Jul 1995  patv
+dsk.c, memmgr.c, proto.h, strings.c, task.c, blockio.c, misc.c, chario.c,
+dosnames.c, error.c, fattab.c, fcbfns.c, prf.c, syspack.c, dosfns.c,
+fatdir.c, fatfs.c, mcb.h, pcb.h, portab.h, process.h, sft.h, tail.h,
+time.h, date.h, dcb.h, device.h, dirmatch.h, dosnames.h, fat.h, fcb.h,
+file.h, fnode.h, clock.h:
+Eliminated version strings in ipl
+
+30 Jul 1995  patv
+error.h, kbd.h, exe.h:
+Fixed ipl
+
+30 Jul 1995  patv
+boot.asm:
+Initialized stack before use.
+
+05 Jul 1995  patv
+asmsupt.asm, proto.h:
+Initial revision.
+
+02 Jul 1995  patv
+boot.asm, time.h, tail.h, process.h, sft.h, portab.h, pcb.h, kbd.h,
+mcb.h, fnode.h, file.h, fat.h, fcb.h, exe.h, error.h, dirmatch.h,
+dosnames.h, dcb.h, device.h, date.h, clock.h, boot/makefile,
+procsupt.asm, kernel.asm, execrh.asm, apisupt.asm, task.c, strings.c,
+inthndlr.c, main.c, memmgr.c, dsk.c, sysclk.c, systime.c, ioctl.c,
+initoem.c, globals.h, makefile, misc.c, error.c, fcbfns.c, dosnames.c,
+chario.c, syspack.c, prf.c, fattab.c, fatfs.c, fatdir.c, dosfns.c,
+blockio.c, wrpcclk.asm, wratclk.asm, getvec.asm, rdpcclk.asm,
+rdatclk.asm, floppy.asm, drivers/makefile:
+Initial revision.
+
+25 May 1993  patv
+dirmatch.h:
+Initial revision.
+

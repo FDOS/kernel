@@ -1,0 +1,20 @@
+NLS files
+
+Filenames are encoded as:
+CCC-PPP
+	CCC: country code
+	PPP: codepage ID
+	both are zero-padded three digits numbers; one number may
+	use four digits.
+
+Extensions:
+UNF:	Uniform NLS file Format
+	plain text representation of NLS package (7bit US-ASCII)
+	may be used to validate GRAB_UNF output
+	see UNF toolset for more information
+UP :	NLSUPTST data file
+	used to validate DOS API normal character upcase functions DOS-65-2[0-2]
+HC :	Hardcoded NLS file to be included into the kernel
+	produced by UNF2HC
+	copy to ..\NLS_HC.ASM in order to use this NLS package as the hardcoded one
+	kernel must be re-compiled

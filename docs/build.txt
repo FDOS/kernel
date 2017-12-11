@@ -1,0 +1,120 @@
+Building on DOS or Windows:
+===========================
+
+To build the operating system a batch file (BUILD.BAT) is included
+to make life easier.  This file is in the FDKERNEL directory of the
+distribution.  In addition, there is a corresponding batch file
+(CLEAN.BAT) to clean up the source directories.
+
+There is a CONFIG.B file that specifies all the paths and names of
+the compiler, assembler, etc. that you want to use.  You MUST copy
+it to CONFIG.BAT first, then edit it to reflect your setup.
+
+The reason for this copying of files is that when new releases of the
+kernel come out, you can extract them over your previous source, and
+not have to worry about resetting up your configuration because your
+CONFIG.BAT file will not get replaced!
+
+Building on Linux:
+==================
+
+To cross compile on Linux you need to install Open Watcom 1.8 from
+www.openwatcom.org and NASM which is probably included in your
+distribution. You can then copy config.m to config.mak and adjust
+for the same reasons mentioned above.
+
+Use the following commands:
+- to build:
+make all
+- to build, overriding a config.mak setting, e.g.:
+make all XCPU=386
+- to clean:
+make clean
+- to clobber (delete everything that was generated):
+make clobber
+
+Notes:
+======
+The recommended compiler and assembler at the time of writing (2009/05/19)
+are OpenWatcom 1.8 and NASM 2.05.01.
+
+You may need to download the latest version of NASM and a C compiler
+Be sure to edit the CONFIG.BAT file to reflect where you put the tools.
+
+You can find NASM at http://nasm.sourceforge.net. Version 0.98.36 or
+later is strongly recommended. The older 0.98 will also work fine, but
+any version in between is likely to fail. It's best to use a NASM
+that is native to your host; that is, when compiling in Windows, use
+the win32 version. The DJGPP version is less likely to run out of
+memory than the DOS version.
+
+Optionally, the kernel can be compressed using UPX. You can find
+UPX at http://upx.sourceforge.net. Simply adjust config.bat to
+enable it.
+
+This kernel compiles with Turbo C 2.01, Turbo C++ 1.01 (now freely
+available!), Turbo C 3.0, Borland C 4.51 & 5.01.  It should work with
+other Borland and Microsoft compilers and (Open)Watcom C. GCC can
+compile the kernel but the result does *not* work (no 16-bit x86 support).
+
+The OpenWatcom 1.0 compiler (or later) for DOS can be downloaded at
+www.openwatcom.org: you need at least the following zips from
+ftp://ftp.openwatcom.org/watcom/zips/
+(see ftp://ftp.openwatcom.org/watcom/zips/layout.txt)
+
+cm_core_all     - Core binaries (All hosts)
+cm_core_dos     - Core binaries (DOS host)
+cm_core_doswin  - Core binaries (DOS & Win hosts)
+cm_clib_hdr     - C runtime library header files
+cm_clib_a16     - C runtime libraries (16-bit all targets)
+cm_clib_d16     - C runtime libraries (16-bit DOS)
+clib_a16        - C runtime libraries (16-bit all targets)
+clib_d16        - C runtime libraries (16-bit DOS)
+core_doswin     - Core binaries (DOS & Win16 hosts)
+c_doswin        - C compiler (DOS & Win16 hosts)
+ext_dos4gw      - DOS/4GW DOS extender
+
+Replace "dos" by "nt" for an NT/Win9x host or "os2" for an OS/2 host.
+The host needs to be a 386+ with at least 8MB of memory.
+
+If you feel hardy, read on to understand the directory structure.  A
+more complete description of the build environment is contained in a
+companion book, "The FreeDOS Kernel" (ISBN: 0-87930-436-7) published
+by R&D Books, an imprint of Miller Freeman of Lawrence, Kansas (USA)
+and distributed in the USA and Canada by Publishers Group West.  See
+the file README.TXT for more details.
+
+
+Directory Structure
+-------------------
+
+fdkernel			root directory
+  +-----bin			holds image of distribution disk
+  +-----boot  			boot.bin (boot sector)
+  +-----docs			documentation directory
+  +-----drivers			DEVICE.LIB
+  +-----hdr			common *.h files
+  +-----kernel			The kernel itself
+  +-----lib			LIBM.LIB and DEVICE.LIB
+  +-----sys			SYS.COM and supporting programs
+  +-----utils			Miscellaneous utilities
+
+
+Organization in a nutshell
+--------------------------
+Each component or group of utilities is segregated into its own
+directory. In order to build that component or utility, a makefile
+exists in the directory that bears the component's or utility's
+basename.
+
+Each makefile has at least two targets, production and clean.  The
+target production builds the expected component or utility and the
+component clean cleans up the directory for distribution.  The
+makefile may have at least one additional target that builds the
+component.  Study the makefile to better understand this.
+
+---------------------------------------------------------------------
+
+$Id: build.txt 1387 2009-05-19 21:39:29Z bartoldeman $
+
+

@@ -1,0 +1,480 @@
+Title: Config.sys Options
+
+Configuring your DOS system for use:
+------------------------------------
+
+When booting DOS, you will find it only supports a subset of
+the devices available on many computers.  To support additional
+devices and advanced features, device specific driver and
+memory resident software most be loaded.  This allows the
+kernel to be easily extended to support hardware not presently
+available and take better advantage of installed hardware
+without wasting resources on computers lacking it.  This
+software is generally loaded during the kernel initialization
+phase, with details describing what to load expressed in the
+file CONFIG.SYS.  The FreeDOS kernel will first look for a
+file named FDCONFIG.SYS, should it exist, it will will be used
+instead of CONFIG.SYS; this allows the FreeDOS kernel to coexist
+and be configured differently than another DOS kernel.  There
+are additional options available to adjust other aspects of the
+kernel's behaviour.  Note: some options listed below are FreeDOS
+specific and will not work when using other/older DOS kernels.
+Below is list of all documented FreeDOS config.sys supported
+options; additional undocumented options may exist but are not
+meant for normal usage.
+
+
+BREAK
+Usage:  break=on|off
+Set extended Control-C/Control-Break checking to on [default] or off.
+When set to on, the kernel will perform the check (and invoke current
+handler if pressed) prior to most int 21h calls.  When set to off,
+the kernel only performs the check on I/O calls using standard streams.
+Example:  break=off
+
+BUFFERS
+BUFFERSHIGH
+Usage:  buffers=nn[,m] where nn is in range 1-99 & m is in range 1-8
+Memory buffers used by the kernel; primary[,secondary]
+The secondary buffer option is available for compatibility with
+other DOS kernels, but is ignored by the FreeDOS kernel. In MS DOS,
+a secondary buffer can used to read-ahead data. FreeDOS does not do
+this. Buffers are stored in HMA by FreeDOS, unless you select nn to
+allocate more buffers than fit in HMA. If nn is smaller, unused HMA
+space will be used for further buffers until something else allocates
+the HMA space for something else. Even then, at least nn buffers will
+always be available.  You can set nn to a negative value to disable
+the use of unused HMA space: BUFFERS=-10 only uses 10 buffers, further
+free space in the HMA will just stay unused. Because the buffers can
+use the HMA anyway, BUFFERSHIGH does the same as BUFFERS for now, but
+shows a note about that to inform the user that it does not use UMB.
+Example:  buffers=20
+
+COUNTRY
+Usage:  country=nnn[,[mmm][,[d:][path]file]]
+Enables/sets international features of DOS by selecting a country
+code and (only with the unstable / devel kernel) optionally also
+a codepage and country file.  The stable kernel only uses the nnn
+value.  For full support, use the unstable / devel kernel. You also
+need a COUNTRY.SYS file for the latter, while the former ignores the
+filename argument and only sets date/time/number formats, using values
+compiled into the kernel for a few common countries. It does not set
+sort order and upper/lower case translation tables. NLSFUNC can only
+be used with the unstable kernel.
+nnn is country code (001==US)
+mmm is code page (437 is default, 850 is updated form, 1252 for Windows)
+[drive][path]file specifies file with country specific data
+Example:  country=001,850,C:\FDOS\BIN\COUNTRY.SYS
+
+DEVICE
+Usage:  device=[d:][path]file [options]
+Load the device driver specified by d:path\file (into conventional
+[low 640KB] memory).  The options are for the driver itself; refer
+to documentation that came with your particular device for supported
+options and their usage.
+Example:  device=himem.sys
+
+DEVICEHIGH
+Usage:  devicehigh=[d:][path]file [options]
+This is just like device= statement, except it attempts to load
+the device driver into high memory first (failing that it should
+load it in conventional memory).  
+Note: The order you load devices may have a large impact on amount
+of free memory available.  In general try to load large (in memory
+usage) programs into high memory first.
+Important: You should have a high memory manager such as FDXMS or
+HIMEM installed (prior device=FDXMS.SYS or device=HIMEM.SYS) before
+using this option.
+Example:  devicehigh=xcdrom.sys /D:FDCD0001
+
+DOS
+Usage:  dos=high|low,umb|noumb
+Indicates whether the kernel should try to load itself into
+high memory or only conventional (low), and whether to link
+upper memory blocks in with normal memory or not.  
+Note: only one set need be given, ie dos=high and dos=noumb are ok.
+Important: if you specify dos=high[,umb|noumb] then you must also
+load a high memory manager (first), ie FDXMS or HIMEM
+Example:  dos=high,umb
+Example:  dos=low,noumb
+
+DOSDATA
+Usage:  dosdata=umb
+Try to load kernel data into Upper Memory Blocks; effectively
+same as using the [name]HIGH variant of kernel parameters,
+such as fileshigh, lastdrivehigh, and stackshigh (does not
+effect drivers loaded using device= or install=).
+Example:  dosdata=umb
+
+ECHO
+Usage:  ECHO Message to be displayed to user.
+ECHO displays (echos) its arguments to the console during
+config.sys processing when device drivers are loaded (when
+DEVICE= lines are executed).
+Example:  
+      ECHO loading driver 1
+      device=Driver1.sys
+      ECHO driver1 successfully loaded
+
+EECHO
+Usage:  EECHO Message with ANSI Escape Sequence
+EECHO allows for echo-ing ANSI Escape Sequences
+(redefines keyboard input for example).  Use a dollar sign ($)
+to represent the ANSI Escape character.  Note: requires an
+ANSI driver like NANSI loaded prior to use.
+Example:  EECHO feeling $[33;44;1m blue :-)
+
+FCBS
+Usage:  fcbs=nnn
+where nnn is in range 1-255
+Sets the number of File Control Blocks to reserve room for.
+As file control blocks have been replaced by file handles
+(see files) and FreeDOS dynamically simulates FCBS from the
+handle data as needed, nnn is simply ignored by FreeDOS.
+Example:  fcbs=4
+
+FILES
+FILESHIGH
+Usage:  files=nnn 
+where nnn is in range 8-255 (default 8)
+Specifies how many files allowed open at once (reserves
+memory necessary to support opening this many files).
+Note: there are other restrictions, so a given program
+       may not be able to actually open this many
+A good number is 20, though some programs suggest/require
+30, 40, or even 255
+Example:  files=20
+
+IDLEHALT
+Usage: idlehalt=n
+where n can be -1, 0, 1 or higher (default 0)
+Activates built-in kernel energy saving functionality if n is
+not 0. Value -1 enables all hooks, 1 enables only "safe" hooks,
+CPU halted only if kernel is waiting for CON char device input.
+Further hooks for n=-1 and n>0 depend on the kernel version:
+In addition to the safe hooks, other hooks can get activated,
+for example one for int 0x2f, ax=0x1680 "release time slice".
+Note: In rare cases, entering or leaving HLT mode (which causes
+      big changes in CPU power consumption) can cause crashes if
+      cheap power supplies or mainboards cannot properly filter
+      the transients. Underclocking the whole system may help.
+      Linux always does a few HLT at boot time, to force a hang
+      on buggy systems early (boot with no-hlt to disable HLT).
+P90 may have buggy HLT? www.tavi.co.uk/ps2pages/ohland/halt.html
+
+INSTALL
+INSTALLHIGH
+Usage:  install=[d:][path]file [options]
+Load the program specified by d:path\file.  Generally used to
+load TSR (terminate and stay resident) programs with a minimal
+environment block.  The options are for the program itself; refer
+to documentation that came with your particular software for
+supported options and usage.
+Example:  install=nansi.com
+
+KEYBUF
+Usage: keybuf=n[,m]
+where n is in 0xac-0xde or 0x106-0x1de range and m is max 0x200
+Relocate keyboard buffer from the default location at
+0x40:0x1e-0x3e to 0x40:n-m. The buffer must be more
+than 32 bytes and must not touch offsets 0x100-0x105.
+Default for m is "next multiple of 0x100 after n".
+Note: Some BIOSes store data in the 0xac-0xff area. BASICA will
+      use the 0x106-0x120 area. Other hardware, drivers or apps
+      can collide with KEYBUF, too, so use it at your own risk.
+A reasonably safe choice should be "keybuf=0x140,0x1c0".
+
+LASTDRIVE
+LASTDRIVEHIGH
+Usage:  lastdrive=x 
+where x is last drive letter available for use; A-Z
+Example: lastdrive=z
+
+MENU
+Usage:  menu [text]
+where text is the text you want to be shown while running
+config.sys. Menu displays a menu while running config.sys.
+Use menudefault to set a time delayed default option.
+Lines that begin with 1? will only be processed if the user
+presses 1. Lines beginning with 23? will be loaded if the
+user presses either 2 or 3. Options other than 0 can only
+be selected if at least one "numbers?" line actually uses
+them, as shown in the example below.
+Example:
+  menu Please Select Configuration:
+  menu
+  menu Option 0    basic stuff only
+  menu Option 1    CD-ROM
+  menu Option 2    TROUSERS
+  menu Option 3    CD-ROM and TROUSERS
+  0?echo you selected option 0
+  13?device=xcdrom.sys /D:FDCD0001
+  23?install=trousers.com
+
+MENUCOLOR
+Usage:  menucolor foreground[,background]
+Use Menucolor before the menu config command, to create a 
+full screen menu which supports the arrow cursor keys.
+The following colors can be used for foreground and background:
+0=Black; 1=Blue; 2=Green; 3=Cyan; 4=Red; 5=Magenta;
+6=Brown; 7=Light Gray
+The following colors can only be used for the foreground:
+8=Dark Gray; 9=Light Blue; 10=Light Green; 11=Light Cyan;
+12=Light Red; 13=Light Magenta; 14=Yellow; 15=White.
+If you do not use MENUCOLOR, the menu will not be full
+screen, so some of the BIOS, bootloader and kernel init
+messages (list of drives, version info...) stays visible.
+To change the colour to white text on blue, use the following:
+Example:  menucolor 15,1 
+
+MENUDEFAULT
+Usage:  menudefault=defaultoption,delay
+where delay is the delay time in seconds and defaultoption is the
+used standard option if the delay time is over. Menudefault sets
+a time delayed default option for a config.sys menu: If no key
+has been pressed during [delay] seconds, the default choice is
+activated. Pressing a key stops the countdown, the kernel will
+wait infinitely for the user to make a selection. Note that some
+virtual machines like Bochs can have broken (too fast) timing.
+Example:  menudefault=0,5
+
+NUMLOCK
+Usage:  numlock=on|off
+Set the keyboard number lock to on or off.
+Example:  numlock=off
+
+REM
+Usage:  rem Your remarks!
+This provides the ability to place comments within the configuration
+file.  The text following the rem until the end of the line is
+reached is ignored.  This may also be used to temporarily disable
+loading a particular device or other option. A synonym for REM is
+the semicolon, see the examples.
+Example:  REM DOS=HIGH,UMB
+Example:  ;DOS=HIGH,UMB
+
+SCREEN
+Usage:  screen=xx
+Switches into videomode xxx  (INT10/11xx/000)
+where xx should be 0x11 for 8x14 font (28 lines VGA, 25 lines EGA)
+or 0x12 for 8x8 font (43 lines EGA, 50 lines VGA) or 0x14 for the
+default VGA font (25 lines VGA). Some newer graphics cards may not
+have 8x14 fonts in the BIOS. In that case, a driver can be loaded
+to load a suitable font in RAM, but SCREEN=0x11 should not be used.
+If xx is less than 15 (0x0f), it is treated as screen mode number,
+for example 1 for CGA 40x25 color text or 7 for monochrome text.
+Example:  SCREEN=0x12
+
+SET
+Usage:  set ENVVAR=value
+Sets the environment variable to provided value.
+Example:  set HOME=C:\home\me
+
+SHELL
+SHELLHIGH
+Usage:  shell=[d:][path]file [options]
+Indicates the shell to use; often used to alter COMMAND.COM's behavior.
+Note: it is command.com that processes AUTOEXEC.BAT; by using the
+shell option, you can get command.com to process a differently named
+file (such as FDAUTO.BAT for coexisting with another DOS using different
+configuration options) or run a completely different command interpreter
+such as 4DOS or a (unix) sh variant.
+Example:  shell=C:\4DOS.COM /E:256 /P
+Example:  SHELL=C:\FDOS\bin\command.com C:\FDOS\bin /E:1024 /P=C:\fdauto.bat
+
+STACKS
+STACKSHIGH
+Usage:  stacks=nn,mmm
+where nn is in range 0,8-64 and nnn is in range 32-512
+Changes number and size of hardware interrupt stacks available
+nn is number of different stacks and mmm is size in bytes of each one
+In some cases you can use "stacks=0,0" to use only standard stacks
+instead of letting DOS allocate extra stacks for hardware interrupts.
+Example:  stacks=16,256
+
+SWITCHAR
+Usage:  switchar=c
+Sets the default switchar to character c.  Where c is a single character
+that is used to indicate a command line parameter is an option switch.
+The default is a forward slash (/).  Note: This simply sets the value
+returned by a get switchar query, it will not effect programs that use
+hardcoded switch characters. The switch character is the sign used to
+mark options, for example the "/" in "DIR /w". Good values: "/" and "-".
+Example:  switchar=-
+
+SWITCHES
+Usage: switches=/E[:xxx] /F /K /N /W
+Adjusts boot time processing behaviour.
+/E enables moving of EBDA (Extended BIOS Data Area), optionally a
+   size in kilobytes may be specified [xxx, in range of 48-1024]
+/F skips the delay checking for F5/F8 keystroke before processing
+   config.sys [equivalent to SYS CONFIG skipconfigseconds=0]
+   F5 and F8 are only processed if pressed before DOS boots but
+   after the keyboard is set up - right moment is easy to miss.
+/K forces treating of keyboard as 86 key keyboard, not 102/105 key.
+   Might be useful with BIOSes or drivers which have no or broken
+   handling for 102/105 key keyboards.
+/N disables F5/F8 support [equivalent to kernel config (SYS CONFIG,
+   run SYS CONFIG /? for explanations) skipconfigseconds=-1]
+   F5 (skip config) and F8 (single step config.sys) are ignored.
+/W is NOT supported in FreeDOS. This option in MS DOS would set a flag
+   for Windows 3.0 to skip loading wina20.386 from the root directory.
+
+VERSION
+Usage:  version=x.y
+FreeDOS specific command to specify what DOS version to report. For
+a kernel with FAT32 support, 7.10 is a good choice. Otherwise, 5.0
+and 6.22 are common values. FreeCOM command.com "ver /r" displays
+both the reported and the FreeDOS internal version numbers.
+Example:  version=6.22
+
+
+
+Advanced - FreeDOS specific CONFIG.SYS menu processing:
+-------------------------------------------------------
+
+normal
+	FILES=20
+	DEVICE=MyNetWorkDriver.sys
+
+'?' - ALWAYS ask if a single line shall be executed
+	FILES=20
+	DEVICE?=MyNetWorkDriver.sys
+
+
+'!' - NEVER ask if a single line shall be executed, even if single stepping
+	!FILES=20
+	!DOS=HIGH,UMB
+	!BUFFERS=30
+	!DEVICE=MyNetWorkDriver.sys
+
+
+configuration management - you may compose several configurations,
+using following special commands:
+
+MENU
+MENU  select your configuration
+MENU
+MENU  use (1) for CDROM operation
+MENU  use (2) for NETWORK configuration
+MENU  use (3) to load neither CDROM nor NETWORK drivers
+MENU
+MENUDEFAULT=3,60		(configuration 3, wait 60 seconds)
+
+rem CDROM
+1?  device=CDROM.SYS
+
+rem NETWORK
+2?  device=MyNetworkDriver.SYS
+
+rem Menu items can only be selected if at least one line uses them:
+3?  echo Basic configuration selected
+
+Although this is different than MSDOS menuing possibilities, it 
+allows for selecting from multiple options during bootup while
+remaining simple.  It, however, does not allow for multi-level
+menuing based configuration schemes.
+
+
+It's also possible to combine menu options, to avoid writing thing every 
+time again.
+constructions like 0?devicehigh?=cdrom.sys are also possible
+("if menu option 0 chosen, ask if you want to load this driver")
+
+the selected configuration can be determined in AUTOEXEC.BAT in the
+environment variable CONFIG like
+
+        if %CONFIG% == 0 echo configuration 0 selected
+
+however, if you have no MENUs in config.sys, then %config% has no value,
+thus resulting in "IF == 0 echo configuration 0 selected."
+(which causes syntax errors as there's nothing on the left side of == )
+
+That's why you better use something like:
+if [%config%]==[0] echo configuration 0 selected.        -or-
+if "%config%"=="0" echo configuration 0 selected.
+
+then if there is no menu you have: "IF []==[0] echo configuration 0 selected."
+(which will of course output nothing)
+
+thus my config.sys now looks like
+
+
+!files=20
+!dos=high,umb
+!break=off
+!buffers=30
+!screen=0x12
+!lastdrive=z
+!shell=\command.com /p /e:512 /MSG
+
+MENU
+MENU 0 - SoftIce+HIMEM+Network (default)
+MENU 1 - SoftIce+HIMEM
+MENU 2 -         HIMEM+EMM386
+MENU
+MENUDEFAULT=0,0
+
+
+01? DEVICE=C:\NUMEGA\S-ICE.EXE /TRA 3000 /SYM 400
+012?DEVICE=himem.exe
+01? DEVICE=UMBPCI.SYS
+2?  DEVICE=EMM386.EXE NOEMS
+
+0?device=c:\ntclient\ifshlp.sys
+
+DEVICE=xcdrom.sys /D:MSCD000
+
+Full Screen Menus (thanks to Rune Espeseth)
+
+Use MENUCOLOR=foreground[,background] to obtain a full screen menu
+where you can use the arrow keys. Example (note that box drawing
+characters are used that look strange in other character sets):
+
+REM *** This is the FreeDos Config.sys ***
+REM *** executed before autoexec.bat   ***
+
+REM *** Set white foreground, red background ***
+menucolor=7,4
+
+files=20
+buffers=20
+
+REM *** The Menu ***
+MENU
+MENU  *-------------------------------------------------------*
+MENU  ! My Menu - FreeDOS rules!                              !
+MENU  *-------------------------------------------------------*
+MENU  !                                                       !
+MENU  !   1. Test with border                                 !
+MENU  !                                                       !
+MENU  !   2. Another test...                                  !
+MENU  !                                                       !
+MENU  !   3. Third choice                                     !
+MENU  !                                                       !
+MENU  !   4. Fourth choice.                                   !
+MENU  !                                                       !
+MENU  *-------------------------------------------------------*
+MENU
+
+MENUDEFAULT=1,10		( configuration 1, wait 10 seconds)
+
+REM 1st choice
+1?ECHO You selected menu #1 
+
+REM 2nd choice
+2?ECHO You selected menu #2
+
+REM 3rd choice
+3?ECHO You selected menu #3
+
+REM 4th choice
+4?ECHO You selected menu #4
+
+
+2002-11-28 - Tom Ehlert
+2003-07-15 - Bernd Blaauw
+2003-09-18 - Bart Oldeman
+2004-07-24 - Jeremy Davis
+...
+2008-22-01 - Fritz Mueller / Eric Auer

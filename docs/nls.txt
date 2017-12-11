@@ -1,0 +1,191 @@
+Current version: $Id: nls.txt 59 2000-08-06 04:42:32Z jimtabor $
+
+This document describes all aspects of the implementation
+of NLS in the FreeDOS kernel	-- 2000/06/16 ska
+
+Note:
+	At this time this document contains only an overall description
+	of how the FreeDOS NLS works; detailed implementation details are
+	found in HDR\NLS.H and KERNEL\NLS_LOAD.C. When the FreeDOS developers
+	finally adopted the current scheme, the larger comments of both
+	files will be merged into a single document -> this file.
+
+= TOC
+
+= Capabilites of the current implementation.
+
+Tested is:
++ DOS-38 - Get Country Information
++ DOS-65-[2A][0-2] - upcase normal/filename characters
++ DOS-65-23 - YesNo prompt character
++ DOS-65-01 - Get Extended Country Information
++ DOS-65-0[24] - Get pointer to normal/filename upcase table
++ DOS-65-05 - Get pointer to filename terminator table
++ DOS-65-06 - Get pointer to collating sequence table
++ DOS-65-07 - Get pointer to DBCS table
+	Note: Because I don't know how this used, only an empty table
+	has been verified to work properly.
++ DOS-66-01 - Get active codepage
++ MUX-14-00 - Installation check
++ MUX-14-02 - Get extended country information
++ MUX-14-04 - Get country information
++ MUX-14-FE - DRDOS get extended country information
++ MUX-14-23 - validate Yes/No prompt (FreeDOS extension)
++ MUX-14-22 - upcase normal character area (FreeDOS extension)
++ MUX-14-A2 - upcase filename character area (FreeDOS extension)
+
+Not implemented is:
++ DOS-65-00 - Change DOS-65-XX information
++ DOS-66-02 - Set active codepage
+	Note: The rough interface is available, but no code to actually
+		to change the codepage.
++ external TSR "NLSFUNC"
++ MUX-14-FF - DRDOS prepare codepage
+
+Not validated is:
++ DOS-38 - Set Country code, because:
+	1) it relies on DOS-66-02 (Set active code page) and
+	2) requires external NLSFUNC.
++ COUNTRY= statement in CONFIG.SYS (code avilable, but not tested at all)
++ MUX-14-01 - change codepage & MUX-14-03 - Set codepage, because
+	the meaning of them is not intentional to me. Both function perform
+	the same request currently, to change the current codepage or country
+	code or both (though, see DOS-66-02).
+
+
+= Supported NLS packages
+
+A NLS package may contain data only or data and code.
+
+If the NLS package shall not contain any code, it must conform to the
+code already included within the kernel; otherwise an external TSR,
+usually NLSFUNC, must provide all code by hooking and intercepting
+the MUX-14-XX API.
+
+In order to support the external NLSFUNC, all requests for DOS-XX are
+re-routed through MUX-14; but because the NLS API must work, even if no
+NLSFUNC has been loaded, the kernel implements a MUX-14 interface of its
+own and performs all MUX-14 requests.
+
+However, because the channeling of each request through the MUX chain
+is considered a very heavy operation (aka time-consuming), flags are
+introduced when to _bypass_ the MUX chain and directly call the
+function, which would be activated, if the request would reach the
+MUX-14 interface of the kernel.
+
+Because the kernel can only load NLS packages structurally identical to
+U.S.A./CP437 per definition, the kernel automatically sets those flags,
+thus, retreives all information from them without to channel the request
+through the MUX interrupt chain.
+
+The term "structurally identical" is explained in NLS.H.
+
+= Using NLS functions from within the kernel
+
+There are functions to:
++ upcase normal characters: DosUpMem(), DosUpString(), DosUpChar()
++ upcase filename characters: DosUpFMem(), DosUpFString(), DosUpFChar()
++ verify yes/no prompt characters: DosYesNo()
++ retreive data (country informaion): DosGetData() [DOS-65-XX],
+	DosGetCountryInformation() [DOS-38]
+
+They implement the usual DOS interface and refer to the country code and
+codepage by the usual UWORD numbers; NLS_DEFAULT can be used to specify
+"current country/codepage". The "Up*()" functions always use the currently
+active NLS package.
+
+These functions are also called by the INT-21 handler.
+
+Because of the MUX chain support these functions more or less wrap the
+real functions only and check the flags whether to call the internal
+function directly or re-route the request through MUX.
+
+Therefore NLS data must not be accessed directly from outside the NLS
+implementation, but through these functions only.
+
+CAUTION: The DOS NLS differs between "normal" characters and "filename"
+characters, that's why one must call DosUpFString() to upcase a
+filename rather than DosUpString()!
+
+Note: The NLS subsystem is robust against any type of characters,
+that means DosUpFMem() can be called with any type of junk, except
+the pointer to the buffer must not be NULL.
+
+= NLS and fileformats (UNF)
+
+The current implementation does not implemented everything MS-DOS like,
+this includes the internal NLS information block and the fileformat of
+COUNTRY.SYS. Both structures shall be updated to increase performance,
+rather than require the kernel to simulate old and obsolated interfaces.
+To overcome the traditional problem with ever-changing structures
+a toolset is provided to represent the NLS package in an implementation-
+independed way and read/write/manipulate etc. pp. this data.
+
+In the final state NLSFUNC will automatically detect the structures
+and transform them into the structure required by the kernel.
+
+To minimize the complexity of these data transformation processes
+an independed fileformat called UNF (Uniform NLS file Format) has been
+founded, which is totally plain text (except comments) and somewhat
+human-readable. Tools will be provided to convert any or particular binary
+forms of NLS packages into UNF and back.
+
+Currently available tools:
+GRAB_UNF: Extracts all information from the current NLS API and dumps it
+	into an UNF file. Supports standard information and DOS-65-03 (lowercase).
+UNF2HC:	Transforms an UNF file into the format of the hardcoded NLS package
+	ready to be used when the kernel is make'ed.
+
+
+= Testing / Verifying NLS
+
+Above mentioned UNF toolset includes:
+GRAB_UNF: Dump NLS package into UNF file and
+NLSUPTST: Test upcase API (DOS-65-2[0-2]).
+
+Testing steps:
+1) Generate an UpCase test verifaction file by running "NLSUPTST /c" on
+	a DOS computer that is entitled to run a good NLS.
+	Alternatively download an UP file corresponding to your locale,
+	that means <country>-<codepage>.UP (without the angle brackets).
+	Note: The numerical country code and codepage must match the settings
+	of your testee system!
+2) Do the same an generate an sample UNF of a good NLS, by running
+	"GRAB_UNF.EXE" or download one from the internet. the filename is:
+		<country>-<codepage>.UNF
+	Note: If you manually edit the file, run "READ_UNF <filename>" to
+	check the file for errors and dump it in the very same format as
+	GRAB_UNF will.
+3) Copy GRAB_UNF.EXE, NLSUPTST.EXE and the UP file onto the testee, e.g.
+	floppy. Make sure no .UNF file is located there.
+4) Create the CONFIG.SYS with only the minimum settings, more than
+	a COUNTRY=  and a SHELL=  are usually NOT required.
+5) Create an AUTOEXEC.BAT with this contents (strip leading tabs):
+		GRAB_UNF.EXE
+		NLSUPTST.EXE
+	Note: If you have NLS_DEBUG enabled, a lot of noise will be displayed!
+6) Reboot the testee
+7) The GRAB_UNF.EXE will display its success by:
+	"NLS info file for <country>-<codepage> has been created sucessfully"
+	In this case an UNF file has been created <-> the only way to see this
+	success status, if NLS_DEBUG is enabled within the kernel.
+8) At some point you should see an error message or the good news:
+	"NLS passed all DOS-65-2[0-2] tests"
+	This means that NLSUPTST was successful, because there is no other
+	way to detect this, NLSUPTST must be placed last.
+9) Compare the <country>-<codepage>.UNF file form the directory you
+	run GRAB_UNF.EXE in with the _equally_ named sample file.
+	Both must be 100% identical, even the number of spaces are.
+
+If COMMAND.COM fails to run AUTOEXEC.BAT, change the SHELL= line within
+CONFIG.SYS into:
+	SHELL=GRAB_UNF.EXE
+-and-
+	SHELL=NLSUPTST.EXE
+and boot the testee once with each line.
+
+What do these tests miss?
++ None of these tests try to change neither country code nor code page.
++ By default, these tests cannot override the internal performance flags
+	and so either the direct-calling or the MUX-re-routing mechanism
+	is tested, but never both.

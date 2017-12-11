@@ -1,0 +1,11 @@
+To create a bootable floppy suitable for copying the system to
+another drive:
+
+1. Change directory (if necessary) to where the FreeDOS Kernel BIN
+   directory.
+
+3. Enter the command "install" to transfer the system files to the
+   diskette in drive A.  If you want to install on drive B, type
+   "install b:"
+
+4. Write protect this disk and use it to boot from.

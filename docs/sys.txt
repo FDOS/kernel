@@ -1,0 +1,223 @@
+FreeDOS System Installer v3.6e - Nov 13, 2009
+documentation by:
+  Jeremy Davis
+  Bart Oldeman
+
+SYS's standard behavior is very similar (though in
+my opinion improved) to that of other DOSes.
+SYS /? (or no options) should provide a general usage,
+and SYS CONFIG /help (or SYS CONFIG /?) should
+provide usage for the new configuration options.
+
+The best documentation is the source itself, but
+we try to keep this document updated.
+
+
+Usage: SYS [source] drive: [bootsect] [{option}]
+  source   = A:,B:,C:\KERNEL\BIN\,etc., or current directory if not given
+  dest     = drive (A:,B:,C:,... or A,B,C,...) to install system to
+  bootsect = name of 512-byte boot sector file image for drive:
+             to write to *instead* of real boot sector
+  {option} is one or more of the following:
+  /BOTH    : write to *both* the real boot sector and the image file
+  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image
+  /UPDATE  : copy kernel and update boot sector (do *not* copy shell)
+  /OEM     : indicates boot sector, filenames, and load segment to use
+             /OEM:FD use FreeDOS compatible settings
+             /OEM:DR use DR DOS 7+ compatible settings (same as /OEM)
+             /OEM:PC use PC-DOS compatible settings
+             /OEM:MS use MS-DOS compatible settings
+             /OEM:W9x use MS Win9x DOS compatible settings
+             default is /OEM:AUTO, select DOS based on existing files
+  /K name  : name of kernel to use in boot sector instead of KERNEL.SYS
+  /L segm  : hex load segment to use in boot sector instead of 0x60
+  /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...
+  /FORCE   : override automatic selection of BIOS related settings
+             /FORCE:BSDRV (/FORCEDRV) use boot drive # set in bootsector
+             /FORCE:BIOSDRV use boot drive # provided by BIOS
+             /FORCE:AUTO select LBA or CHS depending on BIOS availability
+             /FORCE:LBA always use LBA
+             /FORCE:CHS always use CHS
+  /NOBAKBS : skips copying boot sector to backup bs, FAT32 only else ignored
+  /SKFN filename : copy from filename to KERNEL.SYS; settings same as /OEM:FD
+  /SCFN filename : copy from filename to COMMAND.COM
+  /BACKUPBS [path]filename : save current bs before overwriting
+  /DUMPBS   [path]filename : save current bs and exit
+  /RESTORBS [path]filename : overwrite bs and exit
+  /VERBOSE : display additional (debug) output
+
+SYS CONFIG /help
+
+
+The simplest usage:
+
+SYS dest:
+
+dest should be the drive (A:, B:, C:, ...) you wish
+to be bootable with FreeDOS (kernel & command.com)
+When using this form, KERNEL.SYS and COMMAND.COM
+must reside either in the current directory (which
+is searched first) or in recent revisions may also
+be in the root directory of the current drive.
+
+Complete form:
+
+SYS [source] dest: [bootsect [/BOTH]]
+
+Here dest is the same as before, but this time
+you specify where KERNEL.SYS and COMMAND.COM are.
+Source may simply be a drive (in this case it
+is similar to PC & MS SYS).  The current directory
+of the specified drive is first searched for
+KERNEL.SYS & COMMAND.COM and if not found then
+the root directory of the specified drive is tried.
+Alternatively, you may specify a path (either fully
+qualified or relative) to where KERNEL.SYS and
+COMMAND.COM may be found; note that this should 
+only search this directory and will fail if they
+are not found, ie it will not check for them on
+the root directory of the drive specified when
+a path is given.  It should also fail if the
+source and destination drive are both the same
+and would result in trying to SYS from the root
+to the root (ie trying to SYS from C:\ to C:\).
+
+If you specify a name for "bootsect", for instance,
+bootsect.fd, SYS will write to that file instead of
+the real boot sector. You will obtain a 512-byte file
+containing the boot sector, which can then be used
+for dual booting or diagnostic purposes.
+
+If you also specify BOTH, sys will write to both
+the image file and the boot sector.
+
+The FORCE options override the default actions
+to use.  On FAT32 drives /FORCE:LBA and /FORCE:CHS
+will select which boot sector code is used (default
+same as /FORCE:AUTO will choose based on query of
+BIOS support for LBA extensions and use LBA if it
+is supported else only CHS will be used).  On FAT12
+and FAT16 drives specifying /FORCE:LBA will ensure
+even 1st floppy drive attempts to use LBA support
+(note that CHS may still be used if LBA check fails)
+and /FORCE:CHS will always bypass use of LBA extensions.
+
+
+Kernel Configuration Options:
+
+Simplest form:
+
+SYS CONFIG
+
+This will simply display the current settings
+for the file KERNEL.SYS in the current directory.
+It is useful to see what the options are currently
+set to, what options are supported, and should
+show valid values along with defaults (defaults are
+the valid values with a '*' next to them).
+
+Optionally specify file:
+
+SYS CONFIG [drive][path]KERNEL.SYS
+
+This form behaves as above, except will display
+the settings for the kernel file you specify.
+drive and path are optional, and generally just
+a \ will be used to indicate root directory of
+current drive.  KERNEL.SYS specifies the filename
+of the kernel, which may not be "KERNEL.SYS",
+for example when testing you want to alter
+KERNTEST.SYS and later copy (or rename) this to
+KERNEL.SYS for booting.
+
+
+Changing options:
+
+SYS CONFIG OPTION1=value [OPTION2=value ...]
+
+This form will read the current settings from
+the kernel (KERNEL.SYS in the current directory)
+and set the options specified to the value given.
+If the value is potentially invalid (too large, too
+small, etc) then a warning will be displayed, but
+the change will still occur.  The kernel file is
+only updated if at least one option is different from the
+current settings.  If you wish to force the kernel
+file to be written to, then set the same option
+twice (OPTION1=oddvalue OPTION1=desiredvalue), with
+the 1st time the value being different from the
+current one and the rightmost one being the desired
+value.  Currently three options are supported.
+Note: currently only the 1st three letters are
+actually checked, so they may be abreviated to
+DLA, SHO, and SKI and with my recent patch you may
+specify the value as either a decimal number 0,10,255,...
+or as a hexidecimal number 0x0,0xA, 0xFF...
+
+DLASORT which may be set to 0 or 1
+DLASORT=0 or DLASORT=1
+This option is for specifying whether Drive Letter
+Assignment should follow the normal MSDOS way of
+all primary partitions across drives and then
+extended partitions, or the more logical
+all partitions (primary & extended) on the 1st 
+drive, then repeat for all following drives 
+(all primary & extended, then try next drive).
+0 corresponds to MS way and 1 corresponds to first
+drive completely, then next ...
+
+SHOWDRIVEASSIGNMENT which may be 0 or 1
+SHOWDRIVEASSIGNMENT=0 or SHOWDRIVEASSIGNMENT=1
+If 1 then the normal drive assignment information
+is displayed upon booting.  If 0 then this information
+is supressed (not shown).
+
+SKIPCONFIGSECONDS which may be -128 to 127.
+A negative value ( < 0 ) indicates that F5/F8
+processing will be skipped (the kernel won't check
+if you pressed these keys, so you can't skip config
+file (CONFIG.SYS) processing).  A 0 means you must
+have pressed the key precisely for when the kernel
+checks for it - essentially skipping, though a well
+timed finger will still get to use it.  And any value
+greater than 0 is the number of seconds the kernel will
+display the prompt and wait for you to press the key
+before assuming you didn't.
+
+FORCELBA which may be 0 or 1
+FORCELBA=0 or FORCELBA=1
+If 1 then the kernel will use LBA (extended INT13)
+techniques to address all partitions if possible,
+even if these have a non-LBA partition type and
+are completely below cylinder 1023 (usually the 8GB
+boundary). This is 0 by default, for compatibility
+reasons. Setting this to 1 may bypass some buggy 
+BIOSes and gives slightly better performance.
+
+GLOBALENABLELBASUPPORT which maybe 0 or 1
+GLOBALENABLELBASUPPORT=0 or GLOBALENABLELBASUPPORT=1
+If 0 then LBA will be completely disabled, irrespective
+of the FORCELBA setting. You need this if FreeDOS thinks
+you have LBA available, but in reality you do not.
+This setting is set to 1 by default.
+
+Example: To set the kernel in the current directory
+to have a timeout of 5 seconds (default is 2) run
+SYS CONFIG SKI=5
+
+
+Changing options of specified file:
+
+SYS CONFIG [drive][path]KERNEL.SYS OPTION1=value ...]
+
+This is just like previous section on setting options,
+except the first argument after CONFIG specifies which
+kernel file to use.  The filename is the same form used
+for displaying options of specified kernel file described
+above.
+
+Example2: To set a kernel in the root directory to
+not show drive assignment and change the timeout
+to never check
+SYS CONFIG \KERNEL.SYS SKI=-1 SHOWDRIVEASSIGNMENT=0x0
+

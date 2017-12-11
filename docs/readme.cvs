@@ -1,0 +1,64 @@
+
+Thanks to Bart Oldeman for helping us with moving the FreeDOS source code
+from CVS to Subversion! The old CVS repository is still available for
+browsing, but will no longer be used for managing FreeDOS Projects - and
+will probably be deleted later. Please use Subversion for the FreeDOS
+kernel, FreeCOM (FreeDOS command.com), Install, and Mem.
+
+Bart has also written a Subversion at SourceForge Mini How-to:
+http://fd-doc.sourceforge.net/wiki/index.php?n=FdDocEn.SVN
+
+This information was mostly lifted from SourceForge.net:
+https://sourceforge.net/svn/?group_id
+
+FreeDOS Subversion:
+
+Subversion (SVN) is a tool used by many software developers to manage
+changes within their source code tree. SVN provides the means to store not
+only the current version of a piece of source code, but a record of all
+changes (and who made those changes) that have occurred to that source code.
+Use of SVN is particularly common on projects with multiple developers,
+since SVN ensures changes made by one developer are not accidentally removed
+when another developer posts their changes to the source tree.
+
+In order to access a Subversion repository, you must install a special piece
+of software called a Subversion client. Subversion clients are available for
+most any operating system.
+
+To get a working copy, do svn co URL freedos where URL is the complete path
+to the trunk of the project you want. For example:
+
+FreeDOS kernel
+  https://freedos.svn.sourceforge.net/svnroot/freedos/kernel/trunk
+FreeDOS FreeCOM
+  https://freedos.svn.sourceforge.net/svnroot/freedos/freecom/trunk
+FreeDOS MEM
+  https://freedos.svn.sourceforge.net/svnroot/freedos/mem/trunk
+FreeDOS Install
+  https://freedos.svn.sourceforge.net/svnroot/freedos/install/trunk
+
+Be careful NOT to use the top level
+  * https://freedos.svn.sourceforge.net/svnroot/freedos URL
+instead of one of the trunk URLs. This will pull all modules, tags and/or
+branches of the project - it will be huge. Instead, you will want to use
+/trunk to the URL to check out only the trunk code (main development line).
+
+Though Subversion repositories are most commonly accessed using a special
+piece of software called a Subversion client, SourceForge also provides a
+web-based interface to view Subversion repositories. Browsing the Subversion
+tree gives you a great view into the current status of this project's code.
+You may also view the complete history of any file in the repository.
+
+    * Browse Subversion repository
+http://freedos.svn.sourceforge.net/viewvc/freedos/
+
+FreeDOS is a trademark of Jim Hall. 
+
+
+
+Note: Readonly access via the old CVS interface worked as follows:
+To check out the code, first log in:
+cvs -z3 -d:pserver:anonymous@cvs.freedos.sourceforge.net:/cvsroot/freedos login
+Password: Press the Enter key.
+Then, to get the kernel code:
+cvs -z3 -d:pserver:anonymous@cvs.freedos.sourceforge.net:/cvsroot/freedos checkout kernel
