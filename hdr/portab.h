@@ -198,6 +198,11 @@ typedef unsigned       size_t;
 #define ASMCFUNC CDECL
 #define ASMPASCAL PASCAL
 #define ASM ASMCFUNC
+
+/* variables that can be near or far: redefined in init-dat.h */
+#define DOSFAR
+#define DOSTEXTFAR
+
 /*                                                              */
 /* Boolean type & definitions of TRUE and FALSE boolean values  */
 /*                                                              */

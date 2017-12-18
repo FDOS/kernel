@@ -1511,23 +1511,24 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
   } subf_data;
   struct subf_tbl {
     char sig[8];        /* signature for each subfunction data */
-    void FAR *p;        /* pointer to data in nls_hc.asm to be copied to */
+    int idx;            /* index of pointer in nls_hc.asm to be copied to */
   };
   static struct subf_tbl table[8] = {
-    {"\377       ", NULL},                  /* 0, unused */
-    {"\377CTYINFO", &nlsCntryInfoHardcoded},/* 1 */
-    {"\377UCASE  ", &nlsUpcaseHardcoded},   /* 2 */
-    {"\377LCASE  ", NULL},                  /* 3, not supported [yet] */
-    {"\377FUCASE ", &nlsFUpcaseHardcoded},  /* 4 */
-    {"\377FCHAR  ", &nlsFnameTermHardcoded},/* 5 */
-    {"\377COLLATE", &nlsCollHardcoded},     /* 6 */
-    {"\377DBCS   ", &nlsDBCSHardcoded}      /* 7, not supported [yet] */
+    {"\377       ", -1},  /* 0, unused */
+    {"\377CTYINFO", 5},   /* 1 */
+    {"\377UCASE  ", 0},   /* 2 */
+    {"\377LCASE  ", -1},  /* 3, not supported [yet] */
+    {"\377FUCASE ", 1},   /* 4 */
+    {"\377FCHAR  ", 2},   /* 5 */
+    {"\377COLLATE", 3},   /* 6 */
+    {"\377DBCS   ", 4}    /* 7, not supported [yet] */
   };
   static struct subf_hdr hdr[8];
   static int entries, count;
   int fd, i;
   char *filename = filenam == NULL ? "\\COUNTRY.SYS" : filenam;
   BOOL rc = FALSE;
+  BYTE FAR *ptable;
 
   if ((fd = open(filename, 0)) < 0)
   {
@@ -1586,25 +1587,29 @@ err:printf("%s has invalid format\n", filename);
         subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
                 min(subf_data.length, sizeof(struct CountrySpecificInfo));
       }
+      if (hdr[i].id == 1)
+        ptable = (BYTE FAR *)&nlsPackageHardcoded.nlsExt.size;
+      else
+        ptable = nlsPackageHardcoded.nlsPointers[table[hdr[i].id].idx].pointer;
       if (hdr[i].id == 7)
       {
         if (subf_data.length == 0)
         {
           /* if DBCS table (in country.sys) is empty, clear internal table */
           *(DWORD *)(subf_data.buffer) = 0L;
-          fmemcpy((BYTE FAR *)(table[hdr[i].id].p), subf_data.buffer, 4);
+          fmemcpy(ptable, subf_data.buffer, 4);
         }
         else
         {
-          fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer, subf_data.length);
+          fmemcpy(ptable + 2, subf_data.buffer, subf_data.length);
           /* write length */
           *(UWORD *)(subf_data.buffer) = subf_data.length;
-          fmemcpy((BYTE FAR *)(table[hdr[i].id].p), subf_data.buffer, 2);
+          fmemcpy(ptable, subf_data.buffer, 2);
         }
         continue;
       }
 
-      fmemcpy((BYTE FAR *)(table[hdr[i].id].p) + 2, subf_data.buffer,
+      fmemcpy(ptable + 2, subf_data.buffer,
                                 /* skip length ^*/  subf_data.length);
     }
     rc = TRUE;

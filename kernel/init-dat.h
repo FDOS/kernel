@@ -1,3 +1,6 @@
+#undef DOSFAR
+#undef DOSTEXTFAR
+
 /* Included by initialisation functions */
 
 #if _MSC_VER != 0

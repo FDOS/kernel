@@ -16,12 +16,12 @@
 #include "tail.h"
 #include "process.h"
 #include "pcb.h"
-#include "nls.h"
 #include "buffer.h"
 #include "dcb.h"
 #include "lol.h"
 
 #include "init-dat.h"
+#include "nls.h"
 
 #include "kconfig.h"
 
@@ -275,7 +275,7 @@ extern struct {
   
   struct CountrySpecificInfo C;
   
-} FAR ASM nlsCountryInfoHardcoded;
+} DOSFAR ASM nlsCountryInfoHardcoded;
 
 /*
     data shared between DSK.C and INITDISK.C

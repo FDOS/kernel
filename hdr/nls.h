@@ -430,7 +430,8 @@ struct nlsPackage {             /* the contents of one chain item of the
   UWORD yeschar;                /* yes / no character DOS-65-23 */
   UWORD nochar;
   unsigned numSubfct;           /* number of supported sub-functions */
-  struct nlsPointer nlsPointers[1];     /* grows dynamically */
+  struct nlsPointer nlsPointers[5];     /* may grow dynamically */
+  struct nlsExtCntryInfo nlsExt;
 };
 
 struct nlsDBCS {                /* The internal structure is unknown to me */
@@ -479,14 +480,7 @@ struct nlsInfoBlock {           /* This block contains all information
 };
 
 extern struct nlsInfoBlock ASM nlsInfo;
-extern struct nlsPackage      FAR ASM nlsPackageHardcoded;
-        /* These are the "must have" tables within the hard coded NLS pkg */
-extern struct nlsFnamTerm     FAR ASM nlsFnameTermHardcoded;
-extern struct nlsDBCS         FAR ASM nlsDBCSHardcoded;
-extern struct nlsCharTbl      FAR ASM nlsUpcaseHardcoded;
-extern struct nlsCharTbl      FAR ASM nlsFUpcaseHardcoded;
-extern struct nlsCharTbl      FAR ASM nlsCollHardcoded;
-extern struct nlsExtCntryInfo FAR ASM nlsCntryInfoHardcoded;
+extern struct nlsPackage      DOSFAR ASM nlsPackageHardcoded;
 extern BYTE FAR hcTablesStart[], hcTablesEnd[];
 
 /***********************************************************************
