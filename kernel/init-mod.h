@@ -266,8 +266,8 @@ extern BYTE DOSFAR ASM _InitTextStart[],     /* first available byte of ram     
   DOSFAR ASM ReturnAnyDosVersionExpected,
   DOSFAR ASM HaltCpuWhileIdle;
 
-extern BYTE FAR ASM internal_data[];
-extern unsigned char FAR ASM kbdType;
+extern BYTE DOSFAR ASM internal_data[];
+extern unsigned char DOSTEXTFAR ASM kbdType;
 
 extern struct {
   char  ThisIsAConstantOne;
