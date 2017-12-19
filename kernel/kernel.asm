@@ -889,23 +889,26 @@ __U4D:
 %endif
 
 %ifdef gcc
-global ___udivsi3
-___udivsi3:     call ldivmodu
+%macro ULONG_HELPERS 1
+global %1udivsi3
+%1udivsi3:      call %1ldivmodu
                 ret 8
 
-global ___umodsi3
-___umodsi3:     call ldivmodu
+global %1umodsi3
+%1umodsi3:      call %1ldivmodu
                 mov dx, cx
                 mov ax, bx
                 ret 8
 
-ldivmodu:       LDIVMODU
+%1ldivmodu:     LDIVMODU
 
-global ___ashlsi3
-___ashlsi3:     LSHLU
+global %1ashlsi3
+%1ashlsi3:      LSHLU
 
-global ___lshrsi3
-___lshrsi3:     LSHRU
+global %1lshrsi3
+%1lshrsi3:      LSHRU
+%endmacro
+                ULONG_HELPERS ___
 %endif
 
                 times 0xd0 - ($-begin_hma) db 0
@@ -1146,3 +1149,7 @@ _TEXT_DGROUP dw DGROUP
 segment INIT_TEXT
                 global _INIT_DGROUP
 _INIT_DGROUP dw DGROUP
+
+%ifdef gcc
+                ULONG_HELPERS _init_
+%endif
