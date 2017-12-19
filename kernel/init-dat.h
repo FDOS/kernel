@@ -1,5 +1,7 @@
 #undef DOSFAR
 #undef DOSTEXTFAR
+#define DOSDATA(x) (x)
+#define DOSTEXT(x) (x)
 
 /* Included by initialisation functions */
 
@@ -23,7 +25,18 @@ extern __segment DosTextSeg;
 #define DOSFAR FAR
 #define DOSTEXTFAR FAR
 
-#elif !defined(I86) || defined(__GNUC__)
+#elif defined(__GNUC__)
+
+#define DosTextSeg 0x70
+/* XXX not supported yet */
+#define DOSFAR
+#define DOSTEXTFAR
+#undef DOSDATA
+#undef DOSTEXT
+#define DOSDATA(x) (*(typeof(x) FAR *)MK_FP(DosDataSeg, (size_t)&(x)))
+#define DOSTEXT(x) (*(typeof(x) FAR *)MK_FP(DosTextSeg, (size_t)&(x)))
+
+#elif !defined(I86)
 
 #define DOSFAR
 #define DOSTEXTFAR
