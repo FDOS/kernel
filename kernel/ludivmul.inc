@@ -51,6 +51,15 @@
 ; destroys:
 ;   flags
 ;
+%ifdef STDCALL
+	push bp
+	mov bp, sp
+	mov ax, [bp+6]
+	mov dx, [bp+8]
+	mov bx, [bp+10]
+	mov cx, [bp+12]
+	pop bp
+%endif
 
 	test    cx, cx             ; divisor > 2^32-1 ?
 	jnz     %%big_divisor      ; yes, divisor > 32^32-1
@@ -113,12 +122,10 @@
 
 %macro LSHLU 0
 	pop bx
-	pop ax
-	pop dx
-	pop cx
+	popargs {dx,ax},cx
 	push bx
 	jcxz %%ret
-%%loop: shl ax, 1
+%%loop:	shl ax, 1
 	rcl dx, 1
 	loop %%loop
 %%ret:	ret 6
@@ -126,12 +133,10 @@
 
 %macro LSHRU 0
 	pop bx
-	pop ax
-	pop dx
-	pop cx
+	popargs {dx,ax},cx
 	push bx
 	jcxz %%ret
-%%loop: shr dx, 1
+%%loop:	shr dx, 1
 	rcr ax, 1
 	loop %%loop
 %%ret:	ret 6

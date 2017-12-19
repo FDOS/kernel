@@ -51,17 +51,18 @@ segment	HMA_TEXT
                 push    si
                 push    ds              ; sp=bp-8
 
-                lds     si,[bp+4]       ; ds:si = device header
-                les     bx,[bp+8]       ; es:bx = request header
+arg {rhp,4}, {dhp,4}
+                lds     si,[.dhp]       ; ds:si = device header
+                les     bx,[.rhp]       ; es:bx = request header
 
 
                 mov     ax, [si+6]      ; construct strategy address
-                mov     [bp+4], ax    
+                mov     [.dhp], ax
 
                 push si                 ; the bloody fucking RTSND.DOS 
                 push di                 ; driver destroys SI,DI (tom 14.2.03)
 
-                call    far[bp+4]       ; call far the strategy
+                call    far[.dhp]       ; call far the strategy
 
                 pop di 
                 pop si
@@ -69,8 +70,8 @@ segment	HMA_TEXT
                 ; Protect386Registers	; old free-EMM386 versions destroy regs in their INIT method
 
                 mov     ax,[si+8]       ; construct 'interrupt' address
-                mov     [bp+4],ax       ; construct interrupt address 
-                call    far[bp+4]       ; call far the interrupt
+                mov     [.dhp],ax       ; construct interrupt address
+                call    far[.dhp]       ; call far the interrupt
 
                 ; Restore386Registers	; less stack load and better performance...
 

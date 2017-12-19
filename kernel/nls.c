@@ -98,6 +98,9 @@ struct nlsInfoBlock ASM nlsInfo = {
  ***** MUX calling functions ****************************************
  ********************************************************************/
 
+#ifdef __GNUC__
+#define call_nls(a,b,c,d,e,f) call_nls(f,e,d,c,b,a)
+#endif
 extern long ASMPASCAL call_nls(UWORD, VOID FAR *, UWORD, UWORD, UWORD, UWORD);
 /*== DS:SI _always_ points to global NLS info structure <-> no
  * subfct can use these registers for anything different. ==ska*/

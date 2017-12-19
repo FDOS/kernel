@@ -29,6 +29,7 @@
 ;
 
                 %include "segs.inc"
+                %include "stacks.inc"
                 %include "ludivmul.inc"
 
 

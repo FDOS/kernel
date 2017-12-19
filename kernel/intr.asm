@@ -26,6 +26,7 @@
 ;
 
 		%include "segs.inc"
+		%include "stacks.inc"
 
 %macro INTR 0
         
@@ -41,10 +42,11 @@
 %endif
                 push	ds
 
-                mov	ax, [bp+6]		; interrupt number
+arg nr, rp
+                mov	ax, [.nr]		; interrupt number
                 mov	[cs:%%intr_1-1], al
                 jmp 	short %%intr_2		; flush the instruction cache
-%%intr_2	mov	bx, [bp+4]		; regpack structure
+%%intr_2	mov	bx, [.rp]		; regpack structure
 		mov	ax, [bx]
 		mov	cx, [bx+4]
 		mov	dx, [bx+6]
@@ -66,7 +68,7 @@
 %ifdef WATCOM
 		mov	bx, [ss:bx+24]		; address of REGPACK
 %else
-		mov	bx, [ss:bx+16]		; address of REGPACK
+		mov	bx, [ss:bx+12+.rp-bp]	; address of REGPACK
 %endif
 		mov	[bx], ax
 		pop	word [bx+2]
@@ -98,9 +100,7 @@ segment	HMA_TEXT
     global RES_DOSEXEC
 RES_DOSEXEC:
         pop es                  ; ret address
-        pop dx                  ; filename
-        pop bx                  ; exec block
-        pop ax                  ; mode
+        popargs ax,bx,dx        ; mode, exec block, filename
         push es                 ; ret address
         mov ah, 4bh
         push ds                 
@@ -115,9 +115,7 @@ no_exec_error:
     global RES_READ
 RES_READ:
         pop ax         ; ret address
-        pop cx         ; count
-        pop dx         ; buf
-        pop bx         ; fd
+        popargs bx,dx,cx ; fd, buf, count
         push ax        ; ret address
         mov ah, 3fh
         int 21h
@@ -144,10 +142,7 @@ INIT_CALL_INTR:
                 global INIT_CALL_XMSCALL
 INIT_CALL_XMSCALL:
             pop  bx         ; ret address
-            pop  dx
-            pop  ax
-            pop  cx         ; driver address
-            pop  es
+            popargs {es,cx},ax,dx
 
             push cs         ; ret address
             push bx
@@ -190,8 +185,7 @@ KEYCHECK:
 INIT_DOSOPEN: 
         ;; init calling DOS through ints:
         pop bx         ; ret address
-        pop ax         ; flags
-        pop dx         ; pathname
+        popargs dx,ax  ; pathname, flags
         push bx        ; ret address
         mov ah, 3dh
         ;; AX will have the file handle
@@ -216,9 +210,7 @@ CLOSE:
     global READ
 READ: 
         pop ax         ; ret address
-        pop cx         ; count
-        pop dx         ; buf
-        pop bx         ; fd
+        popargs bx,dx,cx ; fd,buf,count
         push ax        ; ret address
         mov ah, 3fh
         jmp short common_int21
@@ -227,8 +219,7 @@ READ:
     global DUP2
 DUP2:
         pop ax         ; ret address
-        pop cx         ; newfd
-        pop bx         ; oldfd
+        popargs bx,cx  ; oldfd,newfd
         push ax        ; ret address
         mov ah, 46h
         jmp short common_int21
@@ -239,9 +230,7 @@ DUP2:
     global LSEEK
 LSEEK:
         pop ax         ; ret address
-        pop dx         ; position low
-        pop cx         ; position high
-        pop bx         ; fd
+        popargs bx,{cx,dx} ; fd, position high:low
         push ax        ; ret address
         mov ax,4200h   ; origin: start of file
         int 21h
@@ -265,9 +254,7 @@ INIT_PSPSET:
     global INIT_DOSEXEC
 INIT_DOSEXEC:
         pop es                  ; ret address
-        pop dx                  ; filename
-        pop bx                  ; exec block
-        pop ax                  ; mode
+        popargs ax,bx,dx        ; mode, exec block, filename
         push es                 ; ret address
         mov ah, 4bh
         push ds                 
@@ -313,8 +300,7 @@ ALLOCMEM:
     global SET_DTA
 SET_DTA:
         pop ax           ; ret address
-        pop dx           ; off(dta)
-        pop bx           ; seg(dta)
+        popargs {bx,dx}  ; seg:off(dta)
         push ax          ; ret address
         mov ah, 1ah
         push ds

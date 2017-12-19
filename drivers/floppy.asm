@@ -29,6 +29,7 @@
 ;
 
 %include "../kernel/segs.inc"
+%include "../hdr/stacks.inc"
 segment HMA_TEXT
 
 ;
@@ -112,7 +113,8 @@ fl_common:
                 push    bp              ; setup stack frame
                 mov     bp,sp
 
-                mov     cx,[bp+0Ch]     ; cylinder number
+arg drive, head, track, sector, count, {buffer,4}
+                mov     cx,[.track]     ; cylinder number
 
                 mov     al,1            ; this should be an error code                     
                 cmp     ch,3            ; this code can't write above 3FFh=1023
@@ -121,13 +123,13 @@ fl_common:
                 xchg    ch,cl           ; ch=low 8 bits of cyl number
                 ror     cl,1            ; bits 8-9 of cylinder number...
                 ror     cl,1            ; ...to bits 6-7 in CL
-                or      cl,[bp+0Ah]	; or in the sector number (bits 0-5)
+                or      cl,[.sector]	; or in the sector number (bits 0-5)
 
-                mov     al,[bp+08h]     ; count of sectors to read/write/...
-                les     bx,[bp+04h]     ; Load 32 bit buffer ptr into ES:BX
+                mov     al,[.count]     ; count of sectors to read/write/...
+                les     bx,[.buffer]    ; Load 32 bit buffer ptr into ES:BX
 
-                mov     dl,[bp+10h]     ; drive (if or'ed 80h its a hard drive)
-                mov     dh,[bp+0Eh]     ; get the head number
+                mov     dl,[.drive]     ; drive (if or'ed 80h its a hard drive)
+                mov     dh,[.head]      ; get the head number
 
                 int     13h             ; process sectors
 
@@ -152,9 +154,10 @@ FL_LBA_READWRITE:
 		push    ds
 		push    si              ; wasn't in kernel < KE2024Bo6!!
 
-		mov     dl,[bp+10]      ; drive (if or'ed with 80h a hard drive)
-		mov     ax,[bp+8]       ; get the command
-		lds     si,[bp+4]       ; get far dap pointer
+arg drive, mode, {dap_p,4}
+		mov     dl,[.drive]     ; drive (if or'ed with 80h a hard drive)
+		mov     ax,[.mode]      ; get the command
+		lds     si,[.dap_p]     ; get far dap pointer
 		int     13h             ; read from/write to drive
 		
 		pop     si
@@ -182,8 +185,7 @@ FL_READKEY:     xor	ah, ah
 		global	FL_SETDISKTYPE
 FL_SETDISKTYPE:
 		pop	bx		; return address
-		pop	ax		; disk format type (al)
-		pop	dx		; drive number (dl)
+		popargs dx,ax		; drive number(dl),disk format type(al)
 		push	bx		; restore stack
 		mov	ah,17h	; floppy set disk type for format
 		int	13h
@@ -198,9 +200,7 @@ ret_AH:
 		global	FL_SETMEDIATYPE
 FL_SETMEDIATYPE:
 		pop	ax		; return address
-		pop	bx		; sectors/track
-		pop	cx		; number of tracks
-		pop	dx		; drive number
+		popargs dx,cx,bx	; drive number,#tracks,sectors/track
 		push	ax		; restore stack
 		push	di
 

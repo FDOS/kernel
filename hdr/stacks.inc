@@ -196,3 +196,57 @@ irp_hi    equ 26
 
 	%endif
 %ENDIF
+
+; macros to define stack arguments
+; arg a, {b,4}, c
+; defines a and c as "word" arguments and b as a "dword" argument
+; for STDCALL defines .a as [bp+4], .b as [bp+6] and .c as [bp+10]
+; for PASCAL  defines .a as [bp+10], .b as [bp+6] and .c as [bp+4]
+;
+; popargs bx, {dx,ax}, cx pops these arguments of the stack (for PASCAL
+; in reverse order). Here dx,ax is a dword argument dx:ax where dx is
+; the high word. The caller is responsible for dealing with instruction
+; pointer (ip) on the stack.
+
+%ifdef gcc
+%define STDCALL
+%else
+%define PASCAL
+%endif
+
+%macro  definearg 1-2 2
+	%xdefine .%1 bp+.argloc
+	%assign .argloc .argloc+%2
+%endmacro
+
+%macro  arg 1-*
+	%assign .argloc 4
+	%rep  %0
+		%ifdef PASCAL
+			%rotate -1
+		%endif
+		definearg %1
+		%ifdef STDCALL
+			%rotate 1
+		%endif
+	%endrep
+%endmacro
+
+%macro  multipop 1-*
+	%rep %0
+		%rotate -1
+		pop %1
+	%endrep
+%endmacro
+
+%macro  popargs 1-*
+	%rep  %0
+		%ifdef PASCAL
+			%rotate -1
+		%endif
+		multipop %1
+		%ifdef STDCALL
+			%rotate 1
+		%endif
+	%endrep
+%endmacro
