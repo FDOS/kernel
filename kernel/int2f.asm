@@ -32,8 +32,8 @@
         %include "stacks.inc"
 
 segment	HMA_TEXT
-            extern _cu_psp:wrt DGROUP
-            extern _HaltCpuWhileIdle:wrt DGROUP
+            extern _cu_psp
+            extern _HaltCpuWhileIdle
             extern _syscall_MUX14
 
             extern _DGROUP_
@@ -123,7 +123,7 @@ Int2f?iret:
 
 ; DRIVER.SYS calls - now only 0803.
 DriverSysCal:
-                extern  _Dyn:wrt DGROUP
+                extern  _Dyn
                 cmp     al, 3
                 jne     Int2f?iret
                 mov     ds, [cs:_DGROUP_]
@@ -431,7 +431,7 @@ int2f_restore_ds:
 ; extern UWORD ASMPASCAL call_nls(UWORD bp, UWORD FAR *buf,
 ;	UWORD subfct, UWORD cp, UWORD cntry, UWORD bufsize);
 
-		extern _nlsInfo:wrt DGROUP
+		extern _nlsInfo
 		global CALL_NLS
 CALL_NLS:
 		pop	es		; ret addr

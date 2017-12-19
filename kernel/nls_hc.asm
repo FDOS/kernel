@@ -14,15 +14,15 @@ _nlsPackageHardcoded:
 	DB  000h, 000h, 000h, 000h, 001h, 000h, 0b5h, 001h
 	DB  00fh, 000h, 059h, 000h, 04eh, 000h, 006h, 000h
 	DB  002h
-	DW ?table2, SEG ?table2
+	DW ?table2, DGROUP
 	DB  004h
-	DW ?table4, SEG ?table4
+	DW ?table4, DGROUP
 	DB  005h
-	DW ?table5, SEG ?table5
+	DW ?table5, DGROUP
 	DB  006h
-	DW ?table6, SEG ?table6
+	DW ?table6, DGROUP
 	DB  007h
-	DW ?table7, SEG ?table7
+	DW ?table7, DGROUP
 	GLOBAL _nlsCountryInfoHardcoded
 _nlsCountryInfoHardcoded:
 	DB  001h
@@ -32,8 +32,8 @@ _nlsCntryInfoHardcoded:
 	DB  01ch, 000h, 001h, 000h, 0b5h, 001h, 000h, 000h
 	DB  024h, 000h, 000h, 000h, 000h, 02ch, 000h, 02eh
 	DB  000h, 02dh, 000h, 03ah, 000h, 000h, 002h, 000h
-extern _CharMapSrvc:wrt DGROUP
-        DW  _CharMapSrvc, SEG _CharMapSrvc
+extern _CharMapSrvc
+        DW  _CharMapSrvc, DGROUP
         DB  02ch, 000h
 	GLOBAL _hcTablesStart
 _hcTablesStart:

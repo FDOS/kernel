@@ -38,6 +38,7 @@ TARGET=KGC
 ALLCFLAGS=-I../hdr $(TARGETOPT) $(ALLCFLAGS) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -w -Werror
 INITCFLAGS=$(ALLCFLAGS) -o $@
 CFLAGS=$(ALLCFLAGS) -o $@
+NASMFLAGS=$(NASMFLAGS) -f elf -o $@
 
 DIRSEP=/
 RM=rm -f

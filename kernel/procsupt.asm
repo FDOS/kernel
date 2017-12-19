@@ -31,10 +31,10 @@
 
 		%include "segs.inc"
 
-                extern  _user_r:wrt DGROUP
+                extern  _user_r
 
-                extern  _break_flg:wrt DGROUP   ; break detected flag
-                extern  _int21_handler:wrt DGROUP ; far call system services
+                extern  _break_flg     ; break detected flag
+                extern  _int21_handler ; far call system services
 
                 %include "stacks.inc"
 
@@ -71,7 +71,7 @@ _exec_user:
 ;
                 POP$ALL
                 extern _ExecUserDisableA20
-                jmp far _ExecUserDisableA20
+                jmp DGROUP:_ExecUserDisableA20
 do_iret:
                 extern _int21_iret
                 jmp _int21_iret
@@ -263,7 +263,7 @@ _spawn_int23:
 
 ??int23_respawn:
 				pop bp					;; Restore the original register
-                jmp 	far _int21_handler
+                jmp 	DGROUP:_int21_handler
 
 ;
 ; interrupt enable and disable routines

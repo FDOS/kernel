@@ -35,20 +35,20 @@ segment HMA_TEXT
                 extern   _int21_syscall
                 extern   _int21_service
                 extern   _int2526_handler
-                extern   _error_tos:wrt DGROUP
-                extern   _char_api_tos:wrt DGROUP
-                extern   _disk_api_tos:wrt DGROUP
-                extern   _user_r:wrt DGROUP
-                extern   _ErrorMode:wrt DGROUP
-                extern   _InDOS:wrt DGROUP
-                extern   _cu_psp:wrt DGROUP
-                extern   _MachineId:wrt DGROUP
-                extern   critical_sp:wrt DGROUP
+                extern   _error_tos
+                extern   _char_api_tos
+                extern   _disk_api_tos
+                extern   _user_r
+                extern   _ErrorMode
+                extern   _InDOS
+                extern   _cu_psp
+                extern   _MachineId
+                extern   critical_sp
 
-                extern   int21regs_seg:wrt DGROUP
-                extern   int21regs_off:wrt DGROUP
+                extern   int21regs_seg
+                extern   int21regs_off
 
-                extern   _Int21AX:wrt DGROUP
+                extern   _Int21AX
 
                 extern  _DGROUP_
 

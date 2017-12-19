@@ -36,15 +36,15 @@ segment HMA_TEXT
                 global  _DosIdle_int
                 global  _DosIdle_hlt
 
-                extern   _InDOS:wrt DGROUP
-                extern   _cu_psp:wrt DGROUP
-                extern   _MachineId:wrt DGROUP
-                extern   critical_sp:wrt DGROUP
-                extern   _user_r:wrt DGROUP
+                extern   _InDOS
+                extern   _cu_psp
+                extern   _MachineId
+                extern   critical_sp
+                extern   _user_r
 		; variables as the following are "part of" module inthndlr.c
 		; because of the define MAIN before include globals.h there!
-                extern   _HaltCpuWhileIdle:wrt DGROUP
-                extern   _DGROUP_:wrt HMA_TEXT
+                extern   _HaltCpuWhileIdle
+                extern   _DGROUP_
 ;
 _DosIdle_hlt:
                 push    ds

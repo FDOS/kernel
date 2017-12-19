@@ -47,7 +47,7 @@ CLC=$(CL) $(CFLAGSC) -I$(INCLUDEPATH)
 TARGET=$(TARGET)$(XCPU)$(XFAT)
 
 .asm.obj :
-	$(NASM) -D$(COMPILER) $(NASMFLAGS) -f obj $*.asm
+	$(NASM) -D$(COMPILER) -f obj $(NASMFLAGS) $*.asm
 
 #               *Implicit Rules*
 .c.obj :

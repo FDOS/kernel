@@ -49,12 +49,12 @@
 %define E_FAILURE       12      ; General Failure
 
 
-	extern	_IOExit:wrt LGROUP
-	extern	_IOSuccess:wrt LGROUP
-	extern	_IOErrorExit:wrt LGROUP
-	extern	_IOErrCnt:wrt LGROUP
-	extern	_IODone:wrt LGROUP
-	extern	_IOCommandError:wrt LGROUP
-	extern	GetUnitNum:wrt LGROUP
-        extern  _ReqPktPtr:wrt LGROUP
+	extern	_IOExit
+	extern	_IOSuccess
+	extern	_IOErrorExit
+	extern	_IOErrCnt
+	extern	_IODone
+	extern	_IOCommandError
+	extern	GetUnitNum
+        extern  _ReqPktPtr
 
