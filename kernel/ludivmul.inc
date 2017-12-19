@@ -109,4 +109,30 @@
 	pop     si                 ;  variables
 	ret
 
-%endmacro   
+%endmacro
+
+%macro LSHLU 0
+	pop bx
+	pop ax
+	pop dx
+	pop cx
+	push bx
+	jcxz %%ret
+%%loop: shl ax, 1
+	rcl dx, 1
+	loop %%loop
+%%ret:	ret 6
+%endmacro
+
+%macro LSHRU 0
+	pop bx
+	pop ax
+	pop dx
+	pop cx
+	push bx
+	jcxz %%ret
+%%loop: shr dx, 1
+	rcr ax, 1
+	loop %%loop
+%%ret:	ret 6
+%endmacro

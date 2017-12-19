@@ -33,6 +33,12 @@ extern unsigned __brklvl;
 
 #ifdef __GNUC__
 #include <unistd.h>
+static inline int brk(void *addr)
+{
+  char *brklvl = sbrk(0);
+  int *res = sbrk((char *)addr - brklvl);
+  return (res == (void *)-1) ? -1 : 0;
+}
 #endif
 
 #define BUSY	    (sizeof(size_t)-1)	/* Bit set if memory block in use*/

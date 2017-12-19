@@ -117,6 +117,52 @@ struct SREGS {
 struct _diskfree_t {
   unsigned short avail_clusters, sectors_per_cluster, bytes_per_sector;
 };
+
+int int86(int ivec, union REGS *in, union REGS *out)
+{
+}
+
+int intdos(union REGS *in, union REGS *out)
+{
+}
+
+int intdosx(union REGS *in, union REGS *out, struct SREGS *s)
+{
+}
+
+unsigned _dos_allocmem(unsigned size, unsigned *seg)
+{
+}
+
+unsigned _dos_freemem(unsigned seg)
+{
+}
+
+unsigned int _dos_getdiskfree(unsigned int drive,
+                              struct diskfree_t *diskspace)
+{
+}
+
+long filelength(int fhandle)
+{
+}
+
+struct find_t {
+  char reserved[21];
+  unsigned char attrib;
+  unsigned short wr_time;
+  unsigned short wr_date;
+  unsigned long size;
+  char filename[13];
+};
+#define _A_NORMAL 0x00
+#define _A_HIDDEN 0x02
+#define _A_SYSTEM 0x04
+
+int _dos_findfirst(const char *file_name, unsigned int attr,
+                   struct find_t *find_tbuf)
+{
+}
 #else
 #include <io.h>
 #endif
@@ -194,7 +240,9 @@ int write(int fd, const void *buf, unsigned count)
 }
 
 #define close _dos_close
+#endif
 
+#if defined(__WATCOMC__) || defined(__GNUC__)
 int stat(const char *file_name, struct stat *statbuf)
 {
   struct find_t find_tbuf;
@@ -204,7 +252,9 @@ int stat(const char *file_name, struct stat *statbuf)
   /* statbuf->st_attr = (ULONG)find_tbuf.attrib; */
   return ret;
 }
+#endif
 
+#ifdef __WATCOMC__
 /* WATCOM's getenv is case-insensitive which wastes a lot of space
    for our purposes. So here's a simple case-sensitive one */
 char *getenv(const char *name)

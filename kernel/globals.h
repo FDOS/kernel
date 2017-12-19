@@ -160,7 +160,14 @@ extern struct dhdr FAR ASM clk_dev; /* Clock device driver                  */
 extern struct dhdr FAR ASM con_dev; /* Console device driver                */
 extern struct dhdr FAR ASM prn_dev; /* Generic printer device driver        */
 extern struct dhdr FAR ASM aux_dev; /* Generic aux device driver            */
+#ifndef __GNUC__
 extern struct dhdr FAR ASM blk_dev; /* Block device (Disk) driver           */
+#else
+extern struct dhdr ASM blk_dev;
+#define DosTextSeg 0x70
+#define DOSTEXT(x) (*(typeof(x) FAR *)MK_FP(DosTextSeg, (size_t)&(x)))
+#define blk_dev DOSTEXT(blk_dev)
+#endif
 extern COUNT *error_tos,        /* error stack                          */
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */

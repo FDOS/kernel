@@ -3,7 +3,7 @@
 #
 
 CC=ia16-elf-gcc -c
-CL=echo ia16-elf-gcc
+CL=ia16-elf-gcc
 INCLUDEPATH=.
 
 !if $(XCPU) != 186
@@ -26,6 +26,7 @@ TARGET=KGC
 # heavy stuff - building  
 #
 # -mcmodel=small small memory model (small code/small data)
+# -Os           -> favor code size over execution time in optimizations
 # -fleading-underscore underscores leading field for DOS compiler compat
 # -fno-common    no "common" variables, just BSS for uninitialized data
 # -fpack-struct pack structure members
@@ -35,17 +36,17 @@ TARGET=KGC
 # -w            disable warnings for now
 # -Werror       treat all warnings as errors
 
-ALLCFLAGS=-I../hdr $(TARGETOPT) $(ALLCFLAGS) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -w -Werror
+ALLCFLAGS=-I../hdr $(TARGETOPT) $(ALLCFLAGS) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -w -Werror -Os
 INITCFLAGS=$(ALLCFLAGS) -o $@
 CFLAGS=$(ALLCFLAGS) -o $@
 NASMFLAGS=$(NASMFLAGS) -f elf -o $@
 
 DIRSEP=/
 RM=rm -f
-CP=echo cp
+CP=cp
 ECHOTO=echo>>
 INITPATCH=@echo > /dev/null
 CLDEF=1
 CLT=gcc -DDOSC_TIME_H -I../hdr -o $@
 CLC=$(CLT)
-XLINK=echo $(XLINK) debug all op symfile format dos option map,statics,verbose F { $(OBJS) } L ../lib/device.lib N kernel.exe $#
+XLINK=$(CL) -Tkernel.ld -Wl,-Map,kernel.map -o kernel.exe $(OBJS) -Wl,--whole-archive ../drivers/device.lib -Wl,--no-whole-archive $#

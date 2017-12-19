@@ -887,6 +887,26 @@ __U4D:
                 LDIVMODU
 %endif
 
+%ifdef gcc
+global ___udivsi3
+___udivsi3:     call ldivmodu
+                ret 8
+
+global ___umodsi3
+___umodsi3:     call ldivmodu
+                mov dx, cx
+                mov ax, bx
+                ret 8
+
+ldivmodu:       LDIVMODU
+
+global ___ashlsi3
+___ashlsi3:     LSHLU
+
+global ___lshrsi3
+___lshrsi3:     LSHRU
+%endif
+
                 times 0xd0 - ($-begin_hma) db 0
                 ; reserve space for far jump to cp/m routine
                 times 5 db 0

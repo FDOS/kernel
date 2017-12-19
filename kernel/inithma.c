@@ -78,7 +78,7 @@ UWORD HMAFree BSS_INIT(0);            /* first byte in HMA not yet used      */
 STATIC void InstallVDISK(void);
 
 #ifdef DEBUG
-#ifdef __TURBOC__
+#if defined(__TURBOC__) || defined(__GNUC__)
 #define int3() __int__(3);
 #else
 void int3()
