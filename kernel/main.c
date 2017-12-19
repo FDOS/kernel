@@ -68,7 +68,12 @@ __segment DosTextSeg = 0;
 
 #endif
 
-struct lol FAR *LoL = &DATASTART;
+struct lol FAR *LoL
+#ifndef __GNUC__
+/* cannot initialize from far data with GCC */
+= &DATASTART;
+#endif
+;
 
 VOID ASMCFUNC FreeDOSmain(void)
 {
@@ -90,6 +95,9 @@ VOID ASMCFUNC FreeDOSmain(void)
                             at 50:e0
                         */
 
+#ifdef __GNUC__
+  LoL = &DATASTART;
+#endif
   drv = LoL->BootDrive + 1;
   p = MK_FP(0, 0x5e0);
   if (fmemcmp(p+2,"CONFIG",6) == 0)      /* UPX */
@@ -775,8 +783,12 @@ STATIC void CheckContinueBootFromHarddisk(void)
   init_call_intr(0x13, &r);
 
   {
+#if __GNUC__
+    asm volatile("jmp $0,$0x7c00");
+#else
     void (far *reboot)(void) = (void (far*)(void)) MK_FP(0x0,0x7c00);
 
     (*reboot)();
+#endif
   }
 }

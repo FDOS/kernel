@@ -242,7 +242,11 @@ extern void Init_clk_driver(void);
 extern UWORD HMAFree;            /* first byte in HMA not yet used      */
 
 extern unsigned CurrentKernelSegment;
+#ifdef __GNUC__
+extern struct _KernelConfig ASM LowKernelConfig;
+#else
 extern struct _KernelConfig FAR ASM LowKernelConfig;
+#endif
 extern WORD days[2][13];
 extern BYTE FAR *lpTop;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
@@ -256,11 +260,21 @@ extern struct lol FAR *LoL;
 extern struct dhdr DOSTEXTFAR ASM blk_dev; /* Block device (Disk) driver           */
 
 extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
+#ifdef __GNUC__
+extern struct lol ASM DATASTART;
+#else
 extern struct lol ASM FAR DATASTART;
+#endif
 
-extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE area    */
-  FAR ASM _HMATextStart[],          /* first byte of HMAable CODE area      */
-  FAR ASM _HMATextEnd[], DOSFAR ASM break_ena;  /* break enabled flag                   */
+extern BYTE DOSFAR ASM _HMATextAvailable;    /* first byte of available CODE area    */
+#ifdef __GNUC__
+extern BYTE ASM _HMATextStart[];          /* first byte of HMAable CODE area      */
+extern BYTE ASM _HMATextEnd[];
+#else
+extern BYTE FAR ASM _HMATextStart[];          /* first byte of HMAable CODE area      */
+extern BYTE FAR ASM _HMATextEnd[];
+#endif
+extern BYTE DOSFAR ASM break_ena;  /* break enabled flag                   */
 extern BYTE DOSFAR ASM _InitTextStart[],     /* first available byte of ram          */
   DOSFAR ASM _InitTextEnd[],
   DOSFAR ASM ReturnAnyDosVersionExpected,

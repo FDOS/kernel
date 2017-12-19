@@ -140,8 +140,34 @@ unsigned short getSS(void);
 #define MC68K
 
 #elif defined(__GNUC__)
+
+#ifdef __FAR
+#define I86
+#define far __far
+#define CDECL
+#define VA_CDECL
+#define PASCAL
+
+#define _CS getCS()
+static inline unsigned short getCS(void)
+{
+  unsigned short ret;
+  asm volatile("mov %%cs, %0" : "=r"(ret));
+  return ret;
+}
+
+#define _SS getSS()
+static inline unsigned short getSS(void)
+{
+  unsigned short ret;
+  asm volatile("mov %%ss, %0" : "=r"(ret));
+  return ret;
+}
+extern char DosDataSeg[];
+#else
 /* for warnings only ! */
 #define MC68K
+#endif
 
 #else
 #error Unknown compiler
@@ -313,7 +339,11 @@ typedef signed long LONG;
 #define FP_OFF(fp)             ((size_t)(fp))
 #endif
 
+#if defined(__GNUC__) && defined(__FAR)
+typedef VOID FAR *intvec;
+#else
 typedef VOID (FAR ASMCFUNC * intvec) (void);
+#endif
 
 #define MK_PTR(type,seg,ofs) ((type FAR*) MK_FP (seg, ofs))
 #if __TURBOC__ > 0x202

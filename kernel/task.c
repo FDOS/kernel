@@ -509,7 +509,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
 
 VOID return_user(void)
 {
-  psp FAR *p, FAR * q;
+  psp FAR *p; psp FAR * q;
   REG COUNT i;
   iregs FAR *irp;
 /*  long j;*/

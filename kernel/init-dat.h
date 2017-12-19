@@ -23,7 +23,7 @@ extern __segment DosTextSeg;
 #define DOSFAR FAR
 #define DOSTEXTFAR FAR
 
-#elif !defined(I86)
+#elif !defined(I86) || defined(__GNUC__)
 
 #define DOSFAR
 #define DOSTEXTFAR

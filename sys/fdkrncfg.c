@@ -19,7 +19,9 @@ char KERNEL[] = "KERNEL.SYS";
 
 #include <stdlib.h>
 #include <string.h>
+#ifndef __GNUC__
 #include <fcntl.h>
+#endif
 
 #include "portab.h"
 /* These definitions deliberately put here instead of
@@ -29,7 +31,7 @@ char KERNEL[] = "KERNEL.SYS";
 extern int VA_CDECL printf(CONST char * fmt, ...);
 extern int VA_CDECL sprintf(char * buff, CONST char * fmt, ...);
 
-#ifdef __WATCOMC__
+#if defined(__WATCOMC__)
 unsigned _dos_close(int handle);
 #define close _dos_close
 #define SEEK_SET 0
@@ -44,6 +46,11 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
       parm [bx] [dx cx] [ax] \
       value [dx ax];
 
+#elif defined(__GNUC__)
+#include <unistd.h>
+#include <fcntl.h>
+#define memicmp strncasecmp
+#define O_BINARY 0
 #else
 #include <io.h>
 #ifndef SEEK_SET

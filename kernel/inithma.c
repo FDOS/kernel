@@ -352,7 +352,8 @@ void MoveKernel(unsigned NewKernelSegment)
        style table
      */
 
-    struct RelocationTable FAR *rp, rtemp;
+    struct RelocationTable FAR *rp;
+    struct RelocationTable rtemp;
 
     /* verify, that all entries are valid */
 

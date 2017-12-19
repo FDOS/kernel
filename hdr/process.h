@@ -67,7 +67,7 @@ typedef struct {
      for compatiblity with CP/M apps that do a near call to psp:5
      and expect size (KB) of allocated segment in word at offset 6 */
   UBYTE ps_farcall;             /* 05  far call opcode             */
-  VOID(FAR ASMCFUNC * ps_reentry) (void);  /* 06  re-entry point          */
+  intvec ps_reentry;            /* 06  re-entry point              */
 
   intvec ps_isv22,              /* 0a terminate address            */
          ps_isv23,              /* 0e ctrl-break address           */

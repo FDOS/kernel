@@ -66,8 +66,13 @@ struct nlsInfoBlock ASM nlsInfo = {
 #ifdef NLS_REORDER_POINTERS
       | NLS_CODE_REORDER_POINTERS
 #endif
+#ifdef __GNUC__
+      , {.seg=DosDataSeg, .off=&nlsPackageHardcoded} /* hardcoded first package */
+      , {.seg=DosDataSeg, .off=&nlsPackageHardcoded} /* first item in chain */
+#else
       , &nlsPackageHardcoded    /* hardcoded first package */
       , &nlsPackageHardcoded    /* first item in chain */
+#endif
 };
 
         /* getTableX return the pointer to the X'th table; X==subfct */

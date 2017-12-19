@@ -316,7 +316,7 @@ COUNT DosMemFree(UWORD para)
  */
 COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
 {
-  REG mcb FAR *p, FAR * q;
+  REG mcb FAR *p; mcb FAR * q;
 
   /* Initialize                                                   */
   p = para2far(para - 1);       /* pointer to MCB */

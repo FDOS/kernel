@@ -403,7 +403,7 @@ struct nlsExtCntryInfo {
                                    0: 12 hours (append AM/PM)
                                    1: 24 houres
                                  */
-    VOID(FAR * upCaseFct) (VOID);       /* far call to a function upcasing the
+  intvec upCaseFct;             /* far call to a function upcasing the
                                            character in register AL */
   char dataSep[2];              /* ASCIZ of separator in data records */
 };
@@ -474,9 +474,19 @@ struct nlsInfoBlock {           /* This block contains all information
                                    maybe tweaked by NLSFUNC */
   UWORD sysCodePage;            /* system code page */
   unsigned flags;               /* implementation flags */
+#ifdef __GNUC__
+  /* need to initialize using explicit segment/offset */
+  union {
+    struct { struct nlsPackage *off; char *seg; };
+    struct nlsPackage FAR *p;
+  } actPkg, chain;
+  #define actPkg actPkg.p
+  #define chain chain.p
+#else
   struct nlsPackage FAR *actPkg;        /* current NLS package */
   struct nlsPackage FAR *chain; /* first item of info chain --
                                    hardcoded U.S.A./CP437 */
+#endif
 };
 
 extern struct nlsInfoBlock ASM nlsInfo;

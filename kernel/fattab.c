@@ -226,7 +226,7 @@ CLUSTER link_fat(struct dpb FAR * dpbp, CLUSTER Cluster1,
 
   if (ISFAT12(dpbp))
   {
-    REG UBYTE FAR *fbp0, FAR * fbp1;
+    REG UBYTE FAR *fbp0; REG UBYTE FAR * fbp1;
     struct buffer FAR * bp1;
     unsigned cluster, cluster2;
 

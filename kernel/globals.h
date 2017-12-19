@@ -156,18 +156,17 @@ typedef BYTE *UPMAP;
 /*                                                                      */
 /* External Assembly variables                                          */
 /*                                                                      */
-extern struct dhdr
-FAR ASM clk_dev,                    /* Clock device driver                  */
-  FAR ASM con_dev,                  /* Console device driver                */
-  FAR ASM prn_dev,                  /* Generic printer device driver        */
-  FAR ASM aux_dev,                  /* Generic aux device driver            */
-  FAR ASM blk_dev;                  /* Block device (Disk) driver           */
+extern struct dhdr FAR ASM clk_dev; /* Clock device driver                  */
+extern struct dhdr FAR ASM con_dev; /* Console device driver                */
+extern struct dhdr FAR ASM prn_dev; /* Generic printer device driver        */
+extern struct dhdr FAR ASM aux_dev; /* Generic aux device driver            */
+extern struct dhdr FAR ASM blk_dev; /* Block device (Disk) driver           */
 extern COUNT *error_tos,        /* error stack                          */
   disk_api_tos,                 /* API handler stack - disk fns         */
   char_api_tos;                 /* API handler stack - char fns         */
-extern BYTE FAR _HMATextAvailable,      /* first byte of available CODE area    */
-  FAR _HMATextStart[],          /* first byte of HMAable CODE area      */
-  FAR _HMATextEnd[];            /* and the last byte of it              */
+extern BYTE FAR _HMATextAvailable;  /* first byte of available CODE area    */
+extern BYTE FAR _HMATextStart[];    /* first byte of HMAable CODE area      */
+extern BYTE FAR _HMATextEnd[];      /* and the last byte of it              */
 extern
 BYTE DosLoadedInHMA;            /* if InitHMA has moved DOS up          */
 
@@ -236,9 +235,8 @@ extern UWORD ASM first_mcb,         /* Start of user memory                 */
   ASM uppermem_root;                /* Start of umb chain (usually 9fff)    */
 extern char * ASM inputptr;         /* pointer to unread CON input          */ 
 extern sfttbl FAR * ASM sfthead;    /* System File Table head               */
-extern struct dhdr
-FAR * ASM clock,                    /* CLOCK$ device                        */
-  FAR * ASM syscon;                 /* console device                       */
+extern struct dhdr FAR * ASM clock; /* CLOCK$ device                        */
+extern struct dhdr FAR * ASM syscon;/* console device                       */
 extern WORD ASM maxsecsize;         /* largest sector size in use (can use) */
 extern struct buffer
 FAR *ASM firstbuf;                  /* head of buffers linked list          */

@@ -48,14 +48,18 @@
 #endif
 
 #include <stdlib.h>
+#ifndef __GNUC__
 #include <dos.h>
+#endif
 #include <ctype.h>
+#ifndef __GNUC__
 #include <fcntl.h>
 #include <sys/stat.h>
 #ifdef __TURBOC__
 #include <mem.h>
 #else
 #include <memory.h>
+#endif
 #endif
 #include <string.h>
 #ifdef __TURBOC__
@@ -91,7 +95,31 @@ extern int VA_CDECL sprintf(char * buff, CONST char * fmt, ...);
 
 #ifndef __WATCOMC__
 
+#ifdef __GNUC__
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+#define O_BINARY 0
+#define stricmp strcasecmp
+#define memicmp strncasecmp
+union REGS {
+  struct {
+    unsigned char al, ah, bl, bh, cl, ch, dl, dh;
+  } h;
+  struct {
+    unsigned short ax, bx, cx, dx, si, di, cflag;
+  } x;
+};
+struct SREGS {
+  unsigned short ds, es;
+};
+struct _diskfree_t {
+  unsigned short avail_clusters, sectors_per_cluster, bytes_per_sector;
+};
+#else
 #include <io.h>
+#endif
 
 /* returns current DOS drive, A=0, B=1,C=2, ... */
 #ifdef __TURBOC__
@@ -973,7 +1001,7 @@ void reset_drive(int DosDrive);
 #pragma aux reset_drive = \
       "push ds" \
       "inc dx" \
-      "mov ah, 0xd" \ 
+      "mov ah, 0xd" \
       "int 0x21" \
       "mov ah,0x32" \
       "int 0x21" \
@@ -1798,7 +1826,7 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
   {
     ULONG filesize;
     UWORD theseg;
-    BYTE far *buffer, far *bufptr;
+    BYTE far *buffer; BYTE far *bufptr;
     UWORD offs;
     unsigned chunk_size;
     
