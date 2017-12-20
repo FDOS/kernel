@@ -63,7 +63,7 @@ struct HugeSectorBlock {
 /* variables needed for the rest of the handler.                        */
 /* this here works on the users stack !! and only very few functions 
    are allowed                                                          */
-VOID ASMCFUNC int21_syscall(iregs FAR * irp)
+VOID ASMCFUNC int21_syscall(iregs FAR * irp, ...)
 {
   Int21AX = irp->AX;
 
@@ -376,7 +376,7 @@ int int21_fat32(lregs *r)
 }
 #endif
 
-VOID ASMCFUNC int21_service(iregs FAR * r)
+VOID ASMCFUNC int21_service(iregs FAR * r, ...)
 {
   COUNT rc;
   long lrc;
@@ -1625,7 +1625,7 @@ struct int25regs {
 /* 
     this function is called from an assembler wrapper function 
 */
-VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
+VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r, ...)
 {
   ULONG blkno;
   UWORD nblks;
@@ -1734,7 +1734,7 @@ struct int2f12regs {
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
  * On input r.AX==0x12xx, 0x4A01 or 0x4A02
  */
-VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
+VOID ASMCFUNC int2F_12_handler(struct int2f12regs r, ...)
 {
   COUNT rc;
   long lrc;

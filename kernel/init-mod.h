@@ -198,11 +198,9 @@ void ASMPASCAL set_DTA(void far *dta);
 
 /* irqstack.asm */
 VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,
-                          WORD stackSize);
+                          WORD stackSize, ...);
 
 /* inthndlr.c */
-VOID ASMCFUNC FAR int21_entry(iregs UserRegs);
-VOID ASMCFUNC int21_service(iregs far * r);
 VOID ASMCFUNC FAR int0_handler(void);
 VOID ASMCFUNC FAR int6_handler(void);
 VOID ASMCFUNC FAR int19_handler(void);
@@ -224,7 +222,11 @@ VOID ASMCFUNC FAR cpm_entry(void);
 #define int29_handler DOSTEXT(int29_handler)
 
 /* kernel.asm */
+#ifdef __GNUC__
+VOID ASMCFUNC init_call_p_0(struct config FAR *Config, ...) asm("init_call_p_0");
+#else
 VOID ASMCFUNC FAR init_call_p_0(struct config FAR *Config); /* P_0, actually */
+#endif
 
 /* main.c */
 VOID ASMCFUNC FreeDOSmain(void);

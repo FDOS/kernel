@@ -260,7 +260,7 @@ BYTE DosYesNo(UWORD ch);
 #ifndef DosUpMem
 VOID DosUpMem(VOID FAR * str, unsigned len);
 #endif
-unsigned char ASMCFUNC DosUpChar(unsigned char ch);
+unsigned char ASMCFUNC DosUpChar(unsigned char ch, ...);
 VOID DosUpString(char FAR * str);
 VOID DosUpFMem(VOID FAR * str, unsigned len);
 unsigned char DosUpFChar(unsigned char ch);
@@ -276,7 +276,7 @@ COUNT DosSetCountry(UWORD cntry);
 COUNT DosGetCodepage(UWORD * actCP, UWORD * sysCP);
 COUNT DosSetCodepage(UWORD actCP, UWORD sysCP);
 VOID FAR *DosGetDBCS(void);
-UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
+UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS, ...);
 
 /* prf.c */
 #ifdef DEBUG
@@ -383,7 +383,7 @@ UWORD get_machine_name(BYTE FAR * netname);
 VOID set_machine_name(BYTE FAR * netname, UWORD name_num);
 
 /* procsupt.asm */
-VOID ASMCFUNC exec_user(iregs FAR * irp, int disable_a20);
+VOID ASMCFUNC exec_user(iregs FAR * irp, int disable_a20, ...);
 
 /* new by TE */
 

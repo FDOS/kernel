@@ -630,7 +630,7 @@ struct memdiskinfo {
 };
 
 /* query_memdisk() based on similar subroutine in Eric Auer's public domain getargs.asm which is based on IFMEMDSK */
-struct memdiskinfo FAR * ASMCFUNC query_memdisk(UBYTE drive);
+struct memdiskinfo FAR * ASMCFUNC query_memdisk(UBYTE drive, ...);
 
 struct memdiskopt {
   BYTE * name;

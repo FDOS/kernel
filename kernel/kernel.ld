@@ -158,8 +158,6 @@ SECTIONS
 		_set_DTA = SET_DTA;
 		_DetectXMSDriver = DETECTXMSDRIVER;
 		_init_call_XMScall = INIT_CALL_XMSCALL;
-		__EnableA20 = _ENABLEA20;
-		__DisableA20 = _DISABLEA20;
 		*(.text)
 		*(INIT_TEXT_END)
 		ASSERT(. <= 0x10000,

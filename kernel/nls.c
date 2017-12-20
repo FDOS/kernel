@@ -509,7 +509,7 @@ VOID DosUpMem(VOID FAR * str, unsigned len)
  * the HiByte of the first argument must remain unchanged.
  *	See NLSSUPT.ASM -- 2000/03/30 ska
  */
-unsigned char ASMCFUNC DosUpChar(unsigned char ch)
+unsigned char ASMCFUNC DosUpChar(unsigned char ch, ...)
  /* upcase a single character */
 {
   log(("NLS: DosUpChar(): in ch=%u (%c)\n", ch, ch > 32 ? ch : ' '));
@@ -667,7 +667,7 @@ VOID FAR *DosGetDBCS(void)
 	Return value: AL register to be returned
 		if AL == 0, Carry must be cleared, otherwise set
 */
-UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
+UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS, ...)
 {
   struct nlsPackage FAR *nls;   /* addressed NLS package */
 

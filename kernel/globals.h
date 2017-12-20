@@ -363,7 +363,7 @@ VOID ASMCFUNC FAR cpm_entry(VOID)
 /*INRPT FAR handle_break(VOID) */ ;
 COUNT ASMCFUNC
     CriticalError(COUNT nFlag, COUNT nDrive, COUNT nError,
-                           struct dhdr FAR * lpDevice);
+                           struct dhdr FAR * lpDevice, ...);
 
 VOID ASMCFUNC FAR CharMapSrvc(VOID);
 #if 0

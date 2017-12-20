@@ -276,6 +276,29 @@ cpu_abort:
 %endif        ; XCPU != 86
 
 
+%ifdef gcc
+	global init_call_p_0
+init_call_p_0:
+	pop ax
+	push cs
+	push ax
+	jmp DGROUP:_init_call_p_0
+
+	global __EnableA20
+__EnableA20:
+	pop ax
+	push cs
+	push ax
+	jmp DGROUP:_ENABLEA20
+
+	global __DisableA20
+__DisableA20:
+	pop ax
+	push cs
+	push ax
+	jmp DGROUP:_DISABLEA20
+%endif
+
 segment INIT_TEXT_END
 
 
@@ -915,6 +938,18 @@ global %1lshrsi3
                 ; reserve space for far jump to cp/m routine
                 times 5 db 0
 
+%ifdef gcc
+blk_driver_wrap:mov ax, _blk_driver
+                jmp short blkclk
+clk_driver_wrap:mov ax, _clk_driver
+blkclk:         pop si
+                pop di
+                call ax
+                push di
+                push si
+                retf
+%endif
+
 ;End of HMA segment                
 segment HMA_TEXT_END
                 global  __HMATextEnd
@@ -1007,13 +1042,21 @@ _cpm_entry:     jmp 0:reloc_call_cpm_entry
                 global  _reloc_call_blk_driver
                 extern  _blk_driver
 _reloc_call_blk_driver:
+%ifdef gcc
+                jmp 0:blk_driver_wrap
+%else
                 jmp 0:_blk_driver
+%endif
                 call near forceEnableA20
 
                 global  _reloc_call_clk_driver
                 extern  _clk_driver
 _reloc_call_clk_driver:
+%ifdef gcc
+                jmp 0:clk_driver_wrap
+%else
                 jmp 0:_clk_driver
+%endif
                 call near forceEnableA20
 
                 global  _CharMapSrvc ; in _DATA (see AARD)

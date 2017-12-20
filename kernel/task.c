@@ -800,7 +800,7 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
 #include "config.h" /* config structure definition */
 
 /* start process 0 (the shell) */
-VOID ASMCFUNC P_0(struct config FAR *Config)
+VOID ASMCFUNC P_0(struct config FAR *Config, ...)
 {
   BYTE *tailp, *endp;
   exec_blk exb;

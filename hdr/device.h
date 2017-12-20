@@ -483,14 +483,14 @@ extern request                  /* I/O Request packets                  */
   ASM CharReqHdr, ASM IoReqHdr, ASM MediaReqHdr;
 
 /* dsk.c */
-COUNT ASMCFUNC FAR blk_driver(rqptr rp);
+COUNT ASMCFUNC FAR blk_driver(rqptr rp, ...);
 ddt * getddt(int dev);
 
 /* error.c */
 COUNT char_error(request * rq, struct dhdr FAR * lpDevice);
 COUNT block_error(request * rq, COUNT nDrive, struct dhdr FAR * lpDevice, int mode);
 /* sysclk.c */
-WORD ASMCFUNC FAR clk_driver(rqptr rp);
+WORD ASMCFUNC FAR clk_driver(rqptr rp, ...);
 
 /* execrh.asm */
 #if defined(__WATCOMC__) && _M_IX86 >= 300

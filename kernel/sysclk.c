@@ -58,7 +58,7 @@ STATIC void DayToBcd(BYTE * x, unsigned mon, unsigned day, unsigned yr)
   x[2] = ByteToBcd(yr % 100);
 }
 
-WORD ASMCFUNC FAR clk_driver(rqptr rp)
+WORD ASMCFUNC FAR clk_driver(rqptr rp, ...)
 {
   BYTE bcd_days[4], bcd_minutes, bcd_hours, bcd_seconds;
 
