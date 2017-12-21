@@ -12,7 +12,7 @@ TARGETOPT=-march=i8086
 !endif
 !endif
 
-LIBUTIL=wlib -q
+LIBUTIL=ar crs
 LIBPLUS=
 LIBTERM=
 

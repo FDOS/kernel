@@ -24,7 +24,7 @@
 
 OBJS   = floppy.obj rdpcclk.obj wrpcclk.obj wratclk.obj
 
-LIBOBJS= +floppy.obj +rdpcclk.obj +wrpcclk.obj +wratclk.obj
+LIBOBJS= $(LIBPLUS)floppy.obj $(LIBPLUS)rdpcclk.obj $(LIBPLUS)wrpcclk.obj $(LIBPLUS)wratclk.obj
 
 
 
@@ -45,5 +45,5 @@ clean:
 
 device.lib : $(OBJS)
 	-$(RM) device.lib
-	$(LIBUTIL) $(LIBFLAGS) device $(LIBOBJS) $(LIBTERM)
+	$(LIBUTIL) $(LIBFLAGS) device.lib $(LIBOBJS) $(LIBTERM)
 
