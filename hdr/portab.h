@@ -289,7 +289,7 @@ typedef unsigned short CLUSTER;
 #endif
 typedef unsigned short UNICODE;
 
-#if defined(STATICS) || defined(__WATCOMC__)
+#if defined(STATICS) || defined(__WATCOMC__) || defined(__GNUC__)
 #define STATIC static		 /* local calls inside module */
 #else
 #define STATIC
