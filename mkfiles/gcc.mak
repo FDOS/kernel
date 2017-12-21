@@ -17,7 +17,7 @@ LIBPLUS=
 LIBTERM=
 
 TINY=-mcmodel=tiny
-CFLAGST=-w -o $@
+CFLAGST=-Os -fpack-struct -fcall-used-es -w -o $@
 CFLAGSC=
 
 TARGET=KGC

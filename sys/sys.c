@@ -120,31 +120,73 @@ struct _diskfree_t {
 
 int int86(int ivec, union REGS *in, union REGS *out)
 {
+  /* must save sp for int25/26 */
+  asm("mov %5, (1f+1); jmp 0f; 0:mov %%di, %%dx; mov %%sp, %%di;"
+      "1:int $0x00; mov %%di, %%sp; sbb %0, %0" :
+      "=r"(out->x.cflag),
+      "=a"(out->x.ax), "=b"(out->x.bx), "=c"(out->x.cx), "=d"(out->x.dx) :
+      "q"((unsigned char)ivec), "a"(in->x.ax), "b"(in->x.bx),
+      "c"(in->x.cx), "D"(in->x.dx), "S"(in->x.si) :
+      "cc", "memory");
+  return out->x.ax;
 }
 
 int intdos(union REGS *in, union REGS *out)
 {
+  return int86(0x21, in, out);
 }
 
 int intdosx(union REGS *in, union REGS *out, struct SREGS *s)
 {
+  asm("push %%ds; mov %%bx, %%ds; int $0x21; pop %%ds; sbb %0, %0":
+      "=r"(out->x.cflag), "=a"(out->x.ax) :
+      "a"(in->x.ax), "c"(in->x.cx), "d"(in->x.dx),
+      "D"(in->x.di), "S"(in->x.si), "b"(s->ds), "e"(s->es) :
+      "cc", "memory");
+  return out->x.ax;
 }
 
 unsigned _dos_allocmem(unsigned size, unsigned *seg)
 {
+  union REGS in, out;
+  in.h.ah = 0x48;
+  in.x.bx = size;
+  unsigned ret = intdos(&in, &out);
+  if (!out.x.cflag)
+  {
+    *seg = ret;
+    ret = 0;
+  }
+  return ret;
 }
 
 unsigned _dos_freemem(unsigned seg)
 {
+  union REGS in, out;
+  struct SREGS s;
+  in.h.ah = 0x49;
+  s.es = seg;
+  return intdosx(&in, &out, &s);
 }
 
 unsigned int _dos_getdiskfree(unsigned int drive,
-                              struct diskfree_t *diskspace)
+                              struct _diskfree_t *diskspace)
 {
+  union REGS in, out;
+  in.x.ax = 0x3600;
+  in.x.dx = drive;
+  unsigned ret = intdos(&in, &out);
+  diskspace->avail_clusters = out.x.bx;
+  diskspace->sectors_per_cluster = out.x.dx;
+  diskspace->bytes_per_sector = out.x.cx;
+  return ret;
 }
 
 long filelength(int fhandle)
 {
+  long ret = lseek(fhandle, 0, SEEK_END);
+  lseek(fhandle, 0, SEEK_SET);
+  return ret;
 }
 
 struct find_t {
@@ -162,6 +204,15 @@ struct find_t {
 int _dos_findfirst(const char *file_name, unsigned int attr,
                    struct find_t *find_tbuf)
 {
+  union REGS in, out;
+  in.h.ah = 0x4e;
+  in.x.dx = FP_OFF(file_name);
+  in.x.cx = attr;
+  intdos(&in, &out);
+  if (out.x.cflag)
+    return out.x.ax;
+  memcpy(find_tbuf, (void *)0x80, sizeof(*find_tbuf));
+  return 0;
 }
 #else
 #include <io.h>
