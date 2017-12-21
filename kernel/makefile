@@ -43,7 +43,7 @@ kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
 
 ../bin/country.sys: country.asm
-		$(NASM) -o $*.sys country.asm
+		$(NASM) -o ../bin/country.sys country.asm
 
 clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me

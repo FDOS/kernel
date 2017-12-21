@@ -74,9 +74,11 @@ endif
 ifeq ($(BUILDENV),windows)
 COMPILER=owwin
 TEST_F=type >nul 2>nul
+TOUCH=wtouch
 else
 COMPILER=owlinux
 TEST_F=test -f
+TOUCH=touch
 ifndef WATCOM
   WATCOM=$(HOME)/watcom
   PATH:=$(WATCOM)/binl:$(PATH)
@@ -87,8 +89,17 @@ XCPU=86
 XFAT=32
 XUPX=upx --8086 --best
 XNASM=nasm
+ifeq ($(COMPILER),gcc)
+MAKE=make
+MAKEADJUST=for i in utils lib drivers boot sys kernel; do sed 's@!include "\(.*\)"@include ../mkfiles/gcc.mak@' < $$i/makefile > $$i/GNUmakefile; done
+MAKEREMOVE=for i in utils lib drivers boot sys kernel; do rm -f $$i/GNUmakefile; done
+XLINK=ia16-elf-gcc
+else
 MAKE=wmake -ms -h
+MAKEADJUST=
+MAKEREMOVE=
 XLINK=wlink
+endif
 #ALLCFLAGS=-DDEBUG
 
 -include config.mak
@@ -97,8 +108,9 @@ ifdef XUPX
 endif
 
 all:
+	$(MAKEADJUST)
 	cd utils && $(MAKE) production
-	cd lib && ( $(TEST_F) libm.lib || wtouch libm.lib )
+	cd lib && ( $(TEST_F) libm.lib || $(TOUCH) libm.lib )
 	cd drivers && $(MAKE) production
 	cd boot && $(MAKE) production
 	cd sys && $(MAKE) production
@@ -119,3 +131,4 @@ clobber:
 	cd boot && $(MAKE) clobber
 	cd sys && $(MAKE) clobber
 	cd kernel && $(MAKE) clobber
+	$(MAKEREMOVE)

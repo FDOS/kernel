@@ -20,10 +20,10 @@ fat32lba.bin:    boot32lb.asm
 		$(NASM) boot32lb.asm -l$*.lst -ofat32lba.bin
 
 oemfat12.bin:   oemboot.asm
-                $(NASM) -dISFAT12 oemboot.asm -l$*.lst -ooemfat12.bin
+		$(NASM) -dISFAT12 oemboot.asm -l$*.lst -ooemfat12.bin
 
 oemfat16.bin:   oemboot.asm
-                $(NASM) -dISFAT16 oemboot.asm -l$*.lst -ooemfat16.bin
+		$(NASM) -dISFAT16 oemboot.asm -l$*.lst -ooemfat16.bin
 
 clobber:        clean
 		-$(RM) *.bin status.me
