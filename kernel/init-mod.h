@@ -353,8 +353,13 @@ extern struct RelocationTable
 
 extern void FAR *DOSFAR ASM XMSDriverAddress;
 #define XMSDriverAddress DOSDATA(XMSDriverAddress)
+#ifdef __GNUC__
+extern VOID _EnableA20(VOID);
+extern VOID _DisableA20(VOID);
+#else
 extern VOID ASMPASCAL FAR _EnableA20(VOID);
 extern VOID ASMPASCAL FAR _DisableA20(VOID);
+#endif
 
 extern void FAR * ASMPASCAL DetectXMSDriver(VOID);
 extern int ASMPASCAL init_call_XMScall(void FAR * driverAddress, UWORD ax,

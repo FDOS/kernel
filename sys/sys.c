@@ -1128,7 +1128,7 @@ int generic_block_ioctl(unsigned drive, unsigned cx, unsigned char *par);
 
 #ifndef __TURBOC__
 
-int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
+int int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
   union REGS regs;
 

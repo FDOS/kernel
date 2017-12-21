@@ -36,7 +36,7 @@ LIBPLUS=
 LIBTERM=
 
 TINY=-mcmodel=tiny
-CFLAGST=-Os -fpack-struct -fcall-used-es -w -o $@
+CFLAGST=-Os -fno-strict-aliasing -fpack-struct -fcall-used-es -Wno-pointer-to-int-cast -Wno-pragmas -Wno-array-bounds -Werror -o $@
 CFLAGSC=
 
 #
@@ -44,16 +44,18 @@ CFLAGSC=
 #
 # -mcmodel=small small memory model (small code/small data)
 # -Os           -> favor code size over execution time in optimizations
+# -fno-strict-aliasing don't assume strict aliasing rules
 # -fleading-underscore underscores leading field for DOS compiler compat
 # -fno-common    no "common" variables, just BSS for uninitialized data
 # -fpack-struct pack structure members
 # -ffreestanding don't assume any headers
 # -fcall-used-es es clobbered in function calls
 # -mrtd         use stdcall calling convention
-# -w            disable warnings for now
+# -Wno-pointer-to-int-cast  do not warn about FP_OFF
+# -Wno-pragmas  do not warn about #pragma pack
 # -Werror       treat all warnings as errors
 
-ALLCFLAGS+=-I../hdr $(TARGETOPT) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -w -Werror -Os
+ALLCFLAGS+=-I../hdr $(TARGETOPT) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -Wno-pointer-to-int-cast -Wno-pragmas -Werror -Os -fno-strict-aliasing
 INITCFLAGS=$(ALLCFLAGS) -o $@
 CFLAGS=$(ALLCFLAGS) -o $@
 

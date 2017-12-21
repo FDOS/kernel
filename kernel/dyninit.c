@@ -48,7 +48,6 @@ additionally:
 /*extern struct DynS FAR Dyn;*/
 
 #ifndef __TURBOC__
-#include "init-dat.h"
 extern struct DynS DOSFAR ASM Dyn;
 #else
 extern struct DynS FAR ASM Dyn;
