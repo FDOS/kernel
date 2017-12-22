@@ -1,18 +1,52 @@
 #  Object Files
 *.OBJ
+*.obj
 
 # List Files
 *.LST
+*.lst
 
 # Map files
 *.MAP
+*.map
+*.SYM
+*.sym
 
 # Executable files
 *.EXE
+*.exe
+*.COM
+*.com
+
+# Bin files
+*.BIN
+*.bin
+
+# Libraries
+*.LIB
+*.lib
+
+# generated text files
+sys/*.h
+sys/*.H
+kernel/*.lnk
+kernel/*.LNK
 
 # FreeDOS build tools configuration
 config.bat
+config.mak
 
-
-kernel/KERNEL.SYS
+kernel/*.SYS
+kernel/*.sys
+bin/[kK]*.SYS
+bin/[kK]*.sys
 bin/COMMAND.COM
+bin/command.com
+bin/COUNTRY.SYS
+bin/country.sys
+
+# backup files
+*.orig
+*~
+*.diff
+*.rej
