@@ -1,0 +1,3 @@
+* text eol=crlf
+*.up -text
+*.UP -text
