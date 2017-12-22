@@ -33,6 +33,13 @@ make clean
 - to clobber (delete everything that was generated):
 make clobber
 
+You can now also cross compile with T.K. Chia's fork of ia16-elf-gcc,
+which is available at https://github.com/tkchia/gcc-ia16, using
+make all COMPILER=gcc
+or by setting COMPILER=gcc in config.mak. For now ia16-elf-gcc needs
+to be compiled from source. Only releases 20171210 and later
+are supported.
+
 Notes:
 ======
 The recommended compiler and assembler at the time of writing (2009/05/19)
