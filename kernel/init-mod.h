@@ -263,7 +263,7 @@ extern BYTE DOSFAR ASM _HMATextAvailable,    /* first byte of available CODE are
   FAR ASM _HMATextEnd[], DOSFAR ASM break_ena;  /* break enabled flag                   */
 extern BYTE DOSFAR ASM _InitTextStart[],     /* first available byte of ram          */
   DOSFAR ASM _InitTextEnd[],
-  DOSFAR ReturnAnyDosVersionExpected,
+  DOSFAR ASM ReturnAnyDosVersionExpected,
   DOSFAR ASM HaltCpuWhileIdle;
 
 extern BYTE FAR ASM internal_data[];

@@ -414,8 +414,9 @@ void PreConfig2(void)
   if (ebda_size)  /* move the Extended BIOS Data Area from top of RAM here */
     movebda(ebda_size, FP_SEG(KernelAlloc(ebda_size, 'I', 0)));
 
-//  if (UmbState == 2)
-//    umb_init();
+/*  if (UmbState == 2)
+      umb_init();
+*/
 }
 
 /* Do third pass initialization.                                        */
