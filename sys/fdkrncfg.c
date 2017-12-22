@@ -46,6 +46,9 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
 
 #else
 #include <io.h>
+#ifndef SEEK_SET
+#define SEEK_SET 0
+#endif
 /* #include <stdio.h> */
 #endif
 

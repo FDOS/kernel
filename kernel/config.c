@@ -159,9 +159,9 @@ STATIC BYTE szBuf[256] BSS_INIT({0});
 struct CfgFile {
   COUNT nFileDesc;
   COUNT nCfgLine;
-} cfgFile[MAX_CHAINS];
-COUNT nCurChain = 0;
-COUNT nFileDesc;
+} cfgFile[MAX_CHAINS] BSS_INIT({0});
+COUNT nCurChain BSS_INIT(0);
+COUNT nFileDesc BSS_INIT(0);
 
 BYTE singleStep BSS_INIT(FALSE);        /* F8 processing */
 BYTE SkipAllConfig BSS_INIT(FALSE);     /* F5 processing */

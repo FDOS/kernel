@@ -23,8 +23,8 @@ LIB=$(COMPILERPATH)\lib
 # used for building the library
 
 CLIB=$(COMPILERPATH)\lib\slibce.lib
-MATH_EXTRACT=*aflmul *aFlshl *aFNauldi *aFulrem *aFulshr *aFuldiv *aFlrem *aFldiv
-MATH_INSERT= +aflmul +aFlshl +aFNauldi +aFulrem +aFulshr +aFuldiv +aFlrem +aFldiv
+MATH_EXTRACT=*aflmul *aFlshl *aFNaulsh *aFNauldi *aFulrem *aFulshr *aFuldiv *aFlrem *aFldiv
+MATH_INSERT= +aflmul +aFlshl +aFNaulsh +aFNauldi +aFulrem +aFulshr +aFuldiv +aFlrem +aFldiv
 
 TARGETOPT=
 !if $(XCPU) == 186    
