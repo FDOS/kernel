@@ -128,7 +128,7 @@
 %%loop:	shl ax, 1
 	rcl dx, 1
 	loop %%loop
-%%ret:	ret 6
+%%ret:	ret
 %endmacro
 
 %macro LSHRU 0
@@ -139,5 +139,5 @@
 %%loop:	shr dx, 1
 	rcr ax, 1
 	loop %%loop
-%%ret:	ret 6
+%%ret:	ret
 %endmacro
