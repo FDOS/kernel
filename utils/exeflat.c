@@ -125,8 +125,8 @@ static int exeflat(const char *srcfile, const char *dstfile,
     ((DWORD) (header->exPages - 1) << 9) + header->exExtraBytes -
     header->exHeaderSize * 16UL;
   printf("image size (less header) = %lu = 0x%lx\n", size, size);
-  printf("first relocation offset = %u = 0x%u\n", header->exOverlay,
-         header->exOverlay);
+  printf("first relocation offset = %u = 0x%x\n", header->exRelocTable,
+         header->exRelocTable);
 
   /* first read file into memory chunks */
   fseek(src, header->exHeaderSize * 16UL, SEEK_SET);
@@ -150,7 +150,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
     }
     if (fread(*curbuf, sizeof(char), bufsize, src) != bufsize)
     {
-      printf("Source file read error %ld %d\n", to_xfer, bufsize);
+      printf("Source file read error %ld %d\n", to_xfer, (int)bufsize);
       exit(1);
     }
   }
@@ -381,7 +381,7 @@ int main(int argc, char **argv)
         if (silentcount >= LENGTH(silentSegments))
         {
           printf("can't handle more then %d silent's\n",
-                 LENGTH(silentSegments));
+                 (int)LENGTH(silentSegments));
           exit(1);
         }
         
