@@ -67,7 +67,7 @@ ifeq ($(LOADSEG)0, 0)
 LOADSEG=0x60
 endif
 
-INITPATCH=objcopy --redefine-sym ___umodsi3=_init_umodsi3 --redefine-sym ___udivsi3=_init_udivsi3 --redefine-sym ___ashlsi3=_init_ashlsi3 --redefine-sym ___lshrsi3=_init_lshrsi3
+INITPATCH=ia16-elf-objcopy --redefine-sym ___umodsi3=_init_umodsi3 --redefine-sym ___udivsi3=_init_udivsi3 --redefine-sym ___ashlsi3=_init_ashlsi3 --redefine-sym ___lshrsi3=_init_lshrsi3
 CLDEF=1
 CLT=gcc -DDOSC_TIME_H -I../hdr -o $@
 CLC=$(CLT)
