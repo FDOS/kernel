@@ -54,8 +54,9 @@ CFLAGSC=
 # -Wno-pointer-to-int-cast  do not warn about FP_OFF
 # -Wno-pragmas  do not warn about #pragma pack
 # -Werror       treat all warnings as errors
+# -mfar-function-if-far-return-type treat `int __far f ();' as a far function
 
-ALLCFLAGS+=-I../hdr $(TARGETOPT) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -Wno-pointer-to-int-cast -Wno-pragmas -Werror -Os -fno-strict-aliasing
+ALLCFLAGS+=-I../hdr $(TARGETOPT) -mcmodel=small -fleading-underscore -fno-common -fpack-struct -ffreestanding -fcall-used-es -mrtd -Wno-pointer-to-int-cast -Wno-pragmas -Werror -Os -fno-strict-aliasing -mfar-function-if-far-return-type
 INITCFLAGS=$(ALLCFLAGS) -o $@
 CFLAGS=$(ALLCFLAGS) -o $@
 
