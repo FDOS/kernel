@@ -337,7 +337,11 @@ typedef signed long LONG;
 #define FP_SEG(fp)            ((unsigned)((ULONG)(VOID FAR *)(fp)>>16))
 #endif
 
+#if defined(__GNUC__) && defined(__BUILTIN_IA16_FP_OFF)
+#define FP_OFF(fp)            __builtin_ia16_FP_OFF(fp)
+#else
 #define FP_OFF(fp)            ((unsigned)(fp))
+#endif
 
 #endif
 #endif

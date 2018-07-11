@@ -28,9 +28,8 @@ extern __segment DosTextSeg;
 #elif defined(__GNUC__)
 
 #define DosTextSeg 0x70
-/* XXX not supported yet */
-#define DOSFAR
-#define DOSTEXTFAR
+#define DOSFAR FAR
+#define DOSTEXTFAR FAR
 #undef DOSDATA
 #undef DOSTEXT
 #define DOSDATA(x) (*(typeof(x) FAR *)MK_FP(DosDataSeg, (size_t)&(x)))

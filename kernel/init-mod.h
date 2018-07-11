@@ -265,38 +265,21 @@ extern char master_env[128];
 extern struct lol FAR *LoL;
 
 extern struct dhdr DOSTEXTFAR ASM blk_dev; /* Block device (Disk) driver           */
-#define blk_dev DOSTEXT(blk_dev)
 
 extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
-#define firstAvailableBuf DOSDATA(firstAvailableBuf)
-#ifdef __GNUC__
-extern struct lol ASM DATASTART;
-#else
 extern struct lol ASM FAR DATASTART;
-#endif
-#define DATASTART DOSDATA(DATASTART)
 
 extern BYTE DOSFAR ASM _HMATextAvailable;    /* first byte of available CODE area    */
-#ifdef __GNUC__
-extern BYTE ASM _HMATextStart[];          /* first byte of HMAable CODE area      */
-extern BYTE ASM _HMATextEnd[];
-#else
 extern BYTE FAR ASM _HMATextStart[];          /* first byte of HMAable CODE area      */
 extern BYTE FAR ASM _HMATextEnd[];
-#endif
 extern BYTE DOSFAR ASM break_ena;  /* break enabled flag                   */
-#define break_ena DOSDATA(break_ena)
-extern BYTE DOSFAR ASM _InitTextStart[],     /* first available byte of ram          */
-  DOSFAR ASM _InitTextEnd[],
-  DOSFAR ASM ReturnAnyDosVersionExpected,
-  DOSFAR ASM HaltCpuWhileIdle;
-#define ReturnAnyDosVersionExpected DOSDATA(ReturnAnyDosVersionExpected)
-#define HaltCpuWhileIdle DOSDATA(HaltCpuWhileIdle)
+extern BYTE DOSFAR ASM _InitTextStart[];     /* first available byte of ram          */
+extern BYTE DOSFAR ASM _InitTextEnd[];
+extern BYTE DOSFAR ASM ReturnAnyDosVersionExpected;
+extern BYTE DOSFAR ASM HaltCpuWhileIdle;
 
 extern BYTE DOSFAR ASM internal_data[];
-#define internal_data DOSDATA(internal_data)
 extern unsigned char DOSTEXTFAR ASM kbdType;
-#define kbdType DOSTEXT(kbdType)
 
 extern struct {
   char  ThisIsAConstantOne;
@@ -305,29 +288,23 @@ extern struct {
   struct CountrySpecificInfo C;
   
 } DOSFAR ASM nlsCountryInfoHardcoded;
-#define nlsCountryInfoHardcoded DOSDATA(nlsCountryInfoHardcoded)
-#define nlsPackageHardcoded DOSDATA(nlsPackageHardcoded)
 
 /*
     data shared between DSK.C and INITDISK.C
 */
 
 extern UWORD DOSFAR LBA_WRITE_VERIFY;
-#define LBA_WRITE_VERIFY DOSDATA(LBA_WRITE_VERIFY)
 
 /* original interrupt vectors, at 70:xxxx */
 extern struct lowvec {
   unsigned char intno;
   intvec isv;
 } DOSTEXTFAR ASM intvec_table[5];
-#define intvec_table DOSTEXT(intvec_table)
 
 /* floppy parameter table, at 70:xxxx */
 extern unsigned char DOSTEXTFAR ASM int1e_table[0xe];
-#define int1e_table DOSTEXT(int1e_table)
 
 extern char DOSFAR DiskTransferBuffer[/*MAX_SEC_SIZE*/]; /* in dsk.c */
-#define DiskTransferBuffer DOSDATA(DiskTransferBuffer)
 
 struct RelocationTable {
   UBYTE jmpFar;
@@ -345,14 +322,10 @@ struct RelocatedEntry {
   UWORD jmpSegment;
 };
 
-extern struct RelocationTable
-   DOSFAR ASM _HMARelocationTableStart[],
-   DOSFAR ASM _HMARelocationTableEnd[];
-#define _HMARelocationTableStart DOSDATA(_HMARelocationTableStart)
-#define _HMARelocationTableEnd DOSDATA(_HMARelocationTableEnd)
+extern struct RelocationTable DOSFAR ASM _HMARelocationTableStart[];
+extern struct RelocationTable DOSFAR ASM _HMARelocationTableEnd[];
 
 extern void FAR *DOSFAR ASM XMSDriverAddress;
-#define XMSDriverAddress DOSDATA(XMSDriverAddress)
 #ifdef __GNUC__
 extern VOID _EnableA20(VOID);
 extern VOID _DisableA20(VOID);
