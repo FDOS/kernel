@@ -68,12 +68,7 @@ __segment DosTextSeg = 0;
 
 #endif
 
-struct lol FAR *LoL
-#ifndef __GNUC__
-/* cannot initialize from far data with GCC */
-= &DATASTART;
-#endif
-;
+struct lol FAR *LoL = &DATASTART;
 
 VOID ASMCFUNC FreeDOSmain(void)
 {
@@ -95,9 +90,6 @@ VOID ASMCFUNC FreeDOSmain(void)
                             at 50:e0
                         */
 
-#ifdef __GNUC__
-  LoL = &DATASTART;
-#endif
   drv = LoL->BootDrive + 1;
   p = MK_FP(0, 0x5e0);
   if (fmemcmp(p+2,"CONFIG",6) == 0)      /* UPX */

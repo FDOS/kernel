@@ -4,7 +4,7 @@
 OUTPUT_FORMAT(binary)
 
 DOS_PSP = 0x60;
-MEMOFS = DOS_PSP * 16 - SIZEOF(.hdr);
+MEMOFS = DOS_PSP * 16 - SIZEOF(.msdos_mz_hdr);
 
 /* these GROUPs play the same role as GROUPS (segments) in OMF */
 PGROUP = (MEMOFS + LOADADDR(.ptext)) / 16;
@@ -22,7 +22,7 @@ SECTIONS
     /* Fabricate a .exe header here.  Although libbfd does have an
        "i386msdos" back-end which produces an "MZ" exe header, it cannot do
        certain things (yet). */
-    .hdr : {
+    .msdos_mz_hdr : {
 		/* Signature.  */
 		SHORT (0x5a4d)
 		/* Bytes in last 512-byte page.  */
@@ -30,9 +30,9 @@ SECTIONS
 		/* Total number of 512-byte pages.  */
 		SHORT (ALIGN(LOADADDR (.ibss), 512) / 512)
 		/* Relocation entries.  */
-		SHORT (0)
+		SHORT ((__msdos_mz_rel_end - __msdos_mz_rel_start) / 4)
 		/* Header size in paragraphs.  */
-		SHORT (SIZEOF(.hdr) / 16)
+		SHORT (SIZEOF(.msdos_mz_hdr) / 16)
 		/* Minimum extra paragraphs.  */
 		SHORT (ALIGN(SIZEOF (.ibss) + SIZEOF(.istack), 16) / 16)
 		/* Maximum extra paragraphs.  */
@@ -45,12 +45,18 @@ SECTIONS
 		. = 0x18;
 		/* Relocation table offset.  */
 		SHORT (. + 4)
-		/* Overlay number + padding */
-                . = ALIGN (32);
+		/* Overlay number  */
+		SHORT (0)
+		/* Relocations  */
+		HIDDEN (__msdos_mz_rel_start = .);
+		*(.msdos_mz_reloc .msdos_mz_reloc.*)
+		HIDDEN (__msdos_mz_rel_end = .);
+		/* Padding */
+                . = ALIGN (16);
     }
 
     /* Target PSP section.  */
-    .ptext 0 : AT (SIZEOF(.hdr)) {
+    .ptext 0 : AT (SIZEOF(.msdos_mz_hdr)) {
 		*(PSP)
     }
 
