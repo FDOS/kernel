@@ -223,7 +223,7 @@ VOID ASMCFUNC FAR cpm_entry(void);
 
 /* kernel.asm */
 #ifdef __GNUC__
-VOID ASMCFUNC init_call_p_0(struct config FAR *Config) asm("init_call_p_0");
+VOID ASMCFUNC init_call_p_0(struct config FAR *Config) FAR __attribute__((noreturn));
 #else
 VOID ASMCFUNC FAR init_call_p_0(struct config FAR *Config); /* P_0, actually */
 #endif
