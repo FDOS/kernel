@@ -327,8 +327,8 @@ extern struct RelocationTable DOSFAR ASM _HMARelocationTableEnd[];
 
 extern void FAR *DOSFAR ASM XMSDriverAddress;
 #ifdef __GNUC__
-extern VOID _EnableA20(VOID);
-extern VOID _DisableA20(VOID);
+extern VOID ASMPASCAL _EnableA20(VOID) FAR;
+extern VOID ASMPASCAL _DisableA20(VOID) FAR;
 #else
 extern VOID ASMPASCAL FAR _EnableA20(VOID);
 extern VOID ASMPASCAL FAR _DisableA20(VOID);
