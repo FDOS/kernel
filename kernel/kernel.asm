@@ -276,22 +276,6 @@ cpu_abort:
 %endif        ; XCPU != 86
 
 
-%ifdef gcc
-	global __EnableA20
-__EnableA20:
-	pop ax
-	push cs
-	push ax
-	jmp DGROUP:_ENABLEA20
-
-	global __DisableA20
-__DisableA20:
-	pop ax
-	push cs
-	push ax
-	jmp DGROUP:_DISABLEA20
-%endif
-
 segment INIT_TEXT_END
 
 
