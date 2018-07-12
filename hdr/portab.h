@@ -153,7 +153,7 @@ static inline void enable(void)
   asm volatile("sti");
 }
 #define far __far
-#define CDECL
+#define CDECL __attribute__((cdecl))
 #define VA_CDECL
 #define PASCAL
 
@@ -232,7 +232,11 @@ typedef unsigned       size_t;
               as 'ASMCFUNC', and is (and will be ?-) cdecl */
 #define ASMCFUNC CDECL
 #define ASMPASCAL PASCAL
+#if defined(__GNUC__)
+#define ASM
+#else
 #define ASM ASMCFUNC
+#endif
 
 /* variables that can be near or far: redefined in init-dat.h */
 #define DOSFAR
