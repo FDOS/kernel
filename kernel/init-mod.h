@@ -218,9 +218,6 @@ VOID ASMCFUNC FAR int2a_handler(void);
 VOID ASMCFUNC FAR int2f_handler(void);
 VOID ASMCFUNC FAR cpm_entry(void);
 
-#define cpm_entry DOSDATA(cpm_entry)
-#define int29_handler DOSTEXT(int29_handler)
-
 /* kernel.asm */
 #ifdef __GNUC__
 VOID ASMCFUNC init_call_p_0(struct config FAR *Config) FAR __attribute__((noreturn));
@@ -240,7 +237,6 @@ int VA_CDECL init_sprintf(char * buff, CONST char * fmt, ...);
 
 /* procsupt.asm */
 VOID ASMCFUNC FAR got_cbreak(void);
-#define got_cbreak DOSTEXT(got_cbreak)
 
 /* initclk.c */
 extern void Init_clk_driver(void);
@@ -248,12 +244,7 @@ extern void Init_clk_driver(void);
 extern UWORD HMAFree;            /* first byte in HMA not yet used      */
 
 extern unsigned CurrentKernelSegment;
-#ifdef __GNUC__
-extern struct _KernelConfig ASM LowKernelConfig;
-#define LowKernelConfig *(typeof(LowKernelConfig) FAR *)MK_FP(DOS_PSP, &LowKernelConfig)
-#else
 extern struct _KernelConfig FAR ASM LowKernelConfig;
-#endif
 extern WORD days[2][13];
 extern BYTE FAR *lpTop;
 extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];

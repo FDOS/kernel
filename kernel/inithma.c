@@ -312,14 +312,7 @@ void MoveKernel(unsigned NewKernelSegment)
   unsigned jmpseg = CurrentKernelSegment;
  
   if (CurrentKernelSegment == 0)
-#ifdef __GNUC__
-    {
-      extern char TGROUP[] asm("TGROUP");
-      CurrentKernelSegment = (unsigned)TGROUP;
-    }
-#else
     CurrentKernelSegment = FP_SEG(_HMATextEnd);
-#endif
 
   if (CurrentKernelSegment == 0xffff)
     return;
