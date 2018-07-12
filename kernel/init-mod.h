@@ -198,7 +198,7 @@ void ASMPASCAL set_DTA(void far *dta);
 
 /* irqstack.asm */
 VOID ASMCFUNC init_stacks(VOID FAR * stack_base, COUNT nStacks,
-                          WORD stackSize, ...);
+                          WORD stackSize);
 
 /* inthndlr.c */
 VOID ASMCFUNC FAR int0_handler(void);
@@ -223,7 +223,7 @@ VOID ASMCFUNC FAR cpm_entry(void);
 
 /* kernel.asm */
 #ifdef __GNUC__
-VOID ASMCFUNC init_call_p_0(struct config FAR *Config, ...) asm("init_call_p_0");
+VOID ASMCFUNC init_call_p_0(struct config FAR *Config) asm("init_call_p_0");
 #else
 VOID ASMCFUNC FAR init_call_p_0(struct config FAR *Config); /* P_0, actually */
 #endif
