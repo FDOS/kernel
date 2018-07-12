@@ -277,13 +277,6 @@ cpu_abort:
 
 
 %ifdef gcc
-	global init_call_p_0
-init_call_p_0:
-	pop ax
-	push cs
-	push ax
-	jmp DGROUP:_init_call_p_0
-
 	global __EnableA20
 __EnableA20:
 	pop ax
