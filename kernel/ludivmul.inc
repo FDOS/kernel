@@ -85,24 +85,28 @@
 	push    dx                 ; save
 	push    ax                 ;  dividend
 	mov     si, bx             ; divisor now in
-	mov     di, cx             ;  di:bx and cx:si
+	mov     di, cx             ;  di:si and cx:bx
 %%shift_loop:
 	shr     dx, 1              ; shift both
 	rcr     ax, 1              ;  dividend
-	shr     di, 1              ;   and divisor
+	shr     cx, 1              ;   and divisor
 	rcr     bx, 1              ;    right by 1 bit
         jnz     %%shift_loop       ;     loop if di non-zero (rcr does not touch ZF)
-	mov     di, cx             ; restore original divisor (di:si)
 	div     bx                 ; compute quotient dx:ax>>x / cx:bx>>x (stored in ax; remainder in dx not used)
 	pop     bx                 ; get dividend lo-word
 	mov     cx, ax             ; save quotient
         mul     di                 ; quotient * divisor hi-word (low only)
 	push	di		   ; save divisor hi-word
-        xchg    ax, di             ; save in di
+        mov     di, ax             ; save in di
         mov     ax, cx             ; ax=quotient
 	mul     si                 ; quotient * divisor lo-word
-	add     dx, di             ; dx:ax = quotient * divisor
+	add     dx, di             ; quotient * divisor !!!! overflow possible !!!!
 	pop	di		   ; restore divisor hi-word
+	jnc	%%skipcorrection
+	sub	ax, si
+	sbb	dx, di
+	dec	cx		   ; correct quotient
+%%skipcorrection:
 	sub     bx, ax             ; dividend-lo - (quot.*divisor)-lo
 	mov     ax, cx             ; get quotient
 	pop     cx                 ; restore dividend hi-word
