@@ -96,21 +96,15 @@
 	pop     bx                 ; get dividend lo-word
 	mov     cx, ax             ; save quotient
         mul     di                 ; quotient * divisor hi-word (low only)
-	push	di		   ; save divisor hi-word
-        mov     di, ax             ; save in di
+	pop     dx                 ; dividend high
+	sub     dx,ax              ; dividend high - divisor high * quotient, no overflow (carry/borrow) possible here
+	push    dx                 ; save dividend high
         mov     ax, cx             ; ax=quotient
 	mul     si                 ; quotient * divisor lo-word
-	add     dx, di             ; quotient * divisor !!!! overflow possible !!!!
-	pop	di		   ; restore divisor hi-word
-	jnc	%%skipcorrection
-	sub	ax, si
-	sbb	dx, di
-	dec	cx		   ; correct quotient
-%%skipcorrection:
-	sub     bx, ax             ; dividend-lo - (quot.*divisor)-lo
+	sub     bx, ax             ; dividend-lo - (quot.*divisor-lo)-lo
 	mov     ax, cx             ; get quotient
 	pop     cx                 ; restore dividend hi-word
-	sbb     cx, dx             ; subtract divisor * quot. from dividend
+	sbb     cx, dx             ; subtract (divisor-lo * quot.)-hi from dividend-hi
 	sbb     dx, dx             ; 0 if remainder > 0, else FFFFFFFFh
 	and     si, dx             ; nothing to add
 	and     di, dx             ;  back if remainder positive di:si := di:si(cx:bx) & dx:dx
