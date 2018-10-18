@@ -526,7 +526,7 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
   else
   {
     dmatch Dmatch;
-    COUNT result;
+    COUNT rc;
 
     wAttr = (lpXfcb->xfcb_flag == 0xff ? lpXfcb->xfcb_attrib : D_ALL);
     dta = &Dmatch;
@@ -561,9 +561,9 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       SecPathName[0] = 'A' + FcbDrive - 1;
       SecPathName[1] = ':';
       strcpy(&SecPathName[2], Dmatch.dm_name);
-      result = truename(SecPathName, PriPathName, 0);
+      rc = truename(SecPathName, PriPathName, 0);
 
-      if (result < SUCCESS || (result & IS_DEVICE))
+      if (rc < SUCCESS || (rc & IS_DEVICE))
       {
         result = FCB_ERROR;
         break;
@@ -571,8 +571,8 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       /* now to build a dos name again                */
       LocalFcb.fcb_drive = FcbDrive;
       FcbNameInit(&LocalFcb, loc_szBuffer, &FcbDrive);
-      result = truename(loc_szBuffer, SecPathName, 0);
-      if (result < SUCCESS || (result & (IS_NETWORK|IS_DEVICE)) == IS_DEVICE
+      rc = truename(loc_szBuffer, SecPathName, 0);
+      if (rc < SUCCESS || (rc & (IS_NETWORK|IS_DEVICE)) == IS_DEVICE
         || DosRenameTrue(PriPathName, SecPathName, wAttr) != SUCCESS)
       {
         result = FCB_ERROR;
