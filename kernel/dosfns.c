@@ -759,6 +759,7 @@ UWORD DosGetFree(UBYTE drive, UWORD * navc, UWORD * bps, UWORD * nc)
   if (cdsp == NULL)
     return spc;
 
+  current_ldt = cdsp;
   if (cdsp->cdsFlags & CDSNETWDRV)
   {
     if (remote_getfree(cdsp, rg) != SUCCESS)
