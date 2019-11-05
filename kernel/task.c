@@ -587,6 +587,12 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       image_size += sizeof(psp) / 16;        /* TE 03/20/01 */
       exe_size = image_size + ExeHeader.exMinAlloc;
       
+      /* Some ancient NE programs set exMinAlloc to 0xffff to signify
+         that they should not be run as normal MZ programs at all.  Check
+         for this and similar conditions. -- 2019/11/05 tkchia */
+      if (exe_size < image_size)
+        return DE_NOMEM;
+      
       /* Clone the environement and create a memory arena     */
       if (mode & 0x80)
       {
