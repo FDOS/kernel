@@ -1,3 +1,5 @@
 * text eol=crlf
 *.up -text
 *.UP -text
+travis_*.sh text eol=lf
+.travis.yml text eol=lf
