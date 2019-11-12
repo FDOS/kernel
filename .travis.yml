@@ -1,0 +1,27 @@
+language: c
+
+dist:  bionic
+
+addons:
+  apt:
+    sources:
+      - sourceline: 'ppa:dosemu2/ppa'
+      - sourceline: 'ppa:stsp-0/djgpp'
+      - sourceline: 'ppa:tkchia/build-ia16'
+    packages:
+      - gcc-ia16-elf
+      - nasm
+      - upx
+    update: true
+
+before_install:
+  - echo "before_install"
+
+install:
+  - ./travis_build.sh
+
+before_script:
+  - echo "before_script"
+
+script:
+  - ./travis_test.sh
