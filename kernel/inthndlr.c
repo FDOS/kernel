@@ -726,12 +726,14 @@ dispatch:
 
       /* Get (editable) DOS Version                                   */
     case 0x30:
+    {
+      psp FAR *p = MK_FP(cu_psp, 0);
+
       if (lr.AL == 1) /* from RBIL, if AL=1 then return version_flags */
           lr.BH = version_flags;
       else
           lr.BH = OEM_ID;
-      lr.AL = os_setver_major;
-      lr.AH = os_setver_minor;
+      lr.AX = p->ps_retdosver;
       lr.BL = REVISION_SEQ;
       lr.CX = 0; /* do not set this to a serial number!
                     32RTM won't like non-zero values   */
@@ -761,8 +763,9 @@ dispatch:
         }
 
       }
+    }
 
-      break;
+    break;
 
       /* Keep Program (Terminate and stay resident) */
     case 0x31:
