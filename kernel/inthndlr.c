@@ -1734,13 +1734,14 @@ struct int2f12regs {
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
 
-/* WARNING: modifications in `r' are used outside of int2F_12_handler()
- * On input r.AX==0x12xx, 0x4A01 or 0x4A02
+/* On input pr->AX==0x12xx, 0x4A01 or 0x4A02
  */
-VOID ASMCFUNC int2F_12_handler(struct int2f12regs r)
+VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 {
   COUNT rc;
   long lrc;
+
+#define r (*pr)
 
   if (r.AH == 0x4a)
   {
@@ -2111,6 +2112,8 @@ error_exit:
     CritErrCode = r.AX;      /* Maybe set */
 error_carry:
   r.FLAGS |= FLG_CARRY;
+
+#undef r
 }
 
 /*
