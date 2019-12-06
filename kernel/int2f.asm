@@ -31,6 +31,53 @@
         %include "segs.inc"
         %include "stacks.inc"
 
+; macro to switch to an internal stack (if necessary), set DS == SS == DGROUP,
+; and push the old SS:SP onto the internal stack
+;
+; destroys AX, SI, BP; turns on IRQs
+;
+; int2f does not really need to switch to a separate stack for MS-DOS
+; compatibility; this is mainly to work around the C code's assumption
+; that SS == DGROUP
+;
+; TODO: remove the need for this hackery  -- tkchia
+%macro SwitchToInt2fStack 0
+    mov ax,[cs:_DGROUP_]
+    mov ds,ax
+    mov si,ss
+    mov bp,sp
+    cmp ax,si
+    jz %%already
+    cli
+    mov ss,ax
+    extern int2f_stk_top
+    mov sp,int2f_stk_top
+    sti
+%%already:
+; well, GCC does not currently clobber function parameters passed on the
+; stack; but just in case it decides to do that in the future, we push _two_
+; copies of the old SS:SP:
+;   - the second copy can be passed as a pointer parameter to a C function
+;   - the first copy is used to actually restore the user stack later
+    push si
+    push bp
+    push si
+    push bp
+%endmacro
+
+; macro to switch back from an internal stack, i.e. undo SwitchToInt2fStack
+;
+; destroys BP; turns on IRQs  -- tkchia
+%macro DoneInt2fStack 0
+    pop bp
+    pop bp
+    pop bp
+    cli
+    pop ss
+    mov sp,bp
+    sti
+%endmacro
+
 segment	HMA_TEXT
             extern _cu_psp
             extern _HaltCpuWhileIdle
@@ -135,7 +182,7 @@ DriverSysCal:
 ; internal dos calls INT2F/12xx and INT2F/4A01,4A02 - handled through C 
 ;**********************************************************************
 IntDosCal:                
-                        ; set up register frame
+                        ; set up register structure
 ;struct int2f12regs
 ;{
 ;  [space for 386 regs]
@@ -165,9 +212,10 @@ IntDosCal:
   %endif
 %endif          
 
-    mov ds,[cs:_DGROUP_]
+    SwitchToInt2fStack
     extern   _int2F_12_handler
     call _int2F_12_handler
+    DoneInt2fStack
 
 %if XCPU >= 386
   %ifdef WATCOM

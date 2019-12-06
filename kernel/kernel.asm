@@ -812,6 +812,11 @@ blk_stk_top:
                 times 128 dw 0
 clk_stk_top:
 
+; int2fh private stack
+                global  int2f_stk_top
+                times 128 dw 0
+int2f_stk_top:
+
 ; Dynamic data:
 ; member of the DOS DATA GROUP
 ; and marks definitive end of all used data in kernel data segment
