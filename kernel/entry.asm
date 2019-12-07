@@ -236,6 +236,10 @@ reloc_call_int20_handler:
 ;       int21_handler(iregs UserRegs)
 ;
 reloc_call_int21_handler:
+                cmp     ah,25h
+                je      int21_func25
+                cmp     ah,35h
+                je      int21_func35
                 ;
                 ; Create the stack frame for C call.  This is done to
                 ; preserve machine state and provide a C structure for
@@ -262,11 +266,7 @@ int21_reentry:
                 mov     dx,[cs:_DGROUP_]
                 mov     ds,dx
 
-                cmp     ah,25h
-                je      int21_user
                 cmp     ah,33h
-                je      int21_user
-                cmp     ah,35h
                 je      int21_user
                 cmp     ah,50h
                 je      int21_user
@@ -284,6 +284,29 @@ int21_user:
                 pop     cx
                 pop     cx
                 jmp     short int21_ret
+
+int21_func25:
+                push    es
+                push    bx
+                xor     bx,bx
+                mov     es,bx
+                mov     bl,al
+                shl     bx,1
+                shl     bx,1
+                mov     [es:bx],dx
+                mov     [es:bx+2],ds
+                pop     bx
+                pop     es
+                iret
+
+int21_func35:
+                xor     bx,bx
+                mov     es,bx
+                mov     bl,al
+                shl     bx,1
+                shl     bx,1
+                les     bx,[es:bx]
+                iret
 
 ;
 ; normal entry, use one of our 4 stacks
