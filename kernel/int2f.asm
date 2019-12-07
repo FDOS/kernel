@@ -149,8 +149,9 @@ Int2f?14:      ;; MUX-14 -- NLSFUNC API
                push bp                 ; Preserve BP later on
                Protect386Registers
                PUSH$ALL
-               mov ds, [cs:_DGROUP_]
+               SwitchToInt2fStack
                call _syscall_MUX14
+               DoneInt2fStack
                pop bp                  ; Discard incoming AX
                push ax                 ; Correct stack for POP$ALL
                POP$ALL

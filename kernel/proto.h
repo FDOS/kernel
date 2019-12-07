@@ -277,7 +277,7 @@ COUNT DosSetCountry(UWORD cntry);
 COUNT DosGetCodepage(UWORD * actCP, UWORD * sysCP);
 COUNT DosSetCodepage(UWORD actCP, UWORD sysCP);
 VOID FAR *DosGetDBCS(void);
-UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS);
+UWORD ASMCFUNC syscall_MUX14(iregs FAR *);
 
 /* prf.c */
 #ifdef DEBUG

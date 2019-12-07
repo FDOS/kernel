@@ -87,14 +87,6 @@ typedef struct {
   UWORD si, di, ds, es;
 } lregs;
 
-   /* Registers directly passed to syscall;
-      must be the same order as iregs!
-      Is used to define parameters. */
-#define DIRECT_IREGS   \
-   xreg a, xreg b, xreg c, xreg d, \
-   UWORD si, UWORD di, UWORD bp, UWORD ds, UWORD es,   \
-   UWORD ip, UWORD cs, UWORD flags
-
 /* Process control block for task switching                             */
 typedef struct {
   UWORD pc_ss;
