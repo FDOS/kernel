@@ -667,60 +667,54 @@ VOID FAR *DosGetDBCS(void)
 	Return value: AL register to be returned
 		if AL == 0, Carry must be cleared, otherwise set
 */
-UWORD ASMCFUNC syscall_MUX14(DIRECT_IREGS)
+UWORD ASMCFUNC syscall_MUX14(iregs FAR *pr)
 {
   struct nlsPackage FAR *nls;   /* addressed NLS package */
 
-  UNREFERENCED_PARAMETER(flags);
-  UNREFERENCED_PARAMETER(cs);
-  UNREFERENCED_PARAMETER(ip);
-  UNREFERENCED_PARAMETER(ds);
-  UNREFERENCED_PARAMETER(es);
-  UNREFERENCED_PARAMETER(si);
+  log(("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n", pr->AL, pr->BX, pr->DX));
 
-  log(("NLS: MUX14(): subfct=%x, cp=%u, cntry=%u\n", AL, BX, DX));
-
-  if ((nls = searchPackage(BX, DX)) == NULL)
+  if ((nls = searchPackage(pr->BX, pr->DX)) == NULL)
     return DE_INVLDFUNC;        /* no such package */
 
   log(("NLS: MUX14(): NLS pkg found\n"));
 
-  switch (AL)
+  switch (pr->AL)
   {
     case NLSFUNC_INSTALL_CHECK:
-      BX = NLS_FREEDOS_NLSFUNC_ID;
+      pr->BX = NLS_FREEDOS_NLSFUNC_ID;
       return SUCCESS;           /* kernel just simulates default functions */
     case NLSFUNC_DOS38:
-      return nlsGetData(nls, NLS_DOS_38, MK_FP(ES, DI), 34);
+      return nlsGetData(nls, NLS_DOS_38, MK_FP(pr->ES, pr->DI), 34);
     case NLSFUNC_GETDATA:
-      return nlsGetData(nls, BP, MK_FP(ES, DI), CX);
+      return nlsGetData(nls, pr->BP, MK_FP(pr->ES, pr->DI), pr->CX);
     case NLSFUNC_DRDOS_GETDATA:
       /* Does not pass buffer length */
-      return nlsGetData(nls, CL, MK_FP(ES, DI), 512);
+      return nlsGetData(nls, pr->CL, MK_FP(pr->ES, pr->DI), 512);
     case NLSFUNC_LOAD_PKG:
       return nlsLoadPackage(nls);
     case NLSFUNC_LOAD_PKG2:
       return nlsSetPackage(nls);
     case NLSFUNC_YESNO:
-      return nlsYesNo(nls, CX);
+      return nlsYesNo(nls, pr->CX);
     case NLSFUNC_UPMEM:
-      nlsUpMem(nls, MK_FP(ES, DI), CX);
+      nlsUpMem(nls, MK_FP(pr->ES, pr->DI), pr->CX);
       return SUCCESS;
     case NLSFUNC_FILE_UPMEM:
 #ifdef NLS_DEBUG
       {
         unsigned j;
         BYTE FAR *p;
-        log(("NLS: MUX14(FILE_UPMEM): len=%u, %04x:%04x=\"", CX, ES, DI));
-        for (j = 0, p = MK_FP(ES, DI); j < CX; ++j)
+        log(("NLS: MUX14(FILE_UPMEM): len=%u, %04x:%04x=\"", pr->CX,
+                                                             pr->ES, pr->DI));
+        for (j = 0, p = MK_FP(pr->ES, pr->DI); j < pr->CX; ++j)
           printf("%c", p[j] > 32 ? p[j] : '.');
         printf("\"\n");
       }
 #endif
-      nlsFUpMem(nls, MK_FP(ES, DI), CX);
+      nlsFUpMem(nls, MK_FP(pr->ES, pr->DI), pr->CX);
       return SUCCESS;
   }
-  log(("NLS: MUX14(): Invalid function %x\n", AL));
+  log(("NLS: MUX14(): Invalid function %x\n", pr->AL));
   return DE_INVLDFUNC;          /* no such function */
 }
 
