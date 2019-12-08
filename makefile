@@ -115,16 +115,20 @@ all:
 	cd boot && $(MAKE) production
 	cd sys && $(MAKE) production
 	cd kernel && $(MAKE) production
+	$(MAKEREMOVE)
 
 clean:
+	$(MAKEADJUST)
 	cd utils && $(MAKE) clean
 	cd lib && $(MAKE) clean
 	cd drivers && $(MAKE) clean
 	cd boot && $(MAKE) clean
 	cd sys && $(MAKE) clean
 	cd kernel && $(MAKE) clean
+	$(MAKEREMOVE)
 
 clobber:
+	$(MAKEADJUST)
 	cd utils && $(MAKE) clobber
 	cd lib && $(MAKE) clobber
 	cd drivers && $(MAKE) clobber
