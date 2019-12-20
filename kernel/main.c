@@ -200,6 +200,9 @@ STATIC void PSPInit(void)
   /* open file table pointer                              */
   p->ps_filetab = p->ps_files;
 
+  /* default system version for int21/ah=30               */
+  p->ps_retdosver = (LoL->os_setver_minor << 8) + LoL->os_setver_major;
+
   /* first command line argument                          */
   /* p->ps_fcb1.fcb_drive = 0; already set                */
   fmemset(p->ps_fcb1.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
