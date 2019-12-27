@@ -96,7 +96,9 @@ STATIC void CharCmd(struct dhdr FAR **pdev, unsigned command)
 
 STATIC int Busy(struct dhdr FAR **pdev)
 {
-  CharCmd(pdev, C_ISTAT);
+  CharCmd(pdev, C_NDREAD);
+  if (CharReqHdr.r_status & S_ERROR)
+    CharCmd(pdev, C_ISTAT);
   return CharReqHdr.r_status & S_BUSY;
 }
 
