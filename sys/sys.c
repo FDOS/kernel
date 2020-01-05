@@ -506,7 +506,7 @@ void dumpBS(const char *, int);
 void restoreBS(const char *, int);
 void put_boot(SYSOptions *opts);
 BOOL check_space(COUNT, ULONG);
-BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename);
+BOOL copy(SYSOptions *opts, const BYTE *source, COUNT drive, const BYTE * filename);
 
 void showHelpAndExit(void)
 {
@@ -895,7 +895,8 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   OEM_FD;
 #endif
 
-  printf(msgDOS[opts->flavor]);
+  if (opts->verbose)
+    printf(msgDOS[opts->flavor]);
 
   /* set compatibility settings not explicitly set */
   if (!opts->kernel.kernel) opts->kernel.kernel = bootFiles[opts->flavor].kernel;
@@ -975,8 +976,6 @@ int main(int argc, char **argv)
   SYSOptions opts;            /* boot options and other flags */
   BYTE srcFile[SYS_MAXPATH];  /* full path+name of [kernel] file [to copy] */
 
-  printf(SYS_NAME SYS_VERSION ", " __DATE__ "\n");
-
 #ifdef FDCONFIG
   if (argc > 1 && memicmp(argv[1], "CONFIG", 6) == 0)
   {
@@ -986,15 +985,20 @@ int main(int argc, char **argv)
 
   initOptions(argc, argv, &opts);
 
-  printf("Processing boot sector...\n");
+  if (opts.verbose)
+    printf(SYS_NAME SYS_VERSION ", " __DATE__ "\n");
+
+  if (opts.verbose)
+	printf("Processing boot sector...\n");
   put_boot(&opts);
 
   if (opts.copyKernel)
   {
-    printf("Now copying system files...\n");
+	if (opts.verbose)
+		printf("Now copying system files...\n");
 
     sprintf(srcFile, "%s%s", opts.srcDrive, (opts.fnKernel)?opts.fnKernel:opts.kernel.kernel);
-    if (!copy(srcFile, opts.dstDrive, opts.kernel.kernel))
+    if (!copy(&opts, srcFile, opts.dstDrive, opts.kernel.kernel))
     {
       printf("%s: cannot copy \"%s\"\n", pgm, srcFile);
       exit(1);
@@ -1003,7 +1007,7 @@ int main(int argc, char **argv)
     if (opts.kernel.dos)
     {
       sprintf(srcFile, "%s%s", opts.srcDrive, opts.kernel.dos);
-      if (!copy(srcFile, opts.dstDrive, opts.kernel.dos) && opts.kernel.minsize)
+      if (!copy(&opts, srcFile, opts.dstDrive, opts.kernel.dos) && opts.kernel.minsize)
       {
         printf("%s: cannot copy \"%s\"\n", pgm, srcFile);
         exit(1);
@@ -1013,16 +1017,17 @@ int main(int argc, char **argv)
 
   if (opts.copyShell)
   {
-    printf("Copying shell (command interpreter)...\n");
+	if (opts.verbose)
+		printf("Copying shell (command interpreter)...\n");
   
     /* copy command.com, 1st try source path, then try %COMSPEC% */
     sprintf(srcFile, "%s%s", opts.srcDrive, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
-    if (!copy(srcFile, opts.dstDrive, "COMMAND.COM"))
+    if (!copy(&opts, srcFile, opts.dstDrive, "COMMAND.COM"))
     {
       char *comspec = getenv("COMSPEC");
       if (!opts.fnCmd && (comspec != NULL))
         printf("%s: Trying shell from %%COMSPEC%%=\"%s\"\n", pgm, comspec);
-      if (opts.fnCmd || (comspec == NULL) || !copy(comspec, opts.dstDrive, "COMMAND.COM"))
+      if (opts.fnCmd || (comspec == NULL) || !copy(&opts, comspec, opts.dstDrive, "COMMAND.COM"))
       {
         printf("\n%s: failed to find command interpreter (shell) file %s\n", pgm, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
         exit(1);
@@ -1030,7 +1035,9 @@ int main(int argc, char **argv)
     } /* copy shell */
   }
 
-  printf("\nSystem transferred.\n");
+  if (opts.verbose)
+	printf("\n");
+  printf("System transferred.\n\n");
   return 0;
 }
 
@@ -1520,7 +1527,8 @@ void put_boot(SYSOptions *opts)
 
   if (fs == FAT32)
   {
-    printf("FAT type: FAT32\n");
+	if (opts->verbose)
+		printf("FAT type: FAT32\n");
     /* get default bpb (but not for floppies) */
     if (opts->dstDrive >= 2 &&
         generic_block_ioctl(opts->dstDrive + 1, 0x4860, default_bpb) == 0)
@@ -1547,7 +1555,8 @@ void put_boot(SYSOptions *opts)
   }
   else
   { /* copy the FAT12/16 CHS+LBA boot sector */
-    printf("FAT type: FAT1%c\n", fs + '0' - 10);
+	if (opts->verbose)
+		printf("FAT type: FAT1%c\n", fs + '0' - 10);
     if (opts->dstDrive >= 2 &&
         generic_block_ioctl(opts->dstDrive + 1, 0x860, default_bpb) == 0)
       correct_bpb((struct bootsectortype *)(default_bpb + 7 - 11), bs, opts->verbose);
@@ -1854,7 +1863,7 @@ int alloc_dos_mem(ULONG memsize, UWORD *theseg)
 #endif
 
 /* copies file (path+filename specified by srcFile) to drive:\filename */
-BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
+BOOL copy(SYSOptions *opts, const BYTE *source, COUNT drive, const BYTE * filename)
 {
   static BYTE src[SYS_MAXPATH];
   static BYTE dest[SYS_MAXPATH];
@@ -1872,14 +1881,16 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
   struct ftime ftime;
 #endif
 
-  printf("Copying %s...\n", source);
+  if (opts->verbose)
+	printf("Copying %s...\n", source);
 
   truename(src, source);
   sprintf(dest, "%c:\\%s", 'A' + drive, filename);
   if (stricmp(src, dest) == 0)
   {
-    printf("%s: source and destination are identical: skipping \"%s\"\n",
-           pgm, source);
+	if (opts->verbose)
+		printf("%s: source and destination are identical: skipping \"%s\"\n",
+			   pgm, source);
     return TRUE;
   }
 
@@ -1927,7 +1938,7 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
   {
     ULONG filesize;
     UWORD theseg;
-    BYTE far *buffer; BYTE far *bufptr;
+    BYTE far *buffer, far *bufptr;
     UWORD offs;
     unsigned chunk_size;
     
@@ -2015,8 +2026,8 @@ BOOL copy(const BYTE *source, COUNT drive, const BYTE * filename)
   /* and close input file, usually same drive as next action will access */
   close(fdin);
 
-
-  printf("%lu Bytes transferred\n", copied);
+  if (opts->verbose)
+	printf("%lu Bytes transferred\n", copied);
 
   return TRUE;
 } /* copy */
