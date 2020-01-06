@@ -1938,7 +1938,7 @@ BOOL copy(SYSOptions *opts, const BYTE *source, COUNT drive, const BYTE * filena
   {
     ULONG filesize;
     UWORD theseg;
-    BYTE far *buffer, far *bufptr;
+    BYTE far *buffer; BYTE far *bufptr;
     UWORD offs;
     unsigned chunk_size;
     
