@@ -497,6 +497,8 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
         /* fall through */
 
       default:
+        if (c >= 256)
+          break;
         if (count < size - 1 || c == CR)
           local_buffer[count++] = echo_char(c, sft_out);
         else
