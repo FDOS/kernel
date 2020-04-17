@@ -71,7 +71,19 @@ struct HugeSectorBlock {
 /* functions with SS != DGROUP.  The code for this function happens to  */
 /* to compile under gcc-ia16 to correctly-behaving code _for now_.  But */
 /* it will be better to be able to guarantee this.   -- tkchia 20191207 */
+
+/* Update: I added experimental SS != DGROUP support, and a __seg_ss	*/
+/* address space qualifier, to gcc-ia16 around January 2020.  This	*/
+/* function now uses these if available.  In particular, the iregs *irp	*/
+/* structure will always be on the stack, so (as far as the calling	*/
+/* convention permits) the function can treat the irp pointer as a	*/
+/* 16-bit pointer relative to SS.		     -- tkchia 20200417 */
+#if defined __GNUC__ && defined  __IA16_FEATURE_ATTRIBUTE_NO_ASSUME_SS_DATA
+__attribute__((no_assume_ss_data))
+VOID ASMCFUNC int21_syscall(iregs __seg_ss * irp, ...)
+#else
 VOID ASMCFUNC int21_syscall(iregs FAR * irp)
+#endif
 {
   Int21AX = irp->AX;
 
@@ -150,7 +162,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
           /* Get DOS-C release string pointer                     */
         case 0xff:
-#ifndef __GNUC__
+#if !defined __GNUC__ || defined  __IA16_FEATURE_ATTRIBUTE_NO_ASSUME_SS_DATA
           irp->DX = FP_SEG(os_release);
 #else  /* TODO: remove this hacky SS != DGROUP workaround  --tkchia 20191207 */
           asm volatile("movw %%ds, %0" : "=g" (irp->DX));
