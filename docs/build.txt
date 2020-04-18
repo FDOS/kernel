@@ -37,8 +37,8 @@ You can now also cross compile with T.K. Chia's fork of ia16-elf-gcc,
 which is available at https://github.com/tkchia/gcc-ia16, using
 make all COMPILER=gcc
 or by setting COMPILER=gcc in config.mak. If you are using Ubuntu
-Linux 16.04 LTS (Xenial Xerus) or Ubuntu Linux 14.04 LTS (Trusty
-Tahr), there are precompiled ia16-elf-gcc packages at
+Linux 20.04 LTS (Focal Fossa), 18.04 (Bionic Beaver), or 16.04 LTS
+(Xenial Xerus), there are precompiled ia16-elf-gcc packages at
 https://launchpad.net/~tkchia/+archive/ubuntu/build-ia16/.
 Otherwise, for now ia16-elf-gcc needs to be compiled from source.
 Only releases 20180708 and later are supported.
