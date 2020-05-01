@@ -114,6 +114,7 @@ SECTIONS
 		_share_close_file = SHARE_CLOSE_FILE;
 		_share_access_check = SHARE_ACCESS_CHECK;
 		_share_lock_unlock = SHARE_LOCK_UNLOCK;
+		_share_is_file_open = SHARE_IS_FILE_OPEN;
 		_call_nls = CALL_NLS;
 		_fl_reset = FL_RESET;
 		_fl_diskchanged = FL_DISKCHANGED;
