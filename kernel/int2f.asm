@@ -342,6 +342,25 @@ SHARE_LOCK_UNLOCK:
 		mov	ax,0x10a4
 		jmp	short share_common
 
+;           DOS calls this to see if share already has the file marked as open.
+;           Returns:
+;             1 if open
+;             0 if not
+; STATIC WORD share_is_file_open(const char far *filename) /* pointer to fully qualified filename */
+		global SHARE_IS_FILE_OPEN
+SHARE_IS_FILE_OPEN:
+		mov	si, ds
+		mov	es, si		; save ds
+		pop	ax		; save return address
+		pop	si		; filename
+		pop	ds		; SEG filename
+		push	ax		; restore return address
+		mov	ax, 0x10a6
+		int	0x2f	     	; returns ax
+		mov	si, es		; restore ds
+		mov	ds, si
+		ret
+
 ; Int 2F Multipurpose Remote System Calls
 ;
 ; added by James Tabor jimtabor@infohwy.com

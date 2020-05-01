@@ -86,6 +86,13 @@ extern int ASMPASCAL
                              unsigned long len, /* length (in bytes) of region to lock or unlock */
                              int unlock);       /* one to unlock; zero to lock */
 
+        /* DOS calls this to see if share already has the file marked as open.
+           Returns:
+             1 if open
+             0 if not */
+extern int ASMPASCAL
+            share_is_file_open(const char far * filename);
+
 /* /// End of additions for SHARE.  - Ron Cemer */
 
 STATIC int remote_lock_unlock(sft FAR *sftp,    /* SFT for file */
@@ -1214,6 +1221,9 @@ COUNT DosDelete(BYTE FAR * path, int attrib)
   if (result & IS_DEVICE)
     return DE_FILENOTFND;
 
+  if (IsShareInstalled(TRUE) && share_is_file_open(PriPathName))
+    return DE_ACCESS;
+
   return dos_delete(PriPathName, attrib);
 }
 
@@ -1225,6 +1235,9 @@ COUNT DosRenameTrue(BYTE * path1, BYTE * path2, int attrib)
   }
   if (FP_OFF(current_ldt) == 0xFFFF || (current_ldt->cdsFlags & CDSNETWDRV))
     return network_redirector(REM_RENAME);
+
+  if (IsShareInstalled(TRUE) && share_is_file_open(path1))
+    return DE_ACCESS;
 
   return dos_rename(path1, path2, attrib);
 }
