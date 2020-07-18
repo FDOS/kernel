@@ -132,7 +132,9 @@ unsigned short getSS(void);
 #pragma enable_message(130)
 
 #if _M_IX86 >= 300 || defined(M_I386)
+#ifndef I386
 #define I386
+#endif
 #endif
 
 #elif defined (_MYMC68K_COMILER_)
@@ -185,9 +187,13 @@ We might even deal with a pre-ANSI compiler. This will certainly not compile.
 
 #ifdef I86
 #if _M_IX86 >= 300 || defined(M_I386)
+#ifndef I386
 #define I386
+#endif
 #elif _M_IX86 >= 100 || defined(M_I286)
+#ifndef I186
 #define I186
+#endif
 #endif
 #endif
 
