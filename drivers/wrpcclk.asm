@@ -41,7 +41,7 @@ segment HMA_TEXT
 WRITEPCCLOCK:
 ;               Ticks = 4
 		pop	ax			; return address
-		popargs {dx,cx}			; Ticks
+		popargs {cx,dx}			; Ticks
 		push	ax			; restore stack
                 mov     ah,1
                 int     1ah
