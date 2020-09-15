@@ -355,18 +355,19 @@ load_next:      dec     ax                      ; cluster numbers start with 2
 
 ; shows text after the call to this function.
 
+show.do_show:
+                mov     ah, 0Eh                 ; show character
+                int     10h                     ; via "TTY" mode
 show:           pop     si
                 lodsb                           ; get character
                 push    si                      ; stack up potential return address
-                mov     ah,0x0E                 ; show character
-                int     0x10                    ; via "TTY" mode
-                cmp     al,'.'                  ; end of string?
-                jne     show                    ; until done
+                cmp     al, 0                   ; end of string?
+                jne     .do_show                ; until done
                 ret
 
 boot_error:     call    show
-;                db      "Error! Hit a key to reboot."
-                db      "Error!."
+;                db      "Error! Hit a key to reboot.",0
+                db      "Error!",0
 
                 xor     ah,ah
                 int     0x13                    ; reset floppy
@@ -391,7 +392,7 @@ readDisk:       push    si
                 mov     word [READADDR_OFF], bx
 
                 call    show
-                db      "."
+                db      ".",0
 read_next:
 
 ;******************** LBA_READ *******************************
