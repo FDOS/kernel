@@ -25,7 +25,7 @@ NASMFLAGS+=-DWITHFAT32
 endif
 
 NASM=$(XNASM)
-NASMFLAGS+=-i../hdr/ -DXCPU=$(XCPU) -felf -o $@
+NASMFLAGS+=-i../hdr/ -DXCPU=$(XCPU) -felf
 
 CC=ia16-elf-gcc -c
 CL=ia16-elf-gcc
@@ -78,7 +78,7 @@ LINK=$(XLINK) -Tkernel.ld -Wl,-Map,kernel.map -o kernel.exe $(OBJS) -Wl,--whole-
 
 #               *Implicit Rules*
 .asm.obj :
-	$(NASM) -D$(COMPILER) $(NASMFLAGS) $*.asm
+	$(NASM) -D$(COMPILER) $(NASMFLAGS) -o $@ $<
 
 .c.obj :
 	$(CC) $(CFLAGS) $*.c
