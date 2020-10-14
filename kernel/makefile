@@ -158,7 +158,7 @@ initclk.obj: initclk.c  $(INITHEADERS) $(TARGET).lnk
 
 #the string functions for INIT_TEXT
 iasmsupt.obj: asmsupt.asm $(TARGET).lnk
-	$(NASM) -D$(COMPILER) -D_INIT -f obj $(NASMFLAGS) -o iasmsupt.obj asmsupt.asm
+	$(NASM) -D$(COMPILER) -D_INIT -f obj $(NASMFLAGS) -o $@ asmsupt.asm
 
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
 iprf.obj: iprf.c prf.c $(HDR)portab.h $(TARGET).lnk
