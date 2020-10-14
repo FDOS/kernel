@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 if [ -z "${TRAVIS_BUILD_DIR}" ] ; then
   TRAVIS_BUILD_DIR=$(pwd)
 fi

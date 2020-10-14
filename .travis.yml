@@ -1,12 +1,10 @@
 language: c
 
-dist:  bionic
+dist:  focal
 
 addons:
   apt:
     sources:
-      - sourceline: 'ppa:dosemu2/ppa'
-      - sourceline: 'ppa:stsp-0/djgpp'
       - sourceline: 'ppa:tkchia/build-ia16'
     packages:
       - gcc-ia16-elf
