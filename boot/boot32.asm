@@ -57,11 +57,16 @@ Entry:          jmp     short real_start
 %define xrootClst       bp+0x2c      ; Starting cluster of root directory
 %define drive           bp+0x40      ; Drive number
 
-		times	0x5a-$+$$ db 0
+		times   52h - ($ - $$) db 0
+		; The filesystem ID is used by lDOS's instsect (by ecm)
+		;  by default to validate that the filesystem matches.
+		db "FAT32"
+		times   5Ah - ($ - $$) db 32
+
 
 %define LOADSEG         0x0060
 
-%define FATSEG          0x2000         
+%define FATSEG          0x2000
 
 %define fat_sector      bp+0x48         ; last accessed sector of the FAT
 

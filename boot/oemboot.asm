@@ -223,7 +223,20 @@ Entry:          jmp     short real_start
                 db 0x29         ; extended boot record id
                 dd 0x12345678   ; volume serial number
                 db 'NO NAME    '; volume label
-                db 'FAT12   '   ; filesystem id
+                times   36h - ($ - $$) db 0
+                ; The filesystem ID is used by lDOS's instsect (by ecm)
+                ;  by default to validate that the filesystem matches.
+%ifdef ISFAT12
+                db "FAT12"     ; filesystem id
+ %ifdef ISFAT16
+ %error Must select one FS
+ %endif
+%elifdef ISFAT16
+                db "FAT16"
+%else
+ %error Must select one FS
+%endif
+                times   3Eh - ($ - $$) db 32
 
 ;-----------------------------------------------------------------------
 ;   ENTRY
