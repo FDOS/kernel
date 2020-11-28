@@ -100,7 +100,20 @@ Entry:          jmp     short real_start
 
 ;-----------------------------------------------------------------------
 
-                times   0x3E-$+$$ db 0
+                times   36h - ($ - $$) db 0
+                ; The filesystem ID is used by lDOS's instsect (by ecm)
+                ;  by default to validate that the filesystem matches.
+%ifdef ISFAT12
+                db "FAT12"
+ %ifdef ISFAT16
+ %error Must select one FS
+ %endif
+%elifdef ISFAT16
+                db "FAT16"
+%else
+ %error Must select one FS
+%endif
+                times   3Eh - ($ - $$) db 32
 
 ; using bp-Entry+loadseg_xxx generates smaller code than using just
 ; loadseg_xxx, where bp is initialized to Entry, so bp-Entry equals 0

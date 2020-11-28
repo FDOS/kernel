@@ -96,7 +96,11 @@ Entry:		jmp	short real_start
 %define data_start	bp+0x4c		; first data sector (dd)
 					; (overwriting unused bytes)
 
-		times	0x5a-$+$$ db 0
+		times   52h - ($ - $$) db 0
+		; The filesystem ID is used by lDOS's instsect (by ecm)
+		;  by default to validate that the filesystem matches.
+		db "FAT32"
+		times   5Ah - ($ - $$) db 32
 		; not used: [0x42] = byte 0x29 (ext boot param flag)
 		; [0x43] = dword serial
 		; [0x47] = label (padded with 00, 11 bytes)
