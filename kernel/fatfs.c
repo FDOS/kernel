@@ -463,8 +463,9 @@ COUNT dos_rmdir(BYTE * path)
     return DE_PATHNOTFND;
 
   /* Directories may have attributes, but if other than 'archive'      */
-  /* then do not allow (RDONLY|SYSTEM|HIDDEN) directory to be deleted. */
-  if (fnp->f_dir.dir_attrib & ~(D_DIR |D_ARCHIVE))
+  /* or 'read only' then deny i.e. do not allow (SYSTEM|HIDDEN)        */
+  /* directory to be deleted.                                          */
+  if (fnp->f_dir.dir_attrib & ~(D_DIR | D_RDONLY | D_ARCHIVE))
     return DE_ACCESS;
 
   dir_read(fnp);
