@@ -18,7 +18,7 @@ mv -i bin/KGC*.map bin/KGC*.sys _output/.
 
 # Watcom
 if [ ! -d _watcom ] ; then
-  [ -f ow-snapshot.tar.gz ] || wget https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.gz
+  [ -f ow-snapshot.tar.gz ] || wget --quiet https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.gz
 
   mkdir _watcom
   (cd _watcom && tar -xf ../ow-snapshot.tar.gz)
@@ -30,3 +30,5 @@ export WATCOM=$TRAVIS_BUILD_DIR/_watcom
 git clean -x -d -f -e _output -e _watcom -e ow-snapshot.tar.gz
 make all COMPILER=owlinux
 mv -i bin/KWC*.map bin/KWC*.sys _output/.
+
+echo done
