@@ -1,0 +1,40 @@
+name: Build / Test / Upload snapshot
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Package install
+      run: |
+        sudo add-apt-repository ppa:tkchia/build-ia16
+        sudo apt update
+        sudo apt install gcc-ia16-elf nasm upx
+
+    - name: build
+      run: ./ci_build.sh
+
+    - name: test
+      run: ./ci_test.sh
+
+    - name: make snapshot name
+      id: snapshotname
+      run: |
+        (
+          today=`date -u +%F | tr '\n' '-'`
+          s_sha=`echo -n ${GITHUB_SHA} | cut -c1-8`
+          printf '::set-output name=fname::snapshot-%s%s\n' $today $s_sha
+        )
+
+    - name: upload
+      uses: actions/upload-artifact@v2
+      with:
+        name: ${{ steps.snapshotname.outputs.fname }}
+        path: _output/K*.???
