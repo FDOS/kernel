@@ -1,11 +1,17 @@
-name: Build / Test / Upload snapshot
-
+name: Build
 on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - synchronize
   push:
-    branches: [ master ]
 
 jobs:
   build:
+    if: contains(github.event.head_commit.message, '[skip ci]') == false
 
     runs-on: ubuntu-20.04
 
@@ -34,6 +40,8 @@ jobs:
         )
 
     - name: upload
+      if: github.repository == 'FDOS/kernel' &&
+        (github.event_name == 'push' || github.event.pull_request.merged == true)
       uses: actions/upload-artifact@v2
       with:
         name: ${{ steps.snapshotname.outputs.fname }}
