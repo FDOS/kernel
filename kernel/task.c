@@ -92,6 +92,44 @@ ULONG SftGetFsize(int sft_idx)
   return s->sft_size;
 }
 
+STATIC WORD SetverCompareFilename(BYTE FAR *m1, BYTE FAR *m2, COUNT c)
+{
+  while (c--)
+  {
+    if (toupper(*m1) != toupper(*m2))
+    {
+      return *m1 - *m2;
+    }
+
+    m1 = m1 + 1; m2 = m2 + 1;
+  }
+
+  return 0;
+}
+
+STATIC UWORD SetverGetVersion(BYTE FAR *table, BYTE FAR *name)
+{
+  BYTE FAR *len;
+  COUNT nlen;
+
+  if ((table != NULL) && (name != NULL))
+  {
+    nlen = fstrlen(name);
+
+    while (*(len = table) != 0)
+    {
+      if ((*len == nlen) && (SetverCompareFilename(name, table + 1, *len) == 0))
+      {
+        return *((UWORD FAR *)(table + *len + 1));
+      }
+
+      table = table + *len + 3;
+    }
+  }
+
+  return 0;
+}
+
 STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
 {
   BYTE FAR *pSrc;
@@ -242,6 +280,7 @@ STATIC UWORD patchPSP(UWORD pspseg, UWORD envseg, exec_blk FAR * exb,
   mcb FAR *pspmcb;
   int i;
   BYTE FAR *np;
+  UWORD fakever;
 
   pspmcb = MK_FP(pspseg, 0);
   ++pspseg;
@@ -286,6 +325,11 @@ set_name:
   }
   if (i < 8)
     pspmcb->m_name[i] = '\0';
+
+  if ((fakever = SetverGetVersion(setverPtr, np)) != 0)
+  {
+    psp->ps_retdosver = fakever;
+  }
 
   /* return value: AX value to be passed based on FCB values */
   return (get_cds1(psp->ps_fcb1.fcb_drive) ? 0 : 0xff) |

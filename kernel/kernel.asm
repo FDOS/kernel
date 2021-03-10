@@ -407,7 +407,8 @@ _nul_dev:           ; 0022 device chain root
                 global  _njoined
 _njoined        db      0               ; 0034 number of joined devices
                 dw      0               ; 0035 DOS 4 pointer to special names (always zero in DOS 5)
-setverPtr       dw      0,0             ; 0037 setver list
+                global  _setverPtr
+_setverPtr      dw      0,0             ; 0037 setver list
                 dw      0               ; 003B cs offset for fix a20
                 dw      0               ; 003D psp of last umb exec
                 global _LoL_nbuffers

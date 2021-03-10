@@ -268,6 +268,8 @@ extern BYTE ASM ErrorMode,          /* Critical error flag                  */
   ASM CritErrClass, ASM VgaSet, 
   ASM njoined;                      /* number of joined devices             */
 
+extern VOID FAR * ASM setverPtr;    /* Pointer to SETVER list               */
+
 extern UWORD ASM Int21AX;
 extern COUNT ASM CritErrCode;
 extern BYTE FAR * ASM CritErrDev;
