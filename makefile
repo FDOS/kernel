@@ -91,8 +91,8 @@ XUPX=upx --8086 --best
 XNASM=nasm
 ifeq ($(COMPILER),gcc)
 MAKE=make
-MAKEADJUST=for i in utils lib drivers boot sys kernel; do sed 's@!include "\(.*\)"@include ../mkfiles/gcc.mak@' < $$i/makefile > $$i/GNUmakefile; done
-MAKEREMOVE=for i in utils lib drivers boot sys kernel; do rm -f $$i/GNUmakefile; done
+MAKEADJUST=for i in utils lib drivers boot sys kernel setver; do sed 's@!include "\(.*\)"@include ../mkfiles/gcc.mak@' < $$i/makefile > $$i/GNUmakefile; done
+MAKEREMOVE=for i in utils lib drivers boot sys kernel setver; do rm -f $$i/GNUmakefile; done
 XLINK=ia16-elf-gcc
 else
 MAKE=wmake -ms -h
@@ -115,6 +115,7 @@ all:
 	cd boot && $(MAKE) production
 	cd sys && $(MAKE) production
 	cd kernel && $(MAKE) production
+	cd setver && $(MAKE) production
 	$(MAKEREMOVE)
 
 clean:
@@ -125,6 +126,7 @@ clean:
 	cd boot && $(MAKE) clean
 	cd sys && $(MAKE) clean
 	cd kernel && $(MAKE) clean
+	cd setver && $(MAKE) clean
 	$(MAKEREMOVE)
 
 clobber:
@@ -135,4 +137,5 @@ clobber:
 	cd boot && $(MAKE) clobber
 	cd sys && $(MAKE) clobber
 	cd kernel && $(MAKE) clobber
+	cd setver && $(MAKE) clobber
 	$(MAKEREMOVE)

@@ -117,6 +117,13 @@ cd ..\kernel
 %MAKE% production
 if errorlevel 1 goto abort-cd
 
+echo.
+echo Process SETVER +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+echo.
+cd ..\setver
+%MAKE% production
+if errorlevel 1 goto abort-cd
+
 cd ..
 
 set XERROR=

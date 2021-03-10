@@ -27,6 +27,9 @@ cd ..\sys
 cd ..\kernel
 %MAKE% clobber
 
+cd ..\setver
+%MAKE% clobber
+
 cd ..\hdr
 if exist *.bak del *.bak
 
