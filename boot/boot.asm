@@ -58,6 +58,14 @@
 
 ;%define ISFAT12         1
 ;%define ISFAT16         1
+;verify one and only one of ISFAT12 or ISFAT16 is defined
+%ifdef ISFAT12 
+ %ifdef ISFAT16
+  %error Must select one FS
+ %endif
+%elifndef ISFAT16
+  %error Must select one FS
+%endif
 
 
 segment .text
@@ -104,15 +112,11 @@ Entry:          jmp     short real_start
                 ; The filesystem ID is used by lDOS's instsect (by ecm)
                 ;  by default to validate that the filesystem matches.
 %ifdef ISFAT12
-                db "FAT12"
- %ifdef ISFAT16
- %error Must select one FS
- %endif
+ %define FATFS "FAT12"
 %elifdef ISFAT16
-                db "FAT16"
-%else
- %error Must select one FS
+ %define FATFS "FAT16"
 %endif
+                db FATFS
                 times   3Eh - ($ - $$) db 32
 
 ; using bp-Entry+loadseg_xxx generates smaller code than using just
@@ -417,6 +421,14 @@ read_next:
                 mov     dl, [drive]
 
                 ; NOTE: sys must be updated if location changes!!!
+%ifdef ISFAT12
+  %define LBA_TEST_OFFSET 179h
+%elifdef ISFAT16
+  %define LBA_TEST_OFFSET 176h
+%endif
+%if ($ - Entry) != LBA_TEST_OFFSET
+    %error Must update constant offset (LBA_TEST_OFFSET) to test dl,dl here and in sys.c for FATFS
+%endif
                 test    dl,dl                   ; don't use LBA addressing on A:
                 jz      read_normal_BIOS        ; might be a (buggy)
                                                 ; CDROM-BOOT floppy emulation

@@ -1560,7 +1560,7 @@ void put_boot(SYSOptions *opts)
       /* !!! if boot sector changes then update these locations !!! */
       {
           unsigned offset;
-          offset = (fs == FAT16) ? 0x175 : 0x178;
+          offset = (fs == FAT16) ? 0x176 : 0x179;
           
           if ( (newboot[offset]==0x84) && (newboot[offset+1]==0xD2) ) /* test dl,dl */
           {
