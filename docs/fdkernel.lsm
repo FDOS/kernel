@@ -1,13 +1,15 @@
 Begin3
 Title:          The FreeDOS Kernel
-Version:        SVN
+Version:        git
 Entered-date:   N/A
 Description:    The FreeDOS Kernel
 Keywords:       kernel, FreeDOS, DOS, MSDOS
 Author:         (developers: can be reached on the freedos-kernel mailing list)
 Maintained-by:  freedos-kernel@lists.sourceforge.net
-Primary-site:   http://freedos.sourceforge.net/kernel/
+Primary-site:   http://github.com/fdos/kernel
+Alternate-site: http://www.fdos.org/kernel/
+Alternate-site: http://freedos.sourceforge.net/kernel/
 Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel
-Platforms:      DOS, FreeDOS, DOSEMU (OpenWatcom C or Turbo C, NASM, optionally UPX)
+Platforms:      DOS, FreeDOS, DOSEMU (OpenWatcom/Borland/GCC-ia16, NASM, UPX)
 Copying-policy: GPL2
 End

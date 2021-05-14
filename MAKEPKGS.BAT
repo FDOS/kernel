@@ -9,6 +9,8 @@ if EXIST SOURCE RMDIR /S /Q SOURCE > NUL
 MKDIR SOURCE
 ECHO \.svn>SOURCE\SKIPLIST
 ECHO .git>>SOURCE\SKIPLIST
+ECHO .yml>>SOURCE\SKIPLIST
+ECHO CNAME>>SOURCE\SKIPLIST
 XCOPY %BASEPATH% SOURCE\ke%1 /S /V /I /Q /G /H /R /Y /EXCLUDE:SOURCE\SKIPLIST
 DEL SOURCE\SKIPLIST > NUL
 ECHO ensuring clean
@@ -83,12 +85,11 @@ ECHO Description:    The FreeDOS Kernel>>%LSMFILE%
 ECHO Keywords:       kernel, FreeDOS, DOS, MSDOS>>%LSMFILE%
 ECHO Author:         (developers: can be reached on the freedos-kernel mailing list)>>%LSMFILE%
 ECHO Maintained-by:  freedos-kernel@lists.sourceforge.net>>%LSMFILE%
-ECHO Primary-site:   http://freedos.sourceforge.net/kernel/>>%LSMFILE%
+ECHO Primary-site:   http://github.com/fdos/kernel>>%LSMFILE%
 ECHO Alternate-site: http://www.fdos.org/kernel/>>%LSMFILE%
-ECHO Alternate-site: https://github.com/PerditionC/fdkernel>>%LSMFILE%
-ECHO Alternate-site: https://freedos.svn.sourceforge.net/svnroot/freedos>>%LSMFILE%
+ECHO Alternate-site: http://freedos.sourceforge.net/kernel/>>%LSMFILE%
 ECHO Original-site:  http://www.gcfl.net/pub/FreeDOS/kernel>>%LSMFILE%
-ECHO Platforms:      DOS, FreeDOS, DOSEMU (OpenWatcom C or Turbo C, NASM, UPX)>>%LSMFILE%
+ECHO Platforms:      DOS, FreeDOS, DOSEMU (OpenWatcom/Borland/GCC-ia16, NASM, UPX)>>%LSMFILE%
 ECHO Copying-policy: GPL2>>%LSMFILE%
 ECHO End>>%LSMFILE%
 SET LSMFILE=
@@ -96,7 +97,7 @@ SET VERSION=
 GOTO %LSMRET%
 
 :USAGE
-ECHO Build kernel packages (interim builds or release without tagging) - usage: RELEASE {VERSION} e.g. RELEASE 2039
+ECHO Build kernel packages (interim builds or release without tagging) - usage: %0 {VERSION} e.g. %0 2039
 :DONE
 CD %BASEPATH%
 SET BASEPATH=
