@@ -3,6 +3,8 @@ IF "%1"=="" GOTO USAGE
 REM assumes ran in same directory as this file, ie base of kernel source
 SET BASEPATH=%CD%
 CD ..
+REM when called from RELEASE.BAT assume clean source exported from version control
+IF "%2"=="RELEASE" GOTO PACK
 
 ECHO create source copy
 if EXIST SOURCE RMDIR /S /Q SOURCE > NUL
@@ -18,18 +20,20 @@ PUSHD .
 CD SOURCE\ke%1
 CALL clobber.bat
 POPD
-PAUSE
 
+:PACK
 SET VERSION=%1
 SET LSMRET=SRC
 SET LSMFILE=SOURCE\ke%1\docs\fdkernel.lsm
 GOTO LSM
 :SRC
+REM remove CONFIG.BAT if exists, such as building packages from develoment directory
+IF EXIST SOURCE\ke%1\CONFIG.BAT DEL SOURCE\ke%1\CONFIG.BAT > NUL
 ECHO zipping source
 7z.exe a -tzip -mx9 -mpass15 -r ke%1s.zip SOURCE\*
 ECHO creating APPINFO and expected packaging dir structure
 ECHO using working configuration file
-::COPY trunk\CONFIG.BAT SOURCE\ke%1 > NUL
+COPY %BASEPATH%\CONFIG.BAT SOURCE\ke%1\ > NUL
 CD SOURCE\ke%1
 
 ECHO build and packaging
@@ -97,7 +101,7 @@ SET VERSION=
 GOTO %LSMRET%
 
 :USAGE
-ECHO Build kernel packages (interim builds or release without tagging) - usage: %0 {VERSION} e.g. %0 2039
+ECHO Build kernel packages (interim builds or release without tagging) - usage: %0 {VERSION} e.g. %0 2039 or %0 git
 :DONE
 CD %BASEPATH%
 SET BASEPATH=
