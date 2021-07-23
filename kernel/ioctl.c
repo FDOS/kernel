@@ -114,10 +114,10 @@ int DosDevIOctl(lregs * r)
       {
         case 0x00:
           /* Get the flags from the SFT                           */
+          r->AX = flags & 0xff;
           if (flags & SFT_FDEVICE)
-            r->AX = (flags & 0xff) | (s->sft_dev->dh_attr & 0xff00);
-          else
-            r->AX = flags;
+            r->AX |= (s->sft_dev->dh_attr & 0xff00);
+          /* else: files/networks return 0 in AH/DH */
           /* Undocumented result, Ax = Dx seen using Pcwatch */
           r->DX = r->AX;
           return SUCCESS;
