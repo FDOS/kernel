@@ -483,7 +483,6 @@ instance_table: ; should include stacks, Win may auto determine SDA region
                 dw 0, seg _DATASTART ; [SEG:OFF] address of region's base
                 dw markEndInstanceData wrt seg _DATASTART ; size in bytes
                 dd 0 ; 0 marks end of table
-patch_bytes:         ; mark end of array of offsets of critical section bytes to patch
                 dw 0 ; and 0 length for end of instance_table entry
                 global  _winPatchTable
 _winPatchTable: ; returns offsets to various internal variables
@@ -492,11 +491,11 @@ _winPatchTable: ; returns offsets to various internal variables
                 dw save_BX     ; where BX stored during int21h dispatch
                 dw _InDOS      ; offset of InDOS flag
                 dw _MachineId  ; offset to variable containing MachineID
-                dw patch_bytes ; offset of to array of offsets to patch
+                dw _CritPatch  ; offset of to array of offsets to patch
                                ; NOTE: this points to a null terminated
                                ; array of offsets of critical section bytes
-                               ; to patch, for now we just point this to
-                               ; an empty table, purposely not _CritPatch
+                               ; to patch, for now we can just point this
+                               ; to an empty table
                                ; ie we just point to a 0 word to mark end
                 dw _uppermem_root ; seg of last arena header in conv memory
                                   ; this matches MS DOS's location, but 
