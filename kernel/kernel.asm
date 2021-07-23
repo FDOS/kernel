@@ -577,11 +577,11 @@ _net_name       db      '               ' ;-27 - 15 Character Network Name
                 global  _internal_data
 
                 global  _CritPatch
-_CritPatch      dw      0d0ch           ;-11 zero list of patched critical
-                dw      0d0ch           ;    section variables
-                dw      0d0ch
-                dw      0d0ch
-                dw      0d0ch
+_CritPatch      dw      0               ;-11 zero list of patched critical
+                dw      0               ;    section variables
+                dw      0               ;    DOS puts 0d0ch here but some
+                dw      0               ;    progs really write to that addr.
+                dw      0               ;-03 - critical patch list terminator
                 db      0               ;-01 - unknown
 _internal_data:              ; <-- Address returned by INT21/5D06
 _ErrorMode      db      0               ; 00 - Critical Error Flag
