@@ -412,11 +412,12 @@ fat_12:         add     si, si          ; multiply cluster number by 3...
                 ; value is in bits 4-15, and must be shifted right 4 bits. If
                 ; the number was odd, CF was set in the last shift instruction.
 
-                jnc     fat_even
-                mov     cl, 4
+                mov     cl, 4           ; always initialise shift counter
+                jc      fat_odd         ; is odd, only shift down -->
+                shl     ax, cl          ; shift up (effectively masks off
+                                        ;  the highest 4 bits)
+fat_odd:
                 shr     ax, cl
-
-fat_even:       and     ah, 0x0f        ; mask off the highest 4 bits
                 cmp     ax, 0x0ff8      ; check for EOF
                 jb      next_clust      ; continue if not EOF
 
