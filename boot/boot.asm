@@ -425,6 +425,11 @@ read_next:
   %define LBA_TEST_OFFSET 179h
 %elifdef ISFAT16
   %define LBA_TEST_OFFSET 176h
+%else
+  %define LBA_TEST_OFFSET 0
+                ; Just a placeholder, so the proper error message
+                ;  will be shown when assembling without either
+                ;  of the ISFATx defines.
 %endif
 %if ($ - Entry) != LBA_TEST_OFFSET
     %error Must update constant offset (LBA_TEST_OFFSET) to test dl,dl here and in sys.c for FATFS
