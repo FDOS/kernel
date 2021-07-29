@@ -643,17 +643,20 @@ UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First)
 
   /* Next initialze local variables by moving them from the fcb   */
   lpFcb = CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
-  /* Reconstrct the dirmatch structure from the fcb - doesn't hurt for first */
-  Dmatch.dm_drive = lpFcb->fcb_sftno;
+  if (First)
+  {
+    /* Reconstruct the dirmatch structure from the fcb */
+    Dmatch.dm_drive = lpFcb->fcb_sftno;
 
-  fmemcpy(Dmatch.dm_name_pat, lpFcb->fcb_fname, FNAME_SIZE + FEXT_SIZE);
-  DosUpFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
+    fmemcpy(Dmatch.dm_name_pat, lpFcb->fcb_fname, FNAME_SIZE + FEXT_SIZE);
+    DosUpFMem((BYTE FAR *) Dmatch.dm_name_pat, FNAME_SIZE + FEXT_SIZE);
   
-  Dmatch.dm_attr_srch = wAttr;
-  Dmatch.dm_entry = lpFcb->fcb_strtclst;
-  Dmatch.dm_dircluster = lpFcb->fcb_dirclst;
+    Dmatch.dm_attr_srch = wAttr;
+    Dmatch.dm_entry = lpFcb->fcb_strtclst;
+    Dmatch.dm_dircluster = lpFcb->fcb_dirclst;
 
-  wAttr = D_ALL;
+    wAttr = D_ALL;
+  }
   
   if ((xfcb FAR *) lpFcb != lpXfcb)
   {
