@@ -266,7 +266,7 @@ next_entry:     mov     cx, 11
                 cmp     byte [es:di], 0 ; if the first byte of the name is 0,
                 jnz     next_entry      ; there is no more files in the directory
 
-                jc      boot_error      ; fail if not found
+                jmp     boot_error      ; fail if not found
 ffDone:
                 push    ax              ; store first cluster number
 
