@@ -353,6 +353,7 @@ next_entry:     mov     cx, 11
                 jc      boot_error      ; fail if not found and si wraps
                 cmp     byte [si], 0    ; if the first byte of the name is 0,
                 jnz     next_entry      ; there are no more files in the directory
+                jmp     boot_error
 
 ffDone:
                 mov [first_cluster], ax ; store first cluster number
