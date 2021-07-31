@@ -1021,8 +1021,13 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
   buffer = adjust_far(buffer);
   for (; totaltodo != 0;)
   {
-    /* avoid overflowing 64K DMA boundary */
-    count = DMA_max_transfer(buffer, totaltodo);
+    count = totaltodo;
+    if ((pddt->ddt_descflags & DF_DMA_TRANSPARENT) == 0)
+    {
+        /* avoid overflowing 64K DMA boundary
+        for drives that don't handle this transparently */
+        count = DMA_max_transfer(buffer, totaltodo);
+    }     
 
     if (FP_SEG(buffer) >= 0xa000 || count == 0)
     {

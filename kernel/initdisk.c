@@ -710,6 +710,11 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
   driveParam->descflags = DF_LBA;
   if (lba_bios_parameters.information & 8)
     driveParam->descflags |= DF_WRTVERIFY;
+
+  if (lba_bios_parameters.information & 1)
+  {
+    driveParam->descflags |= DF_DMA_TRANSPARENT;        /* DMA boundary errors are handled transparently */
+  }
   
 StandardBios:                  /* old way to get parameters */
 

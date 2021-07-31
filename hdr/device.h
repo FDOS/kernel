@@ -253,6 +253,7 @@ typedef struct ddtstruct {
 /* freedos specific flag bits */
 #define DF_LBA        0x400
 #define DF_WRTVERIFY  0x800
+#define DF_DMA_TRANSPARENT   0x1000 /* DMA boundary errors are handled transparently */
 
 /* typedef struct ddtstruct ddt;*/
 
