@@ -575,6 +575,8 @@ _net_name       db      '               ' ;-27 - 15 Character Network Name
                 global  _return_code
                 global  _internal_data
 
+; ensure offset of critical patch table remains fixed, some programs hard code offset
+                times (0315h - ($ - DATASTART)) db 0
                 global  _CritPatch
 _CritPatch      dw      0               ;-11 zero list of patched critical
                 dw      0               ;    section variables
