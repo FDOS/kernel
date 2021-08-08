@@ -2207,11 +2207,12 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
     case 0x42:                 /* 64-bit move file pointer */
     {
       /* r.(DS:DX) points to 64-bit file position instead of r.(CX:DX) being 32-bit file position */
-      UWORD FAR *filepos = MK_FP(r.DS, r.DX);
+      UDWORD FAR *filepos = MK_FP(r.DS, r.DX);
       if (*(filepos+1) != 0) /* we currently only handle lower 32 bits, upper 32 bits must be 0 */
         goto error_invalid;
       r.BP = (UWORD)r.CL;
-      r.CX = *filepos;
+      r.CX = hiword(*filepos);
+      r.DX = loword(*filepos);
       /* fall through to 32-bit move file pointer (0x28) */
     }
     case 0x28:                 /* move file pointer */

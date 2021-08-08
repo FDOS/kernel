@@ -317,6 +317,13 @@ typedef signed long LONG;
 #define LONG long
 #endif
 
+#if USHRT_MAX == 0xFFFF
+# define loword(v) ((unsigned short)(v))
+#else
+# define loword(v) (0xFFFF & (unsigned)(v))
+#endif
+#define hiword(v) loword ((v) >> 16u)
+
 #define MK_UWORD(hib,lob) (((UWORD)(hib) <<  8u) | (UBYTE)(lob))
 #define MK_ULONG(hiw,low) (((ULONG)(hiw) << 16u) | (UWORD)(low))
 
