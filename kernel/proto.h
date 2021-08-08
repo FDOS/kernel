@@ -218,6 +218,7 @@ void FcbCloseAll(void);
 UBYTE FcbFindFirstNext(xfcb FAR * lpXfcb, BOOL First);
 
 /* intr.asm */
+UWORD ASMPASCAL call_intr(WORD nr, iregs FAR * rp);
 COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
 UCOUNT ASMPASCAL res_read(int fd, void *buf, UCOUNT count);
 #ifdef __WATCOMC__

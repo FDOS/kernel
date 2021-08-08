@@ -96,6 +96,15 @@ arg nr, rp
 
 segment	HMA_TEXT
 
+;
+;       void call_intr(nr, rp)
+;       REG int nr
+;       REG struct REGPACK *rp
+;
+		global	CALL_INTR
+CALL_INTR:
+		INTR
+
 ;; COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
     global RES_DOSEXEC
 RES_DOSEXEC:

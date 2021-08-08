@@ -409,6 +409,7 @@ VOID ASMCFUNC int21_service(iregs FAR * r)
   COUNT rc;
   long lrc;
   lregs lr; /* 8 local registers (ax, bx, cx, dx, si, di, ds, es) */
+  psp FAR *psp = MK_FP(cu_psp, 0);
 
 #define FP_DS_DX (MK_FP(lr.DS, lr.DX))
 #define FP_ES_DI (MK_FP(lr.ES, lr.DI))
@@ -416,7 +417,7 @@ VOID ASMCFUNC int21_service(iregs FAR * r)
 #define CLEAR_CARRY_FLAG()  r->FLAGS &= ~FLG_CARRY
 #define SET_CARRY_FLAG()    r->FLAGS |= FLG_CARRY
 
-  ((psp FAR *) MK_FP(cu_psp, 0))->ps_stack = (BYTE FAR *) r;
+  psp->ps_stack = (BYTE FAR *) r;
 
   fmemcpy(&lr, r, sizeof(lregs) - 4);
   lr.DS = r->DS;
@@ -755,13 +756,11 @@ dispatch:
       /* Get (editable) DOS Version                                   */
     case 0x30:
     {
-      psp FAR *p = MK_FP(cu_psp, 0);
-
       if (lr.AL == 1) /* from RBIL, if AL=1 then return version_flags */
           lr.BH = version_flags;
       else
           lr.BH = OEM_ID;
-      lr.AX = p->ps_retdosver;
+      lr.AX = psp->ps_retdosver;
       lr.BL = REVISION_SEQ;
       lr.CX = 0; /* do not set this to a serial number!
                     32RTM won't like non-zero values   */
@@ -1070,8 +1069,7 @@ dispatch:
 #if 0
         if (cu_psp == lr.ES)
         {
-          psp FAR *p = MK_FP(cu_psp, 0);
-          p->ps_size = lr.BX + cu_psp;
+          psp->ps_size = lr.BX + cu_psp;
         }
 #endif
         if (DosMemCheck() != SUCCESS)
@@ -1538,10 +1536,141 @@ dispatch:
       /* case 0x6d and above not implemented : see default; return AL=0 */
 
 #ifdef WITHFAT32
-      /* LFN functions - fail with "function not supported" error code */
+    /* LFN API */
     case 0x71:
-      lr.AL = 00;
-      goto error_carry;
+      switch (lr.AL)
+      {
+#ifdef WITHLFNAPI
+        /* Win95 LFN - reset drive */
+        case 0x0d:
+        /* Win95 LFN - make directory */
+        case 0x39:
+        /* Win95 LFN - remove directory */
+        case 0x3a:
+        /* Win95 LFN - change directory */
+        case 0x3b:
+        /* Win95 LFN - delete file */
+        case 0x41:
+        /* Win95 LFN - extended get/set file attributes */
+        case 0x43:
+        /* Win95 LFN - get current directory */
+        case 0x47:
+        /* Win95 LFN - find first file */
+        case 0x4e:
+        /* Win95 LFN - find next file */
+        case 0xa2:  /* internal - same as 0x4f */
+        case 0x4f: {
+          goto unsupp;
+        }
+        /* Win95 LFN - rename file */
+        case 0x56:
+        /* Win95 LFN - canonicalize file name/path */
+        case 0x60: {
+          switch (lr->CL)
+          {
+            /* truename - canonicalize path, accepts short/long/or combination as input and may return combined short/long name */
+            case 0x00: {
+            }
+            /* get canonical short (8.3) name or path, truename that accepts long name and returns short name  */
+            case 0x01: {
+            }
+            /* get canonical long name or path, truename that accepts short name and returns long name */
+            case 0x02: {
+            }
+            default: 
+              goto unsupp;
+          }
+        }
+        /* Win95 LFN - create or open file */
+        case 0xa9:  /* for real-mode servers only, AX is _global_ file handle on return */
+        case 0x6c: {
+          goto unsupp;
+        }
+        /* Win95 LFN - get volume information */
+        case 0xa0:
+        /* Win95 LFN - find file close */
+        case 0xa1:  {
+lfn_findclose:            
+          goto unsupp;
+        }
+#if 0
+        /* Win95 LFN - internal use ??? */
+        case 0xa3:
+        case 0xa4:
+        case 0xa5:
+          goto unsupp;
+#endif
+#endif
+        /* Win95 LFN - get file info by handle */
+        case 0x42:  /* ??? */
+        case 0xa6: {
+          /* only passed to redirector supported for now */
+          iregs saved_r;
+          sft FAR *s;
+          unsigned char idx;
+
+          if (r->BX >= psp->ps_maxfiles)
+          {
+            rc = DE_INVLDHNDL;
+            goto error_exit;
+          }
+          idx = psp->ps_filetab[r->BX];
+          s = idx_to_sft(idx);
+          if (s == (sft FAR *)-1)
+          {
+            rc = DE_INVLDHNDL;
+            goto error_exit;
+          }
+          if (!(s->sft_flags & SFT_FSHARED))
+            goto unsupp;    /* unsupported on local fs yet */
+          /* call to redirector */
+          saved_r = *r;
+          r->ES = FP_SEG(s);
+          r->DI = FP_OFF(s);
+          r->flags |= FLG_CARRY;
+          r->AH = 0x11;
+          call_intr(0x2f, r);
+          if (!(r->flags & FLG_CARRY)) {
+            r->ES = saved_r.ES;
+            r->DI = saved_r.DI;
+            goto real_exit;
+          }
+          /* carry still set - unhandled */
+          *r = saved_r;
+          goto unsupp;
+          break;
+        }
+#ifdef WITHLFNAPI
+        /* Win95 LFN - Win95 64 UTC file time to/from DOS date and time (local timezone) */
+        case 0xa7: {
+          /* Note: valid input range limited to Jan 1, 1980 to Dec 31, 2107 */
+          switch (lr->BL)
+          {
+            /* from Win95 UTC to DOS date/time */
+            case 0x00: {
+            }
+            /* from DOS date/time to Win95 UTC */
+            case 0x01: {
+            }
+            default: 
+              goto unsupp;
+          }
+        }
+        /* Win95 LFN - generate short filename */
+        case 0xa8:
+        /* Win95 LFN - subst */
+        case 0xaa: {
+          goto unsupp;
+        }
+#endif
+        default:
+          goto unsupp;
+      }
+      break;
+#ifdef WITHLFNAPI
+    /* Win95 beta LFN - find close */
+    case 0x72: goto lfn_findclose;
+#endif
 
       /* DOS 7.0+ FAT32 extended functions */
     case 0x73:
@@ -1591,6 +1720,11 @@ dispatch:
 #endif
   }
   goto exit_dispatch;
+unsupp:
+  {
+    lr.AL = 00;
+    goto error_carry;
+  }
 long_check:
   if (lrc >= SUCCESS)
   {
