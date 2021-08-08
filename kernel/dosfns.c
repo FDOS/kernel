@@ -306,7 +306,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   return rwblock(sft_idx, bp, n, mode);
 }
 
-COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
+COUNT SftSeek2(int sft_idx, LONG new_pos, unsigned mode, UDWORD * p_result)
 {
   sft FAR *s = idx_to_sft(sft_idx);
   if (FP_OFF(s) == (size_t) -1)
@@ -347,17 +347,25 @@ COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
   }
 
   s->sft_posit = new_pos;
+  *p_result = new_pos;
   return SUCCESS;
+}
+
+COUNT SftSeek(int sft_idx, LONG new_pos, unsigned mode)
+{
+  UDWORD result;
+  return SftSeek2(sft_idx, new_pos, mode, &result);
 }
 
 ULONG DosSeek(unsigned hndl, LONG new_pos, COUNT mode, int *rc)
 {
   int sft_idx = get_sft_idx(hndl);
+  UDWORD result;
 
   /* Get the SFT block that contains the SFT      */
-  *rc = SftSeek(sft_idx, new_pos, mode);
+  *rc = SftSeek2(sft_idx, new_pos, mode, &result);
   if (*rc == SUCCESS)
-    return idx_to_sft(sft_idx)->sft_posit;
+    return result;
   return *rc;
 }
 

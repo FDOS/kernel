@@ -952,8 +952,7 @@ dispatch:
     case 0x42:
       if (lr.AL > 2)
         goto error_invalid;
-      lrc = DosSeek(lr.BX, (LONG)((((ULONG) (lr.CX)) << 16) | lr.DX), lr.AL,
-        &rc);
+      lrc = DosSeek(lr.BX, (LONG)MK_ULONG(lr.CX, lr.DX), lr.AL, &rc);
       if (rc == SUCCESS)
       {
         lr.DX = (UWORD)(lrc >> 16);
@@ -1601,8 +1600,9 @@ lfn_findclose:
           goto unsupp;
 #endif
 #endif
+        /* EDR-DOS LFN - Long LSEEK - SET CURRENT 64-bit FILE POSITION */
+        case 0x42:
         /* Win95 LFN - get file info by handle */
-        case 0x42:  /* ??? */
         case 0xa6: {
           /* only passed to redirector supported for now */
           iregs saved_r;
@@ -1621,8 +1621,11 @@ lfn_findclose:
             rc = DE_INVLDHNDL;
             goto error_exit;
           }
-          if (!(s->sft_flags & SFT_FSHARED))
-            goto unsupp;    /* unsupported on local fs yet */
+          if (!(s->sft_flags & SFT_FSHARED)) {
+            if (lr.AL != 0x42) {
+              goto unsupp;    /* unsupported on local fs yet */
+            }
+          }
           /* call to redirector */
           saved_r = *r;
           r->ES = FP_SEG(s);
@@ -2201,6 +2204,16 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       rc = DosClose(r.BX);
       goto short_check;
 
+    case 0x42:                 /* 64-bit move file pointer */
+    {
+      /* r.(DS:DX) points to 64-bit file position instead of r.(CX:DX) being 32-bit file position */
+      UWORD FAR *filepos = MK_FP(r.DS, r.DX);
+      if (*(filepos+1) != 0) /* we currently only handle lower 32 bits, upper 32 bits must be 0 */
+        goto error_invalid;
+      r.BP = (UWORD)r.CL;
+      r.CX = *filepos;
+      /* fall through to 32-bit move file pointer (0x28) */
+    }
     case 0x28:                 /* move file pointer */
       /*
        * RBIL says: "sets user stack frame pointer to dummy buffer,
