@@ -2104,6 +2104,46 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       r.AL = (r.CL & 3) ? 28 : 29;
       break;
 
+    case 0x1f:                 /* build current directory structure */
+      {
+        /* this is similar to ARG1-'A', but case-insensitive.
+         * Note: the letter is passed here, not number! */
+        int drv = (r.callerARG1 & 0x1f) - 1;
+        struct cds FAR *cdsp;
+        if (drv < 0 || r.callerARG1 < 'A' || r.callerARG1 > 'z')
+        {
+          r.FLAGS |= FLG_CARRY;
+          break;
+        }
+        cdsp = get_cds_unvalidated(drv);
+        if (cdsp == NULL)
+        {
+          r.FLAGS |= FLG_CARRY;
+          break;
+        }
+        strcpy(TempCDS.cdsCurrentPath, "?:\\");
+        *TempCDS.cdsCurrentPath = (BYTE)(r.callerARG1 & 0xff);        
+        TempCDS.cdsBackslashOffset = 2;
+        if (cdsp->cdsFlags)
+        {
+          TempCDS.cdsDpb = cdsp->cdsDpb;
+          TempCDS.cdsFlags = CDSPHYSDRV;    // don't inherit CDS flags
+        }
+        else
+        {
+          TempCDS.cdsDpb = NULL;
+          TempCDS.cdsFlags = 0;
+        }
+        TempCDS.cdsStrtClst = 0xffff;
+        TempCDS.cdsParam = 0xffff;
+        TempCDS.cdsStoreUData = 0xffff;
+        r.CX = sizeof(TempCDS);
+        r.ES = FP_SEG(&TempCDS);
+        r.DI = FP_OFF(&TempCDS);
+        r.FLAGS &= ~FLG_CARRY;
+        break;
+      }
+      
     case 0x20:                 /* get job file table entry */
       {
         psp FAR *p = MK_FP(cu_psp, 0);
