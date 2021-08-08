@@ -1565,7 +1565,7 @@ dispatch:
         case 0x56:
         /* Win95 LFN - canonicalize file name/path */
         case 0x60: {
-          switch (lr->CL)
+          switch (lr.CL)
           {
             /* truename - canonicalize path, accepts short/long/or combination as input and may return combined short/long name */
             case 0x00: {
@@ -1609,12 +1609,12 @@ lfn_findclose:
           sft FAR *s;
           unsigned char idx;
 
-          if (r->BX >= psp->ps_maxfiles)
+          if (lr.BX >= psp->ps_maxfiles)
           {
             rc = DE_INVLDHNDL;
             goto error_exit;
           }
-          idx = psp->ps_filetab[r->BX];
+          idx = psp->ps_filetab[lr.BX];
           s = idx_to_sft(idx);
           if (s == (sft FAR *)-1)
           {
@@ -1647,7 +1647,7 @@ lfn_findclose:
         /* Win95 LFN - Win95 64 UTC file time to/from DOS date and time (local timezone) */
         case 0xa7: {
           /* Note: valid input range limited to Jan 1, 1980 to Dec 31, 2107 */
-          switch (lr->BL)
+          switch (lr.BL)
           {
             /* from Win95 UTC to DOS date/time */
             case 0x00: {
@@ -1699,7 +1699,7 @@ lfn_findclose:
             break;
           /* Setup LFN inode */
           case 0x03:
-            rc = lfn_setup_inode(lr.BX, ((ULONG)lr.CX << 16) | lr.DX, ((ULONG)lr.SI << 16) | lr.DI);
+            rc = lfn_setup_inode(lr.BX, MK_ULONG(lr.CX, lr.DX), MK_ULONG(lr.SI,lr.DI));
             break;
           /* Create LFN entries */
           case 0x04:

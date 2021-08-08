@@ -250,7 +250,7 @@ VOID mcb_print(mcb FAR * mcbp);
 COUNT lfn_allocate_inode(VOID);
 COUNT lfn_free_inode(COUNT handle);
 
-COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, UWORD diroff);
+COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, ULONG diroff);
 
 COUNT lfn_create_entries(COUNT handle, lfn_inode_ptr lip);
 COUNT lfn_remove_entries(COUNT handle);

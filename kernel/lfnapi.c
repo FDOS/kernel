@@ -105,7 +105,7 @@ COUNT lfn_free_inode(COUNT handle)
  * Return value.
  *  SUCCESS, LHE_INVLDHNDL
  */
-COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, UWORD diroff)
+COUNT lfn_setup_inode(COUNT handle, ULONG dirstart, ULONG diroff)
 {
   f_node_ptr fnp = xlt_fd(handle);
   if (fnp == 0 || fnp->f_count <= 0) return LHE_INVLDHNDL;
