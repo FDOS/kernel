@@ -51,6 +51,7 @@ if "%1" == "x86"   goto setCPU
 if "%1" == "upx"   set XUPX=upx --8086 --best
 
 if "%1" == "debug" set ALLCFLAGS=%ALLCFLAGS% -DDEBUG
+if "%1" == "lfn"   set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI
 if "%1" == "lfnapi" set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI
 
 if "%1" == "win"   set ALLCFLAGS=%ALLCFLAGS% -DWIN31SUPPORT
