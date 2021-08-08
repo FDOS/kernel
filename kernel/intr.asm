@@ -28,7 +28,7 @@
 		%include "segs.inc"
 		%include "stacks.inc"
 
-%macro INTR 0
+%macro INTR 1
         
                 push    bp                      ; Standard C entry
                 mov     bp,sp
@@ -41,12 +41,18 @@
                 push    es
 %endif
                 push	ds
+				pushf
 
-arg nr, rp
+arg nr, {rp,%1}
                 mov	ax, [.nr]		; interrupt number
                 mov	[cs:%%intr_1-1], al
                 jmp 	short %%intr_2		; flush the instruction cache
-%%intr_2	mov	bx, [.rp]		; regpack structure
+%%intr_2
+%if %1 == 4
+		lds	bx, [.rp]		; regpack structure FAR
+%else
+		mov	bx, [.rp]		; regpack structure
+%endif
 		mov	ax, [bx]
 		mov	cx, [bx+4]
 		mov	dx, [bx+6]
@@ -55,6 +61,8 @@ arg nr, rp
 		mov	bp, [bx+12]
 		push	word [bx+14]		; ds
 		mov	es, [bx+16]
+		push word [bx+22]			; flags
+		popf
 		mov	bx, [bx+2]
 		pop	ds
 		int	0
@@ -64,23 +72,33 @@ arg nr, rp
 		push	ds
 		push	bx
 		mov	bx, sp
-		mov	ds, [ss:bx+6]
+%if %1 == 4
 %ifdef WATCOM
-		mov	bx, [ss:bx+24]		; address of REGPACK
+		lds bx, [ss:bx+(14+8)+4]		; FAR address of REGPACK, pascal convention
 %else
-		mov	bx, [ss:bx+12+.rp-bp]	; address of REGPACK
+		lds bx, [ss:bx+14+.rp-bp]	; FAR address of REGPACK, SP=BX + skip saved registers (14) + 
+%endif
+%else
+		mov	ds, [ss:bx+8]
+%ifdef WATCOM
+		mov	bx, [ss:bx+26]			; NEAR address of REGPACK, pascal convention
+%else
+		mov	bx, [ss:bx+14+.rp-bp]	; NEAR address of REGPACK
+%endif
 %endif
 		mov	[bx], ax
-		pop	word [bx+2]
+		pop	word [bx+2]				; bx
 		mov	[bx+4], cx
 		mov	[bx+6], dx
 		mov	[bx+8], si
 		mov	[bx+10], di
 		mov	[bx+12], bp
-		pop	word [bx+14]
+		pop	word [bx+14]			; ds
 		mov	[bx+16], es
-		pop	word [bx+22]
+		pop	word [bx+22]			; flags
 
+		; restore all registers to values from INTR entry
+		popf
 		pop	ds
 %ifdef WATCOM
                 pop     es
@@ -91,19 +109,17 @@ arg nr, rp
 		pop	di
 		pop	si
 		pop	bp
-		ret     4
 %endmacro
 
 segment	HMA_TEXT
 
 ;
-;       void call_intr(nr, rp)
-;       REG int nr
-;       REG struct REGPACK *rp
+;       void ASMPASCAL call_intr(WORD nr, struct REGPACK FAR *rp)
 ;
 		global	CALL_INTR
 CALL_INTR:
-		INTR
+		INTR 4 ; rp is far, DWORD argument
+		ret 6
 
 ;; COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp)
     global RES_DOSEXEC
@@ -141,7 +157,8 @@ segment	INIT_TEXT
 ;
 		global	INIT_CALL_INTR
 INIT_CALL_INTR:
-		INTR
+		INTR 2	; rp is near, WORD argument
+		ret 4
 
 ;
 ; int init_call_XMScall( (WORD FAR * driverAddress)(), WORD AX, WORD DX)

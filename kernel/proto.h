@@ -222,6 +222,7 @@ UWORD ASMPASCAL call_intr(WORD nr, iregs FAR * rp);
 COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
 UCOUNT ASMPASCAL res_read(int fd, void *buf, UCOUNT count);
 #ifdef __WATCOMC__
+#pragma aux (pascal) call_intr modify exact [ax]
 #pragma aux (pascal) res_DosExec modify exact [ax bx dx es]
 #pragma aux (pascal) res_read modify exact [ax bx cx dx]
 #endif

@@ -89,6 +89,7 @@ SECTIONS
     .text 0 : AT (ALIGN(LOADADDR(.data) + SIZEOF(.data), 16)) {
 		*(HMA_TEXT_START)
 		*(HMA_TEXT)
+		_call_intr = CALL_INTR;
 		_res_DosExec = RES_DOSEXEC;
 		_res_read = RES_READ;
 		_strlen = STRLEN;
