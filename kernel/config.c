@@ -1166,9 +1166,6 @@ STATIC char *GetNumArg(char *p, int *num)
 
 BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
 {
-  /* look for STRING                               */
-  pLine = skipwh(pLine);
-
   /* just return whatever string is there, including null         */
   return scan(pLine, pszString);
 }
