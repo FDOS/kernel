@@ -2204,6 +2204,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       rc = DosClose(r.BX);
       goto short_check;
 
+#ifdef WITHFAT32
+#ifdef WITHLFNAPI
     case 0x42:                 /* 64-bit move file pointer */
     {
       /* r.(DS:DX) points to 64-bit file position instead of r.(CX:DX) being 32-bit file position */
@@ -2215,6 +2217,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       r.DX = loword(*filepos);
       /* fall through to 32-bit move file pointer (0x28) */
     }
+#endif
+#endif
     case 0x28:                 /* move file pointer */
       /*
        * RBIL says: "sets user stack frame pointer to dummy buffer,
