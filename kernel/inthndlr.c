@@ -1723,11 +1723,13 @@ lfn_findclose:
 #endif
   }
   goto exit_dispatch;
+#ifdef WITHFAT32
 unsupp:
   {
     lr.AL = 00;
     goto error_carry;
   }
+#endif
 long_check:
   if (lrc >= SUCCESS)
   {
