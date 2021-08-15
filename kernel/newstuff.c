@@ -304,16 +304,6 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   cdsEntry = get_cds(result);
   if (cdsEntry == NULL)
   {
-    /* workaround for a device prefixed with invalid drive (e.g. "@:NUL") */
-    /* (MS-DOS always return drive P: for invalid drive. Why P:?) */
-    if (dhp)
-    {
-      result = default_drive;
-      cdsEntry = get_cds(result);
-      if (cdsEntry == NULL)
-        return DE_PATHNOTFND;
-    }
-    else
       return DE_PATHNOTFND;
   }
 
