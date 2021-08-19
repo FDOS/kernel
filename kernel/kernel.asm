@@ -320,14 +320,22 @@ segment _LOWTEXT
                 global _intvec_table
 _intvec_table:  db 10h
                 dd 0
+                ; used by int13 handler and get/set via int 2f/13h
+                global  _BIOSInt13 ; BIOS provided disk handler 
+                global  _UserInt13 ; actual disk handler used by kernel
                 db 13h
-                dd 0
+_BIOSInt13:     dd 0  
                 db 15h
                 dd 0
+                ; used for cleanup on reboot
+                global  _BIOSInt19
                 db 19h
-                dd 0
+_BIOSInt19:     dd 0
                 db 1Bh
                 dd 0
+                ; default to using BIOS provided disk handler
+                db 13h
+_UserInt13:     dd 0 
 
                 ; floppy parameter table
                 global _int1e_table
@@ -480,7 +488,7 @@ _winStartupInfo:
                 dw instance_table,seg instance_table ; array of instance data
 instance_table: ; should include stacks, Win may auto determine SDA region
                 ; we simply include whole DOS data segment
-                dw 0, seg _DATASTART ; [SEG:OFF] address of region's base
+                dw seg _DATASTART, 0 ; [SEG:OFF] address of region's base
                 dw markEndInstanceData wrt seg _DATASTART ; size in bytes
                 dd 0 ; 0 marks end of table
                 dw 0 ; and 0 length for end of instance_table entry
@@ -508,7 +516,9 @@ _winPatchTable: ; returns offsets to various internal variables
 _firstsftt:             
                 dd -1                   ; link to next
                 dw 5                    ; count 
-        
+                times 5*59 db 0         ; reserve space for the 5 sft entries
+                db 0                    ; pad byte so next value on even boundary        
+
 ; Some references seem to indicate that this data should start at 01fbh in
 ; order to maintain 100% MS-DOS compatibility.
                 times (01fbh - ($ - DATASTART)) db 0

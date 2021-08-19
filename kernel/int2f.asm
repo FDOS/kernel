@@ -122,10 +122,14 @@ WinIdle:					; only HLT if at haltlevel 2+
 
 Int2f3:         cmp     ax,1680h                ; Win "release time slice"
                 je      WinIdle
-                cmp     ah,16h
-                je      FarTabRetn              ; other Win Hook return fast
                 cmp     ah,12h
                 je      IntDosCal               ; Dos Internal calls
+                cmp     ah,13h
+                je      IntDosCal               ; Install Int13h Hook
+                cmp     ah,16h
+                je      IntDosCal               ; Win (Multitasking) Hook
+                cmp     ah,46h
+                je      IntDosCal               ; Win Hook to avoid MCB corruption
 
                 cmp     ax,4a01h
                 je      IntDosCal               ; Dos Internal calls
@@ -135,6 +139,9 @@ Int2f3:         cmp     ax,1680h                ; Win "release time slice"
                 cmp     ax,4a33h                ; Check DOS version 7
                 jne     Check4Share
                 xor     ax,ax                   ; no undocumented shell strings
+                xor     bx,bx                   ; RBIL undoc BX = ?? (0h)
+                                                ;  " DS:DX ASCIIZ shell exe name
+                                                ;  " DS:SI SHELL= line
                 iret
 Check4Share:
 %endif

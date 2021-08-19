@@ -31,6 +31,8 @@
 #include "portab.h"
 #include "globals.h"
 #include "nls.h"
+#include "win.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 BYTE *RcsId =
@@ -1901,7 +1903,12 @@ struct int2f12regs {
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
 
-/* On input pr->AX==0x12xx, 0x4A01 or 0x4A02
+extern intvec BIOSInt13, UserInt13, BIOSInt19;
+
+
+/* WARNING: modifications in `r' are used outside of int2F_12_handler()
+ * On input r.AX==0x12xx, 0x4A01 or 0x4A02
+ * also handle Windows' DOS notification hooks, r.AH==0x16 and r.AH==0x13
  */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 {
@@ -1931,6 +1938,252 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
     r.BX = size;
     return;
   }
+  else if (r.AH == 0x13) /* set disk interrupt (13h) handler */
+  {
+    /* set new values for int13h calls, and must return old values */
+    register intvec tmp = UserInt13;
+    UserInt13 = MK_FP(r.ds, r.DX);            /* int13h handler to use */
+    r.ds = FP_SEG(tmp);  r.DX = FP_OFF(tmp);
+    tmp = BIOSInt13;
+    BIOSInt13 = MK_FP(r.es, r.BX);            /* int13h handler to restore on reboot */
+    r.es = FP_SEG(tmp);  r.BX = FP_OFF(tmp);
+    return;
+  }
+  else if (r.AH == 0x16) /* Window/Multitasking hooks */
+  {
+#ifdef WIN31SUPPORT  /* See "DOS Internals" or RBIL under DOSMGR for details */
+    switch (r.AL)
+    {
+      /* default: unhandled requests pass through unchanged */
+      case 0x0:          /* is Windows active */
+      case 0x0A:         /* identify Windows version */
+      {
+        /* return AX unchanged if Windows not active */
+        break;
+      } /* 0x0, 0x0A */
+      case 0x03:          /* Windows Get Instance Data */
+      {
+        /* This should only be called if AX=1607h/BX=15h is not supported. */
+        /* The data returned here corresponds directly with text entries that
+           can also be in INSTANCE.386 [which in theory means Windows could
+           be updated to support FD kernel without responding to these?].
+         */
+        DebugPrintf(("get instance data\n"));
+        break;
+      } /* 0x03 */
+      case 0x05:          /* Windows Startup Broadcast */
+      {
+        /* After receiving this call we activate compatibility changes
+           as DOS 5 does, though can wait until 0x07 subfunc 0x01
+         */
+        /* on entry:
+           DX flags, bit 0 is set(=1) for standard mode
+           DI Windows version#, major# in high byte
+           CX 0, set on exit to nonzero to fail load request
+           DS:SI is 0000:0000, for enhanced mode, at most 1 program can
+                 set to memory manager calling point to disable V86
+           ES:BX is 0000:0000, set to startup structure
+          */
+        r.CX = 0x0; /* it is ok to load Windows, give it a shot anyway :-) */
+        r.es = FP_SEG(&winStartupInfo);
+        r.BX = FP_OFF(&winStartupInfo);
+        winStartupInfo.winver = r.di;  /* match what caller says it is */
+        winInstanced = 1; /* internal flag marking Windows is active */
+        DebugPrintf(("Win startup\n"));
+        break;
+      } /* 0x05 */
+      case 0x06:          /* Windows Exit Broadcast */
+      {
+        /* can do nothing or can remove any changes made
+           specifically for Windows, must preserve DS.
+           Note: If Windows fatally exits then may not be called.
+         */
+        winInstanced = 0; /* internal flag marking Windows is NOT active */
+        DebugPrintf(("Win exit\n"));
+        break;
+      } /* 0x06 */
+      case 0x07:          /* DOSMGR Virtual Device API */
+      {
+        DebugPrintf(("Vxd:DOSMGR:%x:%x:%x:%x\n",r.AX,r.BX,r.CX,r.DX));
+        if (r.BX == 0x15) /* VxD id of "DOSMGR" */
+        {
+          switch (r.CX)
+          {
+            /* default: unhandled requests pass through unchanged */
+            case 0x00:    /* query if supported */
+            {
+              r.CX = winInstanced; /* should always be nonzero if Win is active */
+              r.DX = FP_SEG(&nul_dev); /* data segment / segment of DOS drivers */
+              r.es = FP_SEG(&winPatchTable); /* es:bx points to table of offsets */
+              r.BX = FP_OFF(&winPatchTable);
+              break;
+            }
+            case 0x01:    /* enable Win support, ie patch DOS */
+            {
+              /* DOS 5+ return with bitflags unchanged, Windows critical section
+                 needs are handled without need to patch.  If this
+                 function does not return successfully windows will
+                 attempt to do the patching itself (very bad idea).
+                 On entry BX is bitflags describing support requested,
+                 and on return DX is set to which we can support.
+                 Note: any we report as unhandled Windows will attempt
+                 to patch kernel to handle, probably not a good idea.
+                   0001h: enable critical section signals (int 2Ah functions
+                          80h/81h) to allow re-entering DOS while InDOS.
+                   0002h: allow nonzero local machine ID, ie different VMs
+                          report different values.
+                          FIXME: does this mean we need to set this or does Windows?
+                   0004h: split up binary reads to increase int 2Ah function 84h scheduling
+                          / turn Int 21h function 3Fh on STDIN into polling loop
+                   0008h: notify Windows of halting due to internal stack errors
+                   0010h: notify Windows of logical drive map change ("Insert disk X:")
+               */
+              r.BX = r.DX;    /* sure we support everything asked for, ;-) */
+              r.DX = 0xA2AB;  /* on succes DX:AX set to A2AB:B97Ch */
+              r.AX = 0xB97C;
+              /* FIXME: do we need to do anything special for FD kernel? */
+              break;
+            }
+            case 0x02:    /* disable Win support, ie remove patches */
+            {
+              /* Note: if we do anything special in 'patch DOS', undo it here.
+                 This is only called when Windows exits, can be ignored.
+               */
+              r.CX = 0;   /* for compatibility with MS-DOS 5/6 */
+              break;
+            }
+            case 0x03:    /* get internal structure sizes */
+            {
+              if (r.CX & 0x01) /* size of Current Directory Structure in bytes */
+              {
+                r.DX = 0xA2AB;   /* on succes DS:AX set to A2AB:B97Ch */
+                r.AX = 0xB97C;
+                r.CX = sizeof(struct cds);
+              }
+              else
+                r.CX = 0;      /* unknown or unsupported structure requested */
+              break;
+            }
+            case 0x04:    /* Get Instancing Exemptions */
+            {
+              /* On exit BX is bit flags denoting data that is instanced
+                 so Windows need not instance it.  DOS 5&6 fail with DX=CX=0.
+                   0001h: Current Directory Structure
+                   0002h: System File Table and device status of STDOUT
+                   0004h: device driver chain
+                   0008h: Swappable Data Area
+               */
+              r.DX = 0xA2AB;   /* on succes DX:AX set to A2AB:B97Ch */
+              r.AX = 0xB97C;
+              r.BX = 0; /* a zero here tells Windows to instance everything */
+              break;
+            }
+            case 0x05:    /* get device driver size */
+            {
+              /* On entry ES:DI points to possible device driver
+                 if is not one return with AX=BX=CX=DX=0
+                 else return BX:CX size in bytes allocated to driver
+                             and DX:AX set to A2AB:B97Ch */
+              mcb FAR *smcb = MK_PTR(mcb, (r.ES-1), 0); /* para before is possibly submcb segment */
+              /* drivers always start a seg:0 (DI==0), so if not then either 
+                 not device driver or duplicate (ie device driver file loaded
+                 is of multi-driver variety; multiple device drivers in same file,
+                 whose memory was allocated as a single chunk)
+                 Drivers don't really have a MCB, instead the DOS MCB is broken
+                 up into submcbs, which will have a type of 'D' (or 'E')
+                 So we check that this is primary segment, a device driver, and owner.
+              */
+              if (!r.DI && (smcb->m_type == 'D') && (smcb->m_psp == r.ES))
+              {
+                ULONG size = smcb->m_size * 16ul;
+                r.BX = hiword(size);
+                r.CX = loword(size);
+                r.DX = 0xA2AB;   /* on succes DX:AX set to A2AB:B97Ch */
+                r.AX = 0xB97C;
+                break;
+              }
+              r.DX = 0;   /* we aren't one so return unsupported */
+              r.AX = 0;
+              r.BX = 0;
+              r.CX = 0;
+              break;
+            }
+          }
+        }
+        DebugPrintf(("Vxd:DOSMGR:%x:%x:%x:%x\n",r.AX,r.BX,r.CX,r.DX));
+        break;
+      } /* 0x07 */
+      case 0x08:          /* Windows Init Complete Broadcast */
+      {
+        DebugPrintf(("Init complete\n"));
+        break;
+      } /* 0x08 */
+      case 0x09:          /* Windows Begin Exit Broadcast */
+      {
+        DebugPrintf(("Exit initiated\n"));
+        break;
+      } /* 0x09 */
+      case 0x0B:          /* Win TSR Identify */
+      {
+        DebugPrintf(("TSR identify request.\n"));
+        break;
+      } /* 0x0B */
+      case 0x80:          /* Win Release Time-slice */
+      {
+        /* This function is generally only called in idle loops */
+        DosIdle_hlt();
+        r.AX = 0;
+        /* DebugPrintf(("Release Time Slice\n")); */
+        break;
+      } /* 0x80 */
+      case 0x81:          /* Win3 Begin Critical Section */
+      {
+        DebugPrintf(("Begin CritSect\n"));
+        break;
+      } /* 0x81 */
+      case 0x82:          /* Win3 End Critical Section */
+      {
+        DebugPrintf(("End CritSect\n"));
+        break;
+      } /* 0x82 */
+      case 0x8F:          /* Win4 Close Awareness */
+      {
+        if (r.DH != 0x01) /* query close */
+          r.AX = 0x0;
+        /* else r.AX = 0x168F;  don't close -- continue execution */
+        break;
+      } /* 0x8F */
+      default:
+        DebugPrintf(("Win call (int 2Fh/16h): %04x %04x %04x %04x\n", r.AX, r.BX, r.CX, r.DX));
+        break;
+    }
+#endif
+    return;
+  }
+  else if (r.AH == 0x46) /* MS Windows WinOLDAP switching */
+  {
+#ifdef WIN31SUPPORT  /* See "DOS Internals" under DOSMGR or RBIL for details */
+    if (r.AL == 0x01)      /* save MCB */
+    {
+      /* To prevent corruption when dos=umb where Windows 3.0 standard
+         writes a sentinel at 9FFEh, DOS 5 will save the MCB marking
+         end of conventional memory (ie MCB following caller's PSP memory
+         block [which I assume occupies all of conventional memory] into
+         the DOS data segment.
+         Note: presumably Win3.1 uses the WinPatchTable.OffLastMCBSeg
+         when DOS ver > 5 to do this itself.
+       */
+      /* FIXME: Implement this! */
+    }
+    else if (r.AL == 0x02) /* restore MCB */
+    {
+      /* Copy the MCB we previously saved back. */
+      /* FIXME: Implement this! */
+    }
+#endif
+    return;
+  }
+  /* else (r.AH == 0x12) */
 
   switch (r.AL)
   {

@@ -112,6 +112,7 @@ VOID ASMCFUNC FreeDOSmain(void)
   /* install DOS API and other interrupt service routines, basic kernel functionality works */
   setup_int_vectors();
 
+  /* check if booting from floppy/CD */
   CheckContinueBootFromHarddisk();
 
   /* display copyright info and kernel emulation status */
@@ -247,24 +248,27 @@ STATIC void setup_int_vectors(void)
       { 0x1, FP_OFF(empty_handler) },  /* single step */
       { 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
       { 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
-      { 0x19, FP_OFF(int19_handler) },
+      { 0x19, FP_OFF(int19_handler) }, /* BIOS bootstrap loader, vdisk */
       { 0x20, FP_OFF(int20_handler) },
-      { 0x21, FP_OFF(int21_handler) },
+      { 0x21, FP_OFF(int21_handler) }, /* primary DOS API */
       { 0x22, FP_OFF(int22_handler) },
       { 0x24, FP_OFF(int24_handler) },
-      { 0x25, FP_OFF(low_int25_handler) },
+      { 0x25, FP_OFF(low_int25_handler) }, /* DOS abs read/write calls */
       { 0x26, FP_OFF(low_int26_handler) },
       { 0x27, FP_OFF(int27_handler) },
       { 0x28, FP_OFF(int28_handler) },
       { 0x2a, FP_OFF(int2a_handler) },
-      { 0x2f, FP_OFF(int2f_handler) }
+      { 0x2f, FP_OFF(int2f_handler) }  /* multiplex int */
     };
   struct vec *pvec;
   struct lowvec FAR *plvec;
   int i;
 
-  for (plvec = intvec_table; plvec < intvec_table + 5; plvec++)
+  /* save current int vectors so can restore on reboot and call original directly */
+  for (plvec = intvec_table; plvec < intvec_table + 6; plvec++)
     plvec->isv = getvec(plvec->intno);
+
+  /* install default handlers */
   for (i = 0x23; i <= 0x3f; i++)
     setvec(i, empty_handler);
   HaltCpuWhileIdle = 0;
@@ -273,7 +277,7 @@ STATIC void setup_int_vectors(void)
   pokeb(0, 0x30 * 4, 0xea);
   pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
 
-  /* these two are in the device driver area LOWTEXT (0x70) */
+  /* handlers for int 0x1b and 0x29 are in the device driver area LOWTEXT (0x70) */
   setvec(0x1b, got_cbreak);
   setvec(0x29, int29_handler);  /* required for printf! */
 }

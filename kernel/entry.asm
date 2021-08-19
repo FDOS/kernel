@@ -41,6 +41,7 @@ segment HMA_TEXT
                 extern   _user_r
                 extern   _ErrorMode
                 extern   _InDOS
+                extern   _winInstanced
                 extern   _cu_psp
                 extern   _MachineId
                 extern   critical_sp
@@ -276,7 +277,9 @@ int21_reentry:
                 jne     int21_1
 
 int21_user:     
-                call    dos_crit_sect
+%IFNDEF WIN31SUPPORT
+                call    end_dos_crit_sect
+%ENDIF ; NOT WIN31SUPPORT
 
                 push    ss
                 push    bp
@@ -362,15 +365,27 @@ int21_onerrorstack:
                 jmp     short int21_exit_nodec
 
                 
-int21_2:        inc     byte [_InDOS]
+int21_2:
+%IFDEF WIN31SUPPORT     ; begin critical section
+                        ; should be called as needed, but we just
+                        ; mark the whole int21 api as critical
+                call begin_dos_crit_sect
+%ENDIF ; WIN31SUPPORT
+                inc     byte [_InDOS]
                 mov     cx,_char_api_tos
                 or      ah,ah   
                 jz      int21_3
+%IFDEF WIN31SUPPORT     ; testing, this function call crashes
+                cmp     ah,06h
+                je      int21_3
+%ENDIF ; WIN31SUPPORT
                 cmp     ah,0ch
                 jbe     int21_normalentry
 
 int21_3:
-                call    dos_crit_sect
+%IFNDEF WIN31SUPPORT
+                call    end_dos_crit_sect
+%ENDIF ; NOT WIN31SUPPORT
                 mov     cx,_disk_api_tos
 
 int21_normalentry:
@@ -390,6 +405,15 @@ int21_normalentry:
                 call    _int21_service
 
 int21_exit:     dec     byte [_InDOS]
+%IFDEF WIN31SUPPORT
+                call    end_dos_crit_sect  ; release all critical sections
+%if 0
+                push    ax
+                mov     ax, 8101h   ; Leave Critical Section
+                int     2ah
+                pop     ax
+%endif
+%ENDIF ; WIN31SUPPORT
 
                 ;
                 ; Recover registers from system call.  Registers and flags
@@ -415,11 +439,28 @@ int21_ret:
                 ; ... and return.
                 ;
                 iret
+%IFDEF WIN31SUPPORT
+;
+;   begin DOS Critical Section 1
+;
+;
+begin_dos_crit_sect:
+                ; we only enable critical sections if Windows is active
+                ; we currently use winInstanced, but may need to use separate patchable location
+                cmp     word [_winInstanced], 0
+                jz      skip_crit_sect
+                push    ax
+                mov     ax, 8001h           ; Enter Critical Section
+                int     2ah
+                pop     ax
+skip_crit_sect:
+                ret
+%ENDIF ; WIN31SUPPORT
 ;
 ;   end Dos Critical Section 0 thur 7
 ;
 ;
-dos_crit_sect:
+end_dos_crit_sect:
                 mov     [_Int21AX],ax       ; needed!
                 push    ax                  ; This must be here!!!
                 mov     ah,82h              ; re-enrty sake before disk stack
