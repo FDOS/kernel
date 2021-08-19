@@ -41,7 +41,9 @@ segment HMA_TEXT
                 extern   _user_r
                 extern   _ErrorMode
                 extern   _InDOS
+%IFDEF WIN31SUPPORT
                 extern   _winInstanced
+%ENDIF ; WIN31SUPPORT
                 extern   _cu_psp
                 extern   _MachineId
                 extern   critical_sp
