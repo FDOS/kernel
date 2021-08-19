@@ -81,29 +81,34 @@ int do_tests_on(const char *device_name)
 	const char current_drive = (char)('A'+_getdrive()-1);
 
 	sprintf(buffer, "%s", device_name);
-	if (!test_device('@', buffer,0)) status = FAILURE;
-	if (!test_device(current_drive, buffer,0)) status = FAILURE;
+	if (!test_device('@', buffer,0)) status = FAILURE;            /* special, should succeed               */
+	if (!test_device(current_drive, buffer,0)) status = FAILURE;  /* valid directory, should succeed       */
 
 	/* DIREXIST should exist in the current directory */
 	sprintf(buffer, "DIREXIST\\%s", device_name);
-	if (!test_device('@', buffer,1)) status = FAILURE;            /* drive does not exist, should fail */
-	if (!test_device(current_drive, buffer,0)) status = FAILURE;  /* valid drive, should succeed       */
+	if (!test_device('@', buffer,1)) status = FAILURE;            /* directory does not exist, should fail */
+	if (!test_device(current_drive, buffer,0)) status = FAILURE;  /* valid directory, should succeed       */
 
 	sprintf(buffer, "BAD_PATH\\%s", device_name);
-	if (!test_device('@', buffer,1)) status = FAILURE;
-	if (!test_device(current_drive, buffer,1)) status = FAILURE;
+	if (!test_device('@', buffer,1)) status = FAILURE;            /* directory does not exist, should fail */
+	if (!test_device(current_drive, buffer,1)) status = FAILURE;  /* directory does not exist, should fail */
+
+    /* assumes DEV directory does not exist in current directory */
+	sprintf(buffer, "DEV\\%s", device_name);
+	if (!test_device('@', buffer,1)) status = FAILURE;            /* directory does not exist, should fail */
+	if (!test_device(current_drive, buffer,1)) status = FAILURE;  /* directory does not exist, should fail */
 
 	sprintf(buffer, "\\%s", device_name);
-	if (!test_device('@', buffer,1)) status = FAILURE;             /* drive does not exist, should fail */
-	if (!test_device(current_drive, buffer,0)) status = FAILURE;   /* valid drive, should succeed       */
+	if (!test_device('@', buffer,1)) status = FAILURE;            /* directory does not exist, should fail */
+	if (!test_device(current_drive, buffer,0)) status = FAILURE;  /* valid directory, should succeed       */
 
 	sprintf(buffer, "\\BAD_PATH\\%s", device_name);
-	if (!test_device('@', buffer,1)) status = FAILURE;
-	if (!test_device(current_drive, buffer,1)) status = FAILURE;
+	if (!test_device('@', buffer,1)) status = FAILURE;            /* directory does not exist, should fail */
+	if (!test_device(current_drive, buffer,1)) status = FAILURE;  /* directory does not exist, should fail */
 
 	sprintf(buffer, "\\DEV\\%s", device_name);
-	if (!test_device('@', buffer,0)) status = FAILURE;
-	if (!test_device(current_drive, buffer,0)) status = FAILURE;
+	if (!test_device('@', buffer,0)) status = FAILURE;            /* special, should succeed               */
+	if (!test_device(current_drive, buffer,0)) status = FAILURE;  /* special, should succeed               */
 
 	return status;
 }

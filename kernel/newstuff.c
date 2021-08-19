@@ -304,7 +304,63 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   cdsEntry = get_cds(result);
   if (cdsEntry == NULL)
   {
-      return DE_PATHNOTFND;
+    /* If opening a character device, DOS allows device name
+       to be prefixed by [invalid] drive letter and/or optionally
+       \DEV\ directory prefix, however, any other directory
+       including root (\) is an invalid path if drive is not
+       valid and returns such.
+       Whereas truename always fails for invalid drive.
+    */
+    if (dhp && (mode & CDS_MODE_CHECK_DEV_PATH) && (result >= lastdrive))
+    {
+      /* Note: check for (result >= lastdrive) means invalid drive
+         was provided as otherwise we would have used default_drive
+         so we know src in the form of X:?
+         fail if anything other than no path or path is \DEV\
+      */
+      char drivesep[] = "\\/";
+      const char FAR *s = src+2;
+      const char *d = strchr(drivesep, *s); /* ?path starts with \ or / */
+      
+      /* could be 1 letter devicename, don't go scanning random memory */
+      if (*(src+3) != '\0') 
+      {
+        s = fstrchr(src+3, '\\'); /* ?is there \ or / other than immediately after drive: */
+        if (s == NULL) s = fstrchr(src+3, '/');
+      }
+      else
+      {
+        s = NULL;
+      }
+
+      if (d == NULL)
+      {
+        /* either X:devicename or X:path\devicename */
+        if (s != NULL) goto invalid_path;
+      }
+      else
+      {
+        /* either X:\devicename or X:\path\devicename 
+           only X:\DEV\devicename is valid path
+        */
+        if (s == NULL) goto invalid_path;
+        if (s != src+6) goto invalid_path;
+        if (fmemcmp(src+3, "DEV", 3) != 0) goto invalid_path;
+        s = fstrchr(src+7, '\\');
+        if (s == NULL) s = fstrchr(src+7, '/');
+        if (s != NULL) goto invalid_path;
+      }
+  
+      /* use CDS of current drive (MS-DOS may return drive P: for invalid drive.) */
+      result = default_drive;
+      cdsEntry = get_cds(result);
+      if (cdsEntry == NULL) goto invalid_path;
+    }
+    else
+    {
+invalid_path:
+        return DE_PATHNOTFND;
+    }
   }
 
   fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
