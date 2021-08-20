@@ -1984,7 +1984,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
                  set to memory manager calling point to disable V86
            ES:BX is 0000:0000, set to startup structure
           */
-        r.CX = 0x0; /* it is ok to load Windows, give it a shot anyway :-) */
+        /* r.CX = 0x0; ** redundant and could be set nonzero by another hooked program */
         r.es = FP_SEG(&winStartupInfo);
         r.BX = FP_OFF(&winStartupInfo);
         winStartupInfo.winver = r.di;  /* match what caller says it is */
