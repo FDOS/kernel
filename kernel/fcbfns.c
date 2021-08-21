@@ -510,6 +510,8 @@ UBYTE FcbDelete(xfcb FAR * lpXfcb)
 
 UBYTE FcbRename(xfcb FAR * lpXfcb)
 {
+  BYTE buf[FNAME_SIZE + FEXT_SIZE];
+  BOOL bWildCard;
   rfcb FAR *lpRenameFcb;
   COUNT FcbDrive;
   UBYTE result = FCB_SUCCESS;
@@ -517,7 +519,10 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
 
   /* Build a traditional DOS file name                            */
   lpRenameFcb = (rfcb FAR *) CommonFcbInit(lpXfcb, SecPathName, &FcbDrive);
-
+  /* expand wildcards in dest                                     */
+  GetNameField(lpRenameFcb->renNewName, buf, FNAME_SIZE, &bWildCard);
+  GetNameField(lpRenameFcb->renNewExtent, buf + FNAME_SIZE, FEXT_SIZE, &bWildCard);
+  
   /* check for a device                                           */
   if (IsDevice(SecPathName))
   {
@@ -541,6 +546,7 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       fcb LocalFcb;
       BYTE *pToName;
       const BYTE FAR *pFromPattern = Dmatch.dm_name;
+      const char *pToPattern = buf;
       int i;
       UBYTE mode = 0;
 
@@ -549,13 +555,12 @@ UBYTE FcbRename(xfcb FAR * lpXfcb)
       /* I'm cheating because this assumes that the   */
       /* struct alignments are on byte boundaries     */
       pToName = LocalFcb.fcb_fname;
-      pFromPattern = lpRenameFcb->renNewName;
       for (i = 0; i < FNAME_SIZE + FEXT_SIZE; i++)
       {
-        if (*pFromPattern != '?')
-          *pToName = *pFromPattern;
+        if (*pToPattern != '?')
+          *pToName = *pToPattern;
         pToName++;
-        pFromPattern++;
+        pToPattern++;
       }
 
       SecPathName[0] = 'A' + FcbDrive - 1;
