@@ -16,13 +16,16 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
 
     - name: Package install
       run: |
         sudo add-apt-repository ppa:tkchia/build-ia16
         sudo apt update
-        sudo apt install gcc-ia16-elf nasm upx
+        sudo apt install gcc-ia16-elf libi86-ia16-elf nasm upx
 
     - name: build
       run: ./ci_build.sh
