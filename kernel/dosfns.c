@@ -46,7 +46,7 @@ BYTE share_installed = 0;
            code, so DOS simply negates this value and returns it in
            AX. */
 extern int ASMPASCAL
-           share_open_check(char * filename,            /* pointer to fully qualified filename */
+           share_open_check(const char FAR * filename,  /* pointer to fully qualified filename */
                             unsigned short pspseg,      /* psp segment address of owner process */
                             int openmode,       /* 0=read-only, 1=write-only, 2=read-write */
                             int sharemode);     /* SHARE_COMPAT, etc... */

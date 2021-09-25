@@ -258,7 +258,7 @@ SHARE_CHECK:
 ;           error.  If < 0 is returned, it is the negated error return
 ;           code, so DOS simply negates this value and returns it in
 ;           AX.
-; STATIC int share_open_check(char * filename,
+; STATIC int share_open_check(const char FAR * filename,
 ;				/* pointer to fully qualified filename */
 ;                            unsigned short pspseg,
 ;				/* psp segment address of owner process */
@@ -267,13 +267,17 @@ SHARE_CHECK:
 ;			     int sharemode) /* SHARE_COMPAT, etc... */
 		global SHARE_OPEN_CHECK
 SHARE_OPEN_CHECK:
-		mov	es, si		; save si
+		push	ds
+		pop	es		; save ds
+		mov     di, si          ; save si
 		pop	ax		; return address
-		popargs	si,bx,cx,dx	; filename,pspseg,openmode,sharemode;
+		popargs	{ds,si},bx,cx,dx; filename,pspseg,openmode,sharemode;
 		push	ax		; return address
 		mov	ax, 0x10a0
 		int	0x2f	     	; returns ax
-		mov	si, es		; restore si
+		mov     si, di          ; restore si
+		push	es
+		pop	ds		; restore ds
 		ret
 
 ;          DOS calls this to record the fact that it has successfully
