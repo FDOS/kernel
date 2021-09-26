@@ -2,10 +2,10 @@
 
 set -e
 
-if [ -z "${TRAVIS_BUILD_DIR}" ] ; then
-  TRAVIS_BUILD_DIR=$(pwd)
+if [ -z "${BUILD_DIR}" ] ; then
+  BUILD_DIR=$(pwd)
 fi
-echo TRAVIS_BUILD_DIR is \"${TRAVIS_BUILD_DIR}\"
+echo BUILD_DIR is \"${BUILD_DIR}\"
 
 # Output directory
 rm -rf _output
@@ -28,8 +28,8 @@ if [ ! -d _watcom ] ; then
   (cd _watcom && tar -xf ../ow-snapshot.tar.gz)
 fi
 
-export PATH=$TRAVIS_BUILD_DIR/bin:$PATH:$TRAVIS_BUILD_DIR/_watcom/binl64
-export WATCOM=$TRAVIS_BUILD_DIR/_watcom
+export PATH=$BUILD_DIR/bin:$PATH:$BUILD_DIR/_watcom/binl64
+export WATCOM=$BUILD_DIR/_watcom
 
 git clean -x -d -f -e _output -e _watcom -e ow-snapshot.tar.gz
 make all COMPILER=owlinux
