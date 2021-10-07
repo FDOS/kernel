@@ -12,13 +12,14 @@ rm -rf _output
 mkdir _output
 
 # GCC
+mkdir _output/gcc
 git clean -x -d -f -e _output -e _watcom -e ow-snapshot.tar.gz
 make all COMPILER=gcc
-mv -n bin/KGC*.map bin/KGC*.sys _output/.
+mv -n bin/KGC*.map bin/KGC*.sys _output/gcc/.
 # GCC share
 (cd share && make clobber && env COMPILER=gcc ./build.sh)
-mv -n share/share.com _output/gshare.com
-mv -n share/share.map _output/gshare.map
+mv -n share/share.com _output/gcc/.
+mv -n share/share.map _output/gcc/.
 
 # Watcom
 if [ ! -d _watcom ] ; then
@@ -31,8 +32,9 @@ fi
 export PATH=$BUILD_DIR/bin:$PATH:$BUILD_DIR/_watcom/binl64
 export WATCOM=$BUILD_DIR/_watcom
 
+mkdir _output/wc
 git clean -x -d -f -e _output -e _watcom -e ow-snapshot.tar.gz
 make all COMPILER=owlinux
-mv -n bin/KWC*.map bin/KWC*.sys _output/.
+mv -n bin/KWC*.map bin/KWC*.sys _output/wc/.
 
 echo done
