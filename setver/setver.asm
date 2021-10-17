@@ -75,7 +75,8 @@ exit:      or    ax, 0100h
 signature  db    'SDIR'
 length     dw    1
 
-table      ;db    11, "SHOWVER.EXE",  5, 00
+table:
+           ;db    11, "SHOWVER.EXE",  5, 00
            ;db    12, "BUGGYPRG.EXE", 3, 31
 
            db    0
