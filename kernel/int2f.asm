@@ -250,6 +250,7 @@ IntDosCal:
 SHARE_CHECK:
 		mov	ax, 0x1000
 		int	0x2f
+		test	ax, "US"	; Uninstallable SHARE signature
 		ret
            
 ;           DOS calls this to see if it's okay to open the file.
