@@ -53,7 +53,21 @@ clean:
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
-
+ifeq ($(%OS_NAME),FreeDOS)
+ifeq ($(%COMPILER),WATCOM)
+$(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
+		-$(RM) *.lnk
+		$(ECHOTO) $(TARGET).lnk  F { 
+		$(ECHOTO) $(TARGET).lnk $(OBJS1)
+		$(ECHOTO) $(TARGET).lnk $(OBJS2)
+		$(ECHOTO) $(TARGET).lnk $(OBJS3)
+		$(ECHOTO) $(TARGET).lnk $(OBJS4)
+		$(ECHOTO) $(TARGET).lnk $(OBJS5)
+		$(ECHOTO) $(TARGET).lnk $(OBJS6)
+		$(ECHOTO) $(TARGET).lnk $(OBJS7)
+		$(ECHOTO) $(TARGET).lnk $(OBJS8)
+		$(ECHOTO) $(TARGET).lnk  } L ..\lib\device.lib L ..\lib\libm.lib N kernel.exe		
+else
 $(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
 		-$(RM) *.lnk
 		$(ECHOTO) $(TARGET).lnk $(OBJS1)+
@@ -67,7 +81,22 @@ $(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER)
 		$(ECHOTO) $(TARGET).lnk kernel.exe
 		$(ECHOTO) $(TARGET).lnk kernel.map
 		$(ECHOTO) $(TARGET).lnk $(LIBS)
-
+endif
+else
+$(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
+		-$(RM) *.lnk
+		$(ECHOTO) $(TARGET).lnk $(OBJS1)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS2)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS3)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS4)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS5)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS6)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS7)+
+		$(ECHOTO) $(TARGET).lnk $(OBJS8)
+		$(ECHOTO) $(TARGET).lnk kernel.exe
+		$(ECHOTO) $(TARGET).lnk kernel.map
+		$(ECHOTO) $(TARGET).lnk $(LIBS)
+endif
 #               *Individual File Dependencies*
 apisupt.obj:	apisupt.asm segs.inc			$(TARGET).lnk
 asmsupt.obj:	asmsupt.asm segs.inc			$(TARGET).lnk

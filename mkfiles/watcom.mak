@@ -65,3 +65,8 @@ ALLCFLAGS=-I..$(DIRSEP)hdr $(TARGETOPT) $(ALLCFLAGS)-zq-os-s-e5-j-zl-zp1-wx-we-z
 INITCFLAGS=$(ALLCFLAGS)-ntINIT_TEXT-gTGROUP-ndI
 CFLAGS=$(ALLCFLAGS)-ntHMA_TEXT
 
+!ifeq $(%OS_NAME) FreeDOS
+!ifeq $(%COMPILER) WATCOM
+XLINK=$(XLINK) debug all op symfile format dos option map,statics,verbose
+!endif
+!endif
