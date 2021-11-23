@@ -1294,14 +1294,17 @@ STATIC VOID Dosmem(BYTE * pLine)
   BYTE *pTmp;
   BYTE UMBwanted = FALSE;
 
-  pLine = GetStringArg(pLine, szBuf);
-
+  GetStringArg(pLine, szBuf);
+  strcpy(szBuf, pLine);
   strupr(szBuf);
 
   /* printf("DOS called with %s\n", szBuf); */
 
   for (pTmp = szBuf;;)
   {
+    while (*pTmp == ' ' || *pTmp == '\t')
+      pTmp++;
+
     if (memcmp(pTmp, "UMB", 3) == 0)
     {
       UMBwanted = TRUE;
@@ -1312,11 +1315,26 @@ STATIC VOID Dosmem(BYTE * pLine)
       HMAState = HMA_REQ;
       pTmp += 4;
     }
+    if (memcmp(pTmp, "LOW", 3) == 0)
+    {
+      HMAState = HMA_LOW;
+      pTmp += 3;
+    }
+    if (memcmp(pTmp, "NOUMB", 5) == 0)
+    {
+      UMBwanted = FALSE;
+      pTmp += 5;
+    }
 /*        if (memcmp(pTmp, "CLAIMINIT",9) == 0) { INITDataSegmentClaimed = 0; pTmp += 9; }*/
     pTmp = skipwh(pTmp);
 
-    if (*pTmp != ',')
+    if (*pTmp == '\0')
       break;
+    if (*pTmp != ',')
+    {
+      CfgFailure(pLine + (pTmp - szBuf));
+      break;
+    }
     pTmp++;
   }
 
