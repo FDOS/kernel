@@ -42,8 +42,9 @@ kernel.sys:	kernel.exe ../utils/exeflat.exe
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
 
-../bin/country.sys: country.asm
-		$(NASM) -o ../bin/country.sys country.asm
+../bin/country.sys:
+	cd ..$(DIRSEP)country && $(MAKE) all
+	$(CP) ..$(DIRSEP)country$(DIRSEP)country.sys ..$(DIRSEP)bin$(DIRSEP)country.sys
 
 clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
