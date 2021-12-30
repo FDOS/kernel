@@ -2483,62 +2483,8 @@ struct CountrySpecificInfoSmall {
 };
 
 struct CountrySpecificInfoSmall specificCountriesSupported[] = {
-
-/* table rewritten by Bernd Blaauw
-Country ID  : international numbering
-Date format : M = Month, D = Day, Y = Year (4digit); 0=USA, 1=Europe, 2=Japan
-Currency    : $ = dollar, EUR = EURO, United Kingdom uses the pound sign
-Thousands   : separator for thousands (1,000,000 bytes; Dutch: 1.000.000 bytes)
-Decimals    : separator for decimals (2.5KB; Dutch: 2,5KB)
-Datesep     : Date separator (2/4/2004 or 2-4-2004 for example)
-Timesep     : usually ":" is used to separate hours, minutes and seconds
-Currencyf   : Currency format (bit array)
-Currencyp   : Currency precision
-Timeformat  : 0=12 hour format (AM/PM), 1=24 hour format (16:12 means 4:12 PM)
-
-  ID  Date     currency  1000 0.1 date time C digit time       Locale/Country
------------------------------------------------------------------------------*/
-{  1,_DATE_MDY,"$"       ,',','.', '/',':', 0 , 2,_TIME_12},/* United States */
-{  2,_DATE_YMD,"$"       ,',','.', '-',':', 0 , 2,_TIME_24},/* Canada French */
-{  3,_DATE_MDY,"$"       ,',','.', '/',':', 0 , 2,_TIME_12},/* Latin America */
-{  7,_DATE_DMY,"RUB"     ,' ',',', '.',':', 3 , 2,_TIME_24},/* Russia        */
-{ 31,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Netherlands   */
-{ 32,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Belgium       */
-{ 33,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* France        */
-{ 34,_DATE_DMY,"EUR"     ,'.','\'','-',':', 0 , 2,_TIME_24},/* Spain         */
-{ 36,_DATE_DMY,"$HU"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Hungary       */
-{ 38,_DATE_DMY,"$YU"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Yugoslavia    */
-{ 39,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Italy         */
-{ 41,_DATE_DMY,"SF"      ,'.',',', '.',':', 0 , 2,_TIME_24},/* Switserland   */
-{ 42,_DATE_DMY,"$YU"     ,'.',',', '.',':', 0 , 2,_TIME_24},/* Czech/Slovakia*/
-{ 44,_DATE_DMY,"\x9c"    ,'.',',', '/',':', 0 , 2,_TIME_24},/* United Kingdom*/
-{ 45,_DATE_DMY,"DKK"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Denmark       */
-{ 46,_DATE_YMD,"SEK"     ,',','.', '-',':', 0 , 2,_TIME_24},/* Sweden        */
-{ 47,_DATE_DMY,"NOK"     ,',','.', '.',':', 0 , 2,_TIME_24},/* Norway        */
-{ 48,_DATE_YMD,"PLN"     ,',','.', '.',':', 0 , 2,_TIME_24},/* Poland        */
-{ 49,_DATE_DMY,"EUR"     ,'.',',', '.',':', 1 , 2,_TIME_24},/* Germany       */
-{ 54,_DATE_DMY,"$ar"     ,'.',',', '/',':', 1 , 2,_TIME_12},/* Argentina     */
-{ 55,_DATE_DMY,"$ar"     ,'.',',', '/',':', 1 , 2,_TIME_24},/* Brazil        */
-{ 61,_DATE_MDY,"$"       ,'.',',', '/',':', 0 , 2,_TIME_24},/* Int. English  */
-{ 81,_DATE_YMD,"\x81\x8f",',','.', '/',':', 0 , 2,_TIME_12},/* Japan         */
-{351,_DATE_DMY,"EUR"     ,'.',',', '-',':', 0 , 2,_TIME_24},/* Portugal      */
-{358,_DATE_DMY,"EUR"     ,' ',',', '.',':',0x3, 2,_TIME_24},/* Finland       */
-{359,_DATE_DMY,"BGL"     ,' ',',', '.',':', 3 , 2,_TIME_24},/* Bulgaria      */
-{380,_DATE_DMY,"UAH"     ,' ',',', '.',':', 3 , 2,_TIME_24},/* Ukraine       */
+#include "../country/kernel.tb1"
 };
-
-/* contributors to above table:
-
-	tom ehlert (GER)
-	bart oldeman (NL)
-	wolf (FIN)
-	Michael H.Tyc (POL)
-	Oleg Deribas (UKR)
-	Arkady Belousov (RUS)
-        Luchezar Georgiev (BUL)
-	Yuki Mitsui (JAP)
-	Aitor Santamaria Merino (SP)
-*/
 
 STATIC int LoadCountryInfoHardCoded(COUNT ctryCode)
 {
