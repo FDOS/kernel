@@ -14,7 +14,4 @@ This version of the kernel is intended only for 8086+ or 80386+ IBM compatible c
 
 Please feel free to email me - PerditionC@gmail.com
 
-[![Build](../../workflows/Build/badge.svg)](../../actions)
-
-[![Build Status](https://travis-ci.com/FDOS/kernel.svg?branch=master)](https://travis-ci.com/FDOS/kernel)
-Now with automatic builds and soon tests on [Travis CI](http://travis-ci.com)
+Now with automatic builds and soon tests [![Build](../../workflows/Build/badge.svg)](../../actions)
