@@ -417,7 +417,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
      * (This is really done in fatfs.c, bpbtodpb) */
     {
       unsigned clust = (fatdat - 2 * defbpb->bpb_nfsect) / NSECTORFAT12;
-      unsigned maxclust = (defbpb->bpb_nfsect * 2 * SEC_SIZE) / 3;
+      unsigned maxclust = (defbpb->bpb_nfsect * 2 * FLOPPY_SEC_SIZE) / 3;
       if (maxclust > FAT12MAX)
         maxclust = FAT12MAX;
       printf("FAT12: #clu=%u, fatlength=%u, maxclu=%u, limit=%u\n",
