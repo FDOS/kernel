@@ -1388,7 +1388,7 @@ COUNT dsk_init()
 {
   printf(" - InitDisk");
 
-#ifdef DEBUG
+#if defined(DEBUG) && !defined(DOSEMU)
   {
     iregs regs;
     regs.a.x = 0x1112;          /* select 43 line mode - more space for partinfo */
