@@ -145,7 +145,8 @@ unsigned short getSS(void);
 
 #ifdef __FAR
 #define I86
-#define __int__(intno) asm volatile("int " ## #intno)
+#define STRINGIFY(x) #x
+#define __int__(intno) asm volatile(STRINGIFY(int $##intno))
 static inline void disable(void)
 {
   asm volatile("cli");

@@ -73,6 +73,12 @@ void put_console(int c)
     _DX = FP_OFF(buff);
     _AX = 0x13;
     __int__(0xe6);
+#elif defined(__GNUC__)
+    asm volatile(
+      "int $0xe6\n"
+      : /* outputs */
+      : /* inputs */ "a"(0x13), "e"(FP_SEG(buff)), "d"(FP_OFF(buff))
+    );
 #elif defined(I86)
     asm
       {
@@ -158,7 +164,8 @@ STATIC VOID handle_char(COUNT c)
 STATIC void ltob(LONG n, BYTE SSFAR * s, COUNT base)
 {
   ULONG u;
-  BYTE SSFAR *p, SSFAR *q;
+  BYTE SSFAR *p;
+  BYTE SSFAR *q;
   int c;
 
   u = n;
