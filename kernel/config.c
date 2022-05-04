@@ -135,6 +135,7 @@ struct config Config = {
   0,
   NFCBS,
   0,
+  "FDOS",
   "command.com",
   " /P /E:256\r\n",
   NLAST,
