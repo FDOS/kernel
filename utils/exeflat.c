@@ -54,6 +54,11 @@ large portions copied from task.c
 #define BUFSIZE 32768u
 
 #define KERNEL_START 0x16 /* the kernel code really starts here at 60:16 */
+#define KERNEL_CONFIG_LENGTH (32 - 2 - 4)
+	/* 32 entrypoint structure,
+	   2 entrypoint short jump,
+	   4 near jump / ss:sp storage  */
+char kernel_config[KERNEL_CONFIG_LENGTH];
 
 typedef struct {
   UWORD off, seg;
@@ -199,6 +204,14 @@ static int exeflat(const char *srcfile, const char *dstfile,
   printf("\nProcessed %d relocations, %d not shown\n",
          header->exRelocItems, silentdone);
 
+  if (UPX)
+  {
+    struct x {
+      char y[(KERNEL_CONFIG_LENGTH + 2) <= BUFSIZE ? 1 : -1];
+    };
+    memcpy(kernel_config, &buffers[0][2], KERNEL_CONFIG_LENGTH);
+  }
+
   realentry = KERNEL_START;
   if (buffers[0][0] == 0xeb /* jmp short */)
   {
@@ -288,6 +301,18 @@ static void write_header(FILE *dest, size_t size)
     /* real-entry: jump over the 'real' image do the trailer */
     0xe9, 0, 0                /* 100: jmp 103 */
   };
+
+  if (0 == memcmp(kernel_config, "CONFIG", 6)) {
+    unsigned long length = kernel_config[6] + kernel_config[7] * 256UL + 8;
+    if (length <= KERNEL_CONFIG_LENGTH) {
+      memcpy(&JumpBehindCode[2], kernel_config, length);
+      printf("Copied %lu bytes of kernel config block to header\n", length);
+    } else {
+      printf("Error: Found %lu bytes of kernel config block, too long!\n", length);
+    }
+  } else {
+    printf("Error: Found no kernel config block!\n");
+  }
 
   struct x {
     char y[sizeof(JumpBehindCode) == 0x20 ? 1 : -1];
