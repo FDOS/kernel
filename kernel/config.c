@@ -62,7 +62,7 @@ STATIC struct MenuSelector MenuStruct[MENULINESMAX] BSS_INIT({0});
 
 int nMenuLine BSS_INIT(0);
 int MenuColor = -1;
-extern UBYTE kernel_command_line[256];
+extern char kernel_command_line[256];
 extern int kernel_command_line_length;
 
 STATIC void WriteMenuLine(struct MenuSelector *menu)
@@ -866,9 +866,9 @@ VOID DoConfig(int nPass)
     unsigned ii;
     static char commandbuffer[256];
     char * end = &kernel_command_line[kernel_command_line_length];
-    char * configfile = "";
-    char * altconfigfile = "fdconfig.sys";
-    char * oldconfigfile = "config.sys";
+    static char * configfile = "";
+    static char * altconfigfile = "fdconfig.sys";
+    static char * oldconfigfile = "config.sys";
     struct { char ** pointer; char const * command; }
       configcommands[] = {
         { &configfile, "CONFIG" },

@@ -68,8 +68,8 @@ __segment DosTextSeg = 0;
 
 struct lol FAR *LoL = &DATASTART;
 
-struct _KernelConfig InitKernelConfig = { 0xFF };
-UBYTE kernel_command_line[256] = { 0x00, 0xFF }; /* special none value */
+struct _KernelConfig InitKernelConfig = { -1 };
+char kernel_command_line[256] = { 0, -1 }; /* special none value */
 int kernel_command_line_length BSS_INIT(0);
 UBYTE debugger_present = 0xFF;	/* initialised in kernel.asm
 				   do NOT set 0 here or compiler may
@@ -111,7 +111,7 @@ VOID ASMCFUNC FreeDOSmain(void)
 
 #ifdef DEBUG
   /* printf must go after setup_int_vectors call */
-  if (kernel_command_line[0] == 0x00 && kernel_command_line[1] == 0xFF) {
+  if (kernel_command_line[0] == 0 && kernel_command_line[1] == (char)-1) {
     printf("\nKERNEL: Command line is not specified.\n");
   } else {
     printf("\nKERNEL: Command line is \"%s\"\n", kernel_command_line);
