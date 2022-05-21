@@ -103,6 +103,7 @@ global realentry
 realentry:                              ; execution continues here
 	clc			; this is patched to stc by exeflat
 	adc byte [cs:use_upx_config], 0
+		; ! ZF used later in initialise_command_line_buffer
 
                 push ax
                 push bx
@@ -139,10 +140,60 @@ kernel_start:
                 popf
                 pop bx
 
-                mov     ax,I_GROUP
+
+extern _kernel_command_line
+
+	; preserve unit in bl
+initialise_command_line_buffer:
+	mov dx, I_GROUP
+	mov es, dx
+	mov ax, ss
+	mov ds, ax
+	mov ax, sp			; ds:ax = ss:sp
+	mov si, bp			; si = bp
+	jz .notupx			; ! ZF still left by adc
+
+	xor ax, ax
+	mov ds, ax			; :5E0h -> UPX help data
+	lds si, [5E0h + 1Ch]		; -> original ss:sp - 2
+	lea ax, [si + 2]		; ax = original sp
+	mov si, word [si]		; si = original bp
+
+.notupx:
+		; Note that the kernel command line buffer in
+		;  the init data segment is pre-initialised to
+		;  hold 0x00 0xFF in the first two bytes. This
+		;  is used to indicate no command line present,
+		;  as opposed to an empty command line which
+		;  will hold 0x00 0x00.
+		; If any of the branches to .none are taken then
+		;  the buffer is not modified so it retains the
+		;  0x00 0xFF contents.
+	cmp si, 114h			; buffer fits below ss:bp ?
+	jb .none			; no -->
+	cmp word [si - 14h], "CL"	; signature passed to us ?
+	jne .none			; no -->
+	lea si, [si - 114h]		; -> command line buffer
+	cmp ax, si			; stack top starts below-or-equal buffer ?
+	ja .none			; no -->
+	mov di, _kernel_command_line	; our buffer
+	mov cx, 255
+	xor ax, ax
+	push di
+	rep movsb		; copy up to 255 bytes
+	stosb			; truncate
+	pop di
+	mov ch, 1		; cx = 256
+	repne scasb		; scan for terminator
+	rep stosb		; clear remainder of buffer
+				; (make sure we do not have 0x00 0xFF
+				;  even if the command line given is
+				;  actually the empty string)
+.none:
+
                 cli
-                mov     ss,ax
-                mov     sp,init_tos
+                mov     ss, dx
+                mov     sp, init_tos
                 int     12h             ; move init text+data to higher memory
                 mov     cl,6
                 shl     ax,cl           ; convert kb to para
