@@ -375,25 +375,28 @@ static void write_trailer(FILE *dest, size_t size, int compress_sys_file,
     0xAA,                     /* 15 stosb (store drive number)*/
     0x8B, 0xF7,               /* 16 mov si,di                 */
     0xF3, 0xA4,               /* 18 rep movsb                 */
-    0x1E,                     /* 20 push ds                   */
-    0x58,                     /* 21 pop  ax                   */
-    0x05, 0x00, 0x00,         /* 22 add ax,...                */
-    0x8E, 0xD0,               /* 25 mov ss,ax                 */
-    0xBC, 0x00, 0x00,         /* 27 mov sp,...                */
-    0x31, 0xC0,               /* 30 xor ax,ax                 */
-    0xFF, 0xE0                /* 32 jmp ax                    */
+0x55,				/* 20 push bp */
+0x26, 0x8C, 0x16, 0x1E, 0x00,	/* 21 mov word [es:(#32 - 2)], ss */
+0x26, 0x89, 0x26, 0x1C, 0x00,	/* 26 mov word [es:(#32 - 4)], sp */
+    0x1E,                     /* 31 push ds                   */
+    0x58,                     /* 32 pop  ax                   */
+    0x05, 0x00, 0x00,         /* 33 add ax,...                */
+    0x8E, 0xD0,               /* 36 mov ss,ax                 */
+    0xBC, 0x00, 0x00,         /* 38 mov sp,...                */
+    0x31, 0xC0,               /* 41 xor ax,ax                 */
+    0xFF, 0xE0                /* 43 jmp ax                    */
   };
 
   *(short *)&trailer[1] = (short)size + 0x20;
-  *(short *)&trailer[23] = header->exInitSS;
-  *(short *)&trailer[28] = header->exInitSP;
+  *(short *)&trailer[34] = header->exInitSS;
+  *(short *)&trailer[39] = header->exInitSP;
   if (compress_sys_file) {
     /* replace by jmp word ptr [6]: ff 26 06 00
        (the .SYS strategy handler which will unpack) */
-    *(long *)&trailer[30] = 0x000626ffL;
+    *(long *)&trailer[41] = 0x000626ffL;
     /* set up a 4K stack for the UPX decompressor to work with */
-    *(short *)&trailer[23] = 0x1000;
-    *(short *)&trailer[28] = 0x1000;
+    *(short *)&trailer[34] = 0x1000;
+    *(short *)&trailer[39] = 0x1000;
   }
   fwrite(trailer, 1, sizeof trailer, dest);
 }
