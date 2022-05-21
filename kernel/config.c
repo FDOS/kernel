@@ -62,6 +62,8 @@ STATIC struct MenuSelector MenuStruct[MENULINESMAX] BSS_INIT({0});
 
 int nMenuLine BSS_INIT(0);
 int MenuColor = -1;
+extern UBYTE kernel_command_line[256];
+extern int kernel_command_line_length;
 
 STATIC void WriteMenuLine(struct MenuSelector *menu)
 {
@@ -800,6 +802,26 @@ copy_char:
 #endif
 
 
+static unsigned check_config_commandline(char ** pointer, char * cc,
+	char const * commandbuffer, char const * command);
+static unsigned check_config_commandline(char ** pointer, char * cc,
+	char const * commandbuffer, char const * command) {
+  unsigned length = strlen(command);
+  if (memcmp(commandbuffer, command, length) == 0
+      && (commandbuffer[length] == '\t'
+          || commandbuffer[length] == ' '
+          || commandbuffer[length] == '='
+          || commandbuffer[length] == 0)) {
+    for (cc += length; *cc == '\t' || *cc == ' '; ++cc);
+    if (*cc == '=') ++cc;
+    for (; *cc == '\t' || *cc == ' '; ++cc);
+    *pointer = cc;
+    return 1;
+  }
+  return 0;
+}
+
+
 VOID DoConfig(int nPass)
 {
   BYTE *pLine;
@@ -838,20 +860,46 @@ VOID DoConfig(int nPass)
 #endif
   }
 
+  {
+    char * pp = kernel_command_line;
+    char * cc;
+    unsigned ii;
+    static char commandbuffer[256];
+    char * end = &kernel_command_line[kernel_command_line_length];
+    char * configfile = "";
+    char * altconfigfile = "fdconfig.sys";
+    char * oldconfigfile = "config.sys";
+    struct { char ** pointer; char const * command; }
+      configcommands[] = {
+        { &configfile, "CONFIG" },
+        { &altconfigfile, "ALTCONFIG" },
+        { &oldconfigfile, "OLDCONFIG" },
+        { NULL, NULL }
+        };
+    for (; pp < end; pp += strlen(pp) + 1) {
+      for (cc = pp; *cc == '\t' || *cc == ' '; ++cc);
+      strcpy(commandbuffer, cc);
+      strupr(commandbuffer);
+      for (ii = 0; configcommands[ii].pointer != NULL; ++ii)
+        if (check_config_commandline(configcommands[ii].pointer,
+          cc, commandbuffer, configcommands[ii].command))
+          break;
+    }
 
-  /* Check to see if we have a config.sys file.  If not, just     */
-  /* exit since we don't force the user to have one (but 1st      */
-  /* also process MEMDISK passed config options if present).      */
-  if ((nFileDesc = open("fdconfig.sys", 0)) >= 0)
-  {
-    DebugPrintf(("Reading FDCONFIG.SYS...\n"));
-  }
-  else
-  {
-    DebugPrintf(("FDCONFIG.SYS not found\n"));
-    if ((nFileDesc = open("config.sys", 0)) < 0)
-    {
-      DebugPrintf(("CONFIG.SYS not found\n"));
+    /* Check to see if we have a config.sys file.  If not, just     */
+    /* exit since we don't force the user to have one (but 1st      */
+    /* also process MEMDISK passed config options if present).      */
+    for (ii = 0; configcommands[ii].pointer != NULL; ++ii) {
+      if (**configcommands[ii].pointer != '\0') {
+        if ((nFileDesc = open(*configcommands[ii].pointer, 0)) >= 0) {
+          DebugPrintf(("Reading \"%s\"...\n", *configcommands[ii].pointer));
+          break;
+        } else {
+          DebugPrintf(("\"%s\" not found\n", *configcommands[ii].pointer));
+        }
+      }
+    }
+    if (configcommands[ii].pointer == NULL) {
       /* at this point no config file was found, may return early */
 #ifdef MEMDISK_ARGS
       /* if memdisk in use then only assume end of file reached and proceed, else return early */
@@ -860,10 +908,6 @@ VOID DoConfig(int nPass)
       else
 #endif
         return;
-    }
-    else
-    {
-      DebugPrintf(("Reading CONFIG.SYS...\n"));
     }
   }
 
