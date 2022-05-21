@@ -161,7 +161,7 @@ void displayConfigSettings(KernelConfig * cfg)
   /* print known options and current value - only if available */
 
   /* show kernel version if available, read only, no option to modify */
-  if (cfg->ConfigSize >= 20)
+  if (cfg->ConfigSize >= 12)
   {
     printf
         ("%s kernel %s (build %d.%d OEM:%02X)\n", 
