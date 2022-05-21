@@ -44,8 +44,6 @@ static char copyright[] =
     "GNU General Public License as published by the Free Software Foundation;\n"
     "either version 2, or (at your option) any later version.\n";
 
-struct _KernelConfig InitKernelConfig BSS_INIT({0});
-
 STATIC VOID InitIO(void);
 
 STATIC VOID update_dcb(struct dhdr FAR *);
@@ -70,6 +68,8 @@ __segment DosTextSeg = 0;
 
 struct lol FAR *LoL = &DATASTART;
 
+struct _KernelConfig InitKernelConfig = { 0xFF };
+
 VOID ASMCFUNC FreeDOSmain(void)
 {
   unsigned char drv;
@@ -92,17 +92,8 @@ VOID ASMCFUNC FreeDOSmain(void)
 
   drv = LoL->BootDrive + 1;
   p = MK_FP(0, 0x5e0);
-  if (fmemcmp(p+2,"CONFIG",6) == 0)      /* UPX */
   {
-    fmemcpy(&InitKernelConfig, p+2, sizeof(InitKernelConfig));
-
-    drv = *p + 1;
-    *(DWORD FAR *)(p+2) = 0;
-  }
-  else
-  {
-    *p = drv - 1;
-    fmemcpy(&InitKernelConfig, &LowKernelConfig, sizeof(InitKernelConfig));
+    *p = drv - 1;	/* compatibility with older kernels */
   }
 
   if (drv >= 0x80)
