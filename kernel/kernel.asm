@@ -76,6 +76,7 @@ Version_Major               db 2
 Version_Revision            dw 41       ; REVISION_SEQ
 Version_Release             dw 1        ; 0=release build, >0=svn#
 
+CheckDebugger:		db 0	; 0 = no check, 1 = check, 2 = assume present
 configend:
 kernel_config_size: equ configend - config_signature
 	; must be below-or-equal the size of struct _KernelConfig
@@ -252,6 +253,25 @@ extern _InitKernelConfig
 	movsb				; allow odd size
 %endif
 	mov ds, ax			; => init data segment
+
+check_debugger_present:
+extern _debugger_present
+
+	mov al, 1			; assume debugger present
+	cmp byte [di - kernel_config_size + (CheckDebugger - config_signature)], 1
+	ja .skip_ints_00_06		; 2 means assume present
+	jb .absent			; 0 means assume absent
+	clc				; 1 means check
+	int3				; break to debugger
+	jc .skip_ints_00_06
+		; The debugger should set CY here to indicate its
+		;  presence. The flag set is checked later to skip
+		;  overwriting the interrupt vectors 00h, 01h, 03h,
+		;  and 06h. This logic is taken from lDOS init.
+.absent:
+	xor ax, ax			; no debugger present
+.skip_ints_00_06:
+	mov byte [_debugger_present], al
 
            jmp     _FreeDOSmain
 

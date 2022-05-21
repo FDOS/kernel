@@ -69,6 +69,9 @@ __segment DosTextSeg = 0;
 struct lol FAR *LoL = &DATASTART;
 
 struct _KernelConfig InitKernelConfig = { 0xFF };
+UBYTE debugger_present = 0xFF;	/* initialised in kernel.asm
+				   do NOT set 0 here or compiler may
+				   move it into bss that we zero out */
 
 VOID ASMCFUNC FreeDOSmain(void)
 {
@@ -235,10 +238,10 @@ STATIC void setup_int_vectors(void)
   } vectors[] =
     {
       /* all of these are in the DOS DS */
-      { 0x0, FP_OFF(int0_handler) },   /* zero divide */
-      { 0x1, FP_OFF(empty_handler) },  /* single step */
-      { 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
-      { 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
+      { 0x80 | 0x0, FP_OFF(int0_handler) },   /* zero divide */
+      { 0x80 | 0x1, FP_OFF(empty_handler) },  /* single step */
+      { 0x80 | 0x3, FP_OFF(empty_handler) },  /* debug breakpoint */
+      { 0x80 | 0x6, FP_OFF(int6_handler) },   /* invalid opcode */
       { 0x19, FP_OFF(int19_handler) }, /* BIOS bootstrap loader, vdisk */
       { 0x20, FP_OFF(int20_handler) },
       { 0x21, FP_OFF(int21_handler) }, /* primary DOS API */
@@ -264,7 +267,8 @@ STATIC void setup_int_vectors(void)
     setvec(i, empty_handler); /* note: int 31h segment should be DOS DS */
   HaltCpuWhileIdle = 0;
   for (pvec = vectors; pvec < vectors + (sizeof vectors/sizeof *pvec); pvec++)
-    setvec(pvec->intno, (intvec)MK_FP(FP_SEG(empty_handler), pvec->handleroff));
+    if ((pvec->intno & 0x80) == 0 || debugger_present == 0)
+      setvec(pvec->intno & 0x7F, (intvec)MK_FP(FP_SEG(empty_handler), pvec->handleroff));
   pokeb(0, 0x30 * 4, 0xea);
   pokel(0, 0x30 * 4 + 1, (ULONG)cpm_entry);
 
