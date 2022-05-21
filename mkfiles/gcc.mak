@@ -72,7 +72,7 @@ INITPATCH=ia16-elf-objcopy --redefine-sym ___umodsi3=_init_umodsi3 --redefine-sy
 CLDEF=1
 CLT=gcc -DDOSC_TIME_H -I../hdr -o $@
 CLC=$(CLT)
-LINK=$(XLINK) -Tkernel.ld -Wl,-Map,kernel.map -o kernel.exe $(OBJS) -Wl,--whole-archive ../drivers/device.lib -Wl,--no-whole-archive \#
+LINK=$(XLINK) -Tkernel.ld -nostdlib -Wl,-Map,kernel.map -o kernel.exe $(OBJS) -Wl,--whole-archive ../drivers/device.lib -Wl,--no-whole-archive \#
 
 .SUFFIXES: .obj .asm
 
