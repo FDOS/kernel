@@ -90,7 +90,7 @@ static void usage(void)
 
 static int exeflat(const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
-                   int UPX, exe_header *header)
+                   int UPX, int patchsignal, exe_header *header)
 {
   int i, j;
   size_t bufsize;
@@ -99,6 +99,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   ULONG size, to_xfer;
   UBYTE **buffers;
   UBYTE **curbuf;
+  UBYTE *signal;
   FILE *src, *dest;
   short silentdone = 0;
   int compress_sys_file;
@@ -220,6 +221,31 @@ static int exeflat(const char *srcfile, const char *dstfile,
   else if (buffers[0][0] == 0xe9 /* jmp near */)
   {
     realentry = ((UWORD)(buffers[0][2]) << 8) + buffers[0][1] + 3;
+  }
+
+  signal = &buffers[(size_t)(realentry / BUFSIZE)][(size_t)(realentry % BUFSIZE)];
+  if (patchsignal && UPX)
+  {
+    if (*signal == 0xF8) /* clc */
+    {
+      *signal = 0xF9; /* stc */
+      printf("Signal patched to indicate compression\n");
+    }
+    else if (*signal == 0xF9)
+    {
+      printf("Signal is already patched to indicate compression\n");
+    }
+  }
+  else if (patchsignal)
+  {
+    if (*signal == 0xF8) /* clc */
+    {
+      printf("Signal not patched as no compression used\n");
+    }
+    else if (*signal == 0xF9)
+    {
+      printf("Signal wrongly patched to indicate compression ??\n");
+    }
   }
 
   if ((dest = fopen(dstfile, "wb+")) == NULL)
@@ -423,7 +449,7 @@ int main(int argc, char **argv)
 
   compress_sys_file = exeflat(argv[1], argv[2], argv[3],
                               silentSegments, silentcount,
-                              UPX, &header);
+                              UPX, 1, &header);
   if (!UPX)
     exit(0);
 
@@ -470,7 +496,7 @@ int main(int argc, char **argv)
   {
     exeflat(tmpexe, argv[2], argv[3],
             silentSegments, silentcount,
-            FALSE, &header);
+            FALSE, 0, &header);
     remove(tmpexe);
   }
 
