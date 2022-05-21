@@ -69,6 +69,8 @@ __segment DosTextSeg = 0;
 struct lol FAR *LoL = &DATASTART;
 
 struct _KernelConfig InitKernelConfig = { 0xFF };
+UBYTE kernel_command_line[256] = { 0x00, 0xFF }; /* special none value */
+int kernel_command_line_length BSS_INIT(0);
 UBYTE debugger_present = 0xFF;	/* initialised in kernel.asm
 				   do NOT set 0 here or compiler may
 				   move it into bss that we zero out */
@@ -77,6 +79,7 @@ VOID ASMCFUNC FreeDOSmain(void)
 {
   unsigned char drv;
   unsigned char FAR *p;
+  char * pp;
 
 #ifdef _MSC_VER
   extern FAR prn_dev;
@@ -105,6 +108,22 @@ VOID ASMCFUNC FreeDOSmain(void)
 
   /* install DOS API and other interrupt service routines, basic kernel functionality works */
   setup_int_vectors();
+
+#ifdef DEBUG
+  /* printf must go after setup_int_vectors call */
+  if (kernel_command_line[0] == 0x00 && kernel_command_line[1] == 0xFF) {
+    printf("\nKERNEL: Command line is not specified.\n");
+  } else {
+    printf("\nKERNEL: Command line is \"%s\"\n", kernel_command_line);
+  }
+#endif
+
+  kernel_command_line_length = strlen(kernel_command_line);
+  for (pp = kernel_command_line; *pp; ++pp) {
+    if (*pp == ';') {
+      *pp = 0;
+    }
+  }
 
   /* check if booting from floppy/CD */
   CheckContinueBootFromHarddisk();
