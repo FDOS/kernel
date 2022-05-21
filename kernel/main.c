@@ -270,7 +270,7 @@ STATIC void setup_int_vectors(void)
 
   /* install default handlers */
   for (i = 0x23; i <= 0x3f; i++)
-    setvec(i, empty_handler);
+    setvec(i, empty_handler); /* note: int 31h segment should be DOS DS */
   HaltCpuWhileIdle = 0;
   for (pvec = vectors; pvec < vectors + (sizeof vectors/sizeof *pvec); pvec++)
     setvec(pvec->intno, (intvec)MK_FP(FP_SEG(empty_handler), pvec->handleroff));
