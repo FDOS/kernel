@@ -13,7 +13,7 @@
 *  merged into SYS by tom ehlert                                                                        *
 ***************************************************************************/
 
-char VERSION[] = "v1.02";
+char VERSION[] = "v1.03";
 char PROGRAM[] = "SYS CONFIG";
 char KERNEL[] = "KERNEL.SYS";
 
@@ -93,7 +93,8 @@ void showUsage(void)
   printf("  Current Options are: DLASORT=0|1, SHOWDRIVEASSIGNMENT=0|1\n"
          "                       SKIPCONFIGSECONDS=#, FORCELBA=0|1\n"
          "                       GLOBALENABLELBASUPPORT=0|1\n"
-         "                       BootHarddiskSeconds=0|seconds to wait\n");
+         "                       BootHarddiskSeconds=0|seconds to wait\n"
+         "                       CheckDebugger=0|1|2\n");
 }
 
 /* simply reads in current configuration values, exiting program
@@ -213,6 +214,13 @@ void displayConfigSettings(KernelConfig * cfg)
     printf
         ("BootHarddiskSeconds=%d :      *0=no else seconds to wait for key\n",
          cfg->BootHarddiskSeconds);
+  }
+
+  if (cfg->ConfigSize >= 13)
+  {
+    printf
+        ("CheckDebugger=%d :            *0=no, 1=check, 2=assume\n",
+         cfg->CheckDebugger);
   }
 
 #if 0                           /* we assume that SYS is as current as the kernel */
@@ -481,6 +489,11 @@ int FDKrnConfigMain(int argc, char **argv)
     {
       setSByteOption(&(cfg.BootHarddiskSeconds),
                      cptr, 0, 127, &updates, "BootHarddiskSeconds");
+    }
+    else if (memicmp(argptr, "CheckDebugger", 5) == 0)
+    {
+      setByteOption(&(cfg.CheckDebugger),
+                     cptr, 2, &updates, "CheckDebugger");
     }
     else
     {

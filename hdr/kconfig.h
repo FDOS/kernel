@@ -46,4 +46,8 @@ typedef struct _KernelConfig {
   unsigned short Version_Revision;
   unsigned short Version_Release;
 
+  unsigned char CheckDebugger;
+	/* 0 = do not check (assume absent),
+	   1 = do check by running breakpoint,
+	   2 = assume present */
 } KernelConfig;
