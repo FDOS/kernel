@@ -56,6 +56,7 @@ entry:
 ;************************************************************       
                 global _LowKernelConfig                                        
 _LowKernelConfig:
+config_signature:
                 db 'CONFIG'             ; constant
                 dw configend-configstart; size of config area
                                         ; to be checked !!!
@@ -76,6 +77,9 @@ Version_Revision            dw 41       ; REVISION_SEQ
 Version_Release             dw 1        ; 0=release build, >0=svn#
 
 configend:
+kernel_config_size: equ configend - config_signature
+	; must be below-or-equal the size of struct _KernelConfig
+	;  in the file kconfig.h !
 
 ;************************************************************       
 ; KERNEL CONFIGURATION AREA END
@@ -94,7 +98,10 @@ configend:
 
                 cpu 8086                ; (keep initial entry compatible)
 
+global realentry
 realentry:                              ; execution continues here
+	clc			; this is patched to stc by exeflat
+	adc byte [cs:use_upx_config], 0
 
                 push ax
                 push bx
@@ -107,6 +114,9 @@ realentry:                              ; execution continues here
                 pop ax
 
                 jmp     IGROUP:kernel_start
+
+use_upx_config:	db 0
+
 beyond_entry:   times   256-(beyond_entry-entry) db 0
                                         ; scratch area for data (DOS_PSP)
 
@@ -212,11 +222,38 @@ cont:           ; Now set up call frame
                 cpu XCPU
 %endif
                 mov     [_CPULevel], al
-                
-                mov     ax,ss
-                mov     ds,ax
-                mov     es,ax
-                jmp     _FreeDOSmain
+
+initialise_kernel_config:
+extern _InitKernelConfig
+
+	push ds
+	pop es				; => DOS data segment (for _BootDrive)
+	mov ax, ss			; => init data segment
+	mov si, 60h
+	mov ds, si			; => entry section
+	mov si, _LowKernelConfig	; -> our own CONFIG block
+		; This block is part of what got decompressed if
+		;  the kernel is UPX-compressed. And if UPX was
+		;  used in .SYS mode then the first several words
+		;  are overwritten with pseudo device header fields.
+	cmp byte [use_upx_config], 0	; from UPX ?
+	je .notupx			; no, use own CONFIG block -->
+	mov si, 5Eh
+	mov ds, si
+	mov si, 2			; -> CONFIG block of compressed entry
+	mov bl, [0]			; 05E0h has the boot load unit
+	mov byte [es:_BootDrive], bl	; overwrite the value in DOS data segment
+.notupx:
+	mov es, ax			; => init data segment
+	mov di, _InitKernelConfig	; -> init's CONFIG block buffer
+	mov cx, kernel_config_size / 2	; size that we support
+	rep movsw			; copy it over
+%if kernel_config_size & 1
+	movsb				; allow odd size
+%endif
+	mov ds, ax			; => init data segment
+
+           jmp     _FreeDOSmain
 
 %if XCPU != 86
         cpu 8086
