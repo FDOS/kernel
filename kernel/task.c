@@ -844,6 +844,8 @@ COUNT DosExec(COUNT mode, exec_blk FAR * ep, BYTE FAR * lp)
   else if (rc != 0)
   {
     rc = DosComLoader(lp, &TempExeBlock, mode, fd);
+  } else {
+    rc = DE_INVLDFMT;
   }
 
   DosCloseSft(fd, FALSE);
