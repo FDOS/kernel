@@ -869,7 +869,7 @@ VOID DoConfig(int nPass)
     static char * configfile = "";
     static char * altconfigfile = "fdconfig.sys";
     static char * oldconfigfile = "config.sys";
-    struct { char ** pointer; char const * command; }
+    static struct { char ** pointer; char const * command; }
       configcommands[] = {
         { &configfile, "CONFIG" },
         { &altconfigfile, "ALTCONFIG" },
