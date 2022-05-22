@@ -179,6 +179,7 @@ int MoveKernelToHMA()
     return FALSE;
 
   XMSDriverAddress = xms_addr;
+  XMS_Enable_Patch = 0x90;	/* must be set after XMSDriverAddress */
 
 #ifdef DEBUG
   /* A) for debugging purpose, suppress this, 

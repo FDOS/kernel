@@ -1165,17 +1165,20 @@ __HMARelocationTableEnd:
 ; will be only ever called, if HMA (DOS=HIGH) is enabled.
 ; for obvious reasons it should be located at the relocation table
 ;
-    global _XMSDriverAddress
-_XMSDriverAddress:  
-                    dw 0            ; XMS driver, if detected
-                    dw 0
 
     global _ENABLEA20
 _ENABLEA20:
     mov ah,5
-UsingXMSdriver:    
+UsingXMSdriver:
+
+	global _XMS_Enable_Patch
+_XMS_Enable_Patch:		; SMC: patch to nop (90h) to enable use of XMS
+	retf
+
     push bx
-    call far [cs:_XMSDriverAddress]
+    call 0:0			; (immediate far address patched)
+    global _XMSDriverAddress
+_XMSDriverAddress: equ $ - 4	; XMS driver, if detected
     pop  bx
     retf
 
@@ -1184,8 +1187,6 @@ _DISABLEA20:
     mov ah,6
     jmp short UsingXMSdriver
 
-dslowmem  dw 0
-eshighmem dw 0ffffh
 
     global forceEnableA20
 forceEnableA20:
@@ -1193,67 +1194,55 @@ forceEnableA20:
     push ds
     push es
     push ax
-    
-forceEnableA20retry:    
-    mov  ds, [cs:dslowmem]
-    mov  es, [cs:eshighmem]
-    
-    mov ax, [ds:00000h]    
-    cmp ax, [es:00010h]    
-    jne forceEnableA20success
+	push si
+	push di
+	push cx
+	pushf
+	cld
 
-    mov ax, [ds:00002h]    
-    cmp ax, [es:00012h]    
-    jne forceEnableA20success
+.retry:
+	xor si, si		; = 0000h
+	mov ds, si		; => low memory (IVT)
+	dec si			; = FFFFh
+	mov es, si		; => HMA at offset 10h
+	inc si			; back to 0, -> IVT entry 0 and 1
+	mov di, 10h		; -> HMA, or wrapping around to 0:0
+	mov cx, 4
+	repe cmpsw		; compare up to 4 words
+	je .enable
 
-    mov ax, [ds:00004h]    
-    cmp ax, [es:00014h]    
-    jne forceEnableA20success
-
-    mov ax, [ds:00006h]    
-    cmp ax, [es:00016h]    
-    jne forceEnableA20success
-
-;
-;   ok, we have to enable A20 )at least seems so
-;
-
-    call DGROUP:_ENABLEA20
-    
-    jmp short forceEnableA20retry
-    
-    
-    
-forceEnableA20success:    
+.success:
+	popf
+	pop cx
+	pop di
+	pop si
     pop ax
     pop es
     pop ds
-    ret
-                
-;
+    retn
+
+.enable:
+		; ok, we have to enable A20 (at least seems so)
+	push cs			; make far call stack frame
+	call _ENABLEA20
+	jmp short .retry
+
+
 ; global f*cking compatibility issues:
 ;
 ; very old brain dead software (PKLITE, copyright 1990)
 ; forces us to execute with A20 disabled
 ;
 
-global _ExecUserDisableA20
-
+	global _ExecUserDisableA20
 _ExecUserDisableA20:
-
-    cmp word [cs:_XMSDriverAddress], byte 0
-    jne NeedToDisable
-    cmp word [cs:_XMSDriverAddress+2], byte 0
-    je noNeedToDisable
-NeedToDisable:        
-    push ax 
-    call DGROUP:_DISABLEA20
+    push ax
+	push cs			; make far call stack frame
+	call _DISABLEA20	; (no-op if not in HMA, patched otherwise)
     pop ax
-noNeedToDisable:
-    iret        
+    iret
 
 
-;
 ; Default Int 24h handler -- always returns fail
 ; so we have not to relocate it (now)
 ;
