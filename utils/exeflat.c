@@ -318,10 +318,11 @@ static int exeflat(const char *srcfile, const char *dstfile,
 }
 
 static void write_header(FILE *dest, unsigned char * code, UWORD stubsize,
-  exe_header *header)
+  const char *start, exe_header *header)
 {
   UWORD stackpointerpatch, stacksegmentpatch, psppatch, csippatch, patchvalue;
   UWORD end;
+  UWORD start_seg = (UWORD)strtol(start, NULL, 0);
 
   stackpointerpatch = code[0x100] + code[0x100 + 1] * 256U;
   stacksegmentpatch = code[0x102] + code[0x102 + 1] * 256U;
@@ -342,17 +343,17 @@ static void write_header(FILE *dest, unsigned char * code, UWORD stubsize,
   code[stackpointerpatch] = patchvalue & 0xFF;
   code[stackpointerpatch + 1] = (patchvalue >> 8) & 0xFF;
   patchvalue = code[stacksegmentpatch] + code[stacksegmentpatch + 1] * 256U;
-  patchvalue += header->exInitSS + 0x60 + (stubsize >> 4);
+  patchvalue += header->exInitSS + start_seg + (stubsize >> 4);
   code[stacksegmentpatch] = patchvalue & 0xFF;
   code[stacksegmentpatch + 1] = (patchvalue >> 8) & 0xFF;
   patchvalue = code[psppatch] + code[psppatch + 1] * 256U;
-  patchvalue += 0x60 + (stubsize >> 4);
+  patchvalue += start_seg + (stubsize >> 4);
   code[psppatch] = patchvalue & 0xFF;
   code[psppatch + 1] = (patchvalue >> 8) & 0xFF;
   patchvalue = header->exInitIP;
   code[csippatch] = patchvalue & 0xFF;
   code[csippatch + 1] = (patchvalue >> 8) & 0xFF;
-  patchvalue = header->exInitCS + 0x60 + (stubsize >> 4);
+  patchvalue = header->exInitCS + start_seg + (stubsize >> 4);
   code[csippatch + 2] = patchvalue & 0xFF;
   code[csippatch + 3] = (patchvalue >> 8) & 0xFF;
 
@@ -524,7 +525,7 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  write_header(dest, code, stubsize, &header);
+  write_header(dest, code, stubsize, argv[3], &header);
   do {
     size = fread(buffer, 1, 32 * 1024, source);
     if (fwrite(buffer, 1, size, dest) != size) {
