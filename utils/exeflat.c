@@ -252,6 +252,18 @@ static int exeflat(const char *srcfile, const char *dstfile,
       exit(1);
     }
     fseek(dest, 32UL, SEEK_SET);
+    if (stubsize < 0xC0) {
+      UWORD branchlength = 0xC0 - stubsize;
+      if ((branchlength - 2) < 0x80) {
+        buffers[0][stubsize] = 0xEB; /* short jump */
+        buffers[0][stubsize + 1] = branchlength - 2;
+      } else {
+        branchlength -= 3;
+        buffers[0][stubsize] = 0xE9; /* near jump */
+        buffers[0][stubsize + 1] = branchlength & 0xFF;
+        buffers[0][stubsize + 2] = (branchlength >> 8) & 0xFF;
+      }
+    }
    } else {
     printf("DOS/SYS format for UPX not yet supported.\n");
     exit(1);
@@ -262,6 +274,10 @@ static int exeflat(const char *srcfile, const char *dstfile,
   {
     struct x {
       char y[0xC0 < BUFSIZE ? 1 : -1];
+	/* insure the stub fits into the first chunk buffer.
+		needed for the branch patch above, and to
+		skip the source data corresponding to the
+		stub in the first iteration of the loop below. */
     };
   }
   if (UPX) {
