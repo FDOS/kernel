@@ -90,7 +90,7 @@ static void usage(void)
 
 static int exeflat(const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
-                   int UPX, UWORD entryparagraphs, exe_header *header)
+                   int UPX, UWORD stubsize, UWORD entryparagraphs, exe_header *header)
 {
   int i, j;
   size_t bufsize;
@@ -231,7 +231,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   }
 
   /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
-  compress_sys_file = (size - (0xC0 - 0x10)) < 65420;
+  compress_sys_file = (size - (0x20 - 0x10)) < 65420;
   if (UPX) {
       printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
    if (!compress_sys_file) {
@@ -240,13 +240,13 @@ static int exeflat(const char *srcfile, const char *dstfile,
     exe_header nheader = *header;
     nheader.exRelocItems = 0;
     nheader.exHeaderSize = 2;
-    realsize = size + 32 - 0xC0;
+    realsize = size + 32 - stubsize;
     nheader.exPages = (UWORD)(realsize >> 9);
     nheader.exExtraBytes = (UWORD)realsize & 511;
     if (nheader.exExtraBytes)
       nheader.exPages++;
-    nheader.exInitCS = -0xC;
-    nheader.exInitIP = 0xC0;
+    nheader.exInitCS = - (stubsize >> 4);
+    nheader.exInitIP = stubsize;
     if (fwrite(&nheader, sizeof(nheader), 1, dest) != 1) {
       printf("Destination file write error\n");
       exit(1);
@@ -265,9 +265,9 @@ static int exeflat(const char *srcfile, const char *dstfile,
     };
   }
   if (UPX) {
-    curbufoffset = 0xC0;
-    bufsize = BUFSIZE - 0xC0;
-    to_xfer = size - 0xC0;
+    curbufoffset = stubsize;
+    bufsize = BUFSIZE - stubsize;
+    to_xfer = size - stubsize;
   } else {
     curbufoffset = 0;
     bufsize = BUFSIZE;
@@ -301,7 +301,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   return compress_sys_file;
 }
 
-static void write_header(FILE *dest, unsigned char * code,
+static void write_header(FILE *dest, unsigned char * code, UWORD stubsize,
   exe_header *header)
 {
   UWORD stackpointerpatch, stacksegmentpatch, psppatch, csippatch, patchvalue;
@@ -312,10 +312,10 @@ static void write_header(FILE *dest, unsigned char * code,
   psppatch = code[0x104] + code[0x104 + 1] * 256U;
   csippatch = code[0x106] + code[0x106 + 1] * 256U;
   end = code[0x108] + code[0x108 + 1] * 256U;
-  if (stackpointerpatch > (0xC0 - 2) || stackpointerpatch < 32
-      || stacksegmentpatch > (0xC0 - 2) || stacksegmentpatch < 32
-      || psppatch > (0xC0 - 2) || psppatch < 32
-      || csippatch > (0xC0 - 4) || csippatch < 32
+  if (stackpointerpatch > (end - 2) || stackpointerpatch < 32
+      || stacksegmentpatch > (end - 2) || stacksegmentpatch < 32
+      || psppatch > (end - 2) || psppatch < 32
+      || csippatch > (end - 4) || csippatch < 32
       || end > 0xC0 || end < 32) {
     printf("Invalid entry file patch offsets\n");
     exit(1);
@@ -326,17 +326,17 @@ static void write_header(FILE *dest, unsigned char * code,
   code[stackpointerpatch] = patchvalue & 0xFF;
   code[stackpointerpatch + 1] = (patchvalue >> 8) & 0xFF;
   patchvalue = code[stacksegmentpatch] + code[stacksegmentpatch + 1] * 256U;
-  patchvalue += header->exInitSS + 0x6C;
+  patchvalue += header->exInitSS + 0x60 + (stubsize >> 4);
   code[stacksegmentpatch] = patchvalue & 0xFF;
   code[stacksegmentpatch + 1] = (patchvalue >> 8) & 0xFF;
   patchvalue = code[psppatch] + code[psppatch + 1] * 256U;
-  patchvalue += 0x6C;
+  patchvalue += 0x60 + (stubsize >> 4);
   code[psppatch] = patchvalue & 0xFF;
   code[psppatch + 1] = (patchvalue >> 8) & 0xFF;
   patchvalue = header->exInitIP;
   code[csippatch] = patchvalue & 0xFF;
   code[csippatch + 1] = (patchvalue >> 8) & 0xFF;
-  patchvalue = header->exInitCS + 0x6C;
+  patchvalue = header->exInitCS + 0x60 + (stubsize >> 4);
   code[csippatch + 2] = patchvalue & 0xFF;
   code[csippatch + 3] = (patchvalue >> 8) & 0xFF;
 
@@ -353,7 +353,7 @@ static void write_header(FILE *dest, unsigned char * code,
   }
 
   fseek(dest, 0, SEEK_SET);
-  if (fwrite(code, 1, 0xC0, dest) != 0xC0) {
+  if (fwrite(code, 1, stubsize, dest) != stubsize) {
     printf("Error writing header code to output file\n");
     exit(1);
   }
@@ -373,6 +373,7 @@ int main(int argc, char **argv)
   static unsigned char code[256 + 10 + 1];
   FILE * entryf = NULL;
   UWORD end;
+  UWORD stubsize = 0;
 
   /* if no arguments provided, show usage and exit */
   if (argc < 4) usage();
@@ -426,6 +427,7 @@ int main(int argc, char **argv)
       printf("Invalid entry file patch offsets\n");
       exit(1);
     }
+    stubsize = (end + 15U) & ~15U;
   }
 
   /* arguments left :
@@ -433,7 +435,7 @@ int main(int argc, char **argv)
 
   compress_sys_file = exeflat(argv[1], argv[2], argv[3],
                               silentSegments, silentcount,
-                              UPX, 0, &header);
+                              UPX, stubsize, 0, &header);
   if (!UPX)
     exit(0);
 
@@ -480,7 +482,7 @@ int main(int argc, char **argv)
   {
     exeflat(tmpexe, argv[2], argv[3],
             silentSegments, silentcount,
-            FALSE, 0xC, &header);
+            FALSE, stubsize, stubsize >> 4, &header);
   }
 
   /* argv[2] now contains the final flattened file: just
@@ -506,7 +508,7 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  write_header(dest, code, &header);
+  write_header(dest, code, stubsize, &header);
   do {
     size = fread(buffer, 1, 32 * 1024, source);
     if (fwrite(buffer, 1, size, dest) != size) {
