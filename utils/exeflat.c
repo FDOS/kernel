@@ -301,21 +301,11 @@ static int exeflat(const char *srcfile, const char *dstfile,
   return compress_sys_file;
 }
 
-static void write_header(FILE *dest, char const * entryfilename,
+static void write_header(FILE *dest, unsigned char * code,
   exe_header *header)
 {
   UWORD stackpointerpatch, stacksegmentpatch, psppatch, csippatch, patchvalue;
   UWORD end;
-  static unsigned char code[256 + 10 + 1];
-  FILE * entryf = fopen(entryfilename, "rb");
-  if (!entryf) {
-    printf("Cannot open entry file\n");
-    exit(1);
-  }
-  if (fread(code, 1, 256 + 10 + 1, entryf) != 256 + 10) {
-    printf("Invalid entry file length\n");
-    exit(1);
-  }
 
   stackpointerpatch = code[0x100] + code[0x100 + 1] * 256U;
   stacksegmentpatch = code[0x102] + code[0x102 + 1] * 256U;
@@ -380,6 +370,9 @@ int main(int argc, char **argv)
   char *buffer, *tmpexe, *cmdbuf, *entryfilename = "";
   FILE *dest, *source;
   long size;
+  static unsigned char code[256 + 10 + 1];
+  FILE * entryf = NULL;
+  UWORD end;
 
   /* if no arguments provided, show usage and exit */
   if (argc < 4) usage();
@@ -415,6 +408,23 @@ int main(int argc, char **argv)
         
       default:
         usage();
+    }
+  }
+
+  if (UPX) {
+    entryf = fopen(entryfilename, "rb");
+    if (!entryf) {
+      printf("Cannot open entry file\n");
+      exit(1);
+    }
+    if (fread(code, 1, 256 + 10 + 1, entryf) != 256 + 10) {
+      printf("Invalid entry file length\n");
+      exit(1);
+    }
+    end = code[0x108] + code[0x108 + 1] * 256U;
+    if (end > 0xC0 || end < 32) {
+      printf("Invalid entry file patch offsets\n");
+      exit(1);
     }
   }
 
@@ -496,7 +506,7 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  write_header(dest, entryfilename, &header);
+  write_header(dest, code, &header);
   do {
     size = fread(buffer, 1, 32 * 1024, source);
     if (fwrite(buffer, 1, size, dest) != size) {
