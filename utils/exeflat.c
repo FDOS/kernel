@@ -58,7 +58,7 @@ large portions copied from task.c
 	/* 32 entrypoint structure,
 	   2 entrypoint short jump,
 	   4 near jump / ss:sp storage  */
-char kernel_config[KERNEL_CONFIG_LENGTH];
+unsigned char kernel_config[KERNEL_CONFIG_LENGTH];
 
 typedef struct {
   UWORD off, seg;
@@ -90,7 +90,7 @@ static void usage(void)
 
 static int exeflat(const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
-                   int UPX, int patchsignal, exe_header *header)
+                   int UPX, UWORD entryparagraphs, exe_header *header)
 {
   int i, j;
   size_t bufsize;
@@ -99,7 +99,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   ULONG size, to_xfer;
   UBYTE **buffers;
   UBYTE **curbuf;
-  UBYTE *signal;
+  UWORD curbufoffset;
   FILE *src, *dest;
   short silentdone = 0;
   int compress_sys_file;
@@ -123,6 +123,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
     exit(1);
   }
   start_seg = (UWORD)strtol(start, NULL, 0);
+  start_seg += entryparagraphs;
   if (header->exExtraBytes == 0)
     header->exExtraBytes = 0x200;
   printf("header len = %lu = 0x%lx\n", header->exHeaderSize * 16UL,
@@ -223,31 +224,6 @@ static int exeflat(const char *srcfile, const char *dstfile,
     realentry = ((UWORD)(buffers[0][2]) << 8) + buffers[0][1] + 3;
   }
 
-  signal = &buffers[(size_t)(realentry / BUFSIZE)][(size_t)(realentry % BUFSIZE)];
-  if (patchsignal && UPX)
-  {
-    if (*signal == 0xF8) /* clc */
-    {
-      *signal = 0xF9; /* stc */
-      printf("Signal patched to indicate compression\n");
-    }
-    else if (*signal == 0xF9)
-    {
-      printf("Signal is already patched to indicate compression\n");
-    }
-  }
-  else if (patchsignal)
-  {
-    if (*signal == 0xF8) /* clc */
-    {
-      printf("Signal not patched as no compression used\n");
-    }
-    else if (*signal == 0xF9)
-    {
-      printf("Signal wrongly patched to indicate compression ??\n");
-    }
-  }
-
   if ((dest = fopen(dstfile, "wb+")) == NULL)
   {
     printf("Destination file %s could not be created\n", dstfile);
@@ -255,37 +231,54 @@ static int exeflat(const char *srcfile, const char *dstfile,
   }
 
   /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
-  compress_sys_file = size < 65420;
+  compress_sys_file = (size - (0xC0 - 0x10)) < 65420;
   if (UPX) {
       printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
-  }
-  if (UPX && !compress_sys_file) {
+   if (!compress_sys_file) {
     ULONG realsize;
     /* write header without relocations to file */
     exe_header nheader = *header;
     nheader.exRelocItems = 0;
     nheader.exHeaderSize = 2;
-    realsize = size + 32;
+    realsize = size + 32 - 0xC0;
     nheader.exPages = (UWORD)(realsize >> 9);
     nheader.exExtraBytes = (UWORD)realsize & 511;
     if (nheader.exExtraBytes)
       nheader.exPages++;
+    nheader.exInitCS = -0xC;
+    nheader.exInitIP = 0xC0;
     if (fwrite(&nheader, sizeof(nheader), 1, dest) != 1) {
       printf("Destination file write error\n");
       exit(1);
     }
     fseek(dest, 32UL, SEEK_SET);
+   } else {
+    printf("DOS/SYS format for UPX not yet supported.\n");
+    exit(1);
+   }
   }
 
   /* write dest file from memory chunks */
-  bufsize = BUFSIZE;
-  for (to_xfer = size, curbuf = buffers; to_xfer > 0;
-       to_xfer -= bufsize, curbuf++)
   {
-    if (to_xfer < BUFSIZE)
+    struct x {
+      char y[0xC0 < BUFSIZE ? 1 : -1];
+    };
+  }
+  if (UPX) {
+    curbufoffset = 0xC0;
+    bufsize = BUFSIZE - 0xC0;
+    to_xfer = size - 0xC0;
+  } else {
+    curbufoffset = 0;
+    bufsize = BUFSIZE;
+    to_xfer = size;
+  }
+  for (curbuf = buffers; to_xfer > 0;
+       to_xfer -= bufsize, curbuf++, curbufoffset = 0, bufsize = BUFSIZE)
+  {
+    if (to_xfer < bufsize)
       bufsize = (size_t)to_xfer;
-    if (fwrite(*curbuf, sizeof(char), bufsize, dest) != bufsize)
-
+    if (fwrite(&(*curbuf)[curbufoffset], sizeof(char), bufsize, dest) != bufsize)
     {
       printf("Destination file write error\n");
       exit(1);
@@ -308,30 +301,59 @@ static int exeflat(const char *srcfile, const char *dstfile,
   return compress_sys_file;
 }
 
-static void write_header(FILE *dest, size_t size)
+static void write_header(FILE *dest, char const * entryfilename,
+  exe_header *header)
 {
-  /* UPX HEADER jump $+2+size */
-  static char JumpBehindCode[] = {
-    /* kernel config header - 32 bytes */
-    0xeb, 0x1b,               /*     jmp short realentry */
-    'C', 'O', 'N', 'F', 'I', 'G', 6, 0,      /* WORD */
-    0,                        /* DLASortByDriveNo            db 0  */
-    1,                        /* InitDiskShowDriveAssignment db 1  */
-    2,                        /* SkipConfigSeconds           db 2  */
-    0,                        /* ForceLBA                    db 0  */
-    1,                        /* GlobalEnableLBAsupport      db 1  */
-    0,                        /* BootHarddiskSeconds               */
+  UWORD stackpointerpatch, stacksegmentpatch, psppatch, csippatch, patchvalue;
+  UWORD end;
+  static unsigned char code[256 + 10 + 1];
+  FILE * entryf = fopen(entryfilename, "rb");
+  if (!entryf) {
+    printf("Cannot open entry file\n");
+    exit(1);
+  }
+  if (fread(code, 1, 256 + 10 + 1, entryf) != 256 + 10) {
+    printf("Invalid entry file length\n");
+    exit(1);
+  }
 
-    'n', 'u', 's', 'e', 'd',     /* unused filler bytes                              */
-    8, 7, 6, 5, 4, 3, 2, 1,
-    /* real-entry: jump over the 'real' image do the trailer */
-    0xe9, 0, 0                /* 100: jmp 103 */
-  };
+  stackpointerpatch = code[0x100] + code[0x100 + 1] * 256U;
+  stacksegmentpatch = code[0x102] + code[0x102 + 1] * 256U;
+  psppatch = code[0x104] + code[0x104 + 1] * 256U;
+  csippatch = code[0x106] + code[0x106 + 1] * 256U;
+  end = code[0x108] + code[0x108 + 1] * 256U;
+  if (stackpointerpatch > (0xC0 - 2) || stackpointerpatch < 32
+      || stacksegmentpatch > (0xC0 - 2) || stacksegmentpatch < 32
+      || psppatch > (0xC0 - 2) || psppatch < 32
+      || csippatch > (0xC0 - 4) || csippatch < 32
+      || end > 0xC0 || end < 32) {
+    printf("Invalid entry file patch offsets\n");
+    exit(1);
+  }
+
+  patchvalue = code[stackpointerpatch] + code[stackpointerpatch + 1] * 256U;
+  patchvalue += header->exInitSP;
+  code[stackpointerpatch] = patchvalue & 0xFF;
+  code[stackpointerpatch + 1] = (patchvalue >> 8) & 0xFF;
+  patchvalue = code[stacksegmentpatch] + code[stacksegmentpatch + 1] * 256U;
+  patchvalue += header->exInitSS + 0x6C;
+  code[stacksegmentpatch] = patchvalue & 0xFF;
+  code[stacksegmentpatch + 1] = (patchvalue >> 8) & 0xFF;
+  patchvalue = code[psppatch] + code[psppatch + 1] * 256U;
+  patchvalue += 0x6C;
+  code[psppatch] = patchvalue & 0xFF;
+  code[psppatch + 1] = (patchvalue >> 8) & 0xFF;
+  patchvalue = header->exInitIP;
+  code[csippatch] = patchvalue & 0xFF;
+  code[csippatch + 1] = (patchvalue >> 8) & 0xFF;
+  patchvalue = header->exInitCS + 0x6C;
+  code[csippatch + 2] = patchvalue & 0xFF;
+  code[csippatch + 3] = (patchvalue >> 8) & 0xFF;
 
   if (0 == memcmp(kernel_config, "CONFIG", 6)) {
     unsigned long length = kernel_config[6] + kernel_config[7] * 256UL + 8;
     if (length <= KERNEL_CONFIG_LENGTH) {
-      memcpy(&JumpBehindCode[2], kernel_config, length);
+      memcpy(&code[2], kernel_config, length);
       printf("Copied %lu bytes of kernel config block to header\n", length);
     } else {
       printf("Error: Found %lu bytes of kernel config block, too long!\n", length);
@@ -340,65 +362,11 @@ static void write_header(FILE *dest, size_t size)
     printf("Error: Found no kernel config block!\n");
   }
 
-  struct x {
-    char y[sizeof(JumpBehindCode) == 0x20 ? 1 : -1];
-  };
-
   fseek(dest, 0, SEEK_SET);
-  /* this assumes <= 0xfe00 code in kernel */
-  *(short *)&JumpBehindCode[0x1e] += (short)size;
-  fwrite(JumpBehindCode, 1, 0x20, dest);
-}
-
-static void write_trailer(FILE *dest, size_t size, int compress_sys_file,
-  exe_header *header)
-{
-  /* UPX trailer */
-  /* hand assembled - so this remains ANSI C ;-) */
-  /* well almost: we still need packing and assume little endian ... */
-  /* move kernel down to place CONFIG-block, which added above,
-     at start_seg-2:0 (e.g. 0x5e:0) instead of 
-     start_seg:0 (e.g. 0x60:0) and store there boot drive number
-     from BL; kernel.asm will then check presence of additional
-     CONFIG-block at this address. */
-  static char trailer[] = {   /* shift down everything by sizeof JumpBehindCode */
-    0xB9, 0x00, 0x00,         /*  0 mov cx,offset trailer     */
-    0x0E,                     /*  3 push cs                   */
-    0x1F,                     /*  4 pop ds (=60)              */
-    0x8C, 0xC8,               /*  5 mov ax,cs                 */
-    0x48,                     /*  7 dec ax                    */
-    0x48,                     /*  8 dec ax                    */
-    0x8E, 0xC0,               /*  9 mov es,ax                 */
-    0x93,                     /* 11 xchg ax,bx (to get al=bl) */
-    0x31, 0xFF,               /* 12 xor di,di                 */
-    0xFC,                     /* 14 cld                       */
-    0xAA,                     /* 15 stosb (store drive number)*/
-    0x8B, 0xF7,               /* 16 mov si,di                 */
-    0xF3, 0xA4,               /* 18 rep movsb                 */
-0x55,				/* 20 push bp */
-0x26, 0x8C, 0x16, 0x1E, 0x00,	/* 21 mov word [es:(#32 - 2)], ss */
-0x26, 0x89, 0x26, 0x1C, 0x00,	/* 26 mov word [es:(#32 - 4)], sp */
-    0x1E,                     /* 31 push ds                   */
-    0x58,                     /* 32 pop  ax                   */
-    0x05, 0x00, 0x00,         /* 33 add ax,...                */
-    0x8E, 0xD0,               /* 36 mov ss,ax                 */
-    0xBC, 0x00, 0x00,         /* 38 mov sp,...                */
-    0x31, 0xC0,               /* 41 xor ax,ax                 */
-    0xFF, 0xE0                /* 43 jmp ax                    */
-  };
-
-  *(short *)&trailer[1] = (short)size + 0x20;
-  *(short *)&trailer[34] = header->exInitSS;
-  *(short *)&trailer[39] = header->exInitSP;
-  if (compress_sys_file) {
-    /* replace by jmp word ptr [6]: ff 26 06 00
-       (the .SYS strategy handler which will unpack) */
-    *(long *)&trailer[41] = 0x000626ffL;
-    /* set up a 4K stack for the UPX decompressor to work with */
-    *(short *)&trailer[34] = 0x1000;
-    *(short *)&trailer[39] = 0x1000;
+  if (fwrite(code, 1, 0xC0, dest) != 0xC0) {
+    printf("Error writing header code to output file\n");
+    exit(1);
   }
-  fwrite(trailer, 1, sizeof trailer, dest);
 }
 
 int main(int argc, char **argv)
@@ -409,8 +377,8 @@ int main(int argc, char **argv)
   int i;
   size_t sz, len, len2, n;
   int compress_sys_file;
-  char *buffer, *tmpexe, *cmdbuf;
-  FILE *dest;
+  char *buffer, *tmpexe, *cmdbuf, *entryfilename = "";
+  FILE *dest, *source;
   long size;
 
   /* if no arguments provided, show usage and exit */
@@ -430,6 +398,9 @@ int main(int argc, char **argv)
     {
       case 'U':
         UPX = i;
+        break;
+      case 'E':
+        entryfilename = &argptr[1];
         break;
       case 'S':
         if (silentcount >= LENGTH(silentSegments))
@@ -452,7 +423,7 @@ int main(int argc, char **argv)
 
   compress_sys_file = exeflat(argv[1], argv[2], argv[3],
                               silentSegments, silentcount,
-                              UPX, 1, &header);
+                              UPX, 0, &header);
   if (!UPX)
     exit(0);
 
@@ -499,32 +470,42 @@ int main(int argc, char **argv)
   {
     exeflat(tmpexe, argv[2], argv[3],
             silentSegments, silentcount,
-            FALSE, 0, &header);
-    remove(tmpexe);
+            FALSE, 0xC, &header);
   }
 
   /* argv[2] now contains the final flattened file: just
      header and trailer need to be added */
   /* the compressed file has two chunks max */
 
-  if ((dest = fopen(argv[2], "rb+")) == NULL)
+  rename(argv[2], "tmp.bin");
+  if ((dest = fopen(argv[2], "wb")) == NULL)
   {
     printf("Destination file %s could not be opened\n", argv[2]);
     exit(1);
   }
-
-  buffer = malloc(0xfe01);
-
-  fread(buffer, 0xfe01, 1, dest);
-  size = ftell(dest);
-  if (size >= 0xfe00u)
+  if ((source = fopen("tmp.bin", "rb")) == NULL)
   {
-    printf("kernel; size too large - must be <= 0xfe00\n");
+    printf("Source file %s could not be opened\n", "tmp.bin");
     exit(1);
   }
-  fseek(dest, 0, SEEK_SET);
-  write_header(dest, (size_t)size);
-  fwrite(buffer, (size_t)size, 1, dest);
-  write_trailer(dest, (size_t)size, compress_sys_file, &header);
+
+  buffer = malloc(32 * 1024);
+  if (!buffer)
+  {
+    printf("Memory allocation failure\n");
+    exit(1);
+  }
+
+  write_header(dest, entryfilename, &header);
+  do {
+    size = fread(buffer, 1, 32 * 1024, source);
+    if (fwrite(buffer, 1, size, dest) != size) {
+      printf("Write failure\n");
+      exit(1);
+    }
+  } while (size);
+
+  remove("tmp.bin");
+
   return 0;
 }
