@@ -46,7 +46,8 @@ STACK_SIZE      equ     384/2           ; stack allocated in words
 %ifidn __OUTPUT_FORMAT__, obj
 ..start:
 %endif
-entry:  
+bootloadunit:		; (byte of short jump re-used)
+entry:
                 jmp short realentry
 
 ;************************************************************       
@@ -82,6 +83,10 @@ kernel_config_size: equ configend - config_signature
 	; must be below-or-equal the size of struct _KernelConfig
 	;  in the file kconfig.h !
 
+		times (32 - 4) - ($ - $$) db 0
+bootloadstack:		dd 0
+
+
 ;************************************************************       
 ; KERNEL CONFIGURATION AREA END
 ;************************************************************       
@@ -101,10 +106,18 @@ kernel_config_size: equ configend - config_signature
 
 global realentry
 realentry:                              ; execution continues here
-	clc			; this is patched to stc by exeflat
-	adc byte [cs:use_upx_config], 0
-		; ! ZF used later in initialise_command_line_buffer
+	push cs
+	pop ds
+	xor di, di
+	mov byte [di + bootloadunit - $$], bl
+	push bp
+	mov word [di + bootloadstack - $$], sp
+	mov word [di + bootloadstack + 2 - $$], ss
+	jmp entry_common
 
+
+	times 0C0h - ($ - $$) nop	; magic offset (used by exeflat)
+entry_common:
                 push ax
                 push bx
                 pushf              
@@ -115,14 +128,31 @@ realentry:                              ; execution continues here
                 pop bx
                 pop ax
 
+	push cs
+	pop ds
                 jmp     IGROUP:kernel_start
-
-use_upx_config:	db 0
 
 beyond_entry:   times   256-(beyond_entry-entry) db 0
                                         ; scratch area for data (DOS_PSP)
 
 segment INIT_TEXT
+
+%ifdef TEST_FILL_INIT_TEXT
+ %macro step 0
+ %if _LFSR & 1
+  %assign _LFSR (_LFSR >> 1) ^ 0x80200003
+ %else
+  %assign _LFSR (_LFSR >> 1)
+ %endif
+ %endmacro
+
+	align 16
+ %assign _LFSR 1
+ %rep 1024 * 8
+	dd _LFSR
+	step
+ %endrep
+%endif
 
                 extern  _FreeDOSmain
                 extern  _query_cpu
@@ -131,6 +161,7 @@ segment INIT_TEXT
                 ; kernel start-up
                 ;
 kernel_start:
+	cld
 
                 push bx
                 pushf              
@@ -143,23 +174,18 @@ kernel_start:
 
 extern _kernel_command_line
 
-	; preserve unit in bl
+		; INP:	ds => entry section, with CONFIG block
+		;		and compressed entry help data
+		;		(actually always used now)
 initialise_command_line_buffer:
 	mov dx, I_GROUP
 	mov es, dx
-	mov ax, ss
-	mov ds, ax
-	mov ax, sp			; ds:ax = ss:sp
-	mov si, bp			; si = bp
-	jz .notupx			; ! ZF still left by adc
 
-	xor ax, ax
-	mov ds, ax			; :5E0h -> UPX help data
-	lds si, [5E0h + 1Ch]		; -> original ss:sp - 2
+	mov bl, [bootloadunit]
+	lds si, [bootloadstack]		; -> original ss:sp - 2
 	lea ax, [si + 2]		; ax = original sp
 	mov si, word [si]		; si = original bp
 
-.notupx:
 		; Note that the kernel command line buffer in
 		;  the init data segment is pre-initialised to
 		;  hold 0x00 0xFF in the first two bytes. This
@@ -278,24 +304,10 @@ cont:           ; Now set up call frame
 initialise_kernel_config:
 extern _InitKernelConfig
 
-	push ds
-	pop es				; => DOS data segment (for _BootDrive)
 	mov ax, ss			; => init data segment
 	mov si, 60h
 	mov ds, si			; => entry section
-	mov si, _LowKernelConfig	; -> our own CONFIG block
-		; This block is part of what got decompressed if
-		;  the kernel is UPX-compressed. And if UPX was
-		;  used in .SYS mode then the first several words
-		;  are overwritten with pseudo device header fields.
-	cmp byte [use_upx_config], 0	; from UPX ?
-	je .notupx			; no, use own CONFIG block -->
-	mov si, 5Eh
-	mov ds, si
-	mov si, 2			; -> CONFIG block of compressed entry
-	mov bl, [0]			; 05E0h has the boot load unit
-	mov byte [es:_BootDrive], bl	; overwrite the value in DOS data segment
-.notupx:
+	mov si, _LowKernelConfig	; -> our CONFIG block
 	mov es, ax			; => init data segment
 	mov di, _InitKernelConfig	; -> init's CONFIG block buffer
 	mov cx, kernel_config_size / 2	; size that we support
