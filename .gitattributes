@@ -3,3 +3,4 @@
 *.UP -text
 ci_*.sh text eol=lf
 .github/workflows/*.yml text eol=lf
+test/** binary diff
