@@ -577,9 +577,9 @@ int main(int argc, char **argv)
     rename("tmp.sys", "tmp.bin");
   }
 
-  /* argv[2] now contains the final flattened file: just
-     header and trailer need to be added */
-  /* the compressed file has two chunks max */
+  /* tmp.bin now contains the final flattened file: just
+     the UPX entry header needs to be added. */
+  /* the compressed file may exceed 64 KiB for DOS/EXE format. */
 
   if ((dest = fopen(argv[2], "wb")) == NULL)
   {
