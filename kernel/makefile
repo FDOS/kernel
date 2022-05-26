@@ -36,8 +36,8 @@ production:     ../bin/$(TARGET).sys ../bin/country.sys
 
 # -S to avoid showing expected relocations
 # 0x10 & 0x78 or 0x79 depending on compilation options
-kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin
-		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) -S0x10 -S0x78 -S0x79 -E..$(DIRSEP)utils$(DIRSEP)upxentry.bin $(UPXOPT) $(XUPX)
+kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin ../utils/upxdevic.bin
+		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) -S0x10 -S0x78 -S0x79 -E..$(DIRSEP)utils$(DIRSEP)upxentry.bin -D..$(DIRSEP)utils$(DIRSEP)upxdevic.bin $(UPXOPT) $(XUPX)
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
