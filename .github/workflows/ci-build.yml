@@ -26,7 +26,7 @@ jobs:
       run: |
         sudo add-apt-repository ppa:tkchia/build-ia16
         sudo apt update
-        sudo apt install gcc-ia16-elf libi86-ia16-elf nasm upx
+        sudo apt install gcc-ia16-elf libi86-ia16-elf nasm upx qemu-system-x86 mtools util-linux bash
 
     - name: build
       run: ./ci_build.sh
