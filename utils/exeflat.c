@@ -220,10 +220,17 @@ static int exeflat(const char *srcfile, const char *dstfile,
     exit(1);
   }
 
-  /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
+  /* The biggest .sys file that UPX accepts seems to be 65419 bytes long.
+	Actually, UPX 3.96 appears to accept DOS/SYS files up to 65426 bytes.
+	To avoid problems we use a slightly lower limit. */
   if (UPX) {
     if (stubdevsize && stubexesize)
-      compress_sys_file = (size - (0x20 - 0x10)) < 65420;
+      compress_sys_file = (size - stubdevsize) <= /* 65426 */ 65400;
+	/* would need to subtract 0x10 for the device header here
+		but then add in the same, because we skip 0x10 bytes
+		of the source file but fill the same length with the
+		doctored device header. so (size - stubdevsize) gives
+		the exact result that we want to compare against. */
     else if (stubexesize)
       compress_sys_file = 0;
     else if (stubdevsize)
