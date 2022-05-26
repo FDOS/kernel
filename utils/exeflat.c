@@ -102,7 +102,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   UWORD curbufoffset;
   FILE *src, *dest;
   short silentdone = 0;
-  int compress_sys_file;
+  int compress_sys_file = 0;
   UWORD stubsize = 0;
 
   if ((src = fopen(srcfile, "rb")) == NULL)
@@ -221,9 +221,18 @@ static int exeflat(const char *srcfile, const char *dstfile,
   }
 
   /* The biggest .sys file that UPX accepts seems to be 65419 bytes long */
-  compress_sys_file = (size - (0x20 - 0x10)) < 65420;
   if (UPX) {
-      printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
+    if (stubdevsize && stubexesize)
+      compress_sys_file = (size - (0x20 - 0x10)) < 65420;
+    else if (stubexesize)
+      compress_sys_file = 0;
+    else if (stubdevsize)
+      compress_sys_file = 1;
+    else {
+      printf("Error: Entry file must be specified\n");
+      exit(1);
+    }
+    printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
    if (!compress_sys_file) {
     stubsize = stubexesize;
     ULONG realsize;
