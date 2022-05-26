@@ -1,0 +1,1218 @@
+[list -]
+%if 0
+
+Extensions to NASM macro collection
+Public Domain by C. Masloch, 2011-2012
+Intended for 86 Mode programs.
+
+%endif
+
+%ifndef __lMACROS2_MAC__
+%assign __lMACROS2_MAC__ 1
+
+%include "lmacros1.mac"
+[list -]
+
+%ifdef _186
+ %ifnum _186				; if appears like it is available:
+	numdef _lframe__use_186_def, 1	;  then default to use it
+ %endif
+%endif
+	numdef _lframe__use_186_def	; use _186 to determine whether 186 available
+	numdef _lframe__force_186	; regardless the above: assume 186 available
+ %assign __lframe__override_force_8086 0; regardless the above: temporarily stay 8086-compatible
+
+		; Initiate stack frame definition.
+		; %1	Type of frame for parameter processing.
+		;	What this really means is only how large the return
+		;	 address and other things between bp and the last
+		;	 parameter are.
+		;	Default: none
+		;	Accepted: none, near (or 2), far (or 4), int (or 6),
+		;		   positive even numbers
+		;	Notice:	lret's auto %1 observes near/far/int here.
+		; %2	Nesting type of frame.
+		;	Default: normal
+		;	Accepted: normal, nested, inner
+		;
+		; A nested frame pushes and sets bp anew. That means that
+		;  the labels of the outside frame are not usable.
+		; An inner frame modifies sp but not bp. The outer frame's
+		;  variables may be accessed from within the inner frame.
+		; A normal frame is neither a nested nor an inner frame.
+%imacro lframe 0-2.nolist none,normal
+%ifdef lsizeparameters
+ %undef lsizeparameters
+%endif
+%ifdef __lframe__autoret
+ %undef __lframe__autoret
+%endif
+
+%ifidni %2, normal
+%elifidni %2, nested
+%elifidni %2, inner
+%else
+ %fatal Invalid frame nesting type specified: %2
+%endif
+
+%ifctx LFRAME
+ %fatal Already inside lframe, must end previous with lenter
+%elifctx LENTER
+ %ifidni %2, normal
+  %fatal Still inside lenter, must end previous with lleave
+ %endif
+%elifctx LENTEREARLY
+ %ifidni %2, normal
+  %fatal Still inside lenter, must end previous with lleave
+ %endif
+%endif
+%ifnctx LENTER
+ %ifnidni %2, normal
+  %fatal Not inside lenter, cannot use nested or inner frame
+ %endif
+%endif
+%push LFRAME
+
+%assign %$bits __BITS__
+%if %$bits == 16
+ %assign %$base_size	2
+ %assign %$near_offset	2
+ %assign %$far_offset	4
+ %assign %$int_offset	6
+%elif %$bits == 32
+ %assign %$base_size	4
+ %assign %$near_offset	4
+ %assign %$far_offset	8
+ %assign %$int_offset	12
+%elif %$bits == 64
+ %assign %$base_size	8
+ %assign %$near_offset	8
+ %assign %$far_offset	16
+ %assign %$int_offset	24
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+
+%assign %$inner 0
+%ifidni %2, inner
+ %assign %$inner 1
+%endif
+%assign %$nested 0
+%ifidni %2, nested
+ %assign %$nested 1
+%endif
+
+%define %$autoret
+%ifidni %1,none
+%elifidni %1,-
+%elifidni %1,near
+ %define %$autoret near
+ %assign %$parofs %$near_offset
+%elifidni %1,far
+ %define %$autoret far
+ %assign %$parofs %$far_offset
+%elifidni %1,int
+ %define %$autoret int
+ %assign %$parofs %$int_offset
+%elifnum %1
+ %if %1 < 0
+  %fatal Invalid frame type specified (negative): %1
+ %endif
+ %if %1 & 1
+  %fatal Invalid frame type specified (odd): %1
+ %endif
+ %assign %$parofs %1
+%else
+ %fatal Invalid frame type specified: %1
+%endif
+%assign %$pars_size 0
+%assign %$pars_return_size 0
+%define %$parlist
+%define %$labellist empty,empty,empty
+%assign %$ofs 0
+%assign %$enter 0
+%assign %$req 0
+%assign %$usereq 0
+%assign %$emit 1
+
+%assign %$restore_frame_ofs 0
+%if %$inner
+ %assign %$ofs %$$ofs
+ %assign %$restore_frame_ofs %$$ofs
+%endif
+%assign %$pars_inner_size 0
+%endmacro
+
+		; Indicate that the stack frame set-up should not
+		;  actually write any code (is not required) if no
+		;  parameters or variables are registered.
+		; Note that if no variables or parameters are
+		;  registered before lenter, and this is used, then it
+		;  is an error to register variables after lenter.
+		; As a workaround, do not use this then, or additionally
+		;  use lframe_needotherwise (effectively overriding this).
+		;
+		; This must be placed before lenter.
+%imacro lframe_needonlyregistered 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%assign %$usereq 1
+%endmacro
+
+		; Indicate that the stack frame set-up is necessary,
+		;  even if no parameters or variables are registered.
+		;
+		; This must be placed before lenter.
+%imacro lframe_needotherwise 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%assign %$req 1
+%endmacro
+
+%macro __lvar_check_duplicate_label 3-*.nolist
+%if %0 % 3
+ %fatal Expected number of parameters that is a multiple of three
+%endif
+%rep (%0 / 3) - 1
+ %ifidn %1, %$newlabel
+  %fatal Duplicate label: %1
+ %endif
+ %rotate 3
+%endrep
+%endmacro
+
+%macro __lvar_list_label 1.nolist
+%define %$newlabel %1
+__lvar_check_duplicate_label %$labellist
+%ifdef ?%1
+ %xdefine %$labellist %1,defined,?%1,%$labellist
+%else
+ %xdefine %$labellist %1,undefined,,%$labellist
+%endif
+%endmacro
+
+%macro __lvar_define_var 2.nolist
+__lvar_list_label %1
+%assign ?%1 %2
+._%$lframe_?%1: equ %2
+%endmacro
+
+		; Define a stack frame variable.
+		; %1	Type or size of variable.
+		;	Accepted: byte (1), word (2), dword (4), numeric
+		; %2	Name of variable. A question mark is prepended.
+		;
+		; Variables registered before lenter are accounted for
+		;  in the code lenter generates, ie uninitialised space
+		;  is automatically allocated for them on the stack.
+		; Variables registered after lenter are not automatically
+		;  allocated, you must manually either push data onto the
+		;  stack (possibly with desired initial values) or adjust
+		;  sp to allocate space for them on the stack.
+		; Defining variables after "lleave code" is untested and
+		;  potentially has unexpected results.
+%imacro lvar 2.nolist
+%ifctx LENTER
+ %ifn %$enter
+  %fatal lenter did not set up stack frame
+ %endif
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifidni %1,byte
+ %assign %$varsize 1
+%elifidni %1,word
+ %assign %$varsize 2
+%elifidni %1,dword
+ %assign %$varsize 4
+%elifidni %1,qword
+ %assign %$varsize 8
+%else
+	; Previously we checked with %elifnum here that the parameter
+	;  is numeric. That turned out not to be what we want in
+	;  https://hg.pushbx.org/ecm/inicomp/file/dc376b09985e/exodecr.asm#l153
+	; In that case we used lequ as a workaround but it really
+	;  should be allowed directly as lvar size specification.
+	; Therefore, we give the parameter to %assign and let it fail
+	;  in case the expression doesn't result in a scalar number.
+ %assign %$varsize %1
+%endif
+%assign %$ofs %$ofs-%$varsize
+__lvar_define_var %2, %$ofs
+%assign %$req 1
+%assign %$hadvar 1
+%endmacro
+
+		; Define a stack frame parameter.
+		; %1	Type or size of parameter.
+		;	Accepted: byte (1), word (2), dword (4), numeric
+		; %2	Name of parameter. A question mark is prepended.
+		;
+		; Parameters must be registered before lenter, as lenter
+		;  contains the mechanism to automatically calculate the
+		;  final offsets. This is necessary to allow registering
+		;  parameters in the same order they have to be pushed
+		;  onto the stack by the caller.
+%imacro lpar 2.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifndef %$parofs
+ %fatal Specified no frame type with lframe
+%endif
+%ifdef %$hadvar
+ %fatal lpar must occur before any lvar
+	; This is for lframe inner-type frames
+	;  which modify %$ofs in lpar.
+%endif
+%ifidni %1,byte
+ %assign %$varsize 1
+%elifidni %1,word
+ %assign %$varsize 2
+%elifidni %1,dword
+ %assign %$varsize 4
+%elifidni %1,qword
+ %assign %$varsize 8
+%elifnum %1
+ %assign %$varsize %1
+%else
+ %fatal Invalid type specified: %1
+%endif
+__lvar_list_label %2
+%assign %$pars_size %$pars_size+%$varsize
+%ifempty %$parlist
+ %xdefine %$parlist %$varsize,%2
+%else
+ %xdefine %$parlist %$parlist,%$varsize,%2
+%endif
+%assign %$req 1
+%if %$inner
+ %assign %$pars_inner_size %$pars_inner_size + %$varsize
+ %assign %$ofs %$ofs - %$varsize
+%endif
+%endmacro
+
+		; Note to return all prior defined stack frame parameters.
+		;  This simply subtracts the current length of parameters
+		;  from the length that is to be popped off the stack by lret.
+		;
+		; This is sort of a hack. May incorrectly handle cases of
+		;  byte (or otherwise odd-sized) parameters.
+%imacro lpar_return 0.nolist
+%ifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifndef %$parofs
+ %fatal Specified no frame type with lframe
+%endif
+%ifempty %$parlist
+ %fatal Specified no parameters with lpar
+%endif
+%ifn %$pars_size
+ %fatal Specified no parameters with lpar
+%endif
+%assign %$pars_return_size %$pars_size
+%assign %$req 1
+%endmacro
+
+		; Define a stack frame equ.
+		; %1	Numeric value to assign to this equ.
+		; %2	Name of equ. A question mark is prepended.
+		;
+		; The equ's lifetime is the same as the frame's, just like
+		;  for lvar and lpar labels. (All are internally defines.)
+%imacro lequ 2.nolist
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+__lvar_define_var %2, %1
+%endmacro
+
+		; Create a defined stack frame.
+		; This sets up bp and reserves stack space for all defined
+		;  variables. It also defines the labels for parameters.
+		; If no variables or parameters were registered until now,
+		;  and lframe_needonlyregistered has been used (without
+		;  overriding it by using lframe_needotherwise), then it is
+		;  assumed that no more variables will be registered after
+		;  this and that the stack frame is unnecessary. It will
+		;  thus not be created. lenter and lleave will consequently
+		;  not create any code.
+		; Defines %$lsizeparameters to be the even number of bytes
+		;  all parameters take up, and %$lsizevariables to be the
+		;  even number of bytes all variables take up.
+		; The code created by this does not change any flags, as it
+		;  uses either (one or two) "push ax" or "lea sp, [bp - x]"
+		;  or "enter x, 0" to reserve the stack space.
+		;
+		; "lenter early" can be used to write only the initial
+		;  "push bp" \ "mov bp, sp" sequence. Then variables are
+		;  defined with lvar as usual. However, these variables
+		;  can *optionally* be initialised by pushing into them
+		;  (similarly to lvar variables defined after lenter).
+		; Finally, a "lenter" acts as the default lenter does,
+		;  and reserves stack space for all yet defined lvar
+		;  variables. This is always done using "lea sp, [bp - x]"
+		;  so it doesn't matter how many of the variables were
+		;  already initialised by pushing into them.
+%imacro lenter 0-1.nolist
+%ifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifidni %1,early
+ %ifctx LENTEREARLY
+  %fatal Cannot use lenter early twice
+ %endif
+ %repl LENTEREARLY
+ %assign %$req 1
+ %assign %$early 1
+ %assign %$wasearly 0
+%elifempty %1
+ %assign %$wasearly 0
+ %ifctx LENTEREARLY
+  %assign %$wasearly 1
+ %endif
+ %assign %$early 0
+ %repl LENTER
+%else
+ %fatal Invalid parameter: %1
+%endif
+%assign %$lsizevariables (-%$ofs+1 - (- %$restore_frame_ofs) - %$pars_inner_size )&~1
+%ifn %$usereq
+ %assign %$req 1
+%endif
+%assign %$enter_emitted 0
+%if %$req
+ %assign %$enter 1
+ %assign %$186 0
+ %if %$early || %$wasearly
+ %elif __lframe__override_force_8086
+ %elif __lframe__force_186
+  %assign %$186 1
+ %elif __lframe__use_186_def
+  %assign %$186 _186
+ %endif
+ %if %$186 && %$ofs && (! %$inner) && %$emit
+	enter %$lsizevariables, 0
+ %assign %$enter_emitted 1
+ %endif
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$bits == 16
+%ifn %$inner
+%ifn %$wasearly
+ __lvar_define_var frame_bp, 0
+ %ifidni %$autoret, near
+  __lvar_define_var frame_ip, 2
+ %elifidni %$autoret, far
+  __lvar_define_var frame_ip, 2
+  __lvar_define_var frame_cs, 4
+ %elifidni %$autoret, int
+  __lvar_define_var frame_ip, 2
+  __lvar_define_var frame_cs, 4
+  __lvar_define_var frame_fl, 6
+ %endif
+%endif
+%endif
+ %if %$emit
+ %ifn %$enter_emitted
+  %ifn %$inner
+  %ifn %$wasearly
+	push bp
+	mov bp, sp
+  %endif
+  %endif
+  %ifn %$early
+   %if %$ofs
+    %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && (%$lsizevariables) == 2
+	push ax
+    %elif %$wasearly == 0 && (%$lsizevariables) == 4
+	push ax
+	push ax
+    %else
+	lea sp, [bp + %$restore_frame_ofs - (%$lsizevariables + %$pars_inner_size)]
+    %endif
+   %endif
+  %endif
+ %endif
+ %endif
+%elif %$bits == 32
+%ifn %$inner
+%ifn %$wasearly
+ __lvar_define_var frame_ebp, 0
+ %ifidni %$autoret, near
+  __lvar_define_var frame_eip, 4
+ %elifidni %$autoret, far
+  __lvar_define_var frame_eip, 4
+  __lvar_define_var frame_cs, 8
+ %elifidni %$autoret, int
+  __lvar_define_var frame_eip, 4
+  __lvar_define_var frame_cs, 8
+  __lvar_define_var frame_efl, 12
+ %endif
+%endif
+%endif
+ %if %$emit
+ %ifn %$enter_emitted
+  %ifn %$inner
+  %ifn %$wasearly
+	push ebp
+	mov ebp, esp
+  %endif
+  %endif
+  %ifn %$early
+   %if %$ofs
+    %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && (%$lsizevariables) == 2
+	push ax
+    %elif %$wasearly == 0 && (%$lsizevariables) == 4
+	push eax
+    %elif %$wasearly == 0 && (%$lsizevariables) == 8
+	push eax
+	push eax
+    %else
+	lea esp, [ebp + %$restore_frame_ofs - (%$lsizevariables + %$pars_inner_size)]
+    %endif
+   %endif
+  %endif
+ %endif
+ %endif
+%elif %$bits == 64
+%ifn %$inner
+%ifn %$wasearly
+ __lvar_define_var frame_rbp, 0
+ %ifidni %$autoret, near
+  __lvar_define_var frame_rip, 8
+ %elifidni %$autoret, far
+  __lvar_define_var frame_rip, 8
+  __lvar_define_var frame_cs, 16
+ %elifidni %$autoret, int
+  __lvar_define_var frame_rip, 8
+  __lvar_define_var frame_cs, 16
+  __lvar_define_var frame_rfl, 24
+ %endif
+%endif
+%endif
+ %if %$emit
+ %ifn %$enter_emitted
+  %ifn %$inner
+  %ifn %$wasearly
+	push rbp
+	mov rbp, rsp
+  %endif
+  %endif
+  %ifn %$early
+   %if %$ofs
+    %if %$wasearly == 0 && (%$lsizevariables) == 0
+    %elif %$wasearly == 0 && (%$lsizevariables) == 2
+	push ax
+    %elif %$wasearly == 0 && (%$lsizevariables) == 8
+	push rax
+    %else
+	lea rsp, [rbp + %$restore_frame_ofs - (%$lsizevariables + %$pars_inner_size)]
+    %endif
+   %endif
+  %endif
+ %endif
+ %endif
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+%ifn %$wasearly
+ ._%$lenter:
+%endif
+%endif
+%ifn %$wasearly
+ %assign %$lsizeparameters (%$pars_size+1)&~1
+ __lenter_parse_parlist %$parlist
+%endif
+%endmacro
+
+%macro __lenter_parse_parlist 0-*.nolist
+%if %0 & 1
+ %fatal Expected even number of macro parameters!
+%endif
+%rep %0 >> 1
+%assign %$pars_size %$pars_size - %1
+%if %$inner
+%assign ?%2 (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
+._%$lframe_?%2: equ (%$pars_size + %$parofs + %$restore_frame_ofs - %$pars_inner_size)
+%else
+%assign ?%2 (%$pars_size + %$parofs + %$base_size)
+._%$lframe_?%2: equ (%$pars_size + %$parofs + %$base_size)
+%endif
+%rotate 2
+%endrep
+%endmacro
+
+		; Reserve stack space for prior lvar variables.
+		;
+		; This is used after lenter and reserves the stack space
+		;  for all yet defined variables, including those defined
+		;  after the lenter usage (which aren't reserved space for
+		;  by lenter itself).
+		;
+		; "lenter early \ lvar a \ lenter \ lvar b" is equivalent
+		;  to "lenter \ lvar a \ lreserve \ lvar b".
+		;
+		; lreserve can be used multiple times. It always uses
+		;  "lea sp, [bp - x]" to reserve space, so the space will
+		;  always be equal to the already defined variables.
+		;
+		; Warning: Using lreserve after having pushed additional
+		;  data, beyond the defined variables, will discard that
+		;  data from the stack as sp is reset.
+%imacro lreserve 0.nolist
+%ifnctx LENTER
+ %fatal Must use lenter first
+%endif
+%ifn %$enter
+ %fatal lenter did not set up stack frame
+%endif
+%assign %$lsizevariables (-%$ofs+1)&~1
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$emit
+%if %$bits == 16
+ %if %$ofs
+	lea sp, [bp - %$lsizevariables]
+ %endif
+%elif %$bits == 32
+ %if %$ofs
+	lea esp, [ebp - %$lsizevariables]
+ %endif
+%elif %$bits == 64
+ %if %$ofs
+	lea rsp, [rbp - %$lsizevariables]
+ %endif
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+%endif
+%endmacro
+
+
+%imacro ldup 0.nolist
+%ifnctx LENTER
+ %fatal Must use lenter first
+%endif
+%ifn %$nested
+ %fatal ldup only valid in nested frame in normal frame
+%endif
+%if %$$inner
+ %fatal ldup only valid in nested frame in normal frame
+%endif
+%if %$enter != %$$enter
+ %fatal Failed ldup (enter)
+%endif
+%ifnempty %$autoret
+ %ifnidn %$autoret, %$$autoret
+  %fatal Failed ldup (autoret)
+ %endif
+%else
+ %ifnempty %$$autoret
+  %fatal Failed ldup (autoret one empty)
+ %endif
+%endif
+%if %$parofs != %$$parofs
+ %fatal Failed ldup (parofs)
+%endif
+%if %$bits != %$$bits
+ %fatal Failed ldup (bits)
+%endif
+%if %$pars_return_size != %$$pars_return_size
+ %fatal Failed ldup (pars_return_size)
+%endif
+__ldup_count newparlist, %$parlist
+__ldup_count oldparlist, %$$parlist
+%if %$count_newparlist != %$count_oldparlist
+ %fatal Failed ldup (count_*parlist)
+%endif
+__ldup_check_parlist %$$parlist
+__ldup_count newlabellist, %$labellist
+__ldup_count oldlabellist, %$$labellist
+%if %$count_newlabellist != %$count_oldlabellist
+ %fatal Failed ldup (count_*labellist)
+%endif
+__ldup_check_labellist %$$labellist
+%endmacro
+
+%macro __ldup_count 1-*.nolist
+%assign %$count_%[%1] %0 - 1
+%endmacro
+
+%macro __ldup_check_parlist 0-*.nolist
+%assign %$ii 0
+%rep %0
+ %define %$check %1
+ __ldup_check_single %$ii + 1,%$parlist
+ %assign %$ii %$ii + 1
+ %rotate 1
+%endrep
+%endmacro
+
+%macro __ldup_check_labellist 3-*.nolist
+%assign %$ii 0
+%rep (%0 / 3) - 1
+ %define %$check %1
+ __ldup_check_single %$ii + 1,%$labellist
+ %xdefine %$check ?%1
+ __ldup_check_single %$ii + 1 + 2,%$labellist
+ %assign %$ii %$ii + 3
+ %rotate 3
+%endrep
+%endmacro
+
+%macro __ldup_check_single 1-*.nolist
+%rotate %1
+%ifnidn %1, %$check
+	; The following is a workaround for older versions of NASM.
+	; Refer to https://bugzilla.nasm.us/show_bug.cgi?id=3392628
+ %ifnnum %1
+  %fatal Failed ldup (check single: 1 1=%1 check=%$check)
+ %elifnnum %$check
+  %fatal Failed ldup (check single: 2 1=%1 check=%$check)
+ %elifn %1 == %$check
+  %fatal Failed ldup (check single: 3 1=%1 check=%$check)
+ %endif
+%endif
+%endmacro
+
+
+%imacro lemit 0-1.nolist on
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifidni %1,on
+ %assign %$emit 1
+%elifidni %1,off
+ %assign %$emit 0
+%else
+ %assign %$emit !! %1
+%endif
+%endmacro
+
+
+%imacro lifemit 1+.nolist
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%if %$emit
+ %1
+%endif
+%endmacro
+
+
+		; Remove a created stack frame.
+		; This restores bp if it was altered to access variables or
+		;  parameters. It also restores sp from bp if sp was altered
+		;  to allocate space to variables.
+		; The code created by this does not change any flags, as it
+		;  uses only "mov sp, bp" and "pop bp", or "leave".
+		; This undefines all labels that were defined for variables
+		;  and parameters in this stack frame, to prevent accidental
+		;  usage of these labels later.
+		; lsizeparameters is defined as the (even) number of bytes
+		;  that all parameters use on the stack. (This is zero if no
+		;  parameters have been registered.)
+		; No return instruction is written by this macro; you may use
+		;  lret or place the appropriate instruction(s) manually.
+		; If none of lframe_needonlyregistered,needotherwise have
+		;  been used, and no variables or parameters at all have been
+		;  registered (regardless whether before or after lenter),
+		;  then this will stop with an error.
+		; %1	Specifies whether to write the stack frame removal
+		;	code or to remove the macros' context. This allows
+		;	writing the code multiple times.
+		;	Default: code+ctx
+		;	Accepted: code+ctx (or ), code, ctx
+		; %2	Specifies whether to always restore sp.
+		;	Default: optimiserestoresp
+		;	Accepted: optimiserestoresp (or ), forcerestoresp
+%imacro lleave 0-2.nolist
+%ifnctx LENTER
+ %fatal Must use lenter first
+%endif
+%ifidni %1,code
+%elifidni %1,ctx
+%elifidni %1,code+ctx
+%elifempty %1
+%else
+ %fatal Invalid parameter specified: %1
+%endif
+%ifidni %2,forcerestoresp
+%elifidni %2,optimizerestoresp
+%elifidni %2,optimiserestoresp
+%elifempty %2
+%else
+ %fatal Invalid second parameter specified: %2
+%endif
+	%ifnidni %1,ctx
+%ifn %$inner
+%if %$enter
+ %ifn %$req
+  %fatal lframe apparently unnecessary
+	; Note that to fix this, you either have to remove
+	; the lframe usage altogether, or employ one of those:
+	; * lframe_needonlyregistered
+	; * lframe_needotherwise
+	; See the descriptions of those.
+ %endif
+ %assign %$186 0
+ %if __lframe__override_force_8086
+ %elif __lframe__force_186
+  %assign %$186 1
+ %elif __lframe__use_186_def
+  %assign %$186 _186
+ %endif
+ %ifn %$ofs
+  %ifnidni %2,forcerestoresp
+   %assign %$186 0
+  %endif
+ %endif
+%if %$emit
+ %if %$186
+	leave
+ %else
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$bits == 16
+  %if %$ofs
+	mov sp, bp
+  %elifidni %2,forcerestoresp
+	mov sp, bp
+  %endif
+	pop bp
+%elif %$bits == 32
+  %if %$ofs
+	mov esp, ebp
+  %elifidni %2,forcerestoresp
+	mov esp, ebp
+  %endif
+	pop ebp
+%elif %$bits == 64
+  %if %$ofs
+	mov rsp, rbp
+  %elifidni %2,forcerestoresp
+	mov rsp, rbp
+  %endif
+	pop rbp
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+ %endif
+%endif
+%else
+ %if %$ofs
+  %fatal No stack frame was created
+ %elifidni %2,forcerestoresp
+  %fatal No stack frame was created
+ %endif
+%endif
+%endif
+%if %$inner
+%ifnidn %$bits,__BITS__
+ %fatal BITS of lframe (%$bits) differs from current: __BITS__
+%endif
+%if %$emit
+%if %$bits == 16
+	lea sp, [bp + %$restore_frame_ofs - %$pars_return_size]
+%elif %$bits == 32
+	lea esp, [ebp + %$restore_frame_ofs - %$pars_return_size]
+%elif %$bits == 64
+	lea rsp, [rbp + %$restore_frame_ofs - %$pars_return_size]
+%else
+ %fatal Unknown BITS specified: %$bits
+%endif
+%endif
+%endif
+	%else
+%ifnempty %2
+ %fatal Invalid to specify second parameter
+%endif
+	%endif
+%ifdef %$parofs
+ %assign lsizeparameters %$lsizeparameters - %$pars_return_size
+%endif
+%xdefine __lframe__autoret %$autoret
+	%ifnidni %1,code
+._%$lleave:
+__lleave_undefine_labels %$labellist
+%pop
+	%endif
+%endmacro
+
+%macro __lleave_undefine_labels 3-*.nolist
+%if %0 % 3
+ %fatal Expected number of parameters that is a multiple of three
+%endif
+%rep (%0 / 3) - 1
+ %ifidn %2, undefined
+  %undef ?%1
+ %elifidn %2, defined
+  %define ?%1 %3
+ %else
+  %fatal Expected parameter to be 'defined' or 'undefined' but is %2
+ %endif
+ %rotate 3
+%endrep
+%endmacro
+
+		; Place matching return instruction.
+		; This uses lsizeparameters, if it has been set by
+		;  lleave, as the size of all parameters on the
+		;  caller's stack frame.
+		; This generally must be used after using lleave.
+		; This may be used any number of times.
+		; %1	Specifies type of return.
+		;	Default: auto
+		;	Accepted: auto, near, far, int
+		;	Notice:	auto will use lframe's %1 only if it was
+		;		one of near, far, int. Otherwise, auto
+		;		(including the default) is an error!
+		; %2	Specifies an adjustment to remove either more
+		;	 or less than all the registered parameters
+		;	 from the caller's stack frame.
+		;	Default: 0
+		;	Accepted: even numbers, including negatives.
+		;		  Must be at least -lsizeparameters!
+		;	Notice:	The sum of lsizeparameters and %2
+		;		must be 0 for type int (ie iret).
+		;
+		; Note:	As this is usually used after the lframe's
+		;	 context is already popped, the lemit
+		;	 setting does not affect this macro.
+%imacro lret 0-2.nolist auto,0
+%ifctx LFRAME
+ %fatal Must use lenter first
+%elifctx LENTEREARLY
+ %fatal Must use lenter first
+%endif
+; Do not check specifically for ctx LENTER here!
+; Usually, lleave already popped the ctx.
+%push
+ %define %$type %1
+ %ifidni %$type,-
+  %define %$type auto
+ %endif
+ %ifempty %$type
+  %define %$type auto
+ %endif
+ %ifidni %$type,auto
+  %ifdef __lframe__autoret
+   %ifnempty __lframe__autoret
+    %define %$type __lframe__autoret
+   %endif
+  %endif
+ %endif
+ %ifidni %$type,near
+  %define %$inst retn
+ %elifidni %$type,far
+  %define %$inst retf
+ %elifidni %$type,int
+  %define %$inst iret
+ %else
+  %fatal Invalid type specified: %1
+ %endif
+ %if %2 & 1
+  %fatal Invalid adjustment %2, is odd
+ %endif
+ %assign %$remov %2
+ %ifnum lsizeparameters
+  %assign %$remov %$remov+lsizeparameters
+ %endif
+ %if %$remov < 0
+  %fatal Invalid adjustment %2, sum is negative
+ %endif
+ %ifn %$remov
+  %define %$remov
+ %endif
+	%$inst %$remov
+%pop
+%endmacro
+
+
+
+%unimacro @@ 1+.nolist
+%unimacro @@ 0-1+.nolist
+
+	; Core macro implementing anonymous local labels that behave
+	;  similarly to (but not exactly the same way as) MS MASM's.
+	; It shifts @FFFF..@BBBB by one and then invents a new label
+	;  name for @FFFF. The invented names contain incrementing
+	;  numbers to insure they are unique, and all start with ..@
+	;  to avoid interfering with NASM's named local labels.
+	;
+	; Provided (cap-insensitive) smacros:
+	;  @FFFF (or @F4)	Forward reference to fourth @@
+	;  @FFF (or @F3)	Forward reference to third @@
+	;  @FF (or @F2)		Forward reference to second @@
+	;  @F (or @F1)		Forward reference to next @@
+	;  @B (or @B1)		Backward reference to previous @@
+	;  @BB (or @B2)		Backward reference to second @@
+	;  @BBB (or @B3)	Backward reference to third @@
+	;  @BBBB (or @B4)	Backward reference to fourth @@
+	; (It is recommended to seldom use anything but @F and @B.)
+	; Internally used (cap-sensitive) smacro:
+	;  __@@_seq		Incremented by @S, initialised to 0
+	;			 by including this file. This gives
+	;			 the first number of invented names.
+	;  __@@_num		Incremented by @@, initialised to 4
+	;			 by including this file as well as
+	;			 by @S. This gives the second number
+	;			 of invented names. (Note that the
+	;			 current value is always what @@
+	;			 will invent for the new @FFFF; thus
+	;			 eg the current @F refers to a name
+	;			 that was invented with the current
+	;			 value less four. Consequently the
+	;			 first @@ defines a label whose name
+	;			 contains a 0 as the second number.)
+	; Invented names, full form:
+	;  ..@.@@.%[__@@_seq].%[__@@_num]
+	;  eg ..@.@@.0.0, ..@.@@.0.1, etc; ..@.@@.1.0, etc
+	;
+	; Note that as NASM has no procedure concept, the @@ labels
+	;  of logically distinct code sequences aren't automatically
+	;  reset, that is an @F near the end of one code sequence
+	;  whose intended target @@ erroneously wasn't placed will
+	;  jump to the next placed @@ after the code sequence.
+	; To work around that, manually place @S (start sequence for
+	;  @@ labels) between logically distinct code sequences. For
+	;  more strict checks, put @I (invalidate @@ references)
+	;  whereever a logically distinct code sequence ends, and
+	;  @S whereever a logically distinct code sequence begins.
+	;  (This disallows any @@ references outside such marked
+	;  code sequences.)
+	
+	; This
+	;  will cause all erroneous @@ forward references in front
+	;  of it and all erroneous @@ backward references behind it
+	;  to refer to undefined labels.
+	; The former will have a (regular) positive second number in
+	;  the referenced label name, while the latter will have a
+	;  (special) negative second number -4..-1 in the referenced
+	;  label name. The line on which the error occurs is the
+	;  line with the erroneous reference.
+ %macro __@@_next 0-1.nolist 1
+%if _@@_check && ! __@@_in_seq
+ %if _@@_check == 1
+  %warning "not in a sequence"
+ %else
+  %error "not in a sequence"
+ %endif
+%endif
+  %rep %1
+%ixdefine @BBBB @BBB
+%ixdefine @BBB @BB
+%ixdefine @BB @B
+%ixdefine @B @F
+%ixdefine @F @FF
+%ixdefine @FF @FFF
+%ixdefine @FFF @FFFF
+%idefine @FFFF ..@.@@.%[__@@_seq].%[__@@_num]
+%ixdefine @B4 @BBBB
+%ixdefine @B3 @BBB
+%ixdefine @B2 @BB
+%ixdefine @B1 @B
+%ixdefine @F1 @F
+%ixdefine @F2 @FF
+%ixdefine @F3 @FFF
+%ixdefine @F4 @FFFF
+
+%assign __@@_num __@@_num+1
+  %endrep
+ %endmacro
+
+	; This macro defines an anonymous local label (optionally
+	;  writing any kind of code afterwards)
+	;  then it calls the above macro to shift the pre-invented
+	;  names and invent a new one for @FFFF.
+	; Note that smacros inside following code if any are
+	;  expanded by NASM's preprocessor before processing mmacros
+	;  hence "@@: jmp @F" is equivalent to "@@: jmp $".
+	; (If correct label missing colon warning behaviour wasn't
+	;  wanted, then the implementation could be simpler. Hmm.)
+ %macro @@ 0.nolist
+@F
+__@@_next
+ %endmacro
+	; "@@", label alone on line missing colon warning.
+ %macro @@ 1+.nolist
+%ifidn %1,:
+@F %+ :
+__@@_next
+%else
+ %push
+  %defstr %$str %1
+  %substr %$colon %$str 1
+  %ifidn %$colon,':'
+   %substr %$str %$str 2,-1
+   %deftok %$str %$str
+@F %+ :
+__@@_next
+%$str
+  %else
+@F times 0 nop
+__@@_next
+%1
+  %endif
+ %pop
+%endif
+ %endmacro
+	; "@@ :", (trivial) no label-missing-colon warnings.
+	; "@@ nop", label missing colon warning; the "times 0 nop"
+	;  part is necessary so that this warning isn't 'promoted'
+	;  to the label alone on line missing colon warning.
+	; "@@ : nop", no label-missing-colon warnings.
+	; Not handled like actual label: following "instruction" is
+	;  allowed to be a directive, another label, or even an
+	;  mmacro usage like @@ itself. Hmmm... allows eg "@@: @@:"
+	;  to define two @@ labels at once. May be useful.
+
+	numdef @@_check, 0	; 0 = none, 1 = warn, else = error
+	numdef @@_start, 1	; 0 = omit @S, else = do @S
+
+	; Only invalidate outstanding @@ forward references.
+ %imacro @FI 0.nolist
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @FFFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @FFF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @FF ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @F ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%ixdefine @F4 @FFFF
+%ixdefine @F3 @FFF
+%ixdefine @F2 @FF
+%ixdefine @F1 @F
+ %endmacro
+
+	; Only invalidate @@ backward references.
+ %imacro @BI 0.nolist
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @B ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @BB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @BBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%assign __@@_num_inv __@@_num_inv+1
+%idefine @BBBB ..@.@@.%[__@@_seq].inv.%[__@@_num_inv]
+%ixdefine @B4 @BBBB
+%ixdefine @B3 @BBB
+%ixdefine @B2 @BB
+%ixdefine @B1 @B
+ %endmacro
+
+	; Invalidate all references.
+	;  The sequence flag is reset, unless non-zero %1 is given.
+ %imacro @I 0-1.nolist 0
+%if __@@_in_seq && %1
+ %assign __@@_in_seq 1
+%else
+ %assign __@@_in_seq 0
+%endif
+@FI
+@BI
+ %endmacro
+
+	; Invalidate outstanding @@ forward references (by causing
+	;  them to ultimately refer to undefined labels) then invent
+	;  four new names for @BBBB..@B that are invalid (ie would
+	;  ultimately refer to undefined labels) then invent four
+	;  new names for @F..@FFFF that can be defined by @@.
+	; Note that __@@_next successfully passes along whatever
+	;  @F..@FFFF are initialised to when this macro is used;
+	;  even if they aren't initialised at all (in that case
+	;  their names are passed along!). No error conditions are
+	;  caused there, and all of these passed names are discarded
+	;  by @BI.
+	; As __@@_num is initialised to -4, at the end of this
+	;  macro's processing the @@ backward references @BBBB..@B
+	;  refer to names ending in -4..-1 (which are to be left
+	;  undefined) and the @@ forward references @F..@FFFF refer
+	;  to ..@.@@.%[__@@_seq].0..3 (which can be defined by @@).
+ %imacro @S 0-1.nolist _@@_check
+%if %1 && __@@_in_seq
+ %if %1 == 1
+  %warning "already in a sequence"
+ %else
+  %error "already in a sequence"
+ %endif
+%endif
+
+%assign __@@_seq __@@_seq+1
+%assign __@@_num 0
+%assign __@@_num_inv 0
+%assign __@@_in_seq 1
+
+__@@_next 4
+@BI
+ %endmacro
+
+%ifnnum __@@_in_seq
+ %assign __@@_in_seq 0
+%endif
+%ifnnum __@@_seq
+ %assign __@@_seq 0
+ %assign __@@_num 0
+ %assign __@@_num_inv 0
+%endif
+%ifnnum __@@_num
+ %assign __@@_num 0
+%endif
+%ifnnum __@@_num_inv
+ %assign __@@_num_inv 0
+%endif
+%if _@@_start
+ @S
+%endif
+
+
+	%imacro checklframeend 0
+%ifctx LFRAME
+ %fatal Still inside lframe!
+%elifctx LENTER
+ %fatal Still inside lenter!
+%elifctx LENTEREARLY
+ %fatal Still inside lenter!
+%endif
+	%endmacro
+
+
+	%imacro _struc_at 2-3+.nolist
+%if %1
+ %if (%2 - ($ - %$strucname)) != 0
+  %if %1 == 1
+   %error Not at that offset!
+  %else
+   %warning Not at that offset!
+  %endif
+ %endif
+%endif
+	resb %2 - ($ - %$strucname)
+%3
+	%endmacro
+
+%idefine struc_at	_struc_at 0,
+%idefine exact_struc_at	_struc_at 1,
+%idefine warn_struc_at	_struc_at 2,
+
+
+%endif
+[list +]

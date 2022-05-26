@@ -1,0 +1,1101 @@
+[list -]
+%if 0
+
+NASM macro collection
+Public Domain by C. Masloch, 2008-2012
+Intended for 86 Mode programs.
+
+%endif
+
+%ifndef __lMACROS1_MAC__
+%assign __lMACROS1_MAC__ 1
+
+%if !!2 - 1
+ %error Unary operator ! returns values > 1. Adjust all sources.
+%endif
+
+%idefine by byte
+%idefine wo word
+%idefine dwo dword
+
+%idefine b byte
+%idefine w word
+%idefine d dword
+
+%idefine s short
+%idefine sho short
+
+%idefine n near
+%idefine ne near
+
+%idefine f far
+
+
+		; Bind major and minor version byte to version word or
+		; version word with exchanged bytes.
+%idefine ver(major,minor)	( ((major)&0FFh)<<8|((minor)&0FFh) )
+%idefine verx(major,minor)	( ((minor)&0FFh)<<8|((major)&0FFh) )
+
+		; Macros for table creation
+%define count(start,stop) stop-start+1
+%define range(start,stop) (start),count(start,stop)	; generates two comma-separated values
+
+		; Work with 4-byte dates
+%define date4b(y,m,d)	(((y)&0FFFFh)<<16|((m)&0FFh)<<8|((d)&0FFh))	; create 4-byte date
+%define year4bd(d)	(((d)>>16)&0FFFFh)	; get year from 4-byte date
+%define month4bd(d)	(((d)>>8)&0FFh)		; get month from 4-byte date
+%define day4bd(d)	((d)&0FFh)		; get day from 4-byte date
+						; The 4-byte date stores the year 0-65535 in the high word,
+						; followed by the month 0-255 in the high byte (of the low
+						; word) and the day 0-255 in the low byte.
+
+
+		; Write numbers as decimal digits into a string
+%define _1digits_nocheck(d)	(((d)% 10)+'0')
+%xdefine _2digits_nocheck(d)	_1digits_nocheck((d)/10),_1digits_nocheck(d)
+%xdefine _3digits_nocheck(d)	_1digits_nocheck((d)/100),_2digits_nocheck(d)
+%xdefine _4digits_nocheck(d)	_1digits_nocheck((d)/1000),_3digits_nocheck(d)
+%xdefine _5digits_nocheck(d)	_1digits_nocheck((d)/10000),_4digits_nocheck(d)
+%xdefine _1digits(d)	(!!(d/10)*(1<<32)+  _1digits_nocheck(d))
+%xdefine _2digits(d)	_1digits((d)/   10),_1digits_nocheck(d)
+%xdefine _3digits(d)	_1digits((d)/  100),_2digits_nocheck(d)
+%xdefine _4digits(d)	_1digits((d)/ 1000),_3digits_nocheck(d)
+%xdefine _5digits(d)	_1digits((d)/10000),_4digits_nocheck(d)
+
+		; Write number as decimal digits into a string,
+		; and automagically determine how many digits to use.
+		; The input number is a critical expression to NASM.
+		;
+		; %1 = number to write
+		; %2 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 writes nothing)
+%macro _autodigits 1-2.nolist 1
+%if %2 > 5
+ %error Minimal number of digits 6 or more: %2
+%endif
+%if (%1) >= 100000
+ %error Number has to use 6 or more digits: %1
+%elif (%1) >= 10000 || %2 == 5
+	db _5digits(%1)
+%elif (%1) >= 1000 || %2 == 4
+	db _4digits(%1)
+%elif (%1) >= 100 || %2 == 3
+	db _3digits(%1)
+%elif (%1) >= 10 || %2 == 2
+	db _2digits(%1)
+%elif (%1) >= 1 || %2 == 1
+	db _1digits(%1)
+%endif
+%endmacro
+
+		; %1 = name of single-line macro to set. will be prefixed by underscore
+		; %2 = number to write
+		; %3 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 defines macro to "")
+%macro _autodigitsdef 2-3.nolist 1
+%if %3 > 5
+ %error Minimal number of digits 6 or more: %3
+%endif
+%if (%2) >= 100000
+ %error Number has to use 6 or more digits: %2
+%elif (%2) >= 10000 || %3 == 5
+%define _%1 %[_5digits(%2)]
+%elif (%2) >= 1000 || %3 == 4
+%define _%1 %[_4digits(%2)]
+%elif (%2) >= 100 || %3 == 3
+%define _%1 %[_3digits(%2)]
+%elif (%2) >= 10 || %3 == 2
+%define _%1 %[_2digits(%2)]
+%elif (%2) >= 1 || %3 == 1
+%define _%1 %[_1digits(%2)]
+%elif
+%define _%1 ""
+%endif
+%endmacro
+
+		; Write numbers as hexadecimal digits into a string
+%define _1digitshex_nocheck(h)	( ((h)& 0Fh) + '0' + ('A'-'9'-1)*(((h)& 0Fh)/10) )
+%xdefine _2digitshex_nocheck(h)	_1digitshex_nocheck((h)>> 4),_1digitshex_nocheck(h)
+%xdefine _3digitshex_nocheck(h)	_1digitshex_nocheck((h)>> 8),_2digitshex_nocheck(h)
+%xdefine _4digitshex_nocheck(h)	_1digitshex_nocheck((h)>>12),_3digitshex_nocheck(h)
+%xdefine _5digitshex_nocheck(h)	_1digitshex_nocheck((h)>>16),_4digitshex_nocheck(h)
+%xdefine _6digitshex_nocheck(h)	_1digitshex_nocheck((h)>>20),_5digitshex_nocheck(h)
+%xdefine _7digitshex_nocheck(h)	_1digitshex_nocheck((h)>>24),_6digitshex_nocheck(h)
+%xdefine _8digitshex_nocheck(h)	_1digitshex_nocheck((h)>>28),_7digitshex_nocheck(h)
+%xdefine _1digitshex(h)	(!!(h&~0Fh)*(1<<32)+ _1digitshex_nocheck(h))
+%xdefine _2digitshex(h)	_1digitshex((h)>> 4),_1digitshex_nocheck(h)
+%xdefine _3digitshex(h)	_1digitshex((h)>> 8),_2digitshex_nocheck(h)
+%xdefine _4digitshex(h)	_1digitshex((h)>>12),_3digitshex_nocheck(h)
+%xdefine _5digitshex(h)	_1digitshex((h)>>16),_4digitshex_nocheck(h)
+%xdefine _6digitshex(h)	_1digitshex((h)>>20),_5digitshex_nocheck(h)
+%xdefine _7digitshex(h)	_1digitshex((h)>>24),_6digitshex_nocheck(h)
+%xdefine _8digitshex(h)	_1digitshex((h)>>28),_7digitshex_nocheck(h)
+
+
+%macro _appenddigitstrdef 2.nolist
+%substr %%ii "0123456789ABCDEF" (%2) + 1
+%strcat _%1 _%1,%%ii
+%endmacro
+
+		; %1 = name of single-line macro to set. will be prefixed by underscore
+		; %2 = number to write
+		; %3 = minimal number of digits, 0..5. defaults to 1
+		;	(setting it to 0 with a number of 0 defines macro to "")
+%macro _autodigitsstrdef 2-3.nolist 1
+%if %3 > 5
+ %error Minimal number of digits 6 or more: %3
+%endif
+%define _%1 ""
+%if (%2) >= 100000
+ %error Number has to use 6 or more digits: %2
+%endif
+%if (%2) >= 10000 || %3 >= 5
+_appenddigitstrdef %1, %2 / 10000 % 10
+%endif
+%if (%2) >= 1000 || %3 >= 4
+_appenddigitstrdef %1, %2 / 1000 % 10
+%endif
+%if (%2) >= 100 || %3 >= 3
+_appenddigitstrdef %1, %2 / 100 % 10
+%endif
+%if (%2) >= 10 || %3 >= 2
+_appenddigitstrdef %1, %2 / 10 % 10
+%endif
+%if (%2) >= 1 || %3 >= 1
+_appenddigitstrdef %1, %2 / 1 % 10
+%endif
+%endmacro
+
+		; %1 = name of single-line macro to set. will be prefixed by underscore
+		; %2 = number to write
+		; %3 = minimal number of hexits, 0..8. defaults to 1
+		;	(setting it to 0 with a number of 0 defines macro to "")
+%macro _autohexitsstrdef 2-3.nolist 1
+%if %3 > 8
+ %error Minimal number of hexits 9 or more: %3
+%endif
+%define _%1 ""
+%if (%2) >= 1_0000_0000h
+ %error Number has to use 9 or more hexits: %2
+%endif
+%if (%2) >= 1000_0000h || %3 >= 8
+_appenddigitstrdef %1, (%2 >> (7 * 4)) & 0Fh
+%endif
+%if (%2) >= 100_0000h || %3 >= 7
+_appenddigitstrdef %1, (%2 >> (6 * 4)) & 0Fh
+%endif
+%if (%2) >= 10_0000h || %3 >= 6
+_appenddigitstrdef %1, (%2 >> (5 * 4)) & 0Fh
+%endif
+%if (%2) >= 1_0000h || %3 >= 5
+_appenddigitstrdef %1, (%2 >> (4 * 4)) & 0Fh
+%endif
+%if (%2) >= 1000h || %3 >= 4
+_appenddigitstrdef %1, (%2 >> (3 * 4)) & 0Fh
+%endif
+%if (%2) >= 100h || %3 >= 3
+_appenddigitstrdef %1, (%2 >> (2 * 4)) & 0Fh
+%endif
+%if (%2) >= 10h || %3 >= 2
+_appenddigitstrdef %1, (%2 >> (1 * 4)) & 0Fh
+%endif
+%if (%2) >= 1h || %3 >= 1
+_appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
+%endif
+%endmacro
+
+
+		; Compute required words/dwords/qwords/paragraphs/pages/KiB of known byte size (rounds up if necessary)
+%idefine bytes(b)	(b)
+%idefine words(b)	((b)+1>>1)
+%idefine dwords(b)	((b)+3>>2)
+%idefine qwords(b)	((b)+7>>3)
+%idefine paragraphs(b)	((b)+15>>4)
+%idefine paras(b)	((b)+15>>4)
+%idefine pages(b)	((b)+511>>9)
+%idefine kib(b)		((b)+1023>>10)
+
+		; Compute required bytes of known word/dword/qword/paragraph/page/KiB size
+%idefine frombytes(b)		(b)
+%idefine fromwords(w)		((w)<<1)
+%idefine fromdwords(d)		((d)<<2)
+%idefine fromqwords(q)		((q)<<3)
+%idefine fromparagraphs(p)	((p)<<4)
+%idefine fromparas(p)		((p)<<4)
+%idefine frompages(p)		((p)<<9)
+%idefine fromkib(k)		((k)<<10)
+
+
+		; Compute relative address
+		;
+		; address: which address is referenced
+		; fixup: how many bytes are added to get the absolute address
+%define __REL__(address,fixup) ((address)-(fixup))
+%xdefine __REL8__(address,fixup) __REL__(address,fixup)
+%xdefine __REL8__(address) __REL__(address,$+1)	; for __JMP_REL8 (db)
+%xdefine __REL16__(address,fixup) __REL__(address,fixup)
+%xdefine __REL16__(address) __REL__(address,$+2); for __JMP_REL16 (dw)
+
+		; Values of some opcodes
+%define __JMP_REL8 0EBh
+%define __JMP_REL16 0E9h
+%define __JMP_FAR 0EAh
+%define __CALL_REL16 0E8h
+%define __CALL_FAR 9Ah
+%define __NOP 90h
+%define __TEST_IMM8 0A8h			; changes flags, NC
+%define __TEST_IMM16 0A9h			; changes flags, NC
+					; Longer NOPs require two bytes, like a short jump does.
+					; However they execute faster than unconditional jumps.
+					; This one reads random data in the stack segment.
+					;  (Search for better ones.)
+%define __TEST_OFS16_IMM8 0F6h,86h		; changes flags, NC
+
+		; Remove the following macros if already found in other files
+%unimacro asciz 0-1+.nolist
+%unimacro ascii 0-1+.nolist
+%unmacro _ascii_prefix_suffix 2-3+.nolist
+%undef ascii
+%undef asciz
+%undef ascic
+%undef asciiline
+%undef ascizline
+%undef ascicline
+%unimacro verdef 4.nolist
+%unimacro numdef 1-3.nolist
+%unimacro strdef 3.nolist
+%unimacro incdef 2-4.nolist
+%unimacro _incdef 2-4.nolist
+%unimacro incdef 2-*.nolist
+%unimacro excdef 2-*.nolist
+%unimacro comment 0-*.nolist
+%unimacro commentif 2.nolist
+%unimacro commentifn 2.nolist
+%unimacro fixme 0-1+.nolist
+%unimacro noparam 0-1+.nolist
+%unimacro noparamnamed 1-2+.nolist
+%unimacro assignif 3-4.nolist
+%unimacro assignifn 3-4.nolist
+%unimacro cpu 1+.nolist				; removes NASM's standard macro
+%unimacro selcpu 0.nolist
+%unimacro cpufailmsg 0-2+.nolist
+%unimacro check186 0-1.nolist
+%unimacro check286 0-1.nolist
+%unimacro check386 0-1.nolist
+%unimacro check186 0-3.nolist
+%unimacro check286 0-3.nolist
+%unimacro check386 0-3.nolist
+%unimacro checkcpu 1.nolist
+%unimacro _d 2.nolist
+%unimacro d0out 0-3.nolist
+%unimacro endarea 1-2.nolist
+%unimacro struc 1.nolist			; removes NASM's standard macro
+%unimacro struc 1-2.nolist
+%unimacro endstruc 0.nolist			; removes NASM's standard macro
+%unimacro endstruc 0-1.nolist
+%unimacro istruc 1.nolist			; removes NASM's standard macro
+%unimacro at 1-2+.nolist			; removes NASM's standard macro
+%unimacro iend 0.nolist				; removes NASM's standard macro
+%unimacro fill 2-3+.nolist
+%unimacro _fill 3.nolist
+%unimacro pad 2-3+.nolist
+%unimacro _pad 3.nolist
+%unimacro alignd 2-3+.nolist
+
+
+
+%if __NASM_VERSION_ID__ >= (2 * 100_0000h + 15 * 1_0000h)
+ %pragma preproc sane_empty_expansion true
+%endif
+
+		; String prefixed and/or suffixed with sequence(s)
+		;
+		; %1 = prefix
+		; %2 = suffix
+		; %3+ = Optional string
+	%macro _ascii_prefix_suffix 2-3+.nolist
+		db %1
+%ifnempty %3
+		db %3
+%endif
+		db %2
+	%endmacro
+
+%idefine ascii _ascii_prefix_suffix "","",
+%idefine asciz _ascii_prefix_suffix "",0,
+%idefine ascic _ascii_prefix_suffix "",36,
+%idefine asciiline _ascii_prefix_suffix "",{13,10},
+%idefine ascizline _ascii_prefix_suffix "",{13,10,0},
+%idefine ascicline _ascii_prefix_suffix "",{13,10,36},
+
+		; Counted string
+		;
+		; %1 = data type of count
+		; %2+ = optional string
+	%imacro _counted 2+.nolist
+%push
+ %ifnempty %2
+		_strlen %2
+		%1 %$len
+		db %2
+ %else
+		%1 0
+ %endif
+%pop
+	%endmacro
+	%idefine counted _counted db,
+	%idefine countedb _counted db,
+	%idefine countedw _counted dw,
+
+	%imacro _strlen 1-*.nolist
+%assign %$len 0
+%rep %0
+ %ifstr %1
+  %strlen %$addlen %1
+  %assign %$len %$len+%$addlen
+ %elifnempty %1
+  %assign %$len %$len+1
+ %endif
+ %rotate 1
+%endrep
+	%endmacro
+
+
+		; Define version information.
+		;
+		; %1 = Base name of single-line macros
+		; %2 = Additional letter for base name of single-line macros
+		; %3 = Major version
+		; %4 = Minor version
+		;
+		; Created single-line macros:
+		; %1_VER%2 = version word, high byte = major version
+		; %1_VER%2_X = version word (bytes exchanged), high byte = minor version
+		; %1_VER%2_MAJ = Major version number byte
+		; %1_VER%2_MIN = Minor version number byte
+		; %1_VER%2_STR = Up to 7 character version string (maximal "255.255")
+	%imacro verdef 4.nolist
+%assign %1_VER%2_MAJ	%3
+%assign %1_VER%2_MIN	%4
+%assign %1_VER%2	ver(%3,%4)
+%assign %1_VER%2_X	verx(%3,%4)
+%push
+ %defstr %$maj		%3
+ %defstr %$min		%4
+ %strlen %$length %$min
+ %if %$length < 2
+  %strcat %$min		'0', %$min		; one digit low numbers padded to two digits
+ %endif
+ %strcat %1_VER%2_STR	%$maj, '.', %$min
+%pop
+	%endmacro
+
+		; Define a numeric definition for conditional assembly
+		;
+		; Instead of:
+		; %ifdef DEFINE
+		; use:
+		; %if _DEFINE
+		;
+		; %1 = Definition name. Will get an additional underscore prefix
+		; %2 = Value to assign if not defined (defaults to 0)
+		; %3 = Value to assign if defined, but empty (defaults to 1)
+	%imacro numdef 1-3.nolist 0,1
+%ifnum __DEFAULTED_%1
+ %if __lMACROS1_MAC__DEFAULTING && __DEFAULTED_%1
+  %undef _%1			; cause defaulting to take effect again
+  %if __DEFAULTED_%1 == 2	; defaulted to third parameter?
+   %define _%1			; cause alternative defaulting to take effect again
+  %endif
+ %endif
+%endif
+%ifdef _%1
+ %ifempty _%1
+  %if __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED
+   %if __lMACROS1_MAC__SHOW_EXPLICIT_DEFAULT || __lMACROS1_MAC__SHOW_EXPLICIT
+    %defstr WARNINGMESSAGE %1
+    %strcat WARNINGMESSAGE "define _",WARNINGMESSAGE," set empty explicitly"
+    %warning WARNINGMESSAGE
+   %endif
+  %endif
+  %assign _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
+  %if __lMACROS1_MAC__DEFAULTING
+   %assign __DEFAULTED_%1 2	; note alternative defaulting occurred
+  %endif
+ %else
+  %if __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED
+   %if __lMACROS1_MAC__SHOW_EXPLICIT_VALUE || __lMACROS1_MAC__SHOW_EXPLICIT
+    %defstr WARNINGMESSAGE %1
+    %strcat WARNINGMESSAGE "define _",WARNINGMESSAGE," set explicitly"
+    %warning WARNINGMESSAGE
+   %endif
+  %endif
+ %endif				;  (if option was "-d_DEFINE=0", it's left as zero)
+ %if __lMACROS1_MAC__DEFAULTING
+  %ifnnum __DEFAULTED_%1
+   %assign __DEFAULTED_%1 0	; note no defaulting occurred
+  %endif
+ %endif
+%else				; If not defined (no option on NASM's command line)
+ %assign _%1 %2			;  then assign to zero
+ %if __lMACROS1_MAC__DEFAULTING
+  %assign __DEFAULTED_%1 1	; note defaulting occurred
+ %endif
+%endif
+	%endmacro
+
+
+		; Define a generic definition for conditional assembly
+		;
+		; %1 = Definition name. Will get an additional underscore prefix
+		; %2 = What to define as if not defined (defaults to empty)
+		; %3 = What to define as if defined, but empty (defaults to empty)
+	%imacro gendef 1-3.nolist
+%ifnum __DEFAULTED_%1
+ %if __lMACROS1_MAC__DEFAULTING && __DEFAULTED_%1
+  %undef _%1			; cause defaulting to take effect again
+  %if __DEFAULTED_%1 == 2	; defaulted to third parameter?
+   %define _%1			; cause alternative defaulting to take effect again
+  %endif
+ %endif
+%endif
+%ifdef _%1
+ %ifempty _%1
+  %if __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED
+   %if __lMACROS1_MAC__SHOW_EXPLICIT_DEFAULT || __lMACROS1_MAC__SHOW_EXPLICIT
+    %defstr WARNINGMESSAGE %1
+    %strcat WARNINGMESSAGE "define _",WARNINGMESSAGE," set empty explicitly"
+    %warning WARNINGMESSAGE
+   %endif
+  %endif
+  %define _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
+  %if __lMACROS1_MAC__DEFAULTING
+   %assign __DEFAULTED_%1 2	; note alternative defaulting occurred
+  %endif
+ %else
+  %if __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED
+   %if __lMACROS1_MAC__SHOW_EXPLICIT_VALUE || __lMACROS1_MAC__SHOW_EXPLICIT
+    %defstr WARNINGMESSAGE %1
+    %strcat WARNINGMESSAGE "define _",WARNINGMESSAGE," set explicitly"
+    %warning WARNINGMESSAGE
+   %endif
+  %endif
+ %endif				;  (if option was "-d_DEFINE=0", it's left as zero)
+ %if __lMACROS1_MAC__DEFAULTING
+  %ifnnum __DEFAULTED_%1
+   %assign __DEFAULTED_%1 0	; note no defaulting occurred
+  %endif
+ %endif
+%else				; If not defined (no option on NASM's command line)
+ %define _%1 %2			;  then define to default
+ %if __lMACROS1_MAC__DEFAULTING
+  %assign __DEFAULTED_%1 1	; note defaulting occurred
+ %endif
+%endif
+	%endmacro
+
+
+;;	%macro __help_strdef_stringify 3+.nolist
+;;%xdefine _%1 %2%3%2
+;;	%endmacro
+
+		; Define a string definition
+		;
+		; %1 = Definition name. Will get an additional underscore prefix
+		; %2 = Value to assign if not defined
+		; %3 = Value to assign if defined, but no string (if not given, %2)
+		;
+		; Using braces { and } is useful for %2 and %3
+	%imacro strdef 2-3.nolist
+%ifnum __DEFAULTED_%1
+ %if __lMACROS1_MAC__DEFAULTING && __DEFAULTED_%1
+  %undef _%1			; cause defaulting to take effect again
+  %if __DEFAULTED_%1 == 2	; defaulted to third parameter?
+   %define _%1			; cause alternative defaulting to take effect again
+  %endif
+ %endif
+%endif
+%ifdef _%1
+ %ifempty _%1
+  %if __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED
+   %if __lMACROS1_MAC__SHOW_EXPLICIT_DEFAULT || __lMACROS1_MAC__SHOW_EXPLICIT
+    %defstr WARNINGMESSAGE %1
+    %strcat WARNINGMESSAGE "define _",WARNINGMESSAGE," set empty explicitly"
+    %warning WARNINGMESSAGE
+   %endif
+  %endif
+  %if %0 >= 3
+   %define _%1 %3		; i.e. "-d_DEFINE" option on NASM's command line
+   %if __lMACROS1_MAC__DEFAULTING
+    %assign __DEFAULTED_%1 2	; note alternative defaulting occurred
+   %endif
+  %else
+   %define _%1 %2
+   %if __lMACROS1_MAC__DEFAULTING
+    %assign __DEFAULTED_%1 1	; note defaulting occurred
+   %endif
+  %endif
+ %else
+  %if __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED
+   %if __lMACROS1_MAC__SHOW_EXPLICIT_VALUE || __lMACROS1_MAC__SHOW_EXPLICIT
+    %defstr WARNINGMESSAGE %1
+    %strcat WARNINGMESSAGE "define _",WARNINGMESSAGE," set explicitly"
+    %warning WARNINGMESSAGE
+   %endif
+  %endif
+  %ifnstr _%1
+; refer to http://stackoverflow.com/questions/15650276/nasm-convert-integer-to-string-using-preprocessor
+   %defstr _%1 _%1
+;    %define %%quot "
+;    %define %%stringify(x) %%quot %+ x %+ %%quot
+;    %xdefine _%1 %%stringify(_%1)
+;;    __help_strdef_stringify %1, ", _%1
+	; issue: leading and trailing blanks are deleted out of the string.
+	; workaround: quote the content so that it's a string already.
+	; ie this may need nasm source.asm -D_"' content '"
+  %endif
+ %endif				;  (if option was "-d_DEFINE='FOO'", it's left as 'FOO')
+%else				; If not defined (no option on NASM's command line)
+ %define _%1 %2			;
+ %if __lMACROS1_MAC__DEFAULTING
+  %assign __DEFAULTED_%1 1	; note defaulting occurred
+ %endif
+%endif
+	%endmacro
+
+		; Include definitions if a condition is met
+		;
+		; %1 = condition
+		; %2-* = included definition name, without underscore prefix
+	%imacro incdef 2-*.nolist
+ %if %1				; if true
+ %rep (%0 - 1)
+%rotate 1
+%assign _%1 1			; set any included to true
+ %endrep
+ %endif
+	%endmacro
+
+		; Exclude definitions if a condition is met
+		;
+		; %1 = condition
+		; %2-* = excluded definition name, without underscore prefix
+	%imacro excdef 2-*.nolist
+ %if %1				; if true
+ %rep (%0 - 1)
+%rotate 1
+%assign _%1 0			; set any excluded to false
+ %endrep
+ %endif
+	%endmacro
+
+	%imacro overridedef 1-2.nolist 0
+%push OVERRIDE
+%ifdef _%1
+ %assign %$defined 1
+%else
+ %assign %$defined 0
+%endif
+%xdefine %$prior _%1
+%xdefine %$defaulted __DEFAULTED_%1
+%define %$name %1
+%assign _%1 %2
+%assign __DEFAULTED_%1 0
+	%endmacro
+
+	%imacro resetdef 0-1.nolist
+%ifnctx OVERRIDE
+ %error Wrong context
+%endif
+%if %0
+ %ifnidn %1, %$name
+  %error Wrong usage of resetdef
+ %endif
+%endif
+%xdefine _%[%$name] %$prior
+%xdefine __DEFAULTED_%[%$name] %$defaulted
+%ifn %$defined
+ %undef _%[%$name]
+%endif
+%pop
+	%endmacro
+
+
+%assign __lMACROS1_MAC__DEFAULTING 0
+	%imacro defaulting 0-1.nolist 1
+%ifidni %1,toggle
+ %assign __lMACROS1_MAC__DEFAULTING !__lMACROS1_MAC__DEFAULTING
+%else
+ %assign __lMACROS1_MAC__DEFAULTING !!(%1)
+%endif
+	%endmacro
+
+%assign __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED 0
+	numdef _lMACROS1_MAC__SHOW_EXPLICIT
+	numdef _lMACROS1_MAC__SHOW_EXPLICIT_DEFAULT
+	numdef _lMACROS1_MAC__SHOW_EXPLICIT_VALUE
+%assign __lMACROS1_MAC__SHOW_EXPLICIT__INITIALISED 1
+
+	numdef _lMACROS1_MAC__CPU_DEFAULTS
+%if __lMACROS1_MAC__CPU_DEFAULTS
+	numdef 186		; 186 opcodes allowed
+	numdef 386		; 386 opcodes allowed
+	incdef _386,186		; excluding 186 opcodes on 386+ seems not useful
+%endif
+
+	numdef _lMACROS1_MAC__DEBUG_DEFAULTS
+%if __lMACROS1_MAC__DEBUG_DEFAULTS
+	numdef DEBUG		; all of the debugging levels
+	incdef _DEBUG,DEBUG0,DEBUG1,DEBUG2,DEBUG3,DEBUG4
+	numdef DEBUG0		; 1st level debug
+	numdef DEBUG1		; 2nd level debug
+	numdef DEBUG2		; 3rd level debug
+	numdef DEBUG3		; 4th level debug
+	numdef DEBUG4		; 5th level debug
+			; Note:	All specific debug levels are independent.
+			;	What each debug level does is program-specific.
+%endif
+
+
+		; Automatically select CPU depending on definitions
+		;
+		; Use "hardwired" cpu directives instead in source files that
+		; don't include code for multiple CPU generations.
+	%imacro selcpu 0.nolist
+%if _386
+		cpu 386
+%elif _186
+		cpu 186
+%else
+		cpu 8086
+%endif
+	%endmacro
+
+		; Write a message stating what CPU type is required.
+		;
+		; %1 = Part of message before numerical CPU identifier (Defaults to "")
+		; %2 = Part of message after numerical CPU identifier (Defaults to ASCIZ " CPU required")
+		;
+		; Using braces { and } is useful
+		;
+		; No data is generated if assembling for 8086
+	%imacro cpufailmsg 0-2+.nolist "",{" CPU required",0}
+%if _386
+		db %1, "386", %2
+%elif _186
+		db %1, "186", %2
+%endif
+	%endmacro
+
+		; Check if required CPU is available
+		;
+		; The code uses cx, ax and comparison flags.
+		;
+		; %1 = Code to execute if CPU requirement not meet
+	%imacro checkcpu 1.nolist
+%if _386
+%%checkcpu:	check386
+.fail:
+		%1
+.pass:
+%elif _186
+%%checkcpu:	check186
+.fail:
+		%1
+.pass:
+%endif
+	%endmacro
+
+		; Check for 186+ CPU
+		;
+		; %1 = true if .fail follows (jump to .pass),
+		;      false if .pass follows (jump to .fail)
+		;      Default true
+		; %2 = label to jump to if 186+ CPU
+		;      Default .pass
+		; %3 = label to jump to if no 186+ CPU
+		;      Default .fail
+	%imacro check186 0-3 1 .pass .fail
+		mov cx, 1_0010_0001b		; Shift count's bit 0 and 5 are set; shift data is 1
+		shl ch, cl			; 186+ limits shift count to five bits (0-4): resulting
+						; ch is 10b on 186+; 0 on 8086 (actual result overflows)
+%if %1
+		jnz %2				; 186+ -->
+%else
+		jz %3				; 8086 -->
+%endif
+	%endmacro
+
+		; Check for 286+ CPU
+		;
+		; %1 = true if .fail follows (jump to .pass),
+		;      false if .pass follows (jump to .fail)
+		;      Default true
+		; %2 = label to jump to if 286+ CPU
+		;      Default .pass
+		; %3 = label to jump to if no 286+ CPU
+		;      Default .fail
+
+	%imacro check286 0-3 1 .pass .fail
+		push sp
+		pop ax
+		cmp ax, sp			; 286+ pushes original sp value
+%if %1
+		je %2				; 286+ -->
+%else
+		jne %3				; 8086 or 186 -->
+%endif
+	%endmacro
+
+		; Check for 386+ CPU
+		;
+		; %1 = true if .fail follows (jump to .pass),
+		;      false if .pass follows (jump to .fail)
+		;      Default true
+		; %2 = label to jump to if 386+ CPU
+		;      Default .pass
+		; %3 = label to jump to if no 386+ CPU
+		;      Default .fail
+	%imacro check386 0-3 1 .pass .fail
+		check286 0, {%2}, {%3}		; branches to .fail if 8086 or 186 -->
+[cpu 286]
+		pushf
+		push wo 0111_0000_0000_0000b
+		popf				; set bits 12-14 of FLAGS ("push imm16" instruction 186+)
+		pushf
+		pop ax				; get what was in FLAGS
+		popf				; restore original flags
+		test ax, 0111_0000_0000_0000b	; 386+ leaves what we pushed; 286 clears bits 12-14 in
+						; Real Mode (Bits 12-14 are used in Protected Mode only)
+__CPU__
+%if %1
+		jnz %2				; 386+ -->
+%else
+		jz %3				; 286 -->
+%endif
+	%endmacro
+
+		; Instruction if specified level debug definition true
+		;
+		; %1 = Level of requested debug definition
+		; %2 = Instruction
+	%imacro _d 2+.nolist
+%if _DEBUG%1
+		%2
+%endif
+	%endmacro
+
+		; Instruction if xth level debug definition true
+		;
+		; %1+ = Instruction
+%idefine d0 _d 0,
+%idefine d1 _d 1,
+%idefine d2 _d 2,
+%idefine d3 _d 3,
+%idefine d4 _d 4,
+
+		; Breakpoint if xth level debug definition true
+%idefine dbp _d, __DEBUG_BP__
+%idefine d0bp d0 __DEBUG0_BP__
+%idefine d1bp d1 __DEBUG1_BP__
+%idefine d2bp d2 __DEBUG2_BP__
+%idefine d3bp d3 __DEBUG3_BP__
+%idefine d4bp d4 __DEBUG4_BP__
+%idefine dd0bp _d,{d0bp}
+%idefine dd1bp _d,{d1bp}
+%idefine dd2bp _d,{d2bp}
+%idefine dd3bp _d,{d3bp}
+%idefine dd4bp _d,{d4bp}
+
+		; Breakpoint instructions for all debug levels
+		;
+		; "call ...", "int1", "int3" are useful single-instruction breakpoints
+%define __DEBUG_BP__ int3
+%define __DEBUG0_BP__ int3
+%define __DEBUG1_BP__ int3
+%define __DEBUG2_BP__ int3
+%define __DEBUG3_BP__ int3
+%define __DEBUG4_BP__ int3
+
+		; Print number if 1st level debug definition true
+		;
+		; %1 = Number to display (in range 0-255)
+		; %2 = Override call for "call __DEBUG0_DISPALDEC__"
+		; %3 = Override call for "call __DEBUG0_DISPAL__"
+		;
+		; The calls have to preserve all registers except ax.
+	%macro d0out 0-3.nolist -,call __DEBUG0_DISPALDEC__,call __DEBUG0_DISPAL__
+%if _DEBUG0
+	push ax
+%ifnidn %1,-
+	mov al, %1
+	%2
+%endif
+	mov al, '.'
+	%3
+	pop ax
+%endif
+	%endmacro
+
+		; cpu macro replacement
+		;
+		; __CPU__ = like __SECT__ (that is, use [cpu ...] and switch back with __CPU__)
+	%imacro cpu 1+.nolist
+%define __CPU__ [cpu %1]
+__CPU__
+	%endmacro
+
+		; Define size of area
+		;
+		; %1 = Starting label of area
+		; %2 = if true, use already defined label %1_size (for
+		; use with NASM's struc and endstruc); default is false
+		;
+		; Provided labels: %1_size (byte), %1_size_b (same),
+		; %1_size_w (words), %1_size_d (dwords), %1_size_q
+		; (qwords), %1_size_p (paragraphs), %1_size_pg (pages),
+		; %1_size_ki (KiB).
+	%imacro endarea 1-2.nolist 0
+%ifn %2
+%1_size equ $ - %1
+%endif
+%1_size_b equ %1_size
+%1_size_w equ %1_size+1 >>1
+%1_size_d equ %1_size+3 >>2
+%1_size_q equ %1_size+7 >>3
+%1_size_p equ %1_size+15 >>4
+%1_size_pg equ %1_size+511 >>9
+%1_size_ki equ %1_size+1023 >>10
+	%endmacro
+
+		; The following macros replace NASM's standard struc macros.
+		; They add support for non-zero starting offsets of structures
+		; (optional %2 of struc is starting offset) and creating endarea's
+		; various size definitions with endstruc (if optional %1 of endstruc
+		; is true).
+%imacro struc 1-2.nolist 0
+%push
+%define %$strucname %1
+[absolute %2]
+%$strucname:
+%endmacro
+%imacro endstruc 0-1.nolist 0
+%if %1
+endarea %$strucname
+%else
+%{$strucname}_size equ ($-%$strucname)
+%endif
+%pop
+__SECT__
+%endmacro
+
+%imacro istruc 1.nolist
+%push
+%define %$strucname %1
+%$strucstart:
+%endmacro
+%imacro at 1-2+.nolist
+	  times (%1-%$strucname)-($-%$strucstart) db 0
+	  %2
+%endmacro
+%imacro iend 0.nolist
+	  times %{$strucname}_size-($-%$strucstart) db 0
+%pop
+%endmacro
+
+
+	%imacro checkeven 1.nolist
+%ifnnum %1
+ %error Number expected
+%endif
+%if %1 & 1
+ %error Even value expected
+%endif
+	%endmacro
+
+		; Fill data to specified byte size (specify data)
+		;
+		; %1 = Byte size to fill
+		; %2 = Fill byte (eg 0, 90h, 32)
+		; %3 = Actual instruction to place before filling (optional)
+	%imacro fill 2-3+.nolist
+%%data:
+		%3			; Actual data if given, else expands to nothing
+		_fill %1,%2,%%data
+	%endmacro
+
+
+		; Fill data to specified byte size (specify start label of data)
+		;
+		; %1 = Byte size to fill
+		; %2 = Fill byte (eg 0, 90h, 32)
+		; %3 = Start label of data
+	%imacro _fill 3.nolist
+%if %1 < 0				; hu?
+ %error _fill: size is negative
+%elif $-(%3) < 0			; should generate a phase error anyway. however
+ %error _fill: start label must not be behind filling
+%elif (%1)-$+(%3) < 0			; times would also throw an error then ("TIMES value x is negative")
+ %error _fill: data too large, exceeds size	; but showing a more specific message won't hurt
+%endif
+		times (%1)-$+(%3) db %2	; Fill with fill byte to given size
+	%endmacro
+
+
+		; Pad data to specified byte boundary (specify data)
+		;
+		; Does _not_ pad relative to the section start but relative to the start of the data. Use
+		; NASM's align (or alignd below) to pad (cough, cough... align) if you don't want that.
+		;
+		; %1 = Byte boundary
+		; %2 = Pad byte (eg 0, 90h, 32)
+		; %3 = Actual instruction to place before padding (optional, else macro creates nothing)
+	%imacro pad 2-3+.nolist
+%%data:
+		%3			; Actual data if given, else expands to nothing
+		_pad %1,%2,%%data
+	%endmacro
+
+
+		; Pad data to specified byte boundary (specify start label of data)
+		;
+		; Does _not_ pad relative to the section start but relative to the start of the data. Use
+		; NASM's align (or alignd below) to pad (cough, cough... align) if don't you want that.
+		;
+		; %1 = Byte boundary
+		; %2 = Pad byte (eg 0, 90h, 32)
+		; %3 = Start label of data (if it equals $, no padding is created)
+	%imacro _pad 3.nolist
+%if %1 < 0				; hu?
+ %error _pad: boundary is negative
+%elifn %1
+ %error _pad: boundary is zero
+%elif $-%3 < 0				; should generate a phase error anyway. however
+ %error _pad: start label must not be behind padding
+%endif
+
+%push
+ %assign %$size $-%3			; size of data
+ %assign %$count 0
+	%rep %1				; must be at the boundary then
+ %ifn (%$count + %$size) % %1		; if ( !((paddedcount + size) modulo boundary) )
+	%exitrep			; then { we're done }
+ %endif
+ %assign %$count %$count+1		; else keep counting
+	%endrep
+ %if %$count >= %1			; if loop end caused by %endrep
+  %error pad: an unknown error occured
+ %endif
+		times (%$count-1) db %2	; put this data for the assembler. but in _one_ line
+%pop
+	%endmacro
+
+
+		; Similar to pad but using align:
+		;
+		; %1 = Byte boundary (relative from the section start)
+		; %2 = Align byte (eg 0, 90h, 32)
+		; %3 = Actual instruction to place before aligning (optional, else macro still aligns!)
+	%imacro alignd 2-3+.nolist
+		%3
+%if %1 < 0				; hu?
+ %error alignd: boundary is negative
+%elifn %1
+ %error alignd: boundary is zero
+%else
+		align %1,db %2
+%endif
+	%endmacro
+
+
+		; Comment a line out
+		;
+		; Purpose:	In front of instructions that are only to be created if
+		;		an expressions results in true, place a valid single-line
+		;		macro name. Then use the commentif (or commentifn) macro
+		;		below to create a single-line macro from an expression.
+		;
+		;		This will use the macro "comment" so the instructions won't
+		;		assemble if the expression doesn't result in true. (Or
+		;		if the expression doesn't result in false, in case of
+		;		commentifn.) Else the single-line macro gets defined to
+		;		nothing causing the instructions to assemble. This "comment"
+		;		macro is required because you can't define a single-line
+		;		macro to the value of semicolon (";") with the preprocessor
+		;		for obvious reasons. (It will think a real comment starts
+		;		with the semicolon ;)
+	%imacro comment 0-*.nolist
+	%endmacro
+
+
+		; Specify a single-line macro for above comment macro purpose
+		;
+		; %1 = expression (gets placed after %if)
+		; %2 = single-line macro (gets underscore prefix)
+	%imacro commentif 2.nolist
+%if %1
+%define _%2 comment			; define it to invoke comment
+%else
+%define _%2				; define it to a zero string
+%endif
+	%endmacro
+
+
+		; Like commentif, but expression gets placed after %ifn
+	%imacro commentifn 2.nolist
+%ifn %1
+%define _%2 comment			; define it to invoke comment
+%else
+%define _%2				; define it to a zero string
+%endif
+	%endmacro
+
+
+		; Aborts assembling if found anywhere within source
+	%imacro fixme 0-1+.nolist
+%error %1
+	%endmacro
+
+
+		; Comment a line out but make sure there are no parameters
+	%imacro noparam 0-1+.nolist
+%if %0
+ %error Must not have parameters.
+%endif
+	%endmacro
+
+
+		; Like noparam, except %1 is a message to display
+	%imacro noparamnamed 1-2+.nolist
+%ifnempty %2
+ %error %1: Must not have parameters.
+%endif
+	%endmacro
+
+
+		; Assign a single-line macro to an value if a condition matches, else zero
+		;
+		; %1 = expression (gets placed after %if)
+		; %2 = single-line macro (gets underscore prefix)
+		; %3 = value if condition matches
+		; %4 = value if condition doesn't match (default: 0)
+	%imacro assignif 3-4.nolist 0
+%if %1
+%assign _%2 %3
+%else
+%assign _%2 %4
+%endif
+	%endmacro
+
+
+		; Like assignif, but expression gets placed after %ifn
+	%imacro assignifn 3-4.nolist 0
+%ifn %1
+%assign _%2 %3
+%else
+%assign _%2 %4
+%endif
+	%endmacro
+
+%endif
+[list +]
