@@ -1,3 +1,11 @@
+
+%if 0
+
+UPX preparation stub for DOS/EXE format compressed FreeDOS kernel
+ Public Domain by C. Masloch, 2022
+
+%endif
+
 	cpu 8086
 	org 0
 
