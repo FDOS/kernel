@@ -81,9 +81,10 @@ static int compReloc(const void *p1, const void *p2)
 static void usage(void)
 {
   printf("usage: exeflat (src.exe) (dest.sys) (relocation-factor)\n");
-  printf
-      ("               -S10   - Silent relocate segment 10 (down list)\n");
-  
+  printf("               -S10   - Silent relocate segment 10 (down list)\n");
+  printf("               -E(path/to/upxentry.bin)   - Omit to force DOS/SYS compression\n");
+  printf("               -D(path/to/upxdevic.bin)   - Omit to force DOS/EXE compression\n");
+  printf("               -U (command) (parameters)  - Specify to use UPX compression\n");
   exit(1);
 }
 
