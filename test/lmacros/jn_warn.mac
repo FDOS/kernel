@@ -1,0 +1,304 @@
+[list -]
+%if 0
+
+Warn for near jumps
+Public Domain by C. Masloch, 2018
+
+%endif
+
+%ifndef __JN_WARN_MAC__
+%assign __JN_WARN_MAC__ 1
+
+	%imacro jz 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnz 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro je 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jne 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jc 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnc 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jb 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnb 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro ja 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jna 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jae 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnae 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jbe 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnbe 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+
+	%imacro js 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jns 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+	%imacro jo 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jno 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+	%imacro jp 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnp 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+
+	%imacro jl 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnl 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jg 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jng 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jge 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnge 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jle 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+	%imacro jnle 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+
+	%imacro jecxz 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+	%imacro jcxz 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+
+	%imacro jmp 1.nolist
+%%start:
+		%? %1
+%%end:
+%assign %%length %%end - %%start
+%if %%length > 2 && %%length < 5
+ %warning __FILE__ __LINE__ %? %1 %%length
+%endif
+	%endmacro
+
+%endif
+[list +]

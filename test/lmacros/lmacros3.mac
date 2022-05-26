@@ -1,0 +1,137 @@
+[list -]
+%if 0
+
+Extensions to NASM macro collection
+Public Domain by C. Masloch, 2019
+Intended for 86 Mode programs.
+
+%endif
+
+%ifndef __lMACROS3_MAC__
+%assign __lMACROS3_MAC__ 1
+
+%include "lmacros2.mac"
+[list -]
+
+
+	; This macro is used to generate byte or word access to specific
+	; bits of a dword variable.
+	; %1 = token: if "~", bit value will be negated after checking
+	; %2 = instruction
+	; %3 = variable, in the form "[address]" without size specification
+	; %4 = bit value(s) to access
+	; %5 = bool: disable word access warning, defaults to 0
+	; If the value in %4 has bits set in different bytes so that
+	; a single 8- or 16-bit instruction cannot access all the bits,
+	; an error is displayed. This insures that the macro only has
+	; to generate one instruction, as a 32-bit access on 16-bit
+	; CPUs requires multiple instructions. This workaround code
+	; needs to be written specifically then, or the flags have to
+	; be re-ordered to allow the access.
+%macro _opt 4-5.nolist 0
+%push
+%defstr %$adr %3
+%strlen %$len %$adr
+%substr %$tf %$adr 1
+%substr %$tb %$adr %$len
+%substr %$adr %$adr 2,-2
+%deftok %$adr %$adr
+%%num: equ %4
+%assign %$num %%num
+%ifnidn %$tf,"["
+ %error Invalid memory access syntax
+%elifnidn %$tb,"]"
+ %error Invalid memory access syntax
+%elifn %$num
+ %error Bit value is zero! Check code.
+%elifn (%$num) & ~0FFh
+	%2 byte [%$adr], %1(%$num)
+%elifn (%$num) & ~0FF00h
+	%2 byte [%$adr+1], %1((%$num)>>8)
+%elifn (%$num) & ~0FF0000h
+	%2 byte [%$adr+2], %1((%$num)>>16)
+%elifn (%$num) & ~0FF000000h
+	%2 byte [%$adr+3], %1((%$num)>>24)
+%elifn (%$num) & ~0FFFFh
+ %ifn %5
+  %warning Macro generated word access
+ %endif
+	%2 word [%$adr], %1(%$num)
+%elifn (%$num) & ~0FFFF00h
+ %ifn %5
+  %warning Macro generated word access
+ %endif
+	%2 word [%$adr+1], %1((%$num)>>8)
+%elifn (%$num) & ~0FFFF0000h
+ %ifn %5
+  %warning Macro generated word access
+ %endif
+	%2 word [%$adr+2], %1((%$num)>>16)
+%else
+ %error Unsupported macro usage, requires dword:
+ %ifempty %1
+  %error %2 dword [%$adr], %$num
+ %else
+  %error %2 dword [%$adr], %1(%$num)
+ %endif
+%endif
+%pop
+%endmacro
+
+	; User forms for above macro.
+	; %1 = variable, in the form "[address]" without size specification
+	; %2 = bit value(s) to access
+	; %3 = bool: disable word access warning, defaults to 0
+	; testopt tests the specified bits (using a "test" instruction) and
+	; leaves a meaningful result in ZF, as well as NC.
+	; clropt clears the specified bits (using an "and" instruction with
+	; the negated value) and leaves NC, but a random ZF.
+	; setopt sets the specified bits (using an "or" instruction) and
+	; leaves NC, NZ.
+	; xoropt toggles the specified bits (using a "xor" instruction) and
+	; leaves NC, but a random ZF.
+%idefine testopt _opt ,test,
+%idefine clropt _opt ~,and,
+%idefine setopt _opt ,or,
+%idefine xoropt _opt ,xor,
+
+
+	%imacro addsection 1-2.nolist
+%ifdef _SECTION_ADDED_%1
+ %error Section %1 already added
+%endif
+	section %1 %2
+%define _SECTION_ADDED_%1 1
+	usesection %1
+	%endmacro
+
+	%imacro usesection 1-2.nolist 0
+%ifndef _SECTION_ADDED_%1
+ %error Section %1 not yet added
+%endif
+%if %2
+	[section %1]
+%else
+	section %1
+%endif
+	%endmacro
+
+
+	%macro subcpu 1.nolist
+%push SUBCPU
+%xdefine %$CPU_PREV __CPU__
+	cpu %1
+	%endmacro
+
+	%macro subcpureset 0.nolist
+%ifnctx SUBCPU
+ %error Wrong context
+%endif
+%xdefine __CPU__ %$CPU_PREV
+%pop
+__CPU__
+	%endmacro
+
+
+%endif
+[list +]
