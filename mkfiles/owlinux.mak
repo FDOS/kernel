@@ -12,7 +12,7 @@ CP=cp
 ECHOTO=echo>>
 INITPATCH=@echo > /dev/null
 CLDEF=1
-CLT=gcc -DDOSC_TIME_H -I../hdr -o $@
+CLT=gcc -Wall -DDOSC_TIME_H -I../hdr -o $@
 CLC=$(CLT)
 CFLAGST=-fo=.obj $(CFLAGST)
 ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 
