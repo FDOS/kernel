@@ -1,0 +1,325 @@
+\cfg{chapter}{Section}
+
+\cfg{text-filename}{ldosboot.txt}
+\cfg{text-chapter-numeric}{true}
+\cfg{text-indent-preamble}{false}
+\cfg{text-quotes}{"}{"}
+\cfg{text-indent}{4}
+\cfg{text-width}{72}
+
+\cfg{html-chapter-numeric}{true}
+\cfg{html-suppress-address}{true}
+\cfg{html-single-filename}{ldosboot.htm}
+\cfg{html-leaf-level}{0}
+\cfg{html-template-fragment}{%k}{%b}
+\cfg{html-head-end}{<meta name="viewport" content="width=device-width, initial-scale=1.0">}
+
+\cfg{pdf-filename}{ldosboot.pdf}
+
+\cfg{ps-filename}{ldosboot.ps}
+
+\cfg{info-filename}{ldosboot.info}
+
+\cfg{chm-filename}{ldosboot.chm}
+
+\cfg{winhelp-filename}{ldosboot.hlp}
+
+\cfg{man-filename}{ldosboot.7}
+\cfg{man-identity}{ldosboot}{7}{2020}{}{C. Masloch}
+
+\title lDOS boot documentation
+
+\copyright 2020 by C. Masloch.
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+This document has been compiled on \date{%Y-%m-%d}.
+
+
+\C{protocols} lDOS boot protocols
+
+
+\H{protocol-sector-iniload} Sector to iniload protocol
+
+The iniload kernel is loaded to an arbitrary segment.
+The segment must be at least 60h.
+Common choices are 60h, 70h, and 200h.
+At least 1536 bytes of the file must be loaded.
+Current loaders will load at least 8192 bytes
+if the file is as large or larger than that.
+The entrypoint is found by applying no segment adjustment (0)
+and choosing the offset 400h (1024).
+
+
+\S{protocol-sector-iniload-signatures} Signatures
+
+At offset 1020 (3FCh) there is the signature \cq{lD}.
+Behind that there are two bytes with printable non-blank ASCII codepoints.
+Currently the following signatures are defined:
+
+\dt \cq{lDOS}
+
+\dd lDOS kernel (not yet in use)
+
+\dt \cq{lDRx}
+
+\dd RxDOS kernel
+
+\dt \cq{lDFD}
+
+\dd FreeDOS kernel wrapped in iniload (fdkernpl.asm)
+
+\dt \cq{lDeb}
+
+\dd lDebug
+
+\dt \cq{lDDb}
+
+\dd lDDebug (debuggable lDebug)
+
+\dt \cq{lDTP}
+
+\dd lDOS test payload kernel (testpl.asm)
+
+\dt \cq{lDTW}
+
+\dd lDOS test result writer kernel (testwrit.asm)
+
+
+\S{protocol-sector-iniload-lsv} Load Stack Variables (LSV)
+
+Under this protocol, the pointer \cq{ss:bp} is passed.
+It points to a boot sector with (E)BPB.
+The stack pointer must be at most \cq{bp - 10h}.
+Below the pointed to location there live the Load Stack Variables.
+These follow this structure:
+
+\c         struc LOADSTACKVARS, -10h
+\c lsvFirstCluster:        resd 1
+\c lsvFATSector:           resd 1
+\c lsvFATSeg:              resw 1
+\c lsvLoadSeg:             resw 1
+\c lsvDataStart:           resd 1
+\c         endstruc
+
+\dt lsvFirstCluster
+
+\dd (FAT12, FAT16) Low word gives starting cluster of file.
+High word uninitialised.
+
+\dd (FAT32) Dword gives starting cluster of file.
+
+\dd (else) Should be zero.
+
+\dt lsvFATSector
+
+\dd (FAT16) Low word gives loaded sector-in-FAT.
+-1 if none loaded yet.
+High word uninitialised.
+
+\dd (FAT32) Dword gives loaded sector-in-FAT.
+-1 if none loaded yet.
+
+\dd (FAT12, else) Unused.
+
+\dt lsvFATSeg
+
+\dd (FAT16, FAT32) Word gives segment of FAT buffer
+if word/dword [lsvFATSector] != -1.
+
+\dd (FAT12) Word gives segment of FAT buffer.
+Zero if none.
+Otherwise, buffer holds entire FAT data, up to 6 KiB.
+
+\dt lsvLoadSeg
+
+\dd Word points to segment beyond last loaded paragraph.
+Allows iniload to determine how much of it is already loaded.
+
+\dt lsvDataStart
+
+\dd Dword gives sector-in-partition of first cluster's data.
+
+
+An LSV extension allows to pass a command line to the kernel.
+The stack pointer must be at most \cq{bp - 114h} then.
+This follows the structure like this:
+
+\c lsvclSignature          equ "CL"
+\c lsvclBufferLength       equ 256
+\c
+\c         struc LSVCMDLINE, LOADSTACKVARS - lsvclBufferLength - 4
+\c lsvCommandLine:
+\c .start:         resb lsvclBufferLength
+\c .signature:     resw 1
+\c lsvExtra:       resw 1
+\c         endstruc
+
+\dt lsvCommandLine.start
+
+\dd Command line buffer. Contains zero-terminated command line string.
+
+\dt lsvCommandLine.signature
+
+\dd Contains the signature value \cq{CL} if command line is given.
+
+\dt lsvExtra
+
+\dd Used internally by iniload.
+Space for this must be reserved when passing a command line.
+
+If no command line is passed then either the stack pointer
+must be \cq{bp - 10h}, or \cq{bp - 12h}, or
+the word in the lsvCommandLine.signature variable
+(\cw{word [ss:bp - 14h]})
+must not equal the string \cq{CL}.
+
+\b dosemu2's RxDOS.3 support sets \cq{sp = bp - 10h}
+
+\b ldosboot boot.asm (FAT12/FAT16) loader
+uses the variable for a \q{paragraphs per sector} value
+which is always a power of two and always below-or-equal 200h.
+
+\b ldosboot boot32.asm (FAT32) loader
+uses the variable for an \q{entries per sector} value
+which is always a power of two and always below-or-equal 100h.
+
+\b lDebug with protocol options \cw{cmdline=0 push_dpt=0}
+sets \cq{sp = bp - 10h}
+
+
+\H{protocol-iniload-payload} Iniload to payload protocol
+
+The payload is loaded to an arbitrary segment.
+The segment must be at least 60h.
+The entire payload must be loaded.
+The size of the payload is determined at iniload build time.
+The entrypoint is found by applying a segment adjustment
+and choosing an offset.
+The segment adjustment is specified at iniload build time
+by the numeric define \cw{_EXEC_SEGMENT} (default 0),
+and the offset by the define \cw{_EXEC_OFFSET} (default 0).
+
+
+\S{protocol-iniload-payload-ebpb} Extended BIO Parameter Block (EBPB)
+
+Above the LSV, \cw{ss:bp} points to an EBPB and surrrounding boot sector.
+Note that this is always a FAT32-style EBPB.
+If the filesystem that is loaded from is not FAT32,
+and is therefore FAT16 or FAT12,
+then the FAT16/FAT12 BPBN structure is moved up.
+It is placed where the FAT32 BPBN is usually expected.
+In this case, the entire boot sector contents behind the BPBN
+are also moved up by the size of the FAT32-specific fields.
+The FAT32-specific fields are filled with zeros,
+except for the FAT32 \q{sectors per FAT} field.
+It is filled with the contents of the FAT16/FAT12
+\q{sectors per FAT} field.
+
+
+\S{protocol-iniload-payload-lsv} Load Stack Variables (LSV)
+
+Refer to \k{protocol-sector-iniload-lsv}.
+
+
+\S{protocol-iniload-payload-ld} Load Data 1 (LD)
+
+Below the LSV, iniload passes the LOADDATA (1) structure.
+
+\c         struc LOADDATA, LOADSTACKVARS - 10h
+\c ldMemoryTop:    resw 1
+\c ldLoadTop:      resw 1
+\c ldSectorSeg:    resw 1
+\c ldFATType:      resb 1
+\c ldHasLBA:       resb 1
+\c ldClusterSize:  resw 1
+\c ldParaPerSector:resw 1
+\c ldLoadingSeg:   resw 1
+\c ldLoadUntilSeg: resw 1
+\c         endstruc
+
+\dt ldMemoryTop
+
+\dd Word. Segment pointer to behind usable memory.
+Points at the first of the EBDA, RPL-reserved memory, or
+video memory or otherwise UMA.
+Indicates how much memory may be used by a typical kernel.
+(lDebug detects the EBDA to move that below where it installs.)
+
+\dt ldLoadTop
+
+\dd Word. Segment pointer to lowest lDOS boot memory in use.
+All memory between linear 600h and the segment indicated here
+is usable by the payload.
+Only the payload itself is stored in this area.
+The other buffers, stack, and structures passed by iniload
+must live above this segment.
+
+\dt ldSectorSeg
+
+\dd Word. Segment pointer to an 8 KiB transfer buffer.
+It is insured that this buffer does not cross a 64 KiB boundary.
+This may be needed by some disk units.
+The buffer is not initialised to anything generally.
+
+\dt ldFATType
+
+\dd Byte. Indicates length of FAT entry in bits.
+12 indicates FAT12, 16 FAT16, 32 FAT32.
+It is planned to allow zero for non-FAT filesystems.
+
+\dt ldHasLBA
+
+\dd Byte. Only least significant bit used.
+Bit on indicates LBA extensions available for the load disk unit.
+Bit off indicates LBA extensions not available.
+
+\dt ldClusterSize
+
+\dd Word. Contains amount of sectors per cluster.
+Unlike the byte field for the same purpose in the BPB,
+this field can encode 256 (EDR-DOS compatible) without any masking.
+May be given as zero for non-FAT filesystems.
+
+\dt ldParaPerSector
+
+\dd Word. Contains amount of paragraphs per sector.
+Must be a power of two between 2 (32 B/s) and 200h (8192 B/s).
+May be given as zero for non-FAT filesystems.
+
+\dt ldLoadingSeg
+
+\dd Word. Internally used by iniload.
+Available for re-use by payload.
+
+\dt ldLoadUntilSeg
+
+\dd Word. Internally used by iniload.
+Available for re-use by payload.
+
+
+\S{protocol-iniload-payload-lcl} Load Command Line (LCL)
+
+Below the LOADDATA structure, iniload passes the LOADCMDLINE structure.
+
+\c lsvclBufferLength       equ 256
+\c
+\c         struc LOADCMDLINE, LOADDATA - lsvclBufferLength
+\c ldCommandLine:
+\c .start:         resb lsvclBufferLength
+\c         endstruc
+
+This buffer is always initialised to an ASCIZ string.
+At most 255 bytes may be initialised to string data.
+At most the 256th byte is a zero.
+
+If the first word of the buffer is equal to 0FF00h,
+that is there is an empty command line
+the terminator of which is followed by a byte with the value 0FFh,
+then no command line was passed to iniload.
+Currently lDebug can pass a command line to iniload when
+loading with its lDOS, RxDOS.2, or RxDOS.3 protocols.
+When iniload is loaded as a Multiboot1 or Multiboot2 specification kernel,
+it is also assumed that a command line can be passed.
