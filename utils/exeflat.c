@@ -545,6 +545,7 @@ int main(int argc, char **argv)
   memcpy(cmdbuf + len, tmpexe, len2);
   cmdbuf[len + len2] = '\0';
   printf("%s\n", cmdbuf);
+  fflush(stdout);
   if (system(cmdbuf))
   {
     printf("Problems executing %s\n", cmdbuf);
