@@ -41,7 +41,9 @@
                 push    es
 %endif
                 push	ds
-				pushf
+		pushf
+	; Flags are preserved across the entire
+	;  function call, particularly IF.
 
 arg nr, {rp,%1}
                 mov	ax, [.nr]		; interrupt number
@@ -53,17 +55,36 @@ arg nr, {rp,%1}
 %else
 		mov	bx, [.rp]		; regpack structure
 %endif
-		mov	ax, [bx]
-		mov	cx, [bx+4]
 		mov	dx, [bx+6]
 		mov	si, [bx+8]
 		mov	di, [bx+10]
 		mov	bp, [bx+12]
 		push	word [bx+14]		; ds
 		mov	es, [bx+16]
-		push word [bx+22]			; flags
-		popf
+		pushf
+		pop	cx
+		and	cx, 0F02Ah
+	; Get the current reserved bits from the FL
+	;  register. Hardens against possible weirdness
+	;  around eg the NEC V20/V30 MD flag.
+
+		mov	ax, [bx + 22]		; flags
+		and	ax, ~ 0F72Ah
+	; Clear most of the top bits of the FL input.
+	;  Particularly, clear DF, IF, and TF. Callers
+	;  often do not initialise all of the iregs
+	;  structure passed to us. Avoid weirdness
+	;  when DF would be set (DN) or when TF would
+	;  enable tracing randomly.
+
+		or	ax, cx
+	; Set reserved bits to same as current FL.
+
+		push	ax
+		mov	ax, [bx]
+		mov	cx, [bx+4]
 		mov	bx, [bx+2]
+		popf				; set live FL
 		pop	ds
 		int	0
 %%intr_1:
