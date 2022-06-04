@@ -41,8 +41,10 @@ set COMPILER=BC3
 :- set COMPILER=BC5
 :- Microsoft C
 :- set COMPILER=MSCL8
-:- Watcom C
+:- Watcom C (for DOS)
 :- set COMPILER=WATCOM
+:- Watcom C (for Windows)
+:- set COMPILER=OWWIN
 
 :-**********************************************************************
 :-- where is the BASE dir of your compiler(s) ??

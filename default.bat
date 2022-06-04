@@ -26,6 +26,7 @@ if "%COMPILER%" == "TC3"      set MAKE=%TC3_BASE%\bin\make
 if "%COMPILER%" == "BC3"      set MAKE=%BC3_BASE%\bin\make
 if "%COMPILER%" == "BC5"      set MAKE=%BC5_BASE%\bin\make
 if "%COMPILER%" == "WATCOM"   set MAKE=wmake /ms /h
+if "%COMPILER%" == "OWWIN"    set MAKE=wmake /ms /h
 if "%COMPILER%" == "MSCL8"    set MAKE=%MS_BASE%\bin\nmake /nologo
 
 echo Make is %MAKE%.
@@ -42,6 +43,7 @@ if "%COMPILER%" == "TC3"      set XLINK=%TC3_BASE%\bin\tlink /m/c
 if "%COMPILER%" == "BC3"      set XLINK=%BC3_BASE%\bin\tlink /m/c
 if "%COMPILER%" == "BC5"      set XLINK=%BC5_BASE%\bin\tlink /m/c
 if "%COMPILER%" == "WATCOM"   set XLINK=..\utils\wlinker /ma/nologo
+if "%COMPILER%" == "OWWIN"    set XLINK=..\utils\wlinker /ma/nologo
 if "%COMPILER%" == "MSCL8"    set XLINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
 
 echo Linker is %XLINK%.

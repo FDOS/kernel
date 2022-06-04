@@ -17,5 +17,5 @@ CLT=owcc -DDOSC_TIME_H -DBUILD_UTILS -I../hdr -o $@
 CLC=$(CLT)
 CFLAGST=-fo=.obj $(CFLAGST)
 ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 
-NASMFLAGS=-Dowlinux $(NASMFLAGS)
-XLINK=$(XLINK) debug all op symfile format dos option map,statics,verbose F { $(OBJS) } L ..$(DIRSEP)lib$(DIRSEP)device.lib N kernel.exe $#
+NASMFLAGS=-DWATCOM $(NASMFLAGS)
+#XLINK=$(XLINK) debug all op symfile format dos option map,statics,verbose F { $(OBJS) } L ..$(DIRSEP)lib$(DIRSEP)device.lib N kernel.exe $#
