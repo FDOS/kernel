@@ -242,12 +242,12 @@ static int exeflat(const char *srcfile, const char *dstfile,
     }
     printf("Compressing kernel - %s format\n", (compress_sys_file)?"sys":"exe");
    if (!compress_sys_file) {
-    stubsize = stubexesize;
     ULONG realsize;
     /* write header without relocations to file */
     exe_header nheader = *header;
     nheader.exRelocItems = 0;
     nheader.exHeaderSize = 2;
+    stubsize = stubexesize;
     realsize = size + 32 - stubsize;
     nheader.exPages = (UWORD)(realsize >> 9);
     nheader.exExtraBytes = (UWORD)realsize & 511;
@@ -391,7 +391,7 @@ static void write_header(FILE *dest, unsigned char * code, UWORD stubsize,
   if (0 == memcmp(kernel_config, "CONFIG", 6)) {
     unsigned long length = kernel_config[6] + kernel_config[7] * 256UL + 8;
     if (length <= KERNEL_CONFIG_LENGTH) {
-      memcpy(&code[2], kernel_config, length);
+      memcpy(&code[2], kernel_config, (size_t)length);
       printf("Copied %lu bytes of kernel config block to header\n", length);
     } else {
       printf("Error: Found %lu bytes of kernel config block, too long!\n", length);
@@ -417,7 +417,7 @@ int main(int argc, char **argv)
   int compress_sys_file;
   char *buffer, *tmpexe, *cmdbuf, *entryexefilename = "", *entrydevfilename = "";
   FILE *dest, *source;
-  long size;
+  size_t size;
   static unsigned char execode[256 + 10 + 1];
   static unsigned char devcode[256 + 10 + 1];
   FILE * entryf = NULL;
@@ -561,12 +561,12 @@ int main(int argc, char **argv)
             silentSegments, silentcount,
             FALSE, stubexesize, 0, stubexesize >> 4, &header);
   } else {
+    UBYTE deviceheader[16];
     FILE * devfile = fopen("tmp.sys", "rb");
     if (!devfile) {
       printf("Source file %s could not be opened\n", "tmp.sys");
       exit(1);
     }
-    UBYTE deviceheader[16];
     if (fread(deviceheader, 1, sizeof deviceheader, devfile)
       != sizeof deviceheader) {
       printf("Source file %s could not be read\n", "tmp.sys");
