@@ -90,7 +90,7 @@ BYTE FAR *FatGetDrvData(UBYTE drive, UBYTE * pspc, UWORD * bps, UWORD * nc)
 #ifndef IPL
 UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpFcb)
 {
-  WORD wRetCodeName = FALSE, wRetCodeExt = FALSE;
+  WORD wRetCodeDrive = FALSE, wRetCodeName = FALSE, wRetCodeExt = FALSE;
 
   /* pjv -- ExtFcbToFcb?                                          */
   
@@ -105,18 +105,18 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
   lpFileName = ParseSkipWh(lpFileName);
 
   /* Now check for drive specification                            */
-  /* If drive specified, set to it (when valid) otherwise         */
+  /* If drive specified, set to it otherwise                      */
   /* set to default drive unless leave as-is requested            */
+
+  /* Undocumented behavior: should keep parsing even if drive     */
+  /* specification is invalid  -- tkchia 20220715                 */
   if (*(lpFileName + 1) == ':')
   {
     /* non-portable construct to be changed                 */
     REG UBYTE Drive = DosUpFChar(*lpFileName) - 'A';
 
     if (get_cds(Drive) == NULL)
-    {
-      *wTestMode = PARSE_RET_BADDRIVE;
-      return FP_OFF(lpFileName);
-    }
+      wRetCodeDrive = TRUE;
 
     lpFcb->fcb_drive = Drive + 1;
     lpFileName += 2;
@@ -163,7 +163,12 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
         GetNameField(++lpFileName, (BYTE FAR *) lpFcb->fcb_fext,
                      FEXT_SIZE, (BOOL *) & wRetCodeExt);
 
-  *wTestMode = (wRetCodeName | wRetCodeExt) ? PARSE_RET_WILD : PARSE_RET_NOWILD;
+  if (wRetCodeDrive)
+    *wTestMode = PARSE_RET_BADDRIVE;
+  else if (wRetCodeName | wRetCodeExt)
+    *wTestMode = PARSE_RET_WILD;
+  else
+    *wTestMode = PARSE_RET_NOWILD;
   return FP_OFF(lpFileName);
 }
 
