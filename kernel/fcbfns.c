@@ -110,7 +110,9 @@ UWORD FcbParseFname(UBYTE *wTestMode, const BYTE FAR * lpFileName, fcb FAR * lpF
 
   /* Undocumented behavior: should keep parsing even if drive     */
   /* specification is invalid  -- tkchia 20220715                 */
-  if (*(lpFileName + 1) == ':')
+  /* drive specification can refer to an invalid drive, but must  */
+  /* not itself be a file name delimiter!  -- tkchia 20220716     */
+  if (!TestFieldSeps(lpFileName) && *(lpFileName + 1) == ':')
   {
     /* non-portable construct to be changed                 */
     REG UBYTE Drive = DosUpFChar(*lpFileName) - 'A';
