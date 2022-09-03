@@ -39,6 +39,7 @@ BYTE *RcsId = "$Id: fatfs.c 1632 2011-06-13 16:29:14Z bartoldeman $";
 /*                                                                      */
 STATIC f_node_ptr sft_to_fnode(int fd);
 STATIC void fnode_to_sft(f_node_ptr fnp);
+STATIC int find_fattr(const char *path, int attr, f_node_ptr fnp);
 STATIC int find_fname(const char *path, int attr, f_node_ptr fnp);
     /* /// Added - Ron Cemer */
 STATIC int merge_file_changes(f_node_ptr fnp, int collect);
@@ -124,10 +125,35 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 {
   REG f_node_ptr fnp = sft_to_fnode(fd);
-  int status = find_fname(path, D_ALL | attrib, fnp);
+  int status;
+
+  /* Special handling for volume name (they can coexist with files/directories) */
+  if (((attrib & (D_DIR | D_VOLID | D_SYSTEM | D_HIDDEN | D_RDONLY)) == D_VOLID) &&
+      (flags & O_TRUNC))
+  {
+    int ret;
+
+    /* Count the slashes to see if we are in the root directory */
+    if (strchr(path + 3, '\\'))
+      return DE_ACCESS;
+
+    /* Check to see if there are any other files with VOLID set */
+    status = find_fattr(path, D_VOLID, fnp);
+    if (status == SUCCESS)
+      return DE_ACCESS;
+
+    /* Create our new label */
+    ret = alloc_find_free(fnp, path);
+    if (ret != SUCCESS)
+      return ret;
+    status = S_CREATED;
+
+    goto doit;
+  }
 
   /* Check that we don't have a duplicate name, so if we  */
   /* find one, truncate it (O_CREAT).                     */
+  status = find_fname(path, D_ALL | attrib, fnp);
   if (status == SUCCESS)
   {
     unsigned char dir_attrib = fnp->f_dir.dir_attrib;
@@ -178,6 +204,8 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
     /* found error.                                          */
     return status;
   }
+
+doit:
 
   /* Now change to file                                   */
   fnp->f_sft_idx = fd;
@@ -232,7 +260,7 @@ COUNT dos_close(COUNT fd)
 }
 
 /*                                                                      */
-/* split a path into it's component directory and file name             */
+/* split a path into its component directory and file name              */
 /*                                                                      */
 f_node_ptr split_path(const char * path, f_node_ptr fnp)
 {
@@ -272,6 +300,22 @@ BOOL dir_exists(char * path)
 BOOL fcbmatch(const char *fcbname1, const char *fcbname2)
 {
   return memcmp(fcbname1, fcbname2, FNAME_SIZE + FEXT_SIZE) == 0;
+}
+
+STATIC int find_fattr(const char *path, int attr, f_node_ptr fnp)
+{
+  /* check for leading backslash and open the directory given that */
+  /* contains the file given by path.                              */
+  if ((fnp = split_path(path, fnp)) == NULL)
+    return DE_PATHNOTFND;
+
+  while (dir_read(fnp) == 1)
+  {
+    if ((fnp->f_dir.dir_attrib & attr) == attr)
+      return SUCCESS;
+    fnp->f_dmp->dm_entry++;
+  }
+  return DE_FILENOTFND;
 }
 
 STATIC int find_fname(const char *path, int attr, f_node_ptr fnp)
