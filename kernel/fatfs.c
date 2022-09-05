@@ -281,12 +281,29 @@ STATIC int find_fname(const char *path, int attr, f_node_ptr fnp)
   if ((fnp = split_path(path, fnp)) == NULL)
     return DE_PATHNOTFND;
 
+  /*
+   * attr = 0x00 returns NORMAL
+   *        0x02 returns NORMAL + HIDDEN
+   *        0x04 returns NORMAL + SYSTEM
+   *        0x06 returns NORMAL + HIDDEN + SYSTEM
+   *        0x08 returns VOLID only (DOS 3+)
+   *        0x10 returns DIRECTORIES
+   */
+
   while (dir_read(fnp) == 1)
   {
-    if (fcbmatch(fnp->f_dir.dir_name, fnp->f_dmp->dm_name_pat)
-        && (fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
+    if (fcbmatch(fnp->f_dir.dir_name, fnp->f_dmp->dm_name_pat))
     {
-      return SUCCESS;
+      if (attr & D_VOLID)
+      {
+        if (fnp->f_dir.dir_attrib & D_VOLID)
+          return SUCCESS;
+      }
+      else
+      {
+        if ((fnp->f_dir.dir_attrib & ~(D_RDONLY | D_ARCHIVE | attr)) == 0)
+          return SUCCESS;
+      }
     }
     fnp->f_dmp->dm_entry++;
   }
