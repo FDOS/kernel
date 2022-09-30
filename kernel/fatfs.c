@@ -148,6 +148,7 @@ int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
       return ret;
     status = S_CREATED;
 
+    writelabelBPB(path[0], path + 3);
     goto doit;
   }
 

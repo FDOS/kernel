@@ -97,6 +97,40 @@ ddt *getddt(int dev)
   return &(((ddt *) Dyn.Buffer)[dev]);
 }
 
+STATIC WORD getbpb(ddt *pddt);
+STATIC WORD RWzero(ddt *pddt, UWORD mode);
+
+COUNT writelabelBPB(char drive, const char *name)
+{
+  ddt *pddt = getddt(drive - 'A');
+  struct FS_info *fs;
+  int offset;
+  int ret;
+
+  ret = getbpb(pddt);
+  if (ret != 0)
+    return ret;
+
+  if (DiskTransferBuffer[0x26] == 0x29 &&
+      pddt->ddt_bpb.bpb_nfsect != 0)       // BPB v4.1
+    offset = 0x27;
+  else if (DiskTransferBuffer[0x42] == 0x29 &&
+      pddt->ddt_bpb.bpb_nfsect == 0)       // BPB v7 long
+    offset = 0x43;
+  else
+    return -1;
+
+  /* store volume name */
+  fs = (struct FS_info *)&DiskTransferBuffer[offset];
+  memcpy(&fs->volume[0], name, 11);
+
+  ret = RWzero(pddt, LBA_WRITE);
+  if (ret != 0)
+    return ret;
+
+  return 0;
+}
+
 STATIC VOID tmark(ddt *pddt)
 {
   pddt->ddt_fh.ddt_lasttime = ReadPCClock();
@@ -122,7 +156,6 @@ STATIC dsk_proc mediachk, bldbpb, blockio, IoctlQueblk,
     Genblkdev, Getlogdev, Setlogdev, blk_Open, blk_Close,
     blk_Media, blk_noerr, blk_nondr, blk_error;
 
-STATIC WORD getbpb(ddt * pddt);
 #ifdef PROTO
 STATIC WORD dskerr(COUNT);
 #else
