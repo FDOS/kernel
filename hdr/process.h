@@ -79,10 +79,10 @@ typedef struct {
   UWORD ps_maxfiles;            /* 32 maximum open files           */
   UBYTE FAR *ps_filetab;        /* 34 open file table pointer      */
   VOID FAR *ps_prevpsp;         /* 38 previous psp pointer         */
-  UBYTE ps_fill2;               /* 3c unused                       */
-  UBYTE ps_truename;            /* 3d [unused] append truename flag int2f/B711h */
+  UBYTE ps_dbcs_inputmode;      /* 3c unused,see int21/6301h/6302h */
+  UBYTE ps_truename;            /* 3d unused,append truename flag int2f/B711h */
   UBYTE ps_netx_taskid[2];      /* 3e [Novell only field] task id  */
-  UWORD ps_retdosver;           /* 40 [unused] version to return on int21/30h */
+  UWORD ps_retdosver;           /* 40 version to return on int21/30h, defaults to true version */
   UWORD pdb_next;               /* 42 [Win only field] PSP chain   */
   UBYTE ps_fill2b[4];           /* 44 unused, 4 bytes              */
   UBYTE ps_olddos;              /* 48 [Win only field] DOS/Win program */

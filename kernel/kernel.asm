@@ -74,7 +74,7 @@ BootHarddiskSeconds         db 0        ;
 ; The following VERSION resource must be keep in sync with VERSION.H
 Version_OemID               db 0xFD     ; OEM_ID
 Version_Major               db 2
-Version_Revision            dw 41       ; REVISION_SEQ
+Version_Revision            dw 43       ; REVISION_SEQ
 Version_Release             dw 1        ; 0=release build, >0=svn#
 
 CheckDebugger:		db 0	; 0 = no check, 1 = check, 2 = assume present
@@ -534,9 +534,9 @@ _nul_dev:           ; 0022 device chain root
                 db      'NUL     '
                 global  _njoined
 _njoined        db      0               ; 0034 number of joined devices
-                dw      0               ; 0035 DOS 4 pointer to special names (always zero in DOS 5)
+                dw      0               ; 0035 DOS 4 near pointer to special names (always zero in DOS 5) [setver precursor]
                 global  _setverPtr
-_setverPtr      dw      0,0             ; 0037 setver list
+_setverPtr      dw      0,0             ; 0037 setver list (far pointer, set by setver driver)
                 dw      0               ; 003B cs offset for fix a20
                 dw      0               ; 003D psp of last umb exec
                 global _LoL_nbuffers

@@ -142,11 +142,22 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
         /* the remaining are FreeDOS extensions */
 
+			/* return CPU family */
+        case 0xfa:
+          irp->AL = CPULevel;
+          break;
+		  
+#if 0		/* unknown if used / usage */
+		case 0xfb:
+#endif
+
+#if 1	   /* duplicates DOS 4 int 2F/122Fh, but used by CALLVER */
            /* set FreeDOS returned version for int 21.30 from BX */
         case 0xfc:
           os_setver_major = irp->BL;
           os_setver_minor = irp->BH;
           break;
+#endif
 
           /* Toggle DOS-C rdwrblock trace dump                    */
 #ifdef DEBUG
@@ -2545,13 +2556,13 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
                                    doesn't work!! */
       break;
 
-    case 0x2f:
-      if (r.DX)
+    case 0x2f:                 /* updates version returned by int 21/30h for all processes */
+      if (r.DX)                /* set returned version from DX */
       {
         os_setver_major = r.DL;
         os_setver_minor = r.DH;
       }
-      else
+      else	                	/* set returned version from emulated true DOS version */
       {
         os_setver_major = os_major;
         os_setver_minor = os_minor;
