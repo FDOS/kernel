@@ -1619,7 +1619,7 @@ err:printf("%s has invalid format\n", filename);
     if (lseek(fd, entry.offset) == 0xffffffffL
       || read(fd, &count, sizeof(count)) != sizeof(count)
       || count > LENGTH(hdr)
-      || read(fd, &hdr, sizeof(struct subf_hdr) * count)
+      || read(fd, hdr, sizeof(struct subf_hdr) * count)
                       != sizeof(struct subf_hdr) * count)
       goto err;
     for (i = 0; i < count; i++)
