@@ -290,7 +290,7 @@ STATIC WORD RWzero(ddt * pddt, UWORD mode)
   UWORD done;
 
   return LBA_Transfer(pddt, mode,
-                      (UBYTE FAR *) & DiskTransferBuffer,
+                      (UBYTE FAR *) DiskTransferBuffer,
                       pddt->ddt_offset, 1, &done);
 }
 
