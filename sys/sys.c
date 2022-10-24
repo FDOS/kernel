@@ -1485,7 +1485,7 @@ void put_boot(SYSOptions *opts)
     saveBS(opts->bsFileOrig, oldboot);
   }
 
-  bs = (struct bootsectortype *)&oldboot;
+  bs = (struct bootsectortype *)oldboot;
 
   if (bs->bsBytesPerSec != SEC_SIZE)
   {
@@ -1611,7 +1611,7 @@ void put_boot(SYSOptions *opts)
 #endif
     memcpy(&newboot[SBOFFSET], &oldboot[SBOFFSET], SBSIZE);
 
-  bs = (struct bootsectortype *)&newboot;
+  bs = (struct bootsectortype *)newboot;
 
   /* originally OemName was "FreeDOS", changed for better compatibility */
   memcpy(bs->OemName, "FRDOS5.1", 8); /* Win9x seems to require
@@ -1621,7 +1621,7 @@ void put_boot(SYSOptions *opts)
 #ifdef WITHFAT32
   if (fs == FAT32)
   {
-    bs32 = (struct bootsectortype32 *)&newboot;
+    bs32 = (struct bootsectortype32 *)newboot;
     /* ensure appears valid, if not then force valid */
     if ((bs32->bsBackupBoot < 1) || (bs32->bsBackupBoot > bs32->bsResSectors))
     {
@@ -1781,7 +1781,7 @@ void put_boot(SYSOptions *opts)
     */
     if ((fs == FAT32) && !opts->skipBakBSCopy)
     {
-      bs32 = (struct bootsectortype32 *)&newboot;
+      bs32 = (struct bootsectortype32 *)newboot;
 #ifdef DEBUG
       printf("writing backup bootsector to sector %d\n", bs32->bsBackupBoot);
 #endif
