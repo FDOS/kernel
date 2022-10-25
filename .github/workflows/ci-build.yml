@@ -40,7 +40,7 @@ jobs:
         (
           today=`date -u +%F | tr '\n' '-'`
           s_sha=`echo -n ${GITHUB_SHA} | cut -c1-8`
-          printf '::set-output name=fname::snapshot-%s%s\n' $today $s_sha
+          printf 'name=fname::snapshot-%s%s\n' $today $s_sha >> $GITHUB_OUTPUT
         )
 
     - name: upload
