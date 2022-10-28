@@ -18,7 +18,7 @@ jobs:
 
     steps:
     - name: Checkout repository and submodules
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         submodules: recursive
 
@@ -46,7 +46,7 @@ jobs:
     - name: upload
       if: github.repository == 'FDOS/kernel' &&
         (github.event_name == 'push' || github.event.pull_request.merged == true)
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ steps.snapshotname.outputs.fname }}
         path: _output/*/*.???
