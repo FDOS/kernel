@@ -15,3 +15,6 @@ This version of the kernel is intended only for 8086+ or 80386+ IBM compatible c
 Please feel free to email me - PerditionC@gmail.com
 
 Now with automatic builds and soon tests [![Build](../../workflows/Build/badge.svg)](../../actions)
+
+The FreeDOS kernel doesn't support Chinese. If you want to display Chinese character, please download CJKDOS.img in https://pan.baidu.com/s/1CTuw2YdYh17bYX_BeWANgQ?pwd=ywjy(Baidu Netdisk) and unpack it in the root of FreeDOS, run CJKDOS.EXE
+FreeDOS内核不支持中文。假如你想显示中文，请在https://pan.baidu.com/s/1CTuw2YdYh17bYX_BeWANgQ?pwd=ywjy下载CJKDOS.img，在FreeDOS根目录解压并运行CJKDOS.EXE
