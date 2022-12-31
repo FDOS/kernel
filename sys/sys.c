@@ -121,8 +121,8 @@ struct _diskfree_t {
 int int86(int ivec, union REGS *in, union REGS *out)
 {
   /* must save sp for int25/26 */
-  asm("mov %5, (1f+1); jmp 0f; 0:mov %%di, %%dx; mov %%sp, %%di;"
-      "1:int $0x00; mov %%di, %%sp; sbb %0, %0" :
+  asm("mov %5, (1f+1); jmp 0f; 0:push %%ds; mov %%di, %%dx; mov %%sp, %%di;"
+      "1:int $0x00; mov %%di, %%sp; pop %%ds; sbb %0, %0" :
       "=r"(out->x.cflag),
       "=a"(out->x.ax), "=b"(out->x.bx), "=c"(out->x.cx), "=d"(out->x.dx) :
       "q"((unsigned char)ivec), "a"(in->x.ax), "b"(in->x.bx),
