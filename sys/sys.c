@@ -1448,9 +1448,7 @@ void dumpBS(const char *bsFile, int drive)
 
 void put_boot(SYSOptions *opts)
 {
-#ifdef WITHFAT32
   struct bootsectortype32 *bs32;
-#endif
   struct bootsectortype *bs;
   UBYTE oldboot[SEC_SIZE], newboot[SEC_SIZE];
   UBYTE default_bpb[0x5c];
