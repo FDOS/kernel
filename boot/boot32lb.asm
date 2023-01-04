@@ -313,6 +313,8 @@ convert_cluster:
 		dec	eax
 
 		movzx	edx, byte [bsSecPerClust]
+                dec     dl              ; spc - 1
+                inc     dx              ; spc
 		push	edx
 		mul	edx
 		pop	edx

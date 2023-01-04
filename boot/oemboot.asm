@@ -143,7 +143,7 @@ segment	.text
 
 %define FATBUF          bp-0x7500       ; offset of temporary buffer for FAT
                                         ; chain 0:FATBUF = 0:0700 = LOADSEG:0
-%define ROOTDIR         bp-0x7700       ; offset to buffer for root directory
+%define ROOTDIR         0x7C00-0x7700   ; offset to buffer for root directory
                                         ; entry of kernel 0:ROOTDIR
 %define CLUSTLIST       bp+0x0300       ; zero terminated list of clusters
                                         ; that the kernel occupies
@@ -332,11 +332,11 @@ real_start:
                 pop     di              ; mov di, word [RootDirSecs]
                 pop     ax              ; mov ax, word [root_dir_start]
                 pop     dx              ; mov dx, word [root_dir_start+2]
-                lea     bx, [ROOTDIR]   ; es:bx = 0:0500
+                mov     bx, ROOTDIR     ; es:bx = 0:0500
                 push    es              ; save pointer to ROOTDIR
                 call    readDisk
                 pop     es              ; restore pointer to ROOTDIR
-                lea     si, [ROOTDIR]   ; ds:si = 0:0500
+                mov     si, ROOTDIR     ; ds:si = 0:0500
 
 
 		; Search for kernel file name, and find start cluster.
@@ -361,7 +361,7 @@ ffDone:
 %ifdef SETROOTDIR
                 ; copy over this portion of root dir to 0x0:500 for PC-DOS
                 ; (this may allow IBMBIO.COM to start in any directory entry)
-                lea     di, [ROOTDIR]   ; es:di = 0:0500
+                mov     di, ROOTDIR     ; es:di = 0:0500
                 mov     cx, 32          ; limit to this 1 entry (rest don't matter)
                 rep     movsw
 %endif
@@ -493,7 +493,9 @@ load_next:      dec     ax                      ; cluster numbers start with 2
                 dec     ax
 
                 mov     di, word [bsSecPerClust]
-                and     di, 0xff                ; DI = sectors per cluster
+                dec     di                      ; minus one if 256 spc
+                and     di, 0xff                ; DI = sectors per cluster - 1
+                inc     di                      ; = spc
                 mul     di
                 add     ax, [data_start]
                 adc     dx, [data_start+2]      ; DX:AX = first sector to read

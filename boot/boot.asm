@@ -363,7 +363,9 @@ load_next:      dec     ax                      ; cluster numbers start with 2
                 dec     ax
 
                 mov     di, word [bsSecPerClust]
-                and     di, 0xff                ; DI = sectors per cluster
+                dec     di                      ; minus one if 256 spc
+                and     di, 0xff                ; DI = sectors per cluster - 1
+                inc     di                      ; = spc
                 mul     di
                 add     ax, [data_start]
                 adc     dx, [data_start+2]      ; DX:AX = first sector to read
@@ -422,9 +424,9 @@ read_next:
 
                 ; NOTE: sys must be updated if location changes!!!
 %ifdef ISFAT12
-  %define LBA_TEST_OFFSET 179h
+  %define LBA_TEST_OFFSET 17Bh
 %elifdef ISFAT16
-  %define LBA_TEST_OFFSET 176h
+  %define LBA_TEST_OFFSET 178h
 %else
   %define LBA_TEST_OFFSET 0
                 ; Just a placeholder, so the proper error message
