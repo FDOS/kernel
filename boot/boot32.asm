@@ -294,7 +294,9 @@ c3:
                 sub     ax, 2
                 sbb     cx, byte 0           ; CX:AX == cluster - 2
                 mov     bl, [bsSecPerClust]
-                sub     bh, bh
+                dec     bx              ; bl = spc - 1, 0FFh if 256 spc
+                sub     bh, bh          ; bx = spc - 1
+                inc     bx              ; bx = spc
                 xchg    cx, ax          ; AX:CX == cluster - 2
                 mul     bx              ; first handle high word
                                         ; DX must be 0 here
