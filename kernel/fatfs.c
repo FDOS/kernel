@@ -1584,13 +1584,17 @@ VOID bpb_to_dpb(bpb FAR * bpbp, REG struct dpb FAR * dpbp)
   bpb sbpb;
 
   fmemcpy(&sbpb, bpbp, sizeof(sbpb));
-  for (shftcnt = 0; (sbpb.bpb_nsector >> shftcnt) > 1; shftcnt++)
-    ;
+  if (sbpb.bpb_nsector == 0) {
+    shftcnt = 8;
+  } else {
+    for (shftcnt = 0; (sbpb.bpb_nsector >> shftcnt) > 1; shftcnt++)
+      ;
+  }
   dpbp->dpb_shftcnt = shftcnt;
 
   dpbp->dpb_mdb = sbpb.bpb_mdesc;
   dpbp->dpb_secsize = sbpb.bpb_nbyte;
-  dpbp->dpb_clsmask = sbpb.bpb_nsector - 1;
+  dpbp->dpb_clsmask = (sbpb.bpb_nsector - 1) & 0xFF;
   dpbp->dpb_fatstrt = sbpb.bpb_nreserved;
   dpbp->dpb_fats = sbpb.bpb_nfat;
   dpbp->dpb_dirents = sbpb.bpb_ndirent;
