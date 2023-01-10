@@ -1506,7 +1506,7 @@ void put_boot(SYSOptions *opts)
     totalSectors = bs32->bsSectors ? bs32->bsSectors : bs32->bsHugeSectors;
     dataSectors = totalSectors
       - bs32->bsResSectors - (bs32->bsFATs * fatSize) - rootDirSectors;
-    clusters = dataSectors / bs32->bsSecPerClust;
+    clusters = dataSectors / (((bs32->bsSecPerClust - 1) & 0xFF) + 1);
  
     if (clusters < FAT_MAGIC)        /* < 4085 */
       fs = FAT12;
