@@ -394,6 +394,7 @@ struct bootsectortype32 {
  * globals needed by put_boot & check_space
  */
 enum {FAT12 = 12, FAT16 = 16, FAT32 = 32} fs;  /* file system type */
+unsigned smallfat32;
 /* static */ struct xfreespace x; /* we make this static to be 0 by default -
                                      this avoids FAT misdetections */
 
@@ -1507,13 +1508,25 @@ void put_boot(SYSOptions *opts)
     dataSectors = totalSectors
       - bs32->bsResSectors - (bs32->bsFATs * fatSize) - rootDirSectors;
     clusters = dataSectors / (((bs32->bsSecPerClust - 1) & 0xFF) + 1);
- 
-    if (clusters < FAT_MAGIC)        /* < 4085 */
-      fs = FAT12;
-    else if (clusters < FAT_MAGIC16) /* < 65525 */
-      fs = FAT16;
-    else
+
+    if (bs32->bsFATsecs == 0) {
+      if (clusters >= 0xFFFfff5) {     /* FAT32 has 28 significant bits */
+        printf("Too many clusters (%lXh) for FAT32 file system!\n", clusters);
+        exit(1);
+      }
       fs = FAT32;
+      if (clusters < FAT_MAGIC16)
+        smallfat32 = 1;
+    } else {
+      if (clusters < FAT_MAGIC)        /* < 4085 */
+        fs = FAT12;
+      else if (clusters < FAT_MAGIC16) /* < 65525 */
+        fs = FAT16;
+      else {
+        printf("Too many clusters (%lXh) for non-FAT32 file system!\n", clusters);
+        exit(1);
+      }
+    }
   }
 
   /* bit 0 set if function to use current BPB, clear if Device
@@ -1526,7 +1539,7 @@ void put_boot(SYSOptions *opts)
   if (fs == FAT32)
   {
 	if (opts->verbose)
-		printf("FAT type: FAT32\n");
+		printf("FAT type: FAT32%s\n", smallfat32 ? " (small)" : "");
     /* get default bpb (but not for floppies) */
     if (opts->dstDrive >= 2 &&
         generic_block_ioctl(opts->dstDrive + 1, 0x4860, default_bpb) == 0)
