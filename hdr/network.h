@@ -59,6 +59,9 @@
 #define REM_PRINTREDIR  0x1125
 #define REM_EXTOC       0x112e
 
+/* Redirector extensions */
+#define REM_GETLARGESPACE    0x11a3
+
 struct rgds {
   UWORD r_spc;
   UWORD r_navc;
