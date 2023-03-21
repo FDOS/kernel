@@ -27,7 +27,7 @@ mv -n share/share.map _output/gcc/.
 
 # Watcom
 if [ ! -d _watcom ] ; then
-  [ -f $OWTAR ] || wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/$OWTAR
+  [ -f $OWTAR ] || wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/2023-02-01-Build/$OWTAR
 
   mkdir _watcom
   (cd _watcom && tar -xf ../$OWTAR)
