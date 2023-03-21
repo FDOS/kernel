@@ -428,6 +428,8 @@ call_int2f:
                 push    cx             ; arg
                 cmp     al, 0ch
                 je      remote_getfree
+                cmp     al, 0xa3
+                je      remote_getfree
                 cmp     al, 1eh
                 je      remote_print_doredir
                 cmp     al, 1fh
@@ -478,6 +480,7 @@ remote_getfree:
                 mov     [di+2],bx
                 mov     [di+4],cx
                 mov     [di+6],dx
+                mov     [di+8],si	; for REM_GETLARGEFREE, unused on REM_GETFREE
                 jmp     short ret_set_ax_to_carry
 
 remote_rw:
