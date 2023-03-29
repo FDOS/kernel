@@ -131,6 +131,11 @@ Intended for 86 Mode programs.
 %xdefine _7digitshex(h)	_1digitshex((h)>>24),_6digitshex_nocheck(h)
 %xdefine _8digitshex(h)	_1digitshex((h)>>28),_7digitshex_nocheck(h)
 
+%xdefine _5digitssephex(h)	_1digitshex((h)>>16),"_",_4digitshex_nocheck(h)
+%xdefine _6digitssephex(h)	_2digitshex((h)>>16),"_",_4digitshex_nocheck(h)
+%xdefine _7digitssephex(h)	_3digitshex((h)>>16),"_",_4digitshex_nocheck(h)
+%xdefine _8digitssephex(h)	_4digitshex((h)>>16),"_",_4digitshex_nocheck(h)
+
 
 %macro _appenddigitstrdef 2.nolist
 %substr %%ii "0123456789ABCDEF" (%2) + 1

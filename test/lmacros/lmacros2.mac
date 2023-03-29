@@ -125,6 +125,9 @@ Intended for 86 Mode programs.
 %else
  %fatal Invalid frame type specified: %1
 %endif
+%ifdef %$parofs
+ %assign %$alignofs %$parofs + %$base_size
+%endif
 %assign %$pars_size 0
 %assign %$pars_return_size 0
 %define %$parlist
@@ -331,6 +334,48 @@ __lvar_list_label %2
  %fatal Must use lframe first
 %endif
 __lvar_define_var %2, %1
+%endmacro
+
+		; Define an alignment variable.
+		; %1	What boundary to align to. Default is 16.
+		; %2	Space to add to align. Default is 0.
+		;
+		; It is assumed that the call instruction that
+		;  called the current function had the stack
+		;  aligned to at least the same boundary.
+		; The second parameter specifies the size of
+		;  any parameters that we want to push before
+		;  doing a call next. The alignment is chosen
+		;  so that the call instruction will get the
+		;  aligned stack.
+		; Sets %$alignment to the size of the variable
+		;  defined for aligning, 0 if none. If not 0,
+		;  the variable ?align_X_Y is defined where X
+		;  is a decimal number indicating the size of
+		;  all prior variables plus r/e/bp on stack
+		;  plus the size set for the frame type, and
+		;  Y is the decimal number of the %2 parameter.
+		; This can only be used if the lframe had a
+		;  frame type other than "none".
+		; If a variable is defined then lreserve or
+		;  another space reservation method must be
+		;  used to actually allocate space for the
+		;  created variable and thus align the stack.
+%imacro lalign 0-2.nolist 16, 0
+%ifctx LENTER
+%elifctx LENTEREARLY
+%elifnctx LFRAME
+ %fatal Must use lframe first
+%endif
+%ifndef %$parofs
+ %fatal Specified no frame type with lframe
+%endif
+%assign %$alignbase %$alignofs - %$ofs
+%assign %$alignadjust %2
+%assign %$alignment (%1 - ((%$alignbase + %$alignadjust) % %1)) % %1
+%if %$alignment
+	lvar %$alignment, align_ %+ %$alignbase %+ _ %+ %$alignadjust
+%endif
 %endmacro
 
 		; Create a defined stack frame.
