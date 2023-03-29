@@ -270,7 +270,17 @@ fi
 
 echo -ne 'failure\r\n' > result.txt
 
+TMPINC=""
+if command -v "$MKTMPINC" &> /dev/null
+then
+	TMPINC="-D_TMPINC"
+fi
+if [[ -n "$TMPINC" ]]
+then
+	"$MKTMPINC" "${LDOSBOOT_DIR%/}"/$bootname.asm > /dev/null
+fi
  "$NASM" "${LDOSBOOT_DIR%/}"/$bootname.asm -w-user \
+  $TMPINC \
   -D_LOAD_NAME="'TESTWRIT'" -D_LOAD_EXT="'SYS'" -D_FAT$bpe \
   -D_UNIT=$unit \
   "$@" \
@@ -283,6 +293,7 @@ echo -ne 'failure\r\n' > result.txt
   "$options_i_ldosboot" \
   "$options_i_lmacros" \
   "$options_i_scanptab" \
+  -D_PADDING='(48 * 1024)' \
   -D_PAYLOAD_FILE="'testwrit.bin'" -o testwrit.sys -l testwrin.lst \
   -D_INILOAD_SIGNATURE='"TW"' &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
@@ -292,8 +303,8 @@ echo -ne 'failure\r\n' > result.txt
   -D_BPE="$bpe" -D_SPC="$spc" -D_SPI="$spi" \
   -D_SPF="$(( (spi / spc * bpe / 8 + 511) / 512 ))" \
   -D_NUMROOT="$nr" \
-  -o $name.img -l $name.lst \
-  -D_PAYLOADFILE="testwrit.sys,result.txt" \
+  -D_MAP=$name.map -o $name.img -l $name.lst \
+  -D_PAYLOADFILE="testwrit.sys,result.txt,::chdir,dir" \
   -D_BOOTFILE="'$bootfile'" \
   -D_UNIT=$unit \
   "$@" \
@@ -301,6 +312,10 @@ echo -ne 'failure\r\n' > result.txt
   "$options_i_lmacros" \
   "$options_i_bootimg"
 (($?)) && exit $?
+if [[ -n "$TMPINC" ]]
+then
+	rm -f *.tmp
+fi
 
 pgid="$(ps -o pgid= $$)"
 function handle_timeout_process() {
@@ -366,11 +381,16 @@ then
     cp -aL "$BOOT_KERNEL" "${BOOT_KERNEL##*/}"
     cp -aL "$BOOT_COMMAND" "${BOOT_COMMAND##*/}"
     echo -ne "@echo off\r\ninst${bpe}tw.com C:\r\nquit.com\r\n" > autoexec.bat
+if [[ -n "$TMPINC" ]]
+then
+	"$MKTMPINC" "${LDOSBOOT_DIR%/}"/boot.asm > /dev/null
+fi
     "$NASM" quit.asm \
      "$options_i_lmacros" \
      -o quit.com &&
     "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
      "$options_i_lmacros" \
+     $TMPINC \
      -D_COMPAT_"$BOOT_PROTOCOL"=1 \
      -D_LBA=0 -D_USE_PART_INFO=0 -D_QUERY_GEOMETRY=0 \
     $BOOT_OPTIONS \
@@ -384,6 +404,10 @@ then
      -D_PAYLOADFILE="${BOOT_KERNEL##*/},${BOOT_COMMAND##*/},autoexec.bat,inst${bpe}tw.com,quit.com" \
      -D_BOOTFILE="'bootinst.bin'"
     (($?)) && exit $?
+if [[ -n "$TMPINC" ]]
+then
+	rm -f *.tmp
+fi
     timeout --foreground 10 "$QEMU" -fda diskinst.img "$qemu_switch" "$name".img -boot order=a -display none 2> /dev/null
     rc=$?
     handle_timeout_process
@@ -397,8 +421,13 @@ fi
 
 if ((! direct))
 then
+if [[ -n "$TMPINC" ]]
+then
+	"$MKTMPINC" "${LDOSBOOT_DIR%/}"/boot.asm > /dev/null
+fi
  "$NASM" "${LDOSBOOT_DIR%/}"/boot.asm -w-user \
   "$options_i_lmacros" \
+  $TMPINC \
   -D_LOAD_NAME="'LDEBUG'" -D_LOAD_EXT="'COM'" \
   -D_MAP=boot12db.map -l boot12db.lst -o boot12db.bin &&
  "$NASM" "${BOOTIMG_DIR%/}"/bootimg.asm \
@@ -409,6 +438,10 @@ then
   -o diskldbg.img -l diskldbg.lst \
   -D_PAYLOADFILE="ldebug.com" -D_BOOTFILE="'boot12db.bin'"
  (($?)) && exit $?
+if [[ -n "$TMPINC" ]]
+then
+	rm -f *.tmp
+fi
 
   if ((dosemu))
   then

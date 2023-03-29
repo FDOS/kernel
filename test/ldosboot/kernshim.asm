@@ -31,15 +31,15 @@ header:
 	dw (payload -$$+0) >> 4	; exeHeaderSize
 	dw 0		; exeMinAlloc
 	dw -1		; exeMaxAlloc
-	dw 0		; exeInitSS
-	dw -2		; exeInitSP
+	dw (payload.end + 15 - payload) / 16	; exeInitSS
+	dw 512		; exeInitSP
 	dw 0		; exeChecksum
 	dw 0, 0		; exeInitCSIP
 	dw 0		; exeRelocTable
 	endarea header
 
 
-	align 16, db 38
+	align 16, db 0
 payload:
 	jmp strict short entry
 	db "CONFIG"
@@ -50,7 +50,7 @@ payload:
 entry: equ $
 	jmp entry_common
 
-	times 0xC0 - ($ - payload) db 0
+	times 0xC0 - ($ - payload) nop
 entry_common: equ $
 
 	incbin _FILE

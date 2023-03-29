@@ -78,6 +78,7 @@ ldHasLBA:	resb 1
 ldClusterSize:	resw 1
 ldParaPerSector:resw 1
 ldLoadingSeg:		; word
+ldQueryPatchValue:	; word
 lsvCommandLine:		; word
 .start:		equ $ - lsvclBufferLength
 .signature:	resw 1
@@ -124,6 +125,14 @@ ptLinux:		equ 83h
 ptExtendedLinux:	equ 85h
 
 
+query_no_geometry equ 4
+query_no_chs equ 2
+query_no_lba equ 1
+query_fd_multiplier equ 1
+query_hd_multiplier equ 256
+query_all_multiplier equ query_fd_multiplier + query_hd_multiplier
+
+
 %ifndef _MAP
 %elifempty _MAP
 %else	; defined non-empty, str or non-str
@@ -132,6 +141,8 @@ ptExtendedLinux:	equ 85h
 
 	defaulting
 
+	numdef QUERY_PATCH,	1	; use new style patch of CHS/LBA/geometry
+	numdef QUERY_DEFAULT,	0
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
@@ -163,6 +174,7 @@ ptExtendedLinux:	equ 85h
  %include "inicheck.mac"
 %endif
 
+	numdef PADDING, 0
 	strdef PAYLOAD_FILE,	"lDOSLOAD.BIN"
 	numdef EXEC_OFFSET,	0
 	numdef EXEC_SEGMENT,	0
@@ -328,8 +340,16 @@ ms6_entry:
 d3	call d3_display_two_characters
 d3	test ax, "00"
 
-;	test dx, dx
-;	jnz @FF
+	mov cx, cs
+	cmp cx, 60h
+	jne @F
+.freedos_or_msdos1_com_entry:
+	jmp freedos_or_msdos1_com_entry
+@@:
+
+;	xor cx, cx
+;;	test dx, dx
+;;	jnz @FF
 		; Actual DOS will always put a zero word on top of
 		;  the stack. But when the debugger loads us as
 		;  a flat format binary it may set up another
@@ -339,15 +359,10 @@ d3	test ax, "00"
 	call @F
 @@:
 	pop cx
-	cmp cx, @B + 100h
-	je msdos1_com_entry
+	sub cx, @B	; cx == 0 iff entered at offset 0
+	jne .freedos_or_msdos1_com_entry
 @@:
-
-	mov cx, cs
-	cmp cx, 60h
-	je freedos_entry
-
-	xor cx, cx
+			; cx = 0
 
 		; Note: It has been observed that some IBMBIO.COM / IO.SYS
 		;	 boot sector loaders pass the int 1Eh address on the
@@ -380,29 +395,50 @@ error:
 	int 16h
 	int 19h
 
-disp_error:
-.:
-	lodsb
-	test al, al
-	jz .ret
+
+disp_error.loop:
 	mov ah, 0Eh
 	mov bx, 7
 	; push bp
 		; (call may change bp, but it is not used here any longer.)
 	int 10h
 	; pop bp
-	jmp short .
-
-msg:
-.error:	db "Load error: ", 0
+disp_error:
+	lodsb
+	test al, al
+	jnz .loop
+	retn
 
 
 query_geometry:
-%if _QUERY_GEOMETRY	; +30 bytes
+%if _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
+		; magic bytes start
 	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+				; magic bytes
+ %if _QUERY_PATCH
+	mov ax, _QUERY_DEFAULT	; magic bytes, checked by patch script
+..@query_patch_site equ $ - 2
+	test dl, dl		; hard disk unit ?
+	jns @F			; no -->
+	xchg al, ah		; get high byte into al
+		; magic bytes end
+@@:
+ %endif
+%endif
+
+%if _QUERY_GEOMETRY	; +30 bytes
  %if !_LBA_SKIP_CHECK
 	push dx
+  %if _QUERY_PATCH
+	push ax
+  %endif
  %endif
+
+  %if _QUERY_PATCH
+	test al, 4		; don't query geometry ?
+	jnz @F			; yes -->
+  %endif
+
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -423,30 +459,38 @@ query_geometry:
 %endif
 
 %if !_LBA_SKIP_CHECK
-	mov ah, 41h
  %if _QUERY_GEOMETRY
-	pop dx
- %else
-	mov dl, [bp + bsBPB + ebpbNew + bpbnBootUnit]
+  %if _QUERY_PATCH
+	pop ax			; restore query patch flags in al
+  %endif
+	pop dx			; restore unit number in dl
  %endif
+ %if _QUERY_PATCH
+	shr al, 1		; CY if force CHS
+	jc @F			; if so -->
+	and al, 1		; force LBA ?
+	jnz .done_lba		; yes -->
+ %endif
+	mov ah, 41h
 	mov bx, 55AAh
 	stc
 	int 13h		; 13.41.bx=55AA extensions installation check
+@@:
 	mov al, 0	; zero in case of no LBA support
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
-	test cl, 1	; support bitmap bit 0
-	jz .no_lba
+	shr cl, 1	; support bitmap bit 0
+	jnc .no_lba
 	inc ax		; al = 1 to indicate LBA support
 .no_lba:
+.done_lba:
 	mov byte [bp + ldHasLBA], al
 %else
 	mov byte [bp + ldHasLBA], 0
 %endif
 
 %if 1 || _QUERY_GEOMETRY || !_LBA_SKIP_CHECK
-disp_error.ret:
 	retn
 %endif
 
@@ -474,7 +518,7 @@ read_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -530,9 +574,9 @@ read_sector:
 	jne .lba_error
 
 	; push word [si + 4 + 0]
-	push word [si + 4 + 2]	; user buffer
-	 push word [bp + ldSectorSeg]
-	 pop word [si + 4 + 2]
+	push es		; => user buffer
+	 mov es, word [bp + ldSectorSeg]
+	 mov word [si + 4 + 2], es
 	; and word [si + 4 + 0], byte 0
 
 	mov ah, 42h
@@ -550,12 +594,12 @@ read_sector:
 
 	pop es
 	; pop cx
-	call .sectorseg_helper
+	add sp, 10h
+	jmp .sectorseg_helper_then_done
 
 .lba_done:
 	add sp, 10h
-	pop bx
-	jmp short .chs_done
+	jmp short .done
 
 .lba_error: equ .err
 
@@ -640,7 +684,6 @@ read_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 
 			mov ax, 0201h	; read one sector
 %if _CHS_RETRY
@@ -664,24 +707,42 @@ read_sector:
 	int 13h
 %endif
 .err_CY_1:
-	jc .err
+	jnc .sectorseg_helper_es
+%endif		; _CHS
+.err:
+error_diskaccess: equ $
+	call error
+	db "Disk read error.", 0
 
+
+%if _CHS
+.sectorseg_helper_es:
 	pop es
-	call .sectorseg_helper
+%endif
+
+.sectorseg_helper_then_done:
+	xor si, si
+	mov ds, word [bp + ldSectorSeg]
+	 push di
+	; mov di, cx
+	xor di, di
+	mov cx, word [bp + bsBPB + bpbBytesPerSector]
+	rep movsb
+	 pop di
+
+	push ss
+	pop ds
 
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
-	mov es, bx
 	add bx, word [bp + ldParaPerSector]
 
 	pop si
 	pop ax
 	pop cx
 	pop dx
+.increment_sector_number:
 ; increment LBA sector number
 	inc ax
 	jne @F
@@ -703,21 +764,21 @@ read_sector:
 ; reset drive
 	xor ax, ax
 	int 13h
-	jc @F		; CY, reset failed, error in ah -->
-
-; try read again
-	pop ax		; restore function number
-%if _LBA
-	call .int13_preserve_lpcount
-%else
-	int 13h		; retry, CF error status, ah error number
-%endif
-	retn
+	jnc @FF		; NC, reset succeeded -->
+			; CY, reset failed, error in ah
 
 @@:			; NC or CY, stack has function number
 	inc sp
 	inc sp		; discard word on stack, preserve CF
 	retn
+
+@@:
+; try read again
+	pop ax		; restore function number
+%if ! _LBA
+	int 13h		; retry, CF error status, ah error number
+	retn
+%endif		; else: fall through to .int13_preserve_lpcount
 %endif
 
 %if _LBA
@@ -736,24 +797,6 @@ read_sector:
 	retn
 %endif
 
-.sectorseg_helper:
-	xor si, si
-	mov ds, word [bp + ldSectorSeg]
-	 push di
-	; mov di, cx
-	xor di, di
-	mov cx, word [bp + bsBPB + bpbBytesPerSector]
-	rep movsb
-	 pop di
-
-	push ss
-	pop ds
-	retn
-
-.err:
-error_diskaccess:
-	call error
-	db "Disk read error.", 0
 
 error_shortfile:
 	call error
@@ -795,28 +838,25 @@ ms7_entry:
 		;	    load unit field set, hidden sectors set
 	inc dx
 	dec dx		; "BJ" signature (apparently not about FAT32 support)
-	cli
-	cld
 
 	jmp .continue	; jump to handler above 600h (sector loads 800h bytes)
 
-.ms6_common:
-	mov ax, cs
-	add ax, (3 * 512) >> 4
+.ms6_common:		; cx = 0
+	mov ax, 70h + ((3 * 512) >> 4)	; MS6 entry has 3 sectors loaded
+					;  (and is always segment 70h)
 
-.continue2_set_extra_and_empty_cmdline:
+.continue2_set_extra_and_empty_cmdline:	; cx = 0, ax => behind loaded
 %if _LSVEXTRA
-	and word [bp + lsvExtra], 0
+	mov word [bp + lsvExtra], cx
 %endif
-	and word [bp + lsvCommandLine], 0
-.continue2:
+	mov word [bp + lsvCommandLine], cx
+.continue2:				; cx = 0, ax => behind loaded
 	mov word [bp + lsvLoadSeg], ax
 
-	xor ax, ax
-	mov word [bp + lsvFATSeg], ax	; initialise to zero (for FAT12)
-	dec ax
-	mov word [bp + lsvFATSector + 0], ax
-	mov word [bp + lsvFATSector + 2], ax	; initialise to -1
+	mov word [bp + lsvFATSeg], cx	; initialise to zero (for FAT12)
+	dec cx
+	mov word [bp + lsvFATSector + 0], cx
+	mov word [bp + lsvFATSector + 2], cx	; initialise to -1
 
 		; Actually it seems that the MS-DOS 7 loaders load 4 sectors
 		;  instead of only three (as the MS-DOS 6 loaders do).
@@ -824,21 +864,30 @@ ms7_entry:
 
 	jmp ldos_entry.ms7_common
 
+msg:
+.error:	db "Load error: ", 0
+
 
 finish_continue:
+	mov bx, cs
 	add ax, bx	; = cs + rounded up length
 	sub ax, word [bp + ldLoadTop]	; = paras to move down
 	jbe short finish_load
 
-	push ax
+	mov cx, word [bp + lsvLoadSeg]
+			; => after end of loaded data
+	sub word [bp + lsvLoadSeg], ax
+			; relocate this pointer already
 	neg ax
 	add ax, bx	; ax = cs - paras to move down
+			; want to relocate cs to this
 	jnc short error_outofmemory_j1
 	mov di, relocate_to
 	push ax
 	push di		; dword on stack: relocate_to
 	cmp ax, 60h + 1
 	jb short error_outofmemory_j1
+	push ax		; word on stack => where to relocate to
 	dec ax		; one less to allow relocator
 	mov es, ax
 
@@ -850,17 +899,18 @@ finish_relocation:
 	push di		; dword on stack: relocator destination
 
 	mov ds, bx	; ds => unrelocated cs
-	inc ax		; ax => where to relocate to
 	mov si, relocator	; ds:si -> relocator
 relocator_size equ relocator.end - relocator
 %rep (relocator_size + 1) / 2
 	movsw		; place relocator
 %endrep
-	mov es, ax
-	xor di, di	; -> where to relocate to
+%if relocator_size > 16
+ %error Relocator is too large
+%endif
+	xor di, di	; word [ss:sp+4]:di -> where to relocate to
 	xor si, si	; ds:si = cs:0
 
-	mov cx, word [bp + lsvLoadSeg]
+			; cx => after end of loaded data
 	sub cx, bx	; length of currently loaded fragment
 	mov bx, 1000h
 	mov ax, cx
@@ -907,8 +957,6 @@ relocate_to:
 	test ax, ax	; another round needed?
 	jnz @BB		; yes -->
 
-	pop ax
-	sub word [bp + lsvLoadSeg], ax
 	push ss
 	pop ds
 
@@ -926,7 +974,6 @@ finish_load:
 		; ldLoadUntilSeg => after last to-be-loaded paragraph
 
 	mov bx, word [bp + lsvLoadSeg]
-	mov word [bp + ldLoadingSeg], bx
 	cmp bx, ax
 	jae short loaded_all_if_ae	; (for FreeDOS entrypoint) already loaded -->
 
@@ -940,32 +987,26 @@ finish_load:
 	jc short error_badchain_j
 
 skip_next_clust:
+	push dx
+	push ax
 	call clust_to_first_sector
-	push cx
-	push bx
-	mov cx, [bp + ldClusterSize]
 skip_next_sect:
-	push cx
-
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.3stack
+	jae loaded_all.2stack
 
-	mov cx, bx
-	add cx, [bp + ldParaPerSector]
-	cmp cx, [bp + lsvLoadSeg]
+	add bx, [bp + ldParaPerSector]
+				; bx += paras per sector
+	cmp bx, [bp + lsvLoadSeg]
 	ja skipped_all
-	inc ax			; emulate read_sector:
-	jnz @F
-	inc dx			; dx:ax += 1
-@@:
-	mov bx, cx		; bx += paras per sector
+				; emulate read_sector:
+	call read_sector.increment_sector_number
+				; dx:ax += 1
 	mov [bp + ldLoadingSeg], bx
 
-	pop cx
 	loop skip_next_sect
-	pop bx
-	pop cx
+	pop ax
+	pop dx
 	call clust_next
 	jnc skip_next_clust
 end_of_chain:
@@ -982,6 +1023,8 @@ loaded_all_if_ae:
 
 
 skipped_all:
+	sub bx, [bp + ldParaPerSector]
+				; restore bx => next sector to read
 	call read_sector
 		; we can depend on the fact that at least
 		;  up to end was already loaded, so this
@@ -997,31 +1040,32 @@ error_badchain_j:
 
 
 		; ds => first chunk of to be relocated data
-		; es => first chunk of relocation destination
+		; word [ss:sp] => first chunk of relocation destination
 		; cx = number of words in first chunk
 relocator:
+	pop es		; => where to relocate to
 	rep movsw
 	retf		; jump to relocated relocate_to
 .end:
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
-		; OUT:	cx:bx = input dx:ax
-		;	dx:ax = first sector of that cluster
-		; CHG:	-
+		; OUT:	dx:ax = first sector of that cluster
+		;	cx = adjusted sectors per cluster
+		; CHG:	bx
 clust_to_first_sector:
-	push dx
-	push ax
+	mov cx, word [bp + ldClusterSize]
 	 push dx
-	mul word [bp + ldClusterSize]
+	mul cx
 	xchg bx, ax
-	xchg cx, dx
 	 pop ax
-	mul word [bp + ldClusterSize]
+	push dx
+	mul cx
 	test dx, dx
 	jnz short error_badchain_j
 	xchg dx, ax
-	add dx, cx
+	pop ax
+	add dx, ax
 .cy_error_badchain:
 	jc short error_badchain_j
 	xchg ax, bx
@@ -1030,21 +1074,17 @@ clust_to_first_sector:
 	adc dx, [bp + lsvDataStart + 2]
 	jc short .cy_error_badchain
 				; dx:ax = first sector in cluster
-	pop bx
-	pop cx			; cx:bx = cluster
 	retn
 
 
-		; INP:	cx:bx = cluster (0-based)
+		; INP:	dx:ax = cluster (0-based)
 		;	si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
-		;	NC if next cluster found,
-		;	 dx:ax = next cluster value (0-based)
+		;	NC if next cluster found
+		;	dx:ax = next cluster value (0-based)
 		;	si:di = loaded FAT sector
 		; CHG:	cx, bx
 clust_next:
-	mov ax, bx
-	mov dx, cx
 	add ax, 2
 	adc dx, 0
 
@@ -1153,25 +1193,25 @@ check_clust:
 
 
 ms6_continue1:
-	mov es, cx
-	mov bp, 7C00h
+	mov es, cx			; cx = 0
+	mov bp, 7C00h			; 0:bp -> boot sector with BPB
 
 	mov word [es:di], si
 	mov word [es:di + 2], ds	; restore old int 1Eh address
 
-	mov ss, cx
+	mov ss, cx			; = 0
 	mov sp, 7C00h + lsvCommandLine
 
-	mov dx, word [es:500h + 26]
-	mov cx, word [es:500h + 20]
-	mov word [bp + lsvFirstCluster + 0], dx
-	mov word [bp + lsvFirstCluster + 2], cx
+	push word [es:500h + 20]
+	push word [es:500h + 26]
+	pop word [bp + lsvFirstCluster + 0]
+	pop word [bp + lsvFirstCluster + 2]
 
 	sub bx, word [bp + bsBPB + bpbHiddenSectors + 0]
 	sbb ax, word [bp + bsBPB + bpbHiddenSectors + 2]
 	mov word [bp + lsvDataStart + 0], bx
 	mov word [bp + lsvDataStart + 2], ax
-	jmp ms7_entry.ms6_common
+	jmp ms7_entry.ms6_common	; passing cx = 0
 
 
 %assign num 1020-($-$$)
@@ -1193,7 +1233,8 @@ ldos_entry:
 	cli
 	cld
 
-		; cs:ip = 70h:400h
+		; ip = 400h
+		; cs = arbitrary; typically 60h, 70h, or 200h
 		; dwo [ss:bp - 4] = first data sector (without hidden sectors)
 		; wo [ss:bp - 6] = load_seg, => after last loaded data
 		; wo [ss:bp - 8] = fat_seg, 0 if invalid
@@ -1214,6 +1255,7 @@ ldos_entry:
 		;
 		; Extension 2:
 		; word [ss:bp - 20] = signature "CL" if valid
+		; bp >= 20 + 256 if valid
 		; 256bytes [ss:bp - 20 - 256] = ASCIZ command line string
 
 	xor ax, ax
@@ -1277,9 +1319,9 @@ init_memory:
 	dec cx		; => last paragraph of higher buffer (16-byte trailer)
 	mov dx, ax	; => first paragraph of higher buffer
 	mov bx, cx
-	and dx, 0F000h	; 64 KiB chunk of first paragraph of higher buffer
-	and bx, 0F000h	; 64 KiB chunk of last paragraph of higher buffer
-	cmp bx, dx	; in same chunk?
+	and dh, 0F0h	; 64 KiB chunk of first paragraph of higher buffer
+	and bh, 0F0h	; 64 KiB chunk of last paragraph of higher buffer
+	cmp bh, dh	; in same chunk?
 	mov bx, ax
 	je .gotsectorseg	; yes, use higher buffer as sector buffer ->
 			; bx = use higher buffer as FAT buffer
@@ -1341,33 +1383,42 @@ init_memory:
 	inc cx		; => stack + BPB buffer
 	push ss
 	pop ds
-	lea si, [bp + lsvCommandLine.start]
 	mov es, cx
+	push cx		; top of memory below buffers
+	push ax		; => sector seg
+
+	xor cx, cx
+	lea si, [bp + lsvCommandLine.start]
+	cmp bp, si	; can have command line ?
+			;  (also makes sure movsw and lodsw never run
+			;  with si = 0FFFFh which'd cause a fault.)
+	jb .no_cmdline
+
 	mov di, _STACKSIZE - LOADCMDLINE + ldCommandLine.start
 			; -> cmd line target
-	push cx		; top of memory below buffers
-	mov cx, (LOADCMDLINE_size + 1) >> 1
+	mov cl, (LOADCMDLINE_size + 1) >> 1
 	rep movsw	; copy cmd line
 %if lsvCommandLine.start + fromwords(words(LOADCMDLINE_size)) != lsvCommandLine.signature
  %error Unexpected structure layout
 %endif
-	cmp word [si], lsvclSignature
+	lodsw
+	cmp ax, lsvclSignature
 	je @F		; if command line given -->
+.no_cmdline:
 	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start ], cl
 			; truncate as if empty line given
 	dec cx		; cl = 0FFh
 @@:
-	mov byte [es:di - 1], cl
+	mov byte [es: _STACKSIZE - LOADCMDLINE + ldCommandLine.start \
+		+ fromwords(words(LOADCMDLINE_size)) - 1 ], cl
 			; remember whether command line given
 			;  = 0 if given (also truncates if too long)
 			;  = 0FFh if not given
 
-	push ax
-%if lsvCommandLine.signature + 2 != lsvExtra
- %error Unexpected structure layout
-%endif
-	lodsw
-	; lea si, [bp + lsvExtra]
+		; si happens to be already correct here if we didn't
+		;  branch to .no_cmdline, however make sure to set
+		;  it here to support this case.
+	lea si, [bp + lsvExtra]
 			; ds:si -> lsv + BPB
 	mov di, _STACKSIZE - LOADCMDLINE + lsvExtra
 			; es:di -> where to place lsv
@@ -1413,7 +1464,8 @@ init_memory:
 	test bx, bx
 	jz .is_fat32
 
-	lea si, [bp + 510]			; -> last source word
+	; lea si, [bp + 510]			; -> last source word
+	mov si, _STACKSIZE - LOADCMDLINE + 510
 	lea di, [si + (ebpbNew - bpbNew)]	; -> last dest word
 	mov cx, (512 - bsBPB - bpbNew + 1) >> 1
 			; move sector up, except common BPB start part
@@ -1457,9 +1509,9 @@ init_memory:
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
-	xor ax, ax
 	mov al, [bp + bsBPB + bpbSectorsPerCluster]
-	dec al
+	dec ax
+	mov ah, 0
 	inc ax
 	mov [bp + ldClusterSize], ax
 
@@ -1512,7 +1564,7 @@ init_memory:
 @@:
 	cmp ax, 0FFF7h - 2
 	ja .badclusters
-	mov byte [bp + ldFATType], 16
+	shr byte [bp + ldFATType], 1	; = 16
 	cmp ax, 0FF7h - 2
 	ja .got_fat_type
 
@@ -1569,42 +1621,30 @@ init_memory:
 	and ax, bx	; rounded up,
 		; ((payload.actual_end -$$+0 +15) >> 4 + pps - 1) & ~ (pps - 1)
 
-	mov bx, cs
 	jmp finish_continue
 
 
-%assign num 1024+512-4-($-$$)
+%assign num 1024+512-($-$$)
 %warning num bytes in front of end
-	_fill 1024+512-4,38,start
-		; -4 is for the following two instructions.
-		;  they want execution to fall through to
-		;  load_next_clust_continue. placing them
-		;  at the very end of the 3 sectors allows
-		;  not to use a jump here.
-
-load_next_clust:
-	call clust_to_first_sector
-	push cx
-	align 16, nop
-	_fill 1024+512,90h,start	; check that we are at 3 sectors end
+	_fill 1024+512,38,start
 end:
 
-load_next_clust_continue:
-	push bx
-	mov cx, [bp + ldClusterSize]
+
+load_next_clust:
+	push dx
+	push ax
+	call clust_to_first_sector
 load_next_sect:
-	push cx
 	mov bx, [bp + ldLoadingSeg]
 	cmp bx, [bp + ldLoadUntilSeg]
-	jae loaded_all.3stack_j
+	jae loaded_all.2stack_j
 
 	call read_sector
 skipped_all_continue:
 	mov [bp + ldLoadingSeg], bx
-	pop cx
 	loop load_next_sect
-	pop bx
-	pop cx
+	pop ax
+	pop dx
 	call clust_next
 	jnc load_next_clust
 	jmp end_of_chain
@@ -1616,11 +1656,13 @@ skipped_all_continue:
 		; if we jump to here, then the whole file has
 		;  been loaded, so this jump doesn't have to
 		;  stay in the 32 bytes after the end label.
-loaded_all.3stack_j:
-	jmp loaded_all.3stack
+loaded_all.2stack_j:
+	jmp loaded_all.2stack
 
 
 ms7_entry.continue:
+	cli
+	cld
 	pop bx
 	pop es
 	pop word [es:bx]
@@ -1640,8 +1682,8 @@ ms7_entry.continue:
 	sbb word [bp + lsvDataStart + 2], dx
 
 	mov ax, cs
-	add ax, (4 * 512) >> 4
-
+	add ax, (4 * 512) >> 4	; MS7 entry has 4 sectors loaded
+	xor cx, cx		; cx = 0
 	jmp ms7_entry.continue2_set_extra_and_empty_cmdline
 
 
@@ -1656,8 +1698,7 @@ end2:
 		; This handling is in the second header part,
 		;  behind the needed part to finish loading.
 		;  It is only used when the file is completely loaded.
-loaded_all.3stack:
-	pop ax
+loaded_all.2stack:
 	pop ax
 	pop ax
 loaded_all:
@@ -1723,6 +1764,13 @@ loaded_all:
 				; al = 0 else
 	rep stosb		; clear remainder of buffer
 
+%if _QUERY_PATCH
+	mov ax, word [cs:..@query_patch_site]
+%else
+	mov ax, _QUERY_DEFAULT
+%endif
+	mov word [bp + ldQueryPatchValue], ax
+
 	mov ax, cs
 	add ax, ((payload -$$+0) >> 4) + _EXEC_SEGMENT
 	push ax
@@ -1753,6 +1801,13 @@ error_data_checksum_failed:
 	db "Data checksum failed.", 0
 %endif
 
+
+freedos_or_msdos1_com_entry:
+	call @F
+@@:
+	pop cx
+	cmp cx, @B
+	jne msdos1_com_entry
 
 freedos_entry:
 		; This is the FreeDOS compatible entry point.
@@ -1815,7 +1870,8 @@ d3	test ax, "F0"
 .multiboot_entry:
 	mov ax, cs
 	add ax, (payload.actual_end -$$+0 +15) >> 4
-
+				; Multiboot1/2 and FreeDOS have whole image
+	xor cx, cx		; cx = 0
 	jmp ms7_entry.continue2
 
 
@@ -2475,3 +2531,14 @@ second_payload:
 .end:
 %endif
 
+%if ($ - start) < 4096
+	_fill 4096, 38, start	; fill to new minimum limit
+%endif
+
+%if _PADDING
+ %if ($ - $$) > _PADDING
+  %warning No padding needed
+ %else
+	times _PADDING - ($ - $$) db 0
+ %endif
+%endif

@@ -44,7 +44,9 @@ Public domain by C. Masloch, 2012
 	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
+	numdef QUERY_GEOMETRY_DISABLED, 0
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
+	numdef USE_PART_INFO_DISABLED, 0
 	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef CHS,		1	; support CHS (if it fits)
@@ -75,11 +77,18 @@ Public domain by C. Masloch, 2012
 	numdef FIX_CLUSTER_SIZE_SKIP_CHECK,	0	; don't check cluster size
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
+	numdef WARN_PART_SIZE,	0
+
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
+	numdef LBA_SKIP_CY,	1	; skip check: set up CY before 13.42
+	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
+	incdef _LBA_SKIP_ANY, LBA_SKIP_CY
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+	numdef CHS_RETRY_NORMAL,1	; do not use aggressive optimisation
+	numdef RETRY_RESET,	1	; call reset disk system 13.00 on retries
 
 		; Unlike the 1440 KiB diskette image defaults for the FAT12
 		;  loader we just fill the BPB with zeros by default.
@@ -615,6 +624,14 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 			; => directory sector buffer (one sector)
 %endif
 .writedirentry:	dw writedirentry.loaddir
+			; INP:	es:bx -> found dir entry in dir sector buffer
+			;	si:di = loaded sector-in-FAT
+			; CHG:	ax, cx, dx
+			; STT:	ss:bp -> boot sector
+			;	ds = ss
+			;	UP
+			; OUT:	directory entry copied if so desired
+			;	(is a no-op if not to copy dir entry)
 .filename:	dw .load_name
 			; -> name to search
 .minpara:	dw _LOAD_MIN_PARA
@@ -627,6 +644,11 @@ fsiboot_table:		; this table is used by the FSIBOOT stage
 
 fsiboot_name:
 	fill 8, 32, db _FSIBOOTNAME
+
+%if _WARN_PART_SIZE
+ %assign num $ - start
+ %warning BPB + data size is num bytes
+%endif
 
 
 ; Code
@@ -654,6 +676,8 @@ skip_bpb:
 ;	 FF FF FF FF 08 00 08 01 FF FF FF FF FF FF FF FF, which was detected
 ;	 as a valid partition table entry by this handling. Therefore, we
 ;	 only accept partition information when booting from a hard disk now.
+
+		; start of magic byte sequence for instsect
 	test dl, dl		; floppy ?
 	jns @F			; don't attempt detection -->
 ; Check whether an MBR left us partition information.
@@ -667,15 +691,23 @@ skip_bpb:
 ; Assume the movsw instructions won't run with si = FFFFh.
 	mov di, hidden_sectors	; -> BPB field
 	add si, 8		; -> partition start sector in info
+ %if _USE_PART_INFO_DISABLED
+	nop
+	nop			; size has to match enabled code
+ %else
 	movsw
 	movsw			; overwrite BPB field with value from info
+ %endif
 @@:
+		; end of magic byte sequence for instsect
 %endif
 	mov ds, cx
 	sti
 
 
 %if _QUERY_GEOMETRY	; +27 bytes
+
+		; start of magic byte sequence for instsect
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -685,7 +717,12 @@ skip_bpb:
 	; xor cx, cx		; initialise cl to 0
 	; Already from prologue cx = 0.
 	stc			; initialise to CY
+ %if _QUERY_GEOMETRY_DISABLED
+	nop
+	nop			; size has to match enabled code
+ %else
 	int 13h			; query drive geometry
+ %endif
 	jc @F			; apparently failed -->
 	and cx, 3Fh		; get sectors
 	jz @F			; invalid (S is 1-based), don't use -->
@@ -694,6 +731,7 @@ skip_bpb:
 	inc cx			; cx = number of heads (H is 0-based)
 	mov [VAR(heads)], cx
 @@:
+		; end of magic byte sequence for instsect
 %endif
 
 
@@ -854,6 +892,13 @@ load_fsiboot:
 %endif
 
 
+%if _WARN_PART_SIZE
+ %assign num $ - skip_bpb
+ %warning init size is num bytes
+%endif
+
+
+finish_start:
 		; INP:	es:bx -> found dir entry in dir sector buffer
 		;	si:di = loaded sector-in-FAT
 		; CHG:	ax, cx, dx
@@ -1030,6 +1075,13 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
 
+%if _WARN_PART_SIZE
+ %assign num $ - finish_start
+ %warning finish size is num bytes
+%endif
+
+
+error_start:
 
 error_fsiboot:
 	mov al,'I'
@@ -1057,6 +1109,11 @@ error:
 
 	int 19h		; re-start the boot process
 
+%if _WARN_PART_SIZE
+ %assign num $ - error_start
+ %warning error size is num bytes
+%endif
+
 
 		; Read a sector using Int13.02 or Int13.42
 		;
@@ -1076,7 +1133,7 @@ read_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx	; => buffer
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -1118,17 +1175,22 @@ read_sector:
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
-	test cl, 1	; support bitmap bit 0
-	jz .no_lba
+	shr cl, 1	; support bitmap bit 0
+	jnc .no_lba
  %endif
 
 %if _LBA_RETRY
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
+	stc
+ %endif
 	mov ah, 42h
 	int 13h		; 13.42 extensions read
 	jnc .lba_done
 
+ %if _RETRY_RESET
 	xor ax, ax
-	int 13h
+	int 13h		; reset disk
+ %endif
 
 		; have to reset the LBAPACKET's lpCount, as the handler may
 		;  set it to "the number of blocks successfully transferred".
@@ -1136,15 +1198,24 @@ read_sector:
 	mov byte [si + 2], 1
 %endif
 
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
+	stc
+ %endif
 	mov ah, 42h
 	int 13h
  %if _LBA_SKIP_CHECK && _CHS
+  %if _LBA_SKIP_ANY
+	jc .no_lba
+.err_CY: equ .err
+.err_2: equ .err
+  %else
 	jnc .lba_done
 	cmp ah, 1	; invalid function?
 	je .no_lba	; try CHS instead -->
 .err_CY:
 .err_2:
 	jmp .lba_error
+  %endif
  %else
 .err_CY:
 	jc .lba_error
@@ -1156,10 +1227,8 @@ read_sector:
 	mov byte [bp + 2], 0Ch	; LBA-enabled FAT32 FS partition type
 %endif
 	add sp, 10h
-	pop bx
-	mov es, bx
 %if _CHS
-	jmp short .chs_done
+	jmp short .done
 %endif
 
 .lba_error: equ .err
@@ -1225,34 +1294,56 @@ read_sector:
 	; ah has bits set iff it was >= 4, indicating a cylinder >= 1024.
 			 or bl, ah	; collect set bits from ah
 			mov dl,[VAR(boot_unit)] ; dl = drive
+.nz_err:
 			 jnz .err_2	; error if cylinder >= 1024 -->
 					; ! bx = 0 (for 13.02 call)
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 %if _CHS_RETRY_REPEAT
 			mov si, _CHS_RETRY_REPEAT + 1
+ %if _CHS_RETRY_NORMAL && _RETRY_RESET
+			db __TEST_IMM16	; (skip int 13h)
 .loop_chs_retry_repeat:
-			mov ax, 0201h
-			int 13h		; read one sector
-			jnc .done
+			int 13h		; reset disk
+ %elif _RETRY_RESET
+.loop_chs_retry_repeat:
 			xor ax, ax
 			int 13h		; reset disk
+ %else
+.loop_chs_retry_repeat:
+ %endif
 			dec si		; another attempt ?
-			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err_2
-%else
- %if _CHS_RETRY
+			js .nz_err	; no -->
 			mov ax, 0201h
+			int 13h		; read one sector
+ %if _CHS_RETRY_NORMAL && _RETRY_RESET
+			mov ax, bx	; ax = 0
+ %endif
+			jc .loop_chs_retry_repeat
+	; fall through to .done
+%else
+			mov ax, 0201h
+ %if _CHS_RETRY
+  %if _RETRY_RESET
+	; In this case we cannot store to the stack and
+	;  pop the value at the right moment for both
+	;  cases of the "jnc .done" branch. So use the
+	;  original code to re-init ax to 0201h.
 			int 13h		; read one sector
 			jnc .done
 ; reset drive
 			xor ax, ax
 			int 13h
+			mov ax, 0201h
+  %else
+			push ax
+			int 13h		; read one sector
+			pop ax		; restore ax = 0201h
+			jnc .done
+  %endif
  %endif
 ; try read again
-			mov ax, 0201h
 			int 13h
 			jc .err_CY
 %endif
@@ -1260,12 +1351,11 @@ read_sector:
 .err_CY:	equ .err
 %endif
 
+%endif		; _CHS
+
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
 %if _FIX_SECTOR_SIZE
 	add bx, _FIX_SECTOR_SIZE >> 4
 %else
@@ -1284,6 +1374,11 @@ read_sector:
 
 .retn:
 	retn
+
+%if _WARN_PART_SIZE
+ %assign num $ - read_sector
+ %warning read_sector size is num bytes
+%endif
 
 
 %if _ADD_SEARCH
@@ -1381,9 +1476,9 @@ fsiboot:
 
 ; adjusted sectors per cluster (store in a word,
 ;  and decode EDR-DOS's special value 0 meaning 256)
-	xor ax, ax
 	mov al, [VAR(sectors_per_cluster)]
-	dec al
+	dec ax
+	mov ah, 0
 	inc ax
 	push ax			; push into word [VAR(adj_sectors_per_cluster)]
 	dec ax				; ! ah = 0
@@ -1483,13 +1578,11 @@ found_load_file:
 		jc ..@CY_3_fsiboot_error_badchain
 
 next_load_cluster:
+		push dx
+		push ax			; preserve cluster number for later
 		call clust_to_first_sector
 			; dx:ax = first sector of cluster
-			; cx:bx = cluster value
-		push cx
-		push bx			; preserve cluster number for later
-
-		mov cx, [VAR(adj_sectors_per_cluster)]
+			; cx = adjusted sectors per cluster
 
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
@@ -1510,8 +1603,8 @@ next_load_cluster:
 		jbe @F		; read enough -->
 
 		loop @BB
-		pop bx
-		pop cx
+		pop ax
+		pop dx
 
 		call clust_next
 		jnc next_load_cluster
@@ -1536,10 +1629,11 @@ dirsearch:
 	jc fsiboot_error_badchain
 
 next_root_clust:
+	push dx
+	push ax
 	call clust_to_first_sector
-	push cx
-	push bx
-	mov cx, [VAR(adj_sectors_per_cluster)]
+			; dx:ax = first sector of cluster
+			; cx = adjusted sectors per cluster
 next_root_sect:
 	push cx
 	mov cx, [VAR(entries_per_sector)]
@@ -1572,8 +1666,8 @@ next_ent:
 	pop di
 	pop cx
 	loop next_root_sect
-	pop bx
-	pop cx
+	pop ax
+	pop dx
 	call clust_next
 	jnc next_root_clust
 file_not_found:
@@ -1587,22 +1681,22 @@ fsiboot_error:
 
 
 		; INP:	dx:ax = cluster - 2 (0-based cluster)
-		; OUT:	cx:bx = input dx:ax
-		;	dx:ax = first sector of that cluster
-		; CHG:	-
+		; OUT:	dx:ax = first sector of that cluster
+		;	cx = adjusted sectors per cluster
+		; CHG:	bx
 clust_to_first_sector:
-	push dx
-	push ax
+	mov cx, word [VAR(adj_sectors_per_cluster)]
 	 push dx
-	mul word [VAR(adj_sectors_per_cluster)]
+	mul cx
 	xchg bx, ax
-	xchg cx, dx
 	 pop ax
-	mul word [VAR(adj_sectors_per_cluster)]
+	push dx
+	mul cx
 	test dx, dx
 	jnz fsiboot_error_badchain
 	xchg dx, ax
-	add dx, cx
+	pop ax
+	add dx, ax
 	jc ..@CY_fsiboot_error_badchain
 	xchg ax, bx
 
@@ -1611,8 +1705,6 @@ clust_to_first_sector:
 ..@CY_fsiboot_error_badchain:
 	jc fsiboot_error_badchain
 				; dx:ax = first sector in cluster
-	pop bx
-	pop cx			; cx:bx = cluster
 	retn
 
 
@@ -1638,16 +1730,14 @@ found_it:
 	retn
 
 
-		; INP:	cx:bx = cluster (0-based)
+		; INP:	dx:ax = cluster (0-based)
 		;	si:di = loaded FAT sector, -1 if none
 		; OUT:	CY if no next cluster
-		;	NC if next cluster found,
-		;	 dx:ax = next cluster value (0-based)
+		;	NC if next cluster found
+		;	dx:ax = next cluster value (0-based)
 		;	si:di = loaded FAT sector
 		; CHG:	cx, bx, es
 clust_next:
-	xchg ax, bx		; ax = low word cluster, clobbers bx
-	mov dx, cx
 	add ax, 2
 	adc dx, 0
 

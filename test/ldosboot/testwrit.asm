@@ -128,6 +128,7 @@ ATTR_ARCHIVE	equ 20h
 	numdef LBA_RETRY,	1	; retry LBA reads
 	numdef CHS_RETRY,	1	; retry CHS reads
 
+	numdef PADDING, 0
 	strdef FILE_NAME,	"RESULT"
 	strdef FILE_EXT,	"TXT"	; name of file to write
 	strdef FILE_SUCCESS_MSG,"success"
@@ -501,7 +502,7 @@ write_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -557,7 +558,8 @@ write_sector:
 	testopt [bp + ldHasLBA], 2
 	jz @F
 
-	mov es, word [si + 4 + 2]	; user buffer
+			; es => user buffer
+	push es
 	call .sectorseg_helper_write
 	mov word [si + 4 + 2], es	; => sector buffer
 	mov ah, 43h
@@ -567,14 +569,16 @@ write_sector:
 	int 13h
 		; (don't need .int13_preserve_lpcount as no further call)
 %endif
+	pop es		; ! restore es => user buffer
 	jc .lba_error
 	jmp .lba_done
 
 @@:
 	; push word [si + 4 + 0]
-	push word [si + 4 + 2]	; user buffer
-	 push word [bp + ldSectorSeg]
-	 pop word [si + 4 + 2]
+	push es		; => user buffer
+	 mov es, word [bp + ldSectorSeg]
+	 mov word [si + 4 + 2], es
+			; => sector buffer
 	; and word [si + 4 + 0], byte 0
 
 	mov ah, 42h
@@ -586,14 +590,13 @@ write_sector:
 %endif
 	jc .lba_error
 
-	pop es
+	pop es		; => user buffer
 	; pop cx
 	call .sectorseg_helper_read
 
 .lba_done:
 	add sp, 10h
-	pop bx
-	jmp short .chs_done
+	jmp short .done
 
 .lba_error: equ .err
 
@@ -678,7 +681,6 @@ write_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 
 	call .get_ah_3_write_2_read
 	mov al, 01h	; access one sector
@@ -722,14 +724,11 @@ write_sector:
 
 	pop es
 	call .sectorseg_helper_read
+%endif		; _CHS
 
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
-	mov es, bx
 	add bx, word [bp + ldParaPerSector]
 
 	pop si
@@ -757,21 +756,21 @@ write_sector:
 ; reset drive
 	xor ax, ax
 	int 13h
-	jc @F		; CY, reset failed, error in ah -->
-
-; try read again
-	pop ax		; restore function number
-%if _LBA
-	call .int13_preserve_lpcount
-%else
-	int 13h		; retry, CF error status, ah error number
-%endif
-	retn
+	jnc @FF		; NC, reset succeeded -->
+			; CY, reset failed, error in ah
 
 @@:			; NC or CY, stack has function number
 	inc sp
 	inc sp		; discard word on stack, preserve CF
 	retn
+
+@@:
+; try read again
+	pop ax		; restore function number
+%if ! _LBA
+	int 13h		; retry, CF error status, ah error number
+	retn
+%endif		; else: fall through to .int13_preserve_lpcount
 %endif
 
 %if _LBA
@@ -1021,3 +1020,11 @@ check_clust:
 
 	align 16, db 38
 end:
+
+%if _PADDING
+ %if ($ - $$) > _PADDING
+  %warning No padding needed
+ %else
+	times _PADDING - ($ - $$) db 0
+ %endif
+%endif

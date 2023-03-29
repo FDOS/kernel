@@ -863,5 +863,9 @@ signature2:
 	dw 2638h
 
 %if _PADDING
+ %if ($ - $$) > _PADDING
+  %warning No padding needed
+ %else
 	times _PADDING - ($ - $$) db 0
+ %endif
 %endif

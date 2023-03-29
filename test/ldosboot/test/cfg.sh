@@ -32,6 +32,7 @@
 [ -z "$BOOT_COMMAND" ] && BOOT_COMMAND=~/.dosemu/drive_c/command.com
 [ -z "$BOOT_PROTOCOL" ] && BOOT_PROTOCOL=FREEDOS
 [ -z "$BOOT_OPTIONS" ] && BOOT_OPTIONS=" "
+[ -z "$MKTMPINC" ] && MKTMPINC=mktmpinc.pl
 [ -z "$NASM" ] && NASM=nasm
 [ -z "$CHECKSUM" ] && CHECKSUM="${INICHECK_DIR%/}"/iniload/checksum
 
