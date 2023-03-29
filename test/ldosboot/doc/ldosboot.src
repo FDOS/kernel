@@ -13,6 +13,7 @@
 \cfg{html-leaf-level}{0}
 \cfg{html-template-fragment}{%k}{%b}
 \cfg{html-head-end}{<meta name="viewport" content="width=device-width, initial-scale=1.0">}
+\cfg{html-heading-hashtag-links}{true}
 
 \cfg{pdf-filename}{ldosboot.pdf}
 
@@ -53,6 +54,27 @@ The entrypoint is found by applying no segment adjustment (0)
 and choosing the offset 400h (1024).
 
 
+\S{protocol-sector-iniload-file} File properties
+
+The file must be at least 4096 bytes long.
+This is now required, beyond the former lower bound of 1536 bytes,
+to support an optimisation of the FAT12 and FAT16 boot sector loaders.
+The lDebug loader and the FAT32+FSIBOOT loader currently retain the 1536 bytes limit.
+
+The file may allow multi-use as a flat .COM format executable,
+flat .SYS format device driver, or MZ .EXE format executable
+and/or device driver.
+It is also valid to append arbitrary sized data such as a .ZIP archive.
+
+The file needs to be placed in the root directory for the boot sector loaders.
+The lDebug loader allows to load a file
+from any subdirectory and this is also allowed.
+The file may be fragmented in any part.
+The file data may be located anywhere in the file system.
+The supported cluster sizes should be between 32 Bytes and 2 MiB, inclusive.
+The sector size should be between 32 Bytes and 8 KiB, inclusive.
+
+
 \S{protocol-sector-iniload-signatures} Signatures
 
 At offset 1020 (3FCh) there is the signature \cq{lD}.
@@ -79,6 +101,10 @@ Currently the following signatures are defined:
 
 \dd lDDebug (debuggable lDebug)
 
+\dt \cq{lDbC}
+
+\dd lCDebug (conditionally debuggable lDebug)
+
 \dt \cq{lDTP}
 
 \dd lDOS test payload kernel (testpl.asm)
@@ -92,6 +118,7 @@ Currently the following signatures are defined:
 
 Under this protocol, the pointer \cq{ss:bp} is passed.
 It points to a boot sector with (E)BPB.
+\cq{bp} must be even for compatibility with older iniload (before 2023-March).
 The stack pointer must be at most \cq{bp - 10h}.
 Below the pointed to location there live the Load Stack Variables.
 These follow this structure:
@@ -144,6 +171,7 @@ Allows iniload to determine how much of it is already loaded.
 
 
 An LSV extension allows to pass a command line to the kernel.
+The base pointer must be at least \cq{114h} then.
 The stack pointer must be at most \cq{bp - 114h} then.
 This follows the structure like this:
 
@@ -179,8 +207,8 @@ must not equal the string \cq{CL}.
 \b dosemu2's RxDOS.3 support sets \cq{sp = bp - 10h}
 
 \b ldosboot boot.asm (FAT12/FAT16) loader
-uses the variable for a \q{paragraphs per sector} value
-which is always a power of two and always below-or-equal 200h.
+makes sure not to pass the variable with the content "CL".
+Refer to placeholder and DIRSEARCHSTACK_CL_FIRST uses in the source.
 
 \b ldosboot boot32.asm (FAT32) loader
 uses the variable for an \q{entries per sector} value
@@ -188,6 +216,101 @@ which is always a power of two and always below-or-equal 100h.
 
 \b lDebug with protocol options \cw{cmdline=0 push_dpt=0}
 sets \cq{sp = bp - 10h}
+
+
+\S{protocol-sector-iniload-memory} Memory map
+
+The initial loader part that is loaded must be loaded
+at above or equal to linear 00600h.
+The FAT buffer segment (if used) must also be stored
+at above or equal to linear 00600h.
+The stack (which should extend at least 512 bytes below \cq{ss:bp})
+and boot sector (pointed to by \cq{ss:bp}, at least 512 bytes length)
+should also be stored at above or equal to linear 00600h.
+
+There is an additional memory area,
+the Low Memory Area top reservation,
+which should be unused by the load protocol at handoff time
+but be at least 20 KiB in size.
+It is located below the usable Low Memory Area top.
+That is, directly below the EBDA, RPL-reserved memory, video memory,
+or otherwise UMA.
+This area is reserved in order to facilitate initial loader operation.
+
+None of the memory areas may overlap.
+This does not include the FAT buffer in case it is uninitialised.
+
+
+\S{protocol-sector-iniload-loadname} Load filename in the boot sector
+
+The boot sector may be expected to contain a valid
+8.3 format (blank-padded FCB) filename
+in the area of the boot sector starting behind the (E)BPB,
+extending up to below the boot sector signature word with value AA55h
+(at offset 510 in the boot sector).
+This name should not contain blanks other than trailing in the
+file name portion or trailing in the file extension portion.
+It should consist of printable ASCII codepoints.
+That is, byte values between 20h and 7Eh inclusive.
+It should not consist of eleven times the same byte value.
+Additional FAT Short File Name restrictions may be assumed.
+
+Although a loader should not depend on this for crucial operation,
+it may want to detect the kernel name it was presumably loaded from
+for informational or optional purposes.
+The canonical implementation of this is currently the function
+\cq{findname} in the \cw{testpl.asm} test payload kernel.
+It is found within
+\W{https://hg.pushbx.org/ecm/ldosboot/file/e0c17723f953/testpl.asm#l668}{the ldosboot repo}.
+This handling is based on the function of the same name
+\W{https://hg.pushbx.org/ecm/instsect/file/53e4327aacd6/instsect.asm#l2442}{in the instsect application}.
+
+
+\S{protocol-sector-iniload-patch} Query patch support
+
+The ldosboot repo includes a patch Script for lDebug (.sld) file
+which allows to patch the initial loader stage.
+The patches concern handling of the CHS geometry detection,
+and whether LBA or CHS access is used.
+There are several legacy patch sites in which patch.sld
+can directly patch the initial loader's code.
+
+However, the preferred way is to find the query patch sequence.
+It should appear within the first 1536 bytes,
+that is within the part of the initial loader that must be loaded.
+This is the sequence:
+
+\c 8A5640  mov dl, byte [bp + 40h]
+\c B8xxyy  mov ax, yyxxh
+\c 84D2    test dl, dl
+\c 7902    jns @F
+\c 86C4    xchg al, ah
+\c @@:
+
+The immediate word of the \cw{mov ax} instruction is to be patched.
+The sequence should be scanned for without regard as to what
+the current contents of this word are.
+
+The following flag values are used:
+
+\b 01h Force CHS access, do not detect LBA support with 13.41
+
+\b 02h Force LBA access, do not detect LBA support with 13.41
+
+\b 04h Force use of BPB's CHS geometry, do not detect with 13.08
+
+\b 80h Used by lDebug. If this value is set for the load unit,
+then lDebug will make use of the other flags set up for that unit.
+The corresponding flags will be saved in lDebug's load_unit_flags.
+This affects only the load unit (LD in lDebug terminology),
+which suffices to pass commands in the startup Script for lDebug.
+
+The flag 01h takes precedence over 02h if both are set.
+
+The low byte (xxh) is used in case the loader loads
+from a diskette unit, that is a unit number below 80h.
+The high byte (yyh) is used otherwise, in case the loader loads
+from a hard disk unit, that is a unit number above-or-equal 80h.
 
 
 \H{protocol-iniload-payload} Iniload to payload protocol
@@ -236,7 +359,9 @@ Below the LSV, iniload passes the LOADDATA (1) structure.
 \c ldHasLBA:       resb 1
 \c ldClusterSize:  resw 1
 \c ldParaPerSector:resw 1
-\c ldLoadingSeg:   resw 1
+\c ldLoadingSeg:
+\c ldQueryPatchValue:
+\c                 resw 1
 \c ldLoadUntilSeg: resw 1
 \c         endstruc
 
@@ -293,6 +418,15 @@ May be given as zero for non-FAT filesystems.
 
 \dd Word. Internally used by iniload.
 Available for re-use by payload.
+However, ldQueryPatchValue re-uses the same field.
+
+\dt ldQueryPatchValue
+
+\dd Word. Passes the query patch value from the initial loader.
+This provides an opportunity to patch a well-known site
+in the initial loader to change its behaviour in some ways.
+Near the end of its operation, the initial loader
+passes along this value in this variable for the next stage to use.
 
 \dt ldLoadUntilSeg
 
@@ -320,6 +454,6 @@ that is there is an empty command line
 the terminator of which is followed by a byte with the value 0FFh,
 then no command line was passed to iniload.
 Currently lDebug can pass a command line to iniload when
-loading with its lDOS, RxDOS.2, or RxDOS.3 protocols.
+loading with its lDOS, RxDOS.2, RxDOS.3, or FreeDOS protocols.
 When iniload is loaded as a Multiboot1 or Multiboot2 specification kernel,
 it is also assumed that a command line can be passed.

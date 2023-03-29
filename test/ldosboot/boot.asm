@@ -30,7 +30,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"	; name of file to load
 	numdef LOAD_ADR,	02000h	; where to load
-	numdef LOAD_MIN_PARA,	paras(1536)
+	numdef LOAD_MIN_PARA,	paras(4096)
 	numdef LOAD_NON_FAT,	0, 2048	; use FAT-less loading (value is amount bytes)
 	numdef EXEC_SEG_ADJ,	0	; how far cs will be from _LOAD_ADR
 	numdef EXEC_OFS,	400h	; what value ip will be
@@ -41,12 +41,16 @@ Public domain by C. Masloch, 2012
 	strdef ADD_NAME,	""
 	strdef ADD_EXT,		""	; name of second file to search
 	numdef ADD_DIR_SEG,	0	; => where to store dir entry (0 if nowhere)
+	numdef CHECK_ATTRIB,	0	; check attribute for LFN, label, directory
+	numdef ATTRIB_SAVE,	_CHECK_ATTRIB
 
 	gendef _ADR_DIRBUF, end -start+7C00h	; 07E00h
 	gendef _ADR_FATBUF, end -start+7C00h	; 07E00h
 
 	numdef QUERY_GEOMETRY,	1	; query geometry via 13.08 (for CHS access)
+	numdef QUERY_GEOMETRY_DISABLED, 0
 	numdef USE_PART_INFO,	1	; use ds:si-> partition info from MBR, if any
+	numdef USE_PART_INFO_DISABLED, 0
 	numdef USE_AUTO_UNIT,	1	; use unit passed from ROM-BIOS in dl
 	numdef RPL,		1	; support RPL and do not overwrite it
 	numdef RPL_GRACE_AREA,	130 * 1024
@@ -73,6 +77,7 @@ Public domain by C. Masloch, 2012
 	numdef LBA_SET_TYPE,	0	; if to set third byte to LBA partition type
 	numdef SET_LOAD_SEG,	1	; if to set load_seg (word [ss:bp - 6])
 	numdef SET_FAT_SEG,	1	; if to set fat_seg (word [ss:bp - 8])
+	numdef SET_FAT_SEG_NORMAL, 1	; do not use aggressive optimisation
 	numdef SET_CLUSTER,	1	; if to set first_cluster (word [ss:bp - 16])
 	numdef ZERO_ES,		0	; if to set es = 0 before jump
 	numdef ZERO_DS,		0	; if to set ds = 0 before jump
@@ -83,11 +88,18 @@ Public domain by C. Masloch, 2012
 	numdef FIX_CLUSTER_SIZE_SKIP_CHECK,	0	; don't check cluster size
 	numdef NO_LIMIT,	0	; allow using more memory than a boot sector
 					;  also will not write 0AA55h signature!
+	numdef WARN_PART_SIZE,	0
+
 	numdef LBA_SKIP_CHECK,	1	; don't use proper LBA extensions check
+	numdef LBA_SKIP_CY,	1	; skip check: set up CY before 13.42
+	numdef LBA_SKIP_ANY,	0	; skip check: try CHS on any error
+	incdef _LBA_SKIP_ANY, LBA_SKIP_CY
 	numdef LBA_RETRY,	0	; retry LBA reads one time
 	numdef CHS_RETRY,	1	; retry CHS reads one time
 	numdef CHS_RETRY_REPEAT,16	; retry CHS reads multiple times
 					; (value of the def is used as count)
+	numdef CHS_RETRY_NORMAL,1	; do not use aggressive optimisation
+	numdef RETRY_RESET,	1	; call reset disk system 13.00 on retries
 
 	numdef MEDIAID, 0F0h		; media ID
 	numdef UNIT, 0			; load unit in BPB
@@ -133,7 +145,7 @@ Public domain by C. Masloch, 2012
 
 %if (!!_COMPAT_FREEDOS + !!_COMPAT_IBM + \
 	!!_COMPAT_MS7 + !!_COMPAT_MS6 + \
-	!!_COMPAT_LDOS || _COMPAT_KERNEL7E) > 1
+	!!_COMPAT_LDOS + !!_COMPAT_KERNEL7E) > 1
  %error At most one set must be selected.
 %endif
 
@@ -244,7 +256,7 @@ Public domain by C. Masloch, 2012
 	strdef LOAD_NAME,	"LDOS"
 	strdef LOAD_EXT,	"COM"
 	numdef LOAD_ADR,	02000h
-	numdef LOAD_MIN_PARA,	paras(1536)
+	numdef LOAD_MIN_PARA,	paras(4096)
 	numdef EXEC_SEG_ADJ,	0
 	numdef EXEC_OFS,	400h
 	numdef CHECKOFFSET,	1020
@@ -613,19 +625,73 @@ start:
 
 ADR_STACK_START	equ	_LASTVARIABLE -start+POSITION
 
-%ifn _FIX_CLUSTER_SIZE
-; (word) actual sectors per cluster
-	nextvariable adj_sectors_per_cluster, 2, relocatestart
-%endif
-
 %ifn _FIX_SECTOR_SIZE
 ; (word) number of 16-byte paragraphs per sector
 	nextvariable para_per_sector, 2, relocatestart
 %endif
 
+%assign DIRSEARCHSTACK_CL_FIRST 0
+%assign DIRSEARCHSTACK_CL_SECOND 0
+%assign PLACEHOLDER 0
+
+ %if _ATTRIB_SAVE && ! (_ADD_SEARCH || _LOAD_DIR_SEG)
+   %if _LASTVARIABLE == start - 12h
+    %assign DIRSEARCHSTACK_CL_FIRST 1
+   %elif _LASTVARIABLE == start - 10h
+    %assign DIRSEARCHSTACK_CL_SECOND 1
+   %endif
+   %ifn _DIR_ENTRY_500
+; three words left on the stack after directory search
+	nextvariable dirsearchstack, 6, relocatestart
+   %else
+; two words left on the stack after directory search
+	nextvariable dirsearchstack, 4, relocatestart
+   %endif
+ %elifn !_RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL
+  %if _LASTVARIABLE == start - 12h
+	nextvariable cmdline_signature_placeholder, 2, relocatestart
+   %assign PLACEHOLDER 1
+  %elif _LASTVARIABLE == start - 10h
+   %if _PUSH_DPT
+	nextvariable cmdline_signature_placeholder, 4, relocatestart
+    %assign PLACEHOLDER 2
+	; In this case, part of the original DPT pointer may
+	;  overlap the CL signature word. Therefore allocate
+	;  two placeholder words to insure no CL match.
+   %else
+	; In this case the last_available_sector variable
+	;  will be at word [ss:bp - 12h] (or none) and the
+	;  stack pointer will be equal to bp - 12h (or - 10h)
+	;  at handover time. Thus no placeholder is needed.
+   %endif
+  %else
+   %error Placeholder not placed
+  %endif
+		; This stack slot is used to insure that
+		;  the "CL" signature is not present at this
+		;  location. If not relocate and load address
+		;  is below loader then the next variable
+		;  (last_available_sector) will always receive
+		;  a value < 7C0h so cannot hold "CL".
+		; If _ATTRIB_SAVE is in use and neither the
+		;  _ADD_SEARCH nor the _LOAD_DIR_SEG options
+		;  are set, the first word of dirsearchstack
+		;  will be at word [ss:bp - 14h].
+ %endif
+
 %ifn ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 ; (word) segment of last available memory for sector
 	nextvariable last_available_sector, 2
+%else
+  %if _LASTVARIABLE == start - 12h
+	nextvariable cmdline_signature_placeholder, 2, relocatestart
+   %assign PLACEHOLDER 1
+  %elif _LASTVARIABLE == start - 10h
+   %if _PUSH_DPT
+	nextvariable cmdline_signature_placeholder, 4, relocatestart
+    %assign PLACEHOLDER 2
+   %endif
+  %endif
 %endif
 
 lowest_variable		equ _LASTVARIABLE
@@ -706,8 +772,6 @@ add_name:
 	;  This happens to be aligned anyway. But even if
 	;  it didn't, we'd rather save that byte than use
 	;  it to align these fields. So comment this out.
-filename:
-	dw add_name
 dirseg:
 	dw _ADD_DIR_SEG
 %endif
@@ -724,6 +788,8 @@ dirseg:
  [list -]
 %else
 ; === error.tmp ===
+error_start:
+
 read_sector.err:
 	mov al, 'R'	; Disk 'R'ead error
 %if ! _MEMORY_CONTINUE || _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
@@ -751,6 +817,11 @@ error:
 	int 16h
 
 	int 19h		; re-start the boot process
+
+%if _WARN_PART_SIZE
+ %assign num $ - error_start
+ %warning error size is num bytes
+%endif
 ; === eof ===
 %endif
 %if _TMPINC
@@ -765,6 +836,7 @@ error:
  [list -]
 %else
 ; === read.tmp ===
+read_sector_start:
 		; INP:	dx:ax = sector
 		; OUT:	only if successful
 		;	dx:ax = incremented
@@ -775,8 +847,24 @@ error:
  %if ADR_DIRBUF == ADR_FATBUF
 read_sector_dirbuf:
  %endif
+ %if _FAT16 && ! _LOAD_NON_FAT
 read_sector_fatbuf:
+ %endif
+ %if (ADR_DIRBUF == ADR_FATBUF) || (_FAT16 && ! _LOAD_NON_FAT)
 	mov bx, ADR_FATBUF>>4
+  %if _FAT16 && _SET_FAT_SEG && ! _LOAD_NON_FAT
+	mov word [VAR(fat_seg)], bx
+		; Optimisation: Set FAT buffer segment here where
+		;  we have it ready in a register, instead of
+		;  wasting a word immediate on it. If the FAT is
+		;  never read then we do not need to set the
+		;  variable anyway, only the sector variable has
+		;  to contain a -1 to indicate it's uninitialised.
+		; If we get here from read_sector_dirbuf we will
+		;  also initialise this variable but that does not
+		;  cause any problems.
+  %endif
+ %endif
 %endif
 
 		; Read a sector using Int13.02 or Int13.42
@@ -797,7 +885,7 @@ read_sector:
 	push ax
 	push si
 
-	push bx
+	mov es, bx	; => buffer
 
 ; DX:AX==LBA sector number
 ; add partition start (= number of hidden sectors)
@@ -839,17 +927,22 @@ read_sector:
 	jc .no_lba
 	cmp bx, 0AA55h
 	jne .no_lba
-	test cl, 1	; support bitmap bit 0
-	jz .no_lba
+	shr cl, 1	; support bitmap bit 0
+	jnc .no_lba
  %endif
 
 %if _LBA_RETRY
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
+	stc
+ %endif
 	mov ah, 42h
 	int 13h		; 13.42 extensions read
 	jnc .lba_done
 
+ %if _RETRY_RESET
 	xor ax, ax
-	int 13h
+	int 13h		; reset disk
+ %endif
 
 		; have to reset the LBAPACKET's lpCount, as the handler may
 		;  set it to "the number of blocks successfully transferred".
@@ -857,10 +950,17 @@ read_sector:
 	mov byte [si + 2], 1
 %endif
 
+ %if _LBA_SKIP_CHECK && _LBA_SKIP_CY
+	stc
+ %endif
 	mov ah, 42h
 	int 13h
  %if _LBA_SKIP_CHECK && _CHS
+  %if _LBA_SKIP_ANY
+	jc .no_lba
+  %else
 	jc .lba_check_error_1
+  %endif
  %else
 .cy_err:
 	jc .lba_error
@@ -871,10 +971,8 @@ read_sector:
 	mov byte [bp + 2], 0Eh	; LBA-enabled FAT16 FS partition type
 %endif
 	add sp, 10h
-	pop bx
-	mov es, bx
 %if _CHS
-	jmp short .chs_done
+	jmp short .done
 %endif
 
 .lba_error: equ .err
@@ -883,10 +981,12 @@ read_sector:
 .no_lba: equ .err
  %else
  %if _LBA_SKIP_CHECK
+  %if ! _LBA_SKIP_ANY
 .lba_check_error_1:
 	cmp ah, 1	; invalid function?
 	jne .lba_error	; no, other error -->
 			; try CHS instead
+  %endif
 .cy_err: equ .err
  %endif
 .no_lba:
@@ -955,29 +1055,50 @@ read_sector:
 
 ; we call INT 13h AH=02h once for each sector. Multi-sector reads
 ; may fail if we cross a track or 64K boundary
-			pop es
 %if _CHS_RETRY_REPEAT
 			mov si, _CHS_RETRY_REPEAT + 1
+ %if _CHS_RETRY_NORMAL && _RETRY_RESET
+			db __TEST_IMM16	; (skip int 13h)
 .loop_chs_retry_repeat:
-			mov ax, 0201h
-			int 13h		; read one sector
-			jnc .done
+			int 13h		; reset disk
+ %elif _RETRY_RESET
+.loop_chs_retry_repeat:
 			xor ax, ax
 			int 13h		; reset disk
+ %else
+.loop_chs_retry_repeat:
+ %endif
 			dec si		; another attempt ?
-			jnz .loop_chs_retry_repeat	; yes -->
-			jmp .err
-%else
- %if _CHS_RETRY
+			js .nz_err	; no -->
 			mov ax, 0201h
+			int 13h		; read one sector
+ %if _CHS_RETRY_NORMAL && _RETRY_RESET
+			mov ax, bx	; ax = 0
+ %endif
+			jc .loop_chs_retry_repeat
+	; fall through to .done
+%else
+			mov ax, 0201h
+ %if _CHS_RETRY
+  %if _RETRY_RESET
+	; In this case we cannot store to the stack and
+	;  pop the value at the right moment for both
+	;  cases of the "jnc .done" branch. So use the
+	;  original code to re-init ax to 0201h.
 			int 13h		; read one sector
 			jnc .done
 ; reset drive
 			xor ax, ax
 			int 13h
+			mov ax, 0201h
+  %else
+			push ax
+			int 13h		; read one sector
+			pop ax		; restore ax = 0201h
+			jnc .done
+  %endif
  %endif
 ; try read again
-			mov ax, 0201h
 			int 13h
  %if _LBA_SKIP_CHECK
 			inc bx
@@ -987,12 +1108,11 @@ read_sector:
  %endif
 %endif
 
+%endif		; _CHS
+
 .done:
 ; increment segment
 	mov bx, es
-%endif
-
-.chs_done:
 %if _FIX_SECTOR_SIZE
 	add bx, _FIX_SECTOR_SIZE >> 4
 %else
@@ -1010,6 +1130,11 @@ read_sector:
 @@:
 
 	retn
+
+%if _WARN_PART_SIZE
+ %assign num $ - read_sector_start
+ %warning read_sector size is num bytes
+%endif
 ; === eof ===
 %endif
 %if _TMPINC
@@ -1018,6 +1143,11 @@ read_sector:
 		%endmacro
 %if _TMPINC
  [list +]
+%endif
+
+%if _WARN_PART_SIZE
+ %assign num $ - start
+ %warning BPB + data size is num bytes
 %endif
 
 
@@ -1045,6 +1175,8 @@ skip_bpb:
 ;	 FF FF FF FF 08 00 08 01 FF FF FF FF FF FF FF FF, which was detected
 ;	 as a valid partition table entry by this handling. Therefore, we
 ;	 only accept partition information when booting from a hard disk now.
+
+		; start of magic byte sequence for instsect
 	test dl, dl		; floppy ?
 	jns @F			; don't attempt detection -->
 ; Check whether an MBR left us partition information.
@@ -1058,15 +1190,23 @@ skip_bpb:
 ; Assume the movsw instructions won't run with si = FFFFh.
 	mov di, hidden_sectors	; -> BPB field
 	add si, 8		; -> partition start sector in info
+ %if _USE_PART_INFO_DISABLED
+	nop
+	nop			; size has to match enabled code
+ %else
 	movsw
 	movsw			; overwrite BPB field with value from info
+ %endif
 @@:
+		; end of magic byte sequence for instsect
 %endif
 	mov ds, cx
 	sti
 
 
 %if _QUERY_GEOMETRY	; +27 bytes
+
+		; start of magic byte sequence for instsect
 ;	test dl, dl		; floppy?
 ;	jns @F			; don't attempt query, might fail -->
 	; Note that while the original PC BIOS doesn't support this function
@@ -1076,7 +1216,12 @@ skip_bpb:
 	; xor cx, cx		; initialise cl to 0
 	; Already from prologue cx = 0.
 	stc			; initialise to CY
+ %if _QUERY_GEOMETRY_DISABLED
+	nop
+	nop			; size has to match enabled code
+ %else
 	int 13h			; query drive geometry
+ %endif
 	jc @F			; apparently failed -->
 	and cx, 3Fh		; get sectors
 	jz @F			; invalid (S is 1-based), don't use -->
@@ -1085,6 +1230,7 @@ skip_bpb:
 	inc cx			; cx = number of heads (H is 0-based)
 	mov [VAR(heads)], cx
 @@:
+		; end of magic byte sequence for instsect
 %endif
 
 %if _FIX_SECTOR_SIZE
@@ -1100,15 +1246,6 @@ skip_bpb:
 	mov al, 'C'
 	jne error
   %endif
- %else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
-	xor ax, ax
-	mov al, [VAR(sectors_per_cluster)]
-	dec al
-	inc ax
-	push ax			; push into word [VAR(adj_sectors_per_cluster)]
  %endif
 	mov ch, 0			; ! ch = 0
 %else
@@ -1123,22 +1260,21 @@ skip_bpb:
 	jne error
   %endif
  %else
-; calculate some values that we need:
-; adjusted sectors per cluster (store in a word,
-;  and decode EDR-DOS's special value 0 meaning 256)
 				; ! ch = 0
-	mov cl, [VAR(sectors_per_cluster)]
-				; therefore cx = sectors_per_cluster
-	dec cl
-	inc cx
-	push cx			; push into word [VAR(adj_sectors_per_cluster)]
-	dec cx			; ! ch = 0
  %endif
 	push bx				; push into word [VAR(para_per_sector)]
 
 ; 32-byte FAT directory entries per sector
 	shr bx, 1			; /2 = 32-byte entries per sector
 %endif
+
+%if _WARN_PART_SIZE
+ %assign num $ - skip_bpb
+ %warning init size is num bytes
+%endif
+
+
+dirsearch_start:
 
 ; number of sectors used for root directory (store in CX)
 	mov si, [VAR(num_root_dir_ents)]
@@ -1194,21 +1330,48 @@ next_sect:
 
 	xor di, di		; es:di-> first entry in this sector
 next_ent:
+ %if DIRSEARCHSTACK_CL_FIRST
+	push cx			; first dirsearchstack word = entries-in-sector
+	push si			; other: entries total
+ %else
 	push si
-	push di
-	push cx
+	push cx			; second dirsearchstack word = entries-in-sector
+ %endif
+	push di			; dirsearchstack
+%if _CHECK_ATTRIB && ! _ATTRIB_SAVE
+	test byte [es:di + deAttrib], ATTR_DIRECTORY | ATTR_VOLLABEL
+	jnz @F			; directory, label, or LFN entry --> (NZ)
+%endif
 %if _ADD_SEARCH
-	mov si, [VAR(filename)]
+	mov si, add_name
+filename equ $ - 2		; SMC to update to load_name later
 %else
 	mov si, load_name	; ds:si-> name to match
 %endif
 	mov cx, 11		; length of padded 8.3 FAT filename
 	repe cmpsb		; check entry
-	pop cx
+%if _ATTRIB_SAVE
+ %if _CHECK_ATTRIB
+	jnz @F
+		; deAttrib == 11, right after the 11-byte name
+	test byte [es:di], ATTR_DIRECTORY | ATTR_VOLLABEL
+				; directory, label, or LFN entry ?
+ %endif
+	jz found_it		; found entry -->
+%endif
+@@:
 	pop di
+ %if DIRSEARCHSTACK_CL_FIRST
 	pop si
+	pop cx			; pop from dirsearchstack
+ %else
+	pop cx
+	pop si			; pop from dirsearchstack
+ %endif
 	lea di, [di + DIRENTRY_size]
-	je found_it		; found entry -->
+%if ! _ATTRIB_SAVE
+	jz found_it		; found entry -->
+%endif
 
 	dec si			; count down entire root's entries
 	loopnz next_ent		; count down sector's entries (jumps iff si >0 && cx >0)
@@ -1249,9 +1412,14 @@ Reference: https://bugs.launchpad.net/qemu/+bug/1888165
 
 found_it:
 %if _ADD_SEARCH || _LOAD_DIR_SEG
+ %if _ATTRIB_SAVE
+	pop di			; es:di -> dir entry (pop from dirsearchstack)
+ %endif
 	mov cx, 32
 	mov ax, _LOAD_DIR_SEG
+ %if ! _ATTRIB_SAVE
 	sub di, cx		; es:di -> dir entry
+ %endif
  %if _ADD_SEARCH
 	xchg ax, word [VAR(dirseg)]
  %endif
@@ -1281,12 +1449,18 @@ found_it:
 %else
  %error Must not store directory entries to same segment
 %endif
+ %if _ATTRIB_SAVE
+	pop si			; discard cx/si
+	pop si			; discard si/cx (dirsearchstack)
+ %endif
 	pop si
 	pop ax
 	pop dx			; restore root start and count
 				;  (bx still holds entries per sector)
 	je next_dir_search	; jump to search load file next -->
  %endif
+	times PLACEHOLDER push bx
+			; push into cmdline_signature_placeholder
  %if _RELOCATE
 	push word [es:di + deClusterLow]
 			; (word on stack) = first cluster number
@@ -1294,10 +1468,14 @@ found_it:
 %else
  %if _DIR_ENTRY_500	; +24 bytes, probably
 	mov cx, 32
-	 push ds
-	 push es
+ %if _ATTRIB_SAVE
+	pop si		; es:si -> dir entry (pop from dirsearchstack)
+ %else
 	xchg si, di
 	sub si, cx
+ %endif
+	 push ds
+	 push es
 	push es
 	pop ds		; ds:si -> directory entry
 	xor ax, ax
@@ -1312,14 +1490,30 @@ found_it:
 	 pop ds
 	xchg si, di	; es:di -> behind (second) directory entry
  %endif
+	times PLACEHOLDER push bx
+			; push into cmdline_signature_placeholder
+		; Push the entries per sector value into this
+		;  stack slot to ensure that it does not hold "CL".
  %if _RELOCATE
+  %if _DIR_ENTRY_500 || !_ATTRIB_SAVE
 	push word [es:di + deClusterLow - DIRENTRY_size \
 		- (DIRENTRY_size * !!_DIR_ENTRY_520)]
 			; (word on stack) = first cluster number
+  %else
+	push word [es:di + deClusterLow - (deName + 11)]
+			; (word on stack) = first cluster number
+  %endif
  %endif
 %endif
 
+%if _WARN_PART_SIZE
+ %assign num $ - dirsearch_start
+ %warning dirsearch size is num bytes
+%endif
+
+
 %if _RELOCATE || _LOAD_ADR >= ADR_FREE_FROM
+memory_start:
 ; Get conventional memory size and store it
 		int 12h
 		mov cl, 6
@@ -1406,6 +1600,11 @@ found_it:
 	rep movsw			; relocate stack, sector
 	retf				; jump to relocated code
 
+%if _WARN_PART_SIZE
+ %assign num $ - memory_start
+ %warning memory size is num bytes
+%endif
+
 
 	readhandler
 
@@ -1442,10 +1641,13 @@ relocated:
 		push ax		; push into word [VAR(last_available_sector)]
 %endif
 
+read_fat_start:
 ; get starting cluster of file
 %if ! _RELOCATE
  %if _ADD_SEARCH || _LOAD_DIR_SEG
 		mov si,[es:di + deClusterLow]
+ %elif _ATTRIB_SAVE && ! _DIR_ENTRY_500
+		mov si,[es:di - deAttrib + deClusterLow]
  %else
 		mov si,[es:di + deClusterLow - DIRENTRY_size \
 			- (DIRENTRY_size * !!_DIR_ENTRY_520)]
@@ -1510,10 +1712,9 @@ relocated:
 		mov bx, _LOAD_ADR>>4	; => load address
 %if _FAT16 && !_LOAD_NON_FAT
 		mov di, -1		; = no FAT sector read yet
- %if _SET_FAT_SEG
-  %if ! _RELOCATE
-		mov word [VAR(fat_seg)], ADR_FATBUF>>4
-  %endif
+ %if _SET_FAT_SEG && _SET_FAT_SEG_NORMAL
+	; This is not strictly needed because a FAT sector is
+	;  read in any case, initialising this variable later.
 		mov word [VAR(fat_sector)], di
  %endif
 %endif
@@ -1637,7 +1838,10 @@ next_cluster:
 
 %else ; _LOAD_NON_FAT
 		mov di, _LOAD_NON_FAT
-		mov ax, word [VAR(adj_sectors_per_cluster)]
+	mov al, [VAR(sectors_per_cluster)]
+	dec ax
+	mov ah, 0
+	inc ax
 		mov cx, ax
 		mul word [VAR(bytes_per_sector)]
 		test dx, dx
@@ -1656,7 +1860,12 @@ next_cluster:
 %if _FIX_CLUSTER_SIZE
 		mov cx, _FIX_CLUSTER_SIZE
 %else
-		mov cx, [VAR(adj_sectors_per_cluster)]
+; adjusted sectors per cluster
+; decode EDR-DOS's special value 0 meaning 256
+	mov cl, [VAR(sectors_per_cluster)]
+	dec cx
+	mov ch, 0
+	inc cx
 %endif
 %endif
 
@@ -1669,7 +1878,7 @@ next_cluster:
 ; xxx - this will always load an entire cluster (e.g. 64 sectors),
 ; even if the file is shorter than this
 @@:
- %if _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
+ %if ! _RELOCATE && _LOAD_ADR < ADR_FREE_UNTIL && _FIX_SECTOR_SIZE
 		cmp bx, (ADR_FREE_UNTIL >> 4) - (_FIX_SECTOR_SIZE >> 4)
  %else
 		cmp bx, [VAR(last_available_sector)]
@@ -1708,8 +1917,21 @@ next_cluster:
 %endif	; _LOAD_NON_FAT
 @@:
 
+%if _WARN_PART_SIZE
+ %assign num $ - read_fat_start
+ %warning read_fat size is num bytes
+%endif
+
+
+finish_start:
 %if _LOAD_MIN_PARA
+ %if ((_LOAD_ADR >> 4) + _LOAD_MIN_PARA) & 255 == 0
+	; If the value is divisible by 256 we can compare only the
+	;  high byte for the same CF result: NC iff bx >= limit.
+		cmp bh, ((_LOAD_ADR >> 4) + _LOAD_MIN_PARA) >> 8
+ %else
 		cmp bx, (_LOAD_ADR >> 4) + _LOAD_MIN_PARA
+ %endif
 		mov al, 'E'
 		jb error
 %endif
@@ -1825,6 +2047,12 @@ CHECKLINEAR equ _LOAD_ADR + _CHECKOFFSET
 %endif
 			; ss:bp-> boot sector with BPB
 		jmp (_LOAD_ADR>>4)+_EXEC_SEG_ADJ:_EXEC_OFS
+
+
+%if _WARN_PART_SIZE
+ %assign num $ - finish_start
+ %warning finish size is num bytes
+%endif
 
 
 %if ! _RELOCATE
