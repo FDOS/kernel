@@ -110,8 +110,10 @@ Intended for 86 Mode programs.
  %error Section %1 not yet added
 %endif
 %if %2
+%define _CURRENT_SECTION
 	[section %1]
 %else
+%xdefine _CURRENT_SECTION %1
 	section %1
 %endif
 	%endmacro
