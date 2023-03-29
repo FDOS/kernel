@@ -102,7 +102,7 @@ shift
   "$options_i_bootimg" \
   "$options_i_lmacros" \
   -D_PAYLOADFILE="::rename,'$KERNELPATHNAME',KERNEL.SYS,fdconfig.sys,test.com,result.txt" \
-  -D_BOOTFILE="'$BOOT.bin'" \
+  -D_BOOTPATCHFILE="'$BOOT.bin'" \
   -D_WARN_DEFAULT_OFF=1 \
   -D_WARN_TOOMANYFAT=0 -D_WARN_ALIGNDATA=0 \
   $options_hdimage -D_MBR_PART_TYPE="$pitype" \
