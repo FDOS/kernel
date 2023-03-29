@@ -37,6 +37,27 @@ keywords are:
 		 create (relative to the current directory),
 		 as a string, is expected in the next list item.
 
+::fragment	Followed by number of fragments, followed by length
+		 (in number of clusters) of each fragment. Note that
+		 if the file is shorter than the sum of fragment
+		 lengths plus 1 cluster then it will have NUL bytes
+		 appended so as to make sure the last cluster contains
+		 one byte, and all prior clusters are full.
+
+::fragmentsame	Followed by number of fragments, followed by one value
+		 that specifies the length of all the fragments.
+
+::nextfragment	Places next fragment of a fragmented file. At the
+		 end of the image all remaining fragments are placed.
+		 (The exact order that fragments appear in is not yet
+		  fixed; only the first fragment is certain.)
+
+::nextfragments	Followed by number of fragments to place. Places the
+		 next fragments of fragmented files. The number is
+		 allowed to be higher than the amount of fragments
+		 that remain to be placed; this is handled the same
+		 as if that exact amount was specified.
+
 ::rename	Followed by source pathname, then a target filename.
 
 ::fill		Followed by length, byte value, target filename.
@@ -111,7 +132,14 @@ Some things are not supported yet:
 A directory is always terminated with one or more directory
 entries that are filled with all-zeros.
 
-If _BOOTFILE is specified (not the empty quoted string),
+If _BOOTPATCHFILE is specified (not the empty quoted string),
+then it is used with incbin to extract the boot loader's
+jump instruction (3 bytes) and the boot code that's to be
+placed after the BPBN (size depends on FAT type). The (E)BPB,
+including BPBN, is then created by this script to match the
+filesystem that is being written.
+
+Else, if _BOOTFILE is specified (not the empty quoted string),
 it is expected that the (E)BPB of that boot sector matches
 the file system parameters specified to the bootimg.asm file.
 If _BOOTFILE equals "" then a proper (E)BPB is created,
@@ -126,10 +154,80 @@ bytes less (for an 0AA55h signature), or four bytes less
 (for an 0AA55_0000h signature).
 
 If the FAT type is FAT32 and _FSINFO is set, then the def
-_BOOTINFOFILE can be specified. The corresponding file must
-be exactly 484 bytes long. It is expected that the first
-4 bytes contain the FSINFO signature "RRaA". Otherwise the
-480-bytes FSIBOOT area is zero-filled.
+_BOOTINFOFILE can be specified. If it is defined to the quoted
+string "::bootpatchfile" then the FSIBOOT loader is extracted
+from the file specified in _BOOTPATCHFILE, for 484 bytes that
+start at offset 512 in the file. It is expected that the first
+4 bytes of this area contain the FSINFO signature "RRaA".
+
+Otherwise, if a file is specified as _BOOTINFOFILE (not the
+empty quoted string) that file must be exactly 484 bytes long.
+The first four bytes should again contain the FSINFO signature
+reading "RRaA".
+
+Otherwise the 480-bytes FSIBOOT area is zero-filled.
+
+
+=== Examples
+
+Empty default (90mm 1440 KiB FAT12 diskette) image:
+
+nasm bootimg.asm -I ../lmacros/ -o bootimg.img -D_PAYLOADFILE=::empty
+
+
+A FAT16 image with some fragmented data files,
+and automatic calculation of a large enougn or
+too large FAT:
+
+nasm a.asm -o a.bin
+nasm a.asm -o b.bin -DCONTENT="'b'"
+nasm a.asm -o minus.bin -DCONTENT=-1
+nasm bootimg.asm -o bootimg.img -I ../lmacros/ \
+ -D_BPE=16 -D_SPC=1 -D_SPI=$(( 1024 * 2 * 32 )) \
+ -D_SPF=$(( (1024 * 2 * 32 / 1 * 2 + 511) / 512 )) \
+ -D_NUMROOT=512 -D_ALIGNDATA \
+ -D_PAYLOADFILE=::fragmentsame,15,1,a.bin,\
+::fragmentsame,7,1,b.bin,\
+::nextfragments,1024,minus.bin
+
+
+lDOS boot tests can also specify a custom _PAYLOADFILE def:
+
+./test.sh diskette -D_PAYLOADFILE="::fragmentsame,3,1,testwrit.sys,\
+result.txt,::nextfragment,::chdir,dir,::nextfragment,::rename,result.txt,result2"
+
+
+A FAT32 image in an MBR partition, with a FAT32+FSIBOOT loader
+read at build time, and some files loaded into it:
+
+nasm bootimg.asm \
+ -D_WARN_DEFAULT_OFF=1 -D_WARN_TOOMANYFAT=0 -D_WARN_ALIGNDATA=0 \
+ -D_MBR -D_ALIGNDATA -D_CHS_HEADS=8 -D_CHS_SECTORS=8 \
+ -D_MBR_PART_TYPE=ptFAT32 \
+ -D_BPE=32 -D_SPC=1 -D_SPI=69632 -D_SPF=544 -D_NUMROOT=224 \
+ -o hdimage.img -l hdimage.lst \
+ -D_PAYLOADFILE=testwrit.sys,result.txt,::chdir,dir \
+ -D_BOOTPATCHFILE="'boot32tw.bin'" -D_UNIT=80h \
+ -I ../lmacros/ \
+ -D_BOOTINFOFILE=::bootpatchfile -D_MBRPATCHFILE=oldmbr.bin
+
+
+A FAT32 image with auto-calculated FAT size, depicting some
+uses of attributes and filetimes, wrapped into a dosemu2
+image of an MBR-partitioned unit:
+
+nasm -D_ATTRIB=ATTR_SYSTEM -I ../lmacros/ \
+ bootimg.asm -D_BPS=512 \
+ -D_PAYLOADFILE=::empty,::rename,"'test.dat'",test.bin,\
+::time,030826,::setdirdatetime,::time,012638,\
+::attrib,ATTR_HIDDEN+ATTR_READONLY+ATTR_SYSTEM,\
+"'test.dat'",::chdir,testdir,"'test.dat'" \
+ -D_BPE=32 -D_SPI="(34 * 2 * 1024)" \
+ -D_SPF="((_SPI / _SPC * _BPE / 8 + _BPS - 1) / _BPS)" \
+ -D_SPC=1 -D_CHS_HEADS=8 -D_CHS_SECTORS=8 \
+ -D_MBR -D_MBR_DOSEMU_IMAGE_HEADER \
+ -D_BOOTPATCHFILE="'boot32tw.bin'" -D_BOOTINFOFILE="'::bootpatchfile'" \
+ -D_USE_FILE_DATETIME=1 -o part.img && mdir -i part.img@@80s -a ::.
 
 %endif
 
@@ -166,12 +264,15 @@ be exactly 484 bytes long. It is expected that the first
 	numdef WARN_TOOMANYFAT, 1
 	numdef WARN_ALIGNDATA, 1
 	numdef WARN_FILLROOT, 1
+	numdef WARN_SMALL32, 1
 	numdef WARN_DEFAULT_OFF, 0
 %if _WARN_DEFAULT_OFF
 	numdef WARN_TOOMANYFAT, 0
 	numdef WARN_ALIGNDATA, 0
 	numdef WARN_FILLROOT, 0
+	numdef WARN_SMALL32, 0
 %endif
+	numdef ERROR_SMALL32, 1
 	numdef MEDIAID, 0F0h	; media ID
 	numdef EOF, 15		; suffix of EOF entry marker
 
@@ -180,6 +281,7 @@ be exactly 484 bytes long. It is expected that the first
 	numdef CHS_HEADS, 2	; CHS geometry field for heads
 	numdef HIDDEN, 0	; number of hidden sectors
 
+	strdef BOOTPATCHFILE, ""
 	strdef BOOTFILE, ""
 	strdef BOOTJUMPFILE, ""
 	strdef BOOTCODEFILE, ""
@@ -201,6 +303,7 @@ be exactly 484 bytes long. It is expected that the first
 %endif
 
 	numdef MBR,			0
+	strdef MBRPATCHFILE, ""
 	strdef MBRCODEFILE, ""
 	gendef MBR_PART_TYPE,		fat %+ _BPE
 	numdef MBR_DOSEMU_IMAGE_HEADER,	0
@@ -371,7 +474,7 @@ ptExtendedLinux:	equ 85h
  %endif
 %endif
 
-%macro detectionerror 1.nolist
+%macro detectionerror 1-2.nolist 0
  %assign len 8
  %assign ii 0
  %assign sum 0
@@ -390,7 +493,13 @@ ptExtendedLinux:	equ 85h
   %define string "0"
  %endif
  %deftok string string
- %error FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
+ %if %2 && !_ERROR_SMALL32
+  %if _WARN_SMALL32
+   %warning FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
+  %endif
+ %else
+  %error FAT would be detected %1 (%[DATACLUSTERS] = %[string]h clusters)
+ %endif
 %endmacro
 
 %if (DATACLUSTERS + 2) > 0FFF0h
@@ -403,12 +512,15 @@ ptExtendedLinux:	equ 85h
  %endif
 %endif
 %if (DATACLUSTERS + 2) < 1000h
- %if _BPE == 16 || _BPE == 32
+ %if _BPE == 16
   detectionerror as FAT12
+ %endif
+ %if _BPE == 32
+  detectionerror as FAT12, 1
  %endif
 %elif (DATACLUSTERS + 2) < 10000h
  %if _BPE == 32
-  detectionerror as FAT16
+  detectionerror as FAT16, 1
  %endif
 %endif
 
@@ -585,7 +697,9 @@ at dihHeaderSize,	dd dih_our_size
  %define STARTSFOLLOWS follows=mbr
 
 mbr_start:
- %ifnidn _MBRCODEFILE, ""
+ %ifnidn _MBRPATCHFILE, ""
+	incbin _MBRPATCHFILE, 0, 512 - 2 - 4 * 16
+ %elifnidn _MBRCODEFILE, ""
 	incbin _MBRCODEFILE
  %else
 	cli
@@ -654,10 +768,20 @@ mbr_signature:
  %define STARTSFOLLOWS follows=%1_boot
 
 %1_boot_start:
-%ifnidn _BOOTFILE, ""
+%ifnidn _BOOTPATCHFILE, ""
+ %assign USEBOOTFILE 0
+%elifnidn _BOOTFILE, ""
+ %assign USEBOOTFILE 1
+%else
+ %assign USEBOOTFILE 0
+%endif
+
+%if USEBOOTFILE
 	incbin _BOOTFILE
 %else
- %ifnidn _BOOTJUMPFILE, ""
+ %ifnidn _BOOTPATCHFILE, ""
+	incbin _BOOTPATCHFILE, 0, 3
+ %elifnidn _BOOTJUMPFILE, ""
 	incbin _BOOTJUMPFILE
  %else
 	jmp strict short %1_boot_after_bpb
@@ -759,7 +883,9 @@ mbr_signature:
 
 
 %1_boot_after_bpb:
- %ifnidn _BOOTCODEFILE, ""
+ %ifnidn _BOOTPATCHFILE, ""
+	incbin _BOOTPATCHFILE, ($ - $$), 512 - 2 - ($ - $$)
+ %elifnidn _BOOTCODEFILE, ""
 	incbin _BOOTCODEFILE
  %else
 	cli
@@ -826,7 +952,11 @@ mbr_signature:
 %1_fsinfo:
 	istruc FSINFO
  %ifnidn _BOOTINFOFILE, ""
+  %ifidni _BOOTINFOFILE, "::bootpatchfile"
+	incbin _BOOTPATCHFILE, 512, 484
+  %else
 	incbin _BOOTINFOFILE
+  %endif
  %else
 at FSINFO.signature1
 	dd "RRaA"
@@ -834,7 +964,7 @@ at FSINFO.reserved1
 	_fill 480 + 4, 0, %1_fsinfo
  %endif
  %if $ - %1_fsinfo != FSINFO.signature2
-  Boot info file has wrong size
+  %error Boot info file has wrong size
  %endif
 at FSINFO.signature2
 	dd "rrAa"
@@ -894,12 +1024,15 @@ at FSINFO.signature3
 
 		; %1 = name for the equ to receive the start cluster,
 		;	_start_cluster will be appended
+		; also name for the equ from which to read end entry,
+		;	_chain_end will be appended
 		; %2 = how many clusters/entries to allocate
 		;	(if zero, %1_start_cluster equ will be zero)
 	%macro addfatchain 2.nolist
 %xdefine FATCHAINS FATCHAINS,%1,%2
 	%endmacro
 %define FATCHAINS secondentry,1
+secondentry_chain_end equ EOFENTRY
 
 
 	addsection fixed_root, follows=fat align=_BPS
@@ -920,10 +1053,10 @@ at FSINFO.signature3
 at deName,		fill 8,32,db "."
 at deExt,		fill 3,32,db 32
 at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
-at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterHigh,	dw %%dir_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deClusterLow,	dw %%dir_start_cluster & 0FFFFh
 at deSize,		dd 0
 	iend
 	istruc DIRENTRY
@@ -938,7 +1071,8 @@ at deSize,		dd 0
 	iend
 %endif
 
-%xdefine CHAINLIST CHAINLIST,%%file
+%%dir_chain_end equ EOFENTRY
+%xdefine CHAINLIST CHAINLIST,%%dir
 
 %ifnidni %3, none
 
@@ -953,16 +1087,121 @@ at deSize,		dd 0
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db ATTR_DIRECTORY | _ATTRIB
-at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterHigh,	dw %%dir_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
+at deClusterLow,	dw %%dir_start_cluster & 0FFFFh
 at deSize,		dd 0
 	iend
 %else
- rootcluster equ %%file_start_cluster
+ rootcluster equ %%dir_start_cluster
 %endif
-%2 %+ _start_cluster equ %%file_start_cluster
+%2 %+ _start_cluster equ %%dir_start_cluster
+	%endmacro
+
+
+		; %1 = source pathname
+		; %2 = offset behind data already read
+		; %3 = fixed, 0
+		; %4 = size of fragment in amount clusters, nonzero
+		; %5 only defined if more fragments to follow
+		;
+		; Recreates the FRAGMENTLIST smacro by defining
+		;  it to 0 then appending %5 and subsequent
+		;  parameters, if any.
+		; Sets FRAGMENTOFFSET to the next offset after
+		;  the data possibly read in by this mmacro.
+		; If the file is shorter, this mmacro will fill
+		;  the space with appended NUL bytes to use up
+		;  the specified amount clusters.
+	%macro incbinpart 4-*.nolist
+%%start:
+incbin %1, %2, %4 * _BPS * _SPC
+%assign FRAGMENTOFFSET %2 + %4 * _BPS * _SPC
+%define FRAGMENTLIST 0
+%rotate 4
+%rep %0 - 4
+ %xdefine FRAGMENTLIST FRAGMENTLIST, %1
+ %rotate 1
+%endrep
+%if ($ - %%start) < %4 * _BPS * _SPC
+ %assign TAIL %4 * _BPS * _SPC -  ($ - %%start)
+ %warning File %1 is shorter than expected, appending TAIL NUL bytes
+	times TAIL db 0
+%endif
+	%endmacro
+
+
+	%macro nextfragment 6-*.nolist
+	usesection %1
+%1 %+ _start:
+%3_chain_end equ %%fragment_start_cluster
+	; equate prior fragment's end entry to start of this fragment
+%xdefine %%sourcename %4	; source pathname to read from
+%xdefine %%offset %5		; offset to -> after already read data
+%xdefine %%oldfragmentlist FRAGMENTLIST
+				; if we have one preserve the new FRAGMENTLIST
+%xdefine FRAGMENTLIST %6	; set up our remaining as the current list
+
+	; In this mmacro we eat the next fragment to allocate.
+	;  %1 = section name, %2 = "none" token, %3 = fragment
+	;  identifier for prior fragment (macro-local name),
+	;  %4 = pathname, %5 = file offset, %6 = FRAGMENTLIST
+	;  (which starts with 0 and may have embedded commas).
+	; So %7 and up are the parameters of the subsequent
+	;  fragment, if any, in groups of four. 
+%define NEXTFRAGMENTS none	; reset the list to a none token
+%rotate 6			; rotate past the section name, none,
+				;  and all four of our current fragment
+%assign COUNTER 1
+%rep %0 - 6			; repeat for all remaining parameters
+ %if COUNTER % 4
+  %xdefine NEXTFRAGMENTS NEXTFRAGMENTS, %1
+				; append this parameter
+ %else
+  %xdefine NEXTFRAGMENTS NEXTFRAGMENTS, {%1}
+				; this is a FRAGMENTLIST, so we make
+				;  sure to pass along curly braces
+ %endif
+ %rotate 1			; next parameter
+ %assign COUNTER COUNTER + 1
+%endrep				; note: rotated 6 + %0 - 6 times equals
+				;  %0 times, all back to the beginning
+
+ %ifidn FRAGMENTLIST, 0		; if no further fragment
+%%start:
+  incbin %%sourcename, %%offset	; include remaining data
+%%fragment_chain_end equ EOFENTRY
+				; tell FAT cnain allocation to end after this
+%if ($ - %%start) == 0
+ %warning File %%sourcename is shorter than expected, appending a NUL byte
+	db 0			; for proper FAT chain size mustn't be zero
+%endif
+%3_next_size equ ($ - %1 %+ _start)
+				; communicate to prior fragment what its
+				;  next size (ie, this fragment's) is
+ %else
+	incbinpart %%sourcename, %%offset, FRAGMENTLIST
+				; incbin a part, specified by this mmacro's
+				;  %4, and re-create FRAGMENTLIST
+%xdefine NEXTFRAGMENTS \
+	NEXTFRAGMENTS, %%fragment, %%sourcename, FRAGMENTOFFSET, \
+	{FRAGMENTLIST}		; remember at the end of NEXTFRAGMENTS list
+%define FRAGMENTLIST 0		; reset FRAGMENTLIST
+%3_next_size equ ($ - %1 %+ _start) + %%fragment_next_size
+				; communicate to prior fragment what its
+				;  next size (ie, this fragment's) is
+				; this includes the size of the fragment
+				;  that's subsequent to this one, so it
+				;  includes this fragment and all the
+				;  fragments that are still to come.
+ %endif
+
+%xdefine CHAINLIST CHAINLIST,%%fragment
+	; remember base name for this fragment's chain
+
+%xdefine FRAGMENTLIST %%oldfragmentlist
+				; preserve current FRAGMENTLIST for new file
 	%endmacro
 
 
@@ -984,16 +1223,29 @@ at deSize,		dd 0
 %3 %+ _start:
 %if %5
  fillbytes %6, %7
+%%fragment_chain_end equ EOFENTRY
+%%filesize equ ($ - %3 %+ _start)
 %else
  %define string %1
  %ifnstr string
   %defstr string string
  %endif
- incbin string
+ %xdefine %%sourcename string
+ %ifidn FRAGMENTLIST, 0
+  incbin %%sourcename
+%%fragment_chain_end equ EOFENTRY
+%%filesize equ ($ - %3 %+ _start)
+ %else
+	incbinpart %%sourcename, 0, FRAGMENTLIST
+%xdefine NEXTFRAGMENTS \
+	NEXTFRAGMENTS, %%fragment, %%sourcename, FRAGMENTOFFSET, \
+	{FRAGMENTLIST}
+%define FRAGMENTLIST 0
+%%filesize equ ($ - %3 %+ _start) + %%fragment_next_size
+ %endif
 %endif
-%assign filesize ($ - %3 %+ _start)
 
-%xdefine CHAINLIST CHAINLIST,%%file
+%xdefine CHAINLIST CHAINLIST,%%fragment
 
 %define string %2
 %ifnstr string
@@ -1006,11 +1258,11 @@ at deSize,		dd 0
 at deName,		fill 8,32,db %$$name
 at deExt,		fill 3,32,db %$$ext
 at deAttrib,		db _ATTRIB
-at deClusterHigh,	dw %%file_start_cluster >> 16
+at deClusterHigh,	dw %%fragment_start_cluster >> 16
 at deTime,		dw _FATFILETIME
 at deDate,		dw _FATFILEDATE
-at deClusterLow,	dw %%file_start_cluster & 0FFFFh
-at deSize,		dd filesize
+at deClusterLow,	dw %%fragment_start_cluster & 0FFFFh
+at deSize,		dd %%filesize
 	iend
 	%endmacro
 
@@ -1177,6 +1429,8 @@ at deSize,		dd %3
 
 %define DIRLIST none
 %define CHAINLIST none
+%define FRAGMENTLIST 0
+%define NEXTFRAGMENTS none
 %define LISTENDFILL none, none, none
 %define LISTENDFILLZEROS none, none, none
 	%macro multiincfile 1-*.nolist
@@ -1184,6 +1438,9 @@ at deSize,		dd %3
 %define ff fixed_root
 %assign chainindex 0
 %assign ischdir 0
+%assign isfragment 0
+%assign isfragmentsame 0
+%assign isnextfragments 0
 %assign isrename 0
 %assign isfill 0
 %assign isattrib 0
@@ -1233,6 +1490,38 @@ at deSize,		dd %3
    %assign chainindex chainindex + 1
   %endif
   %assign ischdir 0
+ %elif isfragment == -1
+   %assign isfragment %1
+ %elif isfragment == -2
+   %assign isfragmentsame %1
+   %assign isfragment 0
+ %elif isfragment
+  %ifn %1
+   %error Zero clusters fragment is invalid
+  %endif
+  %assign ONEFRAGMENT %1
+  %xdefine FRAGMENTLIST FRAGMENTLIST, ONEFRAGMENT
+  %assign isfragment isfragment - 1
+ %elif isfragmentsame
+  %ifn %1
+   %error Zero clusters fragment is invalid
+  %endif
+  %assign ONEFRAGMENT %1
+  %rep isfragmentsame
+   %xdefine FRAGMENTLIST FRAGMENTLIST, ONEFRAGMENT
+  %endrep
+  %assign isfragmentsame 0
+ %elif isnextfragments
+  %rep %1
+   %ifidn NEXTFRAGMENTS, none
+    %exitrep
+   %else
+	setup_a_section		; add a section for next data fragment
+	nextfragment data %+ chainindex, NEXTFRAGMENTS
+    %assign chainindex chainindex + 1
+   %endif
+  %endrep
+  %assign isnextfragments 0
  %elif isrename == 1
   %xdefine renamesource %1
   %assign isrename 2
@@ -1276,6 +1565,19 @@ at deSize,		dd %3
   %assign istime 0
  %elifidni %1, ::chdir
   %assign ischdir 1
+ %elifidni %1, ::fragment
+  %assign isfragment -1
+ %elifidni %1, ::fragmentsame
+  %assign isfragment -2
+ %elifidni %1, ::nextfragment
+  %ifidn NEXTFRAGMENTS, none
+   %error No next fragments to write
+  %endif
+	setup_a_section		; add a section for next data fragment
+	nextfragment data %+ chainindex, NEXTFRAGMENTS
+   %assign chainindex chainindex + 1
+ %elifidni %1, ::nextfragments
+  %assign isnextfragments 1
  %elifidni %1, ::rename
   %assign isrename 1
  %elifidni %1, ::fill
@@ -1308,6 +1610,15 @@ at deSize,		dd %3
 %endrep
 %if ischdir
  %error No directory to create specified
+%endif
+%if isfragment
+ %error No fragment list specified
+%endif
+%if isfragmentsame
+ %error No fragment size specified
+%endif
+%if isnextfragments
+ %error No amount of fragments specified
 %endif
 %if isrename == 1
  %error No rename source specified
@@ -1350,6 +1661,15 @@ at deSize,		dd %3
 	%endmacro
 	multiincfile _PAYLOADFILE
 
+ %rep 1024
+  %ifidn NEXTFRAGMENTS, none
+   %exitrep
+  %else
+	setup_a_section		; add a section for next data fragment
+	nextfragment data %+ chainindex, NEXTFRAGMENTS
+   %assign chainindex chainindex + 1
+  %endif
+ %endrep
 
 	%macro extenddirectories 1-*.nolist
 %ifnidni %1, none
@@ -1400,6 +1720,7 @@ at deSize,		dd %3
 	usesection data %+ ii
 data %+ ii %+ _start:
  %if isendfillzeros
+	; zerobytes_if_full (%2 + _BPS * _SPC - 1) & ~(_BPS * _SPC - 1)
 	zerobytes_if_full %2
  %else
 	fillbytes %2, %3
@@ -1408,6 +1729,7 @@ data %+ ii %+ _start:
  %assign clusters (%2 + _BPS * _SPC - 1) / (_BPS * _SPC)
  %assign data_used data_used + (clusters * _BPS * _SPC)
 	addfatchain %1,clusters
+%1_chain_end equ EOFENTRY
  %assign ii ii + 1
 %endrep
 	%endmacro
@@ -1483,13 +1805,13 @@ dumpfatentry (_MEDIAID | (MAXENTRY - 15))
 				;  next is index 1
 %rep %0 / 2			; for each pair
  %if %2
-  %1_start_cluster equ ii	; equ for start cluster
-  %rep %2 - 1			; as many as are non-EOF entries
+  %1_start_cluster equ ii	; equ for chain start cluster
+  %rep %2 - 1			; as many as are non-end entries
    %assign ii ii + 1
    dumpfatentry ii		; link to next cluster
   %endrep
   %assign ii ii + 1
-  dumpfatentry EOFENTRY		; EOF entry
+  dumpfatentry %1_chain_end	; end of contiguous chain entry
  %else
   %1_start_cluster equ 0	; empty chain, start cluster is 0
  %endif
