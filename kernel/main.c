@@ -106,6 +106,12 @@ VOID ASMCFUNC FreeDOSmain(void)
     drv = 3; /* C: */
   LoL->BootDrive = drv;
 
+  /* init master environment start */
+  *master_env = 0;
+  master_env[1] = 0;
+  master_env[2] = 0;
+  master_env[3] = 0;
+
   /* install DOS API and other interrupt service routines, basic kernel functionality works */
   setup_int_vectors();
 
