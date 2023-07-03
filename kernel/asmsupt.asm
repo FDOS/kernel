@@ -286,7 +286,6 @@ pascal_return:
                 
 ; fstrcpy (void FAR*dest, void FAR *src);
 
-%ifndef _INIT
                 global  FSTRCPY
 FSTRCPY:
                 call pascal_setup
@@ -301,7 +300,6 @@ arg {dest,4}, {src,4}
 		mov   bl,8
                 
                 jmp short dostrcpy
-%endif
 
 ;******
                 global  STRCPY
@@ -570,10 +568,6 @@ strncmp_retzero:
 strncmp_done:
                 lahf
 		ror  ah,1
-%ifdef _INIT
-strncmp_done2:  jmp  short pascal_return
-%else
 strncmp_done2:  jmp  pascal_return
-%endif
 
 %endif
