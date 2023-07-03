@@ -148,6 +148,7 @@ SECTIONS
                 _init_memcpy = INIT_MEMCPY;
                 _init_fmemcpy = INIT_FMEMCPY;
                 _init_strcpy = INIT_STRCPY;
+                _init_fstrcpy = INIT_FSTRCPY;
                 _init_strlen = INIT_STRLEN;
                 _init_strchr = INIT_STRCHR;
                 _UMB_get_largest = UMB_GET_LARGEST;

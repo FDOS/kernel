@@ -57,6 +57,7 @@ extern struct _KernelConfig InitKernelConfig;
 #define  memset     init_memset
 #define  strchr     init_strchr
 #define  strcpy     init_strcpy
+#define fstrcpy     init_fstrcpy
 #define  strlen     init_strlen
 #define fstrlen     init_fstrlen
 #endif
@@ -75,6 +76,7 @@ int    ASMPASCAL fmemcmp(const void FAR *m1, const void FAR *m2, size_t n);
 VOID   ASMPASCAL  memcpy(      void     *d,  const void     *s,  size_t n);
 VOID   ASMPASCAL fmemcpy(      void FAR *d,  const void FAR *s,  size_t n);
 VOID   ASMPASCAL  strcpy(char           *d,  const char     *s);
+VOID   ASMPASCAL fstrcpy(char       FAR *d,  const char FAR *s);
 size_t ASMPASCAL  strlen(const char     *s);
 size_t ASMPASCAL fstrlen(const char FAR *s);
 char * ASMPASCAL  strchr(const char     *s,  int ch);
@@ -90,6 +92,7 @@ char * ASMPASCAL  strchr(const char     *s,  int ch);
 #pragma aux (pascal_ax) memcmp modify nomemory
 #pragma aux (pascal_ax) fmemcmp modify nomemory
 #pragma aux (pascal_ax) strcpy
+#pragma aux (pascal_ax) fstrcpy
 #pragma aux (pascal_ax) strlen modify nomemory
 #pragma aux (pascal_ax) fstrlen modify nomemory
 #pragma aux (pascal) strchr modify exact [ax dx] nomemory
@@ -251,7 +254,7 @@ extern BYTE ASM _ib_start[], ASM _ib_end[], ASM _init_end[];
 extern UWORD ram_top;               /* How much ram in Kbytes               */
 extern char singleStep;
 extern char SkipAllConfig;
-extern char master_env[128];
+extern char FAR ASM master_env[128];
 
 extern struct lol FAR *LoL;
 

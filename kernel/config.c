@@ -127,8 +127,7 @@ size_t ebda_size BSS_INIT(0);
 
 static UBYTE ErrorAlreadyPrinted[128] BSS_INIT({0});
 
-char master_env[128] BSS_INIT({0});
-static char *envp = master_env;
+static char FAR *envp = master_env;
 
 struct config Config = {
   0,
@@ -2416,8 +2415,15 @@ RestartInput:
   printf("\n");
 
   /* export the current selected config  menu */
-  sprintf(envp, "CONFIG=%c", MenuSelected+'0');
-  envp += 9;
+  {
+    char buffer[10];
+    int len;
+    sprintf(buffer, "CONFIG=%c", MenuSelected+'0');
+    len = strlen(buffer);
+    fstrcpy(envp, buffer);
+    envp += len + 1;
+    *envp = 0;
+  }
   if (MenuColor != -1)
     ClearScreen(0x7);
 }
@@ -2745,8 +2751,9 @@ STATIC VOID CmdSet(BYTE *pLine)
     size = strlen(szBuf);
     if (size < master_env + sizeof(master_env) - envp - 1)
     {                     /* must end with two consequtive zeros */
-      strcpy(envp, szBuf);
+      fstrcpy(envp, szBuf);
       envp += size + 1;   /* add next variables starting at the second zero */
+      *envp = 0;
     }
     else
       printf("Master environment is full - can't add \"%s\"\n", szBuf);

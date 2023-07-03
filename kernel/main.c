@@ -466,8 +466,7 @@ STATIC void kernel()
   CommandTail Cmd;
 
   if (master_env[0] == '\0')   /* some shells panic on empty master env. */
-    strcpy(master_env, "PATH=.");
-  fmemcpy(MK_FP(DOS_PSP + 8, 0), master_env, sizeof(master_env));
+    fmemcpy(master_env, "PATH=.\0\0", sizeof("PATH=.\0\0"));
 
   /* process 0       */
   /* Execute command.com from the drive we just booted from    */
