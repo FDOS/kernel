@@ -106,12 +106,6 @@ VOID ASMCFUNC FreeDOSmain(void)
     drv = 3; /* C: */
   LoL->BootDrive = drv;
 
-  /* init master environment start */
-  *master_env = 0;
-  master_env[1] = 0;
-  master_env[2] = 0;
-  master_env[3] = 0;
-
   /* install DOS API and other interrupt service routines, basic kernel functionality works */
   setup_int_vectors();
 
@@ -178,6 +172,7 @@ STATIC void PSPInit(void)
 
   /* Clear out new psp first                              */
   fmemset(p, 0, sizeof(psp));
+  /* high half is used as environment */
 
   /* initialize all entries and exits                     */
   /* CP/M-like exit point                                 */
@@ -230,9 +225,7 @@ STATIC void PSPInit(void)
   /* p->ps_fcb2.fcb_drive = 0; already set                */
   fmemset(p->ps_fcb2.fcb_fname, ' ', FNAME_SIZE + FEXT_SIZE);
 
-  /* local command line                                   */
-  /* p->ps_cmd.ctCount = 0;     command tail, already set */
-  p->ps_cmd.ctBuffer[0] = 0xd; /* command tail            */
+  /* do not modify command line tail, used as environment */
 }
 
 #ifndef __WATCOMC__
