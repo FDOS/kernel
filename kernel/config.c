@@ -2423,6 +2423,8 @@ RestartInput:
     fstrcpy(envp, buffer);
     envp += len + 1;
     *envp = 0;
+    envp[1] = 0;
+    envp[2] = 0;
   }
   if (MenuColor != -1)
     ClearScreen(0x7);
@@ -2749,11 +2751,15 @@ STATIC VOID CmdSet(BYTE *pLine)
     pLine = skipwh(++pLine);
     strcat(szBuf, pLine); /* append the variable value (may include spaces) */
     size = strlen(szBuf);
-    if (size < master_env + sizeof(master_env) - envp - 1)
+    if (size < master_env + sizeof(master_env) - envp - 1 - 2)
     {                     /* must end with two consequtive zeros */
       fstrcpy(envp, szBuf);
       envp += size + 1;   /* add next variables starting at the second zero */
       *envp = 0;
+      envp[1] = 0;
+      envp[2] = 0;
+      /* The word marker after last variable should not equal 1,
+          to indicate that there is no executable pathname following.  */
     }
     else
       printf("Master environment is full - can't add \"%s\"\n", szBuf);
