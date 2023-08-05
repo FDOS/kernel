@@ -2001,6 +2001,11 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         r.es = FP_SEG(&winStartupInfo);
         r.BX = FP_OFF(&winStartupInfo);
         winStartupInfo.winver = r.di;  /* match what caller says it is */
+#if defined __GNUC__
+	winseg1 = FP_SEG(&winStartupInfo);
+	winseg2 = FP_SEG(&DATASTART);
+	winseg3 = FP_OFF(&markEndInstanceData);
+#endif
         winInstanced = 1; /* internal flag marking Windows is active */
         DebugPrintf(("Win startup\n"));
         break;

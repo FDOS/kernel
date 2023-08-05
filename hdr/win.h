@@ -18,6 +18,12 @@ struct WinStartupInfo
   ULONG optInstanceTable; /* used only if winver set to 0x400 (w95)*/
 };
 extern struct WinStartupInfo winStartupInfo;
+#if defined __GNUC__
+extern UWORD winseg1, winseg2, winseg3;
+extern UBYTE markEndInstanceData;
+extern struct lol ASM FAR DATASTART;
+#endif
+
 
 /* contains a list of offsets relative to DOS data segment of
    various internal variables.
