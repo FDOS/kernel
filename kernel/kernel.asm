@@ -607,11 +607,25 @@ _winStartupInfo:
                 dd 0 ; next startup info structure, 0:0h marks end
                 dd 0 ; far pointer to name virtual device file or 0:0h
                 dd 0 ; far pointer, reference data for virtual device driver
+ %ifnidni __OUTPUT_FORMAT__, elf
                 dw instance_table,seg instance_table ; array of instance data
+ %else
+                dw instance_table ; array of instance data
+global _winseg1
+_winseg1:	dw 0
+ %endif
 instance_table: ; should include stacks, Win may auto determine SDA region
                 ; we simply include whole DOS data segment
+ %ifnidni __OUTPUT_FORMAT__, elf
                 dw seg _DATASTART, 0 ; [SEG:OFF] address of region's base
-                dw markEndInstanceData wrt seg _DATASTART ; size in bytes
+                dw _markEndInstanceData wrt seg _DATASTART ; size in bytes
+ %else
+global _winseg2
+_winseg2:	dw 0
+                dw 0 ; [SEG:OFF] address of region's base
+global _winseg3
+_winseg3:	dw 0 ; size in bytes
+ %endif
                 dd 0 ; 0 marks end of table
                 dw 0 ; and 0 length for end of instance_table entry
                 global  _winPatchTable
@@ -975,7 +989,8 @@ segment DYN_DATA
 _Dyn:
         DynAllocated dw 0
 
-markEndInstanceData:  ; mark end of DOS data seg we say needs instancing
+global _markEndInstanceData
+_markEndInstanceData:  ; mark end of DOS data seg we say needs instancing
 
         
 segment ID_B
