@@ -185,7 +185,10 @@ long DosMkTmp(BYTE FAR * pathname, UWORD attr)
 
 */
 
-#define PATH_ERROR goto errRet
+#define PATH_ERROR() \
+      fstrchr(src, '/') == 0 && fstrchr(src, '\\') == 0 \
+        ? DE_FILENOTFND \
+        : DE_PATHNOTFND
 #define PATHLEN 128
 
 
@@ -249,7 +252,7 @@ STATIC const char _DirChars[] = "\"[]:|<>+=;,";
 
 #define addChar(c) \
 { \
-  if (p >= dest + SFTMAX) PATH_ERROR; /* path too long */	\
+  if (p >= dest + SFTMAX) return PATH_ERROR(); /* path too long */	\
   *p++ = c; \
 }
 
@@ -526,14 +529,18 @@ invalid_path:
 
     if(*src == '.')
     {
+      int dots = 1;
       /* special directory component */
       ++src;
       if (*src == '.') /* skip the second dot */
+      {
         ++src;
+        dots++;
+      }
       if (*src == '/' || *src == '\\' || *src == '\0')
       {
         --p; /* backup the backslash */
-        if (src[-2] == '.')
+        if (dots == 2)
         {
           /* ".." entry */
           /* remove last path component */
@@ -545,12 +552,9 @@ invalid_path:
       }
 
       /* ill-formed .* or ..* entries => return error */
-    errRet:
       /* The error is either PATHNOTFND or FILENOTFND
          depending on if it is not the last component */
-      return fstrchr(src, '/') == 0 && fstrchr(src, '\\') == 0
-        ? DE_FILENOTFND
-        : DE_PATHNOTFND;
+      return PATH_ERROR();
     }
 
     /* normal component */
@@ -583,7 +587,7 @@ invalid_path:
       if (c == '.')
       {
         if (state & PNE_DOT) /* multiple dots are ill-formed */
-          PATH_ERROR;
+          return PATH_ERROR();
         /* strip trailing dot */
         if (*src == '/' || *src == '\\' || *src == '\0')
           break;
@@ -595,7 +599,7 @@ invalid_path:
         state |= PNE_WILDCARD;
       if (i) {	/* name length in limits */
         --i;
-        if (!DirChar(c)) PATH_ERROR;
+        if (!DirChar(c)) return PATH_ERROR();
         addChar(c);
       }
     }
