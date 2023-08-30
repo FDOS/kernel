@@ -2769,14 +2769,18 @@ STATIC VOID CmdSet(BYTE *pLine)
   pLine = skipwh(pLine);  /* scan() stops at the equal sign or space */
   if (*pLine == '=')      /* equal sign is required */
   {
-    int size;
+    int size, namesize;
     strupr(szBuf);        /* all environment variables must be uppercase */
-    size = strlen(szBuf);
+    namesize = strlen(szBuf);
     strcat(szBuf, "=");
-    deletevar(szBuf, size);
+    deletevar(szBuf, namesize);
     pLine = skipwh(++pLine);
     strcat(szBuf, pLine); /* append the variable value (may include spaces) */
     size = strlen(szBuf);
+    if (size == namesize + 1) {
+      /* empty variable ?  then just delete. */
+      return;
+    }
     if (size < master_env + sizeof(master_env) - envp - 1 - 2)
     {                     /* must end with two consequtive zeros */
       fstrcpy(envp, szBuf);
