@@ -150,6 +150,7 @@ SECTIONS
                 _init_strcpy = INIT_STRCPY;
                 _init_fstrcpy = INIT_FSTRCPY;
                 _init_strlen = INIT_STRLEN;
+                _init_fstrlen = INIT_FSTRLEN;
                 _init_strchr = INIT_STRCHR;
                 _UMB_get_largest = UMB_GET_LARGEST;
 		_init_call_intr = INIT_CALL_INTR;

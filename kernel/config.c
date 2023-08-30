@@ -2739,6 +2739,30 @@ VOID DoInstall(void)
   return;
 }
 
+STATIC BYTE far * searchvar(const BYTE * name, int length)
+{
+  BYTE far * pp = master_env;
+  do {
+    if (!fmemcmp(name, pp, length + 1)) {
+      return pp;
+    }
+    pp += fstrlen(pp) + 1;
+  } while (*pp);
+  return NULL;
+}
+
+STATIC void deletevar(const BYTE * name, int length) {
+  int variablelength;
+  BYTE far * pp = searchvar(name, length);
+  if (NULL == pp)
+    return;
+  variablelength = fstrlen(pp) + 1;
+  fmemcpy(pp, pp + variablelength, envp + 3 - (pp + variablelength));
+  /* our fmemcpy always copies forwards */
+  envp -= variablelength;
+  return;
+}
+
 STATIC VOID CmdSet(BYTE *pLine)
 {
   pLine = GetStringArg(pLine, szBuf);
@@ -2747,7 +2771,9 @@ STATIC VOID CmdSet(BYTE *pLine)
   {
     int size;
     strupr(szBuf);        /* all environment variables must be uppercase */
+    size = strlen(szBuf);
     strcat(szBuf, "=");
+    deletevar(szBuf, size);
     pLine = skipwh(++pLine);
     strcat(szBuf, pLine); /* append the variable value (may include spaces) */
     size = strlen(szBuf);
