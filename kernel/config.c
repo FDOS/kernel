@@ -2751,9 +2751,8 @@ STATIC BYTE far * searchvar(const BYTE * name, int length)
   return NULL;
 }
 
-STATIC void deletevar(const BYTE * name, int length) {
+STATIC void deletevar(BYTE far * pp) {
   int variablelength;
-  BYTE far * pp = searchvar(name, length);
   if (NULL == pp)
     return;
   variablelength = fstrlen(pp) + 1;
@@ -2770,10 +2769,12 @@ STATIC VOID CmdSet(BYTE *pLine)
   if (*pLine == '=')      /* equal sign is required */
   {
     int size, namesize;
+    BYTE far * pp;
     strupr(szBuf);        /* all environment variables must be uppercase */
     namesize = strlen(szBuf);
     strcat(szBuf, "=");
-    deletevar(szBuf, namesize);
+    pp = searchvar(szBuf, namesize);
+    deletevar(pp);
     pLine = skipwh(++pLine);
     strcat(szBuf, pLine); /* append the variable value (may include spaces) */
     size = strlen(szBuf);
