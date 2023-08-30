@@ -2768,22 +2768,28 @@ STATIC VOID CmdSet(BYTE *pLine)
   pLine = skipwh(pLine);  /* scan() stops at the equal sign or space */
   if (*pLine == '=')      /* equal sign is required */
   {
-    int size, namesize;
+    int size, oldsize, namesize;
     BYTE far * pp;
     strupr(szBuf);        /* all environment variables must be uppercase */
     namesize = strlen(szBuf);
     strcat(szBuf, "=");
     pp = searchvar(szBuf, namesize);
-    deletevar(pp);
     pLine = skipwh(++pLine);
     strcat(szBuf, pLine); /* append the variable value (may include spaces) */
     size = strlen(szBuf);
     if (size == namesize + 1) {
-      /* empty variable ?  then just delete. */
+      /* empty variable ?  then just delete. (cannot fail) */
+      deletevar(pp);
       return;
     }
-    if (size < master_env + sizeof(master_env) - envp - 1 - 2)
+    if (pp) {
+      oldsize = fstrlen(pp) + 1;
+    } else {
+      oldsize = 0;
+    }
+    if (size < master_env + sizeof(master_env) - (envp - oldsize) - 1 - 2)
     {                     /* must end with two consequtive zeros */
+      deletevar(pp);      /* now that there's enough space, actually delete */
       fstrcpy(envp, szBuf);
       envp += size + 1;   /* add next variables starting at the second zero */
       *envp = 0;
