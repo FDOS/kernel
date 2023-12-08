@@ -410,8 +410,12 @@ readDisk:       push    si
                 mov     word [READADDR_SEG], es
                 mov     word [READADDR_OFF], bx
 
+%ifndef QUIET
                 call    show
                 db      ".",0
+%else ; ensure code after this still at same location
+				times 5 nop
+%endif
 read_next:
 
 ;******************** LBA_READ *******************************

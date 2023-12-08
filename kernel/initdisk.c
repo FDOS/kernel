@@ -356,7 +356,7 @@ void init_LBA_to_CHS(struct CHS *chs, ULONG LBA_address,
 void printCHS(char *title, struct CHS *chs)
 {
   /* has no fixed size for head/sect: is often 1/1 in our context */
-  printf("%s%4u-%u-%u", title, chs->Cylinder, chs->Head, chs->Sector);
+  if (InitKernelConfig.Verbose >= 0) printf("%s%4u-%u-%u", title, chs->Cylinder, chs->Head, chs->Sector);
 }
 
 /*
@@ -735,7 +735,7 @@ StandardBios:                  /* old way to get parameters */
   if (driveParam->chs.Sector == 0) {
     /* happens e.g. with Bochs 1.x if no harddisk defined */
     driveParam->chs.Sector = 63; /* avoid division by zero...! */
-    printf("BIOS reported 0 sectors/track, assuming 63!\n");
+    if (InitKernelConfig.Verbose >= 0) printf("BIOS reported 0 sectors/track, assuming 63!\n");
   }
 
   if (!(driveParam->descflags & DF_LBA))
@@ -819,10 +819,13 @@ void print_warning_suspect(char *partitionName, UBYTE fs, struct CHS *chs,
 {
   if (!InitKernelConfig.ForceLBA)
   {
-    printf("WARNING: using suspect partition %s FS %02x:", partitionName, fs);
-    printCHS(" with calculated values ", chs);
-    printCHS(" instead of ", pEntry_chs);
-    printf("\n");
+    if (InitKernelConfig.Verbose >= 0) 
+    {
+      printf("WARNING: using suspect partition %s FS %02x:", partitionName, fs);
+      printCHS(" with calculated values ", chs);
+      printCHS(" instead of ", pEntry_chs);
+      printf("\n");
+    }
   }
   memcpy(pEntry_chs, chs, sizeof(struct CHS));
 }
@@ -1386,7 +1389,7 @@ void ReadAllPartitionTables(void)
 /* disk initialization: returns number of units */
 COUNT dsk_init()
 {
-  printf(" - InitDisk");
+  if (InitKernelConfig.Verbose >= 0) printf(" - InitDisk");
 
 #if defined(DEBUG) && !defined(DOSEMU)
   {

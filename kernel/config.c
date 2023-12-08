@@ -1225,7 +1225,7 @@ STATIC void Config_Buffers(BYTE * pLine)
 STATIC void CfgBuffersHigh(BYTE * pLine)
 {
   Config_Buffers(pLine);
-  printf("Note: BUFFERS will be in HMA or low RAM, not in UMB\n");
+  if (InitKernelConfig.Verbose >= 0) printf("Note: BUFFERS will be in HMA or low RAM, not in UMB\n");
 }
 
 /**
@@ -1276,7 +1276,7 @@ STATIC VOID sysVersion(BYTE * pLine)
   if (GetNumArg(p, &minor) == (BYTE *) 0)
     return;
 
-  printf("Changing reported version to %d.%d\n", major, minor);
+  if (InitKernelConfig.Verbose >= 0) printf("Changing reported version to %d.%d\n", major, minor);
 
   LoL->os_setver_major = major; /* not the internal os_major */
   LoL->os_setver_minor = minor; /* not the internal os_minor */
@@ -2223,8 +2223,11 @@ STATIC void config_init_buffers(int wantedbuffers)
   if (FP_SEG(pbuffer) == 0xffff)
   {
     buffers++;
-    printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
+    if (InitKernelConfig.Verbose >= 0) 
+    {
+      printf("Kernel: allocated %d Diskbuffers = %u Bytes in HMA\n",
            buffers, buffers * sizeof(struct buffer));
+    }
   }
 }
 

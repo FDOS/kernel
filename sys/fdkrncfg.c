@@ -13,7 +13,7 @@
 *  merged into SYS by tom ehlert                                                                        *
 ***************************************************************************/
 
-char VERSION[] = "v1.03";
+char VERSION[] = "v1.04";
 char PROGRAM[] = "SYS CONFIG";
 char KERNEL[] = "KERNEL.SYS";
 
@@ -94,7 +94,9 @@ void showUsage(void)
          "                       SKIPCONFIGSECONDS=#, FORCELBA=0|1\n"
          "                       GLOBALENABLELBASUPPORT=0|1\n"
          "                       BootHarddiskSeconds=0|seconds to wait\n"
-         "                       CheckDebugger=0|1|2\n");
+         "                       CheckDebugger=0|1|2\n"
+		 "                       Verbose=0|1\n"
+		 );
 }
 
 /* simply reads in current configuration values, exiting program
@@ -221,6 +223,13 @@ void displayConfigSettings(KernelConfig * cfg)
     printf
         ("CheckDebugger=%d :            *0=no, 1=check, 2=assume\n",
          cfg->CheckDebugger);
+  }
+
+  if (cfg->ConfigSize >= 14)
+  {
+    printf
+        ("Verbose=%d :            -1=quiet, *0=normal, 1=verbose\n",
+         cfg->Verbose);
   }
 
 #if 0                           /* we assume that SYS is as current as the kernel */
@@ -494,6 +503,11 @@ int FDKrnConfigMain(int argc, char **argv)
     {
       setByteOption(&(cfg.CheckDebugger),
                      cptr, 2, &updates, "CheckDebugger");
+    }
+    else if (memicmp(argptr, "VERBOSE", 3) == 0)
+    {
+      setSByteOption(&(cfg.Verbose),
+                     cptr, -1, 1, &updates, "VERBOSE");
     }
     else
     {

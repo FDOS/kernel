@@ -437,6 +437,17 @@ STATIC VOID FsConfig(VOID)
 
 STATIC VOID signon()
 {
+	if (InitKernelConfig.Verbose < 0) 
+	{
+#ifdef CUSTOM_BRANDING
+        printf("\n\r" CUSTOM_BRANDING "\n\n");
+#else
+        printf("\n\r%S\n\n", MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)));
+#endif
+	} else {
+#ifdef CUSTOM_BRANDING
+  printf("\n\r" CUSTOM_BRANDING "\n\n%s", copyright);
+#else
   printf("\r%S"
          "Kernel compatibility %d.%d - "
 #if defined(__BORLANDC__)
@@ -465,6 +476,8 @@ STATIC VOID signon()
   "\n\n%s",
          MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)),
          MAJOR_RELEASE, MINOR_RELEASE, copyright);
+#endif
+	}
 }
 
 STATIC void kernel()

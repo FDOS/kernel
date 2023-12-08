@@ -77,7 +77,8 @@ Version_Major               db 2
 Version_Revision            dw 43       ; REVISION_SEQ
 Version_Release             dw 1        ; 0=release build, >0=svn#
 
-CheckDebugger:		db 0	; 0 = no check, 1 = check, 2 = assume present
+CheckDebugger:	            db 0	; 0 = no check, 1 = check, 2 = assume present
+Verbose	                    db -1       ; -1 = quiet, 0 = normal, 1 = verbose
 configend:
 kernel_config_size: equ configend - config_signature
 	; must be below-or-equal the size of struct _KernelConfig
@@ -118,6 +119,7 @@ realentry:                              ; execution continues here
 
 	times 0C0h - ($ - $$) nop	; magic offset (used by exeflat)
 entry_common:
+%ifndef QUIET
                 push ax
                 push bx
                 pushf              
@@ -127,6 +129,7 @@ entry_common:
                 popf
                 pop bx
                 pop ax
+%endif
 
 	push cs
 	pop ds
@@ -165,6 +168,7 @@ segment INIT_TEXT
 kernel_start:
 	cld
 
+%ifndef QUIET
                 push bx
                 pushf              
                 mov ax, 0e32h           ; '2' Tracecode - kernel entered
@@ -172,6 +176,7 @@ kernel_start:
                 int 010h
                 popf
                 pop bx
+%endif
 
 
 extern _kernel_command_line
@@ -275,6 +280,7 @@ cont:           ; Now set up call frame
                 mov     ds,[cs:_INIT_DGROUP]
                 mov     bp,sp           ; and set up stack frame for c
 
+%ifndef QUIET
                 push bx
                 pushf              
                 mov ax, 0e33h           ; '3' Tracecode - kernel entered
@@ -282,6 +288,7 @@ cont:           ; Now set up call frame
                 int 010h
                 popf
                 pop bx
+%endif
 
                 mov     byte [_BootDrive],bl ; tell where we came from
 

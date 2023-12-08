@@ -135,8 +135,12 @@ cont:		mov	ds, ax
 		sti
 		mov	[drive], dl	; BIOS passes drive number in DL
 
+%ifndef QUIET
 		mov	si, msg_LoadFreeDOS
 		call	print		; modifies AX BX SI
+%else ; ensure code after this still at same location
+		times 6 nop
+%endif
 
 
 ; -------------

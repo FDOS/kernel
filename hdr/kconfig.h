@@ -50,4 +50,6 @@ typedef struct _KernelConfig {
 	/* 0 = do not check (assume absent),
 	   1 = do check by running breakpoint,
 	   2 = assume present */
+
+  signed char Verbose; /* -1 = quiet, 0 = normal, 1 = verbose */
 } KernelConfig;
