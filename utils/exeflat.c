@@ -521,7 +521,11 @@ int main(int argc, char **argv)
   } else {
     tmpexe = "tmp.sys";
   }
-  rename(argv[2], tmpexe);
+  if (rename(argv[2], tmpexe))
+  {
+    printf("Can not rename %s to %s\n", argv[2], tmpexe);
+    exit(1);
+  }	
 
   len2 = strlen(tmpexe) + 1;
   sz = len2;
@@ -615,6 +619,6 @@ int main(int argc, char **argv)
 
   fclose(source);
   remove("tmp.bin");
-
+  remove(tmpexe);
   return 0;
 }
