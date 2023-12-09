@@ -723,8 +723,13 @@ StandardBios:                  /* old way to get parameters */
 
   init_call_intr(0x13, &regs);
 
-  if (regs.flags & 0x01)
+  if (regs.flags & 0x01) 
+  {
+    /* to avoid division by zero later, use some sane defaults */
+    driveParam->chs.Head = 16;
+    driveParam->chs.Sector = 63;
     goto ErrorReturn;
+  }
 
   /* int13h call returns max value, store as count (#) i.e. +1 for 0 based heads & cylinders */
   driveParam->chs.Head = (regs.d.x >> 8) + 1; /* DH = max head value = # of heads - 1 (0-255) */
