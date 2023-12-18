@@ -77,8 +77,8 @@ Version_Major               db 2
 Version_Revision            dw 43       ; REVISION_SEQ
 Version_Release             dw 1        ; 0=release build, >0=svn#
 
-CheckDebugger:	            db 0	; 0 = no check, 1 = check, 2 = assume present
-Verbose	                    db -1       ; -1 = quiet, 0 = normal, 1 = verbose
+CheckDebugger:	            db 0        ; 0 = no check, 1 = check, 2 = assume present
+Verbose	                    db 0        ; -1 = quiet, 0 = normal, 1 = verbose
 configend:
 kernel_config_size: equ configend - config_signature
 	; must be below-or-equal the size of struct _KernelConfig
