@@ -80,6 +80,7 @@ set BC5_BASE=
 set MS_BASE=
 set XNASM=
 set NASMFLAGS=
+set NASMBOOTFLAGS=
 set XUPX=
 set UPXOPT=
 set LOADSEG=

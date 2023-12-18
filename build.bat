@@ -163,6 +163,8 @@ if "%1" == "" goto abort
 if "%2" == "/V" goto :setDefineWithValue
 set ALLCFLAGS=%ALLCFLAGS% -D%1
 set NASMFLAGS=%NASMFLAGS% -D%1
+REM $(NASMBOOTFLAGS) are extra flags only used when building boot sectors
+set NASMBOOTFLAGS=%NASMBOOTFLAGS% -d%1
 goto nextOption
 
 :setDefineWithValue
