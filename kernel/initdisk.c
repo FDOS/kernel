@@ -434,7 +434,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
   else
   { /* FAT16/FAT32 */
     CLUSTER fatlength, maxcl;
-    unsigned long clust, maxclust;
+    unsigned long clust, maxclust, rest;
     unsigned fatentpersec;
     unsigned divisor;
 
@@ -458,7 +458,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       defbpb->bpb_ndirent = 0;
       defbpb->bpb_nreserved = 0x20;
       fatdata = NumSectors - 0x20;
-      fatentpersec = FLOPPY_SEC_SIZE/4;
+      fatentpersec = FLOPPY_SEC_SIZE/4;  /* how many 32bit FAT values fit in a default 512 byte sector */
       maxcl = FAT32MAX;
     }
     else
@@ -473,7 +473,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
          max FAT16 size for FreeDOS = 4,293,984,256 bytes = 4GiB-983,040 */
       if (fatdata > 8386688ul)
         fatdata = 8386688ul;
-      fatentpersec = FLOPPY_SEC_SIZE/2;
+      fatentpersec = FLOPPY_SEC_SIZE/2; /* how many 16bit FAT values fit in a default 512 byte sector */
       maxcl = FAT16MAX;
     }
 
@@ -481,9 +481,11 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
     do
     {
       DebugPrintf(("Trying with %d sectors/cluster:\n", defbpb->bpb_nsector));
-      divisor = fatentpersec * defbpb->bpb_nsector + NFAT;
-      fatlength = (CLUSTER)((fatdata + (2 * defbpb->bpb_nsector + divisor - 1))/
-                            divisor);
+      divisor = fatentpersec * defbpb->bpb_nsector + NFAT; /* # of fat entries per cluster + 2 */
+      rest = (unsigned)(fatdata % divisor);
+      fatlength  = (CLUSTER)(fatdata / divisor);
+      fatlength += (CLUSTER)((2 * defbpb->bpb_nsector + divisor + rest - 1) / divisor);
+
       /* Need to calculate number of clusters, since the unused parts of the
        * FATS and data area together could make up space for an additional,
        * not really present cluster. */
@@ -562,7 +564,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   pddt->ddt_driveno = driveParam->driveno;
   pddt->ddt_logdriveno = nUnits;
   pddt->ddt_descflags = driveParam->descflags;
-  /* Turn of LBA if not forced and the partition is within 1023 cyls and of the right type */
+  /* Turn off LBA if not forced and the partition is within 1023 cyls and of the right type */
   /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
      above cylinder 1023 was found */
   if (!InitKernelConfig.ForceLBA && !ExtLBAForce && !IsLBAPartition(pEntry->FileSystem))
@@ -634,7 +636,7 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam)
   iregs regs;
   struct _bios_LBA_disk_parameterS lba_bios_parameters;
 
-  ExtLBAForce = FALSE;
+  ExtLBAForce = InitKernelConfig.ForceLBA;
 
   memset(driveParam, 0, sizeof *driveParam);
   drive |= 0x80;
