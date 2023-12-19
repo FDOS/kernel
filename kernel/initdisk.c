@@ -630,15 +630,6 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   nUnits++;
 }
 
-STATIC UWORD BIOS_assisted_LBA_heads(ULONG sectors)
-{
-  if      (sectors > 63ul * 128ul * 1024ul) return 255;
-  else if (sectors > 63ul * 64ul * 1024ul) return 128;
-  else if (sectors > 63ul * 32ul * 1024ul) return 64;
-  else if (sectors > 63ul * 16ul * 1024ul) return 32;
-  else return 16;
-}
-
 /* Get the parameters of the hard disk */
 STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, int firstPass)
 {
@@ -755,14 +746,6 @@ StandardBios:                  /* old way to get parameters */
     driveParam->chs.Sector = 63; /* avoid division by zero...! */
     if (firstPass && (InitKernelConfig.Verbose >= 0)) 
       printf("BIOS reported 0 sectors/track, assuming 63!\n");
-  }
-
-  /* If heads < 2, this is probably wrong?!?
-     Then determine heads from disk size like BIOS assisted LBA does */
-  if (driveParam->chs.Head < 2) {
-    driveParam->chs.Head = BIOS_assisted_LBA_heads(driveParam->total_sectors);
-    if (firstPass && (InitKernelConfig.Verbose >= 0))
-      printf("BIOS reported <2 heads, assuming %u!\n", driveParam->chs.Head);
   }
 
   if (!(driveParam->descflags & DF_LBA))
