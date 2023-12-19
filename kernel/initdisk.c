@@ -655,15 +655,17 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
 
   init_call_intr(0x13, &regs);
 
-  /* LBA not supported at all, or read, write, verify not supported */
-  if (regs.b.x != 0xaa55 || (regs.flags & 0x01) || (regs.c.x & 1) == 0)
+  if ((regs.flags & 0x01) || regs.b.x != 0xaa55 || (regs.c.x & 0x01) == 0)
   {
+    /* error conditions:
+        carry set or BX != 0xaa55 => no EDD spec compatible BIOS
+        CX bit 1 clear => fixed disc access subset not supported */
     goto StandardBios;
   }
 
   /* version 1.0, 2.0 have different verify */
-  if (regs.a.x < 0x2100)
-    LBA_WRITE_VERIFY = 0x4301;  /* problematic if INT13 is hooked by
+  if (regs.a.b.h < 0x21)
+    LBA_WRITE_VERIFY = 0x4301;  /* may be problematic if INT13 is hooked by
                                    different controllers / drivers */
 
   /* query disk size and DMA handling, geometry is queried later by INT13,08 */
@@ -676,9 +678,9 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
   regs.d.b.l = drive;
   init_call_intr(0x13, &regs);
 
-  /* error or DMA boundary errors not handled transparently */
   if (regs.flags & 0x01)
   {
+    /* carry flag set indicates failed LBA disk parameter query */
     goto StandardBios;
   }
 
@@ -719,11 +721,13 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
 
   if (lba_bios_parameters.information & 1)
   {
-    driveParam->descflags |= DF_DMA_TRANSPARENT;        /* DMA boundary errors are handled transparently */
+    /* DMA boundary errors are handled transparently */
+    driveParam->descflags |= DF_DMA_TRANSPARENT;
   }
   
-StandardBios:                  /* old way to get parameters */
-  if (firstPass && (InitKernelConfig.Verbose >= 1)) printf("Retrieving CHS values for drive\n");
+StandardBios:   /* get disk geometry, and if LBA is not enabled, also size */
+  if (firstPass && (InitKernelConfig.Verbose >= 1))
+    printf("Retrieving CHS values for drive\n");
 
   regs.a.b.h = 0x08;
   regs.d.b.l = drive;
