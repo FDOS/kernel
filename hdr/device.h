@@ -152,13 +152,13 @@ typedef struct {
   UWORD bpb_nreserved;          /* # Reserved Sectors           */
   UBYTE bpb_nfat;               /* # FATs                       */
   UWORD bpb_ndirent;            /* # Root Directory entries     */
-  UWORD bpb_nsize;              /* Size in sectors              */
+  UWORD bpb_nsize;              /* Total volume Size in sectors */
   UBYTE bpb_mdesc;              /* MEDIA Descriptor Byte        */
   UWORD bpb_nfsect;             /* FAT size in sectors          */
   UWORD bpb_nsecs;              /* Sectors per track            */
   UWORD bpb_nheads;             /* Number of heads              */
   ULONG bpb_hidden;             /* Hidden sectors               */
-  ULONG bpb_huge;               /* Size in sectors if           */
+  ULONG bpb_huge;               /* Total volume Size in sectors if*/
   /* bpb_nsize == 0               */
 #ifdef WITHFAT32
   ULONG bpb_xnfsect;            /* FAT size in sectors if       */
