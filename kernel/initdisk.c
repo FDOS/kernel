@@ -757,14 +757,12 @@ StandardBios:                  /* old way to get parameters */
       printf("BIOS reported 0 sectors/track, assuming 63!\n");
   }
 
-  /* if heads==0, determine from disk size like LBA assisted BIOS translation
-     does, or default to 16 if LBA is not used */
-  if (driveParam->chs.Head == 0) {
-    driveParam->chs.Head = (driveParam->descflags & DF_LBA)
-      ? BIOS_assisted_LBA_heads(driveParam->total_sectors)
-      : 16;
+  /* If heads < 2, this is probably wrong?!?
+     Then determine heads from disk size like BIOS assisted LBA does */
+  if (driveParam->chs.Head < 2) {
+    driveParam->chs.Head = BIOS_assisted_LBA_heads(driveParam->total_sectors);
     if (firstPass && (InitKernelConfig.Verbose >= 0))
-      printf("BIOS reported 0 heads, assuming %u!\n", driveParam->chs.Head);
+      printf("BIOS reported <2 heads, assuming %u!\n", driveParam->chs.Head);
   }
 
   if (!(driveParam->descflags & DF_LBA))
