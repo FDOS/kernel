@@ -10,6 +10,113 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
+2023 ?? - Build 2045
+-------- Jeremy Davis
+
++ Changes Jeremy Davis and Tom Ehlert
+    * initial GPT partition support
+
+
+2023 December 2? - Build 2044
+-------- Jeremy Davis
+
++ Changes Jeremy Davis, Andrew Bird, Tee-Kiah Chia (tkchia), Sava (lpproj), 
+          Stas Sergeev (stsp), C. Masloch, Jiri Malak, Bernd Böckmann
+    * support determining kernel file version without booting it
+	* only print messages once, not each time processing partitions
+	* fix for Format GitHub issue #1 - format divide by 0 due to kernel function 440D, subfunction 60 returning a zero for logical_sectors_per_fat as initdisk overflows and calculates incorrect value
+	* From bzt, initialize drive parameter head & sector values to avoid potential divisions by 0
+	* config: allow to delete variable with empty SET command
+	* truename: fix array overrun (pick from fdpp)
+	* main: insure master environment starts out empty
+	* config: make sure word marker trailing in environment is zero
+	* inthndlr: align hma size to para
+	* DosGetExtFree: Use new redirector function 11a3
+	* sys: detect small FAT32 as FAT32 (zero in word SPF)
+	* boot: enable loading from file systems with 256 sectors per cluster
+	* fatfs.c: allow bpbSectorsPerCluster == 0 to mean 256
+	* FCB (int 21h func 29h): should not accept field separator as "drive letter"
+	* FCB (int 21h func 29h): should keep parsing name even if drive letter invalid
+	* exeflat: update usage screen with -E, -D, and -U switches
+	* upxentry, upxdevic: add header comments
+	* exeflat: improve compressed stub handling, fixes, update documentation, various other updates
+	* kernel: optimise A20 check and enable/disable calls
+	* improve/fix gcc and OpenWatcom build support
+	* task: return Invalid format on empty executable (fixes #70)
+	* fdkrncfg: bugfix, version info check should not include signature
+	* fix 2nd parameter of "DOS=" statement in config.sys does not take effect in some cases:
+	* dosfns, int2f: make SHARE uninstallable
+	* CI: improvements
+	* Fix incorrect date format for Czech and Slovak Republic. Both Countries use DD.MM.YYYY date format. Microsoft DOS also use this format.
+	* dosfns: Check share table before delete/rename
+	* various build updates and move share and country to submodules
+	* FCB: Rename should support asterisk wildcards - based on dosemu fdpp, fixes issue #43
+	* add tests for FCB rename - based on tests from andrewbird
+	* allow opening a character device prefixed with invalid drive letter (e.g. "@:NUL") but not with invalid path
+	* add test for opening character devices (all pass on DOS 5,6, NT VDM, @:dev fail currently on FD kernel)
+	* initial implementation of extended seek (0x7142 - LONG LSEEK with 64-bit file position)
+	* add implementation of int 0x2F function 0x1f build CDS from dosemu2/fdpp
+	* add skeleton for LFN API, includes 0x71a6 implementation (call to redirector only) from dosemu2/fdpp
+	* ensure offset to critical patch tables doesn't change
+	* From Tom Ehlert: don't split disk transfers crossing DMA boundary if BIOS indicates can handle transparently
+	* fcbfns: Fix for FcbFindFirstNext [fixes #40]
+	* task: don't zero parent_psp on 0x26
+	* boot, oemboot: fix to abort properly on file not found
+	* oemboot: optimise FAT12 entry loading (picked from lDOS boot)
+	* adjust padding to be same as in PC-DOS (90h/nop)
+	* from RBIL int 21h/4400h (table 01423) add definition for bit 11 if SFT is not for a device (for a file) - media not removable, currently unused
+	* from dosemu2/fdpp - zero out critical patch list Personal NetWare Server really writes to these addresses, so putting 0x0d0c the way DOS does, is not safe.
+	* int 21h/4400h only return low byte of SFT flags if not a device, part of dosemu2/fdpp bug #147 fix 
+	* check for unsupported function call in console - from dosemu2/fdpp bug# 101 fix 
+	* improve support for Windows 3 Enhanced mode
+
+
+2021 May 13 - Build 2043
+-------- Jeremy Davis
+
++ Changes Bart Oldeman, Jeremy Davis, Andrew Bird, Tee-Kiah Chia (tkchia), Sava (lpproj), 
+          Stas Sergeev (stsp), C. Masloch, Jiri Malak, Piotr Durlej, Ricardo Hanke
+    * update for releases using git instead of svn
+    * Update README.md
+    * add support for building with ia16-elf-gcc, including multiple updates/fixes
+    * SYS: Reduce verbosity when the verbose flag is not set
+    * add safety check to FAT12/16 boot sector to warn about breaking sys if boot code updated
+    * Implement version table support for int21/ah=4b, subfunctions 0 and 1
+    * CI: Add Github Action to automatically build and minimal test kernel on commit
+    * FATFS: rmdir of read only directories is valid
+    * boot: allow instsect to match the filesystem ID string
+    * boot: fix Int10.0E expected not to alter al (SBC188)
+    * Fix Func 2Dh (Set System Time) sets wrong time
+    * Fix func 0Bh (Get STDIN Status) always returns AL=FFh with some alternative CON drivers:
+    * Fix Func 30h (Get DOS Version) return version 0.0 in config.sys
+    * int2f: fix call interface around syscall_MUX14( ) (inthndlr.c)
+    * int2f: fix call interface around int2F_12_handler( )
+    * int2f: Allow 1217h function to return new CDS entry
+    * from Mondgestein, Function 30h (Get DOS Version): Get DOS version from PSP 
+    * Fix func 36h (Get free disk space) fails in some redirectors:
+    * dosfns.c: only copy to current_ldt if pointer is valid
+    * inthndlr.c: in Int21.43FF, dispatch DosMkRmdir on CL not AH
+    * EXEC (func 0x4b): fix: do not crash if exMinAlloc == 0xffff
+    * FCB: Rename return value lost
+    * Fix division for some large numbers such as 0xFFFF01FF/0x10101FF
+    * Fix comments (Gerd Grosse, https://sourceforge.net/p/freedos/bugs/106/)
+    * FCB: Rename return value lost
+    * Fix compilation with TC2 and MSVC 1.52c.
+    * disk: fix sectors count truncation for CHS [fixes #10]
+    * implement CHAIN directive for config.sys
+    * add some initial (minimal) tests
+    * Fix memory break in NUL device
+    * Fix initial DTA
+    * Implement Int 2F/AX=120Bh based on RBIL description
+    * Implement Int 2F/AX=120Ah based on RBIL description - untested!
+    * From Evelyn, CPU unsupported message missing loading error msg address (pop si)
+    * Copy FCB-format filename from PriPathName (some redirectors require FCB-format filename stored in SDA+22Bh DirEntBuffer)
+    * Fix an error at opening a character device prefixed with invalid drive letter (e.g. "@:NUL") (some application use it for opening character device driver)
+    * Fix incompletion on loading huge (more than 65280 bytes) binary device driver
+    * On creating child PSP (func 0x55), copy command line parameters from the parent (required for some device loaders)
+    * Improve support for older BPB based volumes lacking extended fields. (Based on lpproj's nec98:Fix for DOS 3.x partitions)
+
+
 2016 May 16 - Build 2042
 -------- Jeremy Davis, Sava
 
