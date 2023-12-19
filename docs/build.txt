@@ -15,6 +15,11 @@ kernel come out, you can extract them over your previous source, and
 not have to worry about resetting up your configuration because your
 CONFIG.BAT file will not get replaced!
 
+For example to build your custom branded kernel for 386+ with FAT32
+support using OpenWatcom compilers use a command such as:
+BUILD.BAT 386 ow fat32 upx /D CUSTOM_BRANDING /V "MyDOS"
+
+
 Building on Linux:
 ==================
 
