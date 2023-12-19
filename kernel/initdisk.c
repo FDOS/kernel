@@ -630,13 +630,23 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   nUnits++;
 }
 
+STATIC UWORD BIOS_assisted_LBA_heads(ULONG sectors)
+{
+  if      (sectors > 63ul * 128ul * 1024ul) return 255;
+  else if (sectors > 63ul * 64ul * 1024ul) return 128;
+  else if (sectors > 63ul * 32ul * 1024ul) return 64;
+  else if (sectors > 63ul * 16ul * 1024ul) return 32;
+  else return 16;
+}
+
 /* Get the parameters of the hard disk */
 STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, int firstPass)
 {
   iregs regs;
   struct _bios_LBA_disk_parameterS lba_bios_parameters;
 
-  ExtLBAForce = InitKernelConfig.ForceLBA;
+  if (firstPass && (InitKernelConfig.Verbose >= 1))
+    printf("Checking for LBA support in BIOS for drive %02x\n", drive);
 
   memset(driveParam, 0, sizeof *driveParam);
   drive |= 0x80;
@@ -654,27 +664,18 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
 
   init_call_intr(0x13, &regs);
 
-  if (regs.b.x != 0xaa55 || (regs.flags & 0x01))
+  /* LBA not supported at all, or read, write, verify not supported */
+  if (regs.b.x != 0xaa55 || (regs.flags & 0x01) || (regs.c.x & 1) == 0)
   {
     goto StandardBios;
   }
-
-  /* by ralph :
-     if DAP cannot be used, don't use
-     LBA
-   */
-  if (((regs.c.x & 1) == 0) && !ExtLBAForce)
-  {
-    goto StandardBios;
-  }
-
-  /* drive supports LBA addressing */
-  if (firstPass && (InitKernelConfig.Verbose >= 1)) printf("Checking for LBA support in BIOS\n");
 
   /* version 1.0, 2.0 have different verify */
   if (regs.a.x < 0x2100)
-    LBA_WRITE_VERIFY = 0x4301;
+    LBA_WRITE_VERIFY = 0x4301;  /* problematic if INT13 is hooked by
+                                   different controllers / drivers */
 
+  /* query disk size and DMA handling, geometry is queried later by INT13,08 */
   memset(&lba_bios_parameters, 0, sizeof(lba_bios_parameters));
   lba_bios_parameters.size = sizeof(lba_bios_parameters);
 
@@ -690,20 +691,15 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
     goto StandardBios;
   }
 
-  /* verify maximum settings, we can't handle more */
-
   if (lba_bios_parameters.heads > 0xffff ||
       lba_bios_parameters.sectors > 0xffff ||
-      lba_bios_parameters.totalSectHigh != 0)
+      (lba_bios_parameters.totalSect == 0 &&
+       lba_bios_parameters.totalSectHigh == 0))
   {
     if (firstPass) 
     {
-      printf("Drive is too large to handle, ");
-	  if (ExtLBAForce)
-	    printf("limited to 2TB");
-      else
-	    printf("using CHS, limited to 8GB");
-      printf("\nDrive %02x, heads=%lu, sectors=%lu, total=0x%lx-%08lx\n",
+      printf("Suspicious LBA disk parameters, reverting to CHS access:\n");
+      printf("  drive %02x, heads=%lu, sectors=%lu, total=0x%lx-%08lx\n",
            drive,
            (ULONG) lba_bios_parameters.heads,
            (ULONG) lba_bios_parameters.sectors,
@@ -711,12 +707,21 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
            (ULONG) lba_bios_parameters.totalSectHigh);
     }
 
-    if (!ExtLBAForce) goto StandardBios;
+    goto StandardBios;
   }
 
-  driveParam->total_sectors = lba_bios_parameters.totalSect;
+  /* restrict disk size to 2TB, because we can not handle more */
+  if (lba_bios_parameters.totalSectHigh == 0)
+  {
+    driveParam->total_sectors = lba_bios_parameters.totalSect;
+  }
+  else
+  {
+    if (firstPass) printf("Drive %02x is too large to handle, restricted to 2TB\n", drive);
+    driveParam->total_sectors = 0xffffffffu;
+  }
 
-  /* if we arrive here, success */
+  /* if we arrive here, mark drive as LBA capable */
   driveParam->descflags = DF_LBA;
   if (lba_bios_parameters.information & 8)
     driveParam->descflags |= DF_WRTVERIFY;
@@ -736,9 +741,6 @@ StandardBios:                  /* old way to get parameters */
 
   if (regs.flags & 0x01) 
   {
-    /* to avoid division by zero later, use some sane defaults */
-    driveParam->chs.Head = 16;
-    driveParam->chs.Sector = 63;
     goto ErrorReturn;
   }
 
@@ -751,7 +753,18 @@ StandardBios:                  /* old way to get parameters */
   if (driveParam->chs.Sector == 0) {
     /* happens e.g. with Bochs 1.x if no harddisk defined */
     driveParam->chs.Sector = 63; /* avoid division by zero...! */
-    if (firstPass && (InitKernelConfig.Verbose >= 0)) printf("BIOS reported 0 sectors/track, assuming 63!\n");
+    if (firstPass && (InitKernelConfig.Verbose >= 0)) 
+      printf("BIOS reported 0 sectors/track, assuming 63!\n");
+  }
+
+  /* if heads==0, determine from disk size like LBA assisted BIOS translation
+     does, or default to 16 if LBA is not used */
+  if (driveParam->chs.Head == 0) {
+    driveParam->chs.Head = (driveParam->descflags & DF_LBA)
+      ? BIOS_assisted_LBA_heads(driveParam->total_sectors)
+      : 16;
+    if (firstPass && (InitKernelConfig.Verbose >= 0))
+      printf("BIOS reported 0 heads, assuming %u!\n", driveParam->chs.Head);
   }
 
   if (!(driveParam->descflags & DF_LBA))
@@ -769,9 +782,15 @@ StandardBios:                  /* old way to get parameters */
                driveParam->chs.Head, driveParam->chs.Sector));
   DebugPrintf((" total size %luMB\n\n", driveParam->total_sectors / 2048));
 
-ErrorReturn:
-
   return driveParam->driveno;
+
+
+ErrorReturn:
+  /* to avoid division by zero later, use some sane defaults */
+  driveParam->total_sectors = 0;
+  driveParam->chs.Head = 16;
+  driveParam->chs.Sector = 63;
+  return 0;
 }
 
 /*
@@ -997,7 +1016,11 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
 
   for (num_retries = 0; num_retries < N_RETRY; num_retries++)
   {
-	if (InitKernelConfig.Verbose >= 1) printf("retry# %i\n", num_retries);
+    if (InitKernelConfig.Verbose >= 1)
+    {
+        printf("retry# %i sector %lu\n", num_retries, LBA_address);
+    }
+
     regs.d.b.l = drive | 0x80;
     LBA_to_CHS(&chs, LBA_address, driveParam);
     /* Some old "security" software (PROT) traps int13 and assumes non
@@ -1074,6 +1097,9 @@ int ProcessDisk(int scanType, unsigned drive, int PartitionsToIgnore)
 
   RelSectorOffset = 0;          /* boot sector */
   ExtendedPartitionOffset = 0;  /* not found yet */
+  ExtLBAForce = 0;      /* initially we are not dealing with partitions
+                           within a type 0x0E LBA extended partition,
+                           so we do not enforce LBA access by now  */
 
   /* Read the Primary Partition Table. */
 
@@ -1130,7 +1156,7 @@ strange_restart:
     {
       RelSectorOffset = ExtendedPartitionOffset + PTable[iPart].RelSect;
 
-      if (ExtendedPartitionOffset == 0)
+      if (ExtendedPartitionOffset == 0) /* first extended in chain? */
       {
         ExtendedPartitionOffset = PTable[iPart].RelSect;
         /* grand parent LBA -> all children and grandchildren LBA */
@@ -1407,14 +1433,14 @@ void ReadAllPartitionTables(void)
   
   if (InitKernelConfig.Verbose >= 0)
   {
-	unsigned foundPartitionsCount = 0;
+    unsigned foundPartitionsCount = 0;
     /* Tell user if no valid partitions found on any hard drive     */
     for (HardDrive = 0; HardDrive < nHardDisk; HardDrive++)
     {
       foundPartitionsCount += foundPartitions[HardDrive];
     }
-	/* printf("Found %i partitions\n", foundPartitionsCount); */
-	if (!foundPartitionsCount) printf("No supported partitions found.\n");
+    /* printf("Found %i partitions\n", foundPartitionsCount); */
+    if (!foundPartitionsCount) printf("No supported partitions found.\n");
   }
 }
 
