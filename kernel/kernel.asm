@@ -79,6 +79,13 @@ Version_Release             dw 1        ; 0=release build, >0=svn#
 
 CheckDebugger:	            db 0        ; 0 = no check, 1 = check, 2 = assume present
 Verbose	                    db 0        ; -1 = quiet, 0 = normal, 1 = verbose
+
+PartitionMode				db 0x1f		; bits 0-1: 01=GPT if found, 00=MBR if found, 11=Hybrid, GPT first then MBR, 10=Hybrid, MBR first then GPT
+										;           in hybrid mode, EE partitions ignored, drives assigned by GPT or MBR first based on hybrid type
+										; bits 2-4: 001=mount ESP (usually FAT32) partition, 010=mount MS Basic partitions, 100=mount unknown partitions
+										;           111=attempt to mount all paritions, 110=attempt to mount all but ESP partitions
+										; bits 5-7: reserved, 0 else undefined behavior
+
 configend:
 kernel_config_size: equ configend - config_signature
 	; must be below-or-equal the size of struct _KernelConfig

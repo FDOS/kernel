@@ -13,7 +13,7 @@
 *  merged into SYS by tom ehlert                                                                        *
 ***************************************************************************/
 
-char VERSION[] = "v1.04";
+char VERSION[] = "v1.05";
 char PROGRAM[] = "SYS CONFIG";
 char KERNEL[] = "KERNEL.SYS";
 
@@ -134,9 +134,21 @@ int readConfigSettings(int kfile, char *kfilename, KernelConfig * cfg)
     exit(1);
   }
 
-  /* check if config settings old UPX header and adjust */
-  if (cfg->ConfigSize == 19)
-    cfg->ConfigSize = 14;  /* ignore 'nused87654321' */
+  /* check if config settings old UPX header and adjust
+     original UPX header incorrectly set size value to 19,
+     a while back this was fixed and if we ran across a kernel
+     with the wrong value we would update it to 14.  Another bug,
+     the correct value is 6 (possibly 5 if kernel old enough, but
+     we can safely ignore the 'u' value for BootHarddiskSeconds
+     as it won't be used if the kernel doesn't support that option.
+     The "corrected size" incorrectly included the 8 bytes of the CONFIG
+     header ['C','O','N','F','I','G' + WORD ConfigSize ].
+     14 was never valid for a released kernel, so we can safely
+     assume 13 is valid, 15-18 is valid, and >= 20 valid but
+     that a value of 14 or 19 should really be 6.
+  */
+  if ((cfg->ConfigSize == 19) || (cfg->ConfigSize == 14))
+    cfg->ConfigSize = 6;  /* ignore 'nused87654321' */
 
   return 1;
 }
@@ -169,7 +181,7 @@ void displayConfigSettings(KernelConfig * cfg)
     printf
         ("%s kernel %s (build %d.%d OEM:%02X)\n", 
         (cfg->Version_OemID == 0xFD)?"FreeDOS":"DOS-C",
-        cfg->Version_Release?"SVN":"Release",
+        cfg->Version_Release?"Nightly":"Release",
         cfg->Version_Major,
         cfg->Version_Revision,
         cfg->Version_OemID
@@ -228,8 +240,15 @@ void displayConfigSettings(KernelConfig * cfg)
   if (cfg->ConfigSize >= 14)
   {
     printf
-        ("Verbose=%d :            -1=quiet, *0=normal, 1=verbose\n",
+        ("Verbose=%d :                  -1=quiet, *0=normal, 1=verbose\n",
          cfg->Verbose);
+  }
+  
+  if (cfg->ConfigSize >= 15)
+  {
+    printf
+        ("PartitionMode=0x%02X          How GPT or hybrid GPT/MBR partitions used\n",
+         cfg->PartitionMode);
   }
 
 #if 0                           /* we assume that SYS is as current as the kernel */
