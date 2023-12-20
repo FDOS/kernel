@@ -1022,7 +1022,7 @@ int Read1LBASector(struct DriveParamS *driveParam, unsigned drive,
        the extended LBA partition type indicator.
     */
     if ((driveParam->descflags & DF_LBA) &&
-        (InitKernelConfig.ForceLBA || ExtLBAForce || chs.Cylinder > 1023))
+        (InitKernelConfig.ForceLBA || ExtLBAForce || (chs.Cylinder > 1023)))
     {
       if (InitKernelConfig.Verbose >= 1) printf("LBA mode\n");
       dap.number_of_blocks = 1;
@@ -1439,7 +1439,7 @@ void ReadAllPartitionTables(void)
 /* disk initialization: returns number of units */
 COUNT dsk_init()
 {
-  if (InitKernelConfig.Verbose >= 0) printf("\nInitDisk\n");
+  if (InitKernelConfig.Verbose >= 1) printf("\nInitDisk\n");
 
 #if defined(DEBUG) && !defined(DOSEMU)
   {
