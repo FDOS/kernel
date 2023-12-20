@@ -567,7 +567,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
   /* Turn off LBA if not forced and the partition is within 1023 cyls and of the right type */
   /* the FileSystem type was internally converted to LBA_xxxx if a non-LBA partition
      above cylinder 1023 was found */
-  if (!InitKernelConfig.ForceLBA && !ExtLBAForce && !IsLBAPartition(pEntry->FileSystem))
+  if (!(InitKernelConfig.ForceLBA || IsLBAPartition(pEntry->FileSystem) || ExtLBAForce))
     pddt->ddt_descflags &= ~DF_LBA;
   pddt->ddt_ncyl = driveParam->chs.Cylinder;
 
@@ -642,24 +642,27 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
   memset(driveParam, 0, sizeof *driveParam);
   drive |= 0x80;
 
-  /* for tests - disable LBA support,
-     even if exists                    */
+  /* use CHS if LBA support is not enabled by kernel configuration */
   if (!InitKernelConfig.GlobalEnableLBAsupport)
   {
+    if (firstPass && (InitKernelConfig.Verbose >= 1)) printf("LBA support disabled.\n");
     goto StandardBios;
   }
   /* check for LBA support */
   regs.b.x = 0x55aa;
   regs.a.b.h = 0x41;
   regs.d.b.l = drive;
+  regs.flags = FLG_CARRY;  /* ensure carry is set to force error if unsupported */
 
   init_call_intr(0x13, &regs);
 
-  if ((regs.flags & 0x01) || regs.b.x != 0xaa55 || (regs.c.x & 0x01) == 0)
+  if ((regs.flags & FLG_CARRY) || regs.b.x != 0xaa55 || !(regs.c.x & 0x01))
   {
     /* error conditions:
-        carry set or BX != 0xaa55 => no EDD spec compatible BIOS
-        CX bit 1 clear => fixed disc access subset not supported */
+        carry set or BX != 0xaa55 => no EDD spec compatible BIOS (LBA extensions not supported)
+        CX bit 1 is set if BIOS supports fixed disk subset (Disk Address Packet [DAP] subset),
+        or clear if fixed disk access subset not supported by LBA extensions
+    */
     goto StandardBios;
   }
 
@@ -678,7 +681,7 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
   regs.d.b.l = drive;
   init_call_intr(0x13, &regs);
 
-  if (regs.flags & 0x01)
+  if (regs.flags & FLG_CARRY)
   {
     /* carry flag set indicates failed LBA disk parameter query */
     goto StandardBios;
@@ -916,6 +919,7 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
     if (chs.Cylinder > 1023 || end.Cylinder > 1023)
     {
 
+      /* if partition exceeds bounds of CHS addressing but LBA is not supported then skip partition */
       if (!(driveParam->descflags & DF_LBA))
       {
         printf
@@ -929,8 +933,11 @@ BOOL ScanForPrimaryPartitions(struct DriveParamS * driveParam, int scan_type,
         continue;
       }
 
-      if (!InitKernelConfig.ForceLBA && !ExtLBAForce 
-          && !IsLBAPartition(pEntry->FileSystem))
+      /* if partition exceeds bounds of CHS addressing and we can use LBA 
+	     but partition type indicates to use CHS then print warning 
+         and force internal filesystem indicator to enable LBA
+      */
+      if (!(InitKernelConfig.ForceLBA || IsLBAPartition(pEntry->FileSystem) || ExtLBAForce))
       {
         printf
             ("WARNING: Partition ID does not suggest LBA - part %s FS %02x.\n"
