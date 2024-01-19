@@ -216,6 +216,10 @@ c6:
                 jmp     short c5
                 
 boot_error:
+		mov ax, 0E00h | '!'
+		int 10h				; display the error sign
+		mov al, 07h
+		int 10h				; beep
 		xor	ah,ah
 		int	0x16			; wait for a key
 		int	0x19			; reboot the machine
