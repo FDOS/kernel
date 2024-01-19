@@ -388,8 +388,10 @@ read_ok:
                 mov     es, cx
 
 no_incr_es:
-                add     ax,byte 1
-                adc     dx,byte 0
+		inc ax
+		jnz .no_carry
+		inc dx
+.no_carry:
                 ret
 
        times   0x01f1-$+$$ db 0
