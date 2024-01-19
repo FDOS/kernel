@@ -236,8 +236,7 @@ next_cluster:
 cn_loop:
                 shr     dx,1
                 rcr     ax,1
-                dec     cx
-                jnz     cn_loop                ; DX:AX fat sector where our
+                loop    cn_loop                ; DX:AX fat sector where our
                                                ; cluster resides
                                                ; DI - cluster index in this
                                                ; sector
