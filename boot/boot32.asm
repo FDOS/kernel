@@ -306,6 +306,7 @@ c3:
                 adc     dx, [data_start + 2]
                 ret
 
+%if 0
 ; prints text after call to this function.
 
 print_1char:        
@@ -318,7 +319,8 @@ print1:         lodsb                          ; get token
                 cmp   al, 0                    ; end of string?
                 jne   print_1char              ; until done
                 ret                            ; and jump to it
-                
+%endif
+
 ;input:
 ;   DX:AX - 32-bit DOS sector number
 ;   ES:BX - destination buffer
