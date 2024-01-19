@@ -242,7 +242,9 @@ rk_walk_fat:	pop	eax
 		
 ;-----------------------------------------------------------------------
 
-boot_success:	mov	bl, [drive]
+boot_success:
+		mov dl, [drive]			; for Enhanced DR-DOS load
+		mov bl, dl			; for FreeDOS load
 		jmp	far [loadsegoff_60]
 
 ;-----------------------------------------------------------------------
