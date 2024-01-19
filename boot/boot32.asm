@@ -144,7 +144,7 @@ secshift:	inc	ax
 		shr	cx, 1
 		cmp	cx, 1
 		jne	secshift
-		mov	byte [fat_secshift], al
+		mov	word [fat_secshift], ax
 		dec	cx
  
 ;       FINDFILE: Searches for the file in the root directory.
