@@ -477,10 +477,10 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       maxcl = FAT16MAX;
     }
 
-    DebugPrintf(("%ld sectors for FAT+data, starting with %d sectors/cluster\n", fatdata, defbpb->bpb_nsector));
+    DebugPrintf(("%lu sectors for FAT+data, starting with %u sectors/cluster\n", fatdata, defbpb->bpb_nsector));
     do
     {
-      DebugPrintf(("Trying with %d sectors/cluster:\n", defbpb->bpb_nsector));
+      DebugPrintf(("Trying with %u sectors/cluster:\n", defbpb->bpb_nsector));
       divisor = fatentpersec * defbpb->bpb_nsector + NFAT; /* # of fat entries per cluster + 2 */
       rest = (unsigned)(fatdata % divisor);
       fatlength  = (CLUSTER)(fatdata / divisor);
@@ -494,7 +494,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       if (maxclust > maxcl)
         maxclust = maxcl;
       DebugPrintf(("FAT: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%lu\n",
-                   clust, fatlength, maxclust, maxcl));
+                   (ULONG)clust, fatlength, maxclust, (ULONG)maxcl));
       if (clust > maxclust - 2)
       {
         clust = 0;
