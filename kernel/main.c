@@ -532,20 +532,35 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
   COUNT nunits = dhp->dh_name[0];
   struct dpb FAR *dpb;
 
+  /* printf("nblkdev = %i\n", LoL->nblkdev); */
+  
+  /* if no units, nothing to do, ensure at least 1 unit for rest of logic */
+  if (nunits == 0) return;
+
+  /* allocate memory for new device control blocks, insert into chain [at end], and update our pointer to new end */
+  dpb = (struct dpb FAR *)KernelAlloc(nunits * sizeof(struct dpb), 'E', Config.cfgDosDataUmb);
+  
+  /* find end of dpb chain or initialize root if needed */
   if (LoL->nblkdev == 0)
-    dpb = LoL->DPBp;
+  {
+    /* update root pointer to new end (our just allocated block) */
+    LoL->DPBp = dpb;
+  }  
   else
   {
-    for (dpb = LoL->DPBp; (ULONG) dpb->dpb_next != 0xffffffffl;
-         dpb = dpb->dpb_next)
+    struct dpb FAR *tmp_dpb;
+    /* find current end of dpb chain by following next pointers to end */
+    for (tmp_dpb = LoL->DPBp; (ULONG) tmp_dpb->dpb_next != 0xffffffffl; tmp_dpb = dpb->dpb_next)
       ;
-    dpb = dpb->dpb_next =
-      KernelAlloc(nunits * sizeof(struct dpb), 'E', Config.cfgDosDataUmb);
+    /* insert into chain [at end] */
+    tmp_dpb->dpb_next = dpb;
   }
+  /* dpb points to last block, one just allocated */
 
   for (Index = 0; Index < nunits; Index++)
-  {
-    dpb->dpb_next = dpb + 1;
+  {		
+    /* printf("processing unit %i of %i nunits\n", Index, nunits); */
+    dpb->dpb_next = dpb + 1;  /* memory allocated as array, so next is just next element */
     dpb->dpb_unit = LoL->nblkdev;
     dpb->dpb_subunit = Index;
     dpb->dpb_device = dhp;
@@ -555,10 +570,14 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
       LoL->CDSp[LoL->nblkdev].cdsDpb = dpb;
       LoL->CDSp[LoL->nblkdev].cdsFlags = CDSPHYSDRV;
     }
-    ++dpb;
+	
+    ++dpb;  /* dbp = dbp->dpb_next; */
     ++LoL->nblkdev;
   }
+  /* note that always at least 1 valid dpb due to above early exit if nunits==0 */
   (dpb - 1)->dpb_next = (void FAR *)0xFFFFFFFFl;
+
+  /* printf("processed %i nunits\n", nunits); */
 }
 
 /* If cmdLine is NULL, this is an internal driver */
