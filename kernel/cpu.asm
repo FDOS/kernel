@@ -48,6 +48,22 @@ CPU 386
         and  ax, 0f000h
         cmp  ax, 0f000h
         jnz  is286  ; no the 4 msb stuck set to 1, so is a 808x or 8018x
+        ; NEC V20/V30 support 186 instructions but
+        ; do not mask the shift count like a 186.
+        ; based on https://hg.pushbx.org/ecm/ldebug/file/7f3440d5824d/source/init.asm#l3071
+        ; which is based on http://www.textfiles.com/hamradio/v20_bug.txt
+        mov  ax, sp ; we use stack to do test
+        mov  cx, 1  ; after pop still 1 if 8088/8086
+		push cx
+		dec  cx     ; after pop still 0 if NEC V20/V30
+		; next instructions may lock system if breakpoint or trace flag set
+		db 8Fh, 0C1h; pop r/m16 with operand cx on 808x, nop on NEC V20/V30
+		mov  sp, ax ; reset stack to known good state (pre push, optional pop)
+		xor  cx, cx ; cx is 1 if NEC, 0 if 808x
+		jz   is808x 
+		mov  bx, cx
+		jmp  short cleanup
+is808x:
         mov  ax,1   ; determine if 8086 or 186
         mov  cl,64  ; try to shift further than size of ax
         shr  ax,cl
