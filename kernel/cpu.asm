@@ -53,15 +53,15 @@ CPU 386
         ; based on https://hg.pushbx.org/ecm/ldebug/file/7f3440d5824d/source/init.asm#l3071
         ; which is based on http://www.textfiles.com/hamradio/v20_bug.txt
         mov  ax, sp ; we use stack to do test
-        mov  cx, 1  ; after pop still 1 if 8088/8086
+        mov  cx, 0  ; after pop still 0 if 8088/8086
 		push cx
-		dec  cx     ; after pop still 0 if NEC V20/V30
+		inc  cx     ; after pop still 1 if NEC V20/V30
 		; next instructions may lock system if breakpoint or trace flag set
 		db 8Fh, 0C1h; pop r/m16 with operand cx on 808x, nop on NEC V20/V30
 		mov  sp, ax ; reset stack to known good state (pre push, optional pop)
-		xor  cx, cx ; cx is 1 if NEC, 0 if 808x
-		jz   is808x 
-		mov  bx, cx
+		or   cx, cx ; cx is 0 if 808x, 1 if NEC
+		jz   is808x ; if not NEC then goto test for 808x vs 8018x
+		mov  bx, cx ; treat NEC V20/V30 as 8018x, i.e. return 1
 		jmp  short cleanup
 is808x:
         mov  ax,1   ; determine if 8086 or 186
