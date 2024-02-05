@@ -461,6 +461,8 @@ STATIC VOID signon()
     " - 80386 CPU required"
 #elif defined (I186)
     " - 80186 CPU required"
+#else
+	" - 808x compatible"
 #endif
 
 #ifdef WITHFAT32
