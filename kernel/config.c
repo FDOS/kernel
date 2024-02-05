@@ -213,7 +213,7 @@ STATIC VOID DoMenu(void);
 STATIC VOID CfgMenuDefault(BYTE * pLine);
 STATIC BYTE * skipwh(BYTE * s);
 STATIC int iswh(unsigned char c);
-STATIC BYTE * scan(BYTE * s, BYTE * d);
+STATIC BYTE * scan(BYTE * s, BYTE * d, int fMenuSelect);
 STATIC BOOL isnum(char ch);
 #if 0
 STATIC COUNT tolower(COUNT c);
@@ -978,7 +978,7 @@ VOID DoConfig(int nPass)
     DebugPrintf(("CONFIG=[%s]\n", szLine));
 
     /* Skip leading white space and get verb.               */
-    pLine = scan(szLine, szBuf);
+    pLine = scan(szLine, szBuf, 1);
 
     /* If the line was blank, skip it.  Otherwise, look up  */
     /* the verb and execute the appropriate function.       */
@@ -1210,7 +1210,7 @@ STATIC char *GetNumArg(char *p, int *num)
 BYTE *GetStringArg(BYTE * pLine, BYTE * pszString)
 {
   /* just return whatever string is there, including null         */
-  return scan(pLine, pszString);
+  return scan(pLine, pszString, 0);
 }
 
 STATIC void Config_Buffers(BYTE * pLine)
@@ -2030,7 +2030,7 @@ STATIC BYTE * skipwh(BYTE * s)
   return s;
 }
 
-STATIC BYTE * scan(BYTE * s, BYTE * d)
+STATIC BYTE * scan(BYTE * s, BYTE * d, int fMenuSelect)
 {
   askThisSingleCommand = FALSE;
   DontAskThisSingleCommand = FALSE;
@@ -2039,9 +2039,12 @@ STATIC BYTE * scan(BYTE * s, BYTE * d)
 
   MenuLine = 0;
 
+  /* only check at beginning of line, ie when looking for
+     menu selection line applies to.  Fixes issue where
+	 value after = starts with number, eg shell=4dos */
   /* does the line start with "123?" */
 
-  if (isnum(*s))
+  if (fMenuSelect && isnum(*s))
   {
     unsigned numbers = 0;
     for ( ; isnum(*s); s++)
