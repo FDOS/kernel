@@ -494,7 +494,7 @@ VOID CalculateFATData(ddt * pddt, ULONG NumSectors, UBYTE FileSystem)
       if (maxclust > maxcl)
         maxclust = maxcl;
       DebugPrintf(("FAT: #clu=%lu, fatlen=%lu, maxclu=%lu, limit=%lu\n",
-                   (ULONG)clust, fatlength, maxclust, (ULONG)maxcl));
+                   clust, (ULONG)fatlength, maxclust, (ULONG)maxcl));
       if (clust > maxclust - 2)
       {
         clust = 0;
