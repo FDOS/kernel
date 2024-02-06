@@ -1762,6 +1762,7 @@ void put_boot(SYSOptions *opts)
   
   {
     int i = 0;
+    /* magic offset: (first) kernel filename */
     memset(&newboot[0x1f1], ' ', 11);
     while (opts->kernel.kernel[i] && opts->kernel.kernel[i] != '.')
     {
