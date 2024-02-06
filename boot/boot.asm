@@ -99,7 +99,7 @@ Entry:          jmp     short real_start
 
 %define LOADSEG         0x0060
 
-%define CLUSTLIST       0x2000          ; offset of temporary buffer for FAT
+%define CLUSTLIST       0x2200          ; offset of temporary buffer for FAT
                                         ; chain cluster list
 
 ;       Some extra variables
