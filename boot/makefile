@@ -13,10 +13,10 @@ fat12com.bin:    boot.asm magic.mac
 fat16com.bin:    boot.asm magic.mac
 		$(NASM) -dISFAT16 $(NASMBOOTFLAGS) boot.asm -l$*.lst -ofat16com.bin
 
-fat32chs.bin:    boot32.asm
+fat32chs.bin:    boot32.asm magic.mac
 		$(NASM) $(NASMBOOTFLAGS) boot32.asm -l$*.lst -ofat32chs.bin
 
-fat32lba.bin:    boot32lb.asm
+fat32lba.bin:    boot32lb.asm magic.mac
 		$(NASM) $(NASMBOOTFLAGS) boot32lb.asm -l$*.lst -ofat32lba.bin
 
 oemfat12.bin:   oemboot.asm

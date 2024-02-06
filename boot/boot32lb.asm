@@ -53,6 +53,11 @@
 ;  We support values between 0x60 and 0x200 here, with file size
 ;  of up to 128 KiB (rounded to cluster size). Default is 0x60.
 
+                ; NOTE: sys must be updated if magic offsets change
+%assign ISFAT1216DUAL 0
+	%include "magic.mac"
+
+
 segment	.text
 
 		org	0x7c00		; this is a boot sector
@@ -129,7 +134,9 @@ real_start:	cld
 		rep	movsw		; move boot code to the 0x1FE0:0x0000
 		jmp	word 0x1FE0:cont
 
-loadseg_off	dw	0, LOADSEG
+loadseg_off	dw	0
+	magicoffset "loadseg", 78h
+		dw	LOADSEG
 
 ; -------------
 
@@ -137,6 +144,7 @@ cont:		mov	ds, ax
 		mov	ss, ax		; stack and BP-relative moves up, too
                 lea     sp, [bp-0x20]
 		sti
+	magicoffset "set unit", 82h
 		mov	[drive], dl	; BIOS passes drive number in DL
 
 %ifndef QUIET
@@ -413,6 +421,7 @@ msg_BootError	db "No "
 		; currently, only "kernel.sys not found" gives a message,
 		; but read errors in data or root or fat sectors do not.
 
+	magicoffset "kernel name", 1F1h
 filename	db "KERNEL  SYS"
 
 sign		dw 0, 0xAA55

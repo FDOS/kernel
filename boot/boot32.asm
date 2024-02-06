@@ -28,6 +28,10 @@
 
 ;%define MULTI_SEC_READ  1
 
+                ; NOTE: sys must be updated if magic offsets change
+%assign ISFAT1216DUAL 0
+	%include "magic.mac"
+
 
 segment	.text
 
@@ -96,12 +100,14 @@ real_start:     cld
 		jmp     word 0x1FE0:cont
 
 loadseg_off	dw	0
+	magicoffset "loadseg", 78h
 loadseg_seg	dw	LOADSEG
 
 cont:           mov     ds, ax
                 mov     ss, ax
                 lea     sp, [bp-0x20]
 		sti
+	magicoffset "set unit", 82h
                 mov     [drive], dl     ; BIOS passes drive number in DL
 
 ;                call    print
@@ -401,6 +407,7 @@ no_incr_es:
 
        times   0x01f1-$+$$ db 0
 
+	magicoffset "kernel name", 1F1h
 filename        db      "KERNEL  SYS",0,0
 
 sign            dw      0xAA55
