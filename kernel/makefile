@@ -44,7 +44,7 @@ kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 
 ../bin/country.sys:
 	cd ..$(DIRSEP)country
-        $(MAKE) all
+	$(MAKE) all
 	$(CP) ..$(DIRSEP)country$(DIRSEP)country.sys ..$(DIRSEP)bin$(DIRSEP)country.sys
 
 clobber:        clean
