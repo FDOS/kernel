@@ -44,22 +44,33 @@ _appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
 %endif
 %endmacro
 
-	%macro magicoffset 3.nolist
-%ifdef ISFAT12
+	%macro magicoffset 2-3.nolist
+%if ISFAT1216DUAL
+ %ifdef ISFAT12
   %define SYSOFFSET %2
-%elifdef ISFAT16
+ %elifdef ISFAT16
   %define SYSOFFSET %3
-%else
+ %else
   %define SYSOFFSET 0
                 ; Just a placeholder, so the proper error message
                 ;  will be shown when assembling without either
                 ;  of the ISFATx defines.
+ %endif
+%else
+ %define SYSOFFSET %2
+ %ifnempty %3
+  %error Not in dual mode
+ %endif
 %endif
 %assign NEWOFFSET $ - Entry
 %if NEWOFFSET != SYSOFFSET
  _autohexitsstrdef NEWOFFSETHEX, NEWOFFSET
  %strcat _NEWOFFSETHEX _NEWOFFSETHEX,'h'
  %deftok NEWOFFSET _NEWOFFSETHEX
- %error Magic offset %1 changed for FATFS, old=SYSOFFSET, new=NEWOFFSET
+ %if ISFAT1216DUAL
+  %error Magic offset %1 changed for FATFS, old=SYSOFFSET, new=NEWOFFSET
+ %else
+  %error Magic offset %1 changed, old=SYSOFFSET, new=NEWOFFSET
+ %endif
 %endif
 	%endmacro
