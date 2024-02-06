@@ -1723,8 +1723,8 @@ void put_boot(SYSOptions *opts)
         ((int *)newboot)[0x11A/sizeof(int)] = opts->kernel.loadaddr;
       } else {
         /* magic offset: jmp LOADSEG:xxxxh */
-        defaultload = ((int *)newboot)[0x119/sizeof(int)];
-        ((int *)newboot)[0x119/sizeof(int)] = opts->kernel.loadaddr;
+        defaultload = ((int *)newboot)[0x118/sizeof(int)];
+        ((int *)newboot)[0x118/sizeof(int)] = opts->kernel.loadaddr;
       }
       if (defaultload != 0x0 && defaultload != 0x200) {
         printf("%s: Internal error: OEM FAT1%c load ofs unexpected content\n",
