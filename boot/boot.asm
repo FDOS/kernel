@@ -33,16 +33,16 @@
 ;	|BOOTSEC| loader relocates itself here first thing,
 ;	|RELOC.	|  before loading root directory/FAT/kernel file
 ;	|-------| 1FE0h:7C00h = 27A00h (158 KiB)
-;	|  gap  |
+;	|  gap  | PARAMS live here
 ;	|LBA PKT| LBA disk packet
 ;	|-------| 1FE0h:7BC0h = 279C0h (158 KiB)
-;	|  gap  |
+;	|  gap  | READADDR_* live here
 ;	|-------| 1FE0h:7BA0h = 279A0h (158 KiB)
-;	| STACK | below relocated loader, above sector buffer (size 2 KiB)
+;	| STACK | below relocated loader, above sector buffer (size 5.9 KiB)
 ;	...
-;	|-------|
-;	|SEC.BUF| sector buffer, used to avoid crossing 64 KiB DMA boundary
-;	|-------| 1FE0h:63A0h = 261A0h (152 KiB)
+;	|-------| 1FE0h:6400h = 26200h (152 KiB)
+;	|SEC.BUF| sector buffer, to avoid crossing 64 KiB DMA boundary (size 8 KiB)
+;	|-------| 1FE0h:4400h = 24200h (144 KiB)
 ;	...
 ;	|-------| 1FE0h:4380h = 24182h (144 KiB)
 ;	|CLUSTER| built from FAT, listing every cluster of the kernel file.
@@ -155,9 +155,9 @@ Entry:          jmp     short real_start
 %define LBA_SECTOR_32  word [LBA_PACKET+12]
 %define LBA_SECTOR_48  word [LBA_PACKET+14]
 
-%define READBUF 0x63A0 ; max 4KB buffer (min 2KB stack), == stacktop-0x1800
-%define READADDR_OFF   BP-0x60-0x1804    ; pointer within user buffer
-%define READADDR_SEG   BP-0x60-0x1802
+%define READBUF 0x4400                      ; max 8 KiB buffer
+%define READADDR_OFF   word BP-0x60         ; pointer within user buffer
+%define READADDR_SEG   word BP-0x60+2
 
 %define PARAMS LBA_PACKET+0x10
 ;%define RootDirSecs     PARAMS+0x0         ; # of sectors root dir uses
