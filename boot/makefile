@@ -19,10 +19,10 @@ fat32chs.bin:    boot32.asm magic.mac
 fat32lba.bin:    boot32lb.asm magic.mac
 		$(NASM) $(NASMBOOTFLAGS) boot32lb.asm -l$*.lst -ofat32lba.bin
 
-oemfat12.bin:   oemboot.asm
+oemfat12.bin:   oemboot.asm magic.mac
 		$(NASM) -dISFAT12 $(NASMBOOTFLAGS) oemboot.asm -l$*.lst -ooemfat12.bin
 
-oemfat16.bin:   oemboot.asm
+oemfat16.bin:   oemboot.asm magic.mac
 		$(NASM) -dISFAT16 $(NASMBOOTFLAGS) oemboot.asm -l$*.lst -ooemfat16.bin
 
 clobber:        clean
