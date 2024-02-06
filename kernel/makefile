@@ -43,8 +43,9 @@ kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
 
 ../bin/country.sys:
+	# warning, both cd and -C options required, cd for wmake, -C for gmake
 	cd ..$(DIRSEP)country
-	$(MAKE) all
+	$(MAKE) -C ..$(DIRSEP)country all
 	$(CP) ..$(DIRSEP)country$(DIRSEP)country.sys ..$(DIRSEP)bin$(DIRSEP)country.sys
 
 clobber:        clean
