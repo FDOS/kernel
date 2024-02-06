@@ -1719,8 +1719,8 @@ void put_boot(SYSOptions *opts)
       /* this however changes the offset jumped to default 0x70:0       */
       if (fs == FAT12) {
         /* magic offset: jmp LOADSEG:xxxxh */
-        defaultload = ((int *)newboot)[0x11c/sizeof(int)];
-        ((int *)newboot)[0x11c/sizeof(int)] = opts->kernel.loadaddr;
+        defaultload = ((int *)newboot)[0x11A/sizeof(int)];
+        ((int *)newboot)[0x11A/sizeof(int)] = opts->kernel.loadaddr;
       } else {
         /* magic offset: jmp LOADSEG:xxxxh */
         defaultload = ((int *)newboot)[0x119/sizeof(int)];
