@@ -1656,12 +1656,12 @@ void put_boot(SYSOptions *opts)
     if (opts->kernel.stdbs)
     {
       /* magic offset: loadsegoff_60 */
-      int defaultload = ((int *)newboot)[0x78/sizeof(int)];
+      int defaultload = *(int *)(&newboot[0x78]);
       if (defaultload != 0x60 && defaultload != 0x70) {
         printf("%s: Internal error: FAT32 load seg unexpected content\n", pgm);
         exit(1);
       }
-      ((int *)newboot)[0x78/sizeof(int)] = opts->kernel.loadaddr;
+      *(int *)(&newboot[0x78]) = opts->kernel.loadaddr;
       bsBiosMovOff = 0x82;	/* magic offset: mov byte [bp + 40h], dl */
     }
     else /* compatible bs */
@@ -1702,14 +1702,14 @@ void put_boot(SYSOptions *opts)
     if (opts->kernel.stdbs)
     {
       /* magic offset: loadsegoff_60 */
-      int defaultload = ((int *)newboot)[0x5C/sizeof(int)];
+      int defaultload = *(int *)(&newboot[0x5C]);
       if (defaultload != 0x60 && defaultload != 0x70) {
         printf("%s: Internal error: FAT1%c load seg unexpected content\n",
         	pgm, fs == FAT12 ? '2' : '6');
         exit(1);
       }
       /* this sets the segment we load the kernel to, default is 0x60:0 */
-      ((int *)newboot)[0x5c/sizeof(int)] = opts->kernel.loadaddr;
+      *(int *)(&newboot[0x5C]) = opts->kernel.loadaddr;
       bsBiosMovOff = 0x66;	/* magic offset: mov byte [bp + 24h], dl */
     }
     else
@@ -1719,12 +1719,12 @@ void put_boot(SYSOptions *opts)
       /* this however changes the offset jumped to default 0x70:0       */
       if (fs == FAT12) {
         /* magic offset: jmp LOADSEG:xxxxh */
-        defaultload = ((int *)newboot)[0x11A/sizeof(int)];
-        ((int *)newboot)[0x11A/sizeof(int)] = opts->kernel.loadaddr;
+        defaultload = *(int *)(&newboot[0x11A]);
+        *(int *)(&newboot[0x11A]) = opts->kernel.loadaddr;
       } else {
         /* magic offset: jmp LOADSEG:xxxxh */
-        defaultload = ((int *)newboot)[0x118/sizeof(int)];
-        ((int *)newboot)[0x118/sizeof(int)] = opts->kernel.loadaddr;
+        defaultload = *(int *)(&newboot[0x118]);
+        *(int *)(&newboot[0x118]) = opts->kernel.loadaddr;
       }
       if (defaultload != 0x0 && defaultload != 0x200) {
         printf("%s: Internal error: OEM FAT1%c load ofs unexpected content\n",
