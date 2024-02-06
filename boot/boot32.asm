@@ -66,7 +66,7 @@ Entry:          jmp     short real_start
 
 %define LOADSEG         0x0060
 
-%define FATSEG          0x2000
+%define FATSEG          0x2200
 
 %define fat_sector      bp+0x48         ; last accessed sector of the FAT
 
