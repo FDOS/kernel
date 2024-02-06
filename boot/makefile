@@ -7,10 +7,10 @@
 
 production:     fat12com.bin fat16com.bin fat32chs.bin fat32lba.bin oemfat12.bin oemfat16.bin
 
-fat12com.bin:    boot.asm
+fat12com.bin:    boot.asm magic.mac
 		$(NASM) -dISFAT12 $(NASMBOOTFLAGS) boot.asm -l$*.lst -ofat12com.bin
 
-fat16com.bin:    boot.asm
+fat16com.bin:    boot.asm magic.mac
 		$(NASM) -dISFAT16 $(NASMBOOTFLAGS) boot.asm -l$*.lst -ofat16com.bin
 
 fat32chs.bin:    boot32.asm
