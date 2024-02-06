@@ -1,31 +1,30 @@
-;	+--------+
-;	|        |
-;	|        |
-;	|--------| 4000:0000
-;	|        |
-;	|  FAT   |
-;	|        |
-;	|--------| 2000:0000
-;	|BOOT SEC|
-;	|RELOCATE|
-;	|--------| 1FE0:0000
-;	|        |
-;	|        |
-;	|        |
-;	|        |
-;	|--------|
-;	|BOOT SEC|
-;	|ORIGIN  | 07C0:0000
-;	|--------|
-;	|        |
-;	|        |
-;	|        |
-;	|--------|
-;	|KERNEL  |
-;	|LOADED  |
-;	|--------| 0060:0000
-;	|        |
-;	+--------+
+
+; Memory layout for the FreeDOS FAT32 single stage boot process:
+;
+;	...
+;	|-------| 1FE0h:7E00h = 27C00h (159 KiB)
+;	|BOOTSEC| loader relocates itself here first thing,
+;	|RELOC.	|  before loading root directory/FAT/kernel file
+;	|-------| 1FE0h:7C00h = 27A00h (158 KiB)
+;	| STACK | below relocated loader, above FAT sector (size 22 KiB)
+;	...
+;	|-------| 2200h:2000h = 24000h (144 KiB)
+;	|  FAT  | (only 1 sector buffered, maximum sector size 8 KiB)
+;	|-------| 2200h:0000h = 22000h (136 KiB)
+;	...
+;	|-------| 0000h:7E00h = 07E00h (31.5 KiB)
+;	|BOOTSEC| overwritten by the kernel, so the
+;	|ORIGIN | bootsector relocates itself up...
+;	|-------| 0000h:7C00h = 07C00h (31 KiB)
+;	...
+;	|-------|
+;	|KERNEL	| maximum size 128 KiB (overwrites bootsec origin)
+;	|LOADED	| (holds 1 sector directory buffer before kernel file load)
+;	|-------| 0060h:0000h = 00600h (1.5 KiB)
+;	...
+; The kernel load segment may be patched using the SYS /L switch.
+;  We support values between 0x60 and 0x200 here, with file size
+;  of up to 128 KiB (rounded to cluster size). Default is 0x60.
 
 ;%define MULTI_SEC_READ  1
 
