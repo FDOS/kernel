@@ -88,6 +88,24 @@
   %error Must select one FS
 %endif
 
+                ; NOTE: sys must be updated if magic offsets change
+	%macro magicoffset 3.nolist
+%ifdef ISFAT12
+  %define SYSOFFSET %2
+%elifdef ISFAT16
+  %define SYSOFFSET %3
+%else
+  %define SYSOFFSET 0
+                ; Just a placeholder, so the proper error message
+                ;  will be shown when assembling without either
+                ;  of the ISFATx defines.
+%endif
+%assign NEWOFFSET $ - Entry
+%if NEWOFFSET != SYSOFFSET
+ %error Magic offset %1 changed for FATFS, old=SYSOFFSET, new=NEWOFFSET
+%endif
+	%endmacro
+
 
 segment .text
 
@@ -447,21 +465,7 @@ read_next:
                 mov     bx,055aah               ;
                 mov     dl, [drive]
 
-                ; NOTE: sys must be updated if location changes!!!
-%ifdef ISFAT12
-  %define LBA_TEST_OFFSET 17Bh
-%elifdef ISFAT16
-  %define LBA_TEST_OFFSET 178h
-%else
-  %define LBA_TEST_OFFSET 0
-                ; Just a placeholder, so the proper error message
-                ;  will be shown when assembling without either
-                ;  of the ISFATx defines.
-%endif
-%if ($ - Entry) != LBA_TEST_OFFSET
- %assign NEWOFFSET $ - Entry
- %error Magic offset to LBA detection changed for FATFS, old=LBA_TEST_OFFSET, new=NEWOFFSET
-%endif
+	magicoffset "LBA detection", 17Bh, 178h
                 test    dl,dl                   ; don't use LBA addressing on A:
                 jz      read_normal_BIOS        ; might be a (buggy)
                                                 ; CDROM-BOOT floppy emulation
