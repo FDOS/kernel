@@ -459,7 +459,8 @@ read_next:
                 ;  of the ISFATx defines.
 %endif
 %if ($ - Entry) != LBA_TEST_OFFSET
-    %error Must update constant offset (LBA_TEST_OFFSET) to test dl,dl here and in sys.c for FATFS
+ %assign NEWOFFSET $ - Entry
+ %error Magic offset to LBA detection changed for FATFS, old=LBA_TEST_OFFSET, new=NEWOFFSET
 %endif
                 test    dl,dl                   ; don't use LBA addressing on A:
                 jz      read_normal_BIOS        ; might be a (buggy)
