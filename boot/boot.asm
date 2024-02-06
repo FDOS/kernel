@@ -264,6 +264,7 @@ real_start:
                 jmp     word 0x1FE0:cont
 
 loadseg_off     dw      0
+	magicoffset "loadseg", 5Ch, 5Ch
 loadseg_seg     dw      LOADSEG
 
 cont:
@@ -276,6 +277,7 @@ cont:
 ; in DL, however we work around this in SYS.COM by NOP'ing out the use of DL
 ; (formerly we checked for [drive]==0xff; update sys.c if code moves)
 ;
+	magicoffset "set unit", 66h, 66h
                 mov     [drive], dl     ; rely on BIOS drive number in DL
 
                 mov     LBA_SIZE, 10h
@@ -616,6 +618,7 @@ do_int13_read:
 
        times   0x01f1-$+$$ db 0
 
+	magicoffset "kernel name", 1F1h, 1F1h
 filename        db      "KERNEL  SYS",0,0
 
 sign            dw      0xAA55
