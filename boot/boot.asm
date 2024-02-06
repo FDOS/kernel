@@ -99,8 +99,8 @@ Entry:          jmp     short real_start
 
 %define LOADSEG         0x0060
 
-%define FATBUF          0x2000          ; offset of temporary buffer for FAT
-                                        ; chain
+%define CLUSTLIST       0x2000          ; offset of temporary buffer for FAT
+                                        ; chain cluster list
 
 ;       Some extra variables
 
@@ -294,7 +294,7 @@ ffDone:
                 push    ds
                 pop     es
                 mov     ds, [loadseg_60]
-                mov     di, FATBUF
+                mov     di, CLUSTLIST
 
 next_clust:     stosw                           ; store cluster number
                 mov     si, ax                  ; SI = cluster number
@@ -351,7 +351,7 @@ finished:       ; Mark end of FAT chain with 0, so we have a single
 
                 les     bx, [loadsegoff_60]   ; set ES:BX to load address 60:0
 
-                mov     si, FATBUF      ; set DS:SI to the FAT chain
+                mov     si, CLUSTLIST           ; set DS:SI to the FAT chain
 
 cluster_next:   lodsw                           ; AX = next cluster to read
                 or      ax, ax                  ; EOF?
