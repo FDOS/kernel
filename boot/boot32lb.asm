@@ -85,7 +85,7 @@ Entry:		jmp	short real_start
 
 %define LOADSEG		0x0060
 
-%define FATSEG		0x2000
+%define FATSEG		0x2200
 
 %define	fat_secshift	fat_afterss-1	; each fat sector describes 2^??
 					; clusters (db) (selfmodifying)
