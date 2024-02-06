@@ -24,37 +24,58 @@
 ; License along with DOS-C; see the file COPYING.  If not,
 ; write to the Free Software Foundation, 675 Mass Ave,
 ; Cambridge, MA 02139, USA.
-;
-;
-;       +--------+ 1FE0:7E00
-;       |BOOT SEC|
-;       |RELOCATE|
-;       |--------| 1FE0:7C00
-;       |LBA PKT |
-;       |--------| 1FE0:7BC0
-;       |--------| 1FE0:7BA0
-;       |BS STACK|
-;       |--------|
-;       |4KBRDBUF| used to avoid crossing 64KB DMA boundary
-;       |--------| 1FE0:63A0
-;       |        |
-;       |--------| 1FE0:3000
-;       | CLUSTER|
-;       |  LIST  |
-;       |--------| 1FE0:2000
-;       |        |
-;       |--------| 0000:7E00
-;       |BOOT SEC| overwritten by max 128k FAT buffer
-;       |ORIGIN  | and later by max 134k loaded kernel
-;       |--------| 0000:7C00
-;       |        |
-;       |--------|
-;       |KERNEL  | also used as max 128k FAT buffer
-;       |LOADED  | before kernel loading starts
-;       |--------| 0060:0000
-;       |        |
-;       +--------+
 
+
+; Memory layout for the FreeDOS FAT12/FAT16 boot process:
+;
+;	...
+;	|-------| 1FE0h:7E00h = 27C00h (159 KiB)
+;	|BOOTSEC| loader relocates itself here first thing,
+;	|RELOC.	|  before loading root directory/FAT/kernel file
+;	|-------| 1FE0h:7C00h = 27A00h (158 KiB)
+;	|  gap  |
+;	|LBA PKT| LBA disk packet
+;	|-------| 1FE0h:7BC0h = 279C0h (158 KiB)
+;	|  gap  |
+;	|-------| 1FE0h:7BA0h = 279A0h (158 KiB)
+;	| STACK | below relocated loader, above sector buffer (size 2 KiB)
+;	...
+;	|-------|
+;	|SEC.BUF| sector buffer, used to avoid crossing 64 KiB DMA boundary
+;	|-------| 1FE0h:63A0h = 261A0h (152 KiB)
+;	...
+;	|-------| 1FE0h:4380h = 24182h (144 KiB)
+;	|CLUSTER| built from FAT, listing every cluster of the kernel file.
+;	| LIST  |  file <= 134 KiB, cluster >= 32 Byte, hence <= 8578 B list.
+;	|-------| 1FE0h:2200h = 22000h (136 KiB)
+;	...
+;	|-------| 0000h:7E00h = 07E00h (31.5 KiB)
+;	|BOOTSEC| possibly overwritten by the FAT (<= 128 KiB) and the kernel,
+;	|ORIGIN |  so the bootsector relocates itself up...
+;	|-------| 0000h:7C00h = 07C00h (31 KiB)
+;	...
+;	|-------|
+;	|KERNEL	| maximum size 128 KiB (overwrites bootsec origin)
+;	|LOADED	| (holds directory then FAT before kernel file load)
+;	|-------| 0060h:0000h = 00600h (1.5 KiB)
+;	...
+; The entire root directory is loaded to the kernel load address
+;  to scan for the kernel file. It is assumed to fit into 128 KiB.
+;  Typical root directory size is up to 512 entries = 16 KiB.
+;  Further, it is assumed that at least one root directory entry
+;  starts with a NUL byte to signify the end of the directory.
+; After the directory entry is found, the entire FAT is loaded to
+;  the kernel load address. It is assumed that the size of the FAT
+;  in sectPerFat will not lead to a FAT larger than 128 KiB, which
+;  is the maximum size a FAT16 may fully utilise.
+; The kernel load segment may be patched using the SYS /L switch.
+;  We support values between 0x60 and 0x200 here, with file size
+;  of up to 128 KiB (rounded to cluster size). Default is 0x60.
+; This loader traditionally supports file sizes up to 134 KiB,
+;  assuming the default segment of 0x60. This does require a
+;  cluster size of 4 KiB (leads to maximum 132 KiB) or 2 KiB or
+;  lower (maximum 134 KiB). A more portable maximum is 128 KiB,
+;  which works with cluster sizes up to 128 KiB.
 
 ;%define ISFAT12         1
 ;%define ISFAT16         1
