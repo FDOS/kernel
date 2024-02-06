@@ -116,6 +116,11 @@
 ;	|IVT     | Interrupt Vector Table
 ;	+--------+ 0000:0000
 
+                ; NOTE: sys must be updated if magic offsets change
+%assign ISFAT1216DUAL 1
+	%include "magic.mac"
+
+
 CPU 8086  ; enable assembler warnings to limit instruction set
 
 ;%define ISFAT12         1              ; only 1 of these should be set,
@@ -227,15 +232,17 @@ Entry:          jmp     short real_start
                 ; The filesystem ID is used by lDOS's instsect (by ecm)
                 ;  by default to validate that the filesystem matches.
 %ifdef ISFAT12
-                db "FAT12"     ; filesystem id
+ %define FATFS "FAT12"
  %ifdef ISFAT16
  %error Must select one FS
  %endif
 %elifdef ISFAT16
-                db "FAT16"
+ %define FATFS "FAT16"
 %else
+ %define FATFS "unknown"
  %error Must select one FS
 %endif
+                db FATFS        ; filesystem id
                 times   3Eh - ($ - $$) db 32
 
 ;-----------------------------------------------------------------------
@@ -282,6 +289,7 @@ real_start:
 ; in DL, however we work around this in SYS.COM by NOP'ing out the use of DL
 ; (formerly we checked for [drive]==0xff; update sys.c if code moves)
 ;
+	magicoffset "set unit", 4Fh, 4Fh
                 mov     [drive], dl        ; rely on BIOS drive number in DL
 
 
@@ -470,6 +478,7 @@ cluster_next:   lodsw                   ; AX = next cluster to read
 %else                
                 jmp     LOADSEG:0000    ; yes, pass control to kernel
 %endif
+	magicoffset "load jump ofs", 11Ah, 118h, -4
 
 
 ; failed to boot
@@ -655,6 +664,8 @@ read_skip:
                 ret
 
        times   0x01f1-$+$$ db 0
+
+	magicoffset "kernel name", 1F1h, 1F1h
 %ifdef MSCOMPAT
 filename        db      "IO      SYS"
 %else
