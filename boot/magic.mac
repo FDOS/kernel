@@ -1,0 +1,65 @@
+
+; Public Domain 2024 by E. C. Masloch
+
+%macro _appenddigitstrdef 2.nolist
+%substr %%ii "0123456789ABCDEF" (%2) + 1
+%strcat _%1 _%1,%%ii
+%endmacro
+
+		; %1 = name of single-line macro to set. will be prefixed by underscore
+		; %2 = number to write
+		; %3 = minimal number of hexits, 0..8. defaults to 1
+		;	(setting it to 0 with a number of 0 defines macro to "")
+%macro _autohexitsstrdef 2-3.nolist 1
+%if %3 > 8
+ %error Minimal number of hexits 9 or more: %3
+%endif
+%define _%1 ""
+%if (%2) >= 1_0000_0000h
+ %error Number has to use 9 or more hexits: %2
+%endif
+%if (%2) >= 1000_0000h || %3 >= 8
+_appenddigitstrdef %1, (%2 >> (7 * 4)) & 0Fh
+%endif
+%if (%2) >= 100_0000h || %3 >= 7
+_appenddigitstrdef %1, (%2 >> (6 * 4)) & 0Fh
+%endif
+%if (%2) >= 10_0000h || %3 >= 6
+_appenddigitstrdef %1, (%2 >> (5 * 4)) & 0Fh
+%endif
+%if (%2) >= 1_0000h || %3 >= 5
+_appenddigitstrdef %1, (%2 >> (4 * 4)) & 0Fh
+%endif
+%if (%2) >= 1000h || %3 >= 4
+_appenddigitstrdef %1, (%2 >> (3 * 4)) & 0Fh
+%endif
+%if (%2) >= 100h || %3 >= 3
+_appenddigitstrdef %1, (%2 >> (2 * 4)) & 0Fh
+%endif
+%if (%2) >= 10h || %3 >= 2
+_appenddigitstrdef %1, (%2 >> (1 * 4)) & 0Fh
+%endif
+%if (%2) >= 1h || %3 >= 1
+_appenddigitstrdef %1, (%2 >> (0 * 4)) & 0Fh
+%endif
+%endmacro
+
+	%macro magicoffset 3.nolist
+%ifdef ISFAT12
+  %define SYSOFFSET %2
+%elifdef ISFAT16
+  %define SYSOFFSET %3
+%else
+  %define SYSOFFSET 0
+                ; Just a placeholder, so the proper error message
+                ;  will be shown when assembling without either
+                ;  of the ISFATx defines.
+%endif
+%assign NEWOFFSET $ - Entry
+%if NEWOFFSET != SYSOFFSET
+ _autohexitsstrdef NEWOFFSETHEX, NEWOFFSET
+ %strcat _NEWOFFSETHEX _NEWOFFSETHEX,'h'
+ %deftok NEWOFFSET _NEWOFFSETHEX
+ %error Magic offset %1 changed for FATFS, old=SYSOFFSET, new=NEWOFFSET
+%endif
+	%endmacro
