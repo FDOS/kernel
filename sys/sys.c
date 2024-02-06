@@ -1579,6 +1579,7 @@ void put_boot(SYSOptions *opts)
 
       /* !!! if boot sector changes then update these locations !!! */
       {
+          /* magic offset: LBA detection */
           unsigned offset;
           offset = (fs == FAT16) ? 0x178 : 0x17B;
           
@@ -1598,7 +1599,8 @@ void put_boot(SYSOptions *opts)
           }
           else
           {
-            printf("%s : fat boot sector does not match expected layout\n", pgm);
+            printf("%s: Internal error: FAT1%c LBA detect unexpected content\n",
+        	pgm, fs == FAT12 ? '2' : '6');
             exit(1);
           }
       }
@@ -1653,8 +1655,14 @@ void put_boot(SYSOptions *opts)
     */
     if (opts->kernel.stdbs)
     {
+      /* magic offset: loadsegoff_60 */
+      int defaultload = ((int *)newboot)[0x78/sizeof(int)];
+      if (defaultload != 0x60 && defaultload != 0x70) {
+        printf("%s: Internal error: FAT32 load seg unexpected content\n", pgm);
+        exit(1);
+      }
       ((int *)newboot)[0x78/sizeof(int)] = opts->kernel.loadaddr;
-      bsBiosMovOff = 0x82;
+      bsBiosMovOff = 0x82;	/* magic offset: mov byte [bp + 40h], dl */
     }
     else /* compatible bs */
     {
@@ -1693,35 +1701,53 @@ void put_boot(SYSOptions *opts)
     */
     if (opts->kernel.stdbs)
     {
+      /* magic offset: loadsegoff_60 */
+      int defaultload = ((int *)newboot)[0x5C/sizeof(int)];
+      if (defaultload != 0x60 && defaultload != 0x70) {
+        printf("%s: Internal error: FAT1%c load seg unexpected content\n",
+        	pgm, fs == FAT12 ? '2' : '6');
+        exit(1);
+      }
       /* this sets the segment we load the kernel to, default is 0x60:0 */
       ((int *)newboot)[0x5c/sizeof(int)] = opts->kernel.loadaddr;
-      bsBiosMovOff = 0x66;
+      bsBiosMovOff = 0x66;	/* magic offset: mov byte [bp + 24h], dl */
     }
     else
     {
+      int defaultload;
       /* load segment hard coded to 0x70 in oem compatible boot sector, */
       /* this however changes the offset jumped to default 0x70:0       */
-      if (fs == FAT12)
+      if (fs == FAT12) {
+        /* magic offset: jmp LOADSEG:xxxxh */
+        defaultload = ((int *)newboot)[0x11c/sizeof(int)];
         ((int *)newboot)[0x11c/sizeof(int)] = opts->kernel.loadaddr;
-      else
+      } else {
+        /* magic offset: jmp LOADSEG:xxxxh */
+        defaultload = ((int *)newboot)[0x119/sizeof(int)];
         ((int *)newboot)[0x119/sizeof(int)] = opts->kernel.loadaddr;
-      bsBiosMovOff = 0x4F;
+      }
+      if (defaultload != 0x0 && defaultload != 0x200) {
+        printf("%s: Internal error: OEM FAT1%c load ofs unexpected content\n",
+        	pgm, fs == FAT12 ? '2' : '6');
+        exit(1);
+      }
+      bsBiosMovOff = 0x4F;	/* magic offset: mov byte [bp + 24h], dl */
     }
   }
 
-  if (opts->ignoreBIOS)
+  if ( (newboot[bsBiosMovOff]==0x88) && (newboot[bsBiosMovOff+1]==0x56) )
   {
-    if ( (newboot[bsBiosMovOff]==0x88) && (newboot[bsBiosMovOff+1]==0x56) )
+    if (opts->ignoreBIOS)
     {
       newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
       newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
       newboot[bsBiosMovOff] = 0x90;  /* NOP */  ++bsBiosMovOff;
     }
-    else
-    {
-      printf("%s : fat boot sector does not match expected layout\n", pgm);
-      exit(1);
-    }
+  }
+  else
+  {
+    printf("%s: Internal error: Unit save unexpected content\n", pgm);
+    exit(1);
   }
 
   if (opts->verbose) /* display information about filesystem */
