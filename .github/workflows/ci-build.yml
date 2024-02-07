@@ -14,11 +14,11 @@ jobs:
   build:
     if: contains(github.event.head_commit.message, '[skip ci]') == false
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout repository and submodules
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
 
@@ -46,7 +46,7 @@ jobs:
     - name: upload
       if: github.repository == 'FDOS/kernel' &&
         (github.event_name == 'push' || github.event.pull_request.merged == true)
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ steps.snapshotname.outputs.fname }}
         path: _output/*/*.???
