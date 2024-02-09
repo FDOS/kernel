@@ -86,6 +86,7 @@ arg nr, {rp,%1}
 		mov	bx, [bx+2]
 		popf				; set live FL
 		pop	ds
+		sti
 		int	0
 %%intr_1:
 
