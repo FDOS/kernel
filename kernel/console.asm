@@ -265,9 +265,14 @@ _int29_handler:
                 pop     ax
                 iret
 %IFDEF DEBUG_PRINT_COMPORT
+%ifnum DEBUG_PRINT_COMPORT
+%define DEBUG_USE_COMPORT DEBUG_PRINT_COMPORT
+%else
+%define DEBUG_USE_COMPORT 1                    ; default to COM2 if not specified
+%endif
 .comprint:
                 push    dx
-                mov     dx, 1                   ; 0=COM1,1=COM2,2=COM3,3=COM4
+                mov     dx, DEBUG_USE_COMPORT  ; 0=COM1,1=COM2,2=COM3,3=COM4
 
                 mov     ah, [cs:ASYNC_NEED_INIT]
                 or      ah,ah
