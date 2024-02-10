@@ -305,7 +305,14 @@ STATIC void init_kernel(void)
   /* Init oem hook - returns memory size in KB    */
   ram_top = init_oem();
 
-  /* move kernel to high conventional RAM, just below the init code */
+  /* Note: HMA_TEXT and init code already moved higher in
+     conventional memory by startup code, however, we still
+	 need to adjust any references to new location.  So use
+	 current CS as that is where we were moved to and perform
+	 any fixups needed.  Note this will also re-copy the 
+	 HMA_TEXT segment, so be sure not to overwrite it prior
+	 to the MoveKernel() call.  Kernel moved to around 8F??:0000
+  */
 #ifdef __WATCOMC__
   lpTop = MK_FP(_CS, 0);
 #else

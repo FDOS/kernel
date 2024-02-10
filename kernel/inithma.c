@@ -305,6 +305,7 @@ VOID FAR * HMAalloc(COUNT bytesToAllocate)
 
 unsigned CurrentKernelSegment = 0;
 
+/* relocate segment with HMA_TEXT code group */
 void MoveKernel(unsigned NewKernelSegment)
 {
   UBYTE FAR *HMADest;
@@ -312,9 +313,11 @@ void MoveKernel(unsigned NewKernelSegment)
   unsigned len;
   unsigned jmpseg = CurrentKernelSegment;
  
+  /* if the first time called, initialize to end of HMA_TEXT code group segment */  
   if (CurrentKernelSegment == 0)
     CurrentKernelSegment = FP_SEG(_HMATextEnd);
 
+  /* if already relocated into HMA, nothing to do */
   if (CurrentKernelSegment == 0xffff)
     return;
 
@@ -324,6 +327,8 @@ void MoveKernel(unsigned NewKernelSegment)
 
   len = (FP_OFF(_HMATextEnd) | 0x000f) - (FP_OFF(_HMATextStart) & 0xfff0);
 
+  /* HMA doesn't start until a paragraph into 0xffff segment */
+  /* HMA begins with VDISK header to mark area is used */
   if (NewKernelSegment == 0xffff)
   {
     HMASource += HMAOFFSET;
