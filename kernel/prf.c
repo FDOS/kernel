@@ -100,6 +100,13 @@ void put_console(int c)
 #ifdef __WATCOMC__
 void int29(char c);
 #pragma aux int29 = "int 0x29" parm [al] modify exact [bx];
+
+#ifdef DEBUG_PRINT_COMPORT
+void fastComPrint(char c);
+#pragma aux fastComPrint = \
+      "mov bx, 0xFD05" \
+      "int 0x29" parm [al] modify exact [bx];
+#endif
 #endif
 
 void put_console(int c)
@@ -115,6 +122,9 @@ void put_console(int c)
   __int__(0x29);
 #elif defined(__WATCOMC__)
   int29(c);
+#if defined DEBUG_PRINT_COMPORT
+  fastComPrint(c);
+#endif
 #elif defined(__GNUC__)
   asm volatile("int $0x29" : : "a"(c) : "bx");
 #elif defined(I86)
@@ -157,6 +167,11 @@ STATIC VOID handle_char(COUNT c)
   if (charp == 0)
     put_console(c);
   else
+#ifdef DEBUG_PRINT_COMPORT
+  if (charp == (BYTE SSFAR *)-1)
+    fastComPrint(c);
+  else
+#endif
     *charp++ = c;
 }
 
@@ -237,13 +252,24 @@ int VA_CDECL sprintf(char * buff, CONST char * fmt, ...)
   return 0;
 }
 
+#ifdef DEBUG_PRINT_COMPORT
+int dbgc_printf(CONST char * fmt, ...)
+{
+  va_list arg;
+
+  va_start(arg, fmt);
+  charp = (BYTE SSFAR *)-1;
+  do_printf(fmt, arg);
+  handle_char('\0');
+  return 0;
+}
+#endif
+
 STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 {
-  int base;
-  BYTE s[11];
-  BYTE FAR * p;
-  int size;
-  unsigned char flags;
+  int base, size;
+  BYTE s[13]; /* long enough for a 32-bit octal number string with sign */
+  BYTE flags, FAR *p;
 
   for (;*fmt != '\0'; fmt++)
   {
