@@ -67,8 +67,12 @@ export
 
 ifeq ($(OS),Windows_NT)
 BUILDENV ?= windows
+DIRSEP=\
+CP=copy
 else
 BUILDENV ?= linux
+DIRSEP=/
+CP=cp
 endif
 
 ifeq ($(BUILDENV),windows)
@@ -115,6 +119,7 @@ all:
 	cd boot && $(MAKE) production
 	cd sys && $(MAKE) production
 	cd kernel && $(MAKE) production
+	cd country && $(MAKE) DIRSEP=$(DIRSEP) CP=$(CP) production
 	cd setver && $(MAKE) production
 	$(MAKEREMOVE)
 
@@ -126,6 +131,7 @@ clean:
 	cd boot && $(MAKE) clean
 	cd sys && $(MAKE) clean
 	cd kernel && $(MAKE) clean
+	cd country && $(MAKE) clean
 	cd setver && $(MAKE) clean
 	$(MAKEREMOVE)
 
@@ -137,5 +143,6 @@ clobber:
 	cd boot && $(MAKE) clobber
 	cd sys && $(MAKE) clobber
 	cd kernel && $(MAKE) clobber
+	cd country && $(MAKE) clobber
 	cd setver && $(MAKE) clobber
 	$(MAKEREMOVE)
