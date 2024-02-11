@@ -269,7 +269,8 @@ STATIC void do_printf(CONST BYTE * fmt, va_list arg)
 {
   int base, size;
   BYTE s[13]; /* long enough for a 32-bit octal number string with sign */
-  BYTE flags, FAR *p;
+  BYTE flags;
+  BYTE FAR *p;
 
   for (;*fmt != '\0'; fmt++)
   {
