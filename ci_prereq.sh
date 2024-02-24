@@ -18,31 +18,50 @@ cd _downloads
 
 HERE=$(pwd)
 
-#IBIBLIO_PATH='http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.2/repos/devel'
-IBIBLIO_PATH='https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3/devel'
+#IBIBLIO_PATH='http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.2/repos'
+IBIBLIO_PATH='https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3'
+
+BASE=${IBIBLIO_PATH}/base
+
+#    get FreeDOS kernel
+[ -f kernel.zip ] || wget --no-verbose ${BASE}/kernel.zip
+
+#    get FreeCOM
+[ -f freecom.zip ] || wget --no-verbose ${BASE}/freecom.zip
+
+DEVEL=${IBIBLIO_PATH}/devel
 
 #    get gnumake for DOS
-[ -f djgpp_mk.zip ] || wget --no-verbose ${IBIBLIO_PATH}/djgpp_mk.zip
+[ -f djgpp_mk.zip ] || wget --no-verbose ${DEVEL}/djgpp_mk.zip
 
 #    get nasm for DOS
-[ -f nasm.zip ] || wget --no-verbose ${IBIBLIO_PATH}/nasm.zip
+[ -f nasm.zip ] || wget --no-verbose ${DEVEL}/nasm.zip
 
 #    get upx for DOS
-[ -f upx.zip ] || wget --no-verbose ${IBIBLIO_PATH}/upx.zip
+[ -f upx.zip ] || wget --no-verbose ${DEVEL}/upx.zip
 
 #    grab ia16-gcc from ibiblio.org
-#[ -f i16gcc.zip ] || wget --no-verbose ${IBIBLIO_PATH}/i16gcc.zip
-#[ -f i16newli.zip ] || wget --no-verbose ${IBIBLIO_PATH}/i16newli.zip
-#[ -f i16butil.zip ] || wget --no-verbose ${IBIBLIO_PATH}/i16butil.zip
-#[ -f i16lbi86.zip ] || wget --no-verbose ${IBIBLIO_PATH}/i16lbi86.zip
+#[ -f i16gcc.zip ] || wget --no-verbose ${DEVEL}/i16gcc.zip
+#[ -f i16newli.zip ] || wget --no-verbose ${DEVEL}/i16newli.zip
+#[ -f i16butil.zip ] || wget --no-verbose ${DEVEL}/i16butil.zip
+#[ -f i16lbi86.zip ] || wget --no-verbose ${DEVEL}/i16lbi86.zip
 
 #   get watcom for DOS
-[ -f watcomc.zip ] || wget --no-verbose ${IBIBLIO_PATH}/watcomc.zip
+[ -f watcomc.zip ] || wget --no-verbose ${DEVEL}/watcomc.zip
 
 mkdir -p ${HOME}/.dosemu/drive_c
 cd ${HOME}/.dosemu/drive_c && (
 
   mkdir -p bin
+
+  # Boot files
+  unzip -L -q ${HERE}/kernel.zip
+  cp -p bin/kernl386.sys ./kernel.sys
+  unzip -L -q ${HERE}/freecom.zip
+  cp -p bin/command.com ./command.com
+  cp -p /usr/share/dosemu/dosemu2-cmds-0.3/c/fdconfig.sys .
+
+  # Development files
   unzip -L -q ${HERE}/djgpp_mk.zip
   cp -p devel/djgpp/bin/make.exe bin/.
   unzip -L -q ${HERE}/upx.zip
