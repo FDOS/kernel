@@ -392,7 +392,7 @@ STATIC WORD getbpb(ddt * pddt)
   {
     /* copy default bpb to be sure that there is no bogus data */
     memcpy(pbpbarray, &pddt->ddt_defbpb, sizeof(bpb));
-    return S_DONE;
+    return 0;
   }
 
   pddt->ddt_descflags &= ~DF_NOACCESS;  /* set drive to accessible */
