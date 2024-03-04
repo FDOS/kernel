@@ -1820,7 +1820,9 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
   else
     mode = DSKREADINT25;
 
-  drv = r->ax & 0x7f; /* mask high bit of AL, may be set for disks>32M */ 
+  drv = r->ax & 0x7f; /* according to RBIL, some programs may try with */
+                      /* high bit of AL set, so mask it together with AH */
+                      /* otherwise we might access a non-existing unit */
 
   if (drv >= lastdrive)
   {
