@@ -480,14 +480,14 @@ STATIC WORD getbpb(ddt * pddt)
   printf("BPB_HUGE      = %08lx\n", pbpbarray->bpb_huge);
 #endif
 
-  return 0;
+  return S_DONE;
 }
 
 STATIC WORD bldbpb(rqptr rp, ddt * pddt)
 {
   WORD result;
 
-  if ((result = getbpb(pddt)) != 0)
+  if ((result = getbpb(pddt)) != S_DONE)
     return result;
 
   rp->r_bpptr = &pddt->ddt_bpb;
