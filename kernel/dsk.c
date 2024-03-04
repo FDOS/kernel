@@ -392,7 +392,7 @@ STATIC WORD getbpb(ddt * pddt)
   {
     /* copy default bpb to be sure that there is no bogus data */
     memcpy(pbpbarray, &pddt->ddt_defbpb, sizeof(bpb));
-    return S_DONE;
+    return 0;
   }
 
   pddt->ddt_descflags &= ~DF_NOACCESS;  /* set drive to accessible */
@@ -480,14 +480,14 @@ STATIC WORD getbpb(ddt * pddt)
   printf("BPB_HUGE      = %08lx\n", pbpbarray->bpb_huge);
 #endif
 
-  return S_DONE;
+  return 0;
 }
 
 STATIC WORD bldbpb(rqptr rp, ddt * pddt)
 {
   WORD result;
 
-  if ((result = getbpb(pddt)) != S_DONE)
+  if ((result = getbpb(pddt)) != 0)
     return result;
 
   rp->r_bpptr = &pddt->ddt_bpb;
