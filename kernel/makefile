@@ -27,7 +27,7 @@ OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(OBJS4) $(OBJS5) $(OBJS6) $(OBJS7) $(OBJS8)
 
 #               *Explicit Rules*
 
-production:     ../bin/$(TARGET).sys ../bin/country.sys
+production:     ../bin/$(TARGET).sys
 
 ../bin/$(TARGET).sys: kernel.sys
 		$(CP) kernel.sys ..$(DIRSEP)bin
@@ -41,12 +41,6 @@ kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin ../utils/upxde
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
-
-../bin/country.sys:
-	# warning, both cd and -C options required, cd for wmake, -C for gmake
-	cd ..$(DIRSEP)country
-	$(MAKE) -C ..$(DIRSEP)country all
-	$(CP) ..$(DIRSEP)country$(DIRSEP)country.sys ..$(DIRSEP)bin$(DIRSEP)country.sys
 
 clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me

@@ -119,6 +119,13 @@ cd ..\kernel
 if errorlevel 1 goto abort-cd
 
 echo.
+echo Process COUNTRY +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+echo.
+cd ..\country
+%MAKE% DIRSEP=\ CP=copy production
+if errorlevel 1 goto abort-cd
+
+echo.
 echo Process SETVER +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo.
 cd ..\setver
