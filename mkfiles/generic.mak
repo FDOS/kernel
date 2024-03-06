@@ -24,8 +24,6 @@ NASMFLAGS=$(NASMFLAGS) -DWITHFAT32
 NASM=$(XNASM)
 NASMFLAGS   = $(NASMFLAGS) -i../hdr/ -DXCPU=$(XCPU)
 
-LINK=$(XLINK)
-
 INITPATCH=@rem
 DIRSEP=\ #a backslash
 RM=..\utils\rmfiles
@@ -38,6 +36,8 @@ LOADSEG=0x60
 !endif
 
 !include "../mkfiles/$(COMPILER).mak"
+
+LINK=$(XLINK)
 
 !if $(CLDEF) == 0
 CLT=$(CL) $(CFLAGST) $(TINY) -I$(INCLUDEPATH)
