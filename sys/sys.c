@@ -239,7 +239,7 @@ unsigned getcurdrive(void);
       "mov ah, 0x19"      \
       "int 0x21"          \
       "xor ah, ah"        \
-      value [ax];
+      __value [__ax];
 
 
 long filelength(int __handle);
@@ -256,9 +256,9 @@ long filelength(int __handle);
       "int 0x21" \
       "pop dx" \
       "pop ax" \
-      parm [bx] \
-      modify [cx] \
-      value [dx ax];
+      __parm [__bx] \
+      __modify [__cx] \
+      __value [__dx __ax];
 
 extern int unlink(const char *pathname);
 
@@ -461,7 +461,7 @@ DOSBootFiles bootFiles[] = {
 #define OEM_DR     1  /* FD boot sector,(Enhanced) DR-DOS names */
 #endif
 #ifdef WITHOEMCOMPATBS
-#define OEM_PC     3  /* use PC-DOS compatible boot sector and names */ 
+#define OEM_PC     3  /* use PC-DOS compatible boot sector and names */
 #define OEM_MS     4  /* use PC-DOS compatible BS with MS names */
 #define OEM_W9x    5  /* use PC-DOS compatible BS with MS names */
 #define OEM_RX     6  /* use PC-DOS compatible BS with Rx names */
@@ -813,7 +813,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   {
     int slen;
     /* set source path, reserving room to append filename */
-    if ( (argv[srcarg][1] == ':') || ((argv[srcarg][0]=='\\') && (argv[srcarg][1] == '\\')) ) 
+    if ( (argv[srcarg][1] == ':') || ((argv[srcarg][0]=='\\') && (argv[srcarg][1] == '\\')) )
       strncpy(opts->srcDrive, argv[srcarg], SYS_MAXPATH-13);
     else if (argv[srcarg][1] == '\0') /* assume 1 char is drive not path specifier */
       sprintf(opts->srcDrive, "%c:", toupper(*(argv[srcarg])));
@@ -824,14 +824,14 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
     if ((slen>2) && (opts->srcDrive[slen-1] != '\\') && (opts->srcDrive[slen-1] != '/'))
       strcat(opts->srcDrive, "\\");
   }
-  /* source path is now in form of just a drive, "X:" 
+  /* source path is now in form of just a drive, "X:"
      or form of drive + path + directory separator, "X:\path\" or "\\path\"
      If just drive we try current path then root, else just indicated path.
   */
 
 
   /* if source and dest are same drive, then source should not be root,
-     so if is same drive and not explicit path, force only current 
+     so if is same drive and not explicit path, force only current
      Note: actual copy routine prevents overwriting self when src=dst
   */
   if ( (opts->dstDrive == (toupper(*(opts->srcDrive))-'A')) && (!opts->srcDrive[2]) )
@@ -889,7 +889,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   }
 
   /* if unable to determine DOS, assume FreeDOS */
-  if (opts->flavor == OEM_AUTO) opts->flavor = 
+  if (opts->flavor == OEM_AUTO) opts->flavor =
 #ifdef DRSYS
   OEM_EDR;
 #else
@@ -1020,7 +1020,7 @@ int main(int argc, char **argv)
   {
 	if (opts.verbose)
 		printf("Copying shell (command interpreter)...\n");
-  
+
     /* copy command.com, 1st try source path, then try %COMSPEC% */
     sprintf(srcFile, "%s%s", opts.srcDrive, (opts.fnCmd)?opts.fnCmd:"COMMAND.COM");
     if (!copy(&opts, srcFile, opts.dstDrive, "COMMAND.COM"))
@@ -1081,9 +1081,9 @@ int absread(int DosDrive, int nsects, int foo, void *diskReadPacket);
       "sbb ax, ax"        \
       "popf"              \
       "pop bp"            \
-      parm [ax] [cx] [dx] [bx] \
-      modify [si di] \
-      value [ax];
+      __parm [__ax] [__cx] [__dx] [__bx] \
+      __modify [__si __di] \
+      __value [__ax];
 
 int abswrite(int DosDrive, int nsects, int foo, void *diskReadPacket);
 #pragma aux abswrite =  \
@@ -1092,9 +1092,9 @@ int abswrite(int DosDrive, int nsects, int foo, void *diskReadPacket);
       "sbb ax, ax"        \
       "popf"              \
       "pop bp"            \
-      parm [ax] [cx] [dx] [bx] \
-      modify [si di] \
-      value [ax];
+      __parm [__ax] [__cx] [__dx] [__bx] \
+      __modify [__si __di] \
+      __value [__ax];
 
 int fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
 #pragma aux fat32readwrite =  \
@@ -1102,9 +1102,9 @@ int fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno);
       "mov cx, 0xffff"    \
       "int 0x21"          \
       "sbb ax, ax"        \
-      parm [dx] [bx] [si] \
-      modify [cx dx si]   \
-      value [ax];
+      __parm [__dx] [__bx] [__si] \
+      __modify [__cx __dx __si]   \
+      __value [__ax];
 
 void reset_drive(int DosDrive);
 #pragma aux reset_drive = \
@@ -1115,22 +1115,22 @@ void reset_drive(int DosDrive);
       "mov ah,0x32" \
       "int 0x21" \
       "pop ds" \
-      parm [dx] \
-      modify [ax bx];
+      __parm [__dx] \
+      __modify [__ax __bx];
 
 void truename(char far *dest, const char *src);
 #pragma aux truename = \
       "mov ah,0x60"       \
       "int 0x21"          \
-      parm [es di] [si];
+      __parm [__es __di] [__si];
 
 int generic_block_ioctl(unsigned drive, unsigned cx, unsigned char *par);
 #pragma aux generic_block_ioctl = \
       "mov ax, 0x440d" \
       "int 0x21" \
       "sbb ax, ax" \
-      value [ax] \
-      parm [bx] [cx] [dx]; /* BH must be 0 for lock! */
+      __value [__ax] \
+      __parm [__bx] [__cx] [__dx]; /* BH must be 0 for lock! */
 
 #else
 
@@ -1167,7 +1167,7 @@ int fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
   regs.x.cx = 0xffff;
   regs.x.si = intno;
   intdos(&regs, &regs);
-  
+
   return regs.x.cflag;
 } /* fat32readwrite */
 
@@ -1242,8 +1242,8 @@ unsigned getextdrivespace(void far *drivename, void *buf, unsigned buf_size);
       "stc"               \
       "int 0x21"          \
       "sbb ax, ax"        \
-      parm [es dx] [di] [cx] \
-      value [ax];
+      __parm [__es __dx] [__di] [__cx] \
+      __value [__ax];
 
 #else /* !defined __WATCOMC__ */
 
@@ -1284,8 +1284,8 @@ BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
       "and cx, 1"      \
       "xchg cx, ax"    \
 "quit:"                \
-      modify [bx cx dx]   \
-      value [ax];
+      __modify [__bx __cx __dx]   \
+      __value [__ax];
 #else
 
 BOOL haveLBA(void)
@@ -1582,7 +1582,7 @@ void put_boot(SYSOptions *opts)
           /* magic offset: LBA detection */
           unsigned offset;
           offset = (fs == FAT16) ? 0x178 : 0x17B;
-          
+
           if ( (newboot[offset]==0x84) && (newboot[offset+1]==0xD2) ) /* test dl,dl */
           {
             /* if always use LBA then NOP out conditional jmp over LBA logic if A: */
@@ -1646,12 +1646,12 @@ void put_boot(SYSOptions *opts)
 
     /* the location of the "0060" segment portion of the far pointer
        in the boot sector is just before cont: in boot*.asm.
-       This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16 
+       This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16
 
        force use of value stored in bs by NOPping out mov [drive], dl
        0x82: 88h,56h,40h for fat32 chs & lba boot sectors
 
-       i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! 
+       i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!!
     */
     if (opts->kernel.stdbs)
     {
@@ -1684,7 +1684,7 @@ void put_boot(SYSOptions *opts)
 
     /* the location of the "0060" segment portion of the far pointer
        in the boot sector is just before cont: in boot*.asm.
-       This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16 
+       This happens to be offset 0x78 for FAT32 and offset 0x5c for FAT16
        The oem boot sectors do not have/need this value for patching.
 
        the location of the jmp address (patching from
@@ -1696,8 +1696,8 @@ void put_boot(SYSOptions *opts)
        force use of value stored in bs by NOPping out mov [drive], dl
        0x66: 88h,56h,24h for fat16 and fat12 boot sectors
        0x4F: 88h,56h,24h for oem compatible fat16 and fat12 boot sectors
-       
-       i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!! 
+
+       i.e. BE CAREFUL WHEN YOU CHANGE THE BOOT SECTORS !!!
     */
     if (opts->kernel.stdbs)
     {
@@ -1759,7 +1759,7 @@ void put_boot(SYSOptions *opts)
   printf("Root directory starts at sector (PREVIOUS + %u * %u)\n",
          bs->bsFATsecs, bs->bsFATs);
   }
-  
+
   {
     int i = 0;
     /* magic offset: (first) kernel filename */
@@ -1810,7 +1810,7 @@ void put_boot(SYSOptions *opts)
       printf("Can't write new boot sector to drive %c:\n", opts->dstDrive + 'A');
       exit(1);
     }
-    
+
     /* for FAT32, we need to update the backup copy as well */
     /* unless user has asked us not to, eg for better dual boot support */
     /* Note: assuming sectors 1-5 & 7-11 (FSINFO+additional boot code)
@@ -1979,7 +1979,7 @@ BOOL copy(SYSOptions *opts, const BYTE *source, COUNT drive, const BYTE * filena
     BYTE far *buffer; BYTE far *bufptr;
     UWORD offs;
     unsigned chunk_size;
-    
+
     /* get length of file to copy, then allocate enough memory for whole file */
     filesize = filelength(fdin);
     if (alloc_dos_mem(filesize, &theseg)!=0)

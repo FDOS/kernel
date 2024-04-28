@@ -56,12 +56,12 @@ extern COUNT ASMPASCAL fl_lba_ReadWrite(BYTE drive, WORD mode,
                                        * dap_p);
 UWORD ASMPASCAL floppy_change(UWORD);
 #ifdef __WATCOMC__
-#pragma aux (pascal) fl_reset modify exact [ax dx]
-#pragma aux (pascal) fl_diskchanged modify exact [ax dx]
-#pragma aux (pascal) fl_setdisktype modify exact [ax bx dx]
-#pragma aux (pascal) fl_readkey modify exact [ax]
-#pragma aux (pascal) fl_lba_ReadWrite modify exact [ax dx]
-#pragma aux (pascal) floppy_change modify exact [ax cx dx]
+#pragma aux (__pascal) fl_reset __modify __exact [__ax __dx]
+#pragma aux (__pascal) fl_diskchanged __modify __exact [__ax __dx]
+#pragma aux (__pascal) fl_setdisktype __modify __exact [__ax __bx __dx]
+#pragma aux (__pascal) fl_readkey __modify __exact [__ax]
+#pragma aux (__pascal) fl_lba_ReadWrite __modify __exact [__ax __dx]
+#pragma aux (__pascal) floppy_change __modify __exact [__ax __cx __dx]
 #endif
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
@@ -374,7 +374,7 @@ STATIC WORD getbpb(ddt * pddt)
   unsigned secs_per_cyl;
   WORD ret;
 
-  /* pddt->ddt_descflags |= DF_NOACCESS; 
+  /* pddt->ddt_descflags |= DF_NOACCESS;
    * disabled for now - problems with FORMAT ?? */
 
   /* set drive to not accessible and changed */
@@ -426,7 +426,7 @@ STATIC WORD getbpb(ddt * pddt)
 #endif
       extended_BPB_signature = DiskTransferBuffer[0x26];
 
-    /* 0x29 is usual signature value for serial#,vol label,& fstype; 
+    /* 0x29 is usual signature value for serial#,vol label,& fstype;
        0x28 older EBPB signature indicating only serial# is valid   */
     if ((extended_BPB_signature == 0x29) || (extended_BPB_signature == 0x28))
     {
@@ -716,7 +716,7 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
 
         /* return error if media lacks extended BPB with serial # */
         {
-          register BYTE extended_BPB_signature = 
+          register BYTE extended_BPB_signature =
             DiskTransferBuffer[(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x26 : 0x42)];
           if ((extended_BPB_signature != 0x29) || (extended_BPB_signature != 0x28))
             return failure(E_MEDIA);
@@ -954,22 +954,22 @@ STATIC unsigned DMA_max_transfer(void FAR * buffer, unsigned count)
         UWORD *transferred                  sectors actually transferred
 
     Read/Write/Write+verify some sectors, using LBA addressing.
-    
-    
+
+
     This function handles all the minor details, including:
-    
+
         retry in case of errors
-        
+
         crossing the 64K DMA boundary
-        
+
         translation to CHS addressing if necessary
-        
+
         crossing track boundaries (necessary for some BIOSes
-    
+
         High memory doesn't work very well, use internal buffer
-        
+
         write with verify details for LBA
-    
+
 */
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
@@ -990,7 +990,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
 
 	UWORD bytes_sector = pddt->ddt_bpb.bpb_nbyte;   /* bytes per sector, usually 512 */
   *transferred = 0;
-  
+
   /* only low-level format floppies for now ! */
   if (mode == LBA_FORMAT && hd(pddt->ddt_descflags))
     return 0;
@@ -1009,8 +1009,8 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
       fl_reset(driveno);
     }
   }
-        
-/*    
+
+/*
     if (LBA_address+totaltodo > pddt->total_sectors)
         {
         printf("LBA-Transfer error : address overflow = %lu > %lu max\n",LBA_address+totaltodo,driveParam->total_sectors);
@@ -1027,7 +1027,7 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
         /* avoid overflowing 64K DMA boundary
         for drives that don't handle this transparently */
         count = DMA_max_transfer(buffer, totaltodo);
-    }     
+    }
 
     if (FP_SEG(buffer) >= 0xa000 || count == 0)
     {

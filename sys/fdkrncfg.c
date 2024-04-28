@@ -43,8 +43,8 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
 #pragma aux lseek =  \
       "mov ah, 0x42" \
       "int 0x21"     \
-      parm [bx] [dx cx] [ax] \
-      value [dx ax];
+      __parm [__bx] [__dx __cx] [__ax] \
+      __value [__dx __ax];
 
 #elif defined(__GNUC__)
 #include <unistd.h>
@@ -179,7 +179,7 @@ void displayConfigSettings(KernelConfig * cfg)
   if (cfg->ConfigSize >= 12)
   {
     printf
-        ("%s kernel %s (build %d.%d OEM:%02X)\n", 
+        ("%s kernel %s (build %d.%d OEM:%02X)\n",
         (cfg->Version_OemID == 0xFD)?"FreeDOS":"DOS-C",
         cfg->Version_Release?"Nightly":"Release",
         cfg->Version_Major,
@@ -243,7 +243,7 @@ void displayConfigSettings(KernelConfig * cfg)
         ("Verbose=%d :                  -1=quiet, *0=normal, 1=verbose\n",
          cfg->Verbose);
   }
-  
+
   if (cfg->ConfigSize >= 15)
   {
     printf

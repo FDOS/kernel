@@ -99,13 +99,13 @@ void put_console(int c)
 #else
 #ifdef __WATCOMC__
 void int29(char c);
-#pragma aux int29 = "int 0x29" parm [al] modify exact [bx];
+#pragma aux int29 = "int 0x29" __parm [__al] __modify __exact [__bx];
 
 #ifdef DEBUG_PRINT_COMPORT
 void fastComPrint(char c);
 #pragma aux fastComPrint = \
       "mov bx, 0xFD05" \
-      "int 0x29" parm [al] modify exact [bx];
+      "int 0x29" __parm [__al] __modify __exact [__bx];
 #endif
 #endif
 
@@ -428,7 +428,7 @@ void hexd(char *title, UBYTE FAR * p, COUNT numBytes)
     {
       put_unsigned(p[loop], 16, 2);
       put_console(' ');
-    }   
+    }
     for (loop = start; loop < numBytes && loop < start+16;loop++)
       put_console(p[loop] < 0x20 ? '.' : p[loop]);
     put_console('\n');
@@ -465,11 +465,11 @@ void put_string(const char *s)
 /*
         this testprogram verifies that the strings are printed correctly
         ( or the way, I expect them to print)
-        
+
         compile like (note -DTEST !)
 
         c:\tc\tcc -DTEST -DI86 -I..\hdr prf.c
-        
+
         and run. if strings are wrong, the program will wait for the ANYKEY
 
 */
