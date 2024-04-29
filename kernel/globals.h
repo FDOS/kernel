@@ -233,7 +233,7 @@ extern BYTE ASM NetDelay, ASM NetRetry;
 
 extern UWORD ASM first_mcb,         /* Start of user memory                 */
   ASM uppermem_root;                /* Start of umb chain (usually 9fff)    */
-extern char * ASM inputptr;         /* pointer to unread CON input          */ 
+extern char * ASM inputptr;         /* pointer to unread CON input          */
 extern sfttbl FAR * ASM sfthead;    /* System File Table head               */
 extern struct dhdr FAR * ASM clock; /* CLOCK$ device                        */
 extern struct dhdr FAR * ASM syscon;/* console device                       */
@@ -264,8 +264,8 @@ extern BYTE ASM ErrorMode,          /* Critical error flag                  */
   ASM InDOS,                        /* In DOS critical section              */
   ASM OpenMode,                     /* File Open Attributes                 */
   ASM SAttr,                        /* Attrib Mask for Dir Search           */
-  ASM dosidle_flag, ASM Server_Call, ASM CritErrLocus, ASM CritErrAction, 
-  ASM CritErrClass, ASM VgaSet, 
+  ASM dosidle_flag, ASM Server_Call, ASM CritErrLocus, ASM CritErrAction,
+  ASM CritErrClass, ASM VgaSet,
   ASM njoined;                      /* number of joined devices             */
 
 extern VOID FAR * ASM setverPtr;    /* Pointer to SETVER list               */
@@ -372,9 +372,9 @@ VOID ASMPASCAL WriteATClock(BYTE *, BYTE, BYTE, BYTE);
 VOID ASMPASCAL WritePCClock(ULONG);
 intvec getvec(unsigned char);
 #ifdef __WATCOMC__
-#pragma aux (pascal) ReadPCClock modify exact [ax cx dx]
-#pragma aux (pascal) WriteATClock modify exact [ax bx cx dx]
-#pragma aux (pascal) WritePCClock modify exact [ax cx dx]
+#pragma aux (__pascal) ReadPCClock __modify __exact [__ax __cx __dx]
+#pragma aux (__pascal) WriteATClock __modify __exact [__ax __bx __cx __dx]
+#pragma aux (__pascal) WritePCClock __modify __exact [__ax __cx __dx]
 #endif
 
 /*                                                              */
@@ -410,7 +410,7 @@ void setvec(unsigned char intno, intvec vector);
 
 /* ^Break handling */
 #ifdef __WATCOMC__
-#pragma aux (cdecl) spawn_int23 aborts;
+#pragma aux (__cdecl) spawn_int23 __aborts;
 #endif
 void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 void ASMCFUNC DosIdle_hlt(void);        /* dosidle.asm */

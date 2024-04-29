@@ -110,9 +110,9 @@ static unsigned short __inline getSS(void)
 #endif
 #define __int__(intno) asm int intno;
 void disable(void);
-#pragma aux disable = "cli" modify exact [];
+#pragma aux disable = "cli" __modify __exact [];
 void enable(void);
-#pragma aux enable = "sti" modify exact [];
+#pragma aux enable = "sti" __modify __exact [];
 #define asm __asm
 #define far __far
 #define CDECL   __cdecl
@@ -120,12 +120,12 @@ void enable(void);
 #define PASCAL  pascal
 #define _CS getCS()
 unsigned short getCS(void);
-#pragma aux getCS = "mov dx,cs" value [dx] modify exact[dx];
+#pragma aux getCS = "mov dx,cs" __value [__dx] __modify __exact[__dx];
 #define _SS getSS()
 unsigned short getSS(void);
-#pragma aux getSS = "mov dx,ss" value [dx] modify exact[dx];
+#pragma aux getSS = "mov dx,ss" __value [__dx] __modify __exact[__dx];
 #if !defined(FORSYS) && !defined(EXEFLAT) && _M_IX86 >= 300
-#pragma aux default parm [ax dx cx] modify [ax dx es fs] /* min.unpacked size */
+#pragma aux __default __parm [__ax __dx __cx] __modify [__ax __dx __es __fs] /* min.unpacked size */
 #endif
 
 /* enable Possible loss of precision warning for compatibility with Borland */
@@ -234,7 +234,7 @@ typedef unsigned       size_t;
 #define PARASIZE       16       /* "paragraph" size     */
 typedef unsigned       size_t;
 #endif
-           /* functions, that are shared between C and ASM _must_ 
+           /* functions, that are shared between C and ASM _must_
               have a certain calling standard. These are declared
               as 'ASMCFUNC', and is (and will be ?-) cdecl */
 #define ASMCFUNC CDECL

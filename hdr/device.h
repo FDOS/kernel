@@ -496,7 +496,7 @@ WORD ASMCFUNC FAR clk_driver(rqptr rp);
 /* execrh.asm */
 #if defined(__WATCOMC__) && _M_IX86 >= 300
 WORD execrh(request FAR *, struct dhdr FAR *);
-#pragma aux execrh "^" parm reverse routine [] modify [ax bx cx dx es fs gs]
+#pragma aux execrh "^" __parm __reverse __routine [] __modify [__ax __bx __cx __dx __es __fs __gs]
 #else
 WORD ASMPASCAL execrh(request FAR *, struct dhdr FAR *);
 #endif

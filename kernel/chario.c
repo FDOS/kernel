@@ -142,7 +142,7 @@ int ndread(struct dhdr FAR **pdev)
 
 #ifdef __WATCOMC__
 void fast_put_char(char c);
-#pragma aux fast_put_char = "int 29h" parm[al] modify exact [bx]
+#pragma aux fast_put_char = "int 29h" __parm[__al] __modify __exact [__bx]
 #else
 
 /* writes a character in raw mode using int29 for speed */
@@ -366,7 +366,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
   unsigned c;
   unsigned cu_pos = scr_pos;
   unsigned count = 0, stored_pos = 0;
-  unsigned size = kp->kb_size, stored_size = kp->kb_count; 
+  unsigned size = kp->kb_size, stored_size = kp->kb_count;
   BOOL insert = FALSE, first = TRUE;
 
   if (size == 0)
@@ -375,11 +375,11 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
   /* the stored line is invalid unless it ends with a CR */
   if (kp->kb_buf[stored_size] != CR)
     stored_size = 0;
-      
+
   do
   {
     unsigned new_pos = stored_size;
-    
+
     c = read_char_check_break(sft_in, sft_out);
     if (c == 0)
       c = (unsigned)read_char_check_break(sft_in, sft_out) << 8;
@@ -402,7 +402,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
         if (stored_pos < stored_size && count < size - 1)
           local_buffer[count++] = echo_char(kp->kb_buf[stored_pos++], sft_out);
         break;
-            
+
       case F2:
       case F4:
         /* insert/delete up to character c */
@@ -430,7 +430,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
         }
         stored_pos = new_pos;
         break;
-        
+
       case F5:
         fmemcpy(kp->kb_buf, local_buffer, count);
         stored_size = count;
@@ -440,7 +440,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
       case INS:
         insert = !insert;
         break;
-            
+
       case DEL:
         stored_pos++;
         break;
@@ -522,7 +522,7 @@ void read_line(int sft_in, int sft_out, keyboard FAR * kp)
 size_t read_line_handle(int sft_idx, size_t n, char FAR * bp)
 {
   size_t chars_left;
-    
+
   if (inputptr == NULL)
   {
     /* can we reuse kb_buf or was it overwritten? */

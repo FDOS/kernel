@@ -54,7 +54,7 @@ unsigned char ctrl_break_pressed(void);
 unsigned char check_handle_break(struct dhdr FAR **pdev);
 void handle_break(struct dhdr FAR **pdev, int sft_out);
 #ifdef __WATCOMC__
-#pragma aux handle_break aborts;
+#pragma aux handle_break __aborts;
 #endif
 
 /* chario.c */
@@ -127,8 +127,8 @@ COUNT DosTruename(const char FAR * src, char FAR * dest);
 VOID ASMCFUNC DosIdle_int(void);
 VOID ASMCFUNC DosIdle_hlt(void);
 #ifdef __WATCOMC__
-#pragma aux (cdecl) DosIdle_int modify exact []
-#pragma aux (cdecl) DosIdle_hlt modify exact []
+#pragma aux (__cdecl) DosIdle_int __modify __exact []
+#pragma aux (__cdecl) DosIdle_hlt __modify __exact []
 #endif
 
 /* error.c */
@@ -222,9 +222,9 @@ UWORD ASMPASCAL call_intr(WORD nr, iregs FAR * rp);
 COUNT ASMPASCAL res_DosExec(COUNT mode, exec_blk * ep, BYTE * lp);
 UCOUNT ASMPASCAL res_read(int fd, void *buf, UCOUNT count);
 #ifdef __WATCOMC__
-#pragma aux (pascal) call_intr modify exact [ax]
-#pragma aux (pascal) res_DosExec modify exact [ax bx dx es]
-#pragma aux (pascal) res_read modify exact [ax bx cx dx]
+#pragma aux (__pascal) call_intr __modify __exact [__ax]
+#pragma aux (__pascal) res_DosExec __modify __exact [__ax __bx __dx __es]
+#pragma aux (__pascal) res_read __modify __exact [__ax __bx __cx __dx]
 #endif
 
 /* ioctl.c */
@@ -318,21 +318,21 @@ int /*ASMCFUNC*/ ASMPASCAL fmemcmp(const void FAR *m1, const void FAR *m2, size_
 #ifdef __WATCOMC__
 /* bx, cx, dx and es not used or clobbered for all asmsupt.asm functions except
    (f)memchr/(f)strchr (which clobber dx) */
-#pragma aux (pascal) pascal_ax modify exact [ax]
+#pragma aux (__pascal) pascal_ax __modify __exact [__ax]
 #pragma aux (pascal_ax) fmemcpy
 #pragma aux (pascal_ax) memcpy
 #pragma aux (pascal_ax) fmemset
 #pragma aux (pascal_ax) memset
-#pragma aux (pascal_ax) fmemcmp modify nomemory
-#pragma aux (pascal_ax) memcmp modify nomemory
+#pragma aux (pascal_ax) fmemcmp __modify __nomemory
+#pragma aux (pascal_ax) memcmp __modify __nomemory
 #pragma aux (pascal_ax) fstrcpy
 #pragma aux (pascal_ax) strcpy
-#pragma aux (pascal_ax) fstrlen modify nomemory
-#pragma aux (pascal_ax) strlen modify nomemory
-#pragma aux (pascal) memchr modify exact [ax dx] nomemory
-#pragma aux (pascal) fmemchr modify exact [ax dx] nomemory
-#pragma aux (pascal) strchr modify exact [ax dx] nomemory
-#pragma aux (pascal) fstrchr modify exact [ax dx] nomemory
+#pragma aux (pascal_ax) fstrlen __modify __nomemory
+#pragma aux (pascal_ax) strlen __modify __nomemory
+#pragma aux (__pascal) memchr __modify __exact [__ax __dx] __nomemory
+#pragma aux (__pascal) fmemchr __modify __exact [__ax __dx] __nomemory
+#pragma aux (__pascal) strchr __modify __exact [__ax __dx] __nomemory
+#pragma aux (__pascal) fstrchr __modify __exact [__ax __dx] __nomemory
 #endif
 
 /* sysclk.c */
@@ -393,9 +393,9 @@ VOID ASMCFUNC exec_user(iregs FAR * irp, int disable_a20);
 
 /*
     assert at compile time, that something is true.
-    
-    use like 
-        ASSERT_CONST( SECSIZE == 512) 
+
+    use like
+        ASSERT_CONST( SECSIZE == 512)
         ASSERT_CONST( (BYTE FAR *)x->fcb_ext - (BYTE FAR *)x->fcbname == 8)
 */
 
