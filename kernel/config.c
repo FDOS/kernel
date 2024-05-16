@@ -351,10 +351,7 @@ void PreConfig(void)
 #ifdef DEBUG
 /*  printf("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers);*/
 #endif
-
-  LoL->DPBp =
-      DynAlloc("DPBp", blk_dev.dh_name[0], sizeof(struct dpb));
-
+  
   LoL->sfthead = MK_FP(FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
   /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
   /* LoL->FCBp = (sfttbl FAR *)
