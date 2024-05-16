@@ -547,8 +547,13 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
   if (nunits == 0) return;
 
   /* allocate memory for new device control blocks, insert into chain [at end], and update our pointer to new end */
-  dpb = (struct dpb FAR *)KernelAlloc(nunits * sizeof(struct dpb), 'E', Config.cfgDosDataUmb);
-  
+  if ( LoL->first_mcb ) {
+    dpb = (struct dpb FAR *)KernelAlloc(nunits * sizeof(struct dpb), 'E', Config.cfgDosDataUmb);
+  }
+  else {
+    dpb = DynAlloc("DPBp", blk_dev.dh_name[0], sizeof(struct dpb));
+  }
+
   /* find end of dpb chain or initialize root if needed */
   if (LoL->nblkdev == 0)
   {
