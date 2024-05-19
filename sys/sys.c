@@ -463,7 +463,7 @@ CONST char * msgDOS[DOSFLAVORS] = {  /* order should match above items */
   "Enhanced DR-DOS mode (EDRDOS.COM, lDOS iniload)\n",
   "OSS MS-DOS mode (LMSPACK.SYS, lDOS drload)\n",
   "OSS MS-DOS mode (LMSDOS.COM, lDOS iniload)\n",
-  "Novell DOS 7, Caldera OpenDOS 7.01, Enhanced DR-DOS <=7.01.06 mode\n",
+  "Novell DOS 7, Caldera OpenDOS 7.01, DR-DOS 7.01.01 - 7.01.06 mode\n",
 #ifdef WITHOEMCOMPATBS
   "PC-DOS, DR DOS 5 - Novell DOS 7 mode\n",
   "MS-DOS mode\n",
@@ -517,7 +517,7 @@ void showHelpAndExit(void)
       "             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS drload)\n"
       "             /OEM:LMS      OSS MS-DOS (LMSDOS.COM, lDOS iniload)\n"
       "             /OEM:OPENDOS  Caldera OpenDOS 7.01 (and Novell DOS 7),\n"
-      "                           Enhanced DR-DOS 7.01.01 - 7.01.06\n"
+      "                           DR-DOS 7.01.01 - 7.01.06\n"
 #ifdef WITHOEMCOMPATBS
       "             /OEM:PC       PC-DOS, DR DOS 5 - Novell DOS 7\n"
       "             /OEM:MS       MS-DOS\n"
