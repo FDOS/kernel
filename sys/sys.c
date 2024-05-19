@@ -426,7 +426,8 @@ DOSBootFiles bootFiles[] = {
   /* OSS MS-DOS */ { "LMSPACK.SYS", NULL, 0x60, 1, 0 },
   /* OSS MS-DOS */ { "LMSDOS.COM", NULL, 0x60, 1, 0 },
 #ifdef WITHOEMCOMPATBS
-  /* DR-DOS5+*/ { "IBMBIO.COM", "IBMDOS.COM", 0x70/*:0*/, 1, 1 },
+  /* OEM boot sector always loads to segment 0x70 */
+  /* DR-DOS5+*/ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 1 },
   /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 6138 },
   /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0, 0, 10240 },
   /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0200, 0, 0 },
@@ -441,8 +442,8 @@ DOSBootFiles bootFiles[] = {
 #define OEM_EDR    1  /* DRBIO, DRDOS version of EDR kernel  */
 #define OEM_LEDRPACK 2 /* lDOS drload version of EDR kernel */
 #define OEM_LEDR   3  /* lDOS iniload version of EDR kernel */
-#define OEM_LMSPACK 4
-#define OEM_LMS     5
+#define OEM_LMSPACK 4 /* lDOS drload version of MS-DOS kernel */
+#define OEM_LMS     5 /* lDOS iniload version of MS-DOS kernel */
 #ifdef WITHOEMCOMPATBS
 #define OEM_DR     6  /* old IBMBIO, IBMDOS compatible DR-DOS versions */
 #define OEM_PC     7  /* use PC-DOS compatible boot sector and names */ 
@@ -453,13 +454,13 @@ DOSBootFiles bootFiles[] = {
 
 CONST char * msgDOS[DOSFLAVORS] = {  /* order should match above items */
   "\n",  /* In standard FreeDOS mode, don't print anything special */
-  "Enhanced DR-DOS mode (DRBIO.SYS and DRDOS.SYS)\n",
+  "Enhanced DR-DOS 7.01.07+ mode (DRBIO.SYS and DRDOS.SYS)\n",
   "Enhanced DR-DOS mode (EDRPACK.SYS, lDOS drload)\n",
   "Enhanced DR-DOS mode (EDRDOS.COM, lDOS iniload)\n",
-  "OSS MS-DOS mode (LMSPACK.SYS, lDOS)\n",
-  "OSS MS-DOS mode (LMSDOS.COM, lDOS iniload)\n"
+  "OSS MS-DOS mode (LMSPACK.SYS, lDOS drload)\n",
+  "OSS MS-DOS mode (LMSDOS.COM, lDOS iniload)\n",
 #ifdef WITHOEMCOMPATBS
-  "DR-DOS 5+ / OpenDOS / Enhanced DR-DOS (before 2023) mode\n",
+  "DR-DOS 5+ mode\n",
   "PC-DOS compatibility mode\n",
   "MS-DOS compatibility mode\n",
   "Win9x DOS compatibility mode\n",
