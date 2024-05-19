@@ -515,7 +515,7 @@ void showHelpAndExit(void)
       "             /OEM:EDR      Enhanced DR DOS (DRBIO.SYS and DRDOS.SYS)\n"
       "             /OEM:LEDRPACK Enhanced DR DOS (EDRPACK.SYS, lDOS drload)\n"
       "             /OEM:LEDR     Enhanced DR DOS (EDRDOS.COM, lDOS iniload)\n"
-      "             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS)\n"
+      "             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS drload)\n"
       "             /OEM:LMS      OSS MS-DOS (LMSDOS.COM, lDOS iniload)\n"
 #ifdef WITHOEMCOMPATBS
       "             /OEM:DR   use DR DOS 5+ settings\n"
