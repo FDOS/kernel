@@ -30,22 +30,9 @@
 /* #define DDEBUG */          /* to enable display of sector dumps */
 /* #define WITHOEMCOMPATBS */ /* include support for OEM MS/PC DOS 3.??-6.x */
 #define FDCONFIG              /* include support to configure FD kernel */
-/* #define DRSYS */           /* SYS for Enhanced DR-DOS (OpenDOS enhancement Project) */
 
-#define SYS_VERSION "v3.6e"
-#define SYS_NAME "FreeDOS System Installer "
-
-
-#ifdef DRSYS            /* set displayed name & drop FD kernel config */
-#undef SYS_NAME
-#define SYS_NAME "Enhanced DR-DOS System Installer "
-#ifdef FDCONFIG
-#undef FDCONFIG
-#endif
-#ifdef WITHOEMCOMPATBS
-#undef WITHOEMCOMPATBS
-#endif
-#endif
+#define SYS_VERSION "v3.6f"
+#define SYS_NAME "DOS System Installer "
 
 #include <stdlib.h>
 #ifndef __GNUC__
@@ -432,16 +419,15 @@ typedef struct DOSBootFiles {
 #define FREEDOS_FILES      { "KERNEL.SYS", NULL, 0x60/*:0*/, 1, 0 },
 DOSBootFiles bootFiles[] = {
   /* Note: This order is the order OEM:AUTO uses to determine DOS flavor. */
-#ifndef DRSYS
   /* FreeDOS */   FREEDOS_FILES
-#endif
-  /* DR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70/*:0*/, 1, 1 },
-  /* DR-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", 0x70/*:0*/, 1, 1 },
-#ifdef DRSYS
-  /* FreeDOS */   FREEDOS_FILES
-#endif
+  /* DR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70, 1, 1 },
+  /* DR-DOS  */ { "EDRPACK.SYS", NULL, 0x60, 1, 0 },
+  /* DR-DOS  */ { "EDRDOS.COM", NULL, 0x60, 1, 0 },
+  /* OSS MS-DOS */ { "LMSPACK.SYS", NULL, 0x60, 1, 0 },
+  /* OSS MS-DOS */ { "LMSDOS.COM", NULL, 0x60, 1, 0 },
 #ifdef WITHOEMCOMPATBS
-  /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 6138 },  /* pre v7 DR ??? */
+  /* DR-DOS5+*/ { "IBMBIO.COM", "IBMDOS.COM", 0x70/*:0*/, 1, 1 },
+  /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 6138 },
   /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0, 0, 10240 },
   /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0200, 0, 0 },
   /* Rx-DOS  */ { "RXDOSBIO.SYS", "RXDOS.SYS", /*0x70:*/0x0, 0, 1 },
@@ -451,32 +437,29 @@ DOSBootFiles bootFiles[] = {
 
 /* associate friendly name with index into bootFiles array */
 #define OEM_AUTO (-1) /* attempt to guess DOS on source drive */
-#ifndef DRSYS
 #define OEM_FD     0  /* standard FreeDOS mode */
-#define OEM_EDR    1  /* use FreeDOS boot sector, but OEM names */
-#define OEM_DR     2  /* FD boot sector,(Enhanced) DR-DOS names */
-#else
-#define OEM_FD     2  /* standard FreeDOS mode */
-#define OEM_EDR    0  /* use FreeDOS boot sector, but OEM names */
-#define OEM_DR     1  /* FD boot sector,(Enhanced) DR-DOS names */
-#endif
+#define OEM_EDR    1  /* DRBIO, DRDOS version of EDR kernel  */
+#define OEM_LEDRPACK 2 /* lDOS drload version of EDR kernel */
+#define OEM_LEDR   3  /* lDOS iniload version of EDR kernel */
+#define OEM_LMSPACK 4
+#define OEM_LMS     5
 #ifdef WITHOEMCOMPATBS
-#define OEM_PC     3  /* use PC-DOS compatible boot sector and names */ 
-#define OEM_MS     4  /* use PC-DOS compatible BS with MS names */
-#define OEM_W9x    5  /* use PC-DOS compatible BS with MS names */
-#define OEM_RX     6  /* use PC-DOS compatible BS with Rx names */
+#define OEM_DR     6  /* old IBMBIO, IBMDOS compatible DR-DOS versions */
+#define OEM_PC     7  /* use PC-DOS compatible boot sector and names */ 
+#define OEM_MS     8  /* use PC-DOS compatible BS with MS names */
+#define OEM_W9x    9  /* use PC-DOS compatible BS with MS names */
+#define OEM_RX     10  /* use PC-DOS compatible BS with Rx names */
 #endif
 
 CONST char * msgDOS[DOSFLAVORS] = {  /* order should match above items */
-  "\n",  /* In standard FreeDOS/EnhancedDR mode, don't print anything special */
-#ifndef DRSYS
-  "Enhanced DR DOS (OpenDOS Enhancement Project) mode\n",
-#endif
-  "DR DOS (OpenDOS Enhancement Project) mode\n",
-#ifdef DRSYS
-  "\n",  /* FreeDOS mode so don't print anything special */
-#endif
+  "\n",  /* In standard FreeDOS mode, don't print anything special */
+  "Enhanced DR-DOS mode (DRBIO.SYS and DRDOS.SYS)\n",
+  "Enhanced DR-DOS mode (EDRPACK.SYS, lDOS drload)\n",
+  "Enhanced DR-DOS mode (EDRDOS.COM, lDOS iniload)\n",
+  "OSS MS-DOS mode (LMSPACK.SYS, lDOS)\n",
+  "OSS MS-DOS mode (LMSDOS.COM, lDOS iniload)\n"
 #ifdef WITHOEMCOMPATBS
+  "DR-DOS 5+ / OpenDOS / Enhanced DR-DOS (before 2023) mode\n",
   "PC-DOS compatibility mode\n",
   "MS-DOS compatibility mode\n",
   "Win9x DOS compatibility mode\n",
@@ -522,13 +505,17 @@ void showHelpAndExit(void)
       "  /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image\n"
       "  /UPDATE  : copy kernel and update boot sector (do *not* copy shell)\n"
       "  /OEM     : indicates boot sector, filenames, and load segment to use\n"
-      "             /OEM:FD use FreeDOS compatible settings\n"
-      "             /OEM:EDR use Enhanced DR DOS 7+ compatible settings\n"
-      "             /OEM:DR use DR DOS 7+ compatible settings\n"
+      "             /OEM:FD       FreeDOS settings\n"
+      "             /OEM:EDR      Enhanced DR DOS (DRBIO.SYS and DRDOS.SYS)\n"
+      "             /OEM:LEDRPACK Enhanced DR DOS (EDRPACK.SYS, lDOS drload)\n"
+      "             /OEM:LEDR     Enhanced DR DOS (EDRDOS.COM, lDOS iniload)\n"
+      "             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS)\n"
+      "             /OEM:LMS      OSS MS-DOS (LMSDOS.COM, lDOS iniload)\n"
 #ifdef WITHOEMCOMPATBS
-      "             /OEM:PC use PC-DOS compatible settings\n"
-      "             /OEM:MS use MS-DOS compatible settings\n"
-      "             /OEM:W9x use MS Win9x DOS compatible settings\n"
+      "             /OEM:DR   use DR DOS 5+ settings\n"
+      "             /OEM:PC   use PC-DOS compatible settings\n"
+      "             /OEM:MS   use MS-DOS compatible settings\n"
+      "             /OEM:W9x  use MS Win9x DOS compatible settings\n"
 #endif
       "             default is /OEM[:AUTO], select DOS based on existing files\n"
       "  /K name  : name of kernel to use in boot sector instead of %s\n"
@@ -614,11 +601,19 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
           argp++;  /* point to DR/PC/MS that follows */
           if (memicmp(argp, "AUTO", 4) == 0)
             opts->flavor = OEM_AUTO;
+          else if (memicmp(argp, "LEDRPACK", 8) == 0)
+            opts->flavor = OEM_LEDRPACK;
+          else if (memicmp(argp, "LEDR", 4) == 0)
+            opts->flavor = OEM_LEDR;
           else if (memicmp(argp, "EDR", 3) == 0)
             opts->flavor = OEM_EDR;
+          else if (memicmp(argp, "LMSPACK", 7) == 0)
+            opts->flavor = OEM_LMSPACK;
+          else if (memicmp(argp, "LMS", 3) == 0)
+            opts->flavor = OEM_LMS;
+#ifdef WITHOEMCOMPATBS
           else if (memicmp(argp, "DR", 2) == 0)
             opts->flavor = OEM_DR;
-#ifdef WITHOEMCOMPATBS
           else if (memicmp(argp, "PC", 2) == 0)
             opts->flavor = OEM_PC;
           else if (memicmp(argp, "MS", 2) == 0)
@@ -889,12 +884,7 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   }
 
   /* if unable to determine DOS, assume FreeDOS */
-  if (opts->flavor == OEM_AUTO) opts->flavor = 
-#ifdef DRSYS
-  OEM_EDR;
-#else
-  OEM_FD;
-#endif
+  if (opts->flavor == OEM_AUTO) opts->flavor = OEM_FD;
 
   if (opts->verbose)
     printf(msgDOS[opts->flavor]);
