@@ -891,9 +891,6 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
   /* if unable to determine DOS, assume FreeDOS */
   if (opts->flavor == OEM_AUTO) opts->flavor = OEM_FD;
 
-  if (opts->verbose)
-    printf(msgDOS[opts->flavor]);
-
   /* set compatibility settings not explicitly set */
   if (!opts->kernel.kernel) opts->kernel.kernel = bootFiles[opts->flavor].kernel;
   if (!opts->kernel.dos) opts->kernel.dos = bootFiles[opts->flavor].dos;
@@ -981,8 +978,10 @@ int main(int argc, char **argv)
 
   initOptions(argc, argv, &opts);
 
-  if (opts.verbose)
+  if (opts.verbose) {
     printf(SYS_NAME SYS_VERSION ", " __DATE__ "\n");
+    printf(msgDOS[opts.flavor]);
+  }
 
   if (opts.verbose)
 	printf("Processing boot sector...\n");
