@@ -122,7 +122,12 @@ int int86(int ivec, union REGS *in, union REGS *out)
 {
   /* must save sp for int25/26 */
   asm("mov %5, (1f+1); jmp 0f; 0:push %%ds; mov %%di, %%dx; mov %%sp, %%di;"
-      "1:int $0x00; mov %%di, %%sp; pop %%ds; sbb %0, %0" :
+      "push %%di; push %%di;"
+      /* push twice to work both for int 25h/26h and int 21h */
+      "1:int $0x00; pop %%di; pop %%di;"
+      /* second pop always reads the correct SP value.
+         the first pop may read the FL left on stack. */
+      "mov %%di, %%sp; pop %%ds; sbb %0, %0" :
       "=r"(out->x.cflag),
       "=a"(out->x.ax), "=b"(out->x.bx), "=c"(out->x.cx), "=d"(out->x.dx) :
       "q"((unsigned char)ivec), "a"(in->x.ax), "b"(in->x.bx),
