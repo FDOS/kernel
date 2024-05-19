@@ -420,15 +420,13 @@ typedef struct DOSBootFiles {
 DOSBootFiles bootFiles[] = {
   /* Note: This order is the order OEM:AUTO uses to determine DOS flavor. */
   /* FreeDOS */   FREEDOS_FILES
-  /* DR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70, 1, 1 },
-  /* DR-DOS  */ { "EDRPACK.SYS", NULL, 0x60, 1, 0 },
-  /* DR-DOS  */ { "EDRDOS.COM", NULL, 0x60, 1, 0 },
+  /* EDR-DOS  */ { "DRBIO.SYS", "DRDOS.SYS", 0x70, 1, 1 },
+  /* EDR-DOS  */ { "EDRPACK.SYS", NULL, 0x60, 1, 0 },
+  /* EDR-DOS  */ { "EDRDOS.COM", NULL, 0x60, 1, 0 },
   /* OSS MS-DOS */ { "LMSPACK.SYS", NULL, 0x60, 1, 0 },
   /* OSS MS-DOS */ { "LMSDOS.COM", NULL, 0x60, 1, 0 },
-  /* DR-DOS7*/ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x70, 1, 1 },
+  /* OpenDOS */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x70, 1, 1 },
 #ifdef WITHOEMCOMPATBS
-  /* OEM boot sector always loads to segment 0x70 */
-  /* DR-DOS5+*/ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 1 },
   /* PC-DOS  */ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 6138 },
   /* MS-DOS  */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0, 0, 10240 },
   /* W9x-DOS */ { "IO.SYS", "MSDOS.SYS", /*0x70:*/0x0200, 0, 0 },
@@ -460,9 +458,9 @@ CONST char * msgDOS[DOSFLAVORS] = {  /* order should match above items */
   "Enhanced DR-DOS mode (EDRDOS.COM, lDOS iniload)\n",
   "OSS MS-DOS mode (LMSPACK.SYS, lDOS drload)\n",
   "OSS MS-DOS mode (LMSDOS.COM, lDOS iniload)\n",
-  "Caldera OpenDOS, DR-DOS 7.01+, Enhanced DR-DOS <7.01.07 mode\n",
+  "Novell DOS 7, Caldera OpenDOS 7.01, Enhanced DR-DOS <=7.01.06 mode\n",
 #ifdef WITHOEMCOMPATBS
-  "PC-DOS <= 6.3, DR DOS 5 - Novell DOS 7 mode\n",
+  "PC-DOS, DR DOS 5 - Novell DOS 7 mode\n",
   "MS-DOS mode\n",
   "Win9x DOS mode\n",
   "RxDOS mode\n",
@@ -513,9 +511,10 @@ void showHelpAndExit(void)
       "             /OEM:LEDR     Enhanced DR-DOS (EDRDOS.COM, lDOS iniload)\n"
       "             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS drload)\n"
       "             /OEM:LMS      OSS MS-DOS (LMSDOS.COM, lDOS iniload)\n"
-      "             /OEM:OPENDOS  Caldera OpenDOS 7.01\n"
+      "             /OEM:OPENDOS  Caldera OpenDOS 7.01 (and Novell DOS 7),\n"
+      "                           Enhanced DR-DOS 7.01.01 - 7.01.06\n"
 #ifdef WITHOEMCOMPATBS
-      "             /OEM:PC       PC-DOS <= 6.3, DR DOS 5 - Novell DOS 7\n"
+      "             /OEM:PC       PC-DOS, DR DOS 5 - Novell DOS 7\n"
       "             /OEM:MS       MS-DOS\n"
       "             /OEM:W9x      MS Win9x DOS\n"
 #endif
