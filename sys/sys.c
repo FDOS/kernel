@@ -430,6 +430,7 @@ DOSBootFiles bootFiles[] = {
   /* DR-DOS  */ { "EDRDOS.COM", NULL, 0x60, 1, 0 },
   /* OSS MS-DOS */ { "LMSPACK.SYS", NULL, 0x60, 1, 0 },
   /* OSS MS-DOS */ { "LMSDOS.COM", NULL, 0x60, 1, 0 },
+  /* DR-DOS7*/ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x70, 1, 1 },
 #ifdef WITHOEMCOMPATBS
   /* OEM boot sector always loads to segment 0x70 */
   /* DR-DOS5+*/ { "IBMBIO.COM", "IBMDOS.COM", /*0x70:*/0x0, 0, 1 },
@@ -449,8 +450,8 @@ DOSBootFiles bootFiles[] = {
 #define OEM_LEDR   3  /* lDOS iniload version of EDR kernel */
 #define OEM_LMSPACK 4 /* lDOS drload version of MS-DOS kernel */
 #define OEM_LMS     5 /* lDOS iniload version of MS-DOS kernel */
+#define OEM_OPENDOS 6  /* old IBMBIO, IBMDOS compatible DR-DOS versions */
 #ifdef WITHOEMCOMPATBS
-#define OEM_DR     6  /* old IBMBIO, IBMDOS compatible DR-DOS versions */
 #define OEM_PC     7  /* use PC-DOS compatible boot sector and names */ 
 #define OEM_MS     8  /* use PC-DOS compatible BS with MS names */
 #define OEM_W9x    9  /* use PC-DOS compatible BS with MS names */
@@ -464,12 +465,12 @@ CONST char * msgDOS[DOSFLAVORS] = {  /* order should match above items */
   "Enhanced DR-DOS mode (EDRDOS.COM, lDOS iniload)\n",
   "OSS MS-DOS mode (LMSPACK.SYS, lDOS drload)\n",
   "OSS MS-DOS mode (LMSDOS.COM, lDOS iniload)\n",
+  "Caldera OpenDOS, DR-DOS 7.01+, Enhanced DR-DOS <7.01.07 mode\n",
 #ifdef WITHOEMCOMPATBS
-  "DR-DOS 5+ mode\n",
-  "PC-DOS compatibility mode\n",
-  "MS-DOS compatibility mode\n",
-  "Win9x DOS compatibility mode\n",
-  "RxDOS compatibility mode\n",
+  "PC-DOS <= 6.3, DR DOS 5 - Novell DOS 7 mode\n",
+  "MS-DOS mode\n",
+  "Win9x DOS mode\n",
+  "RxDOS mode\n",
 #endif
 };
 
@@ -512,16 +513,16 @@ void showHelpAndExit(void)
       "  /UPDATE  : copy kernel and update boot sector (do *not* copy shell)\n"
       "  /OEM     : indicates boot sector, filenames, and load segment to use\n"
       "             /OEM:FD       FreeDOS settings\n"
-      "             /OEM:EDR      Enhanced DR DOS (DRBIO.SYS and DRDOS.SYS)\n"
-      "             /OEM:LEDRPACK Enhanced DR DOS (EDRPACK.SYS, lDOS drload)\n"
-      "             /OEM:LEDR     Enhanced DR DOS (EDRDOS.COM, lDOS iniload)\n"
+      "             /OEM:EDR      Enhanced DR-DOS (DRBIO.SYS and DRDOS.SYS)\n"
+      "             /OEM:LEDRPACK Enhanced DR-DOS (EDRPACK.SYS, lDOS drload)\n"
+      "             /OEM:LEDR     Enhanced DR-DOS (EDRDOS.COM, lDOS iniload)\n"
       "             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS drload)\n"
       "             /OEM:LMS      OSS MS-DOS (LMSDOS.COM, lDOS iniload)\n"
+      "             /OEM:OPENDOS  Caldera OpenDOS 7.01\n"
 #ifdef WITHOEMCOMPATBS
-      "             /OEM:DR   use DR DOS 5+ settings\n"
-      "             /OEM:PC   use PC-DOS compatible settings\n"
-      "             /OEM:MS   use MS-DOS compatible settings\n"
-      "             /OEM:W9x  use MS Win9x DOS compatible settings\n"
+      "             /OEM:PC       PC-DOS <= 6.3, DR DOS 5 - Novell DOS 7\n"
+      "             /OEM:MS       MS-DOS\n"
+      "             /OEM:W9x      MS Win9x DOS\n"
 #endif
       "             default is /OEM[:AUTO], select DOS based on existing files\n"
       "  /K name  : name of kernel to use in boot sector instead of %s\n"
@@ -617,9 +618,9 @@ void initOptions(int argc, char *argv[], SYSOptions *opts)
             opts->flavor = OEM_LMSPACK;
           else if (memicmp(argp, "LMS", 3) == 0)
             opts->flavor = OEM_LMS;
+          else if (memicmp(argp, "OPENDOS", 7) == 0)
+            opts->flavor = OEM_OPENDOS;
 #ifdef WITHOEMCOMPATBS
-          else if (memicmp(argp, "DR", 2) == 0)
-            opts->flavor = OEM_DR;
           else if (memicmp(argp, "PC", 2) == 0)
             opts->flavor = OEM_PC;
           else if (memicmp(argp, "MS", 2) == 0)
