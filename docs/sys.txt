@@ -1,4 +1,4 @@
-FreeDOS System Installer v3.6e - Nov 13, 2009
+FreeDOS System Installer v3.6f - Nov 20, 2024
 documentation by:
   Jeremy Davis
   Bart Oldeman
@@ -23,12 +23,18 @@ Usage: SYS [source] drive: [bootsect] [{option}]
   /BOOTONLY: do *not* copy kernel / shell, only update boot sector or image
   /UPDATE  : copy kernel and update boot sector (do *not* copy shell)
   /OEM     : indicates boot sector, filenames, and load segment to use
-             /OEM:FD use FreeDOS compatible settings
-             /OEM:DR use DR DOS 7+ compatible settings (same as /OEM)
-             /OEM:PC use PC-DOS compatible settings
-             /OEM:MS use MS-DOS compatible settings
-             /OEM:W9x use MS Win9x DOS compatible settings
-             default is /OEM:AUTO, select DOS based on existing files
+             /OEM:FD       FreeDOS settings
+             /OEM:EDR      Enhanced DR-DOS (DRBIO.SYS and DRDOS.SYS)
+             /OEM:LEDRPACK Enhanced DR-DOS (EDRPACK.SYS, lDOS drload)
+             /OEM:LEDR     Enhanced DR-DOS (EDRDOS.COM, lDOS iniload)
+             /OEM:LMSPACK  OSS MS-DOS (LMSPACK.SYS, lDOS drload)
+             /OEM:LMS      OSS MS-DOS (LMSDOS.COM, lDOS iniload)
+             /OEM:OPENDOS  Caldera OpenDOS 7.01 (and Novell DOS 7),
+                           DR-DOS 7.02 - 7.03, 7.01.01 - 7.01.06
+             /OEM:PC       PC-DOS, DR DOS 5 - Novell DOS 7
+             /OEM:MS       MS-DOS
+             /OEM:W9x      MS Win9x DOS
+             default is /OEM[:AUTO], select DOS based on existing files
   /K name  : name of kernel to use in boot sector instead of KERNEL.SYS
   /L segm  : hex load segment to use in boot sector instead of 0x60
   /B btdrv : hex BIOS # of boot drive set in bs, 0=A:, 80=1st hd,...
@@ -101,6 +107,12 @@ and FAT16 drives specifying /FORCE:LBA will ensure
 even 1st floppy drive attempts to use LBA support
 (note that CHS may still be used if LBA check fails)
 and /FORCE:CHS will always bypass use of LBA extensions.
+
+SYS by default installs the FreeDOS kernel KERNEL.SYS.
+If KERNEL.SYS is not found, it may install a different
+kernel, like an Enhanced DR-DOS kernel, provided it
+finds one. You may explicitly tell SYS which kernel
+flavour to install via the /OEM argument.
 
 
 Kernel Configuration Options:
