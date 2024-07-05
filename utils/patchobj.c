@@ -13,7 +13,7 @@
 *****************************************************************************/
 
 #include <stdio.h>
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__WATCOMC__)
 #include <unistd.h>
 #else
 #include <io.h>
