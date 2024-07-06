@@ -7,13 +7,13 @@ include "../mkfiles/watcom.mak"
 
 DIRSEP=\ 
 
-INCLUDEPATH=$(COMPILERPATH)$(DIRSEP)h
+INCLUDEPATH=$(COMPILERPATH)\h
 #RM=del 2>nul
 #CP=copy
 #ECHOTO=echo>>
 #INITPATCH=@echo > nul
 CLDEF=1
-CLT=owcc -DDOSC_TIME_H -DBUILD_UTILS -I../hdr -o $@
+CLT=wcl386 -bcl=nt -DDOSC_TIME_H -I..\hdr -fe=$@ -I$(COMPILERPATH)\h -I$(COMPILERPATH)\h\nt
 CLC=$(CLT)
 CFLAGST=-fo=.obj $(CFLAGST)
 ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 

@@ -77,7 +77,7 @@ void __emit__(char, ...);
 #define enable() __emit__(0xfb)
 #endif
 
-#elif defined	(_MSC_VER)
+#elif defined(_MSC_VER)
 
 #define I86
 #define asm __asm
@@ -100,14 +100,11 @@ static unsigned short __inline getSS(void)
   asm mov ax, ss;
 }
 
-#elif defined(__WATCOMC__) && defined(BUILD_UTILS)
-  /* workaround for building some utils with OpenWatcom (owcc) */
-#define MC68K
 #elif defined(__WATCOMC__)      /* don't know a better way */
 
 #if defined(_M_I86)
+
 #define I86
-#endif
 #define __int__(intno) asm int intno;
 void disable(void);
 #pragma aux disable = "cli" modify exact [];
@@ -131,10 +128,11 @@ unsigned short getSS(void);
 /* enable Possible loss of precision warning for compatibility with Borland */
 #pragma enable_message(130)
 
-#if _M_IX86 >= 300 || defined(M_I386)
-#ifndef I386
-#define I386
-#endif
+#else
+
+/* workaround for building some utils with OpenWatcom (flat model) */
+#define MC68K
+
 #endif
 
 #elif defined (_MYMC68K_COMILER_)
