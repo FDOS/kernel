@@ -13,7 +13,7 @@ INCLUDEPATH=$(COMPILERPATH)\h
 #ECHOTO=echo>>
 #INITPATCH=@echo > nul
 CLDEF=1
-CLT=wcl386 -bcl=nt -DDOSC_TIME_H -I..\hdr -fe=$@ -I$(COMPILERPATH)\h -I$(COMPILERPATH)\h\nt
+CLT=wcl386 -zq -bcl=nt -DDOSC_TIME_H -I..\hdr -fe=$@ -I$(COMPILERPATH)\h -I$(COMPILERPATH)\h\nt
 CLC=$(CLT)
 CFLAGST=-fo=.obj $(CFLAGST)
 ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 
