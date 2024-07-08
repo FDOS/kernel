@@ -11,11 +11,9 @@ echo BUILD_DIR is \"${BUILD_DIR}\"
 rm -rf _output
 mkdir _output
 
-OWTAR=ow-snapshot.tar.xz
-
 # GCC
 mkdir _output/gcc
-git clean -x -d -f -e test -e _output -e _downloads -e _watcom -e $OWTAR
+git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 make -C country clean
 make all COMPILER=gcc
 mv -n bin/KGC*.map bin/KGC*.sys _output/gcc/.
@@ -31,18 +29,21 @@ mv -n share/src/share.com _output/gcc/.
 mv -n share/src/share.map _output/gcc/.
 
 # Watcom
+OWTAR=ow-snapshot.tar.xz
 if [ ! -d _watcom ] ; then
-  [ -f $OWTAR ] || wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/Last-CI-build/$OWTAR
-
+  mkdir -p _downloads
   mkdir _watcom
-  (cd _watcom && tar -xf ../$OWTAR)
+  if [ ! -f _downloads/$OWTAR ] ; then
+    (cd _downloads && wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/Last-CI-build/$OWTAR)
+  fi
+  (cd _watcom && tar -xf ../_downloads/$OWTAR)
 fi
 
-export PATH=$BUILD_DIR/bin:$PATH:$BUILD_DIR/_watcom/binl64
 export WATCOM=$BUILD_DIR/_watcom
+export PATH=$BUILD_DIR/bin:$PATH:$WATCOM/binl64
 
 mkdir _output/wc
-git clean -x -d -f -e test -e _output -e _downloads -e _watcom -e $OWTAR
+git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 make -C country clean
 make all COMPILER=owlinux
 mv -n bin/KWC*.map bin/KWC*.sys _output/wc/.
@@ -50,7 +51,7 @@ mv -n bin/country.sys _output/wc/.
 
 ## DOS (GCC)
 #mkdir _output/gcc_dos
-#git clean -x -d -f -e test -e _output -e _downloads -e _watcom -e $OWTAR
+#git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 #{
 #  echo set COMPILER=GCC
 #  echo set MAKE=make
@@ -65,7 +66,7 @@ mv -n bin/country.sys _output/wc/.
 
 # DOS (Watcom)
 mkdir _output/wc_dos
-git clean -x -d -f -e test -e _output -e _downloads -e _watcom -e $OWTAR
+git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 {
   echo set COMPILER=WATCOM
   echo set WATCOM='C:\\devel\\watcomc'
@@ -74,7 +75,7 @@ git clean -x -d -f -e test -e _output -e _downloads -e _watcom -e $OWTAR
   echo set XFAT=32
   echo set XNASM='C:\\devel\\nasm\\nasm'
   echo set OLDPATH=%PATH%
-  echo set PATH='C:\\devel\\watcomc\\binw;C:\\bin;%OLDPATH%'
+  echo set PATH='%WATCOM%\\binw;C:\\bin;%OLDPATH%'
 } | unix2dos > config.bat
 
 dosemu -td -q -K . -E "build.bat"
@@ -85,7 +86,7 @@ mv -n bin/country.sys _output/wc_dos/.
 # DOS (Turbo C 2.01)
 if [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
   mkdir _output/tc_dos
-  git clean -x -d -f -e test -e _output -e _downloads -e _watcom -e $OWTAR
+  git clean -x -d -f -e test -e _output -e _downloads -e _watcom
   {
     echo set COMPILER=TC2
     echo set TC2_BASE='C:\\tc201'

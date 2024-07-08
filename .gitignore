@@ -52,3 +52,8 @@ bin/setver.sys
 *~
 *.diff
 *.rej
+
+# CI build
+_downloads/**
+_output/**
+_watcom/**
