@@ -58,8 +58,8 @@
 #include "device.h"
 #include "dcb.h"
 #include "xstructs.h"
-#include "date.h"
-#include "../hdr/time.h"
+#include "ddate.h"
+#include "dtime.h"
 #include "fat.h"
 
 /* These definitions deliberately put here instead of

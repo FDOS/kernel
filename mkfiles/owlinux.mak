@@ -12,7 +12,7 @@ CP=cp
 ECHOTO=echo>>
 INITPATCH=@echo > /dev/null
 CLDEF=1
-CLT=wcl386 -zq -bcl=linux -DDOSC_TIME_H -I../hdr -fe=$@ -I$(COMPILERPATH)/lh
+CLT=wcl386 -zq -bcl=linux -I../hdr -fe=$@ -I$(COMPILERPATH)/lh
 CLC=$(CLT)
 CFLAGST=-fo=.obj $(CFLAGST)
 ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 

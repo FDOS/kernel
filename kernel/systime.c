@@ -27,8 +27,8 @@
 /****************************************************************/
 
 #include "portab.h"
-#include "time.h"
-#include "date.h"
+#include "dtime.h"
+#include "ddate.h"
 #include "globals.h"
 
 #ifdef VERSION_STRINGS

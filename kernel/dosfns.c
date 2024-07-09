@@ -1130,7 +1130,7 @@ COUNT DosFindNext(void)
   return pop_dmp(rc, dmp);
 }
 
-COUNT DosGetFtime(COUNT hndl, date * dp, time * tp)
+COUNT DosGetFtime(COUNT hndl, ddate * dp, dtime * tp)
 {
   sft FAR *s;
 /*sfttbl FAR *sp;*/
@@ -1144,7 +1144,7 @@ COUNT DosGetFtime(COUNT hndl, date * dp, time * tp)
   return SUCCESS;
 }
 
-COUNT DosSetFtimeSft(int sft_idx, date dp, time tp)
+COUNT DosSetFtimeSft(int sft_idx, ddate dp, dtime tp)
 {
   /* Get the SFT block that contains the SFT      */
   sft FAR *s = idx_to_sft(sft_idx);

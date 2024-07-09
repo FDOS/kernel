@@ -34,10 +34,11 @@
 */*/hdr/buffer.h
 */*/hdr/cds.h
 */*/hdr/clock.h
-*/*/hdr/date.h
 */*/hdr/dcb.h
+*/*/hdr/ddate.h
 */*/hdr/device.h
 */*/hdr/dirmatch.h
+*/*/hdr/dtime.h
 */*/hdr/error.h
 */*/hdr/exe.h
 */*/hdr/fat.h
@@ -56,7 +57,6 @@
 */*/hdr/sft.h
 */*/hdr/stacks.inc
 */*/hdr/tail.h
-*/*/hdr/time.h
 */*/hdr/version.h
 */*/hdr/xstructs.h
 */*/kernel/nls/001-437.hc

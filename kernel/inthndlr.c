@@ -1200,8 +1200,8 @@ dispatch:
 
         case 0x01:
           rc = DosSetFtime((COUNT) lr.BX,       /* Handle               */
-                           (date) lr.DX,        /* FileDate             */
-                           (time) lr.CX);       /* FileTime             */
+                           (ddate) lr.DX,       /* FileDate             */
+                           (dtime) lr.CX);      /* FileTime             */
           break;
 
         default:

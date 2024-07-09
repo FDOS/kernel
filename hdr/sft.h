@@ -61,8 +61,8 @@ typedef struct {
 #else
   CLUSTER sft_stclust;          /* 0b - Starting cluster                     */
 #endif
-  time sft_time;                /* 0d - File time                            */
-  date sft_date;                /* 0f - File date                            */
+  dtime sft_time;               /* 0d - File time                            */
+  ddate sft_date;               /* 0f - File date                            */
   ULONG sft_size;               /* 11 - File size                            */
   ULONG sft_posit;              /* 15 - Current file position                */
   UWORD sft_relclust;           /* 19 - File relative cluster (low part)     */

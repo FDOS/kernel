@@ -51,7 +51,7 @@ static BYTE *date_hRcsId =
 #define EPOCH_DAY       1       /* 1 for January 1                      */
 #define EPOCH_YEAR      1980    /* for Tues 1-1-80 epoch                */
 
-typedef UWORD date;
+typedef UWORD ddate;
 
 #endif
 
