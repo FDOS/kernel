@@ -921,12 +921,12 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
       total = (((UDWORD)rg[0] << 16UL) | rg[1]);
       avail = (((UDWORD)rg[2] << 16UL) | rg[3]);
 
-      while (total > 0x00ffffff && spc < 128) {
+      while (total > 0x00ffffffUL && spc < 128) {
         spc *= 2;
         avail /= 2;
         total /= 2;
       }
-      while (total > 0x00ffffff && bps < 32768) {
+      while (total > 0x00ffffffUL && bps < 32768UL) {
         bps *= 2;
         avail /= 2;
         total /= 2;

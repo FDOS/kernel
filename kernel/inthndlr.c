@@ -1916,7 +1916,7 @@ struct int2f12regs {
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
 
-extern intvec BIOSInt13, UserInt13, BIOSInt19;
+extern intvec ASM BIOSInt13, ASM UserInt13, ASM BIOSInt19;
 
 
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
@@ -2405,7 +2405,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         if (cdsp->cdsFlags)
         {
           TempCDS.cdsDpb = cdsp->cdsDpb;
-          TempCDS.cdsFlags = CDSPHYSDRV;    // don't inherit CDS flags
+          TempCDS.cdsFlags = CDSPHYSDRV;    /* don't inherit CDS flags */
         }
         else
         {
