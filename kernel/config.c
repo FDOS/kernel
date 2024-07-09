@@ -62,7 +62,7 @@ STATIC struct MenuSelector MenuStruct[MENULINESMAX] BSS_INIT({0});
 
 int nMenuLine BSS_INIT(0);
 int MenuColor = -1;
-extern char kernel_command_line[256];
+extern char ASM kernel_command_line[256];
 extern int kernel_command_line_length;
 
 STATIC void WriteMenuLine(struct MenuSelector *menu)

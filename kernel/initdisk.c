@@ -714,7 +714,7 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
   else
   {
     if (firstPass) printf("Drive %02x is too large to handle, restricted to 2TB\n", drive);
-    driveParam->total_sectors = 0xffffffffu;
+    driveParam->total_sectors = 0xffffffffUL;
   }
 
   /* if we arrive here, mark drive as LBA capable */

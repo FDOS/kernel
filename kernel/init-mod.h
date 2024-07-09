@@ -38,7 +38,7 @@
 #define BSS_INIT(x)
 #endif
 
-extern struct _KernelConfig InitKernelConfig;
+extern struct _KernelConfig ASM InitKernelConfig;
 
 /*
  * Functions in `INIT_TEXT' may need to call functions in `_TEXT'. The entry

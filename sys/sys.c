@@ -1505,7 +1505,7 @@ void put_boot(SYSOptions *opts)
     clusters = dataSectors / (((bs32->bsSecPerClust - 1) & 0xFF) + 1);
 
     if (bs32->bsFATsecs == 0) {
-      if (clusters >= 0xFFFfff5) {     /* FAT32 has 28 significant bits */
+      if (clusters >= 0xFFFfff5UL) {     /* FAT32 has 28 significant bits */
         printf("Too many clusters (%lXh) for FAT32 file system!\n", clusters);
         exit(1);
       }

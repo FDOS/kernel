@@ -68,10 +68,10 @@ __segment DosTextSeg = 0;
 
 struct lol FAR *LoL = &DATASTART;
 
-struct _KernelConfig InitKernelConfig = { -1 };
-char kernel_command_line[256] = { 0, -1 }; /* special none value */
+struct _KernelConfig ASM InitKernelConfig = { -1 };
+char ASM kernel_command_line[256] = { 0, -1 }; /* special none value */
 int kernel_command_line_length BSS_INIT(0);
-UBYTE debugger_present = 0xFF;	/* initialised in kernel.asm
+UBYTE ASM debugger_present = 0xFF;	/* initialised in kernel.asm
 				   do NOT set 0 here or compiler may
 				   move it into bss that we zero out */
 
