@@ -39,7 +39,7 @@ static BYTE *time_hRcsId =
 #endif
 #endif
 
-typedef UWORD time;
+typedef UWORD dtime;
 
 struct dostime
 {

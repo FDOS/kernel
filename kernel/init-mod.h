@@ -2,8 +2,8 @@
 #define IN_INIT_MOD
 
 #include "version.h"
-#include "date.h"
-#include "time.h"
+#include "ddate.h"
+#include "dtime.h"
 #include "mcb.h"
 #include "sft.h"
 #include "fat.h"

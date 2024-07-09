@@ -86,8 +86,8 @@ typedef struct {
   UWORD fcb_recsiz;             /* Logical record size in bytes,        */
   /* default = 128                        */
   ULONG fcb_fsize;              /* File size in bytes                   */
-  date fcb_date;                /* Date file created                    */
-  time fcb_time;                /* Time of last write                   */
+  ddate fcb_date;               /* Date file created                    */
+  dtime fcb_time;               /* Time of last write                   */
   /* the following are reserved by system                         */
   BYTE fcb_sftno;               /* Device ID                            */
   BYTE fcb_attrib_hi;           /* share info, dev attrib word hi       */

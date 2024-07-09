@@ -87,7 +87,7 @@ serial.obj:	serial.asm  io.inc			$(TARGET).lnk
 
 HDRS=\
     $(HDR)portab.h $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h \
-    $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)time.h $(HDR)process.h \
+    $(HDR)fat.h $(HDR)fcb.h $(HDR)tail.h $(HDR)dtime.h $(HDR)process.h \
     $(HDR)dcb.h $(HDR)sft.h $(HDR)cds.h $(HDR)exe.h $(HDR)fnode.h     \
     $(HDR)dirmatch.h $(HDR)file.h $(HDR)clock.h $(HDR)kbd.h $(HDR)error.h  \
     $(HDR)version.h dyndata.h

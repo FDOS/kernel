@@ -47,8 +47,8 @@ typedef struct {
   UWORD reserved2;
 
   UBYTE dm_attr_fnd;            /* found file attribute         */
-  time dm_time;                 /* file time                    */
-  date dm_date;                 /* file date                    */
+  dtime dm_time;                /* file time                    */
+  ddate dm_date;                /* file date                    */
   ULONG dm_size;                /* file size                    */
   BYTE dm_name[FNAME_SIZE + FEXT_SIZE + 2];     /* file name    */
 } dmatch;
