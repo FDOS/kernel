@@ -3,9 +3,27 @@
 #
 
 # Use these for MSCV 1.52
+
+#**********************************************************************
+#* TARGET    : we create a %TARGET%.sys file
+#* TARGETOPT : options, handled down to the compiler
+#**********************************************************************
+
+TARGET=KMS
+
+TARGETOPT=
+!if $(XCPU) == 186    
+TARGETOPT=-G1
+ALLCFLAGS=$(ALLCFLAGS) -DI186
+!endif
+!if $(XCPU) == 386
+TARGETOPT=-G3
+ALLCFLAGS=$(ALLCFLAGS) -DI386
+!endif
+
 COMPILERPATH=$(MS_BASE)
 COMPILERBIN=$(COMPILERPATH)\bin
-INCLUDEPATH=$(COMPILERPATH)\include
+INCLUDEPATH1=-I$(COMPILERPATH)\include
 CC=$(COMPILERBIN)\cl -c
 CL=$(COMPILERBIN)\cl
 TINY=
@@ -17,24 +35,12 @@ INCLUDE=$(COMPILERPATH)\include
 LIBUTIL=$(COMPILERBIN)\lib /nologo
 LIBPLUS=+
 LIBTERM=;
-INCLUDE=$(COMPILERPATH)\include
-LIB=$(COMPILERPATH)\lib
 
 # used for building the library
 
 CLIB=$(COMPILERPATH)\lib\slibce.lib
 MATH_EXTRACT=*aflmul *aFlshl *aFNaulsh *aFNauldi *aFulrem *aFulshr *aFuldiv *aFlrem *aFldiv
 MATH_INSERT= +aflmul +aFlshl +aFNaulsh +aFNauldi +aFulrem +aFulshr +aFuldiv +aFlrem +aFldiv
-
-TARGETOPT=
-!if $(XCPU) == 186    
-TARGETOPT=-G1
-!endif
-!if $(XCPU) == 386
-TARGETOPT=-G3
-!endif
-
-TARGET=KMS
 
 #
 # heavy stuff - building

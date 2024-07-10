@@ -3,18 +3,30 @@
 #
 
 # Use these for WATCOM 11.0c
+
+#**********************************************************************
+#* TARGET    : we create a %TARGET%.sys file
+#* TARGETOPT : options, handled down to the compiler
+#**********************************************************************
+
+TARGET=KWC
+
+TARGETOPT=-0
+!if $(XCPU) == 186
+TARGETOPT=-1
+ALLCFLAGS=$(ALLCFLAGS) -DI186
+!endif
+!if $(XCPU) == 386
+TARGETOPT=-3
+ALLCFLAGS=$(ALLCFLAGS) -DI386
+!endif
+
 COMPILERPATH=$(WATCOM)
 CC=*wcc -zq
 CL=wcl -zq
-INCLUDEPATH=$(COMPILERPATH)\H
+INCLUDEPATH=$(COMPILERPATH)\h
 INCLUDE=$(COMPILERPATH)\h 
 EDPATH=$(COMPILERPATH)\EDDAT
-
-!if $(XCPU) != 186
-!if $(XCPU) != 386
-TARGETOPT=-0
-!endif
-!endif
 
 LIBPATH=$(COMPILERPATH)\lib286
 LIBUTIL=wlib -q 
@@ -24,8 +36,6 @@ LIBTERM=
 TINY=-mt
 CFLAGST=-zp1-os-s-we-e3-wx-bt=DOS
 CFLAGSC=-mc-zp1-os-s-we-e3-wx-bt=DOS
-
-TARGET=KWC
 
 # used for building the library
 

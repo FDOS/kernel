@@ -8,8 +8,8 @@
 #**********************************************************************
 
 TARGET=KGC$(XCPU)$(XFAT)
-TARGETOPT=-march=i8086
 
+TARGETOPT=-march=i8086
 ifeq ($(XCPU),186)
 TARGETOPT=march=i80186
 ALLCFLAGS+=-DI186
@@ -29,7 +29,6 @@ NASMFLAGS+=-i../hdr/ -DXCPU=$(XCPU) -felf
 
 CC=ia16-elf-gcc -c
 CL=ia16-elf-gcc
-INCLUDEPATH=.
 
 LIBUTIL=ar crs
 LIBPLUS=

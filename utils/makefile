@@ -1,6 +1,6 @@
 !include "../mkfiles/generic.mak"
 
-CFLAGS = -I..$(DIRSEP)hdr
+CFLAGS = -I..$(DIRSEP)hdr $(INCLUDEPATH2)
 
 production: patchobj.com exeflat.exe upxentry.bin upxdevic.bin
 
