@@ -28,7 +28,7 @@
 /****************************************************************/
 
 /* one byte alignment */
-#include <algnbyte.h>
+#include "algnbyte.h"
 
 /*
  *	Description of the organization of NLS information -- 2000/02/13 ska
@@ -175,7 +175,7 @@
  *
  *	Performance tweaks:
  *	When the system -- This word applies to the combination of kernel and
- *	any loaded MUX-14 extension á la NLSFUNC here. -- uppercases
+ *	any loaded MUX-14 extension ï¿½ la NLSFUNC here. -- uppercases
  *	_filenames_, it must perform a DOS-65-A2 internally. In the basic
  *	implementation this request would be channeled through MUX-14, even
  *	if there is no external NLSFUNC at all. Also, when a NLS pkg had
@@ -623,7 +623,7 @@ struct nlsCSys_loadPackage {
 };
 
 /* standard alignment */
-#include <algndflt.h>
+#include "algndflt.h"
 
 #ifdef DEBUG
         /* Enable debugging of NLS part */

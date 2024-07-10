@@ -36,7 +36,7 @@
 #include "portab.h"
 #include "globals.h"
 #include "pcb.h"
-#include <nls.h>
+#include "nls.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
