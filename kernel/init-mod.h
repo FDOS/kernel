@@ -84,18 +84,18 @@ char * ASMPASCAL  strchr(const char     *s,  int ch);
 #ifdef __WATCOMC__
 /* bx, cx, dx and es not used or clobbered for all asmsupt.asm functions except
    (f)memchr/(f)strchr (which clobber dx) */
-#pragma aux (pascal) pascal_ax modify exact [ax]
+#pragma aux (__pascal) pascal_ax __modify __exact [__ax]
 #pragma aux (pascal_ax) memset
 #pragma aux (pascal_ax) fmemset
 #pragma aux (pascal_ax) memcpy
 #pragma aux (pascal_ax) fmemcpy
-#pragma aux (pascal_ax) memcmp modify nomemory
-#pragma aux (pascal_ax) fmemcmp modify nomemory
+#pragma aux (pascal_ax) memcmp __modify __nomemory
+#pragma aux (pascal_ax) fmemcmp __modify __nomemory
 #pragma aux (pascal_ax) strcpy
 #pragma aux (pascal_ax) fstrcpy
-#pragma aux (pascal_ax) strlen modify nomemory
-#pragma aux (pascal_ax) fstrlen modify nomemory
-#pragma aux (pascal) strchr modify exact [ax dx] nomemory
+#pragma aux (pascal_ax) strlen __modify __nomemory
+#pragma aux (pascal_ax) fstrlen __modify __nomemory
+#pragma aux (__pascal) strchr __modify __exact [__ax __dx] __nomemory
 #endif
 
 #undef LINESIZE
@@ -147,7 +147,7 @@ COUNT ASMPASCAL Umb_Test(void);
 COUNT ASMPASCAL UMB_get_largest(void FAR * driverAddress,
                                 UCOUNT * seg, UCOUNT * size);
 #ifdef __WATCOMC__
-#pragma aux (pascal) UMB_get_largest modify exact [ax bx cx dx]
+#pragma aux (__pascal) UMB_get_largest __modify __exact [__ax __bx __cx __dx]
 #endif
 
 /* inithma.c */
@@ -185,18 +185,18 @@ int ASMPASCAL init_switchar(int chr);
 void ASMPASCAL keycheck(void);
 void ASMPASCAL set_DTA(void far *dta);
 #ifdef __WATCOMC__
-#pragma aux (pascal) init_call_intr modify exact [ax]
-#pragma aux (pascal) read modify exact [ax bx cx dx]
-#pragma aux (pascal) init_DosOpen modify exact [ax bx dx]
-#pragma aux (pascal) close modify exact [ax bx]
-#pragma aux (pascal) dup2 modify exact [ax bx cx]
-#pragma aux (pascal) allocmem modify exact [ax bx]
-#pragma aux (pascal) init_PSPSet modify exact [ax bx]
-#pragma aux (pascal) init_DosExec modify exact [ax bx dx es]
-#pragma aux (pascal) init_setdrive modify exact [ax bx dx]
-#pragma aux (pascal) init_switchar modify exact [ax bx dx]
-#pragma aux (pascal) keycheck modify exact [ax]
-#pragma aux (pascal) set_DTA modify exact [ax bx dx]
+#pragma aux (__pascal) init_call_intr __modify __exact [__ax]
+#pragma aux (__pascal) read __modify __exact [__ax __bx __cx __dx]
+#pragma aux (__pascal) init_DosOpen __modify __exact [__ax __bx __dx]
+#pragma aux (__pascal) close __modify __exact [__ax __bx]
+#pragma aux (__pascal) dup2 __modify __exact [__ax __bx __cx]
+#pragma aux (__pascal) allocmem __modify __exact [__ax __bx]
+#pragma aux (__pascal) init_PSPSet __modify __exact [__ax __bx]
+#pragma aux (__pascal) init_DosExec __modify __exact [__ax __bx __dx __es]
+#pragma aux (__pascal) init_setdrive __modify __exact [__ax __bx __dx]
+#pragma aux (__pascal) init_switchar __modify __exact [__ax __bx __dx]
+#pragma aux (__pascal) keycheck __modify __exact [__ax]
+#pragma aux (__pascal) set_DTA __modify __exact [__ax __bx __dx]
 #endif
 
 /* irqstack.asm */
@@ -333,9 +333,9 @@ extern void FAR * ASMPASCAL DetectXMSDriver(VOID);
 extern int ASMPASCAL init_call_XMScall(void FAR * driverAddress, UWORD ax,
                                       UWORD dx);
 #ifdef __WATCOMC__
-#pragma aux (pascal) DetectXMSDriver modify exact [ax dx]
-#pragma aux (pascal) _EnableA20 modify exact [ax]
-#pragma aux (pascal) _DisableA20 modify exact [ax]
+#pragma aux (__pascal) DetectXMSDriver __modify __exact [__ax __dx]
+#pragma aux (__pascal) _EnableA20 __modify __exact [__ax]
+#pragma aux (__pascal) _DisableA20 __modify __exact [__ax]
 #endif
 
 #if defined(WATCOM) && 0

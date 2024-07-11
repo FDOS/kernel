@@ -372,9 +372,9 @@ VOID ASMPASCAL WriteATClock(BYTE *, BYTE, BYTE, BYTE);
 VOID ASMPASCAL WritePCClock(ULONG);
 intvec getvec(unsigned char);
 #ifdef __WATCOMC__
-#pragma aux (pascal) ReadPCClock modify exact [ax cx dx]
-#pragma aux (pascal) WriteATClock modify exact [ax bx cx dx]
-#pragma aux (pascal) WritePCClock modify exact [ax cx dx]
+#pragma aux (__pascal) ReadPCClock __modify __exact [__ax __cx __dx]
+#pragma aux (__pascal) WriteATClock __modify __exact [__ax __bx __cx __dx]
+#pragma aux (__pascal) WritePCClock __modify __exact [__ax __cx __dx]
 #endif
 
 /*                                                              */
@@ -410,7 +410,7 @@ void setvec(unsigned char intno, intvec vector);
 
 /* ^Break handling */
 #ifdef __WATCOMC__
-#pragma aux (cdecl) spawn_int23 aborts;
+#pragma aux (__cdecl) spawn_int23 __aborts;
 #endif
 void ASMCFUNC spawn_int23(void);        /* procsupt.asm */
 void ASMCFUNC DosIdle_hlt(void);        /* dosidle.asm */

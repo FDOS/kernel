@@ -142,7 +142,7 @@ int ndread(struct dhdr FAR **pdev)
 
 #ifdef __WATCOMC__
 void fast_put_char(char c);
-#pragma aux fast_put_char = "int 29h" parm[al] modify exact [bx]
+#pragma aux fast_put_char = "int 29h" __parm[__al] __modify __exact [__bx]
 #else
 
 /* writes a character in raw mode using int29 for speed */
