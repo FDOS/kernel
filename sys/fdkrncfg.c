@@ -43,8 +43,8 @@ unsigned long lseek(int fildes, unsigned long offset, int whence);
 #pragma aux lseek =  \
       "mov ah, 0x42" \
       "int 0x21"     \
-      parm [bx] [dx cx] [ax] \
-      value [dx ax];
+      __parm [__bx] [__dx __cx] [__ax] \
+      __value [__dx __ax];
 
 #elif defined(__GNUC__)
 #include <unistd.h>

@@ -56,12 +56,12 @@ extern COUNT ASMPASCAL fl_lba_ReadWrite(BYTE drive, WORD mode,
                                        * dap_p);
 UWORD ASMPASCAL floppy_change(UWORD);
 #ifdef __WATCOMC__
-#pragma aux (pascal) fl_reset modify exact [ax dx]
-#pragma aux (pascal) fl_diskchanged modify exact [ax dx]
-#pragma aux (pascal) fl_setdisktype modify exact [ax bx dx]
-#pragma aux (pascal) fl_readkey modify exact [ax]
-#pragma aux (pascal) fl_lba_ReadWrite modify exact [ax dx]
-#pragma aux (pascal) floppy_change modify exact [ax cx dx]
+#pragma aux (__pascal) fl_reset __modify __exact [__ax __dx]
+#pragma aux (__pascal) fl_diskchanged __modify __exact [__ax __dx]
+#pragma aux (__pascal) fl_setdisktype __modify __exact [__ax __bx __dx]
+#pragma aux (__pascal) fl_readkey __modify __exact [__ax]
+#pragma aux (__pascal) fl_lba_ReadWrite __modify __exact [__ax __dx]
+#pragma aux (__pascal) floppy_change __modify __exact [__ax __cx __dx]
 #endif
 
 STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
