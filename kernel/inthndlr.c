@@ -63,7 +63,7 @@ struct HugeSectorBlock {
 
 /* Normal entry.  This minimizes user stack usage by avoiding local     */
 /* variables needed for the rest of the handler.                        */
-/* this here works on the users stack !! and only very few functions 
+/* this here works on the users stack !! and only very few functions
    are allowed                                                          */
 
 /* TODO: really, really make sure that this function works properly     */
@@ -74,12 +74,12 @@ struct HugeSectorBlock {
 /* to compile under gcc-ia16 to correctly-behaving code _for now_.  But */
 /* it will be better to be able to guarantee this.   -- tkchia 20191207 */
 
-/* Update: I added experimental SS != DGROUP support, and a __seg_ss	*/
-/* address space qualifier, to gcc-ia16 around January 2020.  This	*/
-/* function now uses these if available.  In particular, the iregs *irp	*/
-/* structure will always be on the stack, so (as far as the calling	*/
-/* convention permits) the function can treat the irp pointer as a	*/
-/* 16-bit pointer relative to SS.		     -- tkchia 20200417 */
+/* Update: I added experimental SS != DGROUP support, and a __seg_ss    */
+/* address space qualifier, to gcc-ia16 around January 2020.  This      */
+/* function now uses these if available.  In particular, the iregs *irp */
+/* structure will always be on the stack, so (as far as the calling     */
+/* convention permits) the function can treat the irp pointer as a      */
+/* 16-bit pointer relative to SS.                    -- tkchia 20200417 */
 #if defined __GNUC__ && defined  __IA16_FEATURE_ATTRIBUTE_NO_ASSUME_SS_DATA
 __attribute__((no_assume_ss_data))
 VOID ASMCFUNC int21_syscall(iregs __seg_ss * irp, ...)
@@ -142,16 +142,16 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 
         /* the remaining are FreeDOS extensions */
 
-			/* return CPU family */
+                        /* return CPU family */
         case 0xfa:
           irp->AL = CPULevel;
           break;
-		  
-#if 0		/* unknown if used / usage */
-		case 0xfb:
+
+#if 0           /* unknown if used / usage */
+                case 0xfb:
 #endif
 
-#if 1	   /* duplicates DOS 4 int 2F/122Fh, but used by CALLVER */
+#if 1      /* duplicates DOS 4 int 2F/122Fh, but used by CALLVER */
            /* set FreeDOS returned version for int 21.30 from BX */
         case 0xfc:
           os_setver_major = irp->BL;
@@ -216,7 +216,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 int int21_fat32(lregs *r)
 {
   COUNT rc;
-  
+
   switch (r->AL)
   {
     /* Get extended drive parameter block */
@@ -224,7 +224,7 @@ int int21_fat32(lregs *r)
     {
       struct dpb FAR *dpb;
       struct xdpbdata FAR *xddp;
-    
+
       if (r->CX < sizeof(struct xdpbdata))
         return DE_INVLDBUF;
 
@@ -235,12 +235,12 @@ int int21_fat32(lregs *r)
       /* hazard: no error checking! */
       flush_buffers(dpb->dpb_unit);
       dpb->dpb_flags = M_CHANGED;       /* force reread of drive BPB/DPB */
-    
+
       if (media_check(dpb) < 0)
         return DE_INVLDDRV;
-    
+
       xddp = MK_FP(r->ES, r->DI);
-      
+
       fmemcpy(&xddp->xdd_dpb, dpb, sizeof(struct dpb));
       xddp->xdd_dpbsize = sizeof(struct dpb);
 
@@ -260,7 +260,7 @@ int int21_fat32(lregs *r)
     case 0x03:
     {
       struct xfreespace FAR *xfsp = MK_FP(r->ES, r->DI);
-    
+
       if (r->CX < sizeof(struct xfreespace))
         return DE_INVLDBUF;
 
@@ -281,10 +281,10 @@ int int21_fat32(lregs *r)
       dpb = GetDriveDPB(r->DL, &rc);
       if (rc != SUCCESS)
         return rc;
-      
+
       xdffp->xdff_datasize = sizeof(struct xdpbforformat);
       xdffp->xdff_version.actual = 0;
-    
+
       switch ((UWORD) xdffp->xdff_function)
       {
         case 0x00:
@@ -328,7 +328,7 @@ int int21_fat32(lregs *r)
             /* hazard: no error checking! */
           flush_buffers(dpb->dpb_unit);
           dpb->dpb_flags = M_CHANGED;
-          
+
           if (media_check(dpb) < 0)
             return DE_INVLDDRV;
           break;
@@ -372,7 +372,7 @@ int int21_fat32(lregs *r)
         default:
           return DE_INVLDFUNC;
       }
-    
+
       break;
     }
     /* Extended absolute disk read/write */
@@ -384,28 +384,28 @@ int int21_fat32(lregs *r)
       UBYTE mode;
       /* bit 0 of SI is 0 read / 1 write, bits 13/14 indicate a type:  */
       /* 0 any, 1 fat, 2 dir, 3 file. Type is mostly for "write hints" */
-      
+
       if (r->CX != 0xffff || (r->SI & ~0x6001))
       {
         return DE_INVLDPARM;
       }
-    
+
       if (r->DL > lastdrive || r->DL == 0)
         return -0x207;
-    
+
       if ((r->SI & 1) == 0) /* while uncommon, reads CAN have type hints */
         mode = DSKREADINT25;
       else
         mode = DSKWRITEINT26;
-    
+
       r->AX =
         dskxfer(r->DL - 1, SectorBlock->blkno, SectorBlock->buf,
                 SectorBlock->nblks, mode);
-    
+
       if (mode == DSKWRITEINT26)
         if (r->AX == 0)
           setinvld(r->DL - 1);
-      
+
       if (r->AX > 0)
         return -0x20c;
       break;
@@ -780,10 +780,10 @@ dispatch:
 
       if (ReturnAnyDosVersionExpected)
       {
-        /* TE for testing purpose only and NOT 
+        /* TE for testing purpose only and NOT
            to be documented:
            return programs, who ask for version == XX.YY
-           exactly this XX.YY. 
+           exactly this XX.YY.
            this makes most MS programs more happy.
          */
         UBYTE FAR *retp = MK_FP(r->cs, r->ip);
@@ -824,14 +824,14 @@ dispatch:
       {
         int drv = (lr.DL == 0 || lr.AH == 0x1f) ? default_drive : lr.DL - 1;
         struct dpb FAR *dpb = get_dpb(drv);
-        
+
         if (dpb == NULL)
         {
           CritErrCode = -DE_INVLDDRV;
           lr.AL = 0xFF;
           break;
         }
-        /* hazard: no error checking! */        
+        /* hazard: no error checking! */
         flush_buffers(dpb->dpb_unit);
         dpb->dpb_flags = M_CHANGED;     /* force flush and reread of drive BPB/DPB */
 
@@ -852,7 +852,7 @@ dispatch:
 
       break;
 /*
-    case 0x33:  
+    case 0x33:
     see int21_syscall
 */
       /* Get InDOS flag                                               */
@@ -1148,7 +1148,7 @@ dispatch:
       lr.AX = 0;
       goto short_check;
 /*
-    case 0x50:  
+    case 0x50:
     case 0x51:
     see int21_syscall
 */
@@ -1397,7 +1397,7 @@ dispatch:
       break;
 #endif
 
-      /* UNDOCUMENTED: return current psp                             
+      /* UNDOCUMENTED: return current psp
          case 0x62: is in int21_syscall
          lr.BX = cu_psp;
          break;
@@ -1410,7 +1410,7 @@ dispatch:
 #if 0
         /* not really supported, but will pass.                 */
         lr.AL = 0x00;           /*jpp: according to interrupt list */
-        /*Bart: fails for PQDI and WATCOM utilities: 
+        /*Bart: fails for PQDI and WATCOM utilities:
            use the above again */
 #endif
         switch (lr.AL)
@@ -1589,7 +1589,7 @@ dispatch:
             /* get canonical long name or path, truename that accepts short name and returns long name */
             case 0x02: {
             }
-            default: 
+            default:
               goto unsupp;
           }
         }
@@ -1602,7 +1602,7 @@ dispatch:
         case 0xa0:
         /* Win95 LFN - find file close */
         case 0xa1:  {
-lfn_findclose:            
+lfn_findclose:
           goto unsupp;
         }
 #if 0
@@ -1667,7 +1667,7 @@ lfn_findclose:
             /* from DOS date/time to Win95 UTC */
             case 0x01: {
             }
-            default: 
+            default:
               goto unsupp;
           }
         }
@@ -1803,8 +1803,8 @@ struct int25regs {
   UWORD flags, ip, cs;
 };
 
-/* 
-    this function is called from an assembler wrapper function 
+/*
+    this function is called from an assembler wrapper function
 */
 VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
 {
@@ -2002,9 +2002,9 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         r.BX = FP_OFF(&winStartupInfo);
         winStartupInfo.winver = r.di;  /* match what caller says it is */
 #if defined __GNUC__
-	winseg1 = FP_SEG(&winStartupInfo);
-	winseg2 = FP_SEG(&DATASTART);
-	winseg3 = FP_OFF(&markEndInstanceData);
+        winseg1 = FP_SEG(&winStartupInfo);
+        winseg2 = FP_SEG(&DATASTART);
+        winseg3 = FP_OFF(&markEndInstanceData);
 #endif
         winInstanced = 1; /* internal flag marking Windows is active */
         DebugPrintf(("Win startup\n"));
@@ -2103,7 +2103,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
                  else return BX:CX size in bytes allocated to driver
                              and DX:AX set to A2AB:B97Ch */
               mcb FAR *smcb = MK_PTR(mcb, (r.ES-1), 0); /* para before is possibly submcb segment */
-              /* drivers always start a seg:0 (DI==0), so if not then either 
+              /* drivers always start a seg:0 (DI==0), so if not then either
                  not device driver or duplicate (ie device driver file loaded
                  is of multi-driver variety; multiple device drivers in same file,
                  whose memory was allocated as a single chunk)
@@ -2231,18 +2231,18 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
           --p->sft_count;
       }
       break;
-      
+
     case 0x0a:                 /* perform critical error */
                                /* differs from 0x06 as uses current drive & error on stack */
       /* code, drive number, error, device header */
       r.AL = CriticalError(0x38, /* ignore/retry/fail - based on RBIL possible return values */
-                           default_drive, 
-                           r.callerARG1, /* error, from RBIL passed on stack */  
+                           default_drive,
+                           r.callerARG1, /* error, from RBIL passed on stack */
                            CDSp[(WORD)default_drive].cdsDpb->dpb_device);
       r.FLAGS |= FLG_CARRY;
       if (r.AL == 1) r.FLAGS &= ~FLG_CARRY;  /* carry clear if should retry */
       break;
-      
+
     case 0x0b:                 /* sharing violation occurred */
       {
         /* ES:DI = SFT for previous open of file */
@@ -2253,8 +2253,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         if ((sftp->sft_mode & O_FCB) || !(sftp->sft_mode & (O_SHAREMASK | O_NOINHERIT)))
         {
           r.AL = CriticalError(0x38, /* ignore/retry/fail - ??? */
-                               default_drive, 
-                               r.callerARG1, /* error, from RBIL passed on stack */  
+                               default_drive,
+                               r.callerARG1, /* error, from RBIL passed on stack */
                                CDSp[(WORD)default_drive].cdsDpb->dpb_device);
           /* clear carry if should retry */
           if (r.AL == 1) r.FLAGS &= ~FLG_CARRY;
@@ -2314,7 +2314,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       break;
 
     case 0x13:
-      /* uppercase character */  
+      /* uppercase character */
       /* for now, ASCII only because nls.c cannot handle DS!=SS */
       r.AL = (unsigned char)r.callerARG1;
       if (r.AL >= 'a' && r.AL <= 'z')
@@ -2347,7 +2347,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
                                    ; returns
                                    ;   CF set if error
                                    ;   DS:SI pointer to CDS for drive
-                                   ; 
+                                   ;
                                    ; called like
                                    ;   push 2 (c-drive)
                                    ;   mov ax,1217
@@ -2398,7 +2398,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
           break;
         }
         strcpy(TempCDS.cdsCurrentPath, "?:\\");
-        *TempCDS.cdsCurrentPath = (BYTE)(r.callerARG1 & 0xff);        
+        *TempCDS.cdsCurrentPath = (BYTE)(r.callerARG1 & 0xff);
         TempCDS.cdsBackslashOffset = 2;
         if (cdsp->cdsFlags)
         {
@@ -2419,7 +2419,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         r.FLAGS &= ~FLG_CARRY;
         break;
       }
-      
+
     case 0x20:                 /* get job file table entry */
       {
         psp FAR *p = MK_FP(cu_psp, 0);
@@ -2544,10 +2544,10 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         goto error_carry;
       }
       break;
-    
+
     case 0x2c:                 /* added by James Tabor For Zip Drives
                                    Return Null Device Pointer          */
-      /* by UDOS+RBIL: get header of SECOND device driver in device chain, 
+      /* by UDOS+RBIL: get header of SECOND device driver in device chain,
          omitting the NUL device TE */
       r.BX = FP_SEG(nul_dev.dh_next);
       r.AX = FP_OFF(nul_dev.dh_next);
@@ -2569,7 +2569,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         os_setver_major = r.DL;
         os_setver_minor = r.DH;
       }
-      else	                	/* set returned version from emulated true DOS version */
+      else                              /* set returned version from emulated true DOS version */
       {
         os_setver_major = os_major;
         os_setver_minor = os_minor;
