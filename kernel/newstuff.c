@@ -321,10 +321,10 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
          so we know src in the form of X:?
          fail if anything other than no path or path is \DEV\
       */
-      char drivesep[] = "\\/";
       const char FAR *s = src+2;
-      const char *d = strchr(drivesep, *s); /* ?path starts with \ or / */
-      
+      char c = *s;
+
+      if( c != '\\' && c != '/' ) c = '\0';
       /* could be 1 letter devicename, don't go scanning random memory */
       if (*(src+3) != '\0') 
       {
@@ -336,7 +336,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
         s = NULL;
       }
 
-      if (d == NULL)
+      if (c == '\0')
       {
         /* either X:devicename or X:path\devicename */
         if (s != NULL) goto invalid_path;
@@ -712,7 +712,7 @@ if exist report.out del report.out
 cmdspy stop
 cmdspy flush
 cmdspy restart
-int ax=0x6000 -buf ds:si="abcöflkgsxkf\0" -buf es:di="%256s" -int 0x21 -d es:di:128 >spy_int.out
+int ax=0x6000 -buf ds:si="abcÃ¶flkgsxkf\0" -buf es:di="%256s" -int 0x21 -d es:di:128 >spy_int.out
 cmdspy stop
 cmdspy report report.out
 more report.out
@@ -732,11 +732,11 @@ more report.out
 1123: IN:  C:\TOOL\INT.COM [FAIL 0001]
 1123: OUT:  C:\INTRSPY\SPY_INT.OUT
 1123: orig buffer:  C:\TOOL\INT.COM
-1123: IN:  abcöflkgsxkf [FAIL 0001]
+1123: IN:  abcÃ¶flkgsxkf [FAIL 0001]
 1123: OUT:  C:\TOOL\INT.COM
-1123: orig buffer:  abcöflkgsxkf
+1123: orig buffer:  abcÃ¶flkgsxkf
 1123: IN:  C:\INTRSPY\SPY_INT.BAT [FAIL 0001]
-1123: OUT:  C:\INTRSPY\ABCÖFLKG
+1123: OUT:  C:\INTRSPY\ABCÃ–FLKG
 1123: orig buffer:  C:\INTRSPY\SPY_INT.BAT
 1123: IN:  cmdspy.??? [FAIL 0001]
 1123: OUT:  C:\INTRSPY
@@ -758,7 +758,7 @@ DOSERR: 0000 (0)
 
 *<es:di:128> {
 43(C) 3A(:) 5C(\) 49(I) 4E(N) 54(T) 52(R) 53(S) 50(P) 59(Y) 5C(\) 41(A)
-42(B) 43(C) 99(Ö) 46(F) 4C(L) 4B(K) 47(G) 00(.) 3D(=) 30(0) 30(0) 30(0)
+42(B) 43(C) 99(Ã–) 46(F) 4C(L) 4B(K) 47(G) 00(.) 3D(=) 30(0) 30(0) 30(0)
 30(0) 20( ) 20( ) 20( ) 43(C) 58(X) 3D(=) 30(0) 30(0) 30(0) 30(0) 28(()
 30(0) 29()) 20( ) 32(2) 38(8) 28(() 28(() 29()) 20( ) 33(3) 30(0) 28(()
 30(0) 29()) 20( ) 32(2) 39(9) 28(() 29()) 29()) 20( ) 32(2) 30(0) 28(()
