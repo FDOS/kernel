@@ -1640,7 +1640,7 @@ lfn_findclose:
             }
           }
           /* call to redirector */
-          saved_r = *r;
+          fmemcpy(&saved_r, r, sizeof(saved_r));
           r->ES = FP_SEG(s);
           r->DI = FP_OFF(s);
           r->flags |= FLG_CARRY;
@@ -1652,9 +1652,8 @@ lfn_findclose:
             goto real_exit;
           }
           /* carry still set - unhandled */
-          *r = saved_r;
+          fmemcpy(r, &saved_r, sizeof(saved_r));
           goto unsupp;
-          break;
         }
 #ifdef WITHLFNAPI
         /* Win95 LFN - Win95 64 UTC file time to/from DOS date and time (local timezone) */
@@ -1682,7 +1681,6 @@ lfn_findclose:
         default:
           goto unsupp;
       }
-      break;
 #ifdef WITHLFNAPI
     /* Win95 beta LFN - find close */
     case 0x72: goto lfn_findclose;
@@ -1942,7 +1940,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       size = ~offs;                        /* BX for query HMA   */
       if (r.AL == 0x02)                    /* allocate HMA space */
       {
-        tsize = (r.BX + 0xf) & 0xfffffff0; /* align to paragraph */
+        tsize = (r.BX + 0xf) & 0xfffffff0UL; /* align to paragraph */
         if (tsize < size)
           size = (UWORD)tsize;
         AllocateHMASpace(offs, offs+size);

@@ -2759,7 +2759,7 @@ STATIC void deletevar(BYTE far * pp) {
   if (NULL == pp)
     return;
   variablelength = fstrlen(pp) + 1;
-  fmemcpy(pp, pp + variablelength, envp + 3 - (pp + variablelength));
+  fmemcpy(pp, pp + variablelength, (unsigned)(envp + 3 - (pp + variablelength)));
   /* our fmemcpy always copies forwards */
   envp -= variablelength;
   return;
