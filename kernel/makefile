@@ -34,8 +34,6 @@ production:     ../bin/$(TARGET).sys
 		$(CP) kernel.sys ..$(DIRSEP)bin$(DIRSEP)$(TARGET).sys
 		$(CP) kernel.map ..$(DIRSEP)bin$(DIRSEP)$(TARGET).map
 
-# -S to avoid showing expected relocations
-# 0x10 & 0x78 or 0x79 depending on compilation options
 kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin ../utils/upxdevic.bin exeflat.rsp
 		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) @exeflat.rsp
 
@@ -51,6 +49,8 @@ clean:
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
 
+# -S to avoid showing expected relocations
+# 0x10 & 0x78 or 0x79 depending on compilation options
 exeflat.rsp: makefile
 		-$(RM) exeflat.rsp
 		$(ECHOTO) exeflat.rsp -S0x10
