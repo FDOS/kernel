@@ -36,8 +36,8 @@ production:     ../bin/$(TARGET).sys
 
 # -S to avoid showing expected relocations
 # 0x10 & 0x78 or 0x79 depending on compilation options
-kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin ../utils/upxdevic.bin
-		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) -S0x10 -S0x78 -S0x79 -E..$(DIRSEP)utils$(DIRSEP)upxentry.bin -D..$(DIRSEP)utils$(DIRSEP)upxdevic.bin $(UPXOPT) $(XUPX)
+kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin ../utils/upxdevic.bin exeflat.rsp
+		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) @exeflat.rsp
 
 kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
 		$(LINK) @$(TARGET).lnk;
@@ -46,10 +46,20 @@ clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
 
 clean:
-		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err *.lnk
+		-$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.cod *.err *.lnk *.rsp
 
 # XXX: This is a very ugly way of linking the kernel, forced upon us by the
 # inability of Turbo `make' 2.0 to perform command line redirection. -- ror4
+
+exeflat.rsp: makefile
+		-$(RM) exeflat.rsp
+		$(ECHOTO) exeflat.rsp -S0x10
+		$(ECHOTO) exeflat.rsp -S0x78
+		$(ECHOTO) exeflat.rsp -S0x79
+		$(ECHOTO) exeflat.rsp -E..$(DIRSEP)utils$(DIRSEP)upxentry.bin
+		$(ECHOTO) exeflat.rsp -D..$(DIRSEP)utils$(DIRSEP)upxdevic.bin
+		$(ECHOTO) exeflat.rsp $(UPXOPT)
+		$(ECHOTO) exeflat.rsp $(XUPX)
 
 $(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
 		-$(RM) *.lnk

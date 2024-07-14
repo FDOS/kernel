@@ -74,6 +74,7 @@ git clean -x -d -f -e test -e _output -e _downloads -e _watcom
   echo set XCPU=386
   echo set XFAT=32
   echo set XNASM='C:\\devel\\nasm\\nasm'
+  echo set XUPX=upx --8086 --best
   echo set OLDPATH=%PATH%
   echo set PATH='%WATCOM%\\binw;C:\\bin;%OLDPATH%'
 } | unix2dos > config.bat

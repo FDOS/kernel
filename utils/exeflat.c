@@ -90,7 +90,7 @@ static void usage(void)
 
 static int exeflat(const char *srcfile, const char *dstfile,
                    const char *start, short *silentSegments, short silentcount,
-                   int UPX, UWORD stubexesize, UWORD stubdevsize,
+                   int use_upx, UWORD stubexesize, UWORD stubdevsize,
                    UWORD entryparagraphs, exe_header *header)
 {
   int i, j;
@@ -207,7 +207,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   printf("\nProcessed %d relocations, %d not shown\n",
          header->exRelocItems, silentdone);
 
-  if (UPX)
+  if (use_upx)
   {
     struct x {
       char y[(KERNEL_CONFIG_LENGTH + 2) <= BUFSIZE ? 1 : -1];
@@ -224,7 +224,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   /* The biggest .sys file that UPX accepts seems to be 65419 bytes long.
 	Actually, UPX 3.96 appears to accept DOS/SYS files up to 65426 bytes.
 	To avoid problems we use a slightly lower limit. */
-  if (UPX) {
+  if (use_upx) {
     if (stubdevsize && stubexesize)
       compress_sys_file = (size - stubdevsize) <= /* 65426 */ 65400;
 	/* would need to subtract 0x10 for the device header here
@@ -407,13 +407,59 @@ static void write_header(FILE *dest, unsigned char * code, UWORD stubsize,
   }
 }
 
+int my_isspace( int c )
+{
+  switch( c ) {
+    case ' ':
+    case '\n':
+    case '\r':
+    case '\f':
+    case '\t':
+    case '\v':
+      return( 1 );
+    default:
+      return( 0 );
+  }
+}
+
+char *getarg( FILE *fp )
+{
+  static char buff[256];
+  char *str;
+  size_t len;
+
+  while( (str = fgets( buff, sizeof(buff) - 1, fp )) != NULL ) {
+    buff[sizeof(buff) - 1] = '\0';
+    len = strlen(buff);
+    while( len > 0 ) {
+      len--;
+      if( my_isspace( buff[len] ) ) {
+        buff[len] = '\0';
+        continue;
+      }
+      len++;
+      break;
+    }
+    while( len-- > 0 ) {
+      if( !my_isspace(*str) ) {
+        break;
+      }
+    }
+    if( *str != '\0' ) {
+      break;
+    }
+  }
+  return( str );
+}
+
 int main(int argc, char **argv)
 {
   short silentSegments[20], silentcount = 0;
   static exe_header header; /* must be initialized to zero */
-  int UPX = FALSE;
+  int use_upx = 0;
+  char *upx_cmd;
   int i;
-  size_t sz, len, len2, n;
+  size_t len;
   int compress_sys_file;
   char *buffer, *tmpexe, *cmdbuf, *entryexefilename = "", *entrydevfilename = "";
   FILE *dest, *source;
@@ -423,48 +469,81 @@ int main(int argc, char **argv)
   FILE * entryf = NULL;
   UWORD end;
   UWORD stubexesize = 0, stubdevsize = 0;
+  FILE *indir = NULL;
 
-  /* if no arguments provided, show usage and exit */
+    /* if no arguments provided, show usage and exit */
   if (argc < 4) usage();
 
+  upx_cmd = malloc(1);
+  *upx_cmd = '\0';
+  i = 4;
   /* do optional argument processing here */
-  for (i = 4; i < argc && !UPX; i++)
+  while ( i < argc || indir != NULL )
   {
-    char *argptr = argv[i];
-    
-    if (argptr[0] != '-' && argptr[0] != '/')
-      usage();
-    
-    argptr++;
+    char *argptr = NULL;
 
-    switch (toupper(argptr[0]))
-    {
-      case 'U':
-        UPX = i;
-        break;
-      case 'E':
-        entryexefilename = &argptr[1];
-        break;
-      case 'D':
-        entrydevfilename = &argptr[1];
-        break;
-      case 'S':
-        if (silentcount >= LENGTH(silentSegments))
-        {
-          printf("can't handle more then %d silent's\n",
-                 (int)LENGTH(silentSegments));
-          exit(1);
-        }
-        
-        silentSegments[silentcount++] = (short)strtol(argptr + 1, NULL, 0);
-        break;
-        
-      default:
-        usage();
+    if( indir != NULL ) {
+      argptr = getarg( indir );
+      if(argptr == NULL) {
+        fclose( indir );
+        indir = NULL;
+        continue;
+      }
+    }
+    if( argptr == NULL ) {
+      argptr = argv[i++];
+    }
+    if( use_upx ) {
+      len = strlen( upx_cmd );
+      if( len > 0 ) len++;
+      upx_cmd = realloc( upx_cmd, len + strlen( argptr ) + 1 );
+      if( len > 0 ) upx_cmd[len - 1] = ' ';
+      strcpy( upx_cmd + len, argptr );
+    } else {
+      switch (*(unsigned char *)argptr++)
+      {
+        case '@':
+          indir = fopen( argptr, "r" );
+          if( indir == NULL ) {
+            printf("can't open indirect file '%s'\n", argptr);
+            exit(1);
+          }
+          break;
+        case '-':
+        case '/':
+          switch (toupper(*(unsigned char *)argptr++))
+          {
+            case 'U':
+              use_upx = 1;
+              break;
+            case 'E':
+              entryexefilename = malloc(strlen(argptr) + 1);
+              strcpy(entryexefilename, argptr);
+              break;
+            case 'D':
+              entrydevfilename = malloc(strlen(argptr) + 1);
+              strcpy(entrydevfilename, argptr);
+              break;
+            case 'S':
+              if (silentcount >= LENGTH(silentSegments))
+              {
+                printf("can't handle more then %d silent's\n",
+                       (int)LENGTH(silentSegments));
+                exit(1);
+              }
+              silentSegments[silentcount++] = (short)strtol(argptr, NULL, 0);
+              break;
+            default:
+              usage();
+          }
+          break;
+        default:
+          usage();
+      }
     }
   }
 
-  if (UPX) {
+  if (use_upx) {
     if (*entryexefilename) {
       entryf = fopen(entryexefilename, "rb");
       if (!entryf) {
@@ -510,115 +589,100 @@ int main(int argc, char **argv)
 
   compress_sys_file = exeflat(argv[1], argv[2], argv[3],
                               silentSegments, silentcount,
-                              UPX, stubexesize, stubdevsize, 0, &header);
-  if (!UPX)
-    exit(0);
-
-  /* move kernel.sys tmp.exe */
-  if (!compress_sys_file)
+                              use_upx, stubexesize, stubdevsize, 0, &header);
+  if (use_upx)
   {
-    tmpexe = "tmp.exe";
-  } else {
-    tmpexe = "tmp.sys";
-  }
-  if (rename(argv[2], tmpexe))
-  {
-    printf("Can not rename %s to %s\n", argv[2], tmpexe);
-    exit(1);
-  }	
-
-  len2 = strlen(tmpexe) + 1;
-  sz = len2;
-  if (sz < 256) sz = 256;
-  cmdbuf = malloc(sz);
-  len = 0;
-  for (i = UPX+1; i < argc; i++)
-  {
-    n = strlen(argv[i]);
-    if (len + len2 + n + 2 >= sz) {
-      sz *= 2;
-      cmdbuf = realloc(cmdbuf, sz);
+    /* move kernel.sys tmp.exe */
+    if (!compress_sys_file)
+    {
+      tmpexe = "tmp.exe";
+    } else {
+      tmpexe = "tmp.sys";
     }
-    if (i > UPX+1)
-      cmdbuf[len++] = ' ';
-    memcpy(cmdbuf + len, argv[i], n + 1);
-    len += n;
-  }
-  cmdbuf[len++] = ' ';
-  /* if tmpexe is tmpfile set above no quotes needed, if user needs quotes should add on cmd line */
-  memcpy(cmdbuf + len, tmpexe, len2);
-  cmdbuf[len + len2] = '\0';
-  printf("%s\n", cmdbuf);
-  fflush(stdout);
-  if (system(cmdbuf))
-  {
-    printf("Problems executing %s\n", cmdbuf);
-    printf("Removing [%s]\n", tmpexe);
+    if (rename(argv[2], tmpexe))
+    {
+      printf("Can not rename %s to %s\n", argv[2], tmpexe);
+      exit(1);
+    }
+
+    len = strlen(upx_cmd);
+    cmdbuf = malloc(len + 1 + strlen(tmpexe) + 1);
+    strcpy(cmdbuf, upx_cmd);
+    cmdbuf[len] = ' ';
+    /* if tmpexe is tmpfile set above no quotes needed, if user needs quotes should add on cmd line */
+    strcpy(cmdbuf + len + 1, tmpexe);
+    printf("%s\n", cmdbuf);
+    fflush(stdout);
+    if (system(cmdbuf))
+    {
+      printf("Problems executing %s\n", cmdbuf);
+      printf("Removing [%s]\n", tmpexe);
+      remove(tmpexe);
+      exit(1);
+    }
+    free(cmdbuf);
+
+    if (!compress_sys_file)
+    {
+      exeflat(tmpexe, "tmp.bin", argv[3],
+              silentSegments, silentcount,
+              FALSE, stubexesize, 0, stubexesize >> 4, &header);
+    } else {
+      UBYTE deviceheader[16];
+      FILE * devfile = fopen("tmp.sys", "rb");
+      if (!devfile) {
+        printf("Source file %s could not be opened\n", "tmp.sys");
+        exit(1);
+      }
+      if (fread(deviceheader, 1, sizeof deviceheader, devfile)
+        != sizeof deviceheader) {
+        printf("Source file %s could not be read\n", "tmp.sys");
+        exit(1);
+      }
+      fclose(devfile);
+      header.exInitIP = deviceheader[6] + deviceheader[7] * 256U;
+      header.exInitCS = 0;
+      rename("tmp.sys", "tmp.bin");
+    }
+
+    /* tmp.bin now contains the final flattened file: just
+       the UPX entry header needs to be added. */
+    /* the compressed file may exceed 64 KiB for DOS/EXE format. */
+
+    if ((dest = fopen(argv[2], "wb")) == NULL)
+    {
+      printf("Destination file %s could not be opened\n", argv[2]);
+      exit(1);
+    }
+    if ((source = fopen("tmp.bin", "rb")) == NULL)
+    {
+      printf("Source file %s could not be opened\n", "tmp.bin");
+      exit(1);
+    }
+
+    buffer = malloc(32 * 1024);
+    if (!buffer)
+    {
+      printf("Memory allocation failure\n");
+      exit(1);
+    }
+
+    write_header(dest,
+      compress_sys_file ? devcode : execode,
+      compress_sys_file ? stubdevsize : stubexesize,
+      argv[3], compress_sys_file, &header);
+
+    do {
+      size = fread(buffer, 1, 32 * 1024, source);
+      if (fwrite(buffer, 1, size, dest) != size) {
+        printf("Write failure\n");
+        exit(1);
+      }
+    } while (size);
+
+    fclose(source);
+    remove("tmp.bin");
     remove(tmpexe);
-    exit(1);
   }
-  free(cmdbuf);
-
-  if (!compress_sys_file)
-  {
-    exeflat(tmpexe, "tmp.bin", argv[3],
-            silentSegments, silentcount,
-            FALSE, stubexesize, 0, stubexesize >> 4, &header);
-  } else {
-    UBYTE deviceheader[16];
-    FILE * devfile = fopen("tmp.sys", "rb");
-    if (!devfile) {
-      printf("Source file %s could not be opened\n", "tmp.sys");
-      exit(1);
-    }
-    if (fread(deviceheader, 1, sizeof deviceheader, devfile)
-      != sizeof deviceheader) {
-      printf("Source file %s could not be read\n", "tmp.sys");
-      exit(1);
-    }
-    fclose(devfile);
-    header.exInitIP = deviceheader[6] + deviceheader[7] * 256U;
-    header.exInitCS = 0;
-    rename("tmp.sys", "tmp.bin");
-  }
-
-  /* tmp.bin now contains the final flattened file: just
-     the UPX entry header needs to be added. */
-  /* the compressed file may exceed 64 KiB for DOS/EXE format. */
-
-  if ((dest = fopen(argv[2], "wb")) == NULL)
-  {
-    printf("Destination file %s could not be opened\n", argv[2]);
-    exit(1);
-  }
-  if ((source = fopen("tmp.bin", "rb")) == NULL)
-  {
-    printf("Source file %s could not be opened\n", "tmp.bin");
-    exit(1);
-  }
-
-  buffer = malloc(32 * 1024);
-  if (!buffer)
-  {
-    printf("Memory allocation failure\n");
-    exit(1);
-  }
-
-  write_header(dest,
-    compress_sys_file ? devcode : execode,
-    compress_sys_file ? stubdevsize : stubexesize,
-    argv[3], compress_sys_file, &header);
-
-  do {
-    size = fread(buffer, 1, 32 * 1024, source);
-    if (fwrite(buffer, 1, size, dest) != size) {
-      printf("Write failure\n");
-      exit(1);
-    }
-  } while (size);
-
-  fclose(source);
-  remove("tmp.bin");
-  remove(tmpexe);
   return 0;
 }
