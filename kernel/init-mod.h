@@ -261,7 +261,7 @@ extern struct lol FAR *LoL;
 extern struct dhdr DOSTEXTFAR ASM blk_dev; /* Block device (Disk) driver           */
 
 extern struct buffer FAR *DOSFAR firstAvailableBuf; /* first 'available' buffer   */
-extern struct lol ASM FAR DATASTART;
+extern struct lol FAR ASM DATASTART;
 
 extern BYTE DOSFAR ASM _HMATextAvailable;    /* first byte of available CODE area    */
 extern BYTE FAR ASM _HMATextStart[];          /* first byte of HMAable CODE area      */

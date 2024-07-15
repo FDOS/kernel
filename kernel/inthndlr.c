@@ -1914,7 +1914,9 @@ struct int2f12regs {
   UWORD callerARG1;             /* used if called from INT2F/12 */
 };
 
-extern intvec ASM BIOSInt13, ASM UserInt13, ASM BIOSInt19;
+extern intvec FAR ASM BIOSInt13;
+extern intvec FAR ASM UserInt13;
+extern intvec FAR ASM BIOSInt19;
 
 
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
