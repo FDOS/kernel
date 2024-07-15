@@ -62,6 +62,7 @@ set BC3_BASE=c:\bc
 :- if not \%WATCOM% == \ goto watcom_defined
 :- set WATCOM=c:\watcom
 :- set PATH=%PATH%;%WATCOM%\binw
+:- set DOS4G=QUIET
 :watcom_defined
 
 :-**********************************************************************

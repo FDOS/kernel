@@ -25,7 +25,6 @@ if not exist config.bat goto abort
 
 call config.bat
 :-if "%LAST%" == "" goto noenv
-set dos4g=quiet
 
 :-----------------------------------------------------------------------
 :- following is command line handling
