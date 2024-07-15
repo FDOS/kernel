@@ -21,7 +21,7 @@ extern struct WinStartupInfo winStartupInfo;
 #if defined __GNUC__
 extern UWORD winseg1, winseg2, winseg3;
 extern UBYTE markEndInstanceData;
-extern struct lol ASM FAR DATASTART;
+extern struct lol FAR ASM DATASTART;
 #endif
 
 
