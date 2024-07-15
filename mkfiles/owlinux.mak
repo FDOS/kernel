@@ -6,14 +6,14 @@
 include "../mkfiles/watcom.mak"
 
 DIRSEP=/
+CC=$(CC) -fo=.obj
+CL=$(CL) -fo=.obj
 INCLUDEPATH=$(COMPILERPATH)/h
 RM=rm -f
 CP=cp
 ECHOTO=echo>>
 INITPATCH=@echo > /dev/null
 CLDEF=1
-CLT=wcl386 -zq -bcl=linux -I../hdr -fe=$@ -I$(COMPILERPATH)/lh
+CLT=wcl386 -zq -fo=.obj -bcl=linux -I../hdr -fe=$@ -I$(COMPILERPATH)/lh
 CLC=$(CLT)
-CFLAGST=-fo=.obj $(CFLAGST)
-ALLCFLAGS=-fo=.obj $(ALLCFLAGS) 
-XLINK=$(XLINK) debug all op symfile format dos option map,statics,verbose F { $(OBJS) } L ../lib/device.lib N kernel.exe $#
+XLINK=$(XLINK) debug all format dos opt quiet,symfile,map,statics,verbose F { $(OBJS) } L ../lib/device.lib N kernel.exe $#

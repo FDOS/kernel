@@ -4,8 +4,8 @@
 
 # Use these for WATCOM 11.0c
 COMPILERPATH=$(WATCOM)
-CC=*wcc
-CL=wcl
+CC=*wcc -zq
+CL=wcl -zq
 INCLUDEPATH=$(COMPILERPATH)\H
 INCLUDE=$(COMPILERPATH)\h 
 EDPATH=$(COMPILERPATH)\EDDAT
@@ -22,8 +22,8 @@ LIBPLUS=
 LIBTERM=
 
 TINY=-mt
-CFLAGST=-zq-zp1-os-s-we-e3-wx-bt=DOS
-CFLAGSC=-mc-zq-zp1-os-s-we-e3-wx-bt=DOS
+CFLAGST=-zp1-os-s-we-e3-wx-bt=DOS
+CFLAGSC=-mc-zp1-os-s-we-e3-wx-bt=DOS
 
 TARGET=KWC
 
@@ -61,7 +61,7 @@ MATH_INSERT=+i4m
 # -3		optimization for 386 - given in CONFIG.MAK, not here
 #
 
-ALLCFLAGS=-I..$(DIRSEP)hdr $(TARGETOPT) $(ALLCFLAGS) -zq-os-s-e5-j-zl-zp1-wx-we-zgf-zff-r
+ALLCFLAGS=-I..$(DIRSEP)hdr $(TARGETOPT) $(ALLCFLAGS) -os-s-e5-j-zl-zp1-wx-we-zgf-zff-r
 INITCFLAGS=$(ALLCFLAGS)-ntINIT_TEXT-gTGROUP-ndI
 CFLAGS=$(ALLCFLAGS)-ntHMA_TEXT
 
