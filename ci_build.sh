@@ -77,6 +77,7 @@ git clean -x -d -f -e test -e _output -e _downloads -e _watcom
   echo set XUPX=upx --8086 --best
   echo set OLDPATH=%PATH%
   echo set PATH='%WATCOM%\\binw;C:\\bin;%OLDPATH%'
+  echo set DOS4G=QUIET
 } | unix2dos > config.bat
 
 dosemu -td -q -K . -E "build.bat"
