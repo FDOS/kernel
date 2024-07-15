@@ -2,7 +2,7 @@
 
 CFLAGS = -I..$(DIRSEP)hdr
 
-production: patchobj.com exeflat.exe upxentry.bin upxdevic.bin
+production: patchobj.com bin2c.exe exeflat.exe upxentry.bin upxdevic.bin
 
 patchobj.com: patchobj.c
 	$(CLT) $(CFLAGS) patchobj.c
@@ -16,10 +16,13 @@ upxdevic.bin: upxdevic.asm
 exeflat.exe: exeflat.c ../hdr/exe.h
 	$(CLC) $(CFLAGS) exeflat.c
 
+bin2c.exe: bin2c.c
+	$(CLC) $(CFLAGS) bin2c.c
+
 
 clobber: clean
 
 clean:
 	$(RM) *.obj *.bak *.crf *.xrf *.map *.lst *.las *.cod *.err status.me
-	$(RM) exeflat.exe patchobj.com upxentry.bin upxdevic.bin
+	$(RM) bin2c.exe exeflat.exe patchobj.com upxentry.bin upxdevic.bin
 
