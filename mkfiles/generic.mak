@@ -40,8 +40,8 @@ LOADSEG=0x60
 !include "../mkfiles/$(COMPILER).mak"
 
 !if $(CLDEF) == 0
-CLT=$(CL) $(CFLAGST) $(TINY) -I$(INCLUDEPATH)
-CLC=$(CL) $(CFLAGSC) -I$(INCLUDEPATH)
+CLT=$(CL) $(CFLAGST) $(TINY) -I..\hdr $(INCLUDEPATH)
+CLC=$(CL) $(CFLAGSC) -I..\hdr $(INCLUDEPATH)
 !endif
 
 TARGET=$(TARGET)$(XCPU)$(XFAT)

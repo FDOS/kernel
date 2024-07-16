@@ -29,7 +29,6 @@ NASMFLAGS+=-i../hdr/ -DXCPU=$(XCPU) -felf
 
 CC=ia16-elf-gcc -c
 CL=ia16-elf-gcc
-INCLUDEPATH=.
 
 LIBUTIL=ar crs
 LIBPLUS=
