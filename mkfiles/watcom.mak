@@ -21,9 +21,9 @@ LIBUTIL=wlib -q
 LIBPLUS=
 LIBTERM=
 
-TINY=-mt
-CFLAGST=-zp1-os-s-we-e3-wx-bt=DOS
-CFLAGSC=-mc-zp1-os-s-we-e3-wx-bt=DOS
+TINY=-l=com
+CFLAGST=-ms-zp1-os-s-we-e3-wx-bt=dos
+CFLAGSC=-mc-zp1-os-s-we-e3-wx-bcl=dos
 
 TARGET=KWC
 
@@ -61,7 +61,7 @@ MATH_INSERT=
 # -3		optimization for 386 - given in CONFIG.MAK, not here
 #
 
-ALLCFLAGS=-I..$(DIRSEP)hdr $(TARGETOPT) $(ALLCFLAGS) -os-s-e5-j-zl-zp1-wx-we-zgf-zff-r
+ALLCFLAGS=-I..$(DIRSEP)hdr $(TARGETOPT) $(ALLCFLAGS) -ms-os-s-e5-j-zl-zp1-wx-we-zgf-zff-r-bt=none
 INITCFLAGS=$(ALLCFLAGS)-ntINIT_TEXT-gTGROUP-ndI
 CFLAGS=$(ALLCFLAGS)-ntHMA_TEXT
 
