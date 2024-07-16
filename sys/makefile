@@ -6,7 +6,7 @@
 
 !include "../mkfiles/generic.mak"
 
-CFLAGS = -I$(INCLUDEPATH) -I..$(DIRSEP)hdr -DFORSYS -DWITHFAT32 $(CFLAGST)
+CFLAGS = -DFORSYS -DWITHFAT32 $(CFLAGST) -I. -I..$(DIRSEP)hdr $(INCLUDEPATH)
 NASMFLAGS = -DSYS=1
 
 #		*List Macros*
