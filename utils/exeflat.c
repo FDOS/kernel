@@ -85,6 +85,8 @@ static void usage(void)
   printf("               -E(path/to/upxentry.bin)   - Omit to force DOS/SYS compression\n");
   printf("               -D(path/to/upxdevic.bin)   - Omit to force DOS/EXE compression\n");
   printf("               -U (command) (parameters)  - Specify to use UPX compression\n");
+  printf("               @(indirect file)           - Specify to use indirect file\n");
+  printf("                    indirect file format, each line contains single argument\n");
   exit(1);
 }
 
