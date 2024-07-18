@@ -80,12 +80,12 @@ set XUPX=upx --8086 --best
 :-**********************************************************************
 
 :- Turbo Link
-:- set XLINK=tlink /m/c/s/l
+:- set LINK=tlink /m/c/s/l
 :- Microsoft Link
-:- set XLINK=d:\qb\link /ma
-:- set XLINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
+:- set LINK=d:\qb\link /ma
+:- set LINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
 :- WATCOM Link (wlinker is a batch file calling ms2wlink and wlink)
-:- set XLINK=..\utils\wlinker /ma /nologo
+:- set LINK=*wlink OP Q,M
 
 :- set path for Turbo Link - use OLDPATH to restore normal path
 :- set OLDPATH=%PATH%

@@ -24,8 +24,6 @@ NASMFLAGS=$(NASMFLAGS) -DWITHFAT32
 NASM=$(XNASM)
 NASMFLAGS   = $(NASMFLAGS) -i../hdr/ -DXCPU=$(XCPU)
 
-LINK=$(XLINK)
-
 INITPATCH=@rem
 DIRSEP=\ #a backslash
 RM=..\utils\rmfiles

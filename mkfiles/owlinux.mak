@@ -16,4 +16,3 @@ INITPATCH=@echo > /dev/null
 CLDEF=1
 CLT=wcl386 -zq -fo=.obj -bcl=linux -I../hdr -fe=$@ -I$(COMPILERPATH)/lh
 CLC=$(CLT)
-XLINK=$(XLINK) debug all format dos opt quiet,symfile,map,statics,verbose F { $(OBJS) } L ../lib/device.lib N kernel.exe $#

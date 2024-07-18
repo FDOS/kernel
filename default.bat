@@ -35,20 +35,20 @@ echo Make is %MAKE%.
 
 :-----------------------------------------------------------------------
 
-if not "%XLINK%" == "" goto skip_xlink
+if not "%LINK%" == "" goto skip_link
 
-if "%COMPILER%" == "TC2"      set XLINK=%TC2_BASE%\tlink /m/c
-if "%COMPILER%" == "TURBOCPP" set XLINK=%TP1_BASE%\bin\tlink /m/c
-if "%COMPILER%" == "TC3"      set XLINK=%TC3_BASE%\bin\tlink /m/c
-if "%COMPILER%" == "BC3"      set XLINK=%BC3_BASE%\bin\tlink /m/c
-if "%COMPILER%" == "BC5"      set XLINK=%BC5_BASE%\bin\tlink /m/c
-if "%COMPILER%" == "WATCOM"   set XLINK=..\utils\wlinker /ma/nologo
-if "%COMPILER%" == "OWWIN"    set XLINK=..\utils\wlinker /ma/nologo
-if "%COMPILER%" == "MSCL8"    set XLINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
+if "%COMPILER%" == "TC2"      set LINK=%TC2_BASE%\tlink /m/c
+if "%COMPILER%" == "TURBOCPP" set LINK=%TP1_BASE%\bin\tlink /m/c
+if "%COMPILER%" == "TC3"      set LINK=%TC3_BASE%\bin\tlink /m/c
+if "%COMPILER%" == "BC3"      set LINK=%BC3_BASE%\bin\tlink /m/c
+if "%COMPILER%" == "BC5"      set LINK=%BC5_BASE%\bin\tlink /m/c
+if "%COMPILER%" == "WATCOM"   set LINK=*wlink OP Q,M
+if "%COMPILER%" == "OWWIN"    set LINK=*wlink OP Q,M
+if "%COMPILER%" == "MSCL8"    set LINK=%MS_BASE%\bin\link /ONERROR:NOEXE /ma /nologo
 
-echo Linker is %XLINK%.
+echo Linker is %LINK%.
 
-:skip_xlink
+:skip_link
 
 :-----------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ set CFLAGS=
 set XCPU=
 set XCPU_EX=
 set XFAT=
-set XLINK=
+set LINK=
 set TC2_BASE=
 set TP1_BASE=
 set TC3_BASE=
