@@ -37,7 +37,7 @@ XUPX=upx --8086 --best
 # (otherwise will be determined automatically)
 
 # WATCOM Link
-#XLINK=wlink
+#LINK=*wlink OP Q,M
 
 #*********************************************************************
 # optionally define your MAKE type here, if not then

@@ -37,8 +37,8 @@ production:     ../bin/$(TARGET).sys
 kernel.sys:	kernel.exe ../utils/exeflat.exe ../utils/upxentry.bin ../utils/upxdevic.bin exeflat.rsp
 		..$(DIRSEP)utils$(DIRSEP)exeflat.exe kernel.exe kernel.sys $(LOADSEG) @exeflat.rsp
 
-kernel.exe:	$(TARGET).lnk $(OBJS) $(LIBS)
-		$(LINK) @$(TARGET).lnk;
+kernel.exe:	$(XLINKFILE) $(OBJS) $(LIBS)
+		$(XLINK)
 
 clobber:        clean
 		-$(RM) kernel.exe kernel.sys status.me
@@ -61,39 +61,39 @@ exeflat.rsp: makefile
 		$(ECHOTO) exeflat.rsp $(UPXOPT)
 		$(ECHOTO) exeflat.rsp $(XUPX)
 
-$(TARGET).lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
-		-$(RM) *.lnk
-		$(ECHOTO) $(TARGET).lnk $(OBJS1)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS2)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS3)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS4)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS5)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS6)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS7)+
-		$(ECHOTO) $(TARGET).lnk $(OBJS8)
-		$(ECHOTO) $(TARGET).lnk kernel.exe
-		$(ECHOTO) $(TARGET).lnk kernel.map
-		$(ECHOTO) $(TARGET).lnk $(LIBS)
+kernel.lnk: turboc.cfg makefile ../mkfiles/generic.mak ../mkfiles/$(COMPILER).mak
+		-$(RM) kernel.lnk
+		$(ECHOTO) kernel.lnk $(OBJS1)+
+		$(ECHOTO) kernel.lnk $(OBJS2)+
+		$(ECHOTO) kernel.lnk $(OBJS3)+
+		$(ECHOTO) kernel.lnk $(OBJS4)+
+		$(ECHOTO) kernel.lnk $(OBJS5)+
+		$(ECHOTO) kernel.lnk $(OBJS6)+
+		$(ECHOTO) kernel.lnk $(OBJS7)+
+		$(ECHOTO) kernel.lnk $(OBJS8)
+		$(ECHOTO) kernel.lnk kernel.exe
+		$(ECHOTO) kernel.lnk kernel.map
+		$(ECHOTO) kernel.lnk $(LIBS)
 
 #               *Individual File Dependencies*
-apisupt.obj:	apisupt.asm segs.inc			$(TARGET).lnk
-asmsupt.obj:	asmsupt.asm segs.inc			$(TARGET).lnk
-console.obj:	console.asm io.inc			$(TARGET).lnk
-cpu.obj:	cpu.asm  segs.inc $(TARGET).lnk
-dosidle.obj:	dosidle.asm segs.inc			$(TARGET).lnk
-entry.obj:	entry.asm   segs.inc $(HDR)stacks.inc	$(TARGET).lnk
-execrh.obj:	execrh.asm  segs.inc 			$(TARGET).lnk
-int2f.obj:	int2f.asm   segs.inc $(HDR)stacks.inc	$(TARGET).lnk
-intr.obj:	intr.asm    segs.inc			$(TARGET).lnk
-io.obj:		io.asm	    segs.inc $(HDR)stacks.inc   $(TARGET).lnk
-irqstack.obj:   irqstack.asm segs.inc			$(TARGET).lnk
-kernel.obj:	kernel.asm  segs.inc ludivmul.inc 	$(TARGET).lnk
-memdisk.obj:	memdisk.asm  segs.inc $(TARGET).lnk
-nls_hc.obj:	nls_hc.asm  segs.inc			$(TARGET).lnk
-nlssupt.obj:	nlssupt.asm segs.inc $(HDR)stacks.inc   $(TARGET).lnk
-printer.obj:	printer.asm io.inc			$(TARGET).lnk
-procsupt.obj:	procsupt.asm segs.inc $(HDR)stacks.inc  $(TARGET).lnk
-serial.obj:	serial.asm  io.inc			$(TARGET).lnk
+apisupt.obj:	apisupt.asm segs.inc			$(XLINKFILE)
+asmsupt.obj:	asmsupt.asm segs.inc			$(XLINKFILE)
+console.obj:	console.asm io.inc			$(XLINKFILE)
+cpu.obj:	cpu.asm  segs.inc $(XLINKFILE)
+dosidle.obj:	dosidle.asm segs.inc			$(XLINKFILE)
+entry.obj:	entry.asm   segs.inc $(HDR)stacks.inc	$(XLINKFILE)
+execrh.obj:	execrh.asm  segs.inc 			$(XLINKFILE)
+int2f.obj:	int2f.asm   segs.inc $(HDR)stacks.inc	$(XLINKFILE)
+intr.obj:	intr.asm    segs.inc			$(XLINKFILE)
+io.obj:		io.asm	    segs.inc $(HDR)stacks.inc   $(XLINKFILE)
+irqstack.obj:   irqstack.asm segs.inc			$(XLINKFILE)
+kernel.obj:	kernel.asm  segs.inc ludivmul.inc 	$(XLINKFILE)
+memdisk.obj:	memdisk.asm  segs.inc $(XLINKFILE)
+nls_hc.obj:	nls_hc.asm  segs.inc			$(XLINKFILE)
+nlssupt.obj:	nlssupt.asm segs.inc $(HDR)stacks.inc   $(XLINKFILE)
+printer.obj:	printer.asm io.inc			$(XLINKFILE)
+procsupt.obj:	procsupt.asm segs.inc $(HDR)stacks.inc  $(XLINKFILE)
+serial.obj:	serial.asm  io.inc			$(XLINKFILE)
 
 HDRS=\
     $(HDR)portab.h $(HDR)device.h $(HDR)mcb.h $(HDR)pcb.h \
@@ -104,30 +104,30 @@ HDRS=\
 HEADERS=$(HDRS) globals.h proto.h
 INITHEADERS=$(HDRS) init-mod.h init-dat.h
 
-blockio.obj: blockio.c    $(HEADERS) $(TARGET).lnk  
-break.obj: break.c        $(HEADERS) $(TARGET).lnk  
-chario.obj: chario.c      $(HEADERS) $(TARGET).lnk  
-dosfns.obj: dosfns.c      $(HEADERS) $(TARGET).lnk  
-dsk.obj: dsk.c            $(HEADERS) $(TARGET).lnk  
-error.obj: error.c        $(HEADERS) $(TARGET).lnk  
-fatdir.obj: fatdir.c      $(HEADERS) $(TARGET).lnk  
-fatfs.obj: fatfs.c        $(HEADERS) $(TARGET).lnk  
-fattab.obj: fattab.c      $(HEADERS) $(TARGET).lnk  
-fcbfns.obj: fcbfns.c      $(HEADERS) $(TARGET).lnk  
-inthndlr.obj: inthndlr.c  $(HEADERS) $(TARGET).lnk  
-ioctl.obj: ioctl.c        $(HEADERS) $(TARGET).lnk  
-memmgr.obj: memmgr.c      $(HEADERS) $(TARGET).lnk  
-misc.obj: misc.c          $(HEADERS) $(TARGET).lnk  
-lfnapi.obj: lfnapi.c      $(HEADERS) $(TARGET).lnk
-newstuff.obj: newstuff.c  $(HEADERS) $(TARGET).lnk  
-network.obj: network.c    $(HEADERS) $(TARGET).lnk  
-nls.obj: nls.c            $(HEADERS) $(TARGET).lnk  
-prf.obj: prf.c  $(HDR)portab.h $(TARGET).lnk
-strings.obj: strings.c  $(TARGET).lnk
-sysclk.obj: sysclk.c    $(HEADERS) $(TARGET).lnk
-syspack.obj: syspack.c  $(HEADERS) $(TARGET).lnk
-systime.obj: systime.c  $(HEADERS) $(TARGET).lnk
-task.obj: task.c        $(HEADERS) $(TARGET).lnk
+blockio.obj: blockio.c    $(HEADERS) $(XLINKFILE)  
+break.obj: break.c        $(HEADERS) $(XLINKFILE)  
+chario.obj: chario.c      $(HEADERS) $(XLINKFILE)  
+dosfns.obj: dosfns.c      $(HEADERS) $(XLINKFILE)  
+dsk.obj: dsk.c            $(HEADERS) $(XLINKFILE)  
+error.obj: error.c        $(HEADERS) $(XLINKFILE)  
+fatdir.obj: fatdir.c      $(HEADERS) $(XLINKFILE)  
+fatfs.obj: fatfs.c        $(HEADERS) $(XLINKFILE)  
+fattab.obj: fattab.c      $(HEADERS) $(XLINKFILE)  
+fcbfns.obj: fcbfns.c      $(HEADERS) $(XLINKFILE)  
+inthndlr.obj: inthndlr.c  $(HEADERS) $(XLINKFILE)  
+ioctl.obj: ioctl.c        $(HEADERS) $(XLINKFILE)  
+memmgr.obj: memmgr.c      $(HEADERS) $(XLINKFILE)  
+misc.obj: misc.c          $(HEADERS) $(XLINKFILE)  
+lfnapi.obj: lfnapi.c      $(HEADERS) $(XLINKFILE)
+newstuff.obj: newstuff.c  $(HEADERS) $(XLINKFILE)  
+network.obj: network.c    $(HEADERS) $(XLINKFILE)  
+nls.obj: nls.c            $(HEADERS) $(XLINKFILE)  
+prf.obj: prf.c  $(HDR)portab.h $(XLINKFILE)
+strings.obj: strings.c  $(XLINKFILE)
+sysclk.obj: sysclk.c    $(HEADERS) $(XLINKFILE)
+syspack.obj: syspack.c  $(HEADERS) $(XLINKFILE)
+systime.obj: systime.c  $(HEADERS) $(XLINKFILE)
+task.obj: task.c        $(HEADERS) $(XLINKFILE)
 
 # now the funny stuff :-)
 # Files in the INIT segment
@@ -135,39 +135,39 @@ task.obj: task.c        $(HEADERS) $(TARGET).lnk
 # XXX: Special handling for initialization modules -- this is required because
 # TC 2.01 cannot handle `#pragma option' like TC 3 can. -- ror4
 
-config.obj:   config.c  $(INITHEADERS) $(TARGET).lnk  
+config.obj:   config.c  $(INITHEADERS) $(XLINKFILE)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
-initoem.obj:  initoem.c  $(INITHEADERS) $(TARGET).lnk  
+initoem.obj:  initoem.c  $(INITHEADERS) $(XLINKFILE)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
-main.obj:     main.c  $(INITHEADERS) $(TARGET).lnk 
+main.obj:     main.c  $(INITHEADERS) $(XLINKFILE) 
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
-inithma.obj:  inithma.c  $(INITHEADERS) $(TARGET).lnk  
+inithma.obj:  inithma.c  $(INITHEADERS) $(XLINKFILE)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
-dyninit.obj:  dyninit.c  $(INITHEADERS) $(TARGET).lnk  
+dyninit.obj:  dyninit.c  $(INITHEADERS) $(XLINKFILE)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
-initdisk.obj: initdisk.c  $(INITHEADERS) $(TARGET).lnk  
+initdisk.obj: initdisk.c  $(INITHEADERS) $(XLINKFILE)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
-initclk.obj: initclk.c  $(INITHEADERS) $(TARGET).lnk  
+initclk.obj: initclk.c  $(INITHEADERS) $(XLINKFILE)  
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj
 
 #the string functions for INIT_TEXT
-iasmsupt.obj: asmsupt.asm $(TARGET).lnk
+iasmsupt.obj: asmsupt.asm $(XLINKFILE)
 	$(NASM) -D$(COMPILER) -D_INIT -f obj $(NASMFLAGS) -o iasmsupt.obj asmsupt.asm
 
 #the printf for INIT_TEXT - yet another special case, this file includes prf.c
-iprf.obj: iprf.c prf.c $(HDR)portab.h $(TARGET).lnk
+iprf.obj: iprf.c prf.c $(HDR)portab.h $(XLINKFILE)
 	$(CC) $(INITCFLAGS) $*.c
 	$(INITPATCH) $*.obj

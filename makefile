@@ -97,12 +97,12 @@ ifeq ($(COMPILER),gcc)
 MAKE=make
 MAKEADJUST=for i in utils lib drivers boot sys kernel setver; do sed 's@!include "\(.*\)"@include ../mkfiles/gcc.mak@' < $$i/makefile > $$i/GNUmakefile; done
 MAKEREMOVE=for i in utils lib drivers boot sys kernel setver; do rm -f $$i/GNUmakefile; done
-XLINK=ia16-elf-gcc
+LINK=ia16-elf-gcc
 else
 MAKE=wmake -ms -h
 MAKEADJUST=
 MAKEREMOVE=
-XLINK=wlink
+LINK=*wlink OP Q,M
 endif
 #ALLCFLAGS=-DDEBUG
 
