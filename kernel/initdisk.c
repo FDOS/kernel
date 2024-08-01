@@ -618,7 +618,7 @@ void DosDefinePartition(struct DriveParamS *driveParam,
       ExtPri = "Ext";
       num = extendedPartNo;
     }
-    printf("\r%c: HD%d, %s[%2d]", 'A' + nUnits,
+    printf("%c: HD%d, %s[%2d]", 'A' + nUnits,
            (driveParam->driveno & 0x7f) + 1, ExtPri, num);
 
     printCHS(", CHS= ", &chs);
