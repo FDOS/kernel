@@ -1085,14 +1085,15 @@ STATIC BOOL SkipLine(char *pLine)
 {
   short key;
   COUNT i;
+  signed char originalskipconfigseconds = InitKernelConfig.SkipConfigSeconds;
 
-  if (InitKernelConfig.SkipConfigSeconds >= 0)
+  if (originalskipconfigseconds >= 0)
   {
 
-    if (InitKernelConfig.SkipConfigSeconds > 0)
+    if (originalskipconfigseconds > 0)
       printf("Press F8 to trace or F5 to skip CONFIG.SYS/AUTOEXEC.BAT");
 
-    key = GetBiosKey(InitKernelConfig.SkipConfigSeconds);       /* wait 2 seconds */
+    key = GetBiosKey(originalskipconfigseconds);       /* wait 2 seconds */
 
     InitKernelConfig.SkipConfigSeconds = -1;
 
@@ -1105,7 +1106,8 @@ STATIC BOOL SkipLine(char *pLine)
       singleStep = TRUE;
     }
 
-    printf("\r%79s\r", "");     /* clear line */
+    if (originalskipconfigseconds > 0)
+      printf("\r%79s\r", "");     /* clear line */
 
     if (SkipAllConfig)
       printf("Skipping CONFIG.SYS/AUTOEXEC.BAT\n");
