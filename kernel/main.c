@@ -443,15 +443,15 @@ STATIC VOID signon()
 	if (InitKernelConfig.Verbose < 0) 
 	{
 #ifdef CUSTOM_BRANDING
-        printf("\n\r" CUSTOM_BRANDING "\n\n");
+        printf("\n" CUSTOM_BRANDING "\n\n");
 #else
-        printf("\n\r%S\n\n", MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)));
+        printf("\n%S\n\n", MK_FP(FP_SEG(LoL), FP_OFF(LoL->os_release)));
 #endif
 	} else {
 #ifdef CUSTOM_BRANDING
-  printf("\n\r" CUSTOM_BRANDING "\n\n%s", copyright);
+  printf("\n" CUSTOM_BRANDING "\n\n%s", copyright);
 #else
-  printf("\r%S"
+  printf("\n%S"
          "Kernel compatibility %d.%d - "
 #if defined(__BORLANDC__)
   "BORLANDC"
