@@ -848,16 +848,23 @@ int24_esbp      times 2 dw 0       ;260 - pointer to criticalerr DPB
                 global  _user_r, int21regs_off, int21regs_seg
 _user_r:
 int21regs_off   dw      0               ;264 - pointer to int21h stack frame
-int21regs_seg   dw      0
+int21regs_seg   dw      0               ;       i.e. points stack frame (SS:SP) with user registers when int21h called
                 global  critical_sp
-critical_sp     dw      0               ;268 - critical error internal stack
+critical_sp     dw      0               ;268 - critical error internal stack, store SP during int24h
                 global  current_ddsc
-current_ddsc    times 2 dw 0
+current_ddsc    times 2 dw 0            ;26A - pointer to DPB for ???
+
+diskbuf_seg     dw      0               ;26E - segment of disk buffer
+                dd      0               ;270 - saving partial cluster number??? - see https://faydoc.tripod.com/structures/16/1690.htm
+				dw      0
+				dw      0               ;276 - temp word
+				db      0               ;278 - media id returned by AH=1Bh,1Ch
+				db      0               ;279 - unused
 
                 ; Pad to 059ah
                 times (27ah - ($ - _internal_data)) db 0
                 global  current_device
-current_device  times 2 dw 0       ;27A - 0??
+current_device  times 2 dw 0       ;27A - point to device header if filename is character device
                 global  _lpCurSft
 _lpCurSft       times 2 dw 0       ;27e - Current SFT
                 global  _current_ldt
@@ -867,11 +874,14 @@ _sda_lpFcb      times 2 dw 0       ;286 - pointer to callers FCB
                 global  _current_sft_idx
 _current_sft_idx    dw      0               ;28A - SFT index for next open
                                         ; used by MS NET
+				dw      0               ;28C - temp file handler
+				dd      0               ;28E - pointer to JFT entry (for file being opened) in process handle table
 
                 ; Pad to 05b2h
                 times (292h - ($ - _internal_data)) db 0
                 dw      __PriPathBuffer  ; 292 - "sda_WFP_START" offset in DOS DS of first filename argument
                 dw      __SecPathBuffer  ; 294 - "sda_REN_WFP" offset in DOS DS of second filename argument
+				dw      ffffh            ; 296 - 0xffff or offset of last component in filename
 
                 ; Pad to 05ceh
                 times (2aeh - ($ - _internal_data)) db 0
@@ -884,15 +894,15 @@ _current_filepos times 2 dw 0       ;2AE - current offset in file
                 ;global _save_DS
 save_BX                 dw      0       ;2CA - unused by FreeDOS, for Win3.x
 save_DS                 dw      0       ;      compatibility, match MS's positions
-                        dw      0
+                        dw      0       ;      store DS,BX on entry to int21h (ie caller's values)
                 global  _prev_user_r
                 global  prev_int21regs_off
                 global  prev_int21regs_seg
 _prev_user_r:
-prev_int21regs_off      dw      0       ;2D0 - pointer to prev int 21 frame
+prev_int21regs_off      dw      0       ;2D0 - pointer to prev int 21 frame (see offset 264h)
 prev_int21regs_seg      dw      0
 
-                ; Pad to 05fdh
+                ; Pad to 05fdh, 2D4 through 2E4 used for int21h/ax=6C00h
                 times (2ddh - ($ - _internal_data)) db 0
                 global  _ext_open_action
                 global  _ext_open_attrib
@@ -900,6 +910,7 @@ prev_int21regs_seg      dw      0
 _ext_open_action dw 0                   ;2DD - extended open action
 _ext_open_attrib dw 0                   ;2DF - extended open attrib
 _ext_open_mode   dw 0                   ;2E1 - extended open mode
+open_filename    dd 0                   ;2E3 pointer to filename to open (see ax=6C00h)
 
                 ; Pad to 0620h
                 times (300h - ($ - _internal_data)) db 0
@@ -916,6 +927,7 @@ _SearchDir_ren: times 32 db 0x90   ;315 - 32 byte dir entry for rename
                 ; stacks are made to initialize to no-ops so that high-water
                 ; testing can be performed
                 times STACK_SIZE*2-($-apistk_bottom) db 0x90
+				; critical error stack 331 bytes?, disk stack 384 bytes, character i/o 384 bytes
                 ;300 - Error Processing Stack
                 global  _error_tos
 _error_tos:
@@ -926,12 +938,22 @@ _disk_api_tos:
                 global  _char_api_tos
 _char_api_tos:
 apistk_top:
-                db      0               ; 780 ???
+                db      0               ;780 device driver look-ahead (printer), see ah=64h
 _VolChange      db      0               ;781 - volume change
 _VirtOpen       db      0               ;782 - virtual open flag
 
+                ; 783h to 788h are fastseek drive, 1st cluster, logical cluster, returned logical cluster
+				; 78Ah dw ?  temp location of SYSINIT
+
                 ; controlled variables end at offset 78Ch so pad to end
                 times (78ch - ($ - _internal_data)) db 0
+
+; MSDOS 7.1+ with FAT32 SDA extended
+										;78Ch - 47 bytes of ???
+                times (7bbh - ($ - _internal_data)) db 0
+absrdwrflg		db 		0				;7bbh - 0=int 25h/26h absolute read/write, 1=int 21h/ax=7305h
+				times 12 dw 0           ;7bch to 7d2h, high word of 32bit values, see offsets 0x 2a2, 29c, 2bc, 29a, 276, 244, & registers ebx,edx,edi,ecx
+				times  3 dw 0           ; ???
 
 ;
 ; end of controlled variables
