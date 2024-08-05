@@ -881,7 +881,7 @@ _current_sft_idx    dw      0               ;28A - SFT index for next open
                 times (292h - ($ - _internal_data)) db 0
                 dw      __PriPathBuffer  ; 292 - "sda_WFP_START" offset in DOS DS of first filename argument
                 dw      __SecPathBuffer  ; 294 - "sda_REN_WFP" offset in DOS DS of second filename argument
-				dw      ffffh            ; 296 - 0xffff or offset of last component in filename
+				dw      0ffffh           ; 296 - 0xffff or offset of last component in filename
 
                 ; Pad to 05ceh
                 times (2aeh - ($ - _internal_data)) db 0
