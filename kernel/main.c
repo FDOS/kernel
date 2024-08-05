@@ -564,7 +564,7 @@ STATIC VOID update_dcb(struct dhdr FAR * dhp)
   {
     struct dpb FAR *tmp_dpb;
     /* find current end of dpb chain by following next pointers to end */
-    for (tmp_dpb = LoL->DPBp; (ULONG) tmp_dpb->dpb_next != 0xffffffffl; tmp_dpb = dpb->dpb_next)
+    for (tmp_dpb = LoL->DPBp; (ULONG) tmp_dpb->dpb_next != 0xffffffffl; tmp_dpb = tmp_dpb->dpb_next)
       ;
     /* insert into chain [at end] */
     tmp_dpb->dpb_next = dpb;
