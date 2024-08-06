@@ -1922,6 +1922,7 @@ extern intvec FAR ASM BIOSInt19;
 /* WARNING: modifications in `r' are used outside of int2F_12_handler()
  * On input r.AX==0x12xx, 0x4A01 or 0x4A02
  * also handle Windows' DOS notification hooks, r.AH==0x16 and r.AH==0x13
+ * along with DRIVER.SYS/DRIVPARAM r.AH=0x08 calls
  */
 VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 {
@@ -2201,6 +2202,30 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       /* FIXME: Implement this! */
     }
 #endif
+    return;
+  }
+  else if (r.AH == 0x08) /* DRIVER.SYS / DRIVPARAM */
+  {
+    switch (r.AL)
+    {
+    case 0x00:                 /* installation check */
+      r.AL = 0xff;             /* installed, 0=not installed */
+      break;
+
+    case 0x01:                 /* add new block device */
+	  /* TODO, see push_ddt() */
+      break;
+
+    case 0x02:                 /* execute device driver request */
+	  /* TODO */
+      break;
+
+    case 0x03:                 /* get drive data table */
+      r.DS = FP_SEG(&nul_dev);
+	  r.DI = FP_OFF(getddt(0));
+      break;
+    }
+
     return;
   }
   /* else (r.AH == 0x12) */

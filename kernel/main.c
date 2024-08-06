@@ -340,6 +340,9 @@ STATIC void init_kernel(void)
   LoL->lastdrive = 26;
 
   /*  init_device((struct dhdr FAR *)&blk_dev, NULL, 0, &ram_top); */
+  /*  WARNING: dsk_init() must be called prior to update_dcb() to ensure
+      _Dyn (start of Dynamic memory block) is the start of drive data table (see getddt() in dsk.c)
+   */
   blk_dev.dh_name[0] = dsk_init();
 
   PreConfig();
