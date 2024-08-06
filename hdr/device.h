@@ -486,6 +486,7 @@ extern request                  /* I/O Request packets                  */
 /* dsk.c */
 COUNT ASMCFUNC FAR blk_driver(rqptr rp);
 ddt * getddt(int dev);
+COUNT writelabelBPB(char drive, const char *name);
 
 /* error.c */
 COUNT char_error(request * rq, struct dhdr FAR * lpDevice);
