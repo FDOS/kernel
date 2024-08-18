@@ -424,15 +424,18 @@ int my_isspace( int c )
   }
 }
 
+/* read command line argument from open FILE referenced by fp */
 char *getarg( FILE *fp )
 {
   static char buff[256];
   char *str;
   size_t len;
 
+  /* loop reading through file until end or new line or max characters */
   while( (str = fgets( buff, sizeof(buff) - 1, fp )) != NULL ) {
-    buff[sizeof(buff) - 1] = '\0';
+    buff[sizeof(buff) - 1] = '\0';  /* ensure buffer is terminated */
     len = strlen(buff);
+	/* strip whitespace from end of string, i.e. "blah " --> "blah" */
     while( len > 0 ) {
       len--;
       if( my_isspace( buff[len] ) ) {
@@ -442,11 +445,17 @@ char *getarg( FILE *fp )
       len++;
       break;
     }
-    while( len-- > 0 ) {
+	/* skip past whitespace at beginning of string */
+	/* str initially points to start of buff */
+    while( len > 0 ) {
+      /* stop when str points to end of string or 1st non-space character */
       if( !my_isspace(*str) ) {
         break;
       }
+	  str++;
+	  len--;
     }
+	/* if we got a blank line (*str=='\0') then keep looping, otherwise return what found */
     if( *str != '\0' ) {
       break;
     }
