@@ -9,7 +9,7 @@ int main(int argc, char **argv)
   if (argc < 4)
   {
     fprintf(stderr,
-            "Usage: bin2c <output bin file> <output h file> <array name>\n");
+            "Usage: bin2c <input bin file> <output h file> <array name>\n");
     return 1;
   }
 
