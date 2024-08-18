@@ -57,3 +57,4 @@ bin/setver.sys
 _downloads/**
 _output/**
 _watcom/**
+kernel/exeflat.rsp
