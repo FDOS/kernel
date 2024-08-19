@@ -406,7 +406,7 @@ int21_normalentry:
                 push    bp
                 call    _int21_service
 
-int21_exit:     dec     byte [_InDOS]
+int21_exit:
 %IFDEF WIN31SUPPORT
                 call    end_dos_crit_sect  ; release all critical sections
 %if 0
@@ -417,6 +417,10 @@ int21_exit:     dec     byte [_InDOS]
 %endif
 %ENDIF ; WIN31SUPPORT
 
+                ; tiny chance DOS re-entered between clearing InDOS and restoring user stack,
+				; so we disable interrupts until user stack restored; see SF bug# 215
+                cli     
+                dec     byte [_InDOS]
                 ;
                 ; Recover registers from system call.  Registers and flags
                 ; were modified by the system call.
