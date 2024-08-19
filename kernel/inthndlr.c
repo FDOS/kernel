@@ -2220,6 +2220,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 	  /* TODO */
       break;
 
+    /* Note: see in2f.asm where this is handled */
     case 0x03:                 /* get drive data table */
       r.DS = FP_SEG(&nul_dev);
 	  r.DI = FP_OFF(getddt(0));

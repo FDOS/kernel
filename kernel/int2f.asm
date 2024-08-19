@@ -180,7 +180,7 @@ Int2f?iret:
 DriverSysCal:
                 extern  _Dyn
                 cmp     al, 3
-                jne     Int2f?iret
+                jne     IntDosCal ; pass other calls through
                 mov     ds, [cs:_DGROUP_]
                 mov     di, _Dyn+2
                 jmp     short Int2f?iret
