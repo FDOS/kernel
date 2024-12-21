@@ -10,18 +10,20 @@ http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
 Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 
 
-2023 ?? - Build 2045
+2025 ?? - Build 2045
 -------- Jeremy Davis
 
 + Changes Jeremy Davis and Tom Ehlert
     * initial GPT partition support
 
 
-2023 December 2? - Build 2044
+2024 December 21 - Build 2044
 -------- Jeremy Davis
 
 + Changes Jeremy Davis, Andrew Bird, Tee-Kiah Chia (tkchia), Sava (lpproj), 
           Stas Sergeev (stsp), C. Masloch, Jiri Malak, Bernd Böckmann
+	* fixes for building with various compilers / different environments
+	* boot sector improvements (improve compatibility/reduce boot problems)
     * support determining kernel file version without booting it
 	* only print messages once, not each time processing partitions
 	* fix for Format GitHub issue #1 - format divide by 0 due to kernel function 440D, subfunction 60 returning a zero for logical_sectors_per_fat as initdisk overflows and calculates incorrect value

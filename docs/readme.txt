@@ -40,4 +40,4 @@ Copyright
 DOS-C is (c) Copyright 1995, 1996 by Pasquale J. Villani
 All Rights Reserved.
 
-Portions of FreeDOS kernel copyright others, 199?-2021
+Portions of FreeDOS kernel copyright others, 199?-2024

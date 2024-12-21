@@ -1,8 +1,15 @@
-The current bug database is available on the web at
+Please report kernel bugs / issues on GitHub at 
+
+  https://github.com/FDOS/kernel/issues
+
+
+For support (or if you don't wish to use GitHub) then
+please use the FreeDOS developer and/or user mailing list.
+
+The former bug database is available on the web at
 
  http://sourceforge.net/tracker/?group_id=5109&atid=105109
 
-Please request an account if you want to report or
-update bugs. Reading the database needs no login.
+(All bugs reported there are reviewed, but not updated!)
 
 Thanks!
