@@ -28,17 +28,7 @@ mv -n bin/country.sys _output/gcc/.
 mv -n share/src/share.com _output/gcc/.
 mv -n share/src/share.map _output/gcc/.
 
-# Watcom
-OWTAR=ow-snapshot.tar.xz
-if [ ! -d _watcom ] ; then
-  mkdir -p _downloads
-  mkdir _watcom
-  if [ ! -f _downloads/$OWTAR ] ; then
-    (cd _downloads && wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/Last-CI-build/$OWTAR)
-  fi
-  (cd _watcom && tar -xf ../_downloads/$OWTAR)
-fi
-
+# Open Watcom Environment Setup
 export WATCOM=$BUILD_DIR/_watcom
 export PATH=$BUILD_DIR/bin:$PATH:$WATCOM/binl64
 

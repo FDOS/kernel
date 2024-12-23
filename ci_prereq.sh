@@ -14,9 +14,14 @@ sudo apt install dosemu2 dos2unix
 #    Perhaps later we should build using Freecom from published package
 
 mkdir -p _downloads
+mkdir -p _watcom
 cd _downloads
 
 HERE=$(pwd)
+
+# download and unpack Open Watcom snapshot
+[ -f ow-snapshot.tar.xz ] || wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz
+tar -C ../_watcom -xf ow-snapshot.tar.xz
 
 #IBIBLIO_PATH='http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.2/repos'
 IBIBLIO_PATH='https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3'
