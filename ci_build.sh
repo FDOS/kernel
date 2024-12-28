@@ -90,7 +90,7 @@ if [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
     echo set PATH='%TC2_BASE%;C:\\devel\\nasm;C:\\bin;%OLDPATH%'
   } | unix2dos > config.bat
 
-  dosemu -td -q -K . -E "build.bat lfn"
+  dosemu -td -q -K . -E "build.bat"
   mv -n bin/KTC*.map bin/KTC*.sys _output/tc_dos/.
   mv -n bin/country.sys _output/tc_dos/.
   # TC share
