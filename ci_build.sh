@@ -83,7 +83,7 @@ if [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
     echo set COMPILER=TC2
     echo set TC2_BASE='C:\\tc201'
     echo set MAKE=make
-    echo set XCPU=386
+    echo set XCPU=86
     echo set XFAT=32
     echo set XNASM=nasm
     echo set OLDPATH=%PATH%
