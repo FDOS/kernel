@@ -17,7 +17,7 @@ if [ ! -f _output/wc_dos/KWC38632.sys ] ; then
   exit 1
 fi
 
-if [ ! -f _output/tc_dos/KTC38632.sys ] && [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
+if [ ! -f _output/tc_dos/KTC8632.sys ] && [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
   echo Turbo C 2.01 built kernel not present
   exit 1
 fi
@@ -42,7 +42,7 @@ then
   exit 2
 fi
 if [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
-  if ! ./test.sh ../_output/tc_dos/KTC38632.sys disktcd boottcd 'boot tcd: '
+  if ! ./test.sh ../_output/tc_dos/KTC8632.sys disktcd boottcd 'boot tcd: '
   then
     echo 'Turbo C 2.01 boot test failed'
     exit 2
