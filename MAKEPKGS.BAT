@@ -35,6 +35,9 @@ ECHO zipping source
 %ZIPIT% ke%1s.zip SOURCE\*
 ECHO gathering source and creating APPINFO and expected packaging dir structure
 REM FreeDOS package format, has APPINFO, BIN, DOC\KERNEL, SOURCE\KERNEL\
+IF EXIST PACKAGE ECHO PACKAGE directory exists, break now to avoid deleting it!
+IF EXIST PACKAGE pause
+IF EXIST PACKAGE RMDIR /S PACKAGE
 MKDIR PACKAGE
 MKDIR PACKAGE\SOURCE
 XCOPY /S  /I /Q SOURCE\ke%1 PACKAGE\SOURCE\KERNEL

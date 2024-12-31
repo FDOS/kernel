@@ -12,12 +12,12 @@ git clone -v --recurse-submodules --local . ..\SOURCE\ke%1\
 REM delete files to exclude
 RD /S /Q ..\SOURCE\ke%1\.git > NUL
 RD /S /Q ..\SOURCE\ke%1\.github > NUL
-DEL /Q ..\SOURCE\ke%1\.git* > NUL
-DEL /Q ..\SOURCE\ke%1\*.yml > NUL
-DEL /Q ..\SOURCE\ke%1\ci*.sh > NUL
-DEL /Q ..\SOURCE\ke%1\docs\*.yml > NUL
-DEL /Q ..\SOURCE\ke%1\docs\CNAME > NUL
-pause
+IF EXIST ..\SOURCE\ke%1\.git* DEL /Q ..\SOURCE\ke%1\.git* > NUL
+IF EXIST ..\SOURCE\ke%1\*.yml DEL /Q ..\SOURCE\ke%1\*.yml > NUL
+IF EXIST ..\SOURCE\ke%1\ci*.sh DEL /Q ..\SOURCE\ke%1\ci*.sh > NUL
+IF EXIST ..\SOURCE\ke%1\docs\*.yml DEL /Q ..\SOURCE\ke%1\docs\*.yml > NUL
+IF EXIST ..\SOURCE\ke%1\docs\CNAME DEL /Q ..\SOURCE\ke%1\docs\CNAME > NUL
+::pause
 
 ECHO %CD%
 CALL MAKEPKGS.BAT %1 RELEASE
