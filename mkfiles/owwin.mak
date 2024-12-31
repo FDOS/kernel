@@ -16,4 +16,5 @@ CLDEF=1
 CLT=wcl386 -zq -bcl=nt -I..\hdr -fe=$@ -I$(COMPILERPATH)\h -I$(COMPILERPATH)\h\nt
 CLC=$(CLT)
 NASMFLAGS=-DWATCOM $(NASMFLAGS)
-XLINK=$(XLINK) debug all format dos opt quiet,symfile,map,statics,verbose F { $(OBJS) } L ..$(DIRSEP)lib$(DIRSEP)device.lib N kernel.exe $#
+#linker arguments are passed via response file, so don't modify XLINK
+#XLINK=$(XLINK) debug all format dos opt quiet,symfile,map,statics,verbose F { $(OBJS) } L ..$(DIRSEP)lib$(DIRSEP)device.lib N kernel.exe $#
