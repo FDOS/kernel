@@ -1,7 +1,7 @@
 fd kernel
 =========
 
-FreeDOS kernel - current 0xFD version is 2.43 (2043)
+FreeDOS kernel - current 0xFD version is 2.44 (2044)
 
 http://www.fdos.org/kernel/
 
