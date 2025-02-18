@@ -1928,26 +1928,40 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 {
   COUNT rc;
   long lrc;
-  UDWORD tsize;
+  UWORD requestedsize;
 
 #define r (*pr)
 
   if (r.AH == 0x4a)
   {
-    size_t size = 0, offs = 0xffff;
+    size_t size = 0, offs = 0xffff, realoffs;	/* defaults for no alloc */
 
     r.ES = offs;
     if (FP_SEG(firstAvailableBuf) == offs) /* HMA present? */
     {
-      offs = FP_OFF(firstAvailableBuf);
-      size = ~offs;                        /* BX for query HMA   */
-      if (r.AL == 0x02)                    /* allocate HMA space */
-      {
-        tsize = (r.BX + 0xf) & 0xfffffff0UL; /* align to paragraph */
-        if (tsize < size)
-          size = (UWORD)tsize;
-        AllocateHMASpace(offs, offs+size);
-        firstAvailableBuf += size;
+      realoffs = FP_OFF(firstAvailableBuf);
+      if (realoffs <= 0xFFF0) {		/* if any free (not yet exthausted) */
+        offs = realoffs;
+        offs += 15;
+        offs &= ~ 15;			/* annoying: buffers may be unaligned */
+        size = - offs;				/* bx + di = 10000h */
+        if (r.AL == 0x02)			/* allocate HMA space */
+        {
+          requestedsize = (r.BX + 15) & ~ 15;	/* align to paragraph */
+          if (requestedsize < r.BX ||
+              requestedsize > size) { /* overflow or OOM */
+            size = 0;
+            offs = 0xffff;			/* requested more than we have */
+          } else {
+            size = (UWORD)requestedsize;	/* return rounded size */
+            AllocateHMASpace(realoffs, offs + size - 1); /* ! realoffs */
+            if ( ((UDWORD)offs + (UDWORD)size) == 0x10000UL ) {
+              firstAvailableBuf = MK_FP(0xFFFF, 0xFFFF); /* exhausted */
+            } else {
+              firstAvailableBuf += size; /* advance free pointer */
+            }
+          }
+        }
       }
     }
     r.DI = offs;
