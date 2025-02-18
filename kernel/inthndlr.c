@@ -1953,12 +1953,13 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
             size = 0;
             offs = 0xffff;			/* requested more than we have */
           } else {
+            UWORD alignment = offs - realoffs;
             size = (UWORD)requestedsize;	/* return rounded size */
             AllocateHMASpace(realoffs, offs + size - 1); /* ! realoffs */
             if ( ((UDWORD)offs + (UDWORD)size) == 0x10000UL ) {
               firstAvailableBuf = MK_FP(0xFFFF, 0xFFFF); /* exhausted */
             } else {
-              firstAvailableBuf += size; /* advance free pointer */
+              firstAvailableBuf += size + alignment; /* advance free pointer */
             }
           }
         }
