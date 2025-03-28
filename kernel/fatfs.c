@@ -1243,6 +1243,18 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     return 0;
   }
 
+  /* prevent overwriting beginning of file when write exceeds 4GB,
+     i.e. when overflow of offset occurs, return error on write   */
+  if (fnp->f_offset + count < fnp->f_offset)   /* unsigned overflow */
+  {                                                                 
+    if (mode == XFR_WRITE)         
+    {
+      /*  can't extend beyond 4G so return '0 byte written, DISK_FULL */
+      return DE_HNDLDSKFULL;
+    }
+    /* else XFR_READ should end automatically at EOF */
+  }               
+
   /* The variable secsize will be used later.                     */
   secsize = fnp->f_dpb->dpb_secsize;
 
