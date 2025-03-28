@@ -139,10 +139,12 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
   COUNT RetCode;
 /*  UWORD MaxEnvSize;                                                                                                                                           not used -- 1999/04/21 ska */
   psp FAR *ppsp = MK_FP(cu_psp, 0);
+  *pChildEnvSeg = 0; /* initialize to invalid value, prevent free'ing random address on errors by callers of ChildEnv */
 
   /* create a new environment for the process             */
   /* copy parent's environment if exec.env_seg == 0       */
 
+  DebugPrintf(("ChildEnv: environment block is %u, using %s\n", exp->exec.env_seg, (exp->exec.env_seg)?"exec_blk":"parent_blk"));
   pSrc = exp->exec.env_seg ?
       MK_FP(exp->exec.env_seg, 0) : MK_FP(ppsp->ps_environ, 0);
 
