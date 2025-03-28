@@ -305,6 +305,7 @@ long DosRWSft(int sft_idx, size_t n, void FAR * bp, int mode)
   /* /// Added for SHARE - Ron Cemer */
   if (IsShareInstalled(FALSE) && (s->sft_shroff >= 0))
   {
+    /* sft_shroff is file_table index in share */
     int rc = share_access_check(cu_psp, s->sft_shroff, s->sft_posit,
                                  (unsigned long)n, 1);
     if (rc != SUCCESS)
@@ -611,7 +612,8 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   if (result < 0)
   {
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
-    if (IsShareInstalled(TRUE))
+    /* if we allocated a share slot above, but open failed, free slot */
+    if (sftp->sft_shroff >= 0)  /* SHARE installed status can't change since check above */
     {
       share_close_file(sftp->sft_shroff);
       sftp->sft_shroff = -1;
