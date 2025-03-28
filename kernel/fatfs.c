@@ -1249,8 +1249,14 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
   {                                                                 
     if (mode == XFR_WRITE)         
     {
+#if 1 /* we fail write call even if could partially succeed */
       /*  can't extend beyond 4G so return '0 byte written, DISK_FULL */
       return DE_HNDLDSKFULL;
+#else
+      /* truncate request to max size can write */
+      ULONG max_count = (ULONG)-1 - fnp->f_offset;
+      count = (max_count >= (UCOUNT)-1)?(UCOUNT)-1:(UCOUNT)max_count;
+#endif
     }
     /* else XFR_READ should end automatically at EOF */
   }               
