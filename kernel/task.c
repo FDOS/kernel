@@ -28,11 +28,9 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "debug.h"
 
-#ifdef VERSION_STRINGS
-static BYTE *RcsId =
-    "$Id: task.c 1563 2011-04-08 16:04:24Z bartoldeman $";
-#endif
+
 
 #define toupper(c)	((c) >= 'a' && (c) <= 'z' ? (c) + ('A' - 'a') : (c))
 
@@ -130,6 +128,9 @@ STATIC UWORD SetverGetVersion(BYTE FAR *table, BYTE FAR *name)
   return 0;
 }
 
+/* allocate memory for and copy current process env to child environment
+   returns segment of env MCB (not env block itself) in pChildEnvSeg
+ */
 STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
 {
   BYTE FAR *pSrc;
@@ -167,18 +168,27 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
       if (nEnvSize >= MAXENV - ENV_KEEPFREE)
         return DE_INVLDENV;
 
+      /* loop until first double terminator '\0\0' found */
       if (*(UWORD FAR *) (pSrc + nEnvSize) == 0)
         break;
     }
     nEnvSize += 2;              /* account for trailing \0\0 */
   }
 
-  /* allocate enough space for env + path                 */
+  /* allocate enough space for env + path  (rounding up to nearest para)
+     Note: we must allocate at least 1 paragraph (16 bytes) for empty environment
+           + ENV_KEEPFREE for argv[0] (program name)
+   */
+  DebugPrintf(("PriPathName is %lu bytes\n", sizeof(PriPathName)));
+  assert(sizeof(PriPathName)+3==ENV_KEEPFREE);
   if ((RetCode = DosMemAlloc((nEnvSize + ENV_KEEPFREE + 15)/16,
                              mem_access_mode, pChildEnvSeg,
                              NULL /*(UWORD FAR *) MaxEnvSize ska */ )) < 0)
+  {
+    DebugPrintf(("Error alloc Env space\n"));
     return RetCode;
-  pDest = MK_FP(*pChildEnvSeg + 1, 0);
+  }
+  pDest = MK_FP(*pChildEnvSeg + 1, 0);  /* skip past MCB and set pDest to start of env block */
 
   /* fill the new env and inform the process of its       */
   /* location throught the psp                            */
@@ -199,8 +209,10 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* copy complete pathname */
   if ((RetCode = truename(pathname, PriPathName, CDS_MODE_SKIP_PHYSICAL)) < SUCCESS)
   {
+    DebugPrintf(("Failed to get truename for env argv0\n"));
     return RetCode;
   }
+  DebugPrintf(("ChildEnv for [%s]\n", PriPathName));
   fstrcpy(pDest, PriPathName);
 
   /* Theoretically one could either:
@@ -472,6 +484,9 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       }
       
       rc = ChildEnv(exp, &env, namep);
+      #if DEBUG
+        if (rc != SUCCESS) DebugPrintf(("Failed to create ChildEnv\n"));
+      #endif
       
       /* COMFILES will always be loaded in largest area. is that true TE */
       /* yes, see RBIL, int21/ah=48 -- Bart */
@@ -652,6 +667,9 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       }
       
       rc = ChildEnv(exp, &env, namep);
+      #if DEBUG
+        if (rc != SUCCESS) DebugPrintf(("Failed to create ChildEnv\n"));
+      #endif
       
       if (rc == SUCCESS)
         /* Now find out how many paragraphs are available       */
