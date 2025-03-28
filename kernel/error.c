@@ -27,24 +27,20 @@
 /****************************************************************/
 
 #include "portab.h"
-
-#ifdef VERSION_STRINGS
-static BYTE *errorRcsId =
-    "$Id: error.c 709 2003-09-24 19:34:11Z bartoldeman $";
-#endif
-
 #include "globals.h"
+#include "debug.h"
+
 
 #ifdef DEBUG
 /* error registers                                      */
 VOID dump(void)
 {
-  printf("Register Dump [AH = %02x CS:IP = %04x:%04x FLAGS = %04x]\n",
-         error_regs.AH, error_regs.CS, error_regs.IP, error_regs.FLAGS);
-  printf("AX:%04x BX:%04x CX:%04x DX:%04x\n",
-         error_regs.AX, error_regs.BX, error_regs.CX, error_regs.DX);
-  printf("SI:%04x DI:%04x DS:%04x ES:%04x\n",
-         error_regs.SI, error_regs.DI, error_regs.DS, error_regs.ES);
+  DebugPrintf(("Register Dump [AH = %02x CS:IP = %04x:%04x FLAGS = %04x]\n",
+         error_regs.AH, error_regs.CS, error_regs.IP, error_regs.FLAGS));
+  DebugPrintf(("AX:%04x BX:%04x CX:%04x DX:%04x\n",
+         error_regs.AX, error_regs.BX, error_regs.CX, error_regs.DX));
+  DebugPrintf(("SI:%04x DI:%04x DS:%04x ES:%04x\n",
+         error_regs.SI, error_regs.DI, error_regs.DS, error_regs.ES));
 }
 #endif
 

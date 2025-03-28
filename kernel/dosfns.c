@@ -34,6 +34,7 @@ static BYTE *dosfnsRcsId =
 #endif
 
 #include "globals.h"
+#include "debug.h"
 
 /* /// Added for SHARE.  - Ron Cemer */
 

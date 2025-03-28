@@ -31,10 +31,6 @@
 #include "init-mod.h"
 #include "dyndata.h"
 
-#ifdef VERSION_STRINGS
-static BYTE *RcsId =
-    "$Id: config.c 1705 2012-02-07 08:10:33Z perditionc $";
-#endif
 
 #ifdef DEBUG
 #define DebugPrintf(x) printf x
@@ -342,15 +338,9 @@ void PreConfig(void)
 {
   /* Initialize the base memory pointers                          */
 
-#ifdef DEBUG
-  {
-    printf("SDA located at 0x%p\n", internal_data);
-  }
-#endif
+  DebugPrintf(("SDA located at 0x%p\n", internal_data));
   /* Begin by initializing our system buffers                     */
-#ifdef DEBUG
-/*  printf("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers);*/
-#endif
+  /* DebugPrintf(("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers));*/
   
   LoL->sfthead = MK_FP(FP_SEG(LoL), 0xcc); /* &(LoL->firstsftt) */
   /* LoL->FCBp = (sfttbl FAR *)&FcbSft; */
@@ -362,18 +352,14 @@ void PreConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
 
-#ifdef DEBUG
-/*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
-  printf(" sft table 0x%p\n", LoL->sfthead);
-  printf(" CDS table 0x%p\n", LoL->CDSp);
-  printf(" DPB table 0x%p\n", LoL->DPBp);
-#endif
+/*  DebugPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
+  DebugPrintf((" sft table 0x%p\n", LoL->sfthead));
+  DebugPrintf((" CDS table 0x%p\n", LoL->CDSp));
+  DebugPrintf((" DPB table 0x%p\n", LoL->DPBp));
 
   /* Done.  Now initialize the MCB structure                      */
   /* This next line is 8086 and 80x86 real mode specific          */
-#ifdef DEBUG
-  printf("Preliminary  allocation completed: top at %p\n", lpTop);
-#endif
+  DebugPrintf(("Preliminary  allocation completed: top at %p\n", lpTop));
 }
 
 /* Do second pass initialization: near allocation and MCBs              */
@@ -443,9 +429,7 @@ void PostConfig(void)
 
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
-#ifdef DEBUG
-  /* printf("DMA scratchpad allocated at 0x%p\n", dma_scratch); */
-#endif
+  /* DebugPrintf(("DMA scratchpad allocated at 0x%p\n", dma_scratch)); */
 
   config_init_buffers(Config.cfgBuffers);
 
@@ -462,12 +446,11 @@ void PostConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
-#ifdef DEBUG
-/*  printf(" FCB table 0x%p\n",LoL->FCBp);*/
-  printf(" sft table 0x%p\n", LoL->sfthead->sftt_next);
-  printf(" CDS table 0x%p\n", LoL->CDSp);
-  printf(" DPB table 0x%p\n", LoL->DPBp);
-#endif
+/*  DebugPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
+  DebugPrintf((" sft table 0x%p\n", LoL->sfthead->sftt_next));
+  DebugPrintf((" CDS table 0x%p\n", LoL->CDSp));
+  DebugPrintf((" DPB table 0x%p\n", LoL->DPBp));
+
   if (Config.cfgStacks)
   {
     VOID FAR *stackBase =
@@ -1845,9 +1828,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   /* The device driver is paragraph aligned.                      */
   eb.load.reloc = eb.load.load_seg = base;
 
-#ifdef DEBUG
-  printf("Loading device driver %s at segment %04x\n", szBuf, base);
-#endif
+  DebugPrintf(("Loading device driver %s at segment %04x\n", szBuf, base));
 
   if ((result = init_DosExec(3, &eb, szBuf)) != SUCCESS)
   {

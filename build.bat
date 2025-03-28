@@ -6,8 +6,10 @@ if NOT "%1" == "/?" goto start
 echo ":-----------------------------------------------------------------------"
 echo ":- Syntax: BUILD [-r] [fat32|fat16] [msc|wc|tc|tcpp|bc] [86|186|386]    "
 echo ":-               [debug] [lfnapi] [/L #] [/D value] [list] [upx] [win]  "
+echo ":-               [com] [com# #]                                         "
 echo ":- option case is significant !!                                        "
 echo ":- Note: Open Watcom (wc) is the preferred compiler                     "
+echo ":- com does debug output on COM2, whereas com# 0 for COM1 ...           "
 echo ":-----------------------------------------------------------------------"
 goto end
 
@@ -55,6 +57,14 @@ if "%1" == "lfnapi" set ALLCFLAGS=%ALLCFLAGS% -DWITHLFNAPI
 
 if "%1" == "win"   set ALLCFLAGS=%ALLCFLAGS% -DWIN31SUPPORT
 if "%1" == "win"   set NASMFLAGS=%NASMFLAGS% -DWIN31SUPPORT
+
+if "%1" == "com"   set ALLCFLAGS=%ALLCFLAGS% -DDEBUG_PRINT_COMPORT
+if "%1" == "com"   set NASMFLAGS=%ALLCFLAGS% -DDEBUG_PRINT_COMPORT
+REM specify comport, default is COM2, 0=COM1, 1=COM2, 2=COM3
+if "%1" == "com#"   set ALLCFLAGS=%ALLCFLAGS% -DDEBUG_PRINT_COMPORT %2
+if "%1" == "com#"   set NASMFLAGS=%ALLCFLAGS% -DDEBUG_PRINT_COMPORT %2
+if "%1" == "com#"   shift
+if "%1" == "com#"   goto nextOption
 
 if "%1" == "list"  set NASMFLAGS=%NASMFLAGS% -l$*.lst
 

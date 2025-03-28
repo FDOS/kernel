@@ -442,7 +442,7 @@ dispatch:
   if (bDumpRegs)
   {
     fmemcpy(&error_regs, user_r, sizeof(iregs));
-    printf("System call (21h): %02x\n", user_r->AX);
+    DebugPrintf(("System call (21h): %02x\n", user_r->AX));
     dump_regs = TRUE;
     dump();
   }

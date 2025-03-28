@@ -32,10 +32,6 @@
 #include "dyndata.h"
 #include "debug.h"
 
-#ifdef VERSION_STRINGS
-static BYTE *mainRcsId =
-    "$Id: main.c 1699 2012-01-16 20:45:44Z perditionc $";
-#endif
 
 static char copyright[] =
     "(C) Copyright 1995-2023 Pasquale J. Villani and The FreeDOS Project.\n"
