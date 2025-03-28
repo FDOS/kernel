@@ -56,10 +56,10 @@
 
 #define CHUNK 32256
 #define MAXENV 32768u
-#define ENV_KEEPFREE 83         /* keep unallocated by environment variables */
+#define ENV_KEEPFREE 0x83  /* keep unallocated by environment variables */
         /* The '65' added to nEnvSize does not cover the additional stuff:
            + 2 bytes: number of strings
-           + 80 bytes: maximum absolute filename
+           + 80h bytes: maximum absolute filename
            + 1 byte: '\0'
            -- 1999/04/21 ska */
 
