@@ -17,14 +17,14 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
     * initial GPT partition support
 
 
-2024 December 21 - Build 2044
+2025 ?? - Build 2044
 -------- Jeremy Davis
 
 + Changes Jeremy Davis, Andrew Bird, Tee-Kiah Chia (tkchia), Sava (lpproj), 
-          Stas Sergeev (stsp), C. Masloch, Jiri Malak, Bernd Böckmann
+          Stas Sergeev (stsp), C. Masloch, Jiri Malak, Bernd Böckmann, Tom Ehlert
 	* fixes for building with various compilers / different environments
 	* boot sector improvements (improve compatibility/reduce boot problems)
-    * support determining kernel file version without booting it
+	* support determining kernel file version without booting it
 	* only print messages once, not each time processing partitions
 	* fix for Format GitHub issue #1 - format divide by 0 due to kernel function 440D, subfunction 60 returning a zero for logical_sectors_per_fat as initdisk overflows and calculates incorrect value
 	* From bzt, initialize drive parameter head & sector values to avoid potential divisions by 0
@@ -71,6 +71,7 @@ Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
 	* int 21h/4400h only return low byte of SFT flags if not a device, part of dosemu2/fdpp bug #147 fix 
 	* check for unsupported function call in console - from dosemu2/fdpp bug# 101 fix 
 	* improve support for Windows 3 Enhanced mode
+	* From Tom Ehlert: properly error when attempting to write past 4GB
 
 
 2021 May 13 - Build 2043
