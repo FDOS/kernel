@@ -30,13 +30,9 @@
 #include "portab.h"
 #include "init-mod.h"
 #include "dyndata.h"
+#include "debug.h"
 
 
-#ifdef DEBUG
-#define DebugPrintf(x) printf x
-#else
-#define DebugPrintf(x)
-#endif
 #define para2far(seg) ((mcb FAR *)MK_FP((seg), 0))
 
 /**
@@ -338,7 +334,7 @@ void PreConfig(void)
 {
   /* Initialize the base memory pointers                          */
 
-  DebugPrintf(("SDA located at 0x%p\n", internal_data));
+  CfgDbgPrintf(("SDA located at 0x%p\n", internal_data));
   /* Begin by initializing our system buffers                     */
   /* DebugPrintf(("Preliminary %d buffers allocated at 0x%p\n", Config.cfgBuffers, buffers));*/
   
@@ -352,14 +348,14 @@ void PreConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', 0);
 
-/*  DebugPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
-  DebugPrintf((" sft table 0x%p\n", LoL->sfthead));
-  DebugPrintf((" CDS table 0x%p\n", LoL->CDSp));
-  DebugPrintf((" DPB table 0x%p\n", LoL->DPBp));
+/*  CfgDbgPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
+  CfgDbgPrintf((" sft table 0x%p\n", LoL->sfthead));
+  CfgDbgPrintf((" CDS table 0x%p\n", LoL->CDSp));
+  CfgDbgPrintf((" DPB table 0x%p\n", LoL->DPBp));
 
   /* Done.  Now initialize the MCB structure                      */
   /* This next line is 8086 and 80x86 real mode specific          */
-  DebugPrintf(("Preliminary  allocation completed: top at %p\n", lpTop));
+  CfgDbgPrintf(("Preliminary  allocation completed: top at %p\n", lpTop));
 }
 
 /* Do second pass initialization: near allocation and MCBs              */
@@ -425,7 +421,7 @@ void PostConfig(void)
   if (LoL->lastdrive < LoL->nblkdev)
     LoL->lastdrive = LoL->nblkdev;
 
-  DebugPrintf(("starting FAR allocations at %x\n", base_seg));
+  CfgDbgPrintf(("starting FAR allocations at %x\n", base_seg));
 
   /* Begin by initializing our system buffers                     */
   /* dma_scratch = (BYTE FAR *) KernelAllocDma(BUFFERSIZE); */
@@ -446,10 +442,10 @@ void PostConfig(void)
 
   LoL->CDSp = KernelAlloc(sizeof(struct cds) * LoL->lastdrive, 'L', Config.cfgLastdriveHigh);
 
-/*  DebugPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
-  DebugPrintf((" sft table 0x%p\n", LoL->sfthead->sftt_next));
-  DebugPrintf((" CDS table 0x%p\n", LoL->CDSp));
-  DebugPrintf((" DPB table 0x%p\n", LoL->DPBp));
+/*  CfgDbgPrintf((" FCB table 0x%p\n",LoL->FCBp));*/
+  CfgDbgPrintf((" sft table 0x%p\n", LoL->sfthead->sftt_next));
+  CfgDbgPrintf((" CDS table 0x%p\n", LoL->CDSp));
+  CfgDbgPrintf((" DPB table 0x%p\n", LoL->DPBp));
 
   if (Config.cfgStacks)
   {
@@ -458,9 +454,9 @@ void PostConfig(void)
                     Config.cfgStacksHigh);
     init_stacks(stackBase, Config.cfgStacks, Config.cfgStackSize);
 
-    DebugPrintf(("Stacks allocated at %p\n", stackBase));
+    CfgDbgPrintf(("Stacks allocated at %p\n", stackBase));
   }
-  DebugPrintf(("Allocation completed: top at 0x%x\n", base_seg));
+  CfgDbgPrintf(("Allocation completed: top at 0x%x\n", base_seg));
 
 }
 
@@ -483,12 +479,12 @@ VOID configDone(VOID)
     p->m_name[1] = 'C';
     p->m_psp = 8;
 
-    DebugPrintf(("HMA not available, moving text to %x\n", kernel_seg));
+    CfgDbgPrintf(("HMA not available, moving text to %x\n", kernel_seg));
     MoveKernel(kernel_seg);
 
     kernel_seg += hma_paras + 1;
 
-    DebugPrintf(("kernel is low, start alloc at %x", kernel_seg));
+    CfgDbgPrintf(("kernel is low, start alloc at %x\n", kernel_seg));
   }
 
   /* The standard handles should be reopened here, because
@@ -590,7 +586,7 @@ STATIC void umb_init(void)
     }
     para2far(umb_max)->m_size++;
     para2far(umb_max)->m_type = MCB_LAST;
-    DebugPrintf(("UMB Allocation completed: start at 0x%x\n", umb_base_seg));
+    CfgDbgPrintf(("UMB Allocation completed: start at 0x%x\n", umb_base_seg));
   }
 }
 
@@ -830,11 +826,11 @@ VOID DoConfig(int nPass)
     if (mdsk != NULL)
     {
       printf("MEMDISK version %u.%02u  (%lu sectors)\n", mdsk->version, mdsk->version_minor, mdsk->size);
-      DebugPrintf(("MEMDISK args:{%S}\n", mdsk->cmdline));
+      CfgDbgPrintf(("MEMDISK args:{%S}\n", mdsk->cmdline));
     }
     else
     {
-      DebugPrintf(("MEMDISK not detected!\n"));
+      CfgDbgPrintf(("MEMDISK not detected!\n"));
     }
 #endif
   }
@@ -871,10 +867,10 @@ VOID DoConfig(int nPass)
     for (ii = 0; configcommands[ii].pointer != NULL; ++ii) {
       if (**configcommands[ii].pointer != '\0') {
         if ((nFileDesc = open(*configcommands[ii].pointer, 0)) >= 0) {
-          DebugPrintf(("Reading \"%s\"...\n", *configcommands[ii].pointer));
+          CfgDbgPrintf(("Reading \"%s\"...\n", *configcommands[ii].pointer));
           break;
         } else {
-          DebugPrintf(("\"%s\" not found\n", *configcommands[ii].pointer));
+          CfgDbgPrintf(("\"%s\" not found\n", *configcommands[ii].pointer));
         }
       }
     }
@@ -955,7 +951,7 @@ VOID DoConfig(int nPass)
       continue;
     }
 
-    DebugPrintf(("CONFIG=[%s]\n", szLine));
+    CfgDbgPrintf(("CONFIG=[%s]\n", szLine));
 
     /* Skip leading white space and get verb.               */
     pLine = scan(szLine, szBuf, 1);
@@ -1828,7 +1824,7 @@ STATIC BOOL LoadDevice(BYTE * pLine, char FAR *top, COUNT mode)
   /* The device driver is paragraph aligned.                      */
   eb.load.reloc = eb.load.load_seg = base;
 
-  DebugPrintf(("Loading device driver %s at segment %04x\n", szBuf, base));
+  CfgDbgPrintf(("Loading device driver %s at segment %04x\n", szBuf, base));
 
   if ((result = init_DosExec(3, &eb, szBuf)) != SUCCESS)
   {
@@ -1923,7 +1919,7 @@ void FAR * KernelAllocPara(size_t nPara, char type, char *name, int mode)
   }
 
   /* create the special DOS data MCB if it doesn't exist yet */
-  DebugPrintf(("kernelallocpara: %x %x %x %c %d\n", start, base, nPara, type, mode));
+  CfgDbgPrintf(("kernelallocpara: %x %x %x %c %d\n", start, base, nPara, type, mode));
 
   if (base == start)
   {
@@ -2178,8 +2174,8 @@ STATIC void config_init_buffers(int wantedbuffers)
   LoL->deblock_buf = DiskTransferBuffer;
   LoL->firstbuf = pbuffer;
 
-  DebugPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
-  DebugPrintf((" (%p)", LoL->firstbuf));
+  CfgDbgPrintf(("init_buffers (size %u) at", sizeof(struct buffer)));
+  CfgDbgPrintf((" (%p)", LoL->firstbuf));
 
   buffers--;
   pbuffer->b_prev = FP_OFF(pbuffer + buffers);
@@ -2201,7 +2197,7 @@ STATIC void config_init_buffers(int wantedbuffers)
        but not if the BUFFERS count is negative ;-)
      */
 
-  DebugPrintf((" done\n"));
+  CfgDbgPrintf((" done\n"));
 
   if (FP_SEG(pbuffer) == 0xffff)
   {

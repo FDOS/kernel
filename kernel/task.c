@@ -144,7 +144,7 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* create a new environment for the process             */
   /* copy parent's environment if exec.env_seg == 0       */
 
-  DebugPrintf(("ChildEnv: environment block is %u, using %s\n", exp->exec.env_seg, (exp->exec.env_seg)?"exec_blk":"parent_blk"));
+  ProcDbgPrintf(("ChildEnv: environment block is %u, using %s\n", exp->exec.env_seg, (exp->exec.env_seg)?"exec_blk":"parent_blk"));
   pSrc = exp->exec.env_seg ?
       MK_FP(exp->exec.env_seg, 0) : MK_FP(ppsp->ps_environ, 0);
 
@@ -181,13 +181,13 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
      Note: we must allocate at least 1 paragraph (16 bytes) for empty environment
            + ENV_KEEPFREE for argv[0] (program name)
    */
-  DebugPrintf(("PriPathName is %lu bytes\n", sizeof(PriPathName)));
+  /* ProcDbgPrintf(("PriPathName is %lu bytes\n", sizeof(PriPathName))); */
   assert(sizeof(PriPathName)+3==ENV_KEEPFREE);
   if ((RetCode = DosMemAlloc((nEnvSize + ENV_KEEPFREE + 15)/16,
                              mem_access_mode, pChildEnvSeg,
                              NULL /*(UWORD FAR *) MaxEnvSize ska */ )) < 0)
   {
-    DebugPrintf(("Error alloc Env space\n"));
+    ProcDbgPrintf(("Error alloc Env space\n"));
     return RetCode;
   }
   pDest = MK_FP(*pChildEnvSeg + 1, 0);  /* skip past MCB and set pDest to start of env block */
@@ -211,10 +211,10 @@ STATIC COUNT ChildEnv(exec_blk * exp, UWORD * pChildEnvSeg, char far * pathname)
   /* copy complete pathname */
   if ((RetCode = truename(pathname, PriPathName, CDS_MODE_SKIP_PHYSICAL)) < SUCCESS)
   {
-    DebugPrintf(("Failed to get truename for env argv0\n"));
+    ProcDbgPrintf(("Failed to get truename for env argv0\n"));
     return RetCode;
   }
-  DebugPrintf(("ChildEnv for [%s]\n", PriPathName));
+  ProcDbgPrintf(("ChildEnv for [%s]\n", PriPathName));
   fstrcpy(pDest, PriPathName);
 
   /* Theoretically one could either:
@@ -487,7 +487,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       
       rc = ChildEnv(exp, &env, namep);
       #if DEBUG
-        if (rc != SUCCESS) DebugPrintf(("Failed to create ChildEnv\n"));
+        if (rc != SUCCESS) { ProcDbgPrintf(("Failed to create ChildEnv\n")); }
       #endif
       
       /* COMFILES will always be loaded in largest area. is that true TE */
@@ -519,9 +519,7 @@ COUNT DosComLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       mem = exp->load.load_seg;
   }
 
-#ifdef DEBUG
-  printf("DosComLoader. Loading '%S' at %04x\n", namep, mem);
-#endif
+  ProcDbgPrintf(("DosComLoader. Loading '%S' at %04x\n", namep, mem));
   /* Now load the executable                              */
   {
     BYTE FAR *sp;
@@ -670,7 +668,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       
       rc = ChildEnv(exp, &env, namep);
       #if DEBUG
-        if (rc != SUCCESS) DebugPrintf(("Failed to create ChildEnv\n"));
+        if (rc != SUCCESS) { ProcDbgPrintf(("Failed to create ChildEnv\n")); }
       #endif
       
       if (rc == SUCCESS)
@@ -708,9 +706,7 @@ COUNT DosExeLoader(BYTE FAR * namep, exec_blk * exp, COUNT mode, COUNT fd)
       
       mode &= 0x7f; /* forget about high loading from now on */
       
-#ifdef DEBUG
-      printf("DosExeLoader. Loading '%S' at %04x\n", namep, mem);
-#endif
+      ProcDbgPrintf(("DosExeLoader. Loading '%S' at %04x\n", namep, mem));
       
       /* memory found large enough - continue processing      */
       ++mem;
@@ -909,7 +905,7 @@ VOID ASMCFUNC P_0(struct config FAR *Config)
     exb.exec.cmd_line = (CommandTail *)(tailp + 1);
     exb.exec.cmd_line->ctCount = endp - tailp - 2;
 #ifdef DEBUG
-    printf("Process 0 starting: %s%s\n\n", Shell, tailp + 2);
+    DebugPrintf(("Process 0 starting: %s%s\n\n", Shell, tailp + 2));
 #endif
     res_DosExec(mode, &exb, Shell);
     put_string("Bad or missing Command Interpreter: "); /* failure _or_ exit */

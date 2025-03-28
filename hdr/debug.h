@@ -76,7 +76,7 @@ VOID panic(BYTE * s);
 /* #define DEBUGIRQ */
 
 /* show output related to moving kernel into HMA */
-#ifdef DEBUG
+#ifdef DEBUGHMA
 #define HMAInitPrintf(x) DebugPrintf(x)
 #else
 #define HMAInitPrintf(x)
@@ -128,12 +128,21 @@ VOID panic(BYTE * s);
 
 /* debug truename */
 #ifdef DEBUG
+#ifndef DEBUG_TRUENAME
 #define DEBUG_TRUENAME
+#endif
 #endif
 #ifdef DEBUG_TRUENAME
 #define tn_printf(x) DebugPrintf(x)
 #else
 #define tn_printf(x)
+#endif
+
+/* debug task/process creation */
+#ifdef DEBUGTASK
+#define ProcDbgPrintf(x) DebugPrintf(x)
+#else
+#define ProcDbgPrintf(x)
 #endif
 
 
