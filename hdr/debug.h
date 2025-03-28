@@ -44,6 +44,16 @@
 #endif
 #endif
 
+
+/* assert macro */
+#ifdef DEBUG
+VOID panic(BYTE * s);
+#define assert(condition) (void)(!(condition)?panic(#condition),0:0)
+#else
+#define assert(condition) /* ((void)0) */
+#endif
+
+
 /* use to limit output to debug builds */
 #ifdef DEBUG
 #ifdef DEBUG_PRINT_COMPORT
@@ -117,7 +127,9 @@
 #endif
 
 /* debug truename */
-/* #define DEBUG_TRUENAME */
+#ifdef DEBUG
+#define DEBUG_TRUENAME
+#endif
 #ifdef DEBUG_TRUENAME
 #define tn_printf(x) DebugPrintf(x)
 #else
