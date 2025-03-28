@@ -1441,7 +1441,7 @@ COUNT dsk_init()
 {
   if (InitKernelConfig.Verbose >= 1) printf("\nInitDisk\n");
 
-#if defined(DEBUG) && !defined(DOSEMU)
+#if defined(DEBUG) && !defined(DOSEMU) && !defined(DEBUG_PRINT_COMPORT)
   {
     iregs regs;
     regs.a.x = 0x1112;          /* select 43 line mode - more space for partinfo */

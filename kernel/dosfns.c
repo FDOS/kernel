@@ -598,10 +598,15 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
 /* /// Added for SHARE.  - Ron Cemer */
   if (IsShareInstalled(TRUE))
   {
+    DebugPrintf(("Share installed - open_check(%s)\n", PriPathName));
     if ((sftp->sft_shroff =
          share_open_check(PriPathName, cu_psp,
                           flags & 0x03, (flags >> 4) & 0x07)) < 0)
       return sftp->sft_shroff;
+  }
+  else 
+  {
+    DebugPrintf(("Share NOT installed - open_check(%s)\n", PriPathName));
   }
 
 /* /// End of additions for SHARE.  - Ron Cemer */
@@ -609,6 +614,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   sftp->sft_count++;
   sftp->sft_flags = PriPathName[0] - 'A';
   result = dos_open(PriPathName, flags, attrib, sft_idx);
+  DebugPrintf(("dos_open(%s) returned %i\n", PriPathName, result));
   if (result < 0)
   {
 /* /// Added for SHARE *** CURLY BRACES ADDED ALSO!!! ***.  - Ron Cemer */
@@ -714,7 +720,7 @@ COUNT DosCloseSft(int sft_idx, BOOL commitonly)
  */
   if (sftp->sft_flags & SFT_FSHARED)
   {
-    /* printf("closing SFT %d = %p\n",sft_idx,sftp); */
+    /* DebugPrintf(("closing SFT %d = %p\n",sft_idx,sftp)); */
     return network_redirector_fp(commitonly ? REM_FLUSH: REM_CLOSE, sftp);
   }
 
@@ -996,14 +1002,14 @@ COUNT DosChangeDir(BYTE FAR * s)
     return DE_PATHNOTFND;
 
 #if defined(CHDIR_DEBUG)
-  printf("Remote Chdir: n='%Fs' p='%Fs\n", s, PriPathName);
+  DebugPrintf(("Remote Chdir: n='%Fs' p='%Fs\n", s, PriPathName));
 #endif
   /* now get fs to change to new          */
   /* directory                            */
   result = (result & IS_NETWORK ? network_redirector(REM_CHDIR) :
             dos_cd(PriPathName));
 #if defined(CHDIR_DEBUG)
-  printf("status = %04x, new_path='%Fs'\n", result, cdsd->cdsCurrentPath);
+  DebugPrintf(("status = %04x, new_path='%Fs'\n", result, cdsd->cdsCurrentPath));
 #endif
   if (result != SUCCESS)
     return result;
@@ -1061,7 +1067,7 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
   SAttr = (BYTE) attr;
 
 #if defined(FIND_DEBUG)
-  printf("Remote Find: n='%Fs\n", PriPathName);
+  DebugPrintf(("Remote Find: n='%Fs\n", PriPathName));
 #endif
 
   dta = &sda_tmp_dm;
@@ -1116,7 +1122,7 @@ COUNT DosFindNext(void)
  *  (12h, DE_NFILES)
  */
 #if 0
-  printf("findnext: %d\n", dmp->dm_drive);
+  DebugPrintf(("findnext: %d\n", dmp->dm_drive));
 #endif
   fmemcpy(&sda_tmp_dm, dmp, 21);
 
@@ -1216,6 +1222,7 @@ COUNT DosSetFattr(BYTE FAR * name, UWORD attrp)
   if (result & IS_DEVICE)
     return DE_FILENOTFND;
 
+  DebugPrintf(("DosSetFattr(%s)\n", name));
   if (IsShareInstalled(TRUE))
   {
     /* SHARE closes the file if it is opened in
@@ -1427,6 +1434,7 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
 BOOL IsShareInstalled(BOOL recheck)
 {
   extern unsigned char ASMPASCAL share_check(void);
+  //DebugPrintf(("Share_check at %p and share_installed at %p\n", (void far *)&share_check, (void far *)&share_installed)); 
   if (recheck == FALSE)
     return share_installed;
   if (share_check() == 0xff)
