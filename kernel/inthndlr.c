@@ -1860,7 +1860,8 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
 
   InDOS++;
 
-  DeleteBlockInBufferCache(blkno, blkno, drv, XFR_WRITE);
+  if (mode == DSKWRITEINT26)
+    DeleteBlockInBufferCache(blkno, blkno, drv, XFR_WRITE);
   r->ax = dskxfer(drv, blkno, buf, nblks, mode);
 
   CLEAR_CARRY_FLAG();
