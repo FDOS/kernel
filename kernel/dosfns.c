@@ -954,7 +954,7 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
       return DE_INVLDDRV;
     xfsp->xfs_secsize = dpbp->dpb_secsize;
     xfsp->xfs_totalclusters =
-        (ISFAT32(dpbp) ? dpbp->dpb_xsize : dpbp->dpb_size);
+        (ISFAT32(dpbp) ? dpbp->dpb_xsize : dpbp->dpb_size) - 1;
     xfsp->xfs_freeclusters = dos_free(dpbp);
     xfsp->xfs_clussize = dpbp->dpb_clsmask + 1;
   }
