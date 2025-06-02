@@ -1812,6 +1812,7 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
   UWORD nblks;
   BYTE FAR *buf;
   UBYTE drv;
+  struct dpb FAR *dpbp;
 
   if (mode == 0x26)
     mode = DSKWRITEINT26;
@@ -1822,17 +1823,23 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
                       /* high bit of AL set, so mask it together with AH */
                       /* otherwise we might access a non-existing unit */
 
-  if (drv >= lastdrive)
+  dpbp = get_dpb(drv);
+
+  if (drv >= lastdrive || dpbp == NULL)
   {
     r->ax = 0x201;
     SET_CARRY_FLAG();
     return;
   }
 
+  nblks = r->cx;
+  blkno = r->dx;
+
 #ifdef WITHFAT32
   {
-    struct dpb FAR *dpbp = get_dpb(drv);
-    if (dpbp != NULL && ISFAT32(dpbp))
+    /* if reading / writing block other than bootsecter,
+       prevent using INT25,26 on initialized FAT32 */
+    if ((blkno != 0) && ISFAT32(dpbp) && (dpbp->dpb_xfatsize != 0))
     {
       r->ax = 0x207;
       SET_CARRY_FLAG();
@@ -1840,9 +1847,6 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
     }
   }
 #endif
-
-  nblks = r->cx;
-  blkno = r->dx;
 
   buf = MK_FP(r->ds, r->bx);
 
@@ -1856,6 +1860,7 @@ VOID ASMCFUNC int2526_handler(WORD mode, struct int25regs FAR * r)
 
   InDOS++;
 
+  DeleteBlockInBufferCache(blkno, blkno, drv, XFR_WRITE);
   r->ax = dskxfer(drv, blkno, buf, nblks, mode);
 
   CLEAR_CARRY_FLAG();
