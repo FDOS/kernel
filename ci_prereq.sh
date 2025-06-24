@@ -60,28 +60,28 @@ cd ${HOME}/.dosemu/drive_c && (
   mkdir -p bin
 
   # Boot files
-  unzip -L -q ${HERE}/kernel.zip
+  unzip -LL -q ${HERE}/kernel.zip
   cp -p bin/kernl386.sys ./kernel.sys
-  unzip -L -q ${HERE}/freecom.zip
+  unzip -LL -q ${HERE}/freecom.zip
   cp -p bin/command.com ./command.com
   cp -p /usr/share/dosemu/dosemu2-cmds-0.3/c/fdconfig.sys .
 
   # Development files
-  unzip -L -q ${HERE}/djgpp_mk.zip
+  unzip -LL -q ${HERE}/djgpp_mk.zip
   cp -p devel/djgpp/bin/make.exe bin/.
-  unzip -L -q ${HERE}/upx.zip
+  unzip -LL -q ${HERE}/upx.zip
   cp -p devel/upx/upx.exe bin/.
   echo PATH to make and upx binaries is 'c:/bin'
 
-  unzip -L -q ${HERE}/nasm.zip
+  unzip -LL -q ${HERE}/nasm.zip
   echo PATH to nasm binary is 'c:/devel/nasm'
 
-#  unzip -L -q ${HERE}/i16gcc.zip
-#  unzip -L -q ${HERE}/i16newli.zip
-#  unzip -L -q ${HERE}/i16butil.zip
-#  unzip -L -q ${HERE}/i16lbi86.zip
+#  unzip -LL -q ${HERE}/i16gcc.zip
+#  unzip -LL -q ${HERE}/i16newli.zip
+#  unzip -LL -q ${HERE}/i16butil.zip
+#  unzip -LL -q ${HERE}/i16lbi86.zip
 #  echo PATH to ia16 binaries is 'c:/devel/i16gnu/bin'
 
-  unzip -L -q ${HERE}/watcomc.zip
+  unzip -LL -q ${HERE}/watcomc.zip
   echo PATH to watcom binaries is 'c:/devel/watcomc/binw'
 )
