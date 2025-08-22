@@ -135,6 +135,8 @@ irp_hi    equ 26
 ;	error 1 2 3
 	%macro  Protect386Registers 0
 	%endmacro
+
+	%assign Size386Registers 0
 	
 	%macro  RestoreSP 0
 		mov sp, bp  
@@ -151,8 +153,10 @@ irp_hi    equ 26
 		push gs
 	%endmacro
 
+	%assign Size386Registers 4
+
 	%macro  RestoreSP 0
-		lea sp, [bp-4]
+		lea sp, [bp - Size386Registers]
 	%endmacro
 
 	%macro  Restore386Registers  0
@@ -176,8 +180,10 @@ irp_hi    equ 26
 		pop dx
 	%endmacro
 
+	%assign Size386Registers 6
+
 	%macro  RestoreSP 0
-		lea sp, [bp-6]
+		lea sp, [bp - Size386Registers]
 	%endmacro
 
 	%macro  Restore386Registers  0

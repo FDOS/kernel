@@ -611,6 +611,8 @@ CritErr05:
                 mov     bp,sp
                 push    si
                 push    di
+                Protect386Registers
+
                 ;
                 ; Get parameters
                 ;
@@ -659,6 +661,13 @@ CritErr05:
                 ;
                 cld
                 cli
+                Protect386Registers
+                ; ecm: The extended stack frame must be restored here
+                ;  in case the response isn't Abort. The int 21h handler
+                ;  will expect the extended stack frame to be still
+                ;  intact, but the stack written by the int 24h (even
+                ;  only the int instruction) will have overwritten it.
+
                 mov     bp, [cs:_DGROUP_]
                 mov     ds,bp
                 mov     ss,bp
@@ -672,7 +681,13 @@ CritErr05:
                 pop     word [es:PSP_USERSP]
                 pop     word [es:PSP_USERSS]
                 mov     bp, sp
-                mov     ah, byte [bp+4+4]       ; restore old AH from nFlags
+                mov     ah, byte [bp + 4 + 4 + Size386Registers]
+                ; restore old AH from nFlags
+                ; ecm: One 4 is the displacement of nFlags from the
+                ;  usual bp, the other 4 accounts for the si and di
+                ;  on the stack, the Size386Registers is added to
+                ;  skip the fs and gs (OpenWatcom 386 build) or high
+                ;  words that are a part of the stack frame, if any.
                 sti                             ; Enable interrupts
                 ;
                 ; clear flags
@@ -715,6 +730,8 @@ CritErr30:
 
 CritErrExit:
                 xor     ah,ah                   ; clear out top for return
+
+                Restore386Registers
                 pop     di
                 pop     si
                 pop     bp
