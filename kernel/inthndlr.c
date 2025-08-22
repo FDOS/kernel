@@ -811,7 +811,7 @@ dispatch:
     case 0x31:
       DosMemChange(cu_psp, lr.DX < 6 ? 6 : lr.DX, 0);
       return_code = lr.AL | 0x300;
-      tsr = TRUE;
+      term_type = 3; /* ecm: TSR terminate */
       return_user();
       break;
 
@@ -1104,18 +1104,11 @@ dispatch:
 
       /* End Program                                                  */
     case 0x4c:
-      tsr = FALSE;
-      rc = 0;
-      if (ErrorMode)
-      {
-        ErrorMode = FALSE;
-        rc = 0x200;
-      }
-      else if (break_flg)
-      {
+      if (break_flg) {
         break_flg = FALSE;
-        rc = 0x100;
+        term_type = 1;
       }
+      rc = term_type << 8;
       return_code = lr.AL | rc;
       if (DosMemCheck() != SUCCESS)
         panic("MCB chain corrupted");
@@ -1784,7 +1777,7 @@ VOID INRPT FAR int23_handler(int es, int ds, int di, int si, int bp,
                              int sp, int bx, int dx, int cx, int ax,
                              int ip, int cs, int flags)
 {
-  tsr = FALSE;
+  term_type = 1;
   return_mode = 1;
   return_code = -1;
   mod_sto(CTL_C);

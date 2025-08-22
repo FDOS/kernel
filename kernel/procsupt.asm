@@ -34,6 +34,7 @@
                 extern  _user_r
 
                 extern  _break_flg     ; break detected flag
+                extern  _term_type
                 extern  _int21_handler ; far call system services
 
                 %include "stacks.inc"
@@ -257,6 +258,12 @@ _spawn_int23:
 				push ds			;; we need DGROUP
 				mov ds, [cs:_DGROUP_]
 				inc byte [_break_flg]
+				mov byte [_term_type], 1
+				; ecm: This is overwritten in the int 21h handler,
+				;  but is passed from the int 23h caller to the
+				;  terminate code in MS-DOS by writing this.
+				; For us, break_flg is used in function 4Ch to
+				;  re-set term_type to 1 later.
 				pop ds
 
 				xor ah, ah		;; clear ah --> perform DOS-00 --> terminate
