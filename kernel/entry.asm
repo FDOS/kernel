@@ -646,8 +646,8 @@ CritErr05:
                 ;
                 ; switch to user's stack
                 ;
-                mov     ss,[es:PSP_USERSS]
                 mov     bp,[es:PSP_USERSP]
+                mov     ss,[es:PSP_USERSS]
                 RestoreSP
                 Restore386Registers
                 mov     bp,cx        
@@ -747,9 +747,9 @@ CritErrAbort:
                 mov     al,FAIL
                 jz      CritErrExit
                 cli
-                mov     bp,word [_user_r+2]   ;Get frame
-                mov     ss,bp
+                mov     ax,word [_user_r+2]   ;Get frame
                 mov     bp,word [_user_r]
+                mov     ss,ax
                 mov     sp,bp
                 mov     byte [_ErrorMode],1        ; flag abort
                 mov     ax,4C00h
