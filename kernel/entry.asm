@@ -741,11 +741,16 @@ CritErrExit:
                 ; Abort processing.
                 ;
 CritErrAbort:
+%if 0
                 mov     ax,[_cu_psp]
                 mov     es,ax
                 cmp     ax,[es:PSP_PARENT]
                 mov     al,FAIL
                 jz      CritErrExit
+                ; ecm: This check is done by (E)DR-DOS, but not MS-DOS.
+                ;  Therefore, disable it and terminate the self-parented
+                ;  process here like any other.
+%endif
                 cli
                 mov     ax,word [_user_r+2]   ;Get frame
                 mov     bp,word [_user_r]
