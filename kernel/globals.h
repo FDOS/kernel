@@ -308,6 +308,7 @@ extern BYTE
   ASM swap_always[],                /*  "    "                              */
   ASM swap_indos[],                 /*  "    "                              */
   ASM term_type,                    /* 0 normal, 1 ^C, 2 int 24h, 3 TSR     */
+  ASM abort_progress,               /* set during process termination       */
   ASM break_flg,                    /* true if break was detected           */
   ASM break_ena;                    /* break enabled flag                   */
 extern void FAR * ASM dta;          /* Disk transfer area (kludge)          */

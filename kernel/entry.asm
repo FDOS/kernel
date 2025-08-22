@@ -42,6 +42,7 @@ segment HMA_TEXT
                 extern   _ErrorMode
                 extern   _InDOS
                 extern   _term_type
+                extern   _abort_progress
 %IFDEF WIN31SUPPORT
                 extern   _winInstanced
 %ENDIF ; WIN31SUPPORT
@@ -742,6 +743,9 @@ CritErrExit:
                 ; Abort processing.
                 ;
 CritErrAbort:
+		test	byte [_abort_progress], -1
+		mov	al, FAIL
+		jnz	CritErrExit
 %if 0
                 mov     ax,[_cu_psp]
                 mov     es,ax
