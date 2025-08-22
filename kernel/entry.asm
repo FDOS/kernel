@@ -41,6 +41,7 @@ segment HMA_TEXT
                 extern   _user_r
                 extern   _ErrorMode
                 extern   _InDOS
+                extern   _term_type
 %IFDEF WIN31SUPPORT
                 extern   _winInstanced
 %ENDIF ; WIN31SUPPORT
@@ -264,11 +265,11 @@ reloc_call_int21_handler:
                 ; NB: At this point, SS != DS and won't be set that way
                 ; until later when which stack to run on is determined.
                 ;
-int21_reentry:
-                Protect386Registers
                 mov     dx,[cs:_DGROUP_]
                 mov     ds,dx
-
+		mov byte [_term_type], 0	; reset termination type
+int21_reentry:		; entered here from int 24h abort, ds = dx => DGROUP
+                Protect386Registers
                 cmp     ah,33h
                 je      int21_user
                 cmp     ah,50h
@@ -760,4 +761,6 @@ CritErrAbort:
                 mov     ax,4C00h
                 mov     [bp+reg_ax],ax
                 sti
+                mov     byte [_term_type], 2       ; set int 24h abort error
+                mov     dx, ds
                 jmp     int21_reentry              ; restart the system call

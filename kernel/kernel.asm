@@ -838,8 +838,12 @@ _Server_Call    db      0           ;252 - Server call Func 5D sub 0
                 ; Pad to 05CCh
                 times (25ch - ($ - _internal_data)) db 0
 
-                global  _tsr            ; used by break and critical error
-_tsr            db      0               ;25C -  handlers during termination
+                global  _term_type      ; used by break and critical error
+_term_type      db      0               ;25C -  handlers during termination
+		; ecm: 00h = normal terminate,
+		;	01h = control-c terminate,
+		;	02h = critical error abort,
+		;	03h = TSR terminate
                 db      0               ;25D - padding
                 global  term_psp
 term_psp        dw  0                   ;25E - 0??
