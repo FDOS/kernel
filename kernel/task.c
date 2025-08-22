@@ -588,6 +588,8 @@ VOID return_user(void)
   setvec(0x23, p->ps_isv23);
   setvec(0x24, p->ps_isv24);
 
+  abort_progress = -1;
+
   /* And free all process memory if not a TSR return      */
   network_redirector(REM_PROCESS_END);
   /* might be a good idea to do that after closing
@@ -606,6 +608,8 @@ VOID return_user(void)
 
   cu_psp = p->ps_parent;
   q = MK_FP(cu_psp, 0);
+
+  abort_progress = 0;
 
   irp = (iregs FAR *) q->ps_stack;
 

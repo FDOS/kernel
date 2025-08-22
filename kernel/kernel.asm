@@ -796,6 +796,7 @@ _DayOfWeek      db      2               ; 36 - day of week
 _console_swap   db      0               ; 37 console swapped during read from dev
                 global  _dosidle_flag        
 _dosidle_flag   db      1               ; 38 - safe to call int28 if nonzero
+                global  _abort_progress
 _abort_progress db      0               ; 39 - abort in progress
                 global  _CharReqHdr
 _CharReqHdr:
