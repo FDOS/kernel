@@ -53,6 +53,12 @@ DEVEL=${IBIBLIO_PATH}/devel
 #   get watcom for DOS
 [ -f watcomc.zip ] || wget --no-verbose ${DEVEL}/watcomc.zip
 
+#   get Turbo C 2.01 (maybe encrypted) tar file
+if [ -n "${TC201_ARCHIVE_FILENAME}" ] && [ ! -f ${TC201_ARCHIVE_FILENAME} ] ; then
+   echo "Downloading Turbo C 2.01"
+   wget --no-verbose ${TC201_ARCHIVE_PATHNAME}/${TC201_ARCHIVE_FILENAME}
+fi
+
 mkdir -p ${HOME}/.dosemu/drive_c
 cd ${HOME}/.dosemu/drive_c && (
 
@@ -83,4 +89,15 @@ cd ${HOME}/.dosemu/drive_c && (
 
   unzip -LL -q ${HERE}/watcomc.zip
   echo PATH to watcom binaries is 'c:/devel/watcomc/binw'
+
+  # Turbo C
+  if [ -f ${HERE}/${TC201_ARCHIVE_FILENAME} ] && [ -n "${TC201_ARCHIVE_PASSPHRASE}" ] ; then
+    echo Decrypting and unpacking Turbo C 2.01
+    echo "${TC201_ARCHIVE_PASSPHRASE}" | gpg --decrypt --batch --passphrase-fd 0 ${HERE}/${TC201_ARCHIVE_FILENAME} | tar -jxf -
+  elif [ -f ${HERE}/${TC201_ARCHIVE_FILENAME} ] ; then
+    echo Unpacking Turbo C 2.01
+    tar -jxf ${HERE}/${TC201_ARCHIVE_FILENAME}
+  else
+    echo No Turbo C 2.01 archive available
+  fi
 )
