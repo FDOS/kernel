@@ -47,9 +47,9 @@ mv -n bin/country.sys _output/wc/.
 #  echo set MAKE=make
 #  echo set XCPU=386
 #  echo set XFAT=32
-#  echo set XNASM='C:\\devel\\nasm\\nasm'
+#  echo set XNASM=nasm
 #  echo set OLDPATH=%PATH%
-#  echo set PATH='C:\\devel\\i16gnu\\bin;C:\\bin;%OLDPATH%'
+#  echo set PATH='C:\\devel\\i16gnu\\bin;C:\\devel\\nasm;C:\\bin;%OLDPATH%'
 #} | unix2dos > config.bat
 
 #dosemu -td -q -K . -E "build.bat"
@@ -63,10 +63,10 @@ git clean -x -d -f -e test -e _output -e _downloads -e _watcom
   echo set MAKE=wmake /ms
   echo set XCPU=386
   echo set XFAT=32
-  echo set XNASM='C:\\devel\\nasm\\nasm'
+  echo set XNASM=nasm
   echo set XUPX=upx --8086 --best
   echo set OLDPATH=%PATH%
-  echo set PATH='%WATCOM%\\binw;C:\\bin;%OLDPATH%'
+  echo set PATH='%WATCOM%\\binw;C:\\devel\\nasm;C:\\bin;%OLDPATH%'
   echo set DOS4G=QUIET
 } | unix2dos > config.bat
 
