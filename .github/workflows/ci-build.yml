@@ -23,6 +23,10 @@ jobs:
 
     - name: Package install
       run: ./ci_prereq.sh
+      env:
+          TC201_ARCHIVE_PATHNAME: ${{ vars.TC201_ARCHIVE_PATHNAME }}
+          TC201_ARCHIVE_FILENAME: ${{ vars.TC201_ARCHIVE_FILENAME }}
+          TC201_ARCHIVE_PASSPHRASE: ${{ secrets.TC201_ARCHIVE_PASSPHRASE }}
 
     - name: build
       run: ./ci_build.sh
