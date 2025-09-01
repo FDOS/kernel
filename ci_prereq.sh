@@ -23,8 +23,7 @@ HERE=$(pwd)
 [ -f ow-snapshot.tar.xz ] || wget --no-verbose https://github.com/open-watcom/open-watcom-v2/releases/download/Current-build/ow-snapshot.tar.xz
 tar -C ../_watcom -xf ow-snapshot.tar.xz
 
-#IBIBLIO_PATH='http://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/distributions/1.2/repos'
-IBIBLIO_PATH='https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.3'
+IBIBLIO_PATH='https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.4'
 
 BASE=${IBIBLIO_PATH}/base
 
@@ -37,7 +36,7 @@ BASE=${IBIBLIO_PATH}/base
 DEVEL=${IBIBLIO_PATH}/devel
 
 #    get gnumake for DOS
-[ -f djgpp_mk.zip ] || wget --no-verbose ${DEVEL}/djgpp_mk.zip
+[ -f dj_make.zip ] || wget --no-verbose ${DEVEL}/dj_make.zip
 
 #    get nasm for DOS
 [ -f nasm.zip ] || wget --no-verbose ${DEVEL}/nasm.zip
@@ -67,7 +66,7 @@ cd ${HOME}/.dosemu/drive_c && (
   cp -p /usr/share/dosemu/dosemu2-cmds-0.3/c/fdconfig.sys .
 
   # Development files
-  unzip -LL -q ${HERE}/djgpp_mk.zip
+  unzip -LL -q ${HERE}/dj_make.zip
   cp -p devel/djgpp/bin/make.exe bin/.
   unzip -LL -q ${HERE}/upx.zip
   cp -p devel/upx/upx.exe bin/.
