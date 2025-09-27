@@ -131,7 +131,9 @@ echo.
 echo Process COUNTRY +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 echo.
 cd ..\country
-%MAKE% DIRSEP=\ CP=copy production
+set TMAKE=%MAKE%
+if "%COMPILER%" == "TC2" set TMAKE=c:\bin\make
+%TMAKE% DIRSEP=\ CP=copy production
 if errorlevel 1 goto abort-cd
 
 echo.
