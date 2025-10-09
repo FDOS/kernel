@@ -223,7 +223,7 @@ c6:
 boot_error:
 		mov ax, 0E00h | '!'
 		int 10h				; display the error sign
-		mov al, 07h
+		mov ax, 0E07h
 		int 10h				; beep
 		xor	ah,ah
 		int	0x16			; wait for a key
