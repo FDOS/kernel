@@ -1293,7 +1293,11 @@ BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
       "mov ax, 0x4100"  /* IBM/MS Int 13h Extensions - installation check */ \
       "mov bx, 0x55AA" \
       "mov dl, 0x80"   \
+      "push ds"        \
+      "mov cx, 0x40"   \
+      "mov ds, cx"     \
       "int 0x13"       \
+      "pop ds"         \
       "xor ax, ax"     \
       "cmp bx, 0xAA55" \
       "jne quit"       \
