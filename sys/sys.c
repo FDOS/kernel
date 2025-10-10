@@ -197,13 +197,19 @@ int _dos_findfirst(const char *file_name, unsigned int attr,
                    struct find_t *find_tbuf)
 {
   union REGS in, out;
+  struct SREGS sr;
+  in.h.ah = 0x1A;	/* set DTA */
+  in.x.dx = FP_OFF(find_tbuf);
+  sr.ds = FP_SEG(find_tbuf);
+  intdosx(&in, &out, &sr);
   in.h.ah = 0x4e;
   in.x.dx = FP_OFF(file_name);
   in.x.cx = attr;
   intdos(&in, &out);
   if (out.x.cflag)
     return out.x.ax;
-  memcpy(find_tbuf, (void *)0x80, sizeof(*find_tbuf));
+  /* memcpy(find_tbuf, (void *)0x80, sizeof(*find_tbuf)); */
+	/* did set DTA to find_tbuf prior */
   return 0;
 }
 #else
