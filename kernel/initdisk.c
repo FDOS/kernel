@@ -652,6 +652,10 @@ STATIC int LBA_Get_Drive_Parameters(int drive, struct DriveParamS *driveParam, i
   regs.b.x = 0x55aa;
   regs.a.b.h = 0x41;
   regs.d.b.l = drive;
+  regs.ds = 0x40;
+  /* ds = 40h is to work around a Xi8088 ROM-BIOS bug,
+      refer to https://github.com/FDOS/kernel/issues/156
+      and https://www.bttr-software.de/forum/forum_entry.php?id=21275 */
   regs.flags = FLG_CARRY;  /* ensure carry is set to force error if unsupported */
 
   init_call_intr(0x13, &regs);
