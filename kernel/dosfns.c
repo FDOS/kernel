@@ -1434,7 +1434,7 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
 BOOL IsShareInstalled(BOOL recheck)
 {
   extern unsigned char ASMPASCAL share_check(void);
-  //DebugPrintf(("Share_check at %p and share_installed at %p\n", (void far *)&share_check, (void far *)&share_installed)); 
+  /*DebugPrintf(("Share_check at %p and share_installed at %p\n", (void far *)&share_check, (void far *)&share_installed));*/
   if (recheck == FALSE)
     return share_installed;
   if (share_check() == 0xff)
