@@ -105,22 +105,32 @@ struct _diskfree_t {
   unsigned short avail_clusters, sectors_per_cluster, bytes_per_sector;
 };
 
-int int86(int ivec, union REGS *in, union REGS *out)
+int int86x(int ivec, union REGS *in, union REGS *out, struct SREGS *s)
 {
   /* must save sp for int25/26 */
-  asm("mov %5, (1f+1); jmp 0f; 0:push %%ds; mov %%di, %%dx; mov %%sp, %%di;"
+  asm("mov %7, %%cs:(1f+1); jmp 0f; 0:"
+      "mov %%di, %%dx; mov %%sp, %%di;"
       "push %%di; push %%di;"
       /* push twice to work both for int 25h/26h and int 21h */
       "1:int $0x00; pop %%di; pop %%di;"
       /* second pop always reads the correct SP value.
          the first pop may read the FL left on stack. */
-      "mov %%di, %%sp; pop %%ds; sbb %0, %0" :
+      "mov %%di, %%sp; sbb %0, %0" :
       "=r"(out->x.cflag),
-      "=a"(out->x.ax), "=b"(out->x.bx), "=c"(out->x.cx), "=d"(out->x.dx) :
+      "=a"(out->x.ax), "=b"(out->x.bx), "=c"(out->x.cx), "=d"(out->x.dx),
+      "=e"(s->es), "=Rds"(s->ds) :
       "q"((unsigned char)ivec), "a"(in->x.ax), "b"(in->x.bx),
-      "c"(in->x.cx), "D"(in->x.dx), "S"(in->x.si) :
+      "c"(in->x.cx), "D"(in->x.dx), "S"(in->x.si), "e"(s->es),
+      "Rds"(s->ds)
+       :
       "cc", "memory");
   return out->x.ax;
+}
+
+int int86(int ivec, union REGS *in, union REGS *out)
+{
+  struct SREGS sr = {0,};
+  return int86x(ivec, in, out, &sr);
 }
 
 int intdos(union REGS *in, union REGS *out)
@@ -197,13 +207,20 @@ int _dos_findfirst(const char *file_name, unsigned int attr,
                    struct find_t *find_tbuf)
 {
   union REGS in, out;
+  struct SREGS sr;
+  in.h.ah = 0x1A;	/* set DTA */
+  in.x.dx = FP_OFF(find_tbuf);
+  sr.ds = FP_SEG(find_tbuf);
+  intdosx(&in, &out, &sr);
   in.h.ah = 0x4e;
   in.x.dx = FP_OFF(file_name);
   in.x.cx = attr;
-  intdos(&in, &out);
+  sr.ds = FP_SEG(file_name);
+  intdosx(&in, &out, &sr);
   if (out.x.cflag)
     return out.x.ax;
-  memcpy(find_tbuf, (void *)0x80, sizeof(*find_tbuf));
+  /* memcpy(find_tbuf, (void *)0x80, sizeof(*find_tbuf)); */
+	/* did set DTA to find_tbuf prior */
   return 0;
 }
 #else
@@ -1134,12 +1151,14 @@ int generic_block_ioctl(unsigned drive, unsigned cx, unsigned char *par);
 int int2526readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
   union REGS regs;
+  struct SREGS sregs;
 
   regs.h.al = (BYTE) DosDrive;
   regs.x.bx = (short)diskReadPacket;
   regs.x.cx = 0xffff;
+  sregs.ds = FP_SEG(diskReadPacket);
 
-  int86(intno, &regs, &regs);
+  int86x(intno, &regs, &regs, &sregs);
 
   return regs.x.cflag;
 }
@@ -1155,13 +1174,15 @@ int2526readwrite(DosDrive, diskReadPacket, 0x26)
 int fat32readwrite(int DosDrive, void *diskReadPacket, unsigned intno)
 {
   union REGS regs;
+  struct SREGS sregs;
 
   regs.x.ax = 0x7305;
   regs.h.dl = DosDrive;
   regs.x.bx = (short)diskReadPacket;
   regs.x.cx = 0xffff;
   regs.x.si = intno;
-  intdos(&regs, &regs);
+  sregs.ds = FP_SEG(diskReadPacket);
+  int86x(0x21, &regs, &regs, &sregs);
 
   return regs.x.cflag;
 } /* fat32readwrite */
@@ -1272,7 +1293,11 @@ BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
       "mov ax, 0x4100"  /* IBM/MS Int 13h Extensions - installation check */ \
       "mov bx, 0x55AA" \
       "mov dl, 0x80"   \
+      "push ds"        \
+      "mov cx, 0x40"   \
+      "mov ds, cx"     \
       "int 0x13"       \
+      "pop ds"         \
       "xor ax, ax"     \
       "cmp bx, 0xAA55" \
       "jne quit"       \
@@ -1286,10 +1311,15 @@ BOOL haveLBA(void);     /* return TRUE if we have LBA BIOS, FALSE otherwise */
 BOOL haveLBA(void)
 {
   union REGS r;
+  struct SREGS sr;
   r.x.ax = 0x4100;
   r.x.bx = 0x55AA;
   r.h.dl = 0x80;
-  int86(0x13, &r, &r);
+  sr.ds = 0x40;
+  /* ds = 40h is to work around a Xi8088 ROM-BIOS bug,
+      refer to https://github.com/FDOS/kernel/issues/156
+      and https://www.bttr-software.de/forum/forum_entry.php?id=21275 */
+  int86x(0x13, &r, &r, &sr);
   return r.x.bx == 0xAA55 && r.x.cx & 1;
 }
 #endif
