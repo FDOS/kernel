@@ -184,7 +184,7 @@ int DosDevIOctl(lregs * r)
       }
       else
       {
-        if (r->AL != 9)
+        if (r->AL != 8 && r->AL != 9)
           return DE_INVLDDRV;
         dev = NULL;
         attr = ATTR_REMOTE;
@@ -192,6 +192,16 @@ int DosDevIOctl(lregs * r)
 
       switch (r->AL)
       {
+	case 0x08:
+	{
+	  struct cds FAR *cdsp = get_cds1(r->BL & 0x1f);
+	  if (cdsp == NULL)
+	    return DE_INVLDDRV;
+	  if (cdsp->cdsFlags & CDSNETWDRV)
+	    return DE_INVLDFUNC;
+	  r->AX = (dpbp->dpb_flags == M_DONT_KNOW);
+	  return SUCCESS;
+	}
         case 0x09:
         {
           /* note from get_dpb()                            */
@@ -213,7 +223,7 @@ int DosDevIOctl(lregs * r)
             return SUCCESS;
           }
           /* fall through */
-        default: /* 0x04, 0x05, 0x08, 0x0e, 0x0f, 0x11 */
+        default: /* 0x04, 0x05, 0x0e, 0x0f, 0x11 */
           break;
       }
       break;
