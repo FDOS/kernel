@@ -34,7 +34,7 @@ TARGETOPT=-G1
 TARGETOPT=-G3
 !endif
 
-TARGET=KMS
+TARGET=kms
 
 #
 # heavy stuff - building

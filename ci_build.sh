@@ -16,7 +16,7 @@ mkdir _output/gcc
 git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 make -C country clean
 make all COMPILER=gcc
-mv -n bin/KGC*.map bin/KGC*.sys _output/gcc/.
+mv -n bin/kgc*.map bin/kgc*.sys _output/gcc/.
 mv -n bin/country.sys _output/gcc/.
 # GCC share
 (
@@ -36,7 +36,7 @@ mkdir _output/wc
 git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 make -C country clean
 make all COMPILER=owlinux
-mv -n bin/KWC*.map bin/KWC*.sys _output/wc/.
+mv -n bin/kwc*.map bin/kwc*.sys _output/wc/.
 mv -n bin/country.sys _output/wc/.
 
 ## DOS (GCC)
@@ -71,7 +71,7 @@ git clean -x -d -f -e test -e _output -e _downloads -e _watcom
 } | unix2dos > config.bat
 
 dosemu -td -q -K . -E "build.bat"
-mv -n bin/KWC*.map bin/KWC*.sys _output/wc_dos/.
+mv -n bin/kwc*.map bin/kwc*.sys _output/wc_dos/.
 mv -n bin/country.sys _output/wc_dos/.
 
 
@@ -91,7 +91,7 @@ if [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
   } | unix2dos > config.bat
 
   dosemu -td -q -K . -E "build.bat"
-  mv -n bin/KTC*.map bin/KTC*.sys _output/tc_dos/.
+  mv -n bin/ktc*.map bin/ktc*.sys _output/tc_dos/.
   mv -n bin/country.sys _output/tc_dos/.
   # TC share
   (

@@ -25,7 +25,7 @@ TINY=-mt
 CFLAGST=-zp1-os-s-we-e3-wx-bt=DOS
 CFLAGSC=-mc-zp1-os-s-we-e3-wx-bt=DOS
 
-TARGET=KWC
+TARGET=kwc
 
 # used for building the library
 
