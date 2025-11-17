@@ -18,7 +18,7 @@ TINY=-lt
 CFLAGST=-L$(LIBPATH) -mt -a- -k- -f- -ff- -O -Z -d -w
 CFLAGSC=-L$(LIBPATH) -a- -mc
 
-TARGET=KTC
+TARGET=ktc
 
 # used for building the library
 

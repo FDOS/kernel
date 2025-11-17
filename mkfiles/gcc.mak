@@ -7,7 +7,7 @@
 #* TARGETOPT : options, handled down to the compiler
 #**********************************************************************
 
-TARGET=KGC$(XCPU)$(XFAT)
+TARGET=kgc$(XCPU)$(XFAT)
 TARGETOPT=-march=i8086
 
 ifeq ($(XCPU),186)
