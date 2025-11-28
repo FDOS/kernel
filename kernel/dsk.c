@@ -709,24 +709,30 @@ STATIC WORD Genblkdev(rqptr rp, ddt * pddt)
       {
         struct Gioc_media FAR *gioc = rp->r_gioc;
         struct FS_info *fs;
+        BYTE extended_BPB_signature;
 
         ret = getbpb(pddt);
         if (ret != 0)
           return (ret);
 
+        extended_BPB_signature =
+          DiskTransferBuffer[(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x26 : 0x42)];
         /* return error if media lacks extended BPB with serial # */
-        {
-          register BYTE extended_BPB_signature = 
-            DiskTransferBuffer[(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x26 : 0x42)];
-          if ((extended_BPB_signature != 0x29) || (extended_BPB_signature != 0x28))
-            return failure(E_MEDIA);
-        }
+        if ((extended_BPB_signature != 0x29) && (extended_BPB_signature != 0x28))
+          return failure(E_MEDIA);
 
         /* otherwise, store serial # in extended BPB */
         fs = (struct FS_info *)&DiskTransferBuffer
             [(pddt->ddt_bpb.bpb_nfsect != 0 ? 0x27 : 0x43)];
         fs->serialno = gioc->ioc_serialno;
         pddt->ddt_serialno = fs->serialno;
+
+        /* And volume name if BPB supports it */
+        if (extended_BPB_signature == 0x29)
+        {
+          fmemcpy(fs->volume, gioc->ioc_volume, 11);
+          fmemcpy(pddt->ddt_volume, fs->volume, 11);
+        }
 
         ret = RWzero(pddt, LBA_WRITE);
         if (ret != 0)
