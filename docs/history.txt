@@ -1,27 +1,31 @@
+Bug reports:
+Current bug tracking for the kernel is on GitHub in the FDOS/kernel project.
+Genera FreeDOS bug tracking (kernel bug reports also accepted) at GitLab FreeDOS project.
+
+Note: old bug tracker and source URLs:
+bugzilla bug NUMBER at:
+	http://bugzilla.freedos.org/cgi-bin/bugzilla/show_bug.cgi?id=NUMBER
+and sourceforge bug tracker at:
+	http://sf.net/tracker/?func=detail&aid=NUMBER&group_id=5109&atid=105109
+SVN source (no longer updated) for old SVN revision NUMBER at:
+	http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
+Changelog items may list old SVN revision NUMBER and bugzilla bug NUMBER.
 
 
-General web notes: You can read details about bugzilla bug NUMBER on
-http://bugzilla.freedos.org/cgi-bin/bugzilla/show_bug.cgi?id=NUMBER
-and details about newer bugs managed in our sourceforge bug tracker on
-http://sf.net/tracker/?func=detail&aid=NUMBER&group_id=5109&atid=105109
-
-You can read more details (diff, changelog) about SVN revision NUMBER on
-http://freedos.svn.sf.net/viewvc/freedos?view=rev&sortby=rev&revision=NUMBER
-Changelog items can list SVN revision rNUMBER and bugzilla bug NUMBER.
-
-
-2025 ?? - Build 2045
+2026 ?? - Build 2045
 -------- Jeremy Davis
 
 + Changes Jeremy Davis and Tom Ehlert
     * initial GPT partition support
 
 
-2025 ?? - Build 2044
+2026 Jan 25 - Build 2044
 -------- Jeremy Davis
 
-+ Changes Jeremy Davis, Andrew Bird, Tee-Kiah Chia (tkchia), Sava (lpproj), 
-          Stas Sergeev (stsp), C. Masloch, Jiri Malak, Bernd Böckmann, Tom Ehlert
++ Changes Andrew Bird, Bernd Böckmann, C. Masloch, Stas Sergeev (stsp), 
+          Tee-Kiah Chia (tkchia), Sava (lpproj), Jiri Malak, Jeremy Davis, Tom Ehlert
+	* disk: Set volume label also on BPB update
+	* fix INT21.7303 return cluster count one too high, https://github.com/FDOS/kernel/issues/194
 	* fixes for building with various compilers / different environments
 	* boot sector improvements (improve compatibility/reduce boot problems)
 	* support determining kernel file version without booting it
