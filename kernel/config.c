@@ -1542,7 +1542,7 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
     ULONG offset;       /* offset within file of subfunction data entry */
   };
   static struct {   /* subfunction data */
-    char signature[8];  /* \377CTYINFO|UCASE|LCASE|FUCASE|FCHAR|COLLATE|DBCS */
+    char signature[8];  /* \377CTYINFO|UCASE|LCASE|FUCASE|FCHAR|COLLATE|DBCS|YESNO */
     int length;         /* length of following table in bytes */
     UBYTE buffer[256];
   } subf_data;
@@ -1550,7 +1550,7 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
     char sig[8];        /* signature for each subfunction data */
     int idx;            /* index of pointer in nls_hc.asm to be copied to */
   };
-  static struct subf_tbl table[8] = {
+  static struct subf_tbl table[9] = {
     {"\377       ", -1},  /* 0, unused */
     {"\377CTYINFO", 5},   /* 1 */
     {"\377UCASE  ", 0},   /* 2 */
@@ -1558,11 +1558,12 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
     {"\377FUCASE ", 1},   /* 4 */
     {"\377FCHAR  ", 2},   /* 5 */
     {"\377COLLATE", 3},   /* 6 */
-    {"\377DBCS   ", 4}    /* 7, not supported [yet] */
+    {"\377DBCS   ", 4},   /* 7, not supported [yet] */
+    {"\377YESNO  ", -1}   /* 35 */
   };
-  static struct subf_hdr hdr[8];
+  static struct subf_hdr hdr[9];
   static int entries, count;
-  int fd, i;
+  int fd, i, subf_tbl_ndx;
   char *filename = filenam == NULL ? "\\COUNTRY.SYS" : filenam;
   BOOL rc = FALSE;
   BYTE FAR *ptable;
@@ -1599,15 +1600,20 @@ err:printf("%s has invalid format\n", filename);
       || read(fd, hdr, sizeof(struct subf_hdr) * count)
                       != sizeof(struct subf_hdr) * count)
       goto err;
+
+    /* Note: we reuse i here as we only process 1 entry, goto after inner for ends outer for */
     for (i = 0; i < count; i++)
     {
       if (hdr[i].length != 6)
         goto err;
-      if (hdr[i].id < 1 || hdr[i].id > 7 || hdr[i].id == 3)
+      subf_tbl_ndx = hdr[i].id;
+      if (subf_tbl_ndx == 3 || ((subf_tbl_ndx < 1 || subf_tbl_ndx > 7) && subf_tbl_ndx != 35))
         continue;
+      if (subf_tbl_ndx == 35)
+        subf_tbl_ndx = 8;  /* 0 through 7 match, but subfunction 35 is 9th entry in table[] */
       if (lseek(fd, hdr[i].offset) == 0xffffffffL
        || read(fd, &subf_data, 10) != 10
-       || memcmp(subf_data.signature, table[hdr[i].id].sig, 8) && (hdr[i].id !=4
+       || memcmp(subf_data.signature, table[subf_tbl_ndx].sig, 8) && (hdr[i].id !=4
        || memcmp(subf_data.signature, table[2].sig, 8))  /* UCASE for FUCASE ^*/
        || read(fd, subf_data.buffer, subf_data.length) != subf_data.length)
         goto err;
@@ -1627,7 +1633,7 @@ err:printf("%s has invalid format\n", filename);
       if (hdr[i].id == 1)
         ptable = (BYTE FAR *)&nlsPackageHardcoded.nlsExt.size;
       else
-        ptable = nlsPackageHardcoded.nlsPointers[table[hdr[i].id].idx].pointer;
+        ptable = nlsPackageHardcoded.nlsPointers[table[subf_tbl_ndx].idx].pointer;
       if (hdr[i].id == 7)
       {
         if (subf_data.length == 0)
@@ -1646,8 +1652,15 @@ err:printf("%s has invalid format\n", filename);
         continue;
       }
 
-      fmemcpy(ptable + 2, subf_data.buffer,
-                                /* skip length ^*/  subf_data.length);
+      /* for 0-7 we store COUNTRY.SYS data directly in buffer, but yes/no characters we store in nls package directly */
+      if (hdr[i].id == 35)
+      {
+        fmemcpy(&nlsPackageHardcoded.yeschar, subf_data.buffer, 2);
+        fmemcpy(&nlsPackageHardcoded.nochar, subf_data.buffer + 2, 2);
+      } else {
+          fmemcpy(ptable + 2, subf_data.buffer,
+                  /* skip length ^*/  subf_data.length);
+      }
     }
     rc = TRUE;
     goto ret;
