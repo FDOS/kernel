@@ -37,6 +37,7 @@
 #include "globals.h"
 #include "pcb.h"
 #include "nls.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
@@ -656,7 +657,12 @@ VOID FAR *DosGetDBCS(void)
  ***** MUX-14 API ***************************************************
  ********************************************************************/
 
-/* Registers:
+/* This is the kernel's default NLSFUNC multiplex int 2F/14 (MUX-14)
+   handling.  If made it here then no other program has hooked MUX-14
+   and handled request -- either none loaded or choose to pass request
+   on.
+   
+   Registers:
 	AH == 14
 	AL == subfunction
 	BX == codepage

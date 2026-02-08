@@ -153,6 +153,9 @@ Check4Share:
                 jne     Int2f?iret              ; yes, do installation check
 Int2f?14:      ;; MUX-14 -- NLSFUNC API
                ;; all functions are passed to syscall_MUX14
+			   ;; Note: this is the kernel's default NLS handlers, if made it
+			   ;; here then no other program (e.g. NLSFUNC) hooked int 2F/14
+			   ;; and handled request (either none loaded or choose not to)
                push bp                 ; Preserve BP later on
                Protect386Registers
                PUSH$ALL
