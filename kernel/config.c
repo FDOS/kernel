@@ -1567,6 +1567,7 @@ STATIC BOOL LoadCountryInfo(char *filenam, UWORD ctryCode, UWORD codePage)
   char *filename = filenam == NULL ? "\\COUNTRY.SYS" : filenam;
   BOOL rc = FALSE;
   BYTE FAR *ptable;
+  void FAR *CharMapFn;
 
   if ((fd = open(filename, 0)) < 0)
   {
@@ -1629,6 +1630,7 @@ err:printf("%s has invalid format\n", filename);
         nlsPackageHardcoded.cp = entry.codepage;
         subf_data.length =      /* MS-DOS "CTYINFO" is up to 38 bytes */
                 min(subf_data.length, sizeof(struct CountrySpecificInfo));
+        CharMapFn = ((struct CountrySpecificInfo *)ptable)->CharMapFn;
       }
       if (hdr[i].id == 1)
         ptable = (BYTE FAR *)&nlsPackageHardcoded.nlsExt.size;
@@ -1660,6 +1662,10 @@ err:printf("%s has invalid format\n", filename);
       } else {
           fmemcpy(ptable + 2, subf_data.buffer,
                   /* skip length ^*/  subf_data.length);
+          if (hdr[i].id == 1) {
+              /* fixup user callable address in case we overwrote it */
+              ((struct CountrySpecificInfo *)ptable)->CharMapFn = CharMapFn;
+          }
       }
     }
     rc = TRUE;

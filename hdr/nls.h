@@ -356,6 +356,9 @@ struct CountrySpecificInfo {
                               */
   char  CurrencyPrecision;    /* = 2  # Currency precision           */
   char  TimeFormat;           /* = 0  # time format: 0/1: 12/24 houres */
+  void FAR *CharMapFn;        /* far pointer to user callable character mapping function */
+  char  DataSeparator[2];     /* ',' ASCIIZ value */
+                              /* 5 words reserved, should be 0 */
 };
 
 /*
