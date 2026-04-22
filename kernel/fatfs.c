@@ -1024,16 +1024,21 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
       cluster = extend(fnp);
       if (cluster == LONG_LAST_CLUSTER)
         return DE_HNDLDSKFULL;
+
+      /* ecm: finally the right solution, only extend/modify
+                file size after having just appended a cluster. */
+      fnp->f_dir.dir_size =
+        (((ULONG)fnp->f_cluster_offset + 2)
+        /* at 0 we will increment to 1, having allocated the second
+                cluster, so + 2 for the then-total size. */
+        * (ULONG)fnp->f_dpb->dpb_secsize)
+        <<
+        fnp->f_dpb->dpb_shftcnt;
+      merge_file_changes(fnp, FALSE);
     }
 
     fnp->f_cluster = cluster;
     fnp->f_cluster_offset++;
-    fnp->f_dir.dir_size =
-      (((ULONG)fnp->f_cluster_offset + 1)
-      * (ULONG)fnp->f_dpb->dpb_secsize)
-      <<
-      fnp->f_dpb->dpb_shftcnt;
-    merge_file_changes(fnp, FALSE);
   }
 
 #ifdef DISPLAY_GETBLOCK
