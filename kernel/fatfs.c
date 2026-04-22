@@ -1029,7 +1029,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
     fnp->f_cluster = cluster;
     fnp->f_cluster_offset++;
     fnp->f_dir.dir_size =
-      ((ULONG)fnp->f_cluster
+      (((ULONG)fnp->f_cluster_offset + 1)
       * (ULONG)fnp->f_dpb->dpb_secsize)
       <<
       fnp->f_dpb->dpb_shftcnt;
