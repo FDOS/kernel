@@ -1218,9 +1218,21 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     
     if (dos_extend(fnp) != SUCCESS)
     {
+      /* ecm: control flow may end up here if CX = 0000h and
+                the extending failed to allocate a cluster
+                behind the last needed. in this case, our
+                return here of 0 happens to be correct and
+                indicates the extension succeeded. */
       fnode_to_sft(fnp);
       return 0;
     }
+    /* ecm: if CX = 0000h and seek was on a cluster boundary > size,
+                the dos_extend call will have allocated one cluster
+                too many. this is truncated later without problems.
+                but does this aid fragmentation maybe ?
+            if CX > 0000h then we want to write to the cluster
+                anyway, so extending to the cluster that starts at
+                the boundary is desired. */
   }
   
   /* Test that we are really about to do a data transfer. If the  */
