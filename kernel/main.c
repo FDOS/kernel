@@ -840,7 +840,7 @@ STATIC void CheckContinueBootFromHarddisk(void)
 
   {
 #if __GNUC__
-    asm volatile("jmp $0,$0x7c00");
+    asm volatile("{ jmp $0,$0x7c00 | jmp 0,0x7c00 }"::);
 #else
     void (far *reboot)(void) = (void (far*)(void)) MK_FP(0x0,0x7c00);
 

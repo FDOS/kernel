@@ -162,7 +162,7 @@ static inline void enable(void)
 static inline unsigned short getCS(void)
 {
   unsigned short ret;
-  asm volatile("mov %%cs, %0" : "=r"(ret));
+  asm volatile("{ mov %%cs, %0 | mov %0, cs }" : "=r"(ret));
   return ret;
 }
 
@@ -170,7 +170,7 @@ static inline unsigned short getCS(void)
 static inline unsigned short getSS(void)
 {
   unsigned short ret;
-  asm volatile("mov %%ss, %0" : "=r"(ret));
+  asm volatile("{ mov %%ss, %0 | mov %0, ss }" : "=r"(ret));
   return ret;
 }
 extern char DosDataSeg[];
