@@ -1044,7 +1044,7 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
 /* #define WRITEZEROS 1                                        */
 /* but because we want to be compatible, we don't do this by   */
 /* default                                                     */
-STATIC COUNT dos_extend(f_node_ptr fnp)
+STATIC COUNT dos_extend(f_node_ptr fnp, BOOL emptywrite)
 {
 #ifdef WRITEZEROS
   struct buffer FAR *bp;
@@ -1064,7 +1064,20 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
   while (count > 0)
 #endif
   {
+    BOOL special = 0;
+    if (emptywrite
+        /* && fnp->f_offset != 0 */ /* always true here */
+        && ((fnp->f_offset &
+             (((ULONG)fnp->f_dpb->dpb_secsize
+               << fnp->f_dpb->dpb_shftcnt) - 1)
+            )
+            == 0)
+        ) {
+      special = 1;
+      -- fnp->f_offset;
+    }
     if (map_cluster(fnp, XFR_WRITE) != SUCCESS) {
+      if (special) ++ fnp->f_offset;
       if (fnp->f_cluster != FREE) {
         /* ecm: write size if couldn't satisfy full request,
                 but at least one cluster is allocated. */
@@ -1079,6 +1092,7 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
       }
       return DE_HNDLDSKFULL;
     }
+    if (special) ++ fnp->f_offset;
 
 #ifdef WRITEZEROS
     /* Compute the block within the cluster and the offset  */
@@ -1235,7 +1249,7 @@ long rwblock(COUNT fd, VOID FAR * buffer, UCOUNT count, int mode)
     /* mark file as modified and set date not valid any more */
     fnp->f_flags &= ~(SFT_FCLEAN|SFT_FDATE); 
     
-    if (dos_extend(fnp) != SUCCESS)
+    if (dos_extend(fnp, count == 0) != SUCCESS)
     {
       /* ecm: control flow may end up here if CX = 0000h and
                 the extending failed to allocate a cluster
