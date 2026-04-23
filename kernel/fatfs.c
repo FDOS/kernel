@@ -1066,7 +1066,11 @@ STATIC COUNT dos_extend(f_node_ptr fnp, BOOL emptywrite)
   {
     BOOL special = 0;
     if (emptywrite
-        /* && fnp->f_offset != 0 */ /* always true here */
+#ifdef WRITEZEROS
+        && fnp->f_offset != 0
+#else
+        /* f_offset != 0 always true here */
+#endif
         && ((fnp->f_offset &
              (((ULONG)fnp->f_dpb->dpb_secsize
                << fnp->f_dpb->dpb_shftcnt) - 1)
