@@ -1024,17 +1024,6 @@ COUNT map_cluster(REG f_node_ptr fnp, COUNT mode)
       cluster = extend(fnp);
       if (cluster == LONG_LAST_CLUSTER)
         return DE_HNDLDSKFULL;
-
-      /* ecm: finally the right solution, only extend/modify
-                file size after having just appended a cluster. */
-      fnp->f_dir.dir_size =
-        (((ULONG)fnp->f_cluster_offset + 2)
-        /* at 0 we will increment to 1, having allocated the second
-                cluster, so + 2 for the then-total size. */
-        * (ULONG)fnp->f_dpb->dpb_secsize)
-        <<
-        fnp->f_dpb->dpb_shftcnt;
-      merge_file_changes(fnp, FALSE);
     }
 
     fnp->f_cluster = cluster;
@@ -1075,8 +1064,21 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
   while (count > 0)
 #endif
   {
-    if (map_cluster(fnp, XFR_WRITE) != SUCCESS)
+    if (map_cluster(fnp, XFR_WRITE) != SUCCESS) {
+      if (fnp->f_cluster != FREE) {
+        /* ecm: write size if couldn't satisfy full request,
+                but at least one cluster is allocated. */
+        fnp->f_dir.dir_size =
+          (((ULONG)fnp->f_cluster_offset + 1)
+          /* at 0 we have incremented to 1, having allocated the second
+                cluster, so + 1 for the then-total size. */
+          * (ULONG)fnp->f_dpb->dpb_secsize)
+          <<
+          fnp->f_dpb->dpb_shftcnt;
+        merge_file_changes(fnp, FALSE);
+      }
       return DE_HNDLDSKFULL;
+    }
 
 #ifdef WRITEZEROS
     /* Compute the block within the cluster and the offset  */
@@ -1106,6 +1108,18 @@ STATIC COUNT dos_extend(f_node_ptr fnp)
     }
     if (bp == NULL)
     {
+      if (fnp->f_cluster != FREE) {
+        /* ecm: write size if couldn't satisfy full request,
+                but at least one cluster is allocated. */
+        fnp->f_dir.dir_size =
+          (((ULONG)fnp->f_cluster_offset + 1)
+          /* at 0 we have incremented to 1, having allocated the second
+                cluster, so + 1 for the then-total size. */
+          * (ULONG)fnp->f_dpb->dpb_secsize)
+          <<
+          fnp->f_dpb->dpb_shftcnt;
+        merge_file_changes(fnp, FALSE);
+      }
       return DE_ACCESS;
     }
 
