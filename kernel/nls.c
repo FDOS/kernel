@@ -442,7 +442,7 @@ STATIC VOID xUpMem(struct nlsPackage FAR * nls, VOID FAR * str,
     muxBufGo(NLSFUNC_UPMEM, 0, nls->cp, nls->cntry, len, str);
 }
 
-STATIC BOOL nlsIsDBCS(UBYTE ch)
+BOOL nlsIsDBCS(UBYTE ch)
 {
 
   if (ch < 128)

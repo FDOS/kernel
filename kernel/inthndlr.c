@@ -1986,11 +1986,28 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
     {
       /* default: unhandled requests pass through unchanged */
       case 0x0:          /* is Windows active */
-      case 0x0A:         /* identify Windows version */
       {
+        if (winInstanced)
+        {
+          r.AL = (winStartupInfo.winver >> 8) & 0xFF;  /* winmajor */
+          r.AH = winStartupInfo.winver & 0xFF;         /* winminor */
+        }
         /* return AX unchanged if Windows not active */
         break;
-      } /* 0x0, 0x0A */
+      } /* 0x0 */
+      case 0x0A:         /* identify Windows version */
+      {
+#if 0 /* windows should answer this? if active, otherwise return not active */
+        if (winInstanced)
+        {
+          r.AX = 0          /* call supported */
+          r.BX = winStartupInfo.winver; /* BH=winmajor, BL=winminor */
+          r.CX = 2;         /* mode (0002h = standard, 0003h = enhanced) */
+        }
+#endif        
+        /* return AX unchanged if Windows not active */
+        break;
+      } /* 0x0A */
       case 0x03:          /* Windows Get Instance Data */
       {
         /* This should only be called if AX=1607h/BX=15h is not supported. */
@@ -2243,19 +2260,138 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 
     return;
   }
-  /* else (r.AH == 0x12) */
+  /* else (r.AH == 0x12) DOS internal functions */
 
   switch (r.AL)
   {
-    case 0x00:                 /* installation check */
+    case 0x00:
+      /* Installation check for INT 2Fh/AH=12h internal DOS services.
+       * Input:  AX=1200h.
+       * Output: AL=FFh (internal INT 2Fh/AH=12h multiplex handler installed/present).
+       */
       r.AL = 0xff;
       break;
 
-    case 0x03:                 /* get DOS data segment */
+#if 0
+    case 0x01:
+      /* Close current file (internal SFT-level close).
+       * Input:  ES:DI -> SFT entry to close.
+       * Output: CF=0 on success; CF=1, AX=error code on failure.
+       *
+       * Decrement SFT.sft_count at ES:DI. If it reaches zero, flush
+       * dirty buffers for the file, update the directory entry
+       * (time/date/size) if the file is dirty, then mark the SFT free
+       * (sft_count = 0xFFFF). For character devices, issue a C_CLOSE
+       * driver request if refcount hit zero. Caller has already resolved
+       * handle -> SFT; this is the kernel-internal tail of INT 21h/3Eh.
+       * NOTE: do NOT decrement InDOS here; caller manages that.
+       */
+      goto not_implemented;
+#endif
+
+    case 0x02:
+      /* Get interrupt vector (internal, avoids INT 21h/35h).
+       * Input:  CL = interrupt number.
+       * Output: ES:BX = current handler address (far ptr from IVT at 0000:CL*4).
+       *         CF=0.
+       * No state is modified. Equivalent to INT 21h/AH=35h but callable
+       * from within the kernel without re-entering INT 21h.
+       *
+       * Note: not used by FreeDOS kernel
+       */
+      {
+        UBYTE FAR * p = (UBYTE FAR *)getvec(r.CL);
+        r.ES = FP_SEG(p);
+        r.BX = FP_OFF(p);
+        break;
+      }
+
+    case 0x03:
+      /* Get DOS data segment (internal kernel data segment pointer).
+       * Input:  none.
+       * Output: DS = segment of DOS DGROUP (kernel data segment).
+       *
+       * Returns the segment of the DOS kernel data area by loading DS
+       * with the segment of the NUL device header, which resides at the
+       * start of the DOS data segment. Used internally so code running
+       * outside DGROUP can locate kernel variables and tables.
+       */
       r.DS = FP_SEG(&nul_dev);
       break;
 
-    case 0x06:                 /* invoke critical error */
+    case 0x04:
+      /* Normalize path separator / DBCS lead-byte check.
+       * Input:  character to test passed on stack
+       * Output: If AL is '/' (2Fh), '\' (5Ch), or the current SWITCHAR:
+       *           AL = '\' (5Ch), ZF=1.
+       *         If AL is a DBCS lead byte (per DBCS table):
+       *           AL unchanged, ZF=0, DL=1 (flag: skip next byte).
+       *         Otherwise:
+       *           AL unchanged, ZF=0, DL=0.
+       *
+       * Allows the DOS path parser to canonicalize separators while
+       * guarding against misinterpreting the trail byte of a DBCS
+       * two-byte character as a path separator. Check DBCS lead-byte
+       * ranges from the DBCS table (see INT 21h/AH=63h / DBCS_TAB).
+       *
+       * Note: not used by FreeDOS kernel
+       */
+      {
+        unsigned char c = r.callerARG1 & 0xFF;
+
+        /* --- separator check first (takes priority over DBCS) --- */
+        if (c == '/' || c == '\\' || c == (unsigned char)switchar)
+        {
+          r.AL = '\\';                  /* canonicalize to backslash  */
+          r.FLAGS |= FLG_ZERO;          /* ZF=1                       */
+          r.DL = 0;
+        } else 
+        {
+          /* --- DBCS lead-byte check --- */
+          BOOL nlsIsDBCS(UBYTE ch); /* only used here and in nls.c */
+          r.DL = (nlsIsDBCS(c))?1:0; 
+          /* AL unchanged */
+          r.FLAGS &= ~FLG_ZERO;           /* ZF=0                       */
+        }
+        
+        break;
+      }
+      
+    case 0x05:
+      /* Output character to standard output (kernel-internal).
+       * Input:  AL = character to write.
+       * Output: none (AL preserved by convention).
+       *
+       * Write AL to STDOUT (JFT[1] of current PSP) via the DOS
+       * character-output path, with CTRL-C/CTRL-BREAK checking.
+       * Equivalent to INT 21h/AH=02h but does NOT increment InDOS,
+       * making it safe to call from within the kernel. May trap to
+       * INT 23h on break. Modifies: flags; AL preserved.
+       *
+       * Note: not used by FreeDOS kernel
+       */
+      {
+        check_handle_break(&syscon);
+        write_char_stdout(r.AL);
+        break;
+      }
+      
+    case 0x06:
+      /* Invoke critical error handler (INT 24h) with explicit parameters.
+       * Input:  callerARG1 high byte = error type/flags (EFLG_CHAR etc.);
+       *         callerARG1 low byte  = drive number (if not char device);
+       *         DI = DOS error code;
+       *         BP:SI = far pointer to device header.
+       * Output: AL = user response (0=ignore, 1=retry, 2=abort, 3=fail).
+       *
+       * Directly invokes CriticalError() with the supplied drive number,
+       * error code, and device header pointer. The EFLG_CHAR bit in the
+       * high byte of callerARG1 selects drive 0 (character device) vs.
+       * the low-byte drive number (block device). Differs from 0x0A in
+       * that all parameters are supplied explicitly by the caller rather
+       * than being derived from the current drive and stack.
+       * Modifies: AL.
+       */
 
       /* code, drive number, error, device header */
       r.AL = CriticalError(r.callerARG1 >> 8,
@@ -2263,7 +2399,37 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
                            r.callerARG1 & 0xff, r.DI, MK_FP(r.BP, r.SI));
       break;
 
-    case 0x08:                 /* decrease SFT reference count */
+#if 0
+    case 0x07:
+      /* Make disk buffer most-recently used (move to MRU head of LRU chain).
+       * Input:  DS:BX -> buffer header in the DOS buffer cache chain.
+       * Output: CF=0. No registers modified except flags.
+       *
+       * Unlink the buffer header at DS:BX from its current position in
+       * the doubly-linked LRU chain and relink it at the MRU (head) end.
+       * The chain anchor is at DOS_DATA buf_head. Buffer header layout
+       * (DOS 4.x): +00h next ptr (WORD), +02h prev ptr, +04h drive
+       * (FFh=free), +05h flags (dirty=40h, FAT=10h, dir=08h),
+       * +06h sector number (DWORD), +0Ah DPB ptr.
+       * NOTE: 0x0F performs the same operation but with pointer in DS:DI.
+       */
+      goto not_implemented;
+#endif
+
+    case 0x08:
+      /* Decrease SFT reference count (without closing).
+       * Input:  ES:DI -> SFT entry.
+       * Output: AX = original (pre-decrement) sft_count value.
+       *
+       * Reads the current sft_count from the SFT entry at ES:DI into AX,
+       * then decrements sft_count. If the decremented value reaches zero
+       * it is decremented once more (wrapping to 0xFFFF) to mark the SFT
+       * as free, matching the DOS convention that 0xFFFF means unused.
+       * Unlike 0x01 this does NOT flush buffers, update the directory
+       * entry, or issue a device-driver close; it is a raw refcount
+       * adjustment used during handle duplication and inheritance cleanup.
+       * Modifies: AX, ES:DI->sft_count.
+       */
       {
         sft FAR *p = MK_FP(r.ES, r.DI);
 
@@ -2271,11 +2437,42 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 
         if (--p->sft_count == 0)
           --p->sft_count;
+      
+        break;
       }
-      break;
 
-    case 0x0a:                 /* perform critical error */
-                               /* differs from 0x06 as uses current drive & error on stack */
+#if 0
+    case 0x09:
+      /* Flush and free disk buffer (write-back and release).
+       * Input:  DS:BX -> buffer header.
+       * Output: CF=0 on success; CF=1, AX=DOS error code on write failure.
+       *
+       * If the buffer's dirty flag (bit 40h of flags byte) is set, write
+       * the buffer's sector back to disk via the driver for the drive in
+       * header+04h. If this is a FAT buffer (flag bit 10h) and the DPB
+       * indicates multiple FAT copies, also write mirror FAT sectors
+       * (one write per additional FAT, offset by sectors-per-FAT each).
+       * After writing, clear the dirty flag. Then mark the buffer free
+       * by setting the drive byte (header+04h) to FFh. Do NOT relink in
+       * the LRU chain here; caller uses 0x07/0x0F for that.
+       */
+      goto not_implemented;
+#endif
+
+    case 0x0a:
+      /* Perform critical error using current drive context (INT 24h).
+       * Input:  callerARG1 = DOS error code (passed on stack by caller);
+       *         default_drive = current default drive number.
+       * Output: AL = user response (0=ignore, 1=retry, 2=abort, 3=fail).
+       *         CF=1 normally; CF=0 if AL=1 (retry requested).
+       *
+       * Invokes CriticalError() using the current default drive and its
+       * associated DPB device header, with the error code taken from the
+       * caller's stack argument. Differs from 0x06 in that drive number
+       * and device header are derived from the current drive context
+       * rather than being passed explicitly. Sets CF on return; clears
+       * CF only if the user chose retry (AL=1).
+       */
       /* code, drive number, error, device header */
       r.AL = CriticalError(0x38, /* ignore/retry/fail - based on RBIL possible return values */
                            default_drive,
@@ -2285,7 +2482,20 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       if (r.AL == 1) r.FLAGS &= ~FLG_CARRY;  /* carry clear if should retry */
       break;
 
-    case 0x0b:                 /* sharing violation occurred */
+    case 0x0b:
+      /* Handle sharing violation (conditionally invoke INT 24h).
+       * Input:  ES:DI -> SFT entry for the previously-opened conflicting file;
+       *         callerARG1 = DOS error code (on stack).
+       * Output: AX = 0x0020 (sharing violation error code);
+       *         CF=1 normally; CF=0 if retry was chosen (AL=1 from INT 24h).
+       *
+       * Examines the conflicting SFT's open mode. If the file was opened
+       * via FCB (O_FCB set) or in compatibility mode without NOINHERIT,
+       * invokes CriticalError() (INT 24h) to give the user a chance to
+       * retry. Otherwise returns immediately with CF set and AX=0x0020.
+       * CF is cleared only if CriticalError returns AL=1 (retry).
+       * Always sets AX=0x0020 (DE_SHARE) on return regardless of path taken.
+       */
       {
         /* ES:DI = SFT for previous open of file */
         sft FAR *sftp = MK_FP(r.ES, r.DI);
@@ -2305,7 +2515,19 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       }
       break;
 
-    case 0x0c:                 /* perform "device open" for device, set owner for FCB */
+    case 0x0c:
+      /* Perform device-open and set SFT owner PSP (open notification).
+       * Input:  lpCurSft -> current SFT entry (global, set before call).
+       * Output: none; CF not modified.
+       *
+       * If the SFT entry refers to a character device (SFT_FDEVICE set),
+       * issues a C_OPEN request to the device driver via execrh() so the
+       * driver can perform any per-open initialization. Regardless of
+       * device type, records the current PSP segment (cu_psp) in the
+       * SFT's sft_psp field to establish ownership. Called during file
+       * open processing after the SFT has been allocated and filled in.
+       * Modifies: lpCurSft->sft_psp; device driver internal state if char device.
+       */
 
       if (lpCurSft->sft_flags & SFT_FDEVICE)
       {
@@ -2322,13 +2544,79 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       lpCurSft->sft_psp = cu_psp;
       break;
 
-    case 0x0d:                 /* get dos date/time */
+    case 0x0d:
+      /* Get current DOS date and time (packed internal format).
+       * Input:  none.
+       * Output: AX = packed date word (as returned by dos_getdate());
+       *         DX = packed time word (as returned by dos_gettime()).
+       *
+       * Retrieves the current system date and time in the DOS internal
+       * packed format. AX receives the date (year/month/day encoded) and
+       * DX receives the time (hours/minutes/seconds encoded). This is the
+       * kernel-internal equivalent of INT 21h/AH=2Ah+2Ch combined into a
+       * single call, used by file-stamping code inside the kernel.
+       */
 
       r.AX = dos_getdate();
       r.DX = dos_gettime();
       break;
 
-    case 0x11:                 /* normalise ASCIIZ filename */
+#if 0
+    case 0x0e:
+      /* Mark all disk buffers unreferenced (clear LRU referenced bits).
+       * Input:  none.
+       * Output: CF=0. No registers modified except flags (internally
+       *         uses AX/BX/ES but must restore them).
+       *
+       * Walk the entire buffer cache chain from head to tail. On each
+       * buffer header, clear the "referenced" / "recently-touched" bit
+       * (implementation-defined bit in the flags byte used by the LRU
+       * refill pass). This prepares for a subsequent 0x10 scan to find
+       * a victim buffer. Called before the buffer-allocation sweep.
+       */
+      goto not_implemented;
+
+    case 0x0f:
+      /* Make buffer most recently used (pointer in DS:DI).
+       * Input:  DS:DI -> buffer header.
+       * Output: CF=0. No registers modified except flags.
+       *
+       * Identical in effect to 0x07 (relink header to MRU head of the
+       * doubly-linked LRU chain), but the buffer pointer is passed in
+       * DI rather than BX. Both subfunctions coexist because different
+       * internal callers use different register conventions.
+       * See 0x07 for buffer header layout details.
+       */
+      goto not_implemented;
+
+    case 0x10:
+      /* Find unreferenced disk buffer (LRU victim selection).
+       * Input:  none (chain walked from LRU tail toward MRU head).
+       * Output: DS:DI -> chosen buffer header; ZF=0 if found, ZF=1 if none.
+       *
+       * Scan the buffer chain from the LRU (tail) end forward. Return
+       * the first header whose drive byte == FFh (free) OR whose
+       * "referenced" bit is clear (see 0x0E). If no such buffer exists
+       * return with ZF=1 so the caller can flush one explicitly.
+       * Modifies: DI, flags; DS may be set to DOS DGROUP on return.
+       * NOTE: call 0x0E first to clear referenced bits before calling
+       * this function, otherwise all in-use buffers may appear referenced.
+       */
+      goto not_implemented;
+#endif
+
+    case 0x11:
+      /* Normalize ASCIIZ filename (uppercase and convert path separators).
+       * Input:  DS:SI -> source ASCIIZ filename string.
+       *         ES:DI -> destination buffer for normalized string.
+       * Output: ES:DI buffer filled with normalized, NUL-terminated string.
+       *
+       * Copies the source string to the destination, converting lowercase
+       * ASCII letters (a-z) to uppercase (A-Z) and forward slashes ('/')
+       * to backslashes ('\'). Processes until and including the NUL
+       * terminator. 
+       * NOTE: DBCS characters are not specially handled in this implementation.
+       */
     {
       char c;
       char FAR *s = MK_FP(r.DS, r.SI);
@@ -2349,34 +2637,88 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       break;
     }
 
-    case 0x12:                 /* get length of asciiz string */
-
+    case 0x12:
+      /* Get length of ASCIIZ string at ES:DI.
+       * Input:  ES:DI -> NUL-terminated string.
+       * Output: CX = length of string including the NUL terminator byte
+       *
+       * See also 0x25 which performs the same operation on DS:SI.
+       */
       r.CX = fstrlen(MK_FP(r.ES, r.DI)) + 1;
-
       break;
-
+      
     case 0x13:
-      /* uppercase character */
-      /* for now, ASCII only because nls.c cannot handle DS!=SS */
+      /* Uppercase a single character (ASCII, kernel-internal).
+       * Input:  character in callerARG1 low byte (pushed on stack by caller).
+       * Output: AL = uppercased character.
+       *
+       * Reads the character from callerARG1 (the value pushed on the
+       * caller's stack before the INT 2Fh), converts lowercase ASCII
+       * letters (a-z) to uppercase (A-Z), and returns the result in AL.
+       * NOTE: for now, ASCII only because nls.c cannot handle DS!=SS
+       */
       r.AL = (unsigned char)r.callerARG1;
       if (r.AL >= 'a' && r.AL <= 'z')
         r.AL -= 'a' - 'A';
       break;
 
+    case 0x14:
+      /* Compare two far pointers for exact equality (does not normalize addresses).
+       * Input:  DS:SI = first far pointer; ES:DI = second far pointer.
+       * Output: ZF=1 if DS==ES and SI==DI (equal); ZF=0 otherwise.
+       *         CF=0. No other registers modified.
+       *
+       * Note: not used by FreeDOS kernel; MSDOS may use in SFT/CDS list 
+       * traversal to detect end markers and duplicate entries.
+       */
+      {
+        if (r.DS == r.ES && r.SI == r.DI)
+          r.FLAGS |= (FLG_ZERO | FLG_CARRY);
+        else
+          r.FLAGS &= ~(FLG_ZERO | FLG_CARRY);
+      
+        break;
+      }
+
+#if 0
+    case 0x15:
+      /* Flush (write-back) a single dirty disk buffer.
+       * Input:  DS:DI -> buffer header (some refs ES:DI; use DS:DI per RBIL).
+       * Output: CF=0 on success; CF=1, AX=DOS error code on write failure.
+       *
+       * If the buffer's dirty flag (bit 40h of flags byte) is set, write
+       * the sector back via the driver for the drive in header+04h. If
+       * this is a FAT buffer (flag bit 10h) and the DPB indicates multiple
+       * FAT copies, also write each mirror FAT sector (offset by
+       * sectors-per-FAT per copy). Clear the dirty flag after a successful
+       * write. Do NOT mark the buffer free (drive byte unchanged); that is
+       * done by 0x09. Do NOT relink in the LRU chain.
+       */
+      goto not_implemented;
+#endif
+
     case 0x16:
-      /* get address of system file table entry - used by NET.EXE
-         BX system file table entry number ( such as returned from 2F/1220)
-         returns
-         ES:DI pointer to SFT entry
-         BX relative entry number within SFT */
+      /* Get address of SFT entry by system file number (used by NET.EXE).
+       * Input:  BX = system file table entry number (SFN, as returned
+       *              by INT 2Fh/AX=1220h).
+       * Output: On success: ES:DI -> SFT entry; BX = relative entry index
+       *                     within its SFT block; CF=0.
+       *         On failure: CF=1 (invalid SFN).
+       *
+       * Walks the SFT chain via idx_to_sft_() to locate the SFT entry
+       * corresponding to the given system file number. Returns both the
+       * far pointer to the entry (in ES:DI, also stored in lpCurSft) and
+       * the relative index within the SFT block (in BX). Used by network
+       * redirectors (NET.EXE) to obtain direct access to an SFT entry
+       * given a previously-obtained SFN. See also 0x30 (find by SFN,
+       * Windows 95 variant).
+       */
       {
         int rel_idx = idx_to_sft_(r.BX);
 
         if (rel_idx == -1)
-        {
-          r.FLAGS |= FLG_CARRY;
-          break;
-        }
+          goto  error_carry;
+
         r.FLAGS &= ~FLG_CARRY;
         r.BX = rel_idx;
         r.ES = FP_SEG(lpCurSft);
@@ -2384,61 +2726,258 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         break;
       }
 
-    case 0x17:                 /* get current directory structure for drive - used by NET.EXE
-                                   STACK: drive (0=A:,1=B,...)
-                                   ; returns
-                                   ;   CF set if error
-                                   ;   DS:SI pointer to CDS for drive
-                                   ;
-                                   ; called like
-                                   ;   push 2 (c-drive)
-                                   ;   mov ax,1217
-                                   ;   int 2f
-                                   ;
-                                   ; probable use: get sizeof(CDSentry)
-                                 */
+    case 0x17:
+      /* Get Current Directory Structure (CDS) for a drive (used by NET.EXE).
+       * Input:  callerARG1 low byte = drive number (0=A:, 1=B:, ...) pushed
+       *         on stack by caller (e.g. "push 2" for C:).
+       * Output: On success: DS:SI -> CDS entry for the drive; CF=0.
+       *         On failure: CF=1 (invalid or out-of-range drive number).
+       *
+       * Used by network redirectors to obtain the CDS for a drive without
+       * going through the full validation path. A secondary use is
+       * to determine sizeof(CDS entry) from the returned pointer.
+       *
+                    STACK: drive (0=A:,1=B,...)
+                    ; returns
+                    ;   CF set if error
+                    ;   DS:SI pointer to CDS for drive
+                    ;
+                    ; called like
+                    ;   push 2 (c-drive)
+                    ;   mov ax,1217
+                    ;   int 2f
+       */
       {
         struct cds FAR *cdsp = get_cds_unvalidated(r.callerARG1 & 0xff);
 
         if (cdsp == NULL)
-        {
-          r.FLAGS |= FLG_CARRY;
-          break;
-        }
+          goto error_carry;
+
         r.DS = FP_SEG(cdsp);
         r.SI = FP_OFF(cdsp);
         r.FLAGS &= ~FLG_CARRY;
         break;
       }
 
-    case 0x18:                 /* get caller's registers */
+    case 0x18:
+      /* Get pointer to caller's saved register frame (user_r).
+       * Input:  none.
+       * Output: DS:SI -> user_r (the iregs structure saved on INT 21h entry
+       *         containing the calling program's register state).
+       *
+       * Returns a far pointer to the global user_r register save area in
+       * DS:SI. This allows internal DOS code and network redirectors to
+       * inspect or modify the register values that will be restored to the
+       * caller when the current INT 21h call returns. Used by SHARE and
+       * network components that need to patch return values after the fact.
+       */
 
       r.DS = FP_SEG(user_r);
       r.SI = FP_OFF(user_r);
       break;
 
-    case 0x1b:                 /* #days in February - valid until 2099. */
+    case 0x19:
+      /* Set default drive (internal, validates against LASTDRIVE).
+       * Input:  AL = drive number (0=A:, 1=B:, ...).
+       * Output: On success: AL = LASTDRIVE count (number of valid drives),
+       *                     CF=0.
+       *         On invalid drive: CF=1, AX=000Fh (invalid drive).
+       *
+       * Validate AL against lastdrive. If valid, set the DOS internal
+       * current-drive byte to AL and update the internal current-CDS
+       * pointer to CDS_array + AL * sizeof(struct cds). Then trigger a
+       * media check / DPB build for the new drive. Return the total 
+       * number of valid drives in AL.
+       *
+       * Note: not used by FreeDOS kernel
+       */
+      {
+        UBYTE drv = r.AL;
 
+        if (drv >= lastdrive || get_cds_unvalidated(drv) == NULL)
+        {
+          r.AX = -DE_INVLDDRV;   /* AX = 0x000F */
+          goto error_carry;
+        }
+        r.AL = DosSelectDrv(drv);
+        r.FLAGS &= ~FLG_CARRY;
+
+        break;
+      }
+      
+    case 0x1a:
+      /* Get drive number from file path (parse leading drive letter).
+       * Input:  DS:SI -> ASCIZ path or drive-letter string (e.g. "C:\...").
+       * Output: AL = 0    if no explicit drive letter (default drive used).
+       *         AL = 1..26 for explicit A:..Z:.
+       *         AL = 0FFh  if invalid/unrecognized drive letter.
+       *         CF=0 always (errors expressed via AL=FFh).
+       *
+       * Note: used by Lantastic when trying to map a drive
+       */
+      {
+        char FAR *p = MK_FP(r.DS, r.SI);
+        unsigned char c = p[0];
+
+        r.FLAGS &= ~FLG_CARRY;         /* CF=0 always */
+        
+        if (!c || p[1] != ':')         /* "" or path without X: drive letter */
+        {
+          r.AL = 0;                    /* no drive letter present, use default */
+        }
+        else
+        {
+          c |= 0x20;                   /* map to lower case if letter */
+          if (c >= 'a' && c <= 'z')
+          {
+            r.AL = c - 'a' + 1;        /* 'A'->1, 'B'->2, ... 'Z'->26 */
+            r.SI += 2;                 /* RBIL says DS:SI returns path without
+                                          drive letter, suggests MSDOS just
+                                          uses DS:SI incrementing as it parses */
+          }
+          else
+          {
+            r.AL = 0xff;               /* out of range, invalid drive letter */
+          }
+        }
+        
+        break;
+      }
+      
+    case 0x1b:
+      /* Return number of days in February for a given year (leap year check).
+       * Input:  CL = year modulo 4 (low 2 bits used; CL & 3 == 0 means leap year).
+       * Output: AL = 29 if leap year (CL & 3 == 0); AL = 28 otherwise.
+       *
+       * Tests the low two bits of CL. If both are zero the year is divisible
+       * by 4 and is treated as a leap year (29 days). Otherwise returns 28.
+       * NOTE: this simple test is only valid until 2099; the century-year
+       * exception (years divisible by 100 but not 400 are not leap years)
+       * is not handled, but is irrelevant within the DOS epoch.
+       */
       r.AL = (r.CL & 3) ? 28 : 29;
       break;
 
-    case 0x1f:                 /* build current directory structure */
+#if 0 /* unlikely to be used */
+    case 0x1c:
+      /* Checksum memory block (16-bit running sum with carry fold).
+       * Input:  DS:SI -> start of buffer; CX = byte count;
+       *         DX = initial checksum seed (usually 0).
+       * Output: DX = updated checksum; SI advanced by CX; CX = 0.
+       *
+       * Used during init to checksum device-driver images.
+       * NOTE: differs from 0x1D which uses a plain 8-bit truncated sum.
+       */
       {
-        /* this is similar to ARG1-'A', but case-insensitive.
-         * Note: the letter is passed here, not number! */
+        UWORD FAR *p = MK_FP(r.DS, r.SI);
+        UWORD sum = r.DX;
+        UWORD count = r.CX;
+        UWORD words = count >> 1;        /* number of full word pairs */
+
+        while (words--)
+        {
+          UWORD prev = sum;
+          sum += *p++;
+          if (sum < prev)                /* carry out: fold back in (ones-complement style) */
+            sum++;
+        }
+
+        if (count & 1)                   /* odd trailing byte: zero-extend to word */
+        {
+          UWORD prev = sum;
+          sum += (UWORD)*((UBYTE FAR *)p);
+          if (sum < prev)
+            sum++;
+        }
+
+        r.DX = sum;
+        r.SI += count;                   /* advance SI by original byte count */
+        r.CX = 0;
+
+        break;
+      }
+
+    case 0x1d:
+      /* Sum memory block (8-bit truncated running sum, no carry fold).
+       * Input:  DS:SI -> buffer; CX = byte count.
+       * Output: AL = 8-bit sum (truncated, carry ignored);
+       *         SI advanced by CX; CX = 0.
+       *
+       * Differs from 0x1C which uses a 16-bit carry-folded sum.
+       * Note: not used by FreeDOS kernel
+       */
+      {
+        UBYTE FAR *p = MK_FP(r.DS, r.SI);
+        UBYTE sum = r.AL;
+        UWORD count = r.CX;
+
+        r.SI += count;                  /* advance SI before count is consumed */
+        while (count--)
+          sum += *p++;
+
+        r.AL = sum;
+        r.CX = 0;
+
+        break;
+      }
+#endif
+      
+    case 0x1e:
+      /* Compare ASCIIZ filenames for equivalence (case-insensitive, ASCII range only).
+       * Input:  DS:SI -> first  ASCIIZ filename
+       *         ES:DI -> second ASCIIZ filename
+       * Output: ZF=1 if filenames equivalent; ZF=0 if not equivalent.
+       *
+       * Note: not used by FreeDOS kernel
+       */
+      {
+        const char FAR *s1 = MK_FP(r.DS, r.SI);
+        const char FAR *s2 = MK_FP(r.ES, r.DI);
+        char c1, c2;
+
+        do {
+          c1 = *s1++;
+          c2 = *s2++;
+          if (c1 >= 'a' && c1 <= 'z') c1 -= 'a' - 'A';
+          if (c2 >= 'a' && c2 <= 'z') c2 -= 'a' - 'A';
+        } while (c1 && c1 == c2);
+
+        if (c1 == c2)
+          r.FLAGS |=  FLG_ZERO;  /* ZF=1: equivalent */
+        else
+          r.FLAGS &= ~FLG_ZERO;  /* ZF=0: not equivalent */
+
+        break;
+      }
+      
+    case 0x1f:
+      /* Build a temporary Current Directory Structure for a drive letter.
+       * Input:  callerARG1 low byte = drive letter ASCII ('A'..'Z' or 'a'..'z')
+       *         pushed on stack by caller.
+       * Output: On success: ES:DI -> TempCDS (filled-in temporary CDS); CF=0.
+       *         On failure: CF=1 (invalid letter or drive out of range).
+       *
+       * Fills TempCDS with a minimal CDS: path set to "X:\", DPB pointer 
+       * and flags copied from the real CDS if the drive is active 
+       * (CDSPHYSDRV only, no other flags inherited), or NULL/0 if inactive. 
+       * Start cluster and parameter fields set to 0xFFFF. 
+       */
+      {
+        /* the drive is passed as ASCII letter ('A'-'z'), not a number (1-26),
+         * so masks to lower 5 bits and adjusts from 1 based to 0 based.
+         */
         int drv = (r.callerARG1 & 0x1f) - 1;
         struct cds FAR *cdsp;
-        if (drv < 0 || r.callerARG1 < 'A' || r.callerARG1 > 'z')
-        {
-          r.FLAGS |= FLG_CARRY;
-          break;
-        }
+        #if 0
+        if ((unsigned)drv >= nblkdev) /* if drv < 0 or exceeds # of block devices */
+            goto error_carry;
+        #endif
+
         cdsp = get_cds_unvalidated(drv);
         if (cdsp == NULL)
-        {
-          r.FLAGS |= FLG_CARRY;
-          break;
-        }
+            goto error_carry;
+        
+        memset(&TempCDS, 0, sizeof(TempCDS));
         strcpy(TempCDS.cdsCurrentPath, "?:\\");
         *TempCDS.cdsCurrentPath = (BYTE)(r.callerARG1 & 0xff);
         TempCDS.cdsBackslashOffset = 2;
@@ -2462,7 +3001,20 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         break;
       }
 
-    case 0x20:                 /* get job file table entry */
+    case 0x20:
+      /* Get Job File Table (JFT) entry pointer for a handle.
+       * Input:  BX = file handle (index into current PSP's JFT).
+       * Output: On success: ES:DI -> JFT byte entry (ps_filetab[BX]);
+       *                     CF=0.
+       *         On failure: AL = negated DE_INVLDHNDL; CF=1.
+       *
+       * Validates BX against ps_maxfiles in the current PSP. If valid,
+       * returns a far pointer to the JFT byte at ps_filetab[BX] in ES:DI.
+       * The JFT byte contains the SFN (system file number) that maps this
+       * handle to an SFT entry. Used by network redirectors and internal
+       * code that need to directly read or modify the JFT without going
+       * through the full handle-resolution path.
+       */
       {
         psp FAR *p = MK_FP(cu_psp, 0);
         unsigned char FAR *idx;
@@ -2470,23 +3022,66 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         if (r.BX >= p->ps_maxfiles)
         {
           r.AL = -DE_INVLDHNDL;
-          r.FLAGS |= FLG_CARRY;
-          break;
+          goto error_carry;
         }
         idx = &p->ps_filetab[r.BX];
         r.FLAGS &= ~FLG_CARRY;
         r.ES = FP_SEG(idx);
         r.DI = FP_OFF(idx);
+
+        break;
       }
-      break;
 
-    case 0x21:                 /* truename */
+    case 0x21:
+      /* Canonicalize (truename) a file path (internal wrapper for INT 21h/60h).
+       * Input:  DS:SI -> source ASCIIZ path (possibly relative, with '/', etc.).
+       *         ES:DI -> destination buffer for canonical ASCIIZ path.
+       * Output: ES:DI buffer filled with fully qualified canonical path.
+       *         CF and AX set by DosTruename() on error.
+       *
+       * Calls DosTruename() to resolve the source path to a fully qualified,
+       * normalized absolute path in the destination buffer. Handles drive
+       * letters, relative paths, '.' and '..' components, and '/' -> '\'
+       * conversion. This is the kernel-internal equivalent of INT 21h/AH=60h
+       * (TRUENAME), used by internal callers that already have DS:SI and
+       * ES:DI set up rather than going through the full INT 21h dispatch.
+       */
+      rc = DosTruename(MK_FP(r.DS, r.SI), MK_FP(r.ES, r.DI));
+      r.AX = rc;
+      goto short_check;
 
-      DosTruename(MK_FP(r.DS, r.SI), MK_FP(r.ES, r.DI));
+    case 0x22:
+      /* Set extended error information (inject error state for INT 21h/59h).
+       * Input:  DS:SI -> 4-byte (minimum) error block:
+       *           +00h WORD  = extended error code (see INT 21h/AH=59h).
+       *           +02h BYTE  = error class.
+       *           +03h BYTE  = suggested action.
+       *           +04h BYTE  = locus (some callers supply 5 bytes).
+       * Output: CF=0.
+       *
+       * Copy the fields from DS:SI into the DOS-internal extended-error
+       * state variables (CritErrCode, CritErrClass, CritErrAction,
+       * CritErrLocus) that are returned by INT 21h/AH=59h. Used by
+       * network redirectors and TSRs to inject a specific error to be
+       * reported to the next INT 21h caller. Equivalent in purpose to
+       * INT 21h/AH=5Dh/AL=0Ah but reached via the internal 2F/12 path.
+       */
+      goto not_implemented;
 
-      break;
-
-    case 0x23:                 /* check if character device */
+    case 0x23:
+      /* Check if a name refers to a character device.
+       * Input:  DirEntBuffer.dir_name = 11-byte FCB-format filename to test
+       *         (set as a side-effect of a preceding directory search).
+       * Output: On success (is a device): BH = device attribute word low byte
+       *                                   (dh_attr of the device header); CF=0.
+       *         On failure (not a device): CF=1.
+       *
+       * Calls IsDevice() with the name from DirEntBuffer.dir_name. If a
+       * matching device header is found in the device chain, returns its
+       * attribute byte in BH and clears CF. If no match, sets CF. Used
+       * during open/create processing to distinguish character devices
+       * from disk files before allocating an SFT entry.
+       */
       {
         struct dhdr FAR *dhp;
 
@@ -2502,18 +3097,62 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       }
       break;
 
-    case 0x25:                 /* get length of asciiz string */
+    case 0x24:
+      /* Set sharing retry delay and retry count (SHARE internals).
+       * Input:  CX = delay loop count (outer retry delay iterations).
+       *         DX = retry count (number of retries before giving up).
+       * Output: CF=0.
+       *
+       * Store CX into the DOS-internal SharingDelay word and DX into
+       * the SharingRetries word in DGROUP. These values are consulted
+       * by the sharing-violation retry loop in file open and lock
+       * operations (the same values set by INT 21h/AH=44h/CX=440Bh
+       * at the public API level). Both words live in the DOS data
+       * segment.
+       */
+      goto not_implemented;
 
+    case 0x25:
+      /* Get length of ASCIIZ string at DS:SI.
+       * Input:  DS:SI -> NUL-terminated string.
+       * Output: CX = length of string including the NUL terminator byte
+       *
+       * Identical in behavior to 0x12 but operates on DS:SI rather than ES:DI, 
+       */
       r.CX = fstrlen(MK_FP(r.DS, r.SI)) + 1;
       break;
 
-    case 0x26:                 /* open file */
+    case 0x26:
+      /* Open file (internal wrapper for DosOpen, legacy compatibility mode).
+       * Input:  DS:DX -> ASCIIZ filename to open.
+       *         CL = open mode flags (O_RDONLY / O_WRONLY / O_RDWR etc.).
+       * Output: On success: AX = file handle (SFN); CF=0.
+       *         On failure: AX = DOS error code; CF=1.
+       *
+       * Clears CF and CritErrCode, then calls DosOpen() with O_LEGACY|O_OPEN
+       * combined with the mode flags from CL. The attribute parameter is 0.
+       * Result is checked via long_check: on success AX = handle; on failure
+       * AX = error code and CF set. This is the kernel-internal open used by
+       * code that needs to open a file without going through INT 21h/3Dh.
+       * Modifies: AX, FLAGS, CritErrCode.
+       */
       r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       lrc = DosOpen(MK_FP(r.DS, r.DX), O_LEGACY | O_OPEN | r.CL, 0);
       goto long_check;
 
-    case 0x27:                 /* close file */
+    case 0x27:
+      /* Close file by handle (internal wrapper for DosClose).
+       * Input:  BX = file handle to close.
+       * Output: CF=0 on success; CF=1, AX=error code on failure.
+       *
+       * Clears CF and CritErrCode, then calls DosClose() with the handle
+       * in BX. Result is checked via short_check: on success CF remains
+       * clear; on failure AX = error code and CF is set. This is the
+       * kernel-internal close used by code that needs to close a handle
+       * without going through INT 21h/3Eh.
+       * Modifies: AX, FLAGS, CritErrCode.
+       */
       r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       rc = DosClose(r.BX);
@@ -2521,20 +3160,45 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 
 #ifdef WITHFAT32
 #ifdef WITHLFNAPI
-    case 0x42:                 /* 64-bit move file pointer */
+    case 0x42:
+      /* 64-bit move file pointer (LFN/FAT32 extended seek).
+       * Input:  DS:DX -> 64-bit file position (UDWORD[2], little-endian);
+       *         CL = seek method (0=from start, 1=from current, 2=from end);
+       *         BX = file handle.
+       * Output: Same as 0x28 on success: DX:AX = new 32-bit file position; CF=0.
+       *         On failure: AX = error code; CF=1.
+       *
+       * Only the lower 32 bits of the file position are supported.
+       */
     {
       /* r.(DS:DX) points to 64-bit file position instead of r.(CX:DX) being 32-bit file position */
       UDWORD FAR *filepos = MK_FP(r.DS, r.DX);
       if (*(filepos+1) != 0) /* we currently only handle lower 32 bits, upper 32 bits must be 0 */
         goto error_invalid;
-      r.BP = (UWORD)r.CL;
+      r.BP = 0x4200 + r.CL;
       r.CX = hiword(*filepos);
       r.DX = loword(*filepos);
       /* fall through to 32-bit move file pointer (0x28) */
     }
 #endif
 #endif
-    case 0x28:                 /* move file pointer */
+    case 0x28:
+      /* Move file pointer / seek (internal wrapper for DosSeek).
+       * Input:  BX = file handle;
+       *         CX:DX = 32-bit signed offset (CX=high word, DX=low word);
+       *         BP = seek method biased: 0x4200=from start, 0x4201=from current,
+       *              0x4202=from end (BP value passed by internal callers).
+       * Output: On success: DX:AX = new 32-bit file position; CF=0.
+       *         On failure: AX = error code; CF=1.
+       *
+       * Validates BP is in range 0x4200..0x4202; if not, jumps to error_invalid.
+       * Calls DosSeek() with handle BX, offset MK_ULONG(CX,DX), and method
+       * BP & 0xFF. On success, splits the returned position into DX (high) and
+       * AX (low). NOTE: RBIL documents that MS-DOS sets a dummy stack frame
+       * pointer and moves BP to AX before calling; FreeDOS does not replicate
+       * that internal mechanism but achieves the same observable result.
+       * Modifies: AX, DX, FLAGS, CritErrCode.
+       */
       /*
        * RBIL says: "sets user stack frame pointer to dummy buffer,
        * moves BP to AX, performs LSEEK, and restores frame pointer"
@@ -2552,18 +3216,62 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       }
       goto short_check;
 
-    case 0x29:                 /* read from file */
+    case 0x29:
+      /* Read from file (internal wrapper for DosRead).
+       * Input:  BX = file handle;
+       *         CX = number of bytes to read;
+       *         DS:DX -> destination buffer.
+       * Output: On success: AX = number of bytes actually read; CF=0.
+       *         On failure: AX = DOS error code; CF=1.
+       *
+       * Clears CF and CritErrCode, then calls DosRead() with handle BX,
+       * count CX, and buffer DS:DX. Result is checked via long_check:
+       * on success AX = bytes read (may be less than CX at EOF); on
+       * failure AX = error code and CF set. Kernel-internal equivalent
+       * of INT 21h/AH=3Fh without the full INT 21h dispatch overhead.
+       * Modifies: AX, FLAGS, CritErrCode.
+       */
       r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       lrc = DosRead(r.BX, r.CX, MK_FP(r.DS, r.DX));
       goto long_check;
 
-    case 0x2a:                 /* Set FastOpen but does nothing. */
+    case 0x2a:
+      /* Set FASTOPEN entry point (stub; FASTOPEN not implemented).
+       * Input:  ES:DI -> FASTOPEN handler entry point (FAR); BX = 0 to install,
+       *         nonzero to uninstall. (Per PC-DOS 4 FASTOPEN convention.)
+       * Output: CF=0.
+       *
+       * In a full implementation, stores ES:DI into the DOS-internal
+       * FastOpen_Entry FAR pointer (or zeros it if BX != 0), enabling the
+       * DOS name-lookup path to call through to a FASTOPEN directory cache
+       * before going to disk. FreeDOS currently does nothing here; the
+       * function simply clears CF and returns, making FASTOPEN installs
+       * silently succeed without effect.
+       */
 
       r.FLAGS &= ~FLG_CARRY;
       break;
 
-    case 0x2b:                 /* Device I/O Control */
+    case 0x2b:
+      /* Device I/O Control (internal wrapper for DosDevIOctl).
+       * Input:  BP = IOCTL function code (0x4400..0x44FF, i.e. INT 21h/44xx);
+       *         BX = file handle or drive number;
+       *         CX = category/function or count;
+       *         DX = data or buffer offset;
+       *         DS:SI -> input buffer (for some subfunctions);
+       *         ES:DI -> output buffer (for some subfunctions).
+       * Output: CF=0 on success (output registers set by DosDevIOctl);
+       *         CF=1, AX=error code on failure.
+       *
+       * Validates BP is in range 0x4400..0x44FF; if not, jumps to error_invalid.
+       * Copies all relevant registers into a local lregs structure with AX=BP
+       * (so DosDevIOctl sees the correct AH=44h, AL=subfunction), then calls
+       * DosDevIOctl(). On failure, sets AX to the negated error code, updates
+       * CritErrCode for non-device/access errors, and jumps to error_carry.
+       * This is the kernel-internal IOCTL path used by internal callers.
+       * Modifies: AX, FLAGS, CritErrCode; output registers per subfunction.
+       */
       if (r.BP < 0x4400 || r.BP > 0x44ff)
         goto error_invalid;
       {
@@ -2587,40 +3295,111 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
       }
       break;
 
-    case 0x2c:                 /* added by James Tabor For Zip Drives
-                                   Return Null Device Pointer          */
-      /* by UDOS+RBIL: get header of SECOND device driver in device chain,
-         omitting the NUL device TE */
+    case 0x2c:
+      /* Get pointer to second device driver in chain (skip NUL device).
+       * Input:  none.
+       * Output: BX:AX = far pointer (segment:offset) to the header of the
+       *         second device driver in the device chain (i.e. nul_dev.dh_next),
+       *         skipping the NUL device which is always first.
+       *
+       * Used by utilities such as Zip drive handlers that need to walk the
+       * device chain starting from the second entry.
+       */
       r.BX = FP_SEG(nul_dev.dh_next);
       r.AX = FP_OFF(nul_dev.dh_next);
       break;
 
-    case 0x2d:                 /* Get Extended Error Code */
+    case 0x2d:
+      /* Get extended error code (last critical error code).
+       * Input:  none.
+       * Output: AX = CritErrCode (the DOS extended error code from the most
+       *         recent critical error or failed DOS call).
+       *
+       * Returns the current value of the global CritErrCode variable in AX.
+       * This is the kernel-internal equivalent of the error-code portion of
+       * INT 21h/AH=59h (Get Extended Error), used by internal callers that
+       * only need the error code without the full class/action/locus detail.
+       * CritErrCode is set by failed DOS calls and by the critical error
+       * handler; it is cleared at the start of most INT 21h functions.
+       */
       r.AX = CritErrCode;
-
       break;
 
-    case 0x2e:                 /* GET or SET error table addresse - ignored
-                                   called by MS debug with  DS != DOSDS, printf
-                                   doesn't work!! */
+    case 0x2e:
+      /* Get or set error table addresses (ignored; stub for MS compatibility).
+       * Input:  DL = subfunction (00h=get, 01h=set, 02h..05h select table);
+       *         ES:DI -> new table pointer (for set subfunctions).
+       * Output: ES:DI -> requested table pointer (for get subfunctions); CF=0.
+       *
+       * In a full implementation, reads or writes entries in the DOS-internal
+       * error-message table-pointer array (four FAR pointers used by the
+       * message-retrieval code that formats INT 21h/AH=59h descriptions).
+       * FreeDOS currently ignores all subfunctions and returns immediately.
+       * NOTE: MS DEBUG calls this with DS != DOSDS
+       */
       break;
 
-    case 0x2f:                 /* updates version returned by int 21/30h for all processes */
+    case 0x2f:
+      /* Set DOS version returned by INT 21h/AH=30h for all processes.
+       * Input:  DX = new version to set (DL=major, DH=minor), or DX=0
+       *         to reset to the emulated true DOS version.
+       * Output: none.
+       *         Modifies: os_setver_major, os_setver_minor.
+       *
+       * If DX is nonzero, sets os_setver_major = DL and os_setver_minor = DH,
+       * causing INT 21h/AH=30h to return the specified version to all callers.
+       * If DX is zero, resets os_setver_major/minor back to os_major/os_minor
+       * (the kernel's true version). This duplicates the behavior of DOS 4
+       * INT 2Fh/AX=122Fh and is also accessible via INT 21h/AH=33h/AL=FCh.
+       * Used by version-faking utilities (e.g. SETVER equivalents).
+       */
       if (r.DX)                /* set returned version from DX */
       {
         os_setver_major = r.DL;
         os_setver_minor = r.DH;
       }
-      else                              /* set returned version from emulated true DOS version */
+      else                    /* set returned version from emulated true DOS version */
       {
         os_setver_major = os_major;
         os_setver_minor = os_minor;
       }
       break;
 
+#if 0
+    case 0x30:
+      /* Windows 95: Find SFT entry by system file number (SFN).
+       * Input:  BX = system file number (SFN, i.e. the raw index value
+       *              stored in PSP.JFT[handle], NOT the handle itself).
+       * Output: On success: ES:DI -> SFT entry; CF=0.
+       *         On failure: CF=1, AX=0006h (invalid handle).
+       *
+       * Walk the SFT chain (anchor at SysVars+04h: link->count->entries).
+       * Count down through each SFT block until the cumulative entry
+       * index matches BX. This is equivalent to 0x16 but selected by
+       * raw SFN rather than by JFT handle, bypassing the PSP/JFT
+       * indirection layer. Used by Windows 95 kernel internals.
+       */
+      goto not_implemented;
+
+    case 0x31:
+      /* Windows 95: Set/clear "report Windows presence to DOS programs" flag.
+       * Input:  BX = 0000h to clear (hide Windows from INT 2Fh/AX=1600h);
+       *         BX = 0001h to set   (report Windows present).
+       * Output: AX = previous flag value (0 or 1); CF=0.
+       *
+       * Store the low bit of BX into a DOS-internal byte flag
+       * (WinReportFlag). This flag gates the response of the
+       * INT 2Fh/AX=1600h Windows enhanced-mode installation check:
+       * when clear, 1600h returns AL=0 (not present); when set, it
+       * returns the Windows version. Return the previous value in AX.
+       */
+      goto not_implemented;
+#endif
+
     default:
       if (r.AL <= 0x31)
       {
+not_implemented:
         put_string("unimplemented internal dos function INT2F/12");
         put_unsigned(r.AL, 16, 2);
         put_string("\n");
