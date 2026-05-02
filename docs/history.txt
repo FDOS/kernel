@@ -12,17 +12,30 @@ SVN source (no longer updated) for old SVN revision NUMBER at:
 Changelog items may list old SVN revision NUMBER and bugzilla bug NUMBER.
 
 
-2026 ?? - Build 2045
+2026 ?? - Build 20??
 -------- Jeremy Davis
 
 + Changes Jeremy Davis and Tom Ehlert
-    * initial GPT partition support
+    * GPT partition support
 
+2026 May 01 - Build 2045
+-------- Jeremy Davis
+
++ Changes Andrew Bird
+	* ci: update GitHub ci actions for impending GitHub changes
++ Changes E.C.Masloch
+	* fix bug #241 - Trying to extend a zero-byte file using seek then write, where the seek doesn't fit on disk, doesn't update file size for allocated clusters
+	* fix bug #243 - Trying to write to the very end of a file, which should fit on the disk just so, extends the file size but doesn't write data
++ Changes Jeremy Davis
+	* nls: load YesNo characters in CONFIG.SYS via COUNTRY statement so can use without having to load NLSFUNC
+	* nls: support loading data separator from country.sys also, default is hardcoded comma (,)
+	* nls: update country.sys
+	* Int 2F/12xx documentation update and additional implementations
 
 2026 Jan 25 - Build 2044
 -------- Jeremy Davis
 
-+ Changes Andrew Bird, Bernd Böckmann, C. Masloch, Stas Sergeev (stsp), 
++ Changes Andrew Bird, Bernd Böckmann, E. C. Masloch, Stas Sergeev (stsp), 
           Tee-Kiah Chia (tkchia), Sava (lpproj), Jiri Malak, Jeremy Davis, Tom Ehlert
 	* disk: Set volume label also on BPB update
 	* fix INT21.7303 return cluster count one too high, https://github.com/FDOS/kernel/issues/194
