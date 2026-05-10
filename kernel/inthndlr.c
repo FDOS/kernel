@@ -3383,9 +3383,12 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 
     case 0x31:
       /* Windows 95: Set/clear "report Windows presence to DOS programs" flag.
-       * Input:  BX = 0000h to clear (hide Windows from INT 2Fh/AX=1600h);
-       *         BX = 0001h to set   (report Windows present).
-       * Output: AX = previous flag value (0 or 1); CF=0.
+       * Input:  DX = 0000h to enable Windows load (valid for one time only,
+	   *                    added in Windows 95 OSR2 to protect FAT32 from
+	   *                    the earlier Windows 95 versions); 
+	   *         DX = 0001h to clear (hide Windows from INT 2Fh/AX=1600h);
+	   *         DX = 0002h to set   (report Windows present).
+       * Output: AX = 0, CF = 0 on success, AX = 1, CF = 1 on error.
        *
        * Store the low bit of BX into a DOS-internal byte flag
        * (WinReportFlag). This flag gates the response of the
