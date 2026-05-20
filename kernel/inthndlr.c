@@ -178,7 +178,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 #if !defined __GNUC__ || defined  __IA16_FEATURE_ATTRIBUTE_NO_ASSUME_SS_DATA
           irp->DX = FP_SEG(os_release);
 #else  /* TODO: remove this hacky SS != DGROUP workaround  --tkchia 20191207 */
-          asm volatile("movw %%ds, %0" : "=g" (irp->DX));
+          asm volatile("{ movw %%ds, %0 | mov %0, ds }" : "=g" (irp->DX));
 #endif
           irp->AX = FP_OFF(os_release);
       }

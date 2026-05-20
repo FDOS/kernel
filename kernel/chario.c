@@ -152,7 +152,7 @@ STATIC void fast_put_char(unsigned char chr)
     _AL = chr;
     __int__(0x29);
 #elif defined(__GNUC__)
-    asm volatile("int $0x29":: "a"(chr):"bx");
+    asm volatile("{ int $0x29 | int 0x29 }":: "a"(chr):"bx");
 #elif defined(I86)
     asm
     {

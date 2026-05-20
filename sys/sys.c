@@ -108,14 +108,25 @@ struct _diskfree_t {
 int int86x(int ivec, union REGS *in, union REGS *out, struct SREGS *s)
 {
   /* must save sp for int25/26 */
-  asm("mov %7, %%cs:(1f+1); jmp 0f; 0:"
+  asm("{"
+      "mov %7, %%cs:(1f+1); jmp 0f; 0:"
       "mov %%di, %%dx; mov %%sp, %%di;"
       "push %%di; push %%di;"
       /* push twice to work both for int 25h/26h and int 21h */
       "1:int $0x00; pop %%di; pop %%di;"
       /* second pop always reads the correct SP value.
          the first pop may read the FL left on stack. */
-      "mov %%di, %%sp; sbb %0, %0" :
+      "mov %%di, %%sp; sbb %0, %0;"
+      " | "
+      "mov byte ptr cs:[1f+1], %7; jmp 0f; 0:"
+      "mov dx, di; mov di, sp;"
+      "push di; push di;"
+      /* push twice to work both for int 25h/26h and int 21h */
+      "1:int 0x00; pop di; pop di;"
+      /* second pop always reads the correct SP value.
+         the first pop may read the FL left on stack. */
+      "mov sp, di; sbb %0, %0;"
+      "}" :
       "=r"(out->x.cflag),
       "=a"(out->x.ax), "=b"(out->x.bx), "=c"(out->x.cx), "=d"(out->x.dx),
       "=e"(s->es), "=Rds"(s->ds) :
@@ -140,7 +151,11 @@ int intdos(union REGS *in, union REGS *out)
 
 int intdosx(union REGS *in, union REGS *out, struct SREGS *s)
 {
-  asm("push %%ds; mov %%bx, %%ds; int $0x21; pop %%ds; sbb %0, %0":
+  asm("{"
+      "push %%ds; mov %%bx, %%ds; int $0x21; pop %%ds; sbb %0, %0\n"
+      " | "
+      "push ds; mov ds, bx; int 0x21; pop ds; sbb %0, %0\n"
+      "}" :
       "=r"(out->x.cflag), "=a"(out->x.ax) :
       "a"(in->x.ax), "c"(in->x.cx), "d"(in->x.dx),
       "D"(in->x.di), "S"(in->x.si), "b"(s->ds), "e"(s->es) :
