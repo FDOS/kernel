@@ -986,7 +986,6 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   return SUCCESS;
 }
 
-#undef CHDIR_DEBUG
 COUNT DosChangeDir(BYTE FAR * s)
 {
   COUNT result;
@@ -1002,16 +1001,18 @@ COUNT DosChangeDir(BYTE FAR * s)
     return DE_PATHNOTFND;
 
 #if defined(CHDIR_DEBUG)
-  DebugPrintf(("Remote Chdir: n='%Fs' p='%Fs\n", s, PriPathName));
+  DebugPrintf(("Remote Chdir: n='%Fs' p='%s\n", s, PriPathName));
 #endif
   /* now get fs to change to new          */
   /* directory                            */
   result = (result & IS_NETWORK ? network_redirector(REM_CHDIR) :
             dos_cd(PriPathName));
 #if defined(CHDIR_DEBUG)
-  DebugPrintf(("status = %04x, new_path='%Fs'\n", result, cdsd->cdsCurrentPath));
+  DebugPrintf(("status = %04x, new_path='%Fs'\n", result, current_ldt->cdsCurrentPath));
 #endif
-  if (result != SUCCESS)
+  /* on error result should be negative, on success for network call value
+     should be ignored as some redirectors e.g. Lantastic return count on success */
+  if (result < SUCCESS)
     return result;
 /*
    Copy the path to the current directory
