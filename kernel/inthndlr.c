@@ -2672,10 +2672,13 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * traversal to detect end markers and duplicate entries.
        */
       {
-        if (r.DS == r.ES && r.SI == r.DI)
-          r.FLAGS |= (FLG_ZERO | FLG_CARRY);
-        else
-          r.FLAGS &= ~(FLG_ZERO | FLG_CARRY);
+        if ((r.DS == r.ES) && (r.SI == r.DI)) {
+          r.FLAGS |= FLG_ZERO;
+          r.FLAGS &= ~FLG_CARRY;
+        } else {
+          r.FLAGS &= ~FLG_ZERO;
+          r.FLAGS |= FLG_CARRY;
+        }
       
         break;
       }
