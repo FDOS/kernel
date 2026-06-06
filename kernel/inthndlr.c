@@ -1931,6 +1931,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 
 #define r (*pr)
 
+  r.FLAGS &= ~FLG_CARRY;  /* assume success, ensure carry clear */
+
   if (r.AH == 0x4a)
   {
     size_t size = 0, offs = 0xffff, realoffs;	/* defaults for no alloc */
@@ -2668,16 +2670,14 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * Output: ZF=1 if DS==ES and SI==DI (equal); ZF=0 otherwise.
        *         CF=0. No other registers modified.
        *
-       * Note: not used by FreeDOS kernel; MSDOS may use in SFT/CDS list 
-       * traversal to detect end markers and duplicate entries.
+       * Note: not used by FreeDOS kernel; may be used by MSDOS
+       *       used by Lantastic
        */
       {
         if ((r.DS == r.ES) && (r.SI == r.DI)) {
           r.FLAGS |= FLG_ZERO;
-          r.FLAGS &= ~FLG_CARRY;
         } else {
           r.FLAGS &= ~FLG_ZERO;
-          r.FLAGS |= FLG_CARRY;
         }
       
         break;
@@ -2722,7 +2722,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         if (rel_idx == -1)
           goto  error_carry;
 
-        r.FLAGS &= ~FLG_CARRY;
         r.BX = rel_idx;
         r.ES = FP_SEG(lpCurSft);
         r.DI = FP_OFF(lpCurSft);
@@ -2758,7 +2757,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
 
         r.DS = FP_SEG(cdsp);
         r.SI = FP_OFF(cdsp);
-        r.FLAGS &= ~FLG_CARRY;
         break;
       }
 
@@ -2803,7 +2801,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
           goto error_carry;
         }
         r.AL = DosSelectDrv(drv);
-        r.FLAGS &= ~FLG_CARRY;
 
         break;
       }
@@ -2822,8 +2819,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         char FAR *p = MK_FP(r.DS, r.SI);
         unsigned char c = p[0];
 
-        r.FLAGS &= ~FLG_CARRY;         /* CF=0 always */
-        
         if (!c || p[1] != ':')         /* "" or path without X: drive letter */
         {
           r.AL = 0;                    /* no drive letter present, use default */
@@ -3000,7 +2995,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         r.CX = sizeof(TempCDS);
         r.ES = FP_SEG(&TempCDS);
         r.DI = FP_OFF(&TempCDS);
-        r.FLAGS &= ~FLG_CARRY;
         break;
       }
 
@@ -3028,7 +3022,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
           goto error_carry;
         }
         idx = &p->ps_filetab[r.BX];
-        r.FLAGS &= ~FLG_CARRY;
         r.ES = FP_SEG(idx);
         r.DI = FP_OFF(idx);
 
@@ -3089,14 +3082,8 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         struct dhdr FAR *dhp;
 
         dhp = IsDevice((BYTE FAR *) DirEntBuffer.dir_name);
-
-        if (dhp == NULL)
-        {
-          r.FLAGS |= FLG_CARRY;
-          break;
-        }
+        if (dhp == NULL) goto error_carry;
         r.BH = dhp->dh_attr;
-        r.FLAGS &= ~FLG_CARRY;
       }
       break;
 
@@ -3139,7 +3126,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * code that needs to open a file without going through INT 21h/3Dh.
        * Modifies: AX, FLAGS, CritErrCode.
        */
-      r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       lrc = DosOpen(MK_FP(r.DS, r.DX), O_LEGACY | O_OPEN | r.CL, 0);
       goto long_check;
@@ -3156,7 +3142,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * without going through INT 21h/3Eh.
        * Modifies: AX, FLAGS, CritErrCode.
        */
-      r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       rc = DosClose(r.BX);
       goto short_check;
@@ -3207,7 +3192,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * moves BP to AX, performs LSEEK, and restores frame pointer"
        * We obviously don't do it like that. Does this do any harm?! --L.G.
        */
-      r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       if (r.BP < 0x4200 || r.BP > 0x4202)
         goto error_invalid;
@@ -3227,14 +3211,13 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * Output: On success: AX = number of bytes actually read; CF=0.
        *         On failure: AX = DOS error code; CF=1.
        *
-       * Clears CF and CritErrCode, then calls DosRead() with handle BX,
+       * Clears CritErrCode, then calls DosRead() with handle BX,
        * count CX, and buffer DS:DX. Result is checked via long_check:
        * on success AX = bytes read (may be less than CX at EOF); on
        * failure AX = error code and CF set. Kernel-internal equivalent
        * of INT 21h/AH=3Fh without the full INT 21h dispatch overhead.
        * Modifies: AX, FLAGS, CritErrCode.
        */
-      r.FLAGS &= ~FLG_CARRY;
       CritErrCode = SUCCESS;
       lrc = DosRead(r.BX, r.CX, MK_FP(r.DS, r.DX));
       goto long_check;
@@ -3253,7 +3236,6 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
        * silently succeed without effect.
        */
 
-      r.FLAGS &= ~FLG_CARRY;
       break;
 
     case 0x2b:
@@ -3409,7 +3391,7 @@ not_implemented:
         put_string("unimplemented internal dos function INT2F/12");
         put_unsigned(r.AL, 16, 2);
         put_string("\n");
-        r.FLAGS |= FLG_CARRY;
+        goto error_carry;
       }
   }
   return;

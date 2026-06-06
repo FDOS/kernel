@@ -366,8 +366,9 @@ invalid_path:
     result |= IS_DEVICE;
 
   /* Try if the Network redirector wants to do it */
-  dest[0] = '\0';		/* better probable for sanity check below --
-                                   included by original truename() */
+  /* via Qualify Remote Filename call & validate results */
+  assert(sizeof(PriPathName)>=12); /* dest is always pointer to PriPathName */
+  memset(dest, 0, 12);  /* enable can verify redirector set result value */
   /* MUX succeeded and really something */
   if (!(mode & CDS_MODE_SKIP_PHYSICAL) &&
       QRemote_Fn(dest, src) == SUCCESS && dest[0] != '\0')
@@ -377,8 +378,17 @@ invalid_path:
     if (strlen(dest) >= SFTMAX)
       panic("Truename: QRemote_Fn() overflowed output buffer");
 #endif
+    /* don't flag devices such as Z:/NUL as NETWORK devices,
+       where Z: is a network mapped drive, but do flag redirected
+       devices such as LPT# for Lantastic
+     */       
     if (dest[2] == '/' && (result & IS_DEVICE))
       result &= ~IS_NETWORK;
+    else
+      result |= IS_NETWORK;
+#ifdef DEBUG_TRUENAME
+    tn_printf(("Truename: result=%04x\n", result));
+#endif
     return result;
   }
 

@@ -29,11 +29,8 @@
 
 #include "portab.h"
 #include "globals.h"
+#include "debug.h"
 
-#ifdef VERSION_STRINGS
-static BYTE *fatdirRcsId =
-    "$Id: fatdir.c 1561 2011-04-08 15:35:23Z bartoldeman $";
-#endif
 
 /* Description.
  *  Initialize a fnode so that it will point to the directory with 
@@ -322,6 +319,7 @@ COUNT dos_findfirst(UCOUNT attr, BYTE * name)
   dmp->dm_drive = name[0] - 'A';
   dmp->dm_attr_srch = attr;
 
+  DebugPrintf(("dos_findfirst: %s (calling dos_findnext())\n", name));
   return dos_findnext();
 }
 
@@ -390,9 +388,7 @@ COUNT dos_findnext(void)
   }
 
 
-#ifdef DEBUG
-  printf("dos_findnext: %11s\n", fnp->f_dir.dir_name);
-#endif
+  DebugPrintf(("dos_findnext: %11s\n", fnp->f_dir.dir_name));
   /* return the result                                            */
   return DE_NFILES;
 }

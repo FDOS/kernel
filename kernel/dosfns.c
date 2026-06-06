@@ -540,8 +540,8 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   sftp->sft_shroff = -1;        /* /// Added for SHARE - Ron Cemer */
   sftp->sft_attrib = attrib = attrib | D_ARCHIVE;
 
-  /* check for a device   */
-  if ((result & IS_DEVICE) && (dhp = IsDevice(fname)) != NULL)
+  /* check for a (local) device */
+  if ((result & IS_DEVICE) && !(result & IS_NETWORK) && (dhp = IsDevice(fname)) != NULL)
   {
     int rc = DeviceOpenSft(dhp, sftp);
     /* check the status code returned by the
