@@ -385,7 +385,7 @@ remote_lseek:   ; arg is a pointer to the long seek value
                 ; "fall through"
 
 remote_getfattr:        
-                clc                    ; set to succeed
+				stc                     ; assume unsupported/failed unless carry clear on return
                 int     2fh
                 jc      ret_neg_ax
                 jmp     short ret_int2f
@@ -439,7 +439,8 @@ call_int2f:
                 je      remote_print_doredir
 
 int2f_call:
-                xor     cx, cx         ; set to succeed; clear carry and CX
+                xor     cx, cx         ; default to success error code but
+				stc                    ; assume unsupported/failed unless carry clear on return
                 int     2fh
                 pop     bx
                 jnc     ret_set_ax_to_cx
@@ -464,7 +465,7 @@ remote_print_doredir:                  ; di points to an lregs structure
                 mov     si,[di+8]
                 lds     di,[di+0xa]
 
-                clc                     ; set to succeed
+				stc                     ; assume unsupported/failed unless carry clear on return
                 int     2fh
                 pop     bx              ; restore stack and ds=ss
                 push    ss
@@ -475,7 +476,7 @@ ret_set_ax_to_carry:                    ; carry => -1 else 0 (SUCCESS)
                 jmp     short ret_int2f
 
 remote_getfree:
-                clc                     ; set to succeed
+				stc                     ; assume unsupported/failed unless carry clear on return
                 int     2fh
                 pop     di              ; retrieve pushed pointer arg
                 jc      ret_set_ax_to_carry
@@ -487,7 +488,7 @@ remote_getfree:
                 jmp     short ret_set_ax_to_carry
 
 remote_rw:
-                clc                    ; set to succeed
+				stc                     ; assume unsupported/failed unless carry clear on return
                 int     2fh
                 jc      ret_min_dx_ax
                 xor     dx, dx         ; dx:ax := dx:cx = bytes read
@@ -504,7 +505,7 @@ qremote_fn:
 remote_process_end:                   ; Terminate process
                 mov     ds, [_cu_psp]
 int2f_restore_ds:
-                clc
+				stc                     ; assume unsupported/failed unless carry clear on return
                 int     2fh
                 push    ss
                 pop     ds

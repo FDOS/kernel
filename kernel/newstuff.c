@@ -397,8 +397,17 @@ invalid_path:
   dest[1] = ':';
 
   /* Do we have a drive? */
-  if (src[1] == ':')
+  if (src[1] == ':') {
     src += 2;
+    if (result & IS_DEVICE)
+    {
+      /* stripped optional X: from source, and verified not \path\devicename
+         so treat \devicename as devicename same (and \dev\devicename as dev\devicename)
+       */
+      if (src[0] == '\\' || src[0] == '/')
+        src++;
+    }
+  }
 
 /*
     Code repoff from dosfns.c
@@ -410,6 +419,7 @@ invalid_path:
   if (result & IS_DEVICE)
   {
     froot = get_root(src);
+    /* was devicename or dev\devicename passed in [after stripping optional X:/] */
     if (froot == src || froot == src + 5)
     {
       if (froot == src + 5)

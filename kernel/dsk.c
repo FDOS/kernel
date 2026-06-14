@@ -1138,6 +1138,40 @@ STATIC int LBA_Transfer(ddt * pddt, UWORD mode, VOID FAR * buffer,
   return (error_code);
 }
 
+
+COUNT writelabelBPB(char drive, const char *name)
+{
+  ddt *pddt = getddt(drive - 'A');
+  struct FS_info *fs;
+  int offset;
+  WORD ret;
+
+  ret = getbpb(pddt);
+  if (ret != 0)
+    return ret;
+
+  if (DiskTransferBuffer[0x26] == 0x29 &&
+      pddt->ddt_bpb.bpb_nfsect != 0)       // BPB v4.1
+    offset = 0x27;
+  else if (DiskTransferBuffer[0x42] == 0x29 &&
+      pddt->ddt_bpb.bpb_nfsect == 0)       // BPB v7 long
+    offset = 0x43;
+  else
+    return -1;
+
+  /* store volume name */
+  fs = (struct FS_info *)&DiskTransferBuffer[offset];
+  ConvertNameSZToName83(fs->volume, name);
+
+  ret = RWzero(pddt, LBA_WRITE);
+  if (ret != 0)
+    return ret;
+
+  return 0;
+}
+
+
+
 /*
  * Revision 1.17  2001/05/13           tomehlert
  * Added full support for LBA hard drives

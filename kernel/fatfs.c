@@ -122,6 +122,10 @@ STATIC void init_direntry(struct dirent *dentry, unsigned attrib,
 int dos_open(char *path, unsigned flags, unsigned attrib, int fd)
 {
   REG f_node_ptr fnp = sft_to_fnode(fd);
+  /* FDPP has special handling for volume name here, 
+     (they can coexist with files/directories) 
+     writelabelBPB(drive,label);
+   */
   int status = find_fname(path, D_ALL | attrib, fnp);
 
   /* Check that we don't have a duplicate name, so if we  */
