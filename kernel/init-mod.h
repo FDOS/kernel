@@ -240,6 +240,8 @@ int VA_CDECL init_sprintf(char * buff, CONST char * fmt, ...);
 
 /* procsupt.asm */
 VOID ASMCFUNC FAR got_cbreak(void);
+/* console.asm */
+VOID ASMCFUNC FAR CBreak(void);
 
 /* initclk.c */
 extern void Init_clk_driver(void);

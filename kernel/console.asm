@@ -226,7 +226,8 @@ ConWr1:
                 loop    ConWr1                  ; Loop if more to output
                 jmp     _IOExit
 
-CBreak:
+global _CBreak ; int 0x1B handler
+_CBreak:
                 mov     byte [cs:uScanCode],3   ; Put a ^C into the buffer
 IntRetn:
                 iret
