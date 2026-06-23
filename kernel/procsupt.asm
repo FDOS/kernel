@@ -156,101 +156,30 @@ _spawn_int23:
                 Restore386Registers
                 POP$ALL
 
-                ;; Construct the piece of code into the stack
+				; stack should now match entry to int21h
+				
+				; we need to call int 23h and be able to determine
+				; on return if done via iret or [stc] retf
+				; Note: formally we constructed int 23h call on stack
+				; but some programs such as Invisible Lan redirector
+				; save return address of int 23h call and later check
+				; it match int 23h opcode, which if done on stack no
+				; no longer matches (as stack space likely reused)
 
-		;; stack frame:		during generation of code piece
-		;; <higher address>
-		;; BP | SP | Meaning
-		;;  7 | 11 | offset CALL FAR will push onto stack
-		;;  5 |  9 | CALL FAR segment
-		;;  3 |  7 | CALL FAR offset
-		;;  2 |  6 | CALL FAR ??regain_control_int23  | instruction byte
-		;;  0 |  4 | INT 23 <<should-be value of SP upon return>>
-		;; -2 |  2 | segment of address of INT-23	\ To jump to INT 23
-		;; -4 |  0 | offset of address of INT-23	/ via RETF
-		;; Upon return from INT-23 the CALL FAR pushes the address of
-		;; the byte immediately following the CALL FAR onto the stack.
-		;; This value POPed and decremented by 7 is the value SP must
-		;; contain, if the INT-23 was returned with RETF2/IRET.
-
-  		sub sp, byte 8		;; code piece needs 7 bytes --> 4 words
-  		push ss			;; prepare jump to INT-23 via RETF
-  		push bp			;; will be offset / temp: saved BP
-  		mov bp, sp
-  		add bp, byte 4		;; position BP onto INT-23
-  		mov word [bp], 23cdh		;; INT 23h
-  		mov byte [bp+2], 9ah			;; CALL FAR immediate
-  		mov word [bp+3], ??regain_control_int23
-  		mov word [bp+5], cs
-
-  		;; complete the jump to INT-23 via RETF and restore BP
-  		xchg word [bp-4], bp
-
-                clc			;; set default action --> resume
-                ; invoke the int 23 handler its address has been constructed
-                ;; on the stack
-                retf
-
-??regain_control_int23:
-
-		;; stack frame:		constructed on entry to INT-23
-		;; <higher address>
-		; BP | SP | Meaning
-		;;  7 | 11 | offset CALL FAR will push onto stack
-		;;  5 |  9 | CALL FAR segment
-		;;  3 |  7 | CALL FAR offset
-		;;  2 |  6 | CALL FAR ??regain_control_int23  | instruction byte
-		;;  0 |  4 | INT 23 <<should-be value of SP upon return>>
-		;; -2 |  2 | segment of address of INT-23	\ To jump to INT 23
-		;; -4 |  0 | offset of address of INT-23	/ via RETF
-		;; Upon return from INT-23 the CALL FAR pushes the address of
-		;; the byte immediately following the CALL FAR onto the stack.
-		;; This value POPed and decremented by 7 is the value SP must
-		;; contain, if the INT-23 was returned with RETF2/IRET.
-
-		;; stack frame:		used during recovering from INT-23
-		;; <higher address>
-		;; BP | Meaning
-		;;  1 | <<next word onto stack, or value SP has to become>>
-		;;  0 | <<return address from CALL FAR>>
-		;; -1 | saved BP
-		;; -3 | saved AX
-		;; -7 | INT 23 <<should-be value of SP upon return>>
-
-		;; Somewhere on stack:
-		;; SP | Meaning
-		;;  4 | segment of return address of CALL FAR
-		;;  2 | offset of return address of CALL FAR
-		;;  0 | saved BP
-
-				push bp
-				mov bp, sp
-				mov bp, [bp+2]		;; get should-be address + 7
-				mov word [bp-3], ax		;; save AX
-				pop ax				;; old BP
-				mov word [bp-1], ax		;; preserve saved BP
-				mov ax, bp
-				dec ax			;; last used word of stack
-				dec ax			;; Don't use SUB to keep Carry flag
-				dec ax
-				xchg ax, sp		;; AX := current stack; SP corrected
-				;; Currently: BP - 7 == address of INT-23
-				;; should be  AX + 4 --> IRET or RETF 2
-				;; ==> Test if BP - 7 == AX + 4
-				;; ==> Test if AX + 4 - BP + 7 == 0
-				pushf			;; preserve Carry flag
-				add ax, byte 4 + 7
-				sub ax, bp		;; AX := SP + 4
-				pop ax			;; saved Carry flag
-				jz ??int23_ign_carry ;; equal -> IRET --> ignore Carry
-									;; Carry is already cleared
-				push ax
-				popf			;; restore Carry flag
-
-??int23_ign_carry:
-				pop ax					;; Restore the original register
-				jnc ??int23_respawn
-				;; The user returned via RETF 0, Carry is set
+				; save current stack pointer so we can compare
+				mov [cs:old_sp], sp
+				; clear carry
+				; note we ignore, but formally set on return meant abort program
+				clc
+				; invoke user int 23h
+				int 23h
+				
+				; if old_sp == sp then continue (iret or retf 2 return)
+				; else if old_sp == sp-2 then abort (retf 0 return)
+				cmp [cs:old_sp], sp
+				je ??int23_respawn
+				
+??int23_abort:
 				;; --> terminate program
 				;; This is done by set the _break_flg and modify the
 				;; AH value, which is passed to the _respawn_ call
@@ -269,8 +198,12 @@ _spawn_int23:
 				xor ah, ah		;; clear ah --> perform DOS-00 --> terminate
 
 ??int23_respawn:
-				pop bp					;; Restore the original register
                 jmp 	DGROUP:_int21_handler
+
+; stores sp prior to int 23h call
+; note: we assume int 23h call not invoked while int 23h call in progress
+; value only matters between for duration of above set, int, cmp sequence				
+old_sp dw 0
 
 ;
 ; interrupt enable and disable routines

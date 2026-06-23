@@ -36,6 +36,7 @@ static BYTE *charioRcsId =
 #endif
 
 #include "globals.h"
+#include "debug.h"
 
 STATIC int CharRequest(struct dhdr FAR **pdev, unsigned command)
 {

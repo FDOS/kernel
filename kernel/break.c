@@ -30,6 +30,7 @@
 #include "portab.h"
 #include "globals.h"
 #include "proto.h"
+#include "debug.h"
 
 #ifdef VERSION_STRINGS
 static BYTE *RcsId =
