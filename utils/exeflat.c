@@ -140,7 +140,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
 
   /* first read file into memory chunks */
   fseek(src, header->exHeaderSize * 16UL, SEEK_SET);
-  buffers = malloc((size_t)((size + BUFSIZE - 1) / BUFSIZE) * sizeof(char *));
+  buffers = calloc((size_t)((size + BUFSIZE - 1) / BUFSIZE), sizeof(char *));
   if (buffers == NULL)
   {
     printf("Allocation error\n");
@@ -167,7 +167,7 @@ static int exeflat(const char *srcfile, const char *dstfile,
   if (header->exRelocTable && header->exRelocItems)
   {
     fseek(src, header->exRelocTable, SEEK_SET);
-    reloc = malloc(header->exRelocItems * sizeof(farptr));
+    reloc = calloc(header->exRelocItems, sizeof(farptr));
     if (reloc == NULL)
     {
       printf("Allocation error\n");
@@ -507,9 +507,10 @@ int main(int argc, char **argv)
     if( use_upx ) {
       len = strlen( upx_cmd );
       if( len > 0 ) len++;
-      upx_cmd = realloc( upx_cmd, len + strlen( argptr ) + 1 );
+      { size_t arglen = strlen( argptr ) + 1;
+      upx_cmd = realloc( upx_cmd, len + arglen );
       if( len > 0 ) upx_cmd[len - 1] = ' ';
-      strcpy( upx_cmd + len, argptr );
+      memcpy( upx_cmd + len, argptr, arglen ); }
     } else {
       switch (*(unsigned char *)argptr++)
       {
@@ -528,12 +529,14 @@ int main(int argc, char **argv)
               use_upx = 1;
               break;
             case 'E':
-              entryexefilename = malloc(strlen(argptr) + 1);
-              strcpy(entryexefilename, argptr);
+              { size_t arglen = strlen(argptr) + 1;
+              entryexefilename = malloc(arglen);
+              memcpy(entryexefilename, argptr, arglen); }
               break;
             case 'D':
-              entrydevfilename = malloc(strlen(argptr) + 1);
-              strcpy(entrydevfilename, argptr);
+              { size_t arglen = strlen(argptr) + 1;
+              entrydevfilename = malloc(arglen);
+              memcpy(entrydevfilename, argptr, arglen); }
               break;
             case 'S':
               if (silentcount >= LENGTH(silentSegments))
@@ -612,16 +615,17 @@ int main(int argc, char **argv)
     }
     if (rename(argv[2], tmpexe))
     {
-      printf("Can not rename %s to %s\n", argv[2], tmpexe);
+      fprintf(stdout, "Can not rename %s to %s\n", argv[2], tmpexe);
       exit(1);
     }
 
     len = strlen(upx_cmd);
-    cmdbuf = malloc(len + 1 + strlen(tmpexe) + 1);
-    strcpy(cmdbuf, upx_cmd);
+    { size_t tmplen = strlen(tmpexe) + 1;
+    cmdbuf = malloc(len + 1 + tmplen);
+    memcpy(cmdbuf, upx_cmd, len);
     cmdbuf[len] = ' ';
     /* if tmpexe is tmpfile set above no quotes needed, if user needs quotes should add on cmd line */
-    strcpy(cmdbuf + len + 1, tmpexe);
+    memcpy(cmdbuf + len + 1, tmpexe, tmplen); }
     printf("%s\n", cmdbuf);
     fflush(stdout);
     if (system(cmdbuf))
@@ -662,7 +666,7 @@ int main(int argc, char **argv)
 
     if ((dest = fopen(argv[2], "wb")) == NULL)
     {
-      printf("Destination file %s could not be opened\n", argv[2]);
+      fprintf(stdout, "Destination file %s could not be opened\n", argv[2]);
       exit(1);
     }
     if ((source = fopen("tmp.bin", "rb")) == NULL)
@@ -671,7 +675,7 @@ int main(int argc, char **argv)
       exit(1);
     }
 
-    buffer = malloc(32 * 1024);
+    buffer = malloc(32768);
     if (!buffer)
     {
       printf("Memory allocation failure\n");
