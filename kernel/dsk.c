@@ -1151,10 +1151,10 @@ COUNT writelabelBPB(char drive, const char *name)
     return ret;
 
   if (DiskTransferBuffer[0x26] == 0x29 &&
-      pddt->ddt_bpb.bpb_nfsect != 0)       // BPB v4.1
+      pddt->ddt_bpb.bpb_nfsect != 0)       /* BPB v4.1 */
     offset = 0x27;
   else if (DiskTransferBuffer[0x42] == 0x29 &&
-      pddt->ddt_bpb.bpb_nfsect == 0)       // BPB v7 long
+      pddt->ddt_bpb.bpb_nfsect == 0)       /* BPB v7 long */
     offset = 0x43;
   else
     return -1;
