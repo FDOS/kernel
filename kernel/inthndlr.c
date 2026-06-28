@@ -2991,7 +2991,7 @@ VOID ASMCFUNC int2F_12_handler(struct int2f12regs FAR *pr)
         }
         TempCDS.cdsStrtClst = 0xffff;
         TempCDS.cdsParam = 0xffff;
-        TempCDS.cdsStoreUData = 0xffff;
+        TempCDS.cdsUserData = 0xffff;
         r.CX = sizeof(TempCDS);
         r.ES = FP_SEG(&TempCDS);
         r.DI = FP_OFF(&TempCDS);

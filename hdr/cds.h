@@ -44,7 +44,7 @@ struct cds {
     } _cdsRedir;
   } _cdsUnion;
 
-  UWORD cdsStoreUData;
+  UWORD cdsUserData;         /* initialized to 0xFFFF, otherwise unused by kernel */
 
 #define cdsJoinOffset cdsBackslashOffset
   WORD cdsBackslashOffset; /* Position of "root directory" backslash for
@@ -55,9 +55,9 @@ struct cds {
                                      if local path: ofs > colon
                            */
 
-  BYTE cdsNetFlag1;        /* According to PCDOS 7 Tech Ref: IFS drive, 2=IFS, 4=NetUse */
+  BYTE cdsIfsType;         /* According to PCDOS 7 Tech Ref: IFS drive, 2=IFS, 4=NetUse, unused by kernel */
   BYTE FAR *cdsIfs;        /* Pointer to Installable File System Header */
-  UWORD cdsNetFlags2;      /* File System specific data */
+  UWORD cdsFileSysData;    /* File System specific data, unused by kernel */
 
 };
 

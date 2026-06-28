@@ -401,7 +401,7 @@ STATIC VOID FsConfig(VOID)
     }
     pcds_table->cdsStrtClst = 0xffff;
     pcds_table->cdsParam = 0xffff;
-    pcds_table->cdsStoreUData = 0xffff;
+    pcds_table->cdsUserData = 0xffff;
     pcds_table->cdsJoinOffset = 2;
   }
 

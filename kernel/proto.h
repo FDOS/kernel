@@ -381,6 +381,7 @@ long ASMPASCAL network_redirector_mx(unsigned cmd, void far *s, void *arg);
 #define remote_lseek(s,new_pos) network_redirector_mx(REM_LSEEK, s, &new_pos)
 #define remote_setfattr(attr) (int)network_redirector_mx(REM_SETATTR, NULL, (void *)attr)
 #define remote_printredir(dx,ax) (int)network_redirector_mx(REM_PRINTREDIR, MK_FP(0,dx),(void *)ax)
+/* local (near) address of s pushed on stack, where s is far (segment:offset) of argument */
 #define QRemote_Fn(d,s) (int)network_redirector_mx(REM_FILENAME, d, (void *)&s)
 
 UWORD get_machine_name(BYTE FAR * netname);

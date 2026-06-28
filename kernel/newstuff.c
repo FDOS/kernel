@@ -282,93 +282,11 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
     /* referenced for network with empty current_ldt.           */
     return IS_NETWORK;
   }
-  
-  /* Do we have a drive?                                          */
-  if (src[1] == ':')
-    result = drLetterToNr(DosUpFChar(src0));
-  else
-    result = default_drive;
-
-  dhp = IsDevice(src);
-
-  cdsEntry = get_cds(result);
-  if (cdsEntry == NULL)
-  {
-    /* If opening a character device, DOS allows device name
-       to be prefixed by [invalid] drive letter and/or optionally
-       \DEV\ directory prefix, however, any other directory
-       including root (\) is an invalid path if drive is not
-       valid and returns such.
-       Whereas truename always fails for invalid drive.
-    */
-    if (dhp && (mode & CDS_MODE_CHECK_DEV_PATH) && (result >= lastdrive))
-    {
-      /* Note: check for (result >= lastdrive) means invalid drive
-         was provided as otherwise we would have used default_drive
-         so we know src in the form of X:?
-         fail if anything other than no path or path is \DEV\
-      */
-      const char FAR *s = src+2;
-      char c = *s;
-
-      if( c != '\\' && c != '/' ) c = '\0';
-      /* could be 1 letter devicename, don't go scanning random memory */
-      if (*(src+3) != '\0') 
-      {
-        s = fstrchr(src+3, '\\'); /* ?is there \ or / other than immediately after drive: */
-        if (s == NULL) s = fstrchr(src+3, '/');
-      }
-      else
-      {
-        s = NULL;
-      }
-
-      if (c == '\0')
-      {
-        /* either X:devicename or X:path\devicename */
-        if (s != NULL) goto invalid_path;
-      }
-      else
-      {
-        /* either X:\devicename or X:\path\devicename 
-           only X:\DEV\devicename is valid path
-        */
-        if (s == NULL) goto invalid_path;
-        if (s != src+6) goto invalid_path;
-        if (fmemcmp(src+3, "DEV", 3) != 0) goto invalid_path;
-        s = fstrchr(src+7, '\\');
-        if (s == NULL) s = fstrchr(src+7, '/');
-        if (s != NULL) goto invalid_path;
-      }
-  
-      /* use CDS of current drive (MS-DOS may return drive P: for invalid drive.) */
-      result = default_drive;
-      cdsEntry = get_cds(result);
-      if (cdsEntry == NULL) goto invalid_path;
-    }
-    else
-    {
-invalid_path:
-        return DE_PATHNOTFND;
-    }
-  }
-
-  fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
-  tn_printf(("CDS entry: #%u @%p (%u) '%s'\n", result, cdsEntry,
-            TempCDS.cdsBackslashOffset, TempCDS.cdsCurrentPath));
-  /* is the current_ldt thing necessary for compatibly??
-     -- 2001/09/03 ska*/
-  current_ldt = cdsEntry;
-  if (TempCDS.cdsFlags & CDSNETWDRV)
-    result |= IS_NETWORK;
-  
-  if (dhp)
-    result |= IS_DEVICE;
 
   /* Try if the Network redirector wants to do it */
   /* via Qualify Remote Filename call & validate results */
-  assert(sizeof(PriPathName)>=12); /* dest is always pointer to PriPathName */
-  memset(dest, 0, 12);  /* enable can verify redirector set result value */
+  assert(sizeof(PriPathName)>=12); /* dest is always pointer to PriPathName or SecPathName */
+  memset(dest, 0, 12);  /* so we can verify redirector set result value */
   /* MUX succeeded and really something */
   if (!(mode & CDS_MODE_SKIP_PHYSICAL) &&
       QRemote_Fn(dest, src) == SUCCESS && dest[0] != '\0')
@@ -392,22 +310,114 @@ invalid_path:
     return result;
   }
 
+  /* Redirector interface failed (or skipped) --> proceed with local mapper */
+  
+  /* Was a drive letter provided?  If not then use current drive */
+  if (src[1] == ':')
+    result = drLetterToNr(DosUpFChar(src0));
+  else
+    result = default_drive;
+
+  dhp = IsDevice(src);
+
+  /* Note: [older] redirectors may not provide Int 2Fh API and instead simply wrap Int 21h calls
+     so above callout to redirector may fail but still be a redirected (mapped) drive that is invalid to us.
+
+     When given a character device, Truename or Open allows device name to be prefixed by invalid
+     drive letter and\or optional \DEV\ directory prefix, however any other directory including
+     root path (\) will always return error. However, if drive is valid, then for character 
+     devices any path may be provided.
+     For example:
+       CON will use default drive and assuming default is X: then same as X:CON
+       X:CON and X:\DEV\CON will succeed regardless if X: is valid or not
+
+       If X: is a valid drive then returns proper path for drive (X:/CON or \\remote\path\CON respectively)
+       If X: is not a valid drive then if no path (not even root \ path) or path exactly \DEV\ will
+       succeed and use dummy path of P:/CON  (always P: apparently for dummy CDS), or if any path than \DEV\
+       will fail.
+
+       X:\CON and X:\path\CON will always succeed if X: is a valid drive even if path does not exists
+       If X: is a valid drive then returns provided path for drive (X:/CON or \\remote\path\CON respectively).
+  */
+  
+  /* determine if valid drive */
+  cdsEntry = get_cds(result);
+
+  /* is this a character device (dhp != NULL)? if so check special cases 
+     if cdsEntry is not NULL then valid drive, so any path acceptable for character device
+  */
+  if (dhp && (mode & CDS_MODE_CHECK_DEV_PATH) && (cdsEntry == NULL))
+  {
+    /* determine if drive letter provided (we know at least 1 character long) */
+    const char FAR *s = src+1;
+    const char FAR *hasSlash;
+    if (*s == ':') s++; else s--; /* skip drive (X:) if provided */    
+    /* s points to start of device name or path, just past optional drive letter */
+    
+    /* determine if path provided, any \ or / characters indicate path including root */
+    hasSlash = fstrchr(s, '\\');
+    if (hasSlash == NULL) hasSlash = fstrchr(s, '/');
+    
+    if (hasSlash != NULL) {
+      /* only \DEV\ (with leading \) or /DEV/ for path portion allowed since drive is invalid */
+      tn_printf(("-->%Fs<--\n", s));
+      if ((*s == '\\') || (*s == '/')) {
+          unsigned char c[6];
+          unsigned x;
+          c[0]= *(++s) & 0xDF;  /* get uppercase next character */
+          c[1]= *(++s) & 0xDF;
+          c[2]= *(++s) & 0xDF;
+          c[3]= *(++s);
+          if (c[3]=='\\') c[3]='/';
+          s++; /* s now points to start of device name */
+          c[4]= '\0';
+          x = fstrcmp((char *)c, "DEV/");
+          tn_printf(("comparing %s to %s == %d\n", c, "DEV/", x)); 
+          if (x != 0) goto invalid_path;
+          tn_printf(("ok\n"));
+      } else {
+          /* there is a / or \ but not at beginning so must be a path, which is invalid for device */
+          goto invalid_path;
+      }
+    } /* else { just devicename or X:devicename, drive even default need not be valid to us (mapped drive with invalid CDS) } */
+
+    /* we have a character device with invalid drive
+       instead of using CDS of current drive follow MS-DOS convention of returning drive P: for invalid drive.
+     */
+    result = 'P' - 'A';  /* return drive P: */
+    /* cdsEntry = get_cds_unvalidated(result);  * WARNING: may point past valid memory! if result >= lastdrive */
+    cdsEntry = (struct cds FAR *)MK_FP(-1,-1);
+    tn_printf(("No CDS using entry P: #%u\n", result));
+    fmemset(&TempCDS, 0, sizeof(TempCDS));
+    fstrcpy(TempCDS.cdsCurrentPath, s);  /* just device name no path or drive letter */
+    tn_printf(("cds=%s\n", TempCDS.cdsCurrentPath));
+  }
+
+  
+  /* Note: on redirected drives cdsEntry may not be NULL but with dhp==NULL, so must check network redir prior to here */
+  if (cdsEntry == NULL)
+  {
+invalid_path:
+    return DE_PATHNOTFND;
+  } else {
+    if (cdsEntry != (struct cds FAR *)MK_FP(-1,-1))
+    fmemcpy(&TempCDS, cdsEntry, sizeof(TempCDS));
+  }
+  current_ldt = cdsEntry; /* update current_ldt for compatibility, stored in LOL */
+  tn_printf(("CDS entry: #%u @%p (%u) '%s'\n", result, cdsEntry,
+            TempCDS.cdsBackslashOffset, TempCDS.cdsCurrentPath));
+  if (TempCDS.cdsFlags & CDSNETWDRV)
+    result |= IS_NETWORK;
+  
+  if (dhp)
+    result |= IS_DEVICE;
+
   /* Redirector interface failed --> proceed with local mapper */
   dest[0] = drNrToLetter(result & 0x1f);
   dest[1] = ':';
 
-  /* Do we have a drive? */
-  if (src[1] == ':') {
-    src += 2;
-    if (result & IS_DEVICE)
-    {
-      /* stripped optional X: from source, and verified not \path\devicename
-         so treat \devicename as devicename same (and \dev\devicename as dev\devicename)
-       */
-      if (src[0] == '\\' || src[0] == '/')
-        src++;
-    }
-  }
+  /* Do we have a drive? if so skip over it */
+  if (src[1] == ':') src += 2;
 
 /*
     Code repoff from dosfns.c
@@ -444,6 +454,7 @@ invalid_path:
         src = froot;
       }
     }
+    tn_printf(("DEVICE: dest=%s, src=%Fs\n", dest, (char far *)src));
   }
     
   /* Make fully-qualified logical path */
@@ -458,7 +469,7 @@ invalid_path:
     cp = TempCDS.cdsCurrentPath;
     /* ensure termination of strcpy */
     cp[MAX_CDSPATH - 1] = '\0';
-    if ((TempCDS.cdsFlags & CDSNETWDRV) == 0)
+    if ((cdsEntry != (struct cds FAR *)MK_FP(-1,-1)) && ((TempCDS.cdsFlags & CDSNETWDRV) == 0))
     {
       if (media_check(TempCDS.cdsDpb) < 0)
         return DE_PATHNOTFND;
@@ -668,10 +679,6 @@ invalid_path:
     }
     /* nothing found => continue normally */
   }
-  if ((mode & CDS_MODE_CHECK_DEV_PATH) &&
-      ((result & (IS_DEVICE|IS_NETWORK)) == IS_DEVICE) &&
-      dest[2] != '/' && !dir_exists(dest))
-    return DE_PATHNOTFND;
 
   /* Note: Not reached on error or if JOIN or QRemote_Fn (2f.1123) matched */
   if (mode==CDS_MODE_ALLOW_WILDCARDS) /* DosTruename mode */

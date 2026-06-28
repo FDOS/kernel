@@ -116,10 +116,13 @@ struct cds FAR *get_cds(unsigned drive)
   struct cds FAR *cdsp;
   unsigned flags;
 
-  if (drive >= lastdrive)
+  if (drive >= lastdrive) {
+    DebugPrintf(("%u >= %u\n", drive, lastdrive));
     return NULL;
+  }
   cdsp = &CDSp[drive];
   flags = cdsp->cdsFlags;
+  DebugPrintf(("flags=%0x valid=%04x, join=%04x, net=%04x, DPB is NULL?%d\n", flags, flags & CDSVALID, flags & CDSJOINED, flags & CDSNETWDRV, (cdsp->cdsDpb == NULL)?0:1));
   /* Entry is disabled or JOINed drives are accessable by the path only */
   if (!(flags & CDSVALID) || (flags & CDSJOINED) != 0)
     return NULL;
@@ -541,6 +544,7 @@ long DosOpenSft(char FAR * fname, unsigned flags, unsigned attrib)
   sftp->sft_attrib = attrib = attrib | D_ARCHIVE;
 
   /* check for a (local) device */
+  DebugPrintf(("result for %Fs is %s%s%s%s",fname,(result & IS_DEVICE)?"device ":"X",(result & IS_NETWORK)?"network ":"N",(dhp = IsDevice(fname)) != NULL?"IsDevice!=NULL ":"="));
   if ((result & IS_DEVICE) && !(result & IS_NETWORK) && (dhp = IsDevice(fname)) != NULL)
   {
     int rc = DeviceOpenSft(dhp, sftp);
@@ -1392,6 +1396,7 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
        ((*froot=='.') && ((*(froot+1)=='\0') || (*(froot+2)=='\0' && *(froot+1)=='.')))
      )
   {
+      DebugPrintf(("root is blank\n"));
     return NULL;
   }
 
@@ -1402,9 +1407,11 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
     if (!(dhp->dh_attr & ATTR_CHAR))  /* if this is block device, skip */
       continue;
 
+    DebugPrintf(("checking filename\n"));
     for (i = 0; i < FNAME_SIZE; i++)
     {
       unsigned char c1 = (unsigned char)froot[i];
+      DebugPrintf(("%c",c1));
       /* ignore extensions and handle filenames shorter than FNAME_SIZE */
       if (c1 == '.' || c1 == '\0')
       {
@@ -1421,11 +1428,13 @@ struct dhdr FAR *IsDevice(const char FAR * fname)
         break;
     }
 
+    DebugPrintf(("\ni=%d\n", i));
     /* if found a match then return device header */
     if (i == FNAME_SIZE)
       return dhp;
   }
 
+  DebugPrintf(("Not device\n"));
   return NULL;
 }
 
@@ -1453,7 +1462,7 @@ COUNT DosTruename(const char FAR *src, char FAR *dest)
      Therefore, the name is created in an internal buffer
      and copied into the user buffer only on success.
   */  
-  COUNT rc = truename(src, PriPathName, CDS_MODE_ALLOW_WILDCARDS);
+  COUNT rc = truename(src, PriPathName, CDS_MODE_ALLOW_WILDCARDS|CDS_MODE_CHECK_DEV_PATH);
   if (rc >= SUCCESS)
   {
     fstrcpy(dest, PriPathName);

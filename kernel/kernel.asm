@@ -873,7 +873,7 @@ current_device  times 2 dw 0       ;27A - point to device header if filename is 
                 global  _lpCurSft
 _lpCurSft       times 2 dw 0       ;27e - Current SFT
                 global  _current_ldt
-_current_ldt     times 2 dw 0       ;282 - Current CDS
+_current_ldt     times 2 dw 0       ;282 - Current CDS (ThisCDS in published MSDOS sources)
                 global  _sda_lpFcb
 _sda_lpFcb      times 2 dw 0       ;286 - pointer to callers FCB
                 global  _current_sft_idx

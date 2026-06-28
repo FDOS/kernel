@@ -25,7 +25,7 @@
  *       cdsFlags = 0
  *     cdsStrtClst    = 0xFFFF
  *     cdsParam       = 0xFFFF
- *     cdsStoreUData  = 0xFFFF
+ *     cdsUserData  = 0xFFFF
  *
  * Care masks:
  *   Success path: CARE_FLAGS | CARE_BUF
