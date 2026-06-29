@@ -266,6 +266,13 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   if (src0 == '\0')
     return DE_FILENOTFND;
 
+  /* Was a drive letter provided?  If not then use current drive */
+  if (src[1] == ':')
+    result = drLetterToNr(DosUpFChar(src0));
+  else
+    result = default_drive;
+
+  /* check for network'd device or path */
   if (src0 == '\\' && src[1] == '\\') {
     const char FAR *unc_src = src;
     /* Flag UNC paths and short circuit processing.  Set current LDT   */
@@ -312,12 +319,6 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
 
   /* Redirector interface failed (or skipped) --> proceed with local mapper */
   
-  /* Was a drive letter provided?  If not then use current drive */
-  if (src[1] == ':')
-    result = drLetterToNr(DosUpFChar(src0));
-  else
-    result = default_drive;
-
   dhp = IsDevice(src);
 
   /* Note: [older] redirectors may not provide Int 2Fh API and instead simply wrap Int 21h calls
