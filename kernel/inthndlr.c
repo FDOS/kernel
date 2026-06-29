@@ -170,6 +170,7 @@ VOID ASMCFUNC int21_syscall(iregs FAR * irp)
 #ifdef DEBUG
         case 0xfe:
           bDumpRegs = !bDumpRegs;
+          irp->AX = bDumpRegs;
           break;
 #endif
 

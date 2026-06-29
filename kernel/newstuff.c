@@ -326,7 +326,7 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
      When given a character device, Truename or Open allows device name to be prefixed by invalid
      drive letter and\or optional \DEV\ directory prefix, however any other directory including
      root path (\) will always return error. However, if drive is valid, then for character 
-     devices any path may be provided.
+     devices any path may be provided for truename but not findfirst [which path must be valid].
      For example:
        CON will use default drive and assuming default is X: then same as X:CON
        X:CON and X:\DEV\CON will succeed regardless if X: is valid or not
@@ -346,11 +346,12 @@ COUNT truename(const char FAR * src, char * dest, COUNT mode)
   /* is this a character device (dhp != NULL)? if so check special cases 
      if cdsEntry is not NULL then valid drive, so any path acceptable for character device
   */
-  if (dhp && (mode & CDS_MODE_CHECK_DEV_PATH) && (cdsEntry == NULL))
+  if (dhp && (cdsEntry == NULL))
   {
     /* determine if drive letter provided (we know at least 1 character long) */
     const char FAR *s = src+1;
     const char FAR *hasSlash;
+    
     if (*s == ':') s++; else s--; /* skip drive (X:) if provided */    
     /* s points to start of device name or path, just past optional drive letter */
     
@@ -679,6 +680,10 @@ invalid_path:
     }
     /* nothing found => continue normally */
   }
+  if ((mode & CDS_MODE_CHECK_DEV_PATH) &&
+      ((result & (IS_DEVICE|IS_NETWORK)) == IS_DEVICE) &&
+      dest[2] != '/' && !dir_exists(dest))
+    return DE_PATHNOTFND;
 
   /* Note: Not reached on error or if JOIN or QRemote_Fn (2f.1123) matched */
   if (mode==CDS_MODE_ALLOW_WILDCARDS) /* DosTruename mode */

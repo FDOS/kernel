@@ -28,11 +28,6 @@
 
 #include "portab.h"
 
-#ifdef VERSION_STRINGS
-static BYTE *dosfnsRcsId =
-    "$Id: dosfns.c 1564 2011-04-08 18:27:48Z bartoldeman $";
-#endif
-
 #include "globals.h"
 #include "debug.h"
 
@@ -975,7 +970,6 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 {
   char path[3];
-  short result;
 
   if (drive-- == 0) /* get default drive or convert to 0 = A:, 1 = B:, ... */
     drive = default_drive;
@@ -984,11 +978,8 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   path[2] = '\0';
 
   DebugPrintf(("CWD [%s]\n", path));
-  if ((result = truename(path, PriPathName, CDS_MODE_SKIP_PHYSICAL)) < SUCCESS)
-  {
-    DebugPrintf(("CWD failed 0x%0x\n", result));
+  if (truename(path, PriPathName, CDS_MODE_SKIP_PHYSICAL) < SUCCESS)
     return DE_INVLDDRV;
-  }
 
   /* skip d:\ */
   fstrcpy(s, PriPathName + 3);
@@ -1476,7 +1467,7 @@ COUNT DosTruename(const char FAR *src, char FAR *dest)
      Therefore, the name is created in an internal buffer
      and copied into the user buffer only on success.
   */  
-  COUNT rc = truename(src, PriPathName, CDS_MODE_ALLOW_WILDCARDS|CDS_MODE_CHECK_DEV_PATH);
+  COUNT rc = truename(src, PriPathName, CDS_MODE_ALLOW_WILDCARDS);
   if (rc >= SUCCESS)
   {
     fstrcpy(dest, PriPathName);
