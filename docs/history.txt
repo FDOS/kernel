@@ -18,6 +18,20 @@ Changelog items may list old SVN revision NUMBER and bugzilla bug NUMBER.
 + Changes Jeremy Davis and Tom Ehlert
     * GPT partition support
 
+2026 June 29 - Build 2046
+-------- Jeremy Davis
+
++ Changes Andrew Bird
+	* build fix for Borland Turbo C (new style comments unsupported)
++ Changes Jeremy Davis
+	* bugfix: CD on remote Lantastic mapped drives
+	* bugfix: print to Lantastic redirected printers
+	* misc: port some improvements from FDPP (Stas & Andrew)
+	* bugfix: move control-break handler off stack, fix Invisible Lan redir
+	* bugfix: rework truename so when on mapped drive with invalid CDS
+          properly resolves character devices (i.e. fix copy CON)
+	* misc: rename some unused fields in CDS to better match MSDOS 4
+
 2026 May 01 - Build 2045
 -------- Jeremy Davis
 
