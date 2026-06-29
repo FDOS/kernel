@@ -975,6 +975,7 @@ COUNT DosGetExtFree(BYTE FAR * DriveString, struct xfreespace FAR * xfsp)
 COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
 {
   char path[3];
+  short result;
 
   if (drive-- == 0) /* get default drive or convert to 0 = A:, 1 = B:, ... */
     drive = default_drive;
@@ -982,8 +983,12 @@ COUNT DosGetCuDir(UBYTE drive, BYTE FAR * s)
   path[1] = ':';
   path[2] = '\0';
 
-  if (truename(path, PriPathName, CDS_MODE_SKIP_PHYSICAL) < SUCCESS)
+  DebugPrintf(("CWD [%s]\n", path));
+  if ((result = truename(path, PriPathName, CDS_MODE_SKIP_PHYSICAL)) < SUCCESS)
+  {
+    DebugPrintf(("CWD failed 0x%0x\n", result));
     return DE_INVLDDRV;
+  }
 
   /* skip d:\ */
   fstrcpy(s, PriPathName + 3);
@@ -994,9 +999,17 @@ COUNT DosChangeDir(BYTE FAR * s)
 {
   COUNT result;
 
+#if defined(CHDIR_DEBUG)
+  DebugPrintf(("DosChangeDir: %Fs\n", s));
+#endif
   result = truename(s, PriPathName, CDS_MODE_CHECK_DEV_PATH);
   if (result < SUCCESS)
+  {
+#if defined(CHDIR_DEBUG)
+    DebugPrintf(("truename error: 0x%04x\n", result));
+#endif
     return DE_PATHNOTFND;
+  }
 
   set_fcbname();
 
@@ -1054,6 +1067,7 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
   int rc;
   register dmatch FAR *dmp = dta;
 
+  DebugPrintf(("DosFindFirst(%Fs, 0x%04x)\n", name, attr));
   rc = truename(name, PriPathName,
                 CDS_MODE_CHECK_DEV_PATH | CDS_MODE_ALLOW_WILDCARDS);
   if (rc < SUCCESS)
