@@ -298,6 +298,10 @@ COUNT DosMemFree(UWORD para)
   if (!mcbFreeable(p))	/* does not have to be valid, freeable is enough */
     return DE_INVLDMCB;
 
+  /* ignore double free */
+  if (mcbFree(p))
+    return SUCCESS;
+
   /* Mark the mcb as free so that we can later    */
   /* merge with other surrounding free MCBs       */
   p->m_psp = FREE_PSP;
@@ -310,6 +314,8 @@ COUNT DosMemFree(UWORD para)
  * Resize an allocated memory block.
  * para is the segment of the data portion of the block rather than
  * the segment of the MCB itself.
+ *
+ * Resize on an unallocated block is allowed and makes it allocated.
  *
  * If the block shall grow, it is resized to the maximal size less than
  * or equal to size. This is the way MS DOS is reported to work.
@@ -358,7 +364,12 @@ COUNT DosMemChange(UWORD para, UWORD size, UWORD * maxSize)
     /* Mark the mcb as free so that we can later    */
     /* merge with other surrounding free MCBs       */
     q->m_psp = FREE_PSP;
+    
+    /* Alone in the Dark game accesses the free area after realloc.
+     * It will crash with the below memset() - disable to match MS-DOS. */
+#if 0
     fmemset(q->m_name, '\0', 8);
+#endif
 
     /* try to join q with the free MCBs following it if possible */
     if (joinMCBs(FP_SEG(q)) != SUCCESS)
