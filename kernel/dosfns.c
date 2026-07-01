@@ -1085,7 +1085,7 @@ COUNT DosFindFirst(UCOUNT attr, BYTE FAR * name)
 
   if (rc & IS_NETWORK)
     rc = network_redirector_fp(REM_FINDFIRST, current_ldt);
-  else if (rc & IS_DEVICE)
+  else if (rc & IS_DEVICE && !(attr & D_VOLID)) /* DEVICE can't be a volume label */
   {
     const char *p;
     COUNT i;
