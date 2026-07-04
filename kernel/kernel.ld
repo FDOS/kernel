@@ -3,6 +3,20 @@
 
 OUTPUT_FORMAT(binary)
 
+/* The driver entry points below are referenced only through the symbol
+   aliases in this script (e.g. _fl_reset = FL_RESET).  GNU ld does NOT
+   extract an archive member (device.lib) to satisfy a symbol referenced
+   solely from a linker-script expression, so without help these members
+   are never pulled in and the aliases fail with "undefined symbol ...
+   referenced in expression".  EXTERN() enters them as undefined symbols
+   at link start, which triggers the normal archive scan to pull in the
+   member that defines each one.  One symbol per object file needed:
+     FL_RESET       -> floppy.obj  (drags in all FL_* symbols)
+     READPCCLOCK    -> rdpcclk.obj
+     WRITEPCCLOCK   -> wrpcclk.obj
+     WRITEATCLOCK   -> wratclk.obj */
+EXTERN(FL_RESET READPCCLOCK WRITEPCCLOCK WRITEATCLOCK)
+
 DOS_PSP = 0x60;
 MEMOFS = DOS_PSP * 16 - SIZEOF(.msdos_mz_hdr);
 

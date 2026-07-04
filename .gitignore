@@ -58,3 +58,6 @@ _downloads/**
 _output/**
 _watcom/**
 kernel/exeflat.rsp
+
+# build artifacts
+build/**
