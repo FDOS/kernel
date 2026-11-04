@@ -1664,7 +1664,7 @@ err:printf("%s has invalid format\n", filename);
                   /* skip length ^*/  subf_data.length);
           if (hdr[i].id == 1) {
               /* fixup user callable address in case we overwrote it */
-              ((struct CountrySpecificInfo *)ptable)->CharMapFn = CharMapFn;
+              ((struct CountrySpecificInfo FAR *)(ptable + 2))->CharMapFn = CharMapFn;
           }
       }
     }
