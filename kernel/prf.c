@@ -75,7 +75,7 @@ void put_console(int c)
     __int__(0xe6);
 #elif defined(__GNUC__)
     asm volatile(
-      "int $0xe6\n"
+      "{ int $0xe6 | int 0xe6 }"
       : /* outputs */
       : /* inputs */ "a"(0x13), "e"(FP_SEG(buff)), "d"(FP_OFF(buff))
     );
@@ -126,7 +126,7 @@ void put_console(int c)
   fastComPrint(c);
 #endif
 #elif defined(__GNUC__)
-  asm volatile("int $0x29" : : "a"(c) : "bx");
+  asm volatile("{ int $0x29 | int 0x29 }" : : "a"(c) : "bx");
 #elif defined(I86)
   __asm
   {
