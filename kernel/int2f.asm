@@ -364,7 +364,14 @@ SHARE_IS_FILE_OPEN:
 		push	ds
 		lds	si, [.filename]
 		mov	ax, 0x10a6
+		clc
 		int	0x2f	     	; returns ax
+		jc	.notopen	; someone returned an error
+		cmp	ax, 1		; only an explicit 1 means "open"
+		je	.done
+.notopen:
+		xor	ax, ax
+.done:
 		pop	ds
 		pop	si
 		pop	bp
