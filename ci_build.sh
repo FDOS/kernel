@@ -20,13 +20,13 @@ mv -n bin/kgc*.map bin/kgc*.sys _output/gcc/.
 mv -n bin/country.sys _output/gcc/.
 # GCC share
 (
+  git submodule update --remote share
   cd share
-  git submodule update --init --recursive
   git clean -x -d -f
   env COMPILER=gcc ./build.sh
 )
-mv -n share/src/share.com _output/gcc/.
-mv -n share/src/share.map _output/gcc/.
+cp -p share/src/share.com _output/gcc/.
+cp -p share/src/share.map _output/gcc/.
 
 # Open Watcom Environment Setup
 export WATCOM=$BUILD_DIR/_watcom
@@ -95,13 +95,13 @@ if [ -d ${HOME}/.dosemu/drive_c/tc201 ] ; then
   mv -n bin/country.sys _output/tc_dos/.
   # TC share
   (
+    git submodule update --remote share
     cd share
-    git submodule update --init --recursive
     git clean -x -d -f
     env COMPILER=tcc2-emu ./build.sh
   )
-  mv -n share/src/share.com _output/tc_dos/.
-  mv -n share/src/share.map _output/tc_dos/.
+  cp -p share/src/share.com _output/tc_dos/.
+  cp -p share/src/share.map _output/tc_dos/.
 fi
 
 echo done
