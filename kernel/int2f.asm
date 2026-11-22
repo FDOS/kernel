@@ -357,17 +357,18 @@ SHARE_LOCK_UNLOCK:
 ; STATIC WORD share_is_file_open(const char far *filename) /* pointer to fully qualified filename */
 		global SHARE_IS_FILE_OPEN
 SHARE_IS_FILE_OPEN:
-		mov	si, ds
-		mov	es, si		; save ds
-		pop	ax		; save return address
-		pop	si		; filename
-		pop	ds		; SEG filename
-		push	ax		; restore return address
+		push	bp
+		mov	bp, sp
+		arg     {filename,4}
+		push	si
+		push	ds
+		lds	si, [.filename]
 		mov	ax, 0x10a6
 		int	0x2f	     	; returns ax
-		mov	si, es		; restore ds
-		mov	ds, si
-		ret
+		pop	ds
+		pop	si
+		pop	bp
+		ret	4
 
 ; Int 2F Multipurpose Remote System Calls
 ;
