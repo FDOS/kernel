@@ -689,6 +689,12 @@ COUNT DosForceDup(unsigned OldHandle, unsigned NewHandle)
   if ((Sftp = get_sft(OldHandle)) == (sft FAR *) - 1)
     return DE_INVLDHNDL;
 
+  if (NewHandle >= p->ps_maxfiles)
+    return DE_INVLDHNDL;
+
+  if (OldHandle == NewHandle)
+    return SUCCESS;
+
   /* now close the new handle if it's open                        */
   if ((UBYTE) p->ps_filetab[NewHandle] != 0xff)
   {
